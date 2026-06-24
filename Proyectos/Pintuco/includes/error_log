@@ -1,5 +1,0 @@
-[28-Aug-2017 20:41:11 UTC] PHP Parse error:  syntax error, unexpected '@' in /home/luckyec/public_html/App/ReportesClaro/includes/reports.php on line 238
-[11-Sep-2017 14:59:34 UTC] PHP Fatal error:  Call to a member function prepare() on null in /home/luckyec/public_html/App/ReportesClaro/includes/luckyec_bdclaro2017_reports.php on line 9
-[11-Sep-2017 15:00:28 UTC] PHP Fatal error:  Call to a member function prepare() on null in /home/luckyec/public_html/App/ReportesClaro/includes/luckyec_bdclaro2017_reports.php on line 9
-[11-Sep-2017 15:39:41 UTC] PHP Fatal error:  Call to a member function prepare() on null in /home/luckyec/public_html/App/ReportesClaro/includes/luckyec_bdclaro2017_reports.php on line 109
-[11-Sep-2017 15:40:30 UTC] PHP Fatal error:  Call to a member function prepare() on null in /home/luckyec/public_html/App/ReportesClaro/includes/luckyec_bdclaro2017_reports.php on line 109
