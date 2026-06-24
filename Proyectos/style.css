@@ -1,0 +1,602 @@
+/* =====================================================
+   Proyectos y Obras — estilos del shell ejecutivo
+
+   Paleta: la misma que usa mantenimiento_fotografico/Unilever
+   (style.css "DEMO STYLE" + acentos de index.php), en vez de un
+   azul propio nuevo.
+   ===================================================== */
+@import "https://fonts.googleapis.com/css?family=Inter:400,500,600,700,800";
+
+:root {
+    /* Mismo tono de Unilever (#7386D5/#6d7fcc) pero oscurecido: el original
+       no pasa contraste AA (3.4:1) con texto blanco — aquí #5063b8/#3f4f99
+       dan 5.5:1 / 7.5:1, cumpliendo WCAG AA para texto normal. */
+    --brand:        #5063b8;
+    --brand-dark:   #3f4f99;
+    --brand-light:  #337ab7; /* acento de acciones/selección (Unilever index.php), ~4.6:1 */
+    --brand-light-dark: #2a6496; /* variante oscura del acento (Unilever index.php) */
+    --text-dark:    #1f2d3d; /* texto/encabezados oscuros, neutro */
+    --on-brand:        #ffffff;       /* texto principal sobre fondo de marca */
+    --on-brand-soft:   rgba(255,255,255,.85); /* texto secundario sobre fondo de marca, igual sigue >=4.5:1 */
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: #fafafa;
+    color: #33415c;
+}
+
+a, a:hover, a:focus { text-decoration: none; }
+
+/* ---------------------------------------------------
+   LAYOUT
+----------------------------------------------------- */
+.app-wrapper {
+    display: flex;
+    min-height: calc(100vh - 50px);
+    margin-top: 50px;
+    align-items: stretch;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* ---------------------------------------------------
+   SIDEBAR
+----------------------------------------------------- */
+#sidebar {
+    width: 230px;
+    min-width: 230px;
+    background: var(--brand);
+    color: #fff;
+    transition: margin-left .3s;
+}
+
+#sidebar.active { margin-left: -230px; }
+
+.sidebar-brand {
+    padding: 22px 20px 14px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    color: #fff;
+    text-transform: uppercase;
+}
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.18);
+    margin-bottom: 8px;
+}
+
+.sidebar-user .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    color: var(--on-brand);
+    flex-shrink: 0;
+}
+
+.sidebar-user .name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--on-brand);
+    white-space: nowrap;
+}
+
+.sidebar-user .meta {
+    font-size: 11px;
+    color: var(--on-brand-soft);
+    line-height: 1.6;
+    margin-top: 3px;
+}
+
+.sidebar-cuenta {
+    padding: 14px 18px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.18);
+}
+
+.sidebar-cuenta label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--on-brand-soft);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 5px;
+}
+
+.sidebar-cuenta select {
+    width: 100%;
+    background: #fff;
+    color: var(--text-dark);
+    border: 1px solid rgba(255,255,255,.4);
+}
+
+.sidebar-nav {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0 20px;
+}
+
+.sidebar-nav li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-brand-soft);
+    border-left: 3px solid transparent;
+}
+
+.sidebar-nav li a .glyphicon { width: 16px; text-align: center; font-size: 14px; }
+
+.sidebar-nav li a:hover {
+    background: rgba(255,255,255,.10);
+    color: var(--on-brand);
+}
+
+.sidebar-nav li.active a {
+    background: var(--brand-dark);
+    color: var(--on-brand);
+    border-left-color: var(--brand-light);
+}
+
+.sidebar-nav li.disabled a {
+    cursor: default;
+    opacity: .45;
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------
+   TOPBAR (filtros)
+----------------------------------------------------- */
+.topbar {
+    background: #fff;
+    border-bottom: 1px solid #e6e9ee;
+    padding: 16px 28px;
+    display: flex;
+    align-items: flex-end;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+.topbar #sidebarCollapse {
+    align-self: center;
+    background: #eef1f6;
+    border: none;
+    color: #33415c;
+}
+
+.filter-group { display: flex; flex-direction: column; gap: 5px; }
+
+.filter-group label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.filter-group .form-control { min-width: 190px; }
+
+.btn-actualizar {
+    margin-left: auto;
+    background: var(--brand-light);
+    border-color: var(--brand-light);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 9px 28px;
+    border-radius: 5px;
+}
+
+.btn-actualizar:hover { background: var(--brand-light-dark); border-color: var(--brand-light-dark); color: #fff; }
+
+/* ---------------------------------------------------
+   SECCIONES DEL SIDEBAR (un nivel arriba del stepper)
+----------------------------------------------------- */
+.section-pane { display: none; }
+.section-pane.active { display: block; }
+
+/* ---------------------------------------------------
+   STEPPER (pestañas tipo flecha)
+----------------------------------------------------- */
+.stepper {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 20px 28px 0;
+}
+
+.stepper li { flex: 1; }
+
+.stepper li a {
+    display: block;
+    text-align: center;
+    padding: 14px 10px;
+    background: #e7eaf0;
+    color: #5b6577;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    clip-path: polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%, 7% 50%);
+    margin-left: -16px;
+    position: relative;
+}
+
+.stepper li:first-child a {
+    clip-path: polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%);
+    margin-left: 0;
+}
+
+.stepper li a:hover { background: #d7dce5; color: #33415c; }
+
+.stepper li.active a {
+    background: var(--brand-light);
+    color: #fff;
+    z-index: 2;
+}
+
+/* ---------------------------------------------------
+   CONTENIDO
+----------------------------------------------------- */
+.content-panel { padding: 24px 28px 40px; flex: 1; }
+
+/* Stats */
+.stat-row {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 22px 28px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.stat-item { text-align: center; min-width: 110px; }
+.stat-item .num { font-size: 30px; font-weight: 800; color: var(--text-dark); line-height: 1; }
+.stat-item .label { font-size: 11.5px; color: #8a93a3; margin-top: 6px; font-weight: 600; }
+
+.stat-sep { width: 1px; align-self: stretch; background: #edf0f4; }
+
+.progress-widget { min-width: 230px; margin-left: auto; }
+.progress-widget .pct-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+.progress-widget .pct-label { font-size: 11.5px; color: #8a93a3; font-weight: 700; text-transform: uppercase; }
+.progress-widget .pct-value { font-size: 18px; font-weight: 800; color: var(--text-dark); }
+.progress-bar-track {
+    height: 9px;
+    border-radius: 6px;
+    background: #d7e6fb;
+    overflow: hidden;
+}
+.progress-bar-fill { height: 100%; background: #e74c3c; border-radius: 6px 0 0 6px; } /* rojo intencional: contraste Avance vs Meta */
+.progress-widget .caption { text-align: center; font-size: 10.5px; color: #aab3c2; margin-top: 6px; font-weight: 600; }
+
+/* Lista de promotores */
+.promotor-list-header {
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    margin-bottom: 8px;
+}
+.promotor-list-header span {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.promotor-list { display: flex; flex-direction: column; gap: 10px; }
+
+.promotor-row {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 9px;
+    padding: 12px 18px;
+    box-shadow: 0 1px 3px rgba(20,30,50,.06);
+}
+
+.promotor-row .col-nombre {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #33415c;
+}
+
+.promotor-row .col-nombre .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #eef1f8;
+    color: var(--brand-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.col-pdv, .col-ciudad { width: 160px; flex-shrink: 0; padding-right: 12px; }
+
+.promotor-row .col-pdv,
+.promotor-row .col-ciudad {
+    font-size: 12.5px;
+    color: #5b6577;
+}
+
+.col-estado, .col-comisiona { width: 160px; text-align: center; flex-shrink: 0; }
+
+.badge-estado {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 16px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .2px;
+}
+.badge-ejecutando { background: #fdf0d5; color: #b8860b; }
+.badge-cerrados    { background: #e3f7ea; color: #1d9a4d; }
+.badge-pendiente   { background: #eceef2; color: #8a93a3; }
+
+.comisiona-icon { font-size: 17px; }
+.comisiona-si { color: #27ae60; }
+.comisiona-no { color: #e74c3c; }
+.comisiona-na { color: #c8cdd6; }
+
+.placeholder-section {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 60px 20px;
+    text-align: center;
+    color: #aab3c2;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------
+   AGENDA (calendario + mapa retráctil)
+----------------------------------------------------- */
+.agenda-filters {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+.agenda-filters .form-control { min-width: 160px; }
+
+.agenda-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    position: relative;
+}
+
+/* ---------------------------------------------------
+   AGENDA — sidebar estilo Google Calendar (Crear,
+   mini-calendario, Agendas pendientes)
+----------------------------------------------------- */
+.gcal-sidebar {
+    width: 230px;
+    min-width: 230px;
+    flex-shrink: 0;
+    margin-right: 18px;
+}
+
+.gcal-crear-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: #fff;
+    border: none;
+    border-radius: 24px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.18), 0 1px 8px rgba(20,30,50,.1);
+    padding: 12px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1f2d3d;
+    margin-bottom: 16px;
+}
+
+.gcal-crear-btn:hover { box-shadow: 0 2px 6px rgba(20,30,50,.22), 0 1px 10px rgba(20,30,50,.14); }
+
+.gcal-crear-btn .glyphicon-plus { color: var(--brand-light); font-size: 15px; }
+.gcal-crear-caret { margin-left: auto; font-size: 9px; color: #8a93a3; }
+
+.gcal-mini-calendar {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 8px 10px 4px;
+    margin-bottom: 18px;
+    font-size: 11px;
+}
+
+.gcal-mini-calendar .fc-toolbar-title { font-size: 12.5px; font-weight: 700; color: var(--text-dark); text-transform: capitalize; }
+.gcal-mini-calendar .fc-button { background: transparent; border: none; color: #5b6577; padding: 2px 5px; box-shadow: none; }
+.gcal-mini-calendar .fc-button:hover, .gcal-mini-calendar .fc-button:focus { background: #eef1f6; box-shadow: none; }
+.gcal-mini-calendar .fc-col-header-cell-cushion { color: #8a93a3; font-weight: 700; text-decoration: none; }
+.gcal-mini-calendar .fc-daygrid-day-number { font-size: 10.5px; color: #33415c; text-decoration: none; padding: 3px; }
+.gcal-mini-calendar .fc-day-today .fc-daygrid-day-number {
+    background: var(--brand-light);
+    color: #fff;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.gcal-mini-calendar .fc-daygrid-day-frame { min-height: 24px; }
+.gcal-mini-calendar .fc-scrollgrid { border: none; }
+.gcal-mini-calendar td, .gcal-mini-calendar th { border: none; }
+
+.gcal-pendientes-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 0 4px 10px;
+}
+
+.gcal-pendientes-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.gcal-pendiente-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+}
+
+.gcal-pendiente-item input[type="checkbox"] { flex-shrink: 0; accent-color: var(--brand-light); }
+
+.gcal-pendiente-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: #8a93a3;
+    flex-shrink: 0;
+}
+
+.gcal-pendiente-label {
+    font-size: 12px;
+    color: #33415c;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.gcal-pendientes-empty {
+    font-size: 12px;
+    color: #aab3c2;
+    padding: 4px;
+}
+
+/* Calendario principal: cabecera de días en mayúsculas, como Google Calendar */
+.agenda-calendar-wrap .fc-col-header-cell-cushion { text-transform: uppercase; font-size: 11px; color: #8a93a3; font-weight: 700; }
+.agenda-calendar-wrap .fc-daygrid-day-number,
+.agenda-calendar-wrap .fc-timegrid-axis-cushion { color: #5b6577; }
+.agenda-calendar-wrap .fc-day-today { background: rgba(80,99,184,.06); }
+.agenda-calendar-wrap .fc-button-primary { background: var(--brand-light); border-color: var(--brand-light); }
+.agenda-calendar-wrap .fc-button-primary:hover { background: var(--brand-light-dark); border-color: var(--brand-light-dark); }
+.agenda-calendar-wrap .fc-button-primary:not(:disabled).fc-button-active { background: var(--brand-light-dark); border-color: var(--brand-light-dark); }
+
+.agenda-calendar-wrap {
+    flex: 1;
+    min-width: 0;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 18px;
+}
+
+.agenda-map-toggle {
+    align-self: center;
+    width: 26px;
+    height: 50px;
+    margin: 0 -13px;
+    z-index: 3;
+    background: var(--brand-light);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.agenda-map-toggle.collapsed .glyphicon { transform: rotate(180deg); }
+
+.agenda-map-panel {
+    width: 340px;
+    min-width: 340px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    overflow: hidden;
+    transition: width .3s, min-width .3s, opacity .3s;
+}
+.agenda-map-panel.collapsed { width: 0; min-width: 0; opacity: 0; }
+
+#agendaMap { height: 560px; width: 340px; }
+
+.agenda-evt-pendiente { background-color: #8a93a3; border-color: #8a93a3; }
+.agenda-evt-confirmado { background-color: #1d9a4d; border-color: #1d9a4d; }
+
+.agenda-edit-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20,30,50,.45);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.agenda-edit-overlay.active { display: flex; }
+
+.agenda-edit-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px 26px;
+    width: 360px;
+    max-width: 90vw;
+    box-shadow: 0 6px 24px rgba(20,30,50,.25);
+}
+.agenda-edit-card h4 { margin: 0 0 4px; color: var(--text-dark); }
+.agenda-edit-cliente { font-size: 12.5px; color: #8a93a3; margin-bottom: 16px; }
+.agenda-edit-card .filter-group { margin-bottom: 12px; width: 100%; }
+.agenda-edit-card .form-control { width: 100%; }
+.agenda-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+    #sidebar { margin-left: -230px; }
+    #sidebar.active { margin-left: 0; }
+    .progress-widget { margin-left: 0; }
+}

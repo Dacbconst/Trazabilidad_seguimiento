@@ -38,12 +38,14 @@
 
 <div class="promotor-list-header">
     <span style="flex:1;">Promotor</span>
+    <span class="col-pdv">PDV</span>
+    <span class="col-ciudad">Ciudad</span>
     <span class="col-estado">Estado</span>
     <span class="col-comisiona">Comisiona</span>
 </div>
 
 <div class="promotor-list">
     <?php foreach ($promotores as $p): ?>
-        <?php include __DIR__ . '/../components/promotor-row.php'; ?>
+        <?php include $cuenta_dir . '/components/promotor-row.php'; ?>
     <?php endforeach; ?>
 </div>

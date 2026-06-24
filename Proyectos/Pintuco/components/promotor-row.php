@@ -2,7 +2,7 @@
 /**
  * COMPONENTE: promotor-row.php
  * Fila de la lista de promotores en la pestaña Avance %.
- * Variable requerida en scope: $p = ['id','nombre','estado','comisiona']
+ * Variable requerida en scope: $p = ['id','nombre','pdv','ciudad','estado','comisiona']
  *   $p['estado']    string  — 'ejecutando' | 'cerrados' | 'pendiente'
  *   $p['comisiona'] string  — 'si' | 'no' | 'na'
  */
@@ -23,6 +23,8 @@ $comisionaIcon = [
         <div class="avatar"><i class="glyphicon glyphicon-user"></i></div>
         <?= htmlspecialchars($p['nombre']) ?>
     </div>
+    <div class="col-pdv"><?= htmlspecialchars($p['pdv']) ?></div>
+    <div class="col-ciudad"><?= htmlspecialchars($p['ciudad']) ?></div>
     <div class="col-estado">
         <span class="badge-estado badge-<?= $p['estado'] ?>"><?= $estadoLabels[$p['estado']] ?></span>
     </div>

@@ -1,14 +1,10 @@
 <?php
 /**
- * Datos de ejemplo (maqueta visual) para "Proyectos y Obras".
+ * Datos de ejemplo (maqueta visual) de la cuenta Pintuco.
  * Reemplazar por consultas reales (vi_* / getters/) cuando se conecte la BD.
+ * $usuario_actual (el usuario logueado) NO vive aquí — es del shell, se
+ * define en Proyectos/index.php porque no depende de la cuenta elegida.
  */
-
-$usuario_actual = [
-    'nombre'          => 'Kattya Pozo',
-    'ultimo_ingreso'  => '17/06/2026 12:19:50',
-    'actualizado'     => 'Miércoles 17_ 12:20:55',
-];
 
 // ================================================================
 // SECCIONES DEL SIDEBAR — todas viven en la misma página (sin rutas
@@ -28,16 +24,16 @@ $secciones = [
 ];
 
 $promotores = [
-    ['id' => 1,  'nombre' => 'Promotor 1',  'estado' => 'ejecutando', 'comisiona' => 'si'],
-    ['id' => 2,  'nombre' => 'Promotor 2',  'estado' => 'cerrados',   'comisiona' => 'no'],
-    ['id' => 3,  'nombre' => 'Promotor 3',  'estado' => 'pendiente',  'comisiona' => 'na'],
-    ['id' => 4,  'nombre' => 'Promotor 4',  'estado' => 'pendiente',  'comisiona' => 'na'],
-    ['id' => 5,  'nombre' => 'Promotor 5',  'estado' => 'pendiente',  'comisiona' => 'na'],
-    ['id' => 6,  'nombre' => 'Promotor 6',  'estado' => 'cerrados',   'comisiona' => 'si'],
-    ['id' => 7,  'nombre' => 'Promotor 7',  'estado' => 'pendiente',  'comisiona' => 'na'],
-    ['id' => 8,  'nombre' => 'Promotor 8',  'estado' => 'pendiente',  'comisiona' => 'na'],
-    ['id' => 9,  'nombre' => 'Promotor 9',  'estado' => 'pendiente',  'comisiona' => 'na'],
-    ['id' => 10, 'nombre' => 'Promotor 10', 'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 1,  'nombre' => 'Promotor 1',  'pdv' => 'KYWI CARACOL',   'ciudad' => 'Guayaquil', 'estado' => 'ejecutando', 'comisiona' => 'si'],
+    ['id' => 2,  'nombre' => 'Promotor 2',  'pdv' => 'KYWI AMBATO',    'ciudad' => 'Ambato',    'estado' => 'cerrados',   'comisiona' => 'no'],
+    ['id' => 3,  'nombre' => 'Promotor 3',  'pdv' => 'KYWI ALMENDROS', 'ciudad' => 'Guayaquil', 'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 4,  'nombre' => 'Promotor 4',  'pdv' => 'KYWI CARCELEN',  'ciudad' => 'Quito',     'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 5,  'nombre' => 'Promotor 5',  'pdv' => 'KYWI CARACOL',   'ciudad' => 'Guayaquil', 'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 6,  'nombre' => 'Promotor 6',  'pdv' => 'KYWI AMBATO',    'ciudad' => 'Ambato',    'estado' => 'cerrados',   'comisiona' => 'si'],
+    ['id' => 7,  'nombre' => 'Promotor 7',  'pdv' => 'KYWI ALMENDROS', 'ciudad' => 'Guayaquil', 'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 8,  'nombre' => 'Promotor 8',  'pdv' => 'KYWI CARCELEN',  'ciudad' => 'Quito',     'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 9,  'nombre' => 'Promotor 9',  'pdv' => 'KYWI CARACOL',   'ciudad' => 'Guayaquil', 'estado' => 'pendiente',  'comisiona' => 'na'],
+    ['id' => 10, 'nombre' => 'Promotor 10', 'pdv' => 'KYWI AMBATO',    'ciudad' => 'Ambato',    'estado' => 'pendiente',  'comisiona' => 'na'],
 ];
 
 $resumen = [
