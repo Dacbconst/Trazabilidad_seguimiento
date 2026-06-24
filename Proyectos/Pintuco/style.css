@@ -1,0 +1,341 @@
+/* =====================================================
+   Proyectos y Obras — estilos del shell ejecutivo
+   ===================================================== */
+@import "https://fonts.googleapis.com/css?family=Inter:400,500,600,700,800";
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: #f4f6f9;
+    color: #33415c;
+}
+
+a, a:hover, a:focus { text-decoration: none; }
+
+/* ---------------------------------------------------
+   LAYOUT
+----------------------------------------------------- */
+.app-wrapper {
+    display: flex;
+    min-height: 100vh;
+    align-items: stretch;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* ---------------------------------------------------
+   SIDEBAR
+----------------------------------------------------- */
+#sidebar {
+    width: 230px;
+    min-width: 230px;
+    background: linear-gradient(180deg, #16233a 0%, #101a2c 100%);
+    color: #fff;
+    transition: margin-left .3s;
+}
+
+#sidebar.active { margin-left: -230px; }
+
+.sidebar-brand {
+    padding: 22px 20px 14px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    color: #fff;
+    text-transform: uppercase;
+}
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    margin-bottom: 8px;
+}
+
+.sidebar-user .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #2c4264;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    color: #9fc1ff;
+    flex-shrink: 0;
+}
+
+.sidebar-user .name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.sidebar-user .meta {
+    font-size: 10px;
+    color: #8aa0c2;
+    line-height: 1.5;
+    margin-top: 2px;
+}
+
+.sidebar-nav {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0 20px;
+}
+
+.sidebar-nav li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b9c4d6;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-nav li a .glyphicon { width: 16px; text-align: center; font-size: 14px; }
+
+.sidebar-nav li a:hover {
+    background: rgba(255,255,255,.05);
+    color: #fff;
+}
+
+.sidebar-nav li.active a {
+    background: rgba(58,160,255,.12);
+    color: #fff;
+    border-left-color: #3aa0ff;
+}
+
+.sidebar-nav li.disabled a {
+    cursor: default;
+    opacity: .45;
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------
+   TOPBAR (filtros)
+----------------------------------------------------- */
+.topbar {
+    background: #fff;
+    border-bottom: 1px solid #e6e9ee;
+    padding: 16px 28px;
+    display: flex;
+    align-items: flex-end;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+.topbar #sidebarCollapse {
+    align-self: center;
+    background: #eef1f6;
+    border: none;
+    color: #33415c;
+}
+
+.filter-group { display: flex; flex-direction: column; gap: 5px; }
+
+.filter-group label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.filter-group .form-control { min-width: 190px; }
+
+.btn-actualizar {
+    margin-left: auto;
+    background: #16233a;
+    border-color: #16233a;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 9px 28px;
+    border-radius: 5px;
+}
+
+.btn-actualizar:hover { background: #223451; color: #fff; }
+
+/* ---------------------------------------------------
+   SECCIONES DEL SIDEBAR (un nivel arriba del stepper)
+----------------------------------------------------- */
+.section-pane { display: none; }
+.section-pane.active { display: block; }
+
+/* ---------------------------------------------------
+   STEPPER (pestañas tipo flecha)
+----------------------------------------------------- */
+.stepper {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 20px 28px 0;
+}
+
+.stepper li { flex: 1; }
+
+.stepper li a {
+    display: block;
+    text-align: center;
+    padding: 14px 10px;
+    background: #e7eaf0;
+    color: #5b6577;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    clip-path: polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%, 7% 50%);
+    margin-left: -16px;
+    position: relative;
+}
+
+.stepper li:first-child a {
+    clip-path: polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%);
+    margin-left: 0;
+}
+
+.stepper li a:hover { background: #d7dce5; color: #33415c; }
+
+.stepper li.active a {
+    background: #16233a;
+    color: #fff;
+    z-index: 2;
+}
+
+/* ---------------------------------------------------
+   CONTENIDO
+----------------------------------------------------- */
+.content-panel { padding: 24px 28px 40px; flex: 1; }
+
+/* Stats */
+.stat-row {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 22px 28px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.stat-item { text-align: center; min-width: 110px; }
+.stat-item .num { font-size: 30px; font-weight: 800; color: #16233a; line-height: 1; }
+.stat-item .label { font-size: 11.5px; color: #8a93a3; margin-top: 6px; font-weight: 600; }
+
+.stat-sep { width: 1px; align-self: stretch; background: #edf0f4; }
+
+.progress-widget { min-width: 230px; margin-left: auto; }
+.progress-widget .pct-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+.progress-widget .pct-label { font-size: 11.5px; color: #8a93a3; font-weight: 700; text-transform: uppercase; }
+.progress-widget .pct-value { font-size: 18px; font-weight: 800; color: #16233a; }
+.progress-bar-track {
+    height: 9px;
+    border-radius: 6px;
+    background: #d7e6fb;
+    overflow: hidden;
+}
+.progress-bar-fill { height: 100%; background: #e74c3c; border-radius: 6px 0 0 6px; }
+.progress-widget .caption { text-align: center; font-size: 10.5px; color: #aab3c2; margin-top: 6px; font-weight: 600; }
+
+/* Lista de promotores */
+.promotor-list-header {
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    margin-bottom: 8px;
+}
+.promotor-list-header span {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.promotor-list { display: flex; flex-direction: column; gap: 10px; }
+
+.promotor-row {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 9px;
+    padding: 12px 18px;
+    box-shadow: 0 1px 3px rgba(20,30,50,.06);
+}
+
+.promotor-row .col-nombre {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: #33415c;
+}
+
+.promotor-row .col-nombre .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #eef1f8;
+    color: #7386D5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.col-estado, .col-comisiona { width: 160px; text-align: center; flex-shrink: 0; }
+
+.badge-estado {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 16px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .2px;
+}
+.badge-ejecutando { background: #fdf0d5; color: #b8860b; }
+.badge-cerrados    { background: #e3f7ea; color: #1d9a4d; }
+.badge-pendiente   { background: #eceef2; color: #8a93a3; }
+
+.comisiona-icon { font-size: 17px; }
+.comisiona-si { color: #27ae60; }
+.comisiona-no { color: #e74c3c; }
+.comisiona-na { color: #c8cdd6; }
+
+.placeholder-section {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 60px 20px;
+    text-align: center;
+    color: #aab3c2;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+@media (max-width: 900px) {
+    #sidebar { margin-left: -230px; }
+    #sidebar.active { margin-left: 0; }
+    .progress-widget { margin-left: 0; }
+}
