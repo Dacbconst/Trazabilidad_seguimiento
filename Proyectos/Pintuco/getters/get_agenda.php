@@ -6,6 +6,23 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 
 include_once '../db_connect.php';
 
+// "vencida" no la elige nadie a mano: el contrato con la app móvil (que lee
+// esta misma tabla directo por sync) dice que una visita pasa a 'vencida'
+// en cuanto se le acaba el día sin reagendarse, sin importar si antes era
+// 'pendiente', 'confirmado' o 'reagendada'. No hay un cron/job en este
+// hosting, así que se corrige de forma perezosa acá: cada vez que se abre
+// la agenda (web o, indirectamente, el próximo sync del celular) se ponen
+// al día las filas vencidas antes de leer.
+$mysqli->query(
+    "UPDATE insert_proyectos_contacto
+     SET estado_agenda = 'vencida'
+     WHERE activar = 'SI'
+       AND fecha_agendamiento IS NOT NULL
+       AND fecha_agendamiento != '0000-00-00'
+       AND fecha_agendamiento < CURDATE()
+       AND estado_agenda NOT IN ('cancelada', 'completada', 'vencida')"
+);
+
 // Filtros opcionales por GET (todos opcionales, si no llegan no se aplican)
 $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : '';
 $fecha_fin    = isset($_GET['fecha_fin'])    ? $_GET['fecha_fin']    : '';
@@ -53,7 +70,7 @@ if ($pdv !== '') {
     $tipos .= "s";
 }
 
-$query = "SELECT id, codigo_pdv, pdv, usuario, fecha, contacto, empresa, mail, direccion,
+$query = "SELECT id, codigo_pdv, pdv, usuario, fecha, fecha_registro, contacto, empresa, mail, direccion,
                  latitud, longitud, telefono, fecha_agendamiento, titulo, hora, lugar,
                  tecnico, estado_agenda, activar
           FROM insert_proyectos_contacto

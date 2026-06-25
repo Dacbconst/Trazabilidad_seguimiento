@@ -51,9 +51,11 @@ $fecha   = isset($_POST['fecha'])   ? $_POST['fecha']   : '';
 $hora    = isset($_POST['hora'])    ? $_POST['hora']    : '';
 $tecnico = isset($_POST['tecnico']) ? $_POST['tecnico'] : '';
 
-// Estado automático: si la visita no tenía hora asignada todavía, esta
-// gestión la agenda por primera vez; si ya tenía una, guardar de nuevo
-// (cambie o no la fecha/hora) significa que se está reagendando.
+// Estado automático (contrato compartido con la app móvil — Constantes.java /
+// AdapterAgenda.java, que lee esta misma tabla por sync): si la visita no
+// tenía hora asignada todavía, esta gestión asigna técnico/hora por primera
+// vez ('confirmado'); si ya tenía una, guardar de nuevo (cambie o no la
+// fecha/hora) significa que se está reagendando ('reagendada').
 $horaPrevia = null;
 if ($sql = $mysqli->prepare("SELECT hora FROM insert_proyectos_contacto WHERE id = ?")) {
     $sql->bind_param("i", $id);
@@ -62,7 +64,7 @@ if ($sql = $mysqli->prepare("SELECT hora FROM insert_proyectos_contacto WHERE id
     $sql->fetch();
     $sql->close();
 }
-$estado_agenda = ($horaPrevia === null || $horaPrevia === '') ? 'agendada' : 'reagendada';
+$estado_agenda = ($horaPrevia === null || $horaPrevia === '') ? 'confirmado' : 'reagendada';
 
 // El título no se modifica aquí (viene de la base de datos) y el lugar se
 // sincroniza con la dirección ya registrada para el contacto. La fecha solo

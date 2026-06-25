@@ -1,8 +1,4 @@
 <div class="topbar">
-    <button type="button" id="sidebarCollapse" class="btn btn-sm navbar-btn">
-        <i class="glyphicon glyphicon-align-left"></i>
-    </button>
-
     <div class="filter-group">
         <label>Promotor</label>
         <select class="form-control input-sm" id="filtroPromotor" name="promotor">

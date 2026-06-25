@@ -1,195 +1,5 @@
-<?php
-/**
- * COMPONENTE: agendamientos.php
- * Agenda de visitas estilo Google Calendar: sidebar (Crear + mini-calendario +
- * Agendas pendientes) y calendario semanal a la derecha, con mapa colapsable
- * que empuja el layout (no se sobrepone) al desplegarse.
- * Datos reales de insert_proyectos_contacto vía Pintuco/getters/get_agenda.php
- * y Pintuco/getters/update_agenda.php. $cuenta_dir/$cuenta_actual vienen del
- * index.php que incluye este componente.
- */
-$modulo_base = basename((string) $cuenta_dir);
-?>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<div class="agenda-filters" id="agendaFiltros">
-    <div class="filter-group">
-        <label>Promotor</label>
-        <select class="form-control" id="agendaFiltroPromotor">
-            <option value="">Todos</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Búsqueda rápida</label>
-        <div class="input-group">
-            <input type="text" class="form-control" id="agendaBusqueda" placeholder="Buscar...">
-            <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
-        </div>
-    </div>
-    <div class="filter-group">
-        <label>Estado</label>
-        <select class="form-control" id="agendaFiltroEstado">
-            <option value="">Todos</option>
-            <option value="agendada">Agendada</option>
-            <option value="reagendada">Reagendada</option>
-            <option value="cancelada">Cancelada</option>
-        </select>
-    </div>
-
-    <div class="agenda-filters-legend">
-        <span class="agenda-legend-item"><span class="agenda-legend-dot is-agendada"></span><strong id="agendaCountAgendadas">0</strong> Agendadas</span>
-        <span class="agenda-legend-item"><span class="agenda-legend-dot is-reagendada"></span><strong id="agendaCountReagendadas">0</strong> Reagendadas</span>
-        <span class="agenda-legend-item"><span class="agenda-legend-dot is-cancelada"></span><strong id="agendaCountCanceladas">0</strong> Canceladas</span>
-    </div>
-
-    <button type="button" class="btn btn-actualizar" id="agendaBtnActualizar">Actualizar</button>
-</div>
-
-<div class="agenda-layout">
-
-    <aside class="gcal-sidebar">
-        <button type="button" class="gcal-crear-btn" id="agendaCrearBtn">
-            <i class="glyphicon glyphicon-plus"></i>
-            <span>Crear</span>
-            <i class="glyphicon glyphicon-triangle-bottom gcal-crear-caret"></i>
-        </button>
-
-        <div class="gcal-mini-calendar-wrap" id="agendaMiniCalendarWrap">
-            <button type="button" class="gcal-mini-header-bar" id="agendaMiniToggle" title="Mostrar/ocultar mini-calendario">
-                <i class="glyphicon glyphicon-calendar"></i>
-                <span id="agendaMiniHeaderLabel">Calendario</span>
-                <i class="glyphicon glyphicon-chevron-up gcal-mini-header-chevron"></i>
-            </button>
-            <div id="agendaMiniCalendar" class="gcal-mini-calendar"></div>
-            <div class="gcal-mini-yearpicker" id="agendaMiniYearPicker">
-                <div class="gcal-mini-yearpicker-header">
-                    <button type="button" class="gcal-mini-yearpicker-arrow" id="agendaMiniYearPrev"><i class="glyphicon glyphicon-chevron-up"></i></button>
-                    <span id="agendaMiniYearLabel">2026</span>
-                    <button type="button" class="gcal-mini-yearpicker-arrow" id="agendaMiniYearNext"><i class="glyphicon glyphicon-chevron-down"></i></button>
-                </div>
-                <div class="gcal-mini-yearpicker-grid" id="agendaMiniYearGrid"></div>
-            </div>
-        </div>
-
-        <div class="gcal-pendientes">
-            <div class="gcal-pendientes-title">
-                Agendas pendientes
-                <span class="gcal-pendientes-count" id="agendaPendientesCount">0</span>
-            </div>
-            <ul class="gcal-pendientes-list" id="agendaPendientesList">
-                <li class="gcal-pendientes-empty">Sin agendas pendientes</li>
-            </ul>
-        </div>
-    </aside>
-
-    <div class="agenda-calendar-wrap">
-        <div id="agendaCalendar"></div>
-    </div>
-
-    <button type="button" class="agenda-map-toggle collapsed" id="agendaMapToggle" title="Mostrar/ocultar mapa">
-        <i class="glyphicon glyphicon-chevron-left"></i>
-    </button>
-
-    <div class="agenda-map-panel collapsed" id="agendaMapPanel">
-        <div id="agendaMap"></div>
-    </div>
-
-</div>
-
-<div class="agenda-edit-overlay" id="agendaEditOverlay">
-    <div class="agenda-edit-card">
-        <button type="button" class="agenda-edit-close" id="agendaEditClose" aria-label="Cerrar">&times;</button>
-
-        <div class="agenda-edit-header">
-            <h4 class="agenda-edit-title" id="agendaEditTitulo"></h4>
-            <span class="agenda-edit-badge" id="agendaEditBadge">Pendiente</span>
-        </div>
-
-        <div class="agenda-edit-alert" id="agendaEditAlerta" style="display:none">
-            <i class="glyphicon glyphicon-warning-sign"></i>
-            <span id="agendaEditAlertaTexto"></span>
-        </div>
-
-        <div class="agenda-edit-divider"></div>
-
-        <div class="agenda-edit-info">
-            <div class="agenda-edit-info-row">
-                <i class="glyphicon glyphicon-briefcase"></i>
-                <div class="agenda-edit-info-text">
-                    <span class="agenda-edit-info-label">Promotor</span>
-                    <span class="agenda-edit-info-value" id="agendaEditPromotor">—</span>
-                </div>
-            </div>
-            <div class="agenda-edit-info-row">
-                <i class="glyphicon glyphicon-home"></i>
-                <div class="agenda-edit-info-text">
-                    <span class="agenda-edit-info-label">Local</span>
-                    <span class="agenda-edit-info-value" id="agendaEditLocal">—</span>
-                </div>
-            </div>
-            <div class="agenda-edit-info-row">
-                <i class="glyphicon glyphicon-building"></i>
-                <div class="agenda-edit-info-text">
-                    <span class="agenda-edit-info-label">Empresa</span>
-                    <span class="agenda-edit-info-value" id="agendaEditEmpresa">—</span>
-                </div>
-            </div>
-            <div class="agenda-edit-info-row">
-                <i class="glyphicon glyphicon-envelope"></i>
-                <div class="agenda-edit-info-text">
-                    <span class="agenda-edit-info-label">Correo</span>
-                    <span class="agenda-edit-info-value" id="agendaEditMail">—</span>
-                </div>
-            </div>
-            <div class="agenda-edit-info-row">
-                <i class="glyphicon glyphicon-map-marker"></i>
-                <div class="agenda-edit-info-text">
-                    <span class="agenda-edit-info-label">Dirección</span>
-                    <span class="agenda-edit-info-value" id="agendaEditDireccion">—</span>
-                </div>
-            </div>
-            <div class="agenda-edit-info-row">
-                <i class="glyphicon glyphicon-earphone"></i>
-                <div class="agenda-edit-info-text">
-                    <span class="agenda-edit-info-label">Teléfono</span>
-                    <span class="agenda-edit-info-value" id="agendaEditTelefono">—</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="agenda-edit-divider"></div>
-
-        <div class="agenda-edit-row">
-            <i class="glyphicon glyphicon-calendar"></i>
-            <input type="date" class="form-control" id="agendaEditFecha">
-        </div>
-        <div class="agenda-edit-row">
-            <i class="glyphicon glyphicon-time"></i>
-            <input type="time" class="form-control" id="agendaEditHora">
-        </div>
-        <div class="agenda-edit-row">
-            <i class="glyphicon glyphicon-user"></i>
-            <input type="text" class="form-control" id="agendaEditTecnico" placeholder="Técnico asignado">
-        </div>
-
-        <div class="agenda-edit-actions">
-            <div class="agenda-edit-actions-left">
-                <button type="button" class="agenda-edit-cancelar-visita" id="agendaEditCancelarVisita">Cancelar visita</button>
-                <button type="button" class="agenda-edit-eliminar" id="agendaEditEliminar"><i class="glyphicon glyphicon-trash"></i> Eliminar</button>
-            </div>
-            <div class="agenda-edit-actions-right">
-                <button type="button" class="btn" id="agendaEditCancelar">Cerrar</button>
-                <button type="button" class="btn btn-actualizar" id="agendaEditGuardar">Guardar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
 (function () {
-    var GETTERS_BASE = '<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>/getters/';
+    var GETTERS_BASE = document.getElementById('agendaApp').dataset.gettersBase;
     var calendar, miniCalendar, map;
     var markersById = {};
     var editingId = null;
@@ -198,6 +8,42 @@ $modulo_base = basename((string) $cuenta_dir);
     var syncingMini = false;
     var yearPickerYear = new Date().getFullYear();
     var DURACION_APROX_MIN = 45;
+    var estadosPorFecha = {}; // { 'YYYY-MM-DD': { agendada: true, ... } } — para los puntitos del mini-calendario
+
+    function indexarEstadosPorFecha(rows) {
+        estadosPorFecha = {};
+        rows.forEach(function (r) {
+            if (hiddenIds[r.id] || !r.fecha_agendamiento) return;
+            var dia = estadosPorFecha[r.fecha_agendamiento] || (estadosPorFecha[r.fecha_agendamiento] = {});
+            dia[estadoVisual(r)] = true;
+        });
+    }
+
+    // Puntito bajo el número del día, igual que Google Calendar marca los
+    // días con eventos. Se repinta tanto al cambiar de mes en el mini-
+    // calendario (las celdas son nuevas) como al recargar/filtrar datos.
+    function pintarPuntosMiniCalendario() {
+        document.querySelectorAll('#agendaMiniCalendar .fc-daygrid-day').forEach(function (cell) {
+            var anterior = cell.querySelector('.gcal-mini-day-dots');
+            if (anterior) anterior.remove();
+
+            var fecha = cell.getAttribute('data-date');
+            var estados = fecha && estadosPorFecha[fecha];
+            if (!estados) return;
+
+            var frame = cell.querySelector('.fc-daygrid-day-frame');
+            if (!frame) return;
+
+            var dots = document.createElement('div');
+            dots.className = 'gcal-mini-day-dots';
+            Object.keys(estados).slice(0, 3).forEach(function (estado) {
+                var dot = document.createElement('span');
+                dot.className = 'gcal-mini-day-dot is-' + estado;
+                dots.appendChild(dot);
+            });
+            frame.appendChild(dots);
+        });
+    }
 
     function highlightMiniRange(start, end) {
         var cells = document.querySelectorAll('#agendaMiniCalendar .fc-daygrid-day');
@@ -245,29 +91,27 @@ $modulo_base = basename((string) $cuenta_dir);
         document.getElementById('agendaMiniYearPicker').classList.remove('active');
     }
 
-    // Estados reales del negocio: agendada / reagendada / cancelada.
-    // Filas viejas (pendiente/confirmado/vacío) se tratan como "agendada"
-    // hasta que se vuelvan a guardar y el backend les asigne el estado nuevo.
-    function normalizarEstado(estado) {
-        if (estado === 'cancelada') return 'cancelada';
-        if (estado === 'reagendada') return 'reagendada';
-        return 'agendada';
-    }
+    // Contrato de estados acordado con la app móvil (Constantes.java /
+    // AdapterAgenda.java): la app lee esta misma tabla directo por sync, así
+    // que estado_agenda debe ser SIEMPRE uno de estos 6 valores literales —
+    // cualquier otro string lo muestra la app sin color (fallback inerte).
+    var ESTADOS_VALIDOS = ['pendiente', 'confirmado', 'reagendada', 'vencida', 'cancelada', 'completada'];
 
-    // Fuente única de verdad del estado que se MUESTRA: cancelada/reagendada
-    // salen directo de estado_agenda, pero "agendada" solo es real si ya
-    // tiene hora y técnico — si no, todavía es una agenda nueva (típicamente
-    // llegada desde el lado móvil) que el analista no ha terminado de
-    // gestionar, sin importar lo que diga (o no diga) estado_agenda.
-    // Usar SIEMPRE esta función para decidir el estado visible — badge,
-    // lista de pendientes y color en el calendario deben coincidir siempre.
+    // Ya no se re-deriva el estado a partir de hora/técnico: el backend
+    // (update_agenda.php) y el cron de "vencida" en get_agenda.php son la
+    // única fuente de verdad. Un valor legado o desconocido cae a "pendiente".
     function estadoVisual(r) {
-        var estado = normalizarEstado(r.estado_agenda);
-        if (estado === 'cancelada' || estado === 'reagendada') return estado;
-        return (r.hora && r.tecnico) ? 'agendada' : 'sin_agendar';
+        return ESTADOS_VALIDOS.indexOf(r.estado_agenda) !== -1 ? r.estado_agenda : 'pendiente';
     }
 
-    var ESTADO_LABEL = { agendada: 'Agendada', reagendada: 'Reagendada', cancelada: 'Cancelada', sin_agendar: 'Sin agendar' };
+    var ESTADO_LABEL = {
+        pendiente: 'Pendiente técnico',
+        confirmado: 'Técnico confirmado',
+        reagendada: 'Reagendada',
+        vencida: 'Vencida',
+        cancelada: 'Cancelada',
+        completada: 'Completada'
+    };
 
     function estadoClase(r) {
         return 'agenda-evt-' + estadoVisual(r);
@@ -317,39 +161,25 @@ $modulo_base = basename((string) $cuenta_dir);
         }
     }
 
-    function hoyISO() {
-        var hoy = new Date();
-        return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
-    }
-
-    // "Pendiente" ya no es "todo lo no cancelado": si una visita ya tiene
-    // hora y técnico asignados (estadoVisual === 'agendada'/'reagendada') y
-    // su fecha no venció, ya está gestionada y no necesita aparecer aquí.
-    // Solo se lista lo que de verdad requiere acción: llegó del lado móvil
-    // sin terminar de agendar (estadoVisual === 'sin_agendar'), o su fecha
-    // ya venció (necesita reagendarse aunque ya tuviera hora/técnico).
-    //
-    // El "semáforo" de color (rojo = vencida) solo aplica a algo que ya fue
-    // agendado de verdad; si nunca se agendó, siempre es "SIN AGENDAR" en
-    // gris, sin importar si su fecha ya pasó — no hubo nada que "vencer".
+    // Solo se lista lo que de verdad requiere acción del analista: nunca se
+    // le asignó técnico/hora ('pendiente'), o su fecha ya venció sin
+    // reagendarse ('vencida' — la pone get_agenda.php automáticamente).
     function motivoPendiente(r) {
-        if (estadoVisual(r) === 'sin_agendar') return { texto: 'SIN AGENDAR', clase: 'is-incompleta' };
-        return { texto: 'VENCIDA', clase: 'is-vencida' }; // única otra razón de estar en esta lista
+        if (estadoVisual(r) === 'pendiente') return { texto: 'PENDIENTE TÉCNICO', clase: 'is-pendiente' };
+        return { texto: 'VENCIDA', clase: 'is-vencida' };
     }
 
     function pintarPendientes(rows) {
         var lista = document.getElementById('agendaPendientesList');
-        var hoy = hoyISO();
         var pendientes = rows
             .filter(function (r) {
-                if (estadoVisual(r) === 'cancelada') return false;
-                var vencida = r.fecha_agendamiento && r.fecha_agendamiento < hoy;
-                return vencida || estadoVisual(r) === 'sin_agendar';
+                var estado = estadoVisual(r);
+                return estado === 'pendiente' || estado === 'vencida';
             })
             .slice()
             .sort(function (a, b) {
-                var va = (a.fecha_agendamiento && a.fecha_agendamiento < hoy) ? 0 : 1; // vencidas primero
-                var vb = (b.fecha_agendamiento && b.fecha_agendamiento < hoy) ? 0 : 1;
+                var va = estadoVisual(a) === 'vencida' ? 0 : 1; // vencidas primero
+                var vb = estadoVisual(b) === 'vencida' ? 0 : 1;
                 if (va !== vb) return va - vb;
                 return (Number(a.id) || 0) - (Number(b.id) || 0); // orden de llegada
             });
@@ -386,7 +216,7 @@ $modulo_base = basename((string) $cuenta_dir);
             var texto = document.createElement('div');
             texto.className = 'gcal-pendiente-card-text';
 
-            // Fila 1: título + motivo (semáforo solo si ya fue agendada).
+            // Fila 1: título + motivo (pendiente técnico o vencida).
             var filaTitulo = document.createElement('div');
             filaTitulo.className = 'gcal-pendiente-card-fila';
 
@@ -434,12 +264,12 @@ $modulo_base = basename((string) $cuenta_dir);
     }
 
     function pintarLeyenda(rows) {
-        // "sin_agendar" no tiene dot propio en esta leyenda (son 3 categorías
-        // fijas pedidas así); se cuenta aparte para no inflar "Agendadas".
-        var c = { agendada: 0, reagendada: 0, cancelada: 0, sin_agendar: 0 };
+        var c = { pendiente: 0, confirmado: 0, reagendada: 0, vencida: 0, cancelada: 0, completada: 0 };
         rows.forEach(function (r) { c[estadoVisual(r)]++; });
-        document.getElementById('agendaCountAgendadas').textContent = c.agendada;
+        document.getElementById('agendaCountPendientes').textContent = c.pendiente;
+        document.getElementById('agendaCountConfirmadas').textContent = c.confirmado;
         document.getElementById('agendaCountReagendadas').textContent = c.reagendada;
+        document.getElementById('agendaCountVencidas').textContent = c.vencida;
         document.getElementById('agendaCountCanceladas').textContent = c.cancelada;
     }
 
@@ -459,6 +289,8 @@ $modulo_base = basename((string) $cuenta_dir);
         pintarMapa(rows);
         pintarPendientes(rows);
         pintarLeyenda(rows);
+        indexarEstadosPorFecha(rows);
+        pintarPuntosMiniCalendario();
     }
 
     var promotorOpcionesListas = false;
@@ -514,6 +346,17 @@ $modulo_base = basename((string) $cuenta_dir);
         return partes[2] + '/' + partes[1] + '/' + partes[0];
     }
 
+    // fecha_registro llega como datetime de MySQL ("YYYY-MM-DD HH:MM:SS"),
+    // independiente de la fecha/hora de agendamiento que elige el analista.
+    function formatFechaHoraRegistro(valor) {
+        if (!valor) return null;
+        var partes = valor.split(' ');
+        var fecha = formatFecha(partes[0]);
+        if (partes.length < 2) return fecha;
+        var hora = partes[1].slice(0, 5);
+        return fecha + ' ' + hora;
+    }
+
     function abrirEdicion(props) {
         editingId = props.id;
         document.getElementById('agendaEditTitulo').textContent =
@@ -522,6 +365,9 @@ $modulo_base = basename((string) $cuenta_dir);
         var badge = document.getElementById('agendaEditBadge');
         badge.textContent = ESTADO_LABEL[estado];
         badge.className = 'agenda-edit-badge is-' + estado;
+
+        var registro = formatFechaHoraRegistro(props.fecha_registro);
+        document.getElementById('agendaEditRegistro').textContent = registro ? ('Registrado: ' + registro) : '';
 
         document.getElementById('agendaEditPromotor').textContent = props.usuario || '—';
         document.getElementById('agendaEditLocal').textContent = props.pdv || '—';
@@ -534,12 +380,11 @@ $modulo_base = basename((string) $cuenta_dir);
         document.getElementById('agendaEditHora').value = props.hora || '';
         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
 
-        // Si la fecha pactada ya pasó y la visita no está cancelada, se le pide
-        // al analista que la reagende ahora mismo en vez de dejarlo pasar
-        // desapercibido (antes solo se marcaba en la lista del sidebar).
+        // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
+        // pasó sin reagendarse; aquí solo se le pide al analista que la
+        // reagende ahora mismo en vez de dejarlo pasar desapercibido.
         var alerta = document.getElementById('agendaEditAlerta');
-        var vencida = estado !== 'cancelada' && props.fecha_agendamiento && props.fecha_agendamiento < hoyISO();
-        if (vencida) {
+        if (estado === 'vencida') {
             document.getElementById('agendaEditAlertaTexto').textContent =
                 'Esta visita estaba programada para el ' + formatFecha(props.fecha_agendamiento) + ' y ya venció. Reagenda la fecha antes de guardar.';
             alerta.style.display = 'flex';
@@ -569,7 +414,7 @@ $modulo_base = basename((string) $cuenta_dir);
         body.set('hora', document.getElementById('agendaEditHora').value);
         body.set('tecnico', document.getElementById('agendaEditTecnico').value);
         // El lugar se sincroniza con la dirección guardada y el estado
-        // (agendada/reagendada) lo decide el backend.
+        // (confirmado/reagendada) lo decide el backend.
 
         fetch(GETTERS_BASE + 'update_agenda.php', { method: 'POST', body: body })
             .then(function (resp) { return resp.json(); })
@@ -687,6 +532,7 @@ $modulo_base = basename((string) $cuenta_dir);
                 var view = calendar.view;
                 if (view) highlightMiniRange(view.activeStart, view.activeEnd);
                 document.getElementById('agendaMiniHeaderLabel').textContent = info.view.title;
+                pintarPuntosMiniCalendario();
             }
         });
         miniCalendar.render();
@@ -761,4 +607,3 @@ $modulo_base = basename((string) $cuenta_dir);
         });
     });
 })();
-</script>

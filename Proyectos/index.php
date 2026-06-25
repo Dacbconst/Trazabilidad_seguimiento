@@ -195,9 +195,26 @@
 				window.dispatchEvent(new Event('resize'));
 			});
 
+			// El botón flotante se posiciona según si el sidebar está
+			// realmente visible (no según la clase .active en crudo: a
+			// <900px una media query invierte su significado para volverlo
+			// "off-canvas" en móvil, mostrarlo en vez de ocultarlo).
+			function sincronizarBotonSidebar() {
+				var oculto = parseFloat(getComputedStyle(document.getElementById('sidebar')).marginLeft) < 0;
+				document.body.classList.toggle('sidebar-collapsed', oculto);
+			}
+
 			$('#sidebarCollapse').on('click', function () {
 				$('#sidebar').toggleClass('active');
+				localStorage.setItem('sidebarActivo', $('#sidebar').hasClass('active') ? '1' : '0');
+				sincronizarBotonSidebar();
 			});
+
+			if (localStorage.getItem('sidebarActivo') === '1') {
+				$('#sidebar').addClass('active');
+			}
+			sincronizarBotonSidebar();
+			$(window).on('resize', sincronizarBotonSidebar);
 
 			$('#btnActualizar').on('click', function () {
 				// TODO: disparar recarga de datos vía AJAX (getters/) cuando se conecte la BD real.

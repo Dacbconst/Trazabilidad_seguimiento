@@ -1,3 +1,7 @@
+<button type="button" id="sidebarCollapse" class="sidebar-toggle" title="Mostrar/ocultar menú">
+    <i class="glyphicon glyphicon-chevron-left"></i>
+</button>
+
 <nav id="sidebar">
     <div class="sidebar-brand">Proyectos y Obras</div>
 
