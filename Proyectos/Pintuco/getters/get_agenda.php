@@ -15,7 +15,14 @@ $tecnico      = isset($_GET['tecnico'])      ? $_GET['tecnico']      : '';
 $pdv          = isset($_GET['pdv'])          ? $_GET['pdv']          : '';
 
 // fecha_agendamiento es columna DATE real (no string dd/mm/yyyy); se compara directo.
-$condiciones = ["fecha_agendamiento IS NOT NULL", "fecha_agendamiento != '0000-00-00'"];
+// "activar" es varchar(2) NOT NULL con valores 'SI'/'NO' (default 'SI'),
+// confirmado contra la tabla real — es el borrado lógico: filas en 'NO' son
+// visitas eliminadas desde el panel y no deben aparecer en la agenda.
+$condiciones = [
+    "fecha_agendamiento IS NOT NULL",
+    "fecha_agendamiento != '0000-00-00'",
+    "activar = 'SI'",
+];
 $parametros  = [];
 $tipos       = "";
 

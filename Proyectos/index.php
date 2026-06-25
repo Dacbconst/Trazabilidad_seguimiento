@@ -184,6 +184,10 @@
 				$('.section-pane').removeClass('active');
 				$($(this).attr('href')).addClass('active');
 
+				// El filtro global (Promotor / Búsqueda rápida / Mes) es irrelevante
+				// en Agendamientos: esa sección ya tiene sus propios filtros.
+				$('.topbar').toggleClass('is-hidden', $(this).attr('href') === '#sec-agendamientos');
+
 				// La sección pasa de display:none a visible recién aquí. Si contiene
 				// un calendario (FullCalendar, etc.) que se inicializó mientras estaba
 				// oculto, midió 0px de ancho. Disparar 'resize' fuerza que recalculen

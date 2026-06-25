@@ -1,0 +1,34 @@
+---
+name: project-agendamientos-pintuco
+description: Estado y próximos pasos del rediseño UX del módulo Agendamientos (cuenta Pintuco) — para continuar sin perder contexto entre sesiones
+metadata:
+  type: project
+---
+
+Rediseño UX/UX del módulo **Agendamientos** de la cuenta Pintuco ([Proyectos/Pintuco/components/agendamientos.php](Proyectos/Pintuco/components/agendamientos.php)), a pedido del usuario para que se parezca y funcione como Google/Outlook Calendar. Es trabajo en curso, en varias sesiones.
+
+## Estado: NADA de esto está desplegado todavía
+Todos los cambios siguen **solo en local**, sin commitear ni pushear a GitHub (`origin = https://github.com/Dacbconst/Trazabilidad_seguimiento.git`, rama `main`). El sitio real (`https://webecuador-desarrollo.azurewebsites.net/App/XploraEcuador/proyectos/?cuenta=PINTUCO`, Azure App Service) sigue sirviendo una versión vieja. **Antes de seguir agregando features, confirmar con el usuario si ya se subió** — si no, varias pruebas en vivo van a seguir mostrando comportamiento viejo.
+
+## Lo que ya se hizo
+- **Calendario principal** (FullCalendar v6): vista semana/día/mes estilo Google Calendar, sincronizado bidireccionalmente con un mini-calendario lateral (clic en una fecha del mini navega el grande y viceversa), banda de selección que resalta el rango visible, selector rápido de mes/año al hacer clic en el título del mini-calendario, columna de horas en formato 12h con AM/PM real (`hour12: true`, normalizado con `formatoHora12()`) y etiqueta "GMT-05".
+- **Mini-calendario colapsable** (`#agendaMiniCalendarWrap`, barra propia `.gcal-mini-header-bar` — NO superpuesta a los botones nativos de FullCalendar) para darle más espacio a "Agendas pendientes"; estado persistido en `localStorage`.
+- **Modelo de 3 estados de negocio**: `agendada` / `reagendada` / `cancelada` en la columna `estado_agenda`, decidido siempre por el backend (`update_agenda.php`), nunca elegido manualmente por el analista. Más un 4to estado **visual** (no se guarda en BD): `sin_agendar`, cuando falta `hora` o `tecnico` sin importar qué diga `estado_agenda` (rows legado tipo `pendiente`/`confirmado`/vacío se tratan como agendada-si-tiene-datos).
+- **Fuente única de verdad del estado visible**: función `estadoVisual(r)` en el JS de `agendamientos.php` — la usan SIEMPRE badge del modal, lista de pendientes, color de evento en el calendario, popup del mapa y leyenda. (Antes había dos lógicas separadas que divergían — ver [[feedback_pensamiento_analitico_casos_reales]] punto 3.)
+- **Modal "Gestionar visita"** rediseñado: título/promotor/local/empresa/correo/dirección/teléfono vienen de la BD (grilla 3×2: Promotor-Local-Empresa arriba, Correo-Dirección-Teléfono abajo, `word-break` para textos largos); editables: **fecha**, hora, técnico (antes la fecha era de solo lectura, por eso nunca se podía "reagendar" un día distinto). Botones: Guardar, Cerrar, "Cancelar visita" (→ `estado_agenda='cancelada'`, queda en el historial) y "Eliminar" (→ `activar='NO'`, borrado lógico para errores/duplicados, no aparece nunca más). Alerta roja si la fecha ya venció, pidiendo reagendar antes de guardar.
+- **"Agendas pendientes" (sidebar) — rediseño completo de propósito**: ya NO es "todo lo no cancelado". Ahora solo lista lo que de verdad necesita acción: `sin_agendar` (llegó del lado móvil sin hora/técnico) o vencida (la fecha ya pasó, tenga o no hora/técnico). Cada card: fila 1 = título + tag (gris "SIN AGENDAR" si nunca se agendó — el semáforo de color NUNCA aplica a algo sin agendar, sin importar su fecha; rojo "VENCIDA" solo si ya fue agendada de verdad y venció), fila 2 = local (PDV), fila 3 = promotor (izq.) + fecha agendada dd/mm/aaaa (der.). Ordenada: vencidas primero, luego por orden de llegada (`id`). Badge de conteo en el título.
+- **Barra de filtros funcional** (Promotor / Búsqueda rápida / Estado / leyenda con conteos en vivo / Actualizar) — reemplaza la vieja barra Desde-Hasta-Estado-Técnico que se había quitado. Promotor y Estado filtran contra `get_agenda.php` (reusa params `usuario`/`estado_agenda` ya existentes); búsqueda rápida filtra en cliente.
+- **Borrado lógico real**: `get_agenda.php` filtra `activar = 'SI'`; "Eliminar" en el modal escribe `activar = 'NO'`. **Confirmado contra la tabla real** (`insert_proyectos_contacto.activar` es `varchar(2) NOT NULL DEFAULT 'SI'`, valores `'SI'/'NO'`, NO numérico) con un getter de diagnóstico temporal pegado por `WebFetch` a la URL pública (la app corre en Azure, así que un getter PHP nuevo es consultable como con Postman en cuanto se despliega — útil para el futuro si hace falta verificar otra columna).
+- **Eventos del calendario estilo Google Calendar**: bloque sólido redondeado, título en negrita + hora debajo, fin aproximado de 45 min calculado en cliente (`DURACION_APROX_MIN`) marcado como "(aprox)" ya que no se registra duración real.
+- Se quitó el filtro global del topbar (Promotor/Búsqueda/Mes/Actualizar de `partials/topbar.php`) cuando la sección activa es Agendamientos, porque quedaba duplicado con la barra propia del módulo.
+
+## Pendiente / no resuelto todavía (decisiones ya tomadas de NO tocar por ahora)
+- **Gap real sin resolver a propósito**: `get_agenda.php` excluye por SQL cualquier contacto que **nunca** tuvo `fecha_agendamiento` (`fecha_agendamiento IS NOT NULL`). Esos contactos no aparecen en ningún lado de la app hoy. El usuario decidió explícitamente no tocarlo todavía y resolverlo cuando se construya la pestaña **Contactados** (hoy es solo un placeholder vacío, `Proyectos/Pintuco/components/contactados.php`) — es el lugar natural para esa visibilidad.
+- **Roadmap de módulos recomendado** (ya comunicado al usuario, no ejecutado): Contactados → Proforma → Estado de Flujo, siguiendo el orden de `Pintuco/includes/mock_data.php` y el flujo de negocio real (contactar → agendar → cotizar → dar seguimiento).
+- El botón **"Crear"** del sidebar (nueva visita manual) sigue sin implementar — hoy solo muestra un `alert()` placeholder.
+- No se ha verificado en navegador real ninguno de estos cambios (sin acceso a un entorno gráfico desde aquí); todo lo validado fue por lectura de código + `WebFetch` a getters JSON/HTML puntuales.
+
+## Decisiones de diseño a recordar (para no contradecirlas en una sesión futura)
+- El "semáforo" de color (verde/ámbar/rojo) en cualquier lista SOLO debe aplicar a algo que ya fue agendado de verdad (tiene hora+técnico). Si nunca se agendó, es gris siempre, sin importar la fecha.
+- Cancelar ≠ Eliminar (ver [[feedback_pensamiento_analitico_casos_reales]]): cancelar es un hecho de negocio real que se conserva; eliminar es corrección de datos que se oculta de todo.
+- Evitar inventar etiquetas inferidas (como un "HOY" que se agregó y luego se quitó por confundir) — preferir mostrar el dato real (la fecha) en vez de una inferencia opaca.

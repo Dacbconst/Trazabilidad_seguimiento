@@ -1,0 +1,5 @@
+- [Estado del rediseño Agendamientos Pintuco](project_agendamientos_pintuco.md) — qué se hizo, qué falta y qué NO desplegar/tocar todavía
+- [Pensamiento crítico UX proactivo](feedback_pensamiento_critico_ux.md) — señalar gaps de diseño/datos sin que se pida, proponer alternativas
+- [Pensamiento analítico en casos reales](feedback_pensamiento_analitico_casos_reales.md) — recorrer el flujo completo de una feature, no solo el pedido literal
+- [Cuidar detalles finos de formato/UX](feedback_detalle_ux_formato.md) — verificar AM/PM, unidades y textos secundarios antes de dar por terminado
+- [Arquitectura sin sobreingeniería en Pintuco](feedback_arquitectura_sin_sobreingenieria.md) — reusar getters/helpers existentes en vez de crear capas nuevas
