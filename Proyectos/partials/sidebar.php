@@ -1,9 +1,10 @@
-<button type="button" id="sidebarCollapse" class="sidebar-toggle" title="Mostrar/ocultar menú">
-    <i class="glyphicon glyphicon-chevron-left"></i>
-</button>
-
 <nav id="sidebar">
-    <div class="sidebar-brand">Proyectos y Obras</div>
+    <div class="sidebar-header">
+        <div class="sidebar-brand">Proyectos y Obras</div>
+        <button type="button" id="sidebarCollapse" class="sidebar-toggle" title="Mostrar/ocultar menú">
+            <i class="glyphicon glyphicon-align-justify"></i>
+        </button>
+    </div>
 
     <div class="sidebar-user">
         <div class="avatar"><i class="glyphicon glyphicon-user"></i></div>

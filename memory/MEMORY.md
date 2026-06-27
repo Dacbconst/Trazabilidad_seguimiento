@@ -1,3 +1,5 @@
+- [Trabajar por punto, sin ignorar peticiones](feedback_trabajar_por_punto.md) — responder cada pedido por separado; sospechar cache-busting antes que el propio código
+- [Confirmar antes de construir](feedback_confirmar_antes_de_construir.md) — ante pedidos ambiguos sobre qué elemento de la UI, decir qué se entendió y esperar OK antes de tocar código
 - [Estado del rediseño Agendamientos Pintuco](project_agendamientos_pintuco.md) — qué se hizo, qué falta y qué NO desplegar/tocar todavía
 - [Pensamiento crítico UX proactivo](feedback_pensamiento_critico_ux.md) — señalar gaps de diseño/datos sin que se pida, proponer alternativas
 - [Pensamiento analítico en casos reales](feedback_pensamiento_analitico_casos_reales.md) — recorrer el flujo completo de una feature, no solo el pedido literal

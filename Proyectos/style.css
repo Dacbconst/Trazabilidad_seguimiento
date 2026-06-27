@@ -55,46 +55,51 @@ a, a:hover, a:focus { text-decoration: none; }
     min-width: 230px;
     background: var(--brand);
     color: #fff;
-    transition: margin-left .3s;
+    overflow: hidden;
+    transition: width .25s, min-width .25s;
 }
 
-#sidebar.active { margin-left: -230px; }
+/* Colapsado: ya no se desliza fuera de pantalla — se encoge a un riel
+   angosto que solo deja ver la hamburguesa, como pediste. */
+#sidebar.active { width: 56px; min-width: 56px; }
+#sidebar.active .sidebar-brand,
+#sidebar.active .sidebar-user,
+#sidebar.active .sidebar-cuenta,
+#sidebar.active .sidebar-nav {
+    display: none;
+}
 
-/* Botón flotante para abrir/cerrar el sidebar: vive anclado al borde del
-   sidebar (no dentro de su flujo, por eso es position:fixed — así no se
-   va con el margin-left cuando el sidebar se colapsa). Se desliza junto
-   con el borde gracias a body.sidebar-collapsed; queda siempre visible,
-   nunca depende de qué sección o página esté activa. */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 14px;
+}
+#sidebar.active .sidebar-header { justify-content: center; padding: 18px 0; }
+
 .sidebar-toggle {
-    position: fixed;
-    top: 62px;
-    left: 244px;
-    z-index: 1040;
-    width: 32px;
-    height: 32px;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
-    background: #fff;
-    border: 1px solid #e6e9ee;
-    box-shadow: 0 1px 4px rgba(20,30,50,.18);
-    color: #33415c;
+    border: none;
+    background: rgba(255,255,255,.15);
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    transition: left .3s;
+    font-size: 13px;
 }
-.sidebar-toggle:hover { background: #eef1f6; }
-
-body.sidebar-collapsed .sidebar-toggle { left: 14px; }
-body.sidebar-collapsed .sidebar-toggle .glyphicon-chevron-left:before { content: "\e080"; } /* chevron-right */
+.sidebar-toggle:hover { background: rgba(255,255,255,.28); }
 
 .sidebar-brand {
-    padding: 22px 20px 14px;
     font-size: 14px;
     font-weight: 800;
     letter-spacing: .6px;
     color: #fff;
     text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .sidebar-user {
@@ -406,7 +411,20 @@ body.sidebar-collapsed .sidebar-toggle .glyphicon-chevron-left:before { content:
 }
 
 @media (max-width: 900px) {
+    /* En móvil .active significa "revelar" (no "encoger a riel" como en
+       desktop): el sidebar arranca oculto fuera de pantalla y .active lo
+       trae completo, así que se pisan los valores de ancho del riel. */
     #sidebar { margin-left: -230px; }
-    #sidebar.active { margin-left: 0; }
+    #sidebar.active {
+        margin-left: 0;
+        width: 230px;
+        min-width: 230px;
+    }
+    #sidebar.active .sidebar-brand,
+    #sidebar.active .sidebar-user,
+    #sidebar.active .sidebar-cuenta,
+    #sidebar.active .sidebar-nav {
+        display: block;
+    }
     .progress-widget { margin-left: 0; }
 }

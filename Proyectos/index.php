@@ -75,7 +75,14 @@
 
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 	<link href="/App/XploraEcuador/Proyectos/assets/bootstrap2/css/style_nav.css" rel="stylesheet">
-	<link rel="stylesheet" href="style.css">
+	<?php
+		// Cache-busting: sin esto el navegador sigue sirviendo el style.css
+		// viejo en caché aunque se suba uno nuevo al servidor (causa real de
+		// "subí el cambio y no se ve") — el query param cambia solo cuando
+		// el archivo realmente cambia, forzando a descargarlo de nuevo.
+		$style_v = @filemtime(__DIR__.'/style.css') ?: time();
+	?>
+	<link rel="stylesheet" href="style.css?v=<?= $style_v ?>">
 </head>
 <body>
 
@@ -195,26 +202,18 @@
 				window.dispatchEvent(new Event('resize'));
 			});
 
-			// El botón flotante se posiciona según si el sidebar está
-			// realmente visible (no según la clase .active en crudo: a
-			// <900px una media query invierte su significado para volverlo
-			// "off-canvas" en móvil, mostrarlo en vez de ocultarlo).
-			function sincronizarBotonSidebar() {
-				var oculto = parseFloat(getComputedStyle(document.getElementById('sidebar')).marginLeft) < 0;
-				document.body.classList.toggle('sidebar-collapsed', oculto);
-			}
-
+			// La hamburguesa ahora vive dentro del propio sidebar (ver
+			// partials/sidebar.php) y .active lo encoge a un riel angosto
+			// que solo deja ver el botón — ya no hay un botón flotante
+			// aparte que necesite sincronizar su posición a mano.
 			$('#sidebarCollapse').on('click', function () {
 				$('#sidebar').toggleClass('active');
 				localStorage.setItem('sidebarActivo', $('#sidebar').hasClass('active') ? '1' : '0');
-				sincronizarBotonSidebar();
 			});
 
 			if (localStorage.getItem('sidebarActivo') === '1') {
 				$('#sidebar').addClass('active');
 			}
-			sincronizarBotonSidebar();
-			$(window).on('resize', sincronizarBotonSidebar);
 
 			$('#btnActualizar').on('click', function () {
 				// TODO: disparar recarga de datos vía AJAX (getters/) cuando se conecte la BD real.

@@ -381,7 +381,9 @@
 }
 .agenda-calendar-wrap .fc-timegrid-slot-label-frame { padding-right: 6px; }
 .agenda-calendar-wrap .fc-timegrid-slot-label-cushion { font-size: 12.5px; color: #5b6577; }
-.agenda-calendar-wrap .fc-timegrid-slot { height: 2.6em; }
+/* 2.6em dejaba cada media hora demasiado alta — se veía "zoomado" aunque el
+   navegador estuviera al 100%, con muy pocas horas visibles sin scrollear. */
+.agenda-calendar-wrap .fc-timegrid-slot { height: 1.8em; }
 .agenda-calendar-wrap .fc-button-primary { background: var(--brand-light); border-color: var(--brand-light); }
 .agenda-calendar-wrap .fc-button-primary:hover { background: var(--brand-light-dark); border-color: var(--brand-light-dark); }
 .agenda-calendar-wrap .fc-button-primary:not(:disabled).fc-button-active { background: var(--brand-light-dark); border-color: var(--brand-light-dark); }
@@ -398,17 +400,37 @@
     padding: 18px;
 }
 
+/* La cabecera de días (ej. "SÁB 6/6") no debe tener su propia barra de
+   scroll — solo reserva el ancho de la del cuerpo para alinear columnas. */
+.agenda-calendar-wrap .fc-scrollgrid-section-header .fc-scroller {
+    overflow: hidden !important;
+}
+
+/* Scrollbar delgada y sin flechas de paso (las nativas de Windows se ven
+   como dos triángulos arriba/abajo, no aportan nada en un panel angosto). */
+.agenda-calendar-wrap .fc-scroller::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.agenda-calendar-wrap .fc-scroller::-webkit-scrollbar-track { background: transparent; }
+.agenda-calendar-wrap .fc-scroller::-webkit-scrollbar-thumb {
+    background: #d7dbe2;
+    border-radius: 4px;
+}
+
 .agenda-calendar-wrap #agendaCalendar {
     flex: 1;
     min-height: 0;
 }
 
 .agenda-map-toggle {
+    /* Diseño original (flecha, centrado, straddle de -13px a cada lado). */
+    position: relative;
     align-self: center;
     width: 26px;
     height: 50px;
     margin: 0 -13px;
-    z-index: 3;
+    z-index: 2;
     background: var(--brand-light);
     color: #fff;
     border: none;
@@ -421,6 +443,13 @@
 .agenda-map-toggle.collapsed .glyphicon { transform: rotate(180deg); }
 
 .agenda-map-panel {
+    /* position+z-index crea un contexto de apilamiento propio: Leaflet usa
+       z-index hasta 1000 para sus controles internos (zoom, atribución), y
+       sin esto ese z-index se escapaba por encima de nuestro botón aunque
+       este tuviera el suyo. Con esto, TODO lo de adentro (sin importar qué
+       z-index use Leaflet) queda topeado a "1" frente a lo de afuera. */
+    position: relative;
+    z-index: 1;
     width: 340px;
     min-width: 340px;
     height: 100%;
@@ -457,6 +486,18 @@
 .agenda-calendar-wrap .fc-timegrid-event:hover,
 .agenda-calendar-wrap .fc-daygrid-event:hover {
     filter: brightness(0.94);
+}
+
+/* Pulso al guardar: el calendario navega solo a la fecha/hora donde quedó
+   la visita y este resalto confirma visualmente que es esa misma card. */
+.agenda-evt-resaltado {
+    animation: agendaPulso .55s ease-in-out 2;
+    box-shadow: 0 0 0 3px rgba(26,115,232,.65), 0 4px 14px rgba(20,30,50,.3);
+    z-index: 5;
+}
+@keyframes agendaPulso {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.035); }
 }
 
 .gcal-event-content {
@@ -506,6 +547,67 @@
     overflow-y: auto;
     box-shadow: 0 12px 36px rgba(20,30,50,.28);
 }
+
+/* Diálogo de choque de horario: mismo patrón de overlay que el de gestionar
+   visita, con una mini-card mostrando con qué visita choca. */
+.agenda-conflicto-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20,30,50,.45);
+    z-index: 1100;
+    align-items: center;
+    justify-content: center;
+}
+.agenda-conflicto-overlay.active { display: flex; }
+
+.agenda-conflicto-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 26px 28px;
+    width: 360px;
+    max-width: 90vw;
+    text-align: center;
+    box-shadow: 0 12px 36px rgba(20,30,50,.28);
+}
+
+.agenda-conflicto-card h4 { margin: 0 0 20px; color: var(--text-dark); font-size: 16px; font-weight: 700; }
+.agenda-conflicto-card p { margin: 0 0 18px; color: #5b6577; font-size: 12.5px; }
+
+/* Mini réplica del evento real del calendario (mismas clases agenda-evt-* /
+   gcal-event-*), con una píldora de fecha superpuesta arriba — así el
+   analista reconoce de un vistazo la misma card que ve en la agenda. */
+.agenda-conflicto-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.agenda-conflicto-mini-fecha {
+    position: relative;
+    z-index: 1;
+    margin-bottom: -10px;
+    background: #fff;
+    border: 1px solid #e2e5eb;
+    color: #5b6577;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    padding: 4px 16px;
+    border-radius: 14px;
+    box-shadow: 0 2px 6px rgba(20,30,50,.12);
+}
+
+.agenda-conflicto-mini-evento {
+    width: 100%;
+    border-radius: 8px;
+    padding: 18px 14px 10px;
+    box-shadow: 0 6px 16px rgba(20,30,50,.15);
+}
+.agenda-conflicto-mini-evento .gcal-event-title { font-size: 13.5px; }
+.agenda-conflicto-mini-evento .gcal-event-time { font-size: 12px; }
 
 .agenda-edit-close {
     position: absolute;
@@ -628,6 +730,24 @@
 .agenda-edit-row:last-of-type { margin-bottom: 0; }
 .agenda-edit-row .glyphicon { color: #8a93a3; font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
 .agenda-edit-row .form-control { flex: 1; }
+
+.agenda-edit-row-texto {
+    flex: 1;
+    font-size: 13.5px;
+    color: #33415c;
+}
+
+.agenda-edit-row-lapiz {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: #aab3c2;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 12px;
+}
+.agenda-edit-row-lapiz:hover { background: #eef1f6; color: #5b6577; }
 
 .agenda-edit-actions {
     display: flex;

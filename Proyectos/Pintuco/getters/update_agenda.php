@@ -51,6 +51,21 @@ $fecha   = isset($_POST['fecha'])   ? $_POST['fecha']   : '';
 $hora    = isset($_POST['hora'])    ? $_POST['hora']    : '';
 $tecnico = isset($_POST['tecnico']) ? $_POST['tecnico'] : '';
 
+// Sin esta validación se podía guardar (y quedar marcado "confirmado") una
+// visita sin técnico y a cualquier hora — ya pasó en datos reales: hora
+// 00:00 con técnico vacío. El front ya restringe el input a este rango,
+// pero la validación real tiene que estar acá: nunca confiar solo en lo que
+// el navegador deja escribir.
+if ($hora === '' || $tecnico === '') {
+    echo json_encode(["success" => false, "message" => "Falta asignar hora y técnico antes de guardar."]);
+    exit;
+}
+$minutosHora = (int)substr($hora, 0, 2) * 60 + (int)substr($hora, 3, 2);
+if ($minutosHora < 6 * 60 || $minutosHora > 23 * 60) {
+    echo json_encode(["success" => false, "message" => "La hora debe estar entre 06:00 y 23:00, el rango visible de la agenda."]);
+    exit;
+}
+
 // Estado automático (contrato compartido con la app móvil — Constantes.java /
 // AdapterAgenda.java, que lee esta misma tabla por sync): si la visita no
 // tenía hora asignada todavía, esta gestión asigna técnico/hora por primera
@@ -65,6 +80,44 @@ if ($sql = $mysqli->prepare("SELECT hora FROM insert_proyectos_contacto WHERE id
     $sql->close();
 }
 $estado_agenda = ($horaPrevia === null || $horaPrevia === '') ? 'confirmado' : 'reagendada';
+
+// Un técnico no puede estar en dos visitas a la vez: se rechaza si la nueva
+// hora cae dentro de los DURACION_APROX_MIN minutos (mismo valor que usa el
+// calendario web para dibujar el bloque) de otra visita YA agendada del
+// mismo técnico, el mismo día, que no esté cancelada/eliminada.
+$DURACION_APROX_MIN = 45;
+if ($fecha !== '' && $hora !== '' && $tecnico !== '') {
+    $query = "SELECT hora, titulo, pdv, contacto, empresa, estado_agenda FROM insert_proyectos_contacto
+              WHERE fecha_agendamiento = ? AND tecnico = ? AND activar = 'SI'
+                AND estado_agenda != 'cancelada' AND id != ? AND hora IS NOT NULL AND hora != ''";
+    if ($sql = $mysqli->prepare($query)) {
+        $sql->bind_param("ssi", $fecha, $tecnico, $id);
+        $sql->execute();
+        $resultado = $sql->get_result();
+        $minutosNuevaHora = (int)substr($hora, 0, 2) * 60 + (int)substr($hora, 3, 2);
+        while ($fila = $resultado->fetch_assoc()) {
+            $horaExistente = $fila['hora'];
+            $minutosExistente = (int)substr($horaExistente, 0, 2) * 60 + (int)substr($horaExistente, 3, 2);
+            if (abs($minutosNuevaHora - $minutosExistente) < $DURACION_APROX_MIN) {
+                $sql->close();
+                echo json_encode([
+                    "success" => false,
+                    "message" => "El técnico ya tiene una visita a esa hora.",
+                    "conflicto" => [
+                        "hora" => substr($horaExistente, 0, 5),
+                        "titulo" => $fila['titulo'],
+                        "pdv" => $fila['pdv'],
+                        "contacto" => $fila['contacto'],
+                        "empresa" => $fila['empresa'],
+                        "estado_agenda" => $fila['estado_agenda'],
+                    ],
+                ]);
+                exit;
+            }
+        }
+        $sql->close();
+    }
+}
 
 // El título no se modifica aquí (viene de la base de datos) y el lugar se
 // sincroniza con la dirección ya registrada para el contacto. La fecha solo

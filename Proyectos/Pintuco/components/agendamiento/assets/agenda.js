@@ -210,7 +210,13 @@
                 } else {
                     hiddenIds[r.id] = true;
                 }
-                refrescarEventos(filtrarPorBusqueda(currentRows));
+                var visibles = filtrarPorBusqueda(currentRows);
+                refrescarEventos(visibles);
+                // Los puntitos del mini-calendario también deben dejar de
+                // marcar un día si la única visita de ese día se ocultó
+                // desde este checkbox — no solo cuando se recarga de la BD.
+                indexarEstadosPorFecha(visibles);
+                pintarPuntosMiniCalendario();
             });
 
             var texto = document.createElement('div');
@@ -316,7 +322,10 @@
         if (promotor) params.set('usuario', promotor);
         if (estado) params.set('estado_agenda', estado);
 
-        fetch(GETTERS_BASE + 'get_agenda.php?' + params.toString())
+        // Se retorna la promesa para poder encadenar acciones que necesitan
+        // esperar a que el calendario ya tenga los eventos repintados (p.ej.
+        // navegar y resaltar la visita recién guardada).
+        return fetch(GETTERS_BASE + 'get_agenda.php?' + params.toString())
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
                 currentRows = json.data || [];
@@ -346,6 +355,23 @@
         return partes[2] + '/' + partes[1] + '/' + partes[0];
     }
 
+    // Mismo formato que usa la cabecera de días del calendario grande
+    // (ej. "VIE 26/6"), para la píldora de fecha del diálogo de conflicto.
+    var DIAS_CORTOS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+    function formatDiaCorto(iso) {
+        if (!iso) return '';
+        var partes = iso.split('-');
+        var d = new Date(iso + 'T00:00:00');
+        return DIAS_CORTOS[d.getDay()] + ' ' + parseInt(partes[2], 10) + '/' + parseInt(partes[1], 10);
+    }
+
+    function sumarMinutosHora(hora, minutos) {
+        var partes = hora.split(':');
+        var total = (parseInt(partes[0], 10) * 60 + parseInt(partes[1], 10) + minutos) % (24 * 60);
+        var h = Math.floor(total / 60), m = total % 60;
+        return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    }
+
     // fecha_registro llega como datetime de MySQL ("YYYY-MM-DD HH:MM:SS"),
     // independiente de la fecha/hora de agendamiento que elige el analista.
     function formatFechaHoraRegistro(valor) {
@@ -355,6 +381,44 @@
         if (partes.length < 2) return fecha;
         var hora = partes[1].slice(0, 5);
         return fecha + ' ' + hora;
+    }
+
+    function formatHoraVisual(hora) {
+        if (!hora) return '—';
+        var partes = hora.split(':');
+        var h = parseInt(partes[0], 10);
+        var h12 = h % 12 || 12;
+        return h12 + ':' + (partes[1] || '00') + ' ' + (h >= 12 ? 'PM' : 'AM');
+    }
+
+    function idCampo(campo) {
+        return 'agendaEdit' + campo.charAt(0).toUpperCase() + campo.slice(1);
+    }
+
+    // Antes de la primera vez que se agenda (sin hora todavía), la fecha
+    // queda bloqueada: el analista solo confirma técnico/hora para la fecha
+    // que ya llegó del lado móvil, no la reagenda en ese mismo paso. Una vez
+    // que la visita ya está agendada, fecha/hora/técnico se muestran como
+    // texto con un lápiz para editar cada uno a propósito (eso es lo que
+    // cuenta como "reagendar").
+    function configurarCampo(campo, yaAgendada, bloqueadoSiempre) {
+        var texto = document.getElementById(idCampo(campo) + 'Texto');
+        var input = document.getElementById(idCampo(campo));
+        var lapiz = input.closest('.agenda-edit-row').querySelector('.agenda-edit-row-lapiz');
+
+        if (bloqueadoSiempre) {
+            texto.style.display = '';
+            input.style.display = 'none';
+            lapiz.style.display = 'none';
+        } else if (yaAgendada) {
+            texto.style.display = '';
+            input.style.display = 'none';
+            lapiz.style.display = '';
+        } else {
+            texto.style.display = 'none';
+            input.style.display = '';
+            lapiz.style.display = 'none';
+        }
     }
 
     function abrirEdicion(props) {
@@ -379,6 +443,17 @@
         document.getElementById('agendaEditFecha').value = props.fecha_agendamiento || '';
         document.getElementById('agendaEditHora').value = props.hora || '';
         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
+
+        document.getElementById('agendaEditFechaTexto').textContent = formatFecha(props.fecha_agendamiento);
+        document.getElementById('agendaEditHoraTexto').textContent = formatHoraVisual(props.hora);
+        document.getElementById('agendaEditTecnicoTexto').textContent = props.tecnico || '—';
+
+        // Mismo criterio que usa el backend (update_agenda.php) para decidir
+        // "confirmado" vs "reagendada": si ya tenía hora, ya está agendada.
+        var yaAgendada = !!props.hora;
+        configurarCampo('fecha', yaAgendada, !yaAgendada);
+        configurarCampo('hora', yaAgendada, false);
+        configurarCampo('tecnico', yaAgendada, false);
 
         // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
         // pasó sin reagendarse; aquí solo se le pide al analista que la
@@ -406,12 +481,68 @@
         document.getElementById('agendaEditOverlay').classList.remove('active');
     }
 
+    // Después de guardar, el analista puede estar viendo un mes/semana
+    // distinto al de la visita (por estar navegando el calendario "de
+    // curioso"). Se lo lleva directo a la fecha y hora exactas donde quedó
+    // insertada, y se resalta el bloque para que no tenga que buscarlo ni
+    // scrollear a ciegas para encontrar la hora.
+    function resaltarVisita(id, fecha, hora) {
+        if (!fecha) return;
+        var fechaObjetivo = new Date(fecha + 'T' + (hora || '00:00'));
+        // Si ya estaba viendo semana, se queda en semana (solo navega dentro
+        // de ella); cualquier otro caso (día o mes) usa día, porque mes no
+        // muestra horas y no tendría sentido "mantenerse" ahí.
+        var vistaDestino = calendar.view.type === 'timeGridWeek' ? 'timeGridWeek' : 'timeGridDay';
+        calendar.changeView(vistaDestino, fechaObjetivo);
+        if (hora) calendar.scrollToTime(hora + ':00');
+
+        // Defensivo: renderizar() ya repintó los puntitos con datos frescos
+        // antes de llegar aquí, pero si el changeView de arriba navega el
+        // mini-calendario a un mes que no estaba montado en ese momento, se
+        // vuelve a pintar ahora que sus celdas ya existen en el DOM.
+        pintarPuntosMiniCalendario();
+
+        setTimeout(function () {
+            var el = document.querySelector('[data-event-id="' + id + '"]');
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('agenda-evt-resaltado');
+            setTimeout(function () { el.classList.remove('agenda-evt-resaltado'); }, 2200);
+        }, 150);
+    }
+
+    function mostrarConflicto(conflicto, fecha) {
+        document.getElementById('agendaConflictoMiniFecha').textContent = formatDiaCorto(fecha);
+
+        // Misma clase de color que usa el evento real en el calendario
+        // grande (agenda-evt-confirmado/reagendada/vencida/...).
+        document.getElementById('agendaConflictoMiniEvento').className =
+            'agenda-conflicto-mini-evento agenda-evt-' + estadoVisual(conflicto);
+
+        document.getElementById('agendaConflictoMiniTitulo').textContent =
+            (conflicto.titulo && conflicto.titulo.trim() !== '') ? conflicto.titulo : (conflicto.pdv || 'Visita');
+
+        var fin = sumarMinutosHora(conflicto.hora, DURACION_APROX_MIN);
+        document.getElementById('agendaConflictoMiniHora').textContent =
+            formatHoraVisual(conflicto.hora) + ' - ' + formatHoraVisual(fin) + ' (aprox)';
+
+        document.getElementById('agendaConflictoOverlay').classList.add('active');
+    }
+
+    function cerrarConflicto() {
+        document.getElementById('agendaConflictoOverlay').classList.remove('active');
+    }
+
     function guardarEdicion() {
         if (!editingId) return;
+        var idGuardado = editingId;
+        var fechaGuardada = document.getElementById('agendaEditFecha').value;
+        var horaGuardada = document.getElementById('agendaEditHora').value;
+
         var body = new URLSearchParams();
-        body.set('id', editingId);
-        body.set('fecha', document.getElementById('agendaEditFecha').value);
-        body.set('hora', document.getElementById('agendaEditHora').value);
+        body.set('id', idGuardado);
+        body.set('fecha', fechaGuardada);
+        body.set('hora', horaGuardada);
         body.set('tecnico', document.getElementById('agendaEditTecnico').value);
         // El lugar se sincroniza con la dirección guardada y el estado
         // (confirmado/reagendada) lo decide el backend.
@@ -421,7 +552,11 @@
             .then(function (json) {
                 if (json.success) {
                     cerrarEdicion();
-                    cargarAgenda();
+                    cargarAgenda().then(function () {
+                        resaltarVisita(idGuardado, fechaGuardada, horaGuardada);
+                    });
+                } else if (json.conflicto) {
+                    mostrarConflicto(json.conflicto, fechaGuardada);
                 } else {
                     alert(json.message || 'No se pudo guardar.');
                 }
@@ -474,6 +609,7 @@
             height: '100%',
             nowIndicator: true,
             slotMinTime: '06:00:00',
+            slotMaxTime: '23:00:00',
             buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', day: 'Día' },
             slotLabelFormat: { hour: 'numeric', minute: '2-digit', omitZeroMinute: true, meridiem: 'short', hour12: true },
             slotLabelContent: function (arg) {
@@ -498,6 +634,11 @@
                 }
 
                 return { domNodes: [wrap] };
+            },
+            // data-event-id permite ubicar el bloque en el DOM después de un
+            // guardado, para navegar y resaltarlo (ver resaltarVisita()).
+            eventDidMount: function (info) {
+                info.el.dataset.eventId = info.event.id;
             },
             eventClick: function (info) {
                 abrirEdicion(info.event.extendedProps);
@@ -566,7 +707,12 @@
             pintarYearGrid();
         });
 
-        map = L.map('agendaMap').setView([-2.170998, -79.922359], 12);
+        // zoomControl en 'topright': el control propio de Leaflet por defecto
+        // se pone en la esquina superior izquierda, exactamente donde vive
+        // nuestro botón hamburguesa de mostrar/ocultar el mapa — se mueve a
+        // la derecha para que nunca choquen entre sí.
+        map = L.map('agendaMap', { zoomControl: false }).setView([-2.170998, -79.922359], 12);
+        L.control.zoom({ position: 'topright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap',
             maxZoom: 19
@@ -584,6 +730,18 @@
         document.getElementById('agendaEditGuardar').addEventListener('click', guardarEdicion);
         document.getElementById('agendaEditCancelarVisita').addEventListener('click', cancelarVisita);
         document.getElementById('agendaEditEliminar').addEventListener('click', eliminarVisita);
+        document.getElementById('agendaConflictoCerrar').addEventListener('click', cerrarConflicto);
+
+        document.querySelectorAll('.agenda-edit-row-lapiz').forEach(function (lapiz) {
+            lapiz.addEventListener('click', function () {
+                var campo = lapiz.dataset.campo;
+                document.getElementById(idCampo(campo) + 'Texto').style.display = 'none';
+                lapiz.style.display = 'none';
+                var input = document.getElementById(idCampo(campo));
+                input.style.display = '';
+                input.focus();
+            });
+        });
 
         document.getElementById('agendaCrearBtn').addEventListener('click', function () {
             alert('Crear nueva visita: flujo de creación pendiente de definir.');

@@ -63,17 +63,23 @@
 
         <div class="agenda-edit-divider"></div>
 
-        <div class="agenda-edit-row">
+        <div class="agenda-edit-row" data-campo="fecha">
             <i class="glyphicon glyphicon-calendar"></i>
+            <span class="agenda-edit-row-texto" id="agendaEditFechaTexto"></span>
             <input type="date" class="form-control" id="agendaEditFecha">
+            <button type="button" class="agenda-edit-row-lapiz" data-campo="fecha" title="Editar fecha"><i class="glyphicon glyphicon-pencil"></i></button>
         </div>
-        <div class="agenda-edit-row">
+        <div class="agenda-edit-row" data-campo="hora">
             <i class="glyphicon glyphicon-time"></i>
-            <input type="time" class="form-control" id="agendaEditHora">
+            <span class="agenda-edit-row-texto" id="agendaEditHoraTexto"></span>
+            <input type="time" class="form-control" id="agendaEditHora" min="06:00" max="23:00">
+            <button type="button" class="agenda-edit-row-lapiz" data-campo="hora" title="Editar hora"><i class="glyphicon glyphicon-pencil"></i></button>
         </div>
-        <div class="agenda-edit-row">
+        <div class="agenda-edit-row" data-campo="tecnico">
             <i class="glyphicon glyphicon-user"></i>
+            <span class="agenda-edit-row-texto" id="agendaEditTecnicoTexto"></span>
             <input type="text" class="form-control" id="agendaEditTecnico" placeholder="Técnico asignado">
+            <button type="button" class="agenda-edit-row-lapiz" data-campo="tecnico" title="Editar técnico"><i class="glyphicon glyphicon-pencil"></i></button>
         </div>
 
         <div class="agenda-edit-actions">
@@ -86,5 +92,25 @@
                 <button type="button" class="btn btn-actualizar" id="agendaEditGuardar">Guardar</button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="agenda-conflicto-overlay" id="agendaConflictoOverlay">
+    <div class="agenda-conflicto-card">
+        <h4>¡Oh no! Tienes una visita a esa hora</h4>
+
+        <div class="agenda-conflicto-mini">
+            <span class="agenda-conflicto-mini-fecha" id="agendaConflictoMiniFecha"></span>
+            <div class="agenda-conflicto-mini-evento" id="agendaConflictoMiniEvento">
+                <div class="gcal-event-content">
+                    <div class="gcal-event-title" id="agendaConflictoMiniTitulo"></div>
+                    <div class="gcal-event-time" id="agendaConflictoMiniHora"></div>
+                </div>
+            </div>
+        </div>
+
+        <p>Selecciona otra hora disponible.</p>
+
+        <button type="button" class="btn" id="agendaConflictoCerrar">Cerrar</button>
     </div>
 </div>
