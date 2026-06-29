@@ -692,6 +692,249 @@
     margin: 14px 0;
 }
 
+/* ---------------------------------------------------
+   Modal "Nueva visita" — card ancha de 2 columnas (pedida
+   así por el usuario: 26 campos no entraban bien en una
+   sola columna angosta como el modal de edición).
+----------------------------------------------------- */
+.agenda-crear-card {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    padding: 26px 30px;
+    width: 980px;
+    max-width: 96vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 36px rgba(20,30,50,.28);
+}
+.agenda-crear-card::-webkit-scrollbar { width: 8px; }
+.agenda-crear-card::-webkit-scrollbar-track { background: transparent; }
+.agenda-crear-card::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
+
+/* HEADER */
+.agenda-crear-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #edf0f4;
+}
+
+.agenda-crear-fecha-registro {
+    font-size: 11.5px;
+    color: #8a93a3;
+    white-space: nowrap;
+    margin-top: 4px;
+}
+
+/* BODY: 2 columnas — formulario flexible a la izquierda, mapa de ancho
+   fijo a la derecha. `align-items: stretch` (default de flex) es lo que
+   hace que el mapa termine exactamente igual de alto que la columna de
+   campos, sin fijar un alto a mano que se pueda desincronizar. */
+.agenda-crear-body {
+    display: flex;
+    gap: 28px;
+}
+
+.agenda-crear-form-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.agenda-crear-bloque.agenda-crear-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+}
+
+.agenda-crear-divisor {
+    border: none;
+    border-top: 1px solid #edf0f4;
+    margin: 18px 0;
+}
+
+/* Panel del mapa: ancho fijo, no se encoge, fondo gris muy suave para
+   distinguirlo del formulario. Columna flex propia para que el mapa
+   (flex:1) absorba todo el alto disponible — igualándolo al de la
+   columna de campos sin necesidad de medirlo en JS. */
+.agenda-crear-mapa-col {
+    width: 380px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #f7f8fa;
+    border-radius: 10px;
+    padding: 14px;
+}
+.agenda-crear-mapa-col label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #5b6577;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.agenda-crear-btn-secundario {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--brand-light);
+    color: var(--brand-light);
+    border-radius: 5px;
+    padding: 9px 16px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.agenda-crear-btn-secundario:hover { background: rgba(51,122,183,.08); }
+
+.agenda-crear-btn-cancelar {
+    background: transparent;
+    border: 1px solid #d93025;
+    color: #d93025;
+    border-radius: 5px;
+    padding: 9px 18px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.agenda-crear-btn-cancelar:hover { background: rgba(217,48,37,.08); }
+
+.agenda-crear-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+/* Dirección (y otros campos que necesitan su propio espacio, como Correo
+   o Técnico) ocupan la fila completa en vez de competir por media fila —
+   así no quedan huecos vacíos cuando un bloque tiene un número impar de
+   campos pareados. */
+.agenda-crear-campo-full { grid-column: 1 / -1; }
+
+.agenda-crear-campo label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #5b6577;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.agenda-crear-campo .form-control.is-invalid {
+    border-color: #d93025;
+    background: rgba(217,48,37,.04);
+}
+
+.agenda-crear-error {
+    font-size: 11px;
+    color: #d93025;
+    min-height: 0;
+    display: none;
+}
+.agenda-crear-error.is-visible { display: block; }
+
+.agenda-crear-mail-sugerencias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.agenda-crear-mail-sugerencias:empty { display: none; }
+.agenda-crear-mail-chip {
+    font-size: 11px;
+    color: var(--brand-light);
+    background: #eef3fb;
+    border-radius: 10px;
+    padding: 2px 9px;
+    cursor: pointer;
+}
+.agenda-crear-mail-chip:hover { background: #dfe9f8; }
+
+/* flex:1 (no una altura fija en px) es justo lo que hace que el mapa
+   termine del mismo alto que la columna de campos a su izquierda. */
+.agenda-crear-mapa-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 280px;
+}
+
+.agenda-crear-mapa-pin {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* El pin fijo del centro: no es un marcador de Leaflet, es un ícono
+   puesto encima del mapa con CSS — por eso nunca se "pierde" al alejar
+   el zoom, es el mapa el que se mueve debajo de él. La punta del ícono
+   (no su centro) es el punto exacto que se confirma. */
+.agenda-crear-mapa-pin-fijo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    font-size: 30px;
+    color: #d93025;
+    text-shadow: 0 1px 3px rgba(0,0,0,.35);
+    pointer-events: none;
+    z-index: 500;
+}
+
+.agenda-crear-mapa-hint {
+    font-size: 11px;
+    color: #8a93a3;
+    margin: 0;
+}
+
+/* Toast de error: aparece y se borra solo a los 2.5s — no bloquea
+   la vista como un alert() nativo. */
+.agenda-crear-toast {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #33415c;
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(20,30,50,.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    max-width: 90%;
+    text-align: center;
+}
+.agenda-crear-toast.is-error { background: #d93025; }
+.agenda-crear-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* FOOTER: Guardar es el único botón sólido/llamativo de toda la vista —
+   Cancelar usa el .btn gris por defecto, Confirmar pin es el secundario
+   de arriba. Alineados a la derecha, como en cualquier modal de Bootstrap. */
+.agenda-crear-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #edf0f4;
+}
+
+@media (max-width: 900px) {
+    .agenda-crear-body { flex-direction: column; }
+    .agenda-crear-mapa-col { width: 100%; }
+    .agenda-crear-mapa-wrap { min-height: 320px; }
+}
+
+@media (max-width: 560px) {
+    .agenda-crear-bloque.agenda-crear-grid { grid-template-columns: 1fr; }
+}
+
 /* Grilla 3x2: Promotor/Local/Empresa arriba, Correo/Dirección/Teléfono abajo
    (mismo orden que ya trae el HTML, solo cambia cómo se acomoda). */
 .agenda-edit-info {

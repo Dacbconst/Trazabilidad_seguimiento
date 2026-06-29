@@ -334,8 +334,21 @@
                     promotorOpcionesListas = true;
                 }
                 renderizar();
+                // agenda-crear.js lee esto para llenar su select de Promotor
+                // sin tener que pedirle los mismos datos de nuevo al getter.
+                window.AgendaCurrentRows = currentRows;
             });
     }
+
+    // Para que agenda-crear.js pueda recargar el calendario después de
+    // guardar una visita nueva, sin que ese archivo conozca nada de cómo
+    // funciona internamente cargarAgenda(). AgendaResaltar es la misma
+    // navegación+resalto que ya usa guardarEdicion() — sin esto, una visita
+    // creada para una fecha fuera de la semana/día que se está viendo en
+    // ese momento queda guardada en la BD pero invisible hasta navegar
+    // manualmente hasta ahí (esto era el bug: "se guardó pero no apareció").
+    window.AgendaRecargar = cargarAgenda;
+    window.AgendaResaltar = function (id, fecha, hora) { resaltarVisita(id, fecha, hora); };
 
     // El locale 'es' formatea AM/PM como "a. m."/"p. m."; lo normalizamos a
     // "AM"/"PM" para que se vea igual que en Google Calendar.
@@ -871,9 +884,9 @@
             cerrarHoraDropdown();
         });
 
-        document.getElementById('agendaCrearBtn').addEventListener('click', function () {
-            alert('Crear nueva visita: flujo de creación pendiente de definir.');
-        });
+        // El botón "Crear" abre su propio modal — lógica completa en
+        // agenda-crear.js (insert_contacto.php, selects de Promotor/PDV,
+        // búsqueda de dirección con Mapbox).
 
         document.getElementById('agendaMapToggle').addEventListener('click', function () {
             document.getElementById('agendaMapPanel').classList.toggle('collapsed');
