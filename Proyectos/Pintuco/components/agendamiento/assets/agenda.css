@@ -277,6 +277,9 @@
     min-height: 0;
     overflow-y: auto;
 }
+.gcal-pendientes-list::-webkit-scrollbar { width: 8px; }
+.gcal-pendientes-list::-webkit-scrollbar-track { background: transparent; }
+.gcal-pendientes-list::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
 
 .gcal-pendiente-item {
     display: flex;
@@ -540,13 +543,16 @@
     position: relative;
     background: #fff;
     border-radius: 12px;
-    padding: 26px 28px;
+    padding: 22px 26px;
     width: 460px;
     max-width: 92vw;
     max-height: 86vh;
     overflow-y: auto;
     box-shadow: 0 12px 36px rgba(20,30,50,.28);
 }
+.agenda-edit-card::-webkit-scrollbar { width: 8px; }
+.agenda-edit-card::-webkit-scrollbar-track { background: transparent; }
+.agenda-edit-card::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
 
 /* Diálogo de choque de horario: mismo patrón de overlay que el de gestionar
    visita, con una mini-card mostrando con qué visita choca. */
@@ -683,7 +689,7 @@
 .agenda-edit-divider {
     height: 1px;
     background: #edf0f4;
-    margin: 18px 0;
+    margin: 14px 0;
 }
 
 /* Grilla 3x2: Promotor/Local/Empresa arriba, Correo/Dirección/Teléfono abajo
@@ -691,7 +697,7 @@
 .agenda-edit-info {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px 12px;
+    gap: 14px 12px;
 }
 
 .agenda-edit-info-row {
@@ -721,6 +727,18 @@
     overflow-wrap: break-word;
 }
 
+/* "Fecha sugerida" (llegó del móvil, nunca se confirmó) vs "Fecha agendada"
+   (ya se confirmó al menos una vez) — mismo dato, distinta certeza. */
+.agenda-edit-fecha-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #aab3c2;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    margin-bottom: 4px;
+    padding-left: 28px;
+}
+
 .agenda-edit-row {
     display: flex;
     align-items: center;
@@ -730,6 +748,51 @@
 .agenda-edit-row:last-of-type { margin-bottom: 0; }
 .agenda-edit-row .glyphicon { color: #8a93a3; font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
 .agenda-edit-row .form-control { flex: 1; }
+
+/* Panel propio de hora con alto fijo y scroll interno — un <select> nativo
+   con 69 opciones (cada 15 min, 6 AM-11 PM) abre una lista sin límite de
+   alto; esto es lo que Google Calendar/Outlook usan en su lugar. */
+.agenda-edit-hora-dropdown {
+    position: relative;
+    flex: 1;
+}
+.agenda-edit-hora-trigger {
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    cursor: pointer;
+}
+.agenda-edit-hora-lista {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e2e5eb;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(20,30,50,.18);
+    z-index: 20;
+}
+.agenda-edit-hora-dropdown.abierto .agenda-edit-hora-lista { display: block; }
+.agenda-edit-hora-lista::-webkit-scrollbar { width: 8px; }
+.agenda-edit-hora-lista::-webkit-scrollbar-track { background: transparent; }
+.agenda-edit-hora-lista::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
+
+.agenda-edit-hora-item {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #33415c;
+}
+.agenda-edit-hora-item:hover { background: #f0f4ff; }
+.agenda-edit-hora-item.is-actual { background: rgba(51,122,183,.12); font-weight: 700; }
 
 .agenda-edit-row-texto {
     flex: 1;
@@ -754,7 +817,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-top: 22px;
+    margin-top: 16px;
 }
 
 .agenda-edit-actions-left { display: flex; align-items: center; gap: 16px; }

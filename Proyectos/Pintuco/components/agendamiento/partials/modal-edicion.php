@@ -63,6 +63,7 @@
 
         <div class="agenda-edit-divider"></div>
 
+        <div class="agenda-edit-fecha-label" id="agendaEditFechaLabel">Fecha agendada</div>
         <div class="agenda-edit-row" data-campo="fecha">
             <i class="glyphicon glyphicon-calendar"></i>
             <span class="agenda-edit-row-texto" id="agendaEditFechaTexto"></span>
@@ -72,7 +73,10 @@
         <div class="agenda-edit-row" data-campo="hora">
             <i class="glyphicon glyphicon-time"></i>
             <span class="agenda-edit-row-texto" id="agendaEditHoraTexto"></span>
-            <input type="time" class="form-control" id="agendaEditHora" min="06:00" max="23:00">
+            <div class="agenda-edit-hora-dropdown" id="agendaEditHora">
+                <button type="button" class="form-control agenda-edit-hora-trigger" id="agendaEditHoraTrigger">Selecciona una hora</button>
+                <div class="agenda-edit-hora-lista" id="agendaEditHoraLista"></div>
+            </div>
             <button type="button" class="agenda-edit-row-lapiz" data-campo="hora" title="Editar hora"><i class="glyphicon glyphicon-pencil"></i></button>
         </div>
         <div class="agenda-edit-row" data-campo="tecnico">

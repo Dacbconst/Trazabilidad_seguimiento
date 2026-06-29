@@ -391,6 +391,73 @@
         return h12 + ':' + (partes[1] || '00') + ' ' + (h >= 12 ? 'PM' : 'AM');
     }
 
+    // Mismo límite que se ve en la agenda (6 AM-11 PM); se valida igual al
+    // guardar aunque el panel ya solo ofrezca horas de ese rango.
+    function horaEnRango(hora) {
+        if (!hora) return false;
+        var partes = hora.split(':');
+        var minutos = parseInt(partes[0], 10) * 60 + parseInt(partes[1], 10);
+        return minutos >= 6 * 60 && minutos <= 23 * 60;
+    }
+
+    // Panel propio con alto fijo y scroll interno (no un <select> nativo):
+    // un <select> con 69 opciones (cada 15 min, 6 AM-11 PM) hace que el
+    // navegador despliegue una lista gigante sin límite de alto — eso es
+    // justo lo que Google Calendar/Outlook evitan usando un panel propio en
+    // vez del control nativo. El valor real vive en data-value del wrapper.
+    var HORA_OPCION_PASO = 15;
+
+    function getHora() {
+        return document.getElementById('agendaEditHora').dataset.value || '';
+    }
+
+    function setHora(hora) {
+        document.getElementById('agendaEditHora').dataset.value = hora || '';
+        document.getElementById('agendaEditHoraTrigger').textContent =
+            hora ? formatHoraVisual(hora) : 'Selecciona una hora';
+    }
+
+    function construirOpcionesHora() {
+        var lista = document.getElementById('agendaEditHoraLista');
+        lista.innerHTML = '';
+        for (var min = 6 * 60; min <= 23 * 60; min += HORA_OPCION_PASO) {
+            var hh = Math.floor(min / 60), mm = min % 60;
+            var valor = (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'agenda-edit-hora-item';
+            item.dataset.valor = valor;
+            item.textContent = formatHoraVisual(valor);
+            item.addEventListener('click', function () {
+                setHora(this.dataset.valor);
+                cerrarHoraDropdown();
+            });
+            lista.appendChild(item);
+        }
+    }
+
+    function abrirHoraDropdown() {
+        document.getElementById('agendaEditHora').classList.add('abierto');
+        var actualValor = getHora();
+        var lista = document.getElementById('agendaEditHoraLista');
+        lista.querySelectorAll('.agenda-edit-hora-item').forEach(function (item) {
+            item.classList.toggle('is-actual', item.dataset.valor === actualValor);
+        });
+        var actual = lista.querySelector('.is-actual');
+        if (actual) {
+            actual.scrollIntoView({ block: 'center' });
+        } else {
+            // El panel no se recrea entre aperturas — sin esto, si quedó
+            // scrolleado de una vez anterior, abre donde quedó en vez de
+            // arrancar arriba cuando todavía no hay hora elegida.
+            lista.scrollTop = 0;
+        }
+    }
+
+    function cerrarHoraDropdown() {
+        document.getElementById('agendaEditHora').classList.remove('abierto');
+    }
+
     function idCampo(campo) {
         return 'agendaEdit' + campo.charAt(0).toUpperCase() + campo.slice(1);
     }
@@ -433,15 +500,42 @@
         var registro = formatFechaHoraRegistro(props.fecha_registro);
         document.getElementById('agendaEditRegistro').textContent = registro ? ('Registrado: ' + registro) : '';
 
+        // Mientras nunca se confirmó (estado "pendiente"), la fecha que
+        // llegó del lado móvil es solo una sugerencia inicial — la fecha
+        // real recién se fija cuando el analista la confirma por primera
+        // vez aquí en la web (cualquier cambio después de eso ya cuenta
+        // como "reagendada", no como ajustar una sugerencia).
+        document.getElementById('agendaEditFechaLabel').textContent =
+            estado === 'pendiente' ? 'Fecha sugerida' : 'Fecha agendada';
+
         document.getElementById('agendaEditPromotor').textContent = props.usuario || '—';
         document.getElementById('agendaEditLocal').textContent = props.pdv || '—';
         document.getElementById('agendaEditEmpresa').textContent = props.empresa || '—';
-        document.getElementById('agendaEditMail').textContent = props.mail || '—';
+        // Un correo es una sola "palabra" sin espacios: sin esto, el navegador
+        // lo corta donde quiera (a mitad de "hotmail.com") en una columna
+        // angosta — se le da un punto de corte sensato justo tras el "@".
+        var mailEl = document.getElementById('agendaEditMail');
+        mailEl.textContent = '';
+        if (props.mail) {
+            var arrobaPos = props.mail.indexOf('@');
+            if (arrobaPos === -1) {
+                mailEl.textContent = props.mail;
+            } else {
+                mailEl.appendChild(document.createTextNode(props.mail.slice(0, arrobaPos + 1)));
+                mailEl.appendChild(document.createElement('wbr'));
+                mailEl.appendChild(document.createTextNode(props.mail.slice(arrobaPos + 1)));
+            }
+        } else {
+            mailEl.textContent = '—';
+        }
         document.getElementById('agendaEditDireccion').textContent = props.direccion || '—';
         document.getElementById('agendaEditTelefono').textContent = props.telefono || '—';
 
         document.getElementById('agendaEditFecha').value = props.fecha_agendamiento || '';
-        document.getElementById('agendaEditHora').value = props.hora || '';
+        // La BD guarda "HH:MM:SS"; el panel usa "HH:MM". Si la hora real no
+        // cae en un slot de 15 min (datos legado, como el caso "00:00" que
+        // encontramos), el botón la muestra igual tal cual es.
+        setHora(props.hora ? props.hora.slice(0, 5) : '');
         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
 
         document.getElementById('agendaEditFechaTexto').textContent = formatFecha(props.fecha_agendamiento);
@@ -537,7 +631,18 @@
         if (!editingId) return;
         var idGuardado = editingId;
         var fechaGuardada = document.getElementById('agendaEditFecha').value;
-        var horaGuardada = document.getElementById('agendaEditHora').value;
+        var horaGuardada = getHora();
+
+        // El panel ya solo ofrece horas de 6 AM-11 PM, pero se valida igual
+        // por si quedó una hora legado fuera de ese rango sin tocar.
+        if (!horaEnRango(horaGuardada)) {
+            var alertaHora = document.getElementById('agendaEditAlerta');
+            document.getElementById('agendaEditAlertaTexto').textContent =
+                'Selecciona una hora entre 6:00 AM y 11:00 PM, el rango que se ve en la agenda.';
+            alertaHora.style.display = 'flex';
+            document.getElementById('agendaEditHoraTrigger').focus();
+            return;
+        }
 
         var body = new URLSearchParams();
         body.set('id', idGuardado);
@@ -718,6 +823,7 @@
             maxZoom: 19
         }).addTo(map);
 
+        construirOpcionesHora();
         cargarAgenda();
 
         document.getElementById('agendaBtnActualizar').addEventListener('click', cargarAgenda);
@@ -737,10 +843,27 @@
                 var campo = lapiz.dataset.campo;
                 document.getElementById(idCampo(campo) + 'Texto').style.display = 'none';
                 lapiz.style.display = 'none';
-                var input = document.getElementById(idCampo(campo));
-                input.style.display = '';
-                input.focus();
+                var contenedor = document.getElementById(idCampo(campo));
+                contenedor.style.display = '';
+                // "hora" es un div disparador, no un input directo.
+                var trigger = contenedor.querySelector('.agenda-edit-hora-trigger');
+                (trigger || contenedor).focus();
             });
+        });
+
+        document.getElementById('agendaEditHoraTrigger').addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            if (document.getElementById('agendaEditHora').classList.contains('abierto')) {
+                cerrarHoraDropdown();
+            } else {
+                abrirHoraDropdown();
+            }
+        });
+        document.addEventListener('click', function (ev) {
+            var wrapper = document.getElementById('agendaEditHora');
+            if (!wrapper.classList.contains('abierto')) return;
+            if (wrapper.contains(ev.target)) return;
+            cerrarHoraDropdown();
         });
 
         document.getElementById('agendaCrearBtn').addEventListener('click', function () {
