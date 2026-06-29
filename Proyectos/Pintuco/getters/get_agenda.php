@@ -71,7 +71,7 @@ if ($pdv !== '') {
 }
 
 $query = "SELECT id, codigo_pdv, pdv, usuario, fecha, fecha_registro, contacto, empresa, mail, direccion,
-                 latitud, longitud, telefono, fecha_agendamiento, titulo, hora, lugar,
+                 latitud, longitud, telefono, telefono_convencional, fecha_agendamiento, titulo, hora, lugar,
                  tecnico, estado_agenda, activar
           FROM insert_proyectos_contacto
           WHERE " . implode(" AND ", $condiciones) . "

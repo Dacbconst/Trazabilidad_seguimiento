@@ -529,7 +529,12 @@
             mailEl.textContent = '—';
         }
         document.getElementById('agendaEditDireccion').textContent = props.direccion || '—';
-        document.getElementById('agendaEditTelefono').textContent = props.telefono || '—';
+        // El convencional es opcional: si llega, se pega después de un
+        // guion en la misma línea (ej. "0956235897 - 042234567"); si no, se
+        // muestra solo el celular como antes.
+        document.getElementById('agendaEditTelefono').textContent = props.telefono_convencional
+            ? (props.telefono || '—') + ' - ' + props.telefono_convencional
+            : (props.telefono || '—');
 
         document.getElementById('agendaEditFecha').value = props.fecha_agendamiento || '';
         // La BD guarda "HH:MM:SS"; el panel usa "HH:MM". Si la hora real no

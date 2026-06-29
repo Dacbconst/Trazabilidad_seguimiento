@@ -195,6 +195,10 @@
 				// en Agendamientos: esa sección ya tiene sus propios filtros.
 				$('.topbar').toggleClass('is-hidden', $(this).attr('href') === '#sec-agendamientos');
 
+				// "Descargar Excel" solo tiene sentido en Contactados — en el
+				// resto de secciones el filtro global no exporta nada todavía.
+				$('#btnDescargarExcel').toggle($(this).attr('href') === '#sec-contactados');
+
 				// La sección pasa de display:none a visible recién aquí. Si contiene
 				// un calendario (FullCalendar, etc.) que se inicializó mientras estaba
 				// oculto, midió 0px de ancho. Disparar 'resize' fuerza que recalculen
@@ -216,8 +220,19 @@
 			}
 
 			$('#btnActualizar').on('click', function () {
-				// TODO: disparar recarga de datos vía AJAX (getters/) cuando se conecte la BD real.
-				location.reload();
+				// Contactados ya sabe refrescarse solo (fetch a su getter, sin
+				// perder el filtro/búsqueda escritos); el resto de secciones
+				// todavía no tienen esa lógica, así que siguen recargando la
+				// página entera como antes.
+				if ($('.section-pane.active').attr('id') === 'sec-contactados' && window.ContactadosRefrescar) {
+					window.ContactadosRefrescar();
+				} else {
+					location.reload();
+				}
+			});
+
+			$('#btnDescargarExcel').on('click', function () {
+				if (window.ContactadosDescargarExcel) window.ContactadosDescargarExcel();
 			});
 		});
 	</script>

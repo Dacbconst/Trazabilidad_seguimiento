@@ -236,6 +236,21 @@ a, a:hover, a:focus { text-decoration: none; }
 
 .btn-actualizar:hover { background: var(--brand-light-dark); border-color: var(--brand-light-dark); color: #fff; }
 
+.btn-excel {
+    margin-left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #1d6f42;
+    border-color: #1d6f42;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: .3px;
+    padding: 9px 18px;
+    border-radius: 5px;
+}
+.btn-excel:hover { background: #175a36; border-color: #175a36; color: #fff; }
+
 /* ---------------------------------------------------
    SECCIONES DEL SIDEBAR (un nivel arriba del stepper)
 ----------------------------------------------------- */

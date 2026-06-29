@@ -27,4 +27,7 @@
     </div>
 
     <button type="button" id="btnActualizar" class="btn btn-actualizar">ACTUALIZAR</button>
+    <button type="button" id="btnDescargarExcel" class="btn btn-excel" style="display:none">
+        <i class="glyphicon glyphicon-save"></i> Descargar Excel
+    </button>
 </div>
