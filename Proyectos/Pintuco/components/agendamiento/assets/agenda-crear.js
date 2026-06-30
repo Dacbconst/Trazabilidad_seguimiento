@@ -295,7 +295,6 @@
     // ---------------------------------------------------------------
     var RE_CONTACTO = /^[A-Za-zÁÉÍÓÚÑáéíóúñ' -]+$/;
     var RE_EMPRESA = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\-&' ]+$/;
-    var RE_DIRECCION = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.,#\-\/()'& ]+$/;
     var RE_SOLO_DIGITOS = /^\d+$/;
 
     function contarLetrasReales(texto) {
@@ -378,8 +377,6 @@
 
         if (!direccion) {
             ok = marcarError('agendaCrearDireccion', 'agendaCrearErrDireccion', 'La dirección es obligatoria.') && ok;
-        } else if (direccion.length < 5 || !RE_DIRECCION.test(direccion)) {
-            ok = marcarError('agendaCrearDireccion', 'agendaCrearErrDireccion', 'Mínimo 5 caracteres; solo letras, números y puntuación de direcciones.') && ok;
         } else if (esPlusCode(direccion)) {
             ok = marcarError('agendaCrearDireccion', 'agendaCrearErrDireccion', 'Esa es un código Plus Code — escribe una dirección más específica.') && ok;
         } else if (!coordenadas) {

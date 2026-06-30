@@ -1,0 +1,358 @@
+/* =====================================================
+   PROFORMA — Auditoría (Paso 3 del flujo comercial).
+   Paleta sobria/corporativa, sin colores pasteles llamativos
+   ni emojis — pantalla de auditoría financiera, no calendario.
+   ===================================================== */
+
+#proformaApp { color: #1f2d3d; }
+
+/* ---------------------------------------------------
+   Header + KPIs
+----------------------------------------------------- */
+.proforma-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+.proforma-header h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2d3d;
+}
+.proforma-header p {
+    margin: 0;
+    font-size: 13px;
+    color: #8a93a3;
+}
+.proforma-actualizado {
+    font-size: 12px;
+    color: #8a93a3;
+    white-space: nowrap;
+    margin-top: 4px;
+}
+.proforma-actualizado span { font-weight: 700; color: #5b6577; }
+
+.proforma-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.proforma-kpi {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.proforma-kpi-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.proforma-kpi-valor {
+    font-size: 26px;
+    font-weight: 700;
+    color: #1f2d3d;
+}
+.proforma-kpi-valor.is-ambar { color: #a66a00; }
+.proforma-kpi-valor.is-verde { color: #1e7a45; }
+
+/* ---------------------------------------------------
+   Toolbar
+----------------------------------------------------- */
+.proforma-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.proforma-buscar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f7f8fa;
+    border-radius: 6px;
+    padding: 7px 12px;
+    flex: 1;
+    min-width: 200px;
+}
+.proforma-buscar i { color: #8a93a3; font-size: 12px; }
+.proforma-buscar input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 13px;
+    width: 100%;
+}
+
+.proforma-toolbar select { min-width: 170px; }
+
+.proforma-toolbar-derecha { margin-left: auto; }
+
+.proforma-btn-exportar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: #1f2d3d;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 16px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.proforma-btn-exportar:hover { background: #33415c; }
+
+/* ---------------------------------------------------
+   Tabla maestra
+----------------------------------------------------- */
+.proforma-scroll {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.proforma-table { width: 100%; border-collapse: collapse; }
+
+.proforma-table th {
+    background: #f7f8fa;
+    color: #5b6577;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e3e8ee;
+}
+
+.proforma-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #edf0f4;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.proforma-fila { cursor: pointer; }
+.proforma-fila:hover td { background: #f7f9fc; }
+.proforma-fila.is-abierta td { background: #eef3fb; border-bottom-color: #d6e3f5; }
+.proforma-fila.is-abierta .proforma-chevron i { transform: rotate(90deg); }
+
+.proforma-chevron { width: 28px; color: #8a93a3; }
+.proforma-chevron i { display: inline-block; transition: transform .15s; }
+
+.proforma-cliente-nombre { font-weight: 700; color: #1f2d3d; }
+.proforma-cliente-pdv { font-size: 11.5px; color: #8a93a3; margin-top: 2px; }
+
+.proforma-kpi-retraso { color: #b3261e; font-weight: 700; font-size: 12.5px; }
+.proforma-kpi-ok { color: #1e7a45; font-weight: 600; font-size: 12.5px; }
+
+.proforma-vacio {
+    text-align: center;
+    color: #aab3c2;
+    padding: 30px 16px;
+}
+
+.proforma-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    text-transform: uppercase;
+    padding: 4px 11px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+.proforma-badge.is-en_proceso { background: #fbf2e3; color: #8a5a00; border-color: #f0ddb3; }
+.proforma-badge.is-en_negociacion { background: #e8f0fa; color: #1d4e89; border-color: #c7d9f0; }
+.proforma-badge.is-aprobado { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
+.proforma-badge.is-rechazado { background: #fbeaea; color: #a32a23; border-color: #f0c9c7; }
+
+/* ---------------------------------------------------
+   Fila de detalle (acordeón)
+----------------------------------------------------- */
+.proforma-fila-detalle td {
+    background: #fafbfd;
+    padding: 18px 22px 24px;
+}
+
+.proforma-alerta-sistema {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fbeaea;
+    color: #a32a23;
+    border: 1px solid #f0c9c7;
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.proforma-detalle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+@media (max-width: 1100px) {
+    .proforma-detalle-grid { grid-template-columns: 1fr; }
+}
+
+.proforma-seccion-titulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 12px;
+}
+.proforma-seccion-titulo-mt { margin-top: 18px; }
+
+/* Timeline */
+.proforma-timeline { padding-right: 8px; }
+.proforma-timeline-item {
+    display: flex;
+    gap: 12px;
+    position: relative;
+    padding-bottom: 20px;
+}
+.proforma-timeline-item:last-child { padding-bottom: 0; }
+.proforma-timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 14px;
+    bottom: -6px;
+    width: 1px;
+    background: #dde3ea;
+}
+.proforma-timeline-punto {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--brand-light, #337ab7);
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+.proforma-timeline-titulo { font-size: 13px; font-weight: 700; color: #1f2d3d; }
+.proforma-timeline-fecha { font-size: 12px; color: #5b6577; margin-top: 2px; }
+.proforma-timeline-sla { font-size: 11px; color: #8a93a3; margin-top: 3px; }
+.proforma-timeline-sla.is-excedido { color: #b3261e; font-weight: 700; }
+
+/* Evidencia */
+.proforma-evidencia-foto {
+    width: 100%;
+    max-height: 260px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e3e8ee;
+    cursor: zoom-in;
+    display: block;
+}
+.proforma-evidencia-vacia {
+    background: #f0f3f7;
+    border: 1px dashed #d8dee6;
+    border-radius: 6px;
+    padding: 30px 14px;
+    text-align: center;
+    color: #aab3c2;
+    font-size: 12.5px;
+}
+.proforma-evidencia-ubicacion {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #1d4e89;
+    margin-top: 10px;
+}
+.proforma-evidencia-ubicacion:hover { color: #143660; }
+
+.proforma-reporte {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 6px;
+    padding: 12px 14px;
+}
+.proforma-reporte p { margin: 0 0 8px; font-size: 12.5px; color: #33415c; line-height: 1.5; }
+.proforma-reporte-meta { color: #8a93a3 !important; font-size: 11.5px !important; margin: 0 !important; }
+
+/* Auditoría y resolución */
+.proforma-campo { margin-bottom: 14px; }
+.proforma-campo label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #5b6577;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    margin-bottom: 5px;
+}
+.proforma-campo textarea { resize: vertical; }
+
+.proforma-auditoria-acciones {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.proforma-btn-negociacion,
+.proforma-btn-aprobar,
+.proforma-btn-rechazar {
+    border-radius: 5px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+.proforma-btn-negociacion { background: #f9ab00; color: #fff; }
+.proforma-btn-negociacion:hover { background: #d99000; }
+.proforma-btn-aprobar { background: #1e8e3e; color: #fff; }
+.proforma-btn-aprobar:hover { background: #176b2f; }
+.proforma-btn-rechazar { background: transparent; border-color: #d93025; color: #d93025; }
+.proforma-btn-rechazar:hover { background: rgba(217,48,37,.08); }
+
+/* ---------------------------------------------------
+   Toast
+----------------------------------------------------- */
+.proforma-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #33415c;
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(20,30,50,.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 1040;
+    max-width: 90%;
+    text-align: center;
+}
+.proforma-toast.is-error { background: #d93025; }
+.proforma-toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }

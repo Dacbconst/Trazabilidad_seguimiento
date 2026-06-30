@@ -19,7 +19,7 @@ $secciones = [
     ['id' => 'principal',     'label' => 'Principal',       'icono' => 'home'],
     ['id' => 'contactados',   'label' => 'Contactados',     'icono' => 'earphone',  'componente' => 'components/contactados/contactados.php'],
     ['id' => 'agendamientos', 'label' => 'Agendamientos',   'icono' => 'calendar',  'componente' => 'components/agendamiento/agendamientos.php'],
-    ['id' => 'proforma',      'label' => 'Proforma',        'icono' => 'file',      'componente' => 'components/proforma.php'],
+    ['id' => 'proforma',      'label' => 'Proforma',        'icono' => 'file',      'componente' => 'components/proforma/proforma.php'],
     ['id' => 'estado-flujo',  'label' => 'Estado de Flujo', 'icono' => 'random',    'componente' => 'components/estado-flujo.php'],
 ];
 

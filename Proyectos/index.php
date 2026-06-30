@@ -192,8 +192,9 @@
 				$($(this).attr('href')).addClass('active');
 
 				// El filtro global (Promotor / Búsqueda rápida / Mes) es irrelevante
-				// en Agendamientos: esa sección ya tiene sus propios filtros.
-				$('.topbar').toggleClass('is-hidden', $(this).attr('href') === '#sec-agendamientos');
+				// en Agendamientos y Proforma: esas secciones ya tienen sus propios filtros.
+				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma'].indexOf($(this).attr('href')) !== -1;
+				$('.topbar').toggleClass('is-hidden', seccionConFiltroPropio);
 
 				// "Descargar Excel" solo tiene sentido en Contactados — en el
 				// resto de secciones el filtro global no exporta nada todavía.

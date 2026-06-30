@@ -38,11 +38,34 @@
         return td;
     }
 
+    // Ícono de coordenada al inicio del texto de la dirección — sin
+    // consumir ninguna API: el link de Google Maps con "?q=lat,lng" abre
+    // el mapa directo en esas coordenadas usando lo que ya está guardado
+    // en la BD, gratis. Si el contacto no tiene lat/lng todavía (no se le
+    // confirmó pin en Agendamientos), no se pinta el ícono, solo el texto.
+    function celdaDireccion(r) {
+        var td = document.createElement('td');
+        var lat = parseFloat(r.latitud);
+        var lng = parseFloat(r.longitud);
+        if (lat && lng) {
+            var link = document.createElement('a');
+            link.href = 'https://maps.google.com/maps?q=' + lat + ',' + lng;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.className = 'contactados-pin-link';
+            link.title = 'Ver en Google Maps';
+            link.innerHTML = '<i class="glyphicon glyphicon-map-marker"></i>';
+            td.appendChild(link);
+        }
+        td.appendChild(document.createTextNode(r.direccion || '—'));
+        return td;
+    }
+
     function pintarFila(r) {
         var tr = document.createElement('tr');
         // PDV oculto a pedido del usuario (2026-06-30), no se quiere ver por ahora
         // tr.appendChild(celda(r.pdv));
-        tr.appendChild(celda(r.direccion));
+        tr.appendChild(celdaDireccion(r));
         tr.appendChild(celda(r.usuario));
         tr.appendChild(celda(r.contacto));
         tr.appendChild(celda(r.empresa));

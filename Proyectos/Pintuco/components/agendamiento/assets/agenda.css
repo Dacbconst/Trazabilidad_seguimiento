@@ -533,7 +533,12 @@
     position: fixed;
     inset: 0;
     background: rgba(20,30,50,.45);
-    z-index: 1000;
+    /* El navbar superior (Bootstrap .navbar-fixed-top) usa z-index:1030 por
+       defecto — con el overlay en 1000 quedaba DEBAJO del navbar, así que
+       la franja de arriba de cualquier modal alto (la "Nueva visita" sobre
+       todo, por su mapa) se veía tapada/chocando con el header en vez de
+       cubrirlo como debe ser un modal de pantalla completa. */
+    z-index: 1040;
     align-items: center;
     justify-content: center;
 }

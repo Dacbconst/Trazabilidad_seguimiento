@@ -63,6 +63,17 @@
 .contactados-table tbody tr:hover td { background: #f0f4f9; }
 .contactados-table tr:last-child td { border-bottom: none; }
 
+/* Ícono de coordenada al inicio de la dirección — abre Google Maps con
+   las coordenadas guardadas (sin API, solo "?q=lat,lng"). */
+.contactados-pin-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 7px;
+    color: #1d4e89;
+}
+.contactados-pin-link:hover { color: #143660; }
+
 .contactados-vacio {
     text-align: center;
     color: #aab3c2;

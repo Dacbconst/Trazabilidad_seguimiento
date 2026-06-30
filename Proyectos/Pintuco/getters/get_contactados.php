@@ -28,7 +28,7 @@ if ($usuario !== '') {
     $tipos .= "s";
 }
 
-$query = "SELECT id, codigo_pdv, pdv, direccion, usuario, contacto, empresa, mail, telefono,
+$query = "SELECT id, codigo_pdv, pdv, direccion, latitud, longitud, usuario, contacto, empresa, mail, telefono,
                  telefono_convencional, fecha_registro, estado_agenda, fecha_agendamiento
           FROM insert_proyectos_contacto
           WHERE " . implode(" AND ", $condiciones) . "

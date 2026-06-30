@@ -453,6 +453,21 @@
         document.getElementById('agendaEditHora').classList.add('abierto');
         var actualValor = getHora();
         var lista = document.getElementById('agendaEditHoraLista');
+
+        // El panel de hora vivía con position:absolute dentro de
+        // .agenda-edit-body, que tiene overflow-y:auto — si la fila de
+        // hora quedaba cerca del borde inferior visible, el navegador
+        // recortaba la lista ahí mismo (se "ocultaba" dentro del card).
+        // Posicionarlo con fixed, calculado a mano contra el trigger,
+        // hace que escape de ese recorte porque ya no se mide contra el
+        // contenedor con scroll, sino contra el viewport.
+        var rect = document.getElementById('agendaEditHoraTrigger').getBoundingClientRect();
+        lista.style.position = 'fixed';
+        lista.style.top = (rect.bottom + 4) + 'px';
+        lista.style.left = rect.left + 'px';
+        lista.style.width = rect.width + 'px';
+        lista.style.right = 'auto';
+
         lista.querySelectorAll('.agenda-edit-hora-item').forEach(function (item) {
             item.classList.toggle('is-actual', item.dataset.valor === actualValor);
         });
@@ -882,6 +897,16 @@
             if (!wrapper.classList.contains('abierto')) return;
             if (wrapper.contains(ev.target)) return;
             cerrarHoraDropdown();
+        });
+        // El panel ahora se posiciona con fixed calculado a mano (ver
+        // abrirHoraDropdown) — si el body del modal se scrollea mientras
+        // está abierto, esas coordenadas quedan desactualizadas. Más
+        // simple y confiable cerrarlo que andar recalculando en cada
+        // evento de scroll.
+        document.querySelector('.agenda-edit-body').addEventListener('scroll', function () {
+            if (document.getElementById('agendaEditHora').classList.contains('abierto')) {
+                cerrarHoraDropdown();
+            }
         });
 
         // El botón "Crear" abre su propio modal — lógica completa en

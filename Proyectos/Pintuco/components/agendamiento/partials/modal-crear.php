@@ -64,7 +64,7 @@
                     </div>
                     <div class="agenda-crear-campo agenda-crear-campo-full">
                         <label>Dirección *</label>
-                        <input type="text" class="form-control" id="agendaCrearDireccion" placeholder="Se completa al confirmar el pin" maxlength="160">
+                        <input type="text" class="form-control" id="agendaCrearDireccion" placeholder="Se completa al confirmar el pin">
                         <span class="agenda-crear-error" id="agendaCrearErrDireccion"></span>
                     </div>
                 </div>

@@ -50,8 +50,12 @@ if ($empresa === '' || !preg_match("/^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\\-&' ]
 if ($mail === '' || !preg_match('/^[^\s@.][^\s@]*[^\s@.]@[^\s@]+\.[^\s@]+$/', $mail) || strpos($mail, '..') !== false) {
     error("Correo inválido.");
 }
-if ($direccion === '' || mb_strlen($direccion) < 5 || !preg_match("/^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.,#\\-\\/()'& ]+$/u", $direccion)) {
-    error("Dirección inválida (mínimo 5 caracteres, sin símbolos raros).");
+// Sin restricción de caracteres ni de longitud: el texto real que devuelve
+// Mapbox (o que el analista termina escribiendo a mano) trae de todo —
+// comas, símbolos, abreviaturas — y la validación estricta de antes
+// bloqueaba guardados de direcciones legítimas.
+if ($direccion === '') {
+    error("La dirección es obligatoria.");
 }
 if (preg_match('/^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i', $direccion)) {
     error("La dirección parece un Plus Code — se necesita una dirección legible.");
