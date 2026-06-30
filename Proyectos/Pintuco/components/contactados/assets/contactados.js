@@ -1,6 +1,8 @@
 (function () {
     var GETTERS_BASE = document.getElementById('contactadosApp').dataset.gettersBase;
     var currentRows = [];
+    var FILAS_POR_PAGINA = 15;
+    var paginaActual = 1;
 
     // Mismo contrato de 6 estados que Agendamientos (estado_agenda), pero
     // con etiqueta propia de este directorio — "pendiente" se llama "Nuevo"
@@ -38,7 +40,9 @@
 
     function pintarFila(r) {
         var tr = document.createElement('tr');
-        tr.appendChild(celda(r.pdv));
+        // PDV oculto a pedido del usuario (2026-06-30), no se quiere ver por ahora
+        // tr.appendChild(celda(r.pdv));
+        tr.appendChild(celda(r.direccion));
         tr.appendChild(celda(r.usuario));
         tr.appendChild(celda(r.contacto));
         tr.appendChild(celda(r.empresa));
@@ -83,6 +87,31 @@
         });
     }
 
+    // Paginado en cliente: la data ya llega completa de get_contactados.php
+    // (igual que el resto del filtrado), así que no hace falta tocar el
+    // getter — solo recortar lo que se pinta por página, para no tener una
+    // tabla eterna en pantalla.
+    function renderizarPaginacion(totalFilas) {
+        var totalPaginas = Math.max(1, Math.ceil(totalFilas / FILAS_POR_PAGINA));
+        if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+
+        var info = document.getElementById('contactadosPaginacionInfo');
+        var paginaEl = document.getElementById('contactadosPaginaActual');
+        var btnAnterior = document.getElementById('contactadosPagAnterior');
+        var btnSiguiente = document.getElementById('contactadosPagSiguiente');
+
+        if (!totalFilas) {
+            info.textContent = '0 contactos';
+        } else {
+            var desde = (paginaActual - 1) * FILAS_POR_PAGINA + 1;
+            var hasta = Math.min(totalFilas, paginaActual * FILAS_POR_PAGINA);
+            info.textContent = desde + '–' + hasta + ' de ' + totalFilas + ' contactos';
+        }
+        paginaEl.textContent = 'Página ' + paginaActual + ' de ' + totalPaginas;
+        btnAnterior.disabled = paginaActual <= 1;
+        btnSiguiente.disabled = paginaActual >= totalPaginas;
+    }
+
     function renderizar() {
         var tbody = document.getElementById('contactadosTbody');
         var filas = filasFiltradas();
@@ -96,10 +125,13 @@
             td.textContent = 'Sin contactos que coincidan con el filtro.';
             tr.appendChild(td);
             tbody.appendChild(tr);
+            renderizarPaginacion(0);
             return;
         }
 
-        filas.forEach(function (r) { tbody.appendChild(pintarFila(r)); });
+        renderizarPaginacion(filas.length);
+        var inicio = (paginaActual - 1) * FILAS_POR_PAGINA;
+        filas.slice(inicio, inicio + FILAS_POR_PAGINA).forEach(function (r) { tbody.appendChild(pintarFila(r)); });
     }
 
     // El <select> de Promotor del topbar global trae opciones de un mock
@@ -130,6 +162,7 @@
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
                 currentRows = json.data || [];
+                paginaActual = 1;
                 construirOpcionesPromotor();
                 renderizar();
             });
@@ -143,6 +176,7 @@
             var estado = estadoVisual(r);
             return {
                 'PDV': r.pdv || '',
+                'Local': r.direccion || '',
                 'Promotor': r.usuario || '',
                 'Contacto': r.contacto || '',
                 'Empresa': r.empresa || '',
@@ -154,7 +188,7 @@
         });
 
         var hoja = XLSX.utils.json_to_sheet(datos);
-        hoja['!cols'] = [{ wch: 16 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
+        hoja['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
 
         var libro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(libro, hoja, 'Contactos');
@@ -167,9 +201,21 @@
     window.ContactadosRefrescar = cargarContactados;
     window.ContactadosDescargarExcel = descargarExcel;
 
+    function renderizarDesdePrimeraPagina() {
+        paginaActual = 1;
+        renderizar();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         cargarContactados();
-        document.getElementById('filtroPromotor').addEventListener('change', renderizar);
-        document.getElementById('busquedaRapida').addEventListener('input', renderizar);
+        document.getElementById('filtroPromotor').addEventListener('change', renderizarDesdePrimeraPagina);
+        document.getElementById('busquedaRapida').addEventListener('input', renderizarDesdePrimeraPagina);
+        document.getElementById('contactadosPagAnterior').addEventListener('click', function () {
+            if (paginaActual > 1) { paginaActual--; renderizar(); }
+        });
+        document.getElementById('contactadosPagSiguiente').addEventListener('click', function () {
+            paginaActual++;
+            renderizar();
+        });
     });
 })();

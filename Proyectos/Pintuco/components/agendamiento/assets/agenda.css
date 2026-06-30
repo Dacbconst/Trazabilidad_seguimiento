@@ -539,20 +539,35 @@
 }
 .agenda-edit-overlay.active { display: flex; }
 
+/* Maquetación fluida: el card nunca excede el viewport (max-height/width en
+   vh/%, no px fijos). header/footer quedan fijos vía flex-column y el
+   scroll, si hace falta, ocurre SOLO dentro de .agenda-edit-body — así la
+   cabecera y los botones de acción siempre quedan visibles aunque el
+   contenido del medio no quepa (laptop 1366x768, zoom > 100%, etc.). */
 .agenda-edit-card {
     position: relative;
     background: #fff;
     border-radius: 12px;
-    padding: 22px 26px;
-    width: 460px;
-    max-width: 92vw;
-    max-height: 86vh;
-    overflow-y: auto;
+    width: 90%;
+    max-width: 460px;
+    max-height: 90vh;
     box-shadow: 0 12px 36px rgba(20,30,50,.28);
+    display: flex;
+    flex-direction: column;
+    padding: 22px 26px;
 }
-.agenda-edit-card::-webkit-scrollbar { width: 8px; }
-.agenda-edit-card::-webkit-scrollbar-track { background: transparent; }
-.agenda-edit-card::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
+
+.agenda-edit-header,
+.agenda-edit-actions { flex-shrink: 0; }
+
+.agenda-edit-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+.agenda-edit-body::-webkit-scrollbar { width: 8px; }
+.agenda-edit-body::-webkit-scrollbar-track { background: transparent; }
+.agenda-edit-body::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
 
 /* Diálogo de choque de horario: mismo patrón de overlay que el de gestionar
    visita, con una mini-card mostrando con qué visita choca. */
@@ -571,8 +586,10 @@
     background: #fff;
     border-radius: 12px;
     padding: 26px 28px;
-    width: 360px;
-    max-width: 90vw;
+    width: 90%;
+    max-width: 360px;
+    max-height: 90vh;
+    overflow-y: auto;
     text-align: center;
     box-shadow: 0 12px 36px rgba(20,30,50,.28);
 }
@@ -697,20 +714,23 @@
    así por el usuario: 26 campos no entraban bien en una
    sola columna angosta como el modal de edición).
 ----------------------------------------------------- */
+/* Maquetación fluida (laptop 1366x768 / zoom > 100%): nunca un alto/ancho
+   fijo en px para el card. header y footer quedan fijos vía flex-column;
+   el scroll, si el contenido no entra en 90vh, ocurre SOLO dentro de
+   .agenda-crear-body (form + mapa), nunca se pierde la cabecera ni el
+   botón Guardar del footer. */
 .agenda-crear-card {
     position: relative;
     background: #fff;
     border-radius: 12px;
-    padding: 26px 30px;
-    width: 980px;
-    max-width: 96vw;
+    width: 90%;
+    max-width: 1100px;
     max-height: 90vh;
-    overflow-y: auto;
     box-shadow: 0 12px 36px rgba(20,30,50,.28);
+    display: flex;
+    flex-direction: column;
+    padding: 26px 30px;
 }
-.agenda-crear-card::-webkit-scrollbar { width: 8px; }
-.agenda-crear-card::-webkit-scrollbar-track { background: transparent; }
-.agenda-crear-card::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
 
 /* HEADER */
 .agenda-crear-header {
@@ -721,6 +741,7 @@
     padding-bottom: 14px;
     margin-bottom: 18px;
     border-bottom: 1px solid #edf0f4;
+    flex-shrink: 0;
 }
 
 .agenda-crear-fecha-registro {
@@ -733,16 +754,32 @@
 /* BODY: 2 columnas — formulario flexible a la izquierda, mapa de ancho
    fijo a la derecha. `align-items: stretch` (default de flex) es lo que
    hace que el mapa termine exactamente igual de alto que la columna de
-   campos, sin fijar un alto a mano que se pueda desincronizar. */
+   campos, sin fijar un alto a mano que se pueda desincronizar.
+   El scroll NO va aquí (en la fila completa): con el cuerpo a altura fija
+   (flex:1) y stretch activo, el navegador recorta el contenido de la
+   columna de campos en vez de dejarlo accesible por scroll. El scroll se
+   pone directo en `.agenda-crear-form-col` (ver más abajo) — así esa
+   columna se vuelve su propio contenedor de scroll (comportamiento de
+   overflow estándar y confiable) y el mapa, al ser más corto, nunca
+   necesita scrollear. */
 .agenda-crear-body {
     display: flex;
     gap: 28px;
+    flex: 1;
+    min-height: 0;
 }
 
 .agenda-crear-form-col {
     flex: 1;
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
 }
+.agenda-crear-form-col::-webkit-scrollbar { width: 8px; }
+.agenda-crear-form-col::-webkit-scrollbar-track { background: transparent; }
+.agenda-crear-form-col::-webkit-scrollbar-thumb { background: #d7dbe2; border-radius: 4px; }
 
 .agenda-crear-bloque.agenda-crear-grid {
     display: grid;
@@ -923,6 +960,7 @@
     margin-top: 22px;
     padding-top: 18px;
     border-top: 1px solid #edf0f4;
+    flex-shrink: 0;
 }
 
 @media (max-width: 900px) {

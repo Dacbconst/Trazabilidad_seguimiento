@@ -26,7 +26,9 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
             <table class="contactados-table">
                 <thead>
                     <tr>
-                        <th>PDV</th>
+                        <!-- PDV oculto a pedido del usuario (2026-06-30), no se quiere ver por ahora -->
+                        <!-- <th>PDV</th> -->
+                        <th>Local</th>
                         <th>Promotor</th>
                         <th>Contacto</th>
                         <th>Empresa</th>
@@ -40,6 +42,15 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                     <tr><td colspan="8" class="contactados-vacio">Cargando...</td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="contactados-paginacion">
+            <span class="contactados-paginacion-info" id="contactadosPaginacionInfo"></span>
+            <div class="contactados-paginacion-controles">
+                <button type="button" class="contactados-paginacion-btn" id="contactadosPagAnterior">&laquo; Anterior</button>
+                <span class="contactados-paginacion-pagina" id="contactadosPaginaActual"></span>
+                <button type="button" class="contactados-paginacion-btn" id="contactadosPagSiguiente">Siguiente &raquo;</button>
+            </div>
         </div>
     </div>
 </div>
