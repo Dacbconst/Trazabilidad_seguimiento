@@ -57,11 +57,10 @@
 			require $cuenta_dir.'/includes/mock_data.php';
 
 			$tabs = [
-				['id' => 'tab-avance',       'label' => 'Avance %',      'partial' => 'partials/tab-avance.php'],
-				['id' => 'tab-detalle',      'label' => 'Detalle',       'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Detalle'],
-				['id' => 'tab-fotografico',  'label' => 'Fotográfico',   'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Fotográfico'],
-				['id' => 'tab-historico',    'label' => 'Histórico',     'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Histórico'],
-				['id' => 'tab-estadistico',  'label' => 'Estadístico',   'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Estadístico'],
+				['id' => 'tab-avance',       'label' => 'Avance %',    'partial' => 'partials/tab-avance.php'],
+				['id' => 'tab-detalle',      'label' => 'Detalle',     'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Detalle'],
+				['id' => 'tab-historico',    'label' => 'Histórico',   'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Histórico'],
+				['id' => 'tab-estadistico',  'label' => 'Estadístico', 'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Estadístico'],
 			];
 		}
 ?>
@@ -191,19 +190,13 @@
 				$('.section-pane').removeClass('active');
 				$($(this).attr('href')).addClass('active');
 
-				// El filtro global (Promotor / Búsqueda rápida / Mes) es irrelevante
-				// en Agendamientos y Proforma: esas secciones ya tienen sus propios filtros.
-				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma'].indexOf($(this).attr('href')) !== -1;
+				// Secciones con filtros propios — el topbar global se oculta para no duplicar.
+				// Principal también se oculta: sus tabs (Avance %, Detalle...) tienen filtros propios.
+				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma', '#sec-contactados', '#sec-principal', '#sec-estado-flujo'].indexOf($(this).attr('href')) !== -1;
 				$('.topbar').toggleClass('is-hidden', seccionConFiltroPropio);
 
-				// "Descargar Excel" solo tiene sentido en Contactados — en el
-				// resto de secciones el filtro global no exporta nada todavía.
 				$('#btnDescargarExcel').toggle($(this).attr('href') === '#sec-contactados');
 
-				// La sección pasa de display:none a visible recién aquí. Si contiene
-				// un calendario (FullCalendar, etc.) que se inicializó mientras estaba
-				// oculto, midió 0px de ancho. Disparar 'resize' fuerza que recalculen
-				// su tamaño ahora que el contenedor ya es visible.
 				window.dispatchEvent(new Event('resize'));
 			});
 
@@ -221,12 +214,20 @@
 			}
 
 			$('#btnActualizar').on('click', function () {
-				// Contactados ya sabe refrescarse solo (fetch a su getter, sin
-				// perder el filtro/búsqueda escritos); el resto de secciones
-				// todavía no tienen esa lógica, así que siguen recargando la
-				// página entera como antes.
-				if ($('.section-pane.active').attr('id') === 'sec-contactados' && window.ContactadosRefrescar) {
+				var secActiva = $('.section-pane.active').attr('id');
+				if (secActiva === 'sec-contactados' && window.ContactadosRefrescar) {
 					window.ContactadosRefrescar();
+				} else if (secActiva === 'sec-proforma' && window.ProformaRecargar) {
+					window.ProformaRecargar();
+				} else if (secActiva === 'sec-estado-flujo' && window.FlujoRecargar) {
+					window.FlujoRecargar();
+				} else if (secActiva === 'sec-principal') {
+					var tabActivo = $('#main-tabs li.active a').attr('href');
+					if (tabActivo === '#tab-avance' && window.AvanceRecargar) {
+						window.AvanceRecargar();
+					} else {
+						location.reload();
+					}
 				} else {
 					location.reload();
 				}

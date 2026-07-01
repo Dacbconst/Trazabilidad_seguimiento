@@ -1,0 +1,123 @@
+/* =======================================================
+   PRINCIPAL — Vista de avance de promotores (mock)
+   ======================================================= */
+
+#principalApp { color: #1f2d3d; }
+
+.principal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+.principal-header h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2d3d;
+}
+.principal-header p { margin: 0; font-size: 13px; color: #8a93a3; }
+
+/* KPIs */
+.principal-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+}
+.principal-kpi {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.principal-kpi-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.principal-kpi-valor { font-size: 28px; font-weight: 700; color: #1f2d3d; }
+.principal-kpi-valor.is-verde { color: #1e7a45; }
+.principal-kpi-valor.is-ambar { color: #a66a00; }
+.principal-kpi-valor.is-azul  { color: #1d4e89; }
+.principal-kpi-valor.is-rojo  { color: #b3261e; }
+
+/* Barra de progreso global */
+.principal-progreso {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.principal-progreso-label { font-size: 12.5px; font-weight: 700; color: #5b6577; white-space: nowrap; }
+.principal-progreso-track {
+    flex: 1;
+    height: 10px;
+    background: #edf0f4;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.principal-progreso-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #337ab7, #1d4e89);
+    border-radius: 5px;
+    transition: width .4s;
+}
+.principal-progreso-pct { font-size: 13px; font-weight: 700; color: #33415c; white-space: nowrap; }
+
+/* Tabla de promotores */
+.principal-scroll {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.principal-table { width: 100%; border-collapse: collapse; }
+.principal-table th {
+    background: #f7f8fa;
+    color: #5b6577;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 11px 14px;
+    border-bottom: 1px solid #e3e8ee;
+}
+.principal-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #edf0f4;
+    font-size: 13px;
+    vertical-align: middle;
+}
+.principal-table tbody tr:hover td { background: #f7f9fc; }
+.principal-table tbody tr:last-child td { border-bottom: none; }
+
+/* Badges de estado */
+.principal-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+.principal-badge.is-ejecutando { background: #e8f0fa; color: #1d4e89; border-color: #c7d9f0; }
+.principal-badge.is-cerrado    { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
+.principal-badge.is-pendiente  { background: #fbf2e3; color: #8a5a00; border-color: #f0ddb3; }
+.principal-badge.is-comisiona      { background: #fef9e7; color: #7d5a00; border-color: #f0d875; }
+.principal-badge.is-no-comisiona   { background: #fbeaea; color: #a32a23; border-color: #f0c9c7; }

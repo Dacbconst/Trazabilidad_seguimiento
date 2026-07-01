@@ -4,19 +4,16 @@
  * Auditoría de Proformas (Paso 3 del flujo comercial) — bandeja master-detail
  * para que el analista revise la evidencia subida desde el celular y
  * enrute el registro a Negociación, Aprobada o Rechazada.
- * $cuenta_dir/$cuenta_actual vienen del index.php que incluye este componente.
  */
 $modulo_base = basename((string) $cuenta_dir);
 $proforma_dir = __DIR__;
 $proforma_assets = $modulo_base.'/components/proforma/assets';
 
-// Cache-busting por filemtime (mismo bug ya corregido en Agendamientos —
-// ver memoria del proyecto): sin esto el navegador sirve copias viejas de
-// CSS/JS en caché aunque se suban archivos nuevos al servidor.
 $proforma_css_v = @filemtime($proforma_dir.'/assets/proforma.css') ?: time();
 $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
 ?>
 <link rel="stylesheet" href="<?= htmlspecialchars($proforma_assets, ENT_QUOTES) ?>/proforma.css?v=<?= $proforma_css_v ?>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <div id="proformaApp"
      data-getters-base="<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>/getters/"
@@ -24,7 +21,7 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
 
     <div class="proforma-header">
         <div>
-            <h2>Auditoría de Proformaseaasfasdsadasd</h2>
+            <h2>Auditoría de Proformas</h2>
             <p>Centro de revisión de evidencias y enrutamiento comercial.</p>
         </div>
         <span class="proforma-actualizado">Actualizado: <span id="proformaActualizado">—</span></span>
@@ -49,22 +46,41 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
         </div>
     </div>
 
-    <div class="proforma-toolbar">
-        <div class="proforma-buscar">
-            <i class="glyphicon glyphicon-search"></i>
-            <input type="text" id="proformaBusqueda" placeholder="Buscar PDV o cliente...">
+    <!-- Filtros unificados (.mod-filtros definido en style.css global) -->
+    <div class="mod-filtros">
+        <div class="filter-group is-busqueda">
+            <label>PDV o cliente</label>
+            <div class="input-group">
+                <input type="text" class="form-control" id="proformaBusqueda" placeholder="Buscar PDV o cliente...">
+                <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
+            </div>
         </div>
-        <select class="form-control input-sm" id="proformaFiltroPromotor">
-            <option value="">Todos los promotores</option>
-        </select>
-        <select class="form-control input-sm" id="proformaFiltroEstado">
-            <option value="">Estado: Todos</option>
-            <option value="en_proceso">Pendiente revisión</option>
-            <option value="en_negociacion">En negociación</option>
-            <option value="aprobado">Aprobada</option>
-            <option value="rechazado">Rechazada</option>
-        </select>
-        <div class="proforma-toolbar-derecha">
+        <div class="filter-group">
+            <label>Mercaderista</label>
+            <select class="form-control" id="proformaFiltroPromotor">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Período</label>
+            <select class="form-control" id="proformaFiltroPeriodo">
+                <option value="">Cualquier fecha</option>
+                <option value="mes_actual">Este mes</option>
+                <option value="mes_anterior">Mes anterior</option>
+                <option value="ultimos_3">Últimos 3 meses</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Estado auditoría</label>
+            <select class="form-control" id="proformaFiltroEstado">
+                <option value="">Todos</option>
+                <option value="en_proceso">Pendiente revisión</option>
+                <option value="en_negociacion">En negociación</option>
+                <option value="aprobado">Aprobada</option>
+                <option value="rechazado">Rechazada</option>
+            </select>
+        </div>
+        <div class="mod-filtros-extra">
             <button type="button" class="proforma-btn-exportar" id="proformaExportar">
                 <i class="glyphicon glyphicon-save"></i> Exportar Reporte
             </button>

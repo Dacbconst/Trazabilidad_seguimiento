@@ -1,12 +1,5 @@
 <?php
 // proformas_listar.php — bandeja de auditoría de proformas (Web).
-// Mismo estilo que get_pdvs.php / get_contactados.php: $mysqli->query()
-// directo para el caso sin filtros (el más común), y prepare/execute
-// SOLO cuando llegan parámetros de filtro, con verificación en cada paso
-// para evitar el fatal error que causaba antes (get_result() sobre un
-// stmt cuyo execute() falló devuelve false, y false->fetch_assoc() es
-// un fatal error en PHP que IIS sirve como HTML de error, rompiendo
-// el JSON del lado del cliente con "Unexpected token '<'").
 header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -14,15 +7,10 @@ header('Content-Type: application/json');
 
 include_once '../db_connect.php';
 
+// Limpieza de parámetros (se eliminaron espacios invisibles NBSP de la copia original)
 $estado  = isset($_GET['estado_proforma']) ? $_GET['estado_proforma'] : '';
 $usuario = isset($_GET['usuario'])         ? $_GET['usuario']         : '';
 
-// Las columnas monto_validado / observaciones_auditoria / fecha_auditoria
-// todavía no existen en insert_proforma (falta correr el ALTER TABLE — ver
-// memoria del proyecto). Se excluyen del SELECT y se rellenan con null en
-// PHP para que el JS las reciba sin romperse: así la bandeja funciona ya
-// aunque las columnas no estén, y cuando se agreguen solo hay que quitar
-// los null de aquí.
 $selectBase = "SELECT
         p.id, p.id_agendamiento, p.codigo_pdv, p.usuario,
         p.fecha_proforma, p.estado_proforma, p.evidencia,
@@ -44,8 +32,7 @@ function rellenarNulos(&$fila) {
 }
 
 if ($estado === '' && $usuario === '') {
-    // Caso más común: sin filtros — $mysqli->query() directo,
-    // igual que get_pdvs.php que sí funciona.
+    // Caso sin filtros: consulta directa estable
     $query = $selectBase . " ORDER BY p.fecha_registro DESC";
     $res = $mysqli->query($query);
     if ($res) {
@@ -55,24 +42,35 @@ if ($estado === '' && $usuario === '') {
         }
     }
 } else {
-    // Con filtros: prepared statement con verificación en cada paso.
+    // Con filtros: prepared statement compatible con paso por referencia estricto
     $where  = "WHERE 1=1";
     $params = [];
     $types  = "";
+
     if ($estado !== '') {
-        $where   .= " AND p.estado_proforma = ?";
+        $where  .= " AND p.estado_proforma = ?";
         $params[] = $estado;
-        $types   .= "s";
+        $types  .= "s";
     }
     if ($usuario !== '') {
-        $where   .= " AND p.usuario = ?";
+        $where  .= " AND p.usuario = ?";
         $params[] = $usuario;
-        $types   .= "s";
+        $types  .= "s";
     }
+
     $query = $selectBase . " $where ORDER BY p.fecha_registro DESC";
     $sql = $mysqli->prepare($query);
+
     if ($sql) {
-        $sql->bind_param($types, ...$params);
+        if (!empty($types)) {
+            $bindArgs = [$types];
+            foreach ($params as $key => $value) {
+                // Se fuerza el paso por referencia requerido por bind_param en PHP antiguo/IIS
+                $bindArgs[] = &$params[$key];
+            }
+            call_user_func_array([$sql, 'bind_param'], $bindArgs);
+        }
+
         if ($sql->execute()) {
             $res = $sql->get_result();
             if ($res) {
@@ -86,5 +84,6 @@ if ($estado === '' && $usuario === '') {
     }
 }
 
-echo json_encode(["data" => $registros]);
+// Retorno seguro codificado en UTF-8 nativo para evitar respuestas vacías o JSON malformados
+echo json_encode(["data" => $registros], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 ?>

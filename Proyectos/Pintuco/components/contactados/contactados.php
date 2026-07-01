@@ -1,17 +1,12 @@
 <?php
 /**
  * COMPONENTE: contactados/contactados.php
- * Directorio de TODOS los contactos capturados de insert_proyectos_contacto
- * (incluye los que todavía no tienen fecha_agendamiento — a diferencia de
- * Agendamientos, que solo muestra los ya agendados). $cuenta_dir viene del
- * index.php que incluye este componente.
+ * Directorio de TODOS los contactos capturados de insert_proyectos_contacto.
+ * $cuenta_dir viene del index.php que incluye este componente.
  */
 $modulo_base = basename((string) $cuenta_dir);
 $contactados_dir = __DIR__;
 $contactados_assets = $modulo_base.'/components/contactados/assets';
-// Cache-busting por filemtime: sin esto el navegador sirve copias viejas de
-// CSS/JS en caché aunque se suban archivos nuevos al servidor (mismo bug ya
-// corregido en Agendamientos — ver memoria del proyecto).
 $contactados_css_v = @filemtime($contactados_dir.'/assets/contactados.css') ?: time();
 $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: time();
 ?>
@@ -19,15 +14,48 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <div id="contactadosApp" data-getters-base="<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>/getters/">
+
+    <!-- Filtros — misma barra unificada que Agendamiento y Principal -->
+    <div class="mod-filtros">
+        <div class="filter-group is-busqueda">
+            <label>PDV, empresa o contacto</label>
+            <div class="input-group">
+                <input type="text" class="form-control" id="contactadosBusqueda" placeholder="Buscar PDV, empresa o contacto...">
+                <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>Estado de gestión</label>
+            <select class="form-control" id="contactadosEstado">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Nuevo (sin gestionar)</option>
+                <option value="confirmado">Visita confirmada</option>
+                <option value="reagendada">Reagendada</option>
+                <option value="vencida">Vencida</option>
+                <option value="cancelada">Cancelada</option>
+                <option value="completada">Completada</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Mercaderista</label>
+            <select class="form-control" id="contactadosMercaderista">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="mod-filtros-extra">
+            <button type="button" class="btn contactados-btn-excel" id="contactadosExportarExcel">
+                <i class="glyphicon glyphicon-save"></i> Descargar Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla de contactos -->
     <div class="contactados-card">
         <div class="contactados-topbar">Contactos</div>
-
         <div class="contactados-scroll">
             <table class="contactados-table">
                 <thead>
                     <tr>
-                        <!-- PDV oculto a pedido del usuario (2026-06-30), no se quiere ver por ahora -->
-                        <!-- <th>PDV</th> -->
                         <th>Local</th>
                         <th>Promotor</th>
                         <th>Contacto</th>
@@ -53,6 +81,7 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
             </div>
         </div>
     </div>
+
 </div>
 
 <script src="<?= htmlspecialchars($contactados_assets, ENT_QUOTES) ?>/contactados.js?v=<?= $contactados_js_v ?>"></script>

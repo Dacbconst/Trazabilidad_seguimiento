@@ -1,0 +1,177 @@
+/* =======================================================
+   PRINCIPAL — Avance % (rendimiento por mercaderista)
+   ======================================================= */
+
+#avanceApp { color: #1f2d3d; }
+
+/* Filtros — el wrapper usa .mod-filtros (style.css global). */
+
+/* KPI cards */
+.avance-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}
+@media (max-width: 1100px) { .avance-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .avance-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+.avance-kpi {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.avance-kpi-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #8a93a3;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.avance-kpi-valor { font-size: 26px; font-weight: 700; color: #1f2d3d; }
+.avance-kpi-valor.is-verde  { color: #1e7a45; }
+.avance-kpi-valor.is-ambar  { color: #a66a00; }
+.avance-kpi-valor.is-rojo   { color: #b3261e; }
+.avance-kpi-valor.is-azul   { color: #1d4e89; }
+
+/* Barra de progreso global */
+.avance-progreso-global {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.avance-progreso-global-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #5b6577;
+    white-space: nowrap;
+    min-width: 130px;
+}
+.avance-progreso-track {
+    flex: 1;
+    height: 10px;
+    background: #edf0f4;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.avance-progreso-fill {
+    height: 100%;
+    background: #1e7a45;
+    border-radius: 5px;
+    transition: width .4s ease;
+}
+.avance-progreso-pct {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e7a45;
+    min-width: 44px;
+    text-align: right;
+}
+
+/* Tabla de mercaderistas */
+.avance-scroll {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.avance-table { width: 100%; border-collapse: collapse; }
+.avance-table th {
+    background: #f7f8fa;
+    color: #5b6577;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 11px 16px;
+    border-bottom: 1px solid #e3e8ee;
+}
+.avance-table th.is-center { text-align: center; }
+.avance-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #edf0f4;
+    font-size: 13px;
+    vertical-align: middle;
+}
+.avance-table tbody tr:hover td { background: #f7f9fc; }
+.avance-table tbody tr:last-child td { border-bottom: none; }
+.avance-table td.is-center { text-align: center; }
+
+.avance-merc-nombre {
+    font-weight: 700;
+    color: #1f2d3d;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.avance-merc-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e8f0fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1d4e89;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.avance-num-ok   { color: #1e7a45; font-weight: 700; }
+.avance-num-warn { color: #a66a00; font-weight: 700; }
+.avance-num-bad  { color: #b3261e; font-weight: 700; }
+.avance-num-gray { color: #8a93a3; }
+
+/* Mini barra de progreso por fila */
+.avance-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 160px;
+}
+.avance-bar-track {
+    flex: 1;
+    height: 7px;
+    background: #edf0f4;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.avance-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .4s ease;
+}
+.avance-bar-pct {
+    font-size: 11.5px;
+    font-weight: 700;
+    min-width: 34px;
+    text-align: right;
+    color: #5b6577;
+}
+
+/* Color de barra según % */
+.fill-alto   { background: #1e7a45; }
+.fill-medio  { background: #f9ab00; }
+.fill-bajo   { background: #d93025; }
+
+.avance-vacio {
+    text-align: center;
+    color: #aab3c2;
+    padding: 40px;
+}
+
+/* Estado badge */
+.avance-badge-ok   { color: #1e7a45; font-weight: 700; }
+.avance-badge-warn { color: #a66a00; font-weight: 700; }
+.avance-badge-bad  { color: #b3261e; }

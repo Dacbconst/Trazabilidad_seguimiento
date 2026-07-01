@@ -280,12 +280,14 @@
     }
 
     function filtrarPorBusqueda(rows) {
-        var q = document.getElementById('agendaBusqueda').value.toLowerCase().trim();
-        if (!q) return rows;
+        var q       = document.getElementById('agendaBusqueda').value.toLowerCase().trim();
+        var tecnico = document.getElementById('agendaFiltroTecnico').value;
         return rows.filter(function (r) {
-            return [r.titulo, r.pdv, r.empresa, r.contacto].some(function (v) {
+            if (tecnico && r.tecnico !== tecnico) return false;
+            if (q && ![r.titulo, r.pdv, r.empresa, r.contacto].some(function (v) {
                 return (v || '').toLowerCase().indexOf(q) !== -1;
-            });
+            })) return false;
+            return true;
         });
     }
 
@@ -300,6 +302,7 @@
     }
 
     var promotorOpcionesListas = false;
+    var tecnicoOpcionesListas  = false;
 
     function construirOpcionesPromotor(rows) {
         var select = document.getElementById('agendaFiltroPromotor');
@@ -315,12 +318,26 @@
         });
     }
 
+    function construirOpcionesTecnico(rows) {
+        var select = document.getElementById('agendaFiltroTecnico');
+        var vistos = {};
+        rows.forEach(function (r) {
+            if (r.tecnico && !vistos[r.tecnico]) {
+                vistos[r.tecnico] = true;
+                var opt = document.createElement('option');
+                opt.value = r.tecnico;
+                opt.textContent = r.tecnico;
+                select.appendChild(opt);
+            }
+        });
+    }
+
     function cargarAgenda() {
         var promotor = document.getElementById('agendaFiltroPromotor').value;
-        var estado = document.getElementById('agendaFiltroEstado').value;
+        var estado   = document.getElementById('agendaFiltroEstado').value;
         var params = new URLSearchParams();
         if (promotor) params.set('usuario', promotor);
-        if (estado) params.set('estado_agenda', estado);
+        if (estado)   params.set('estado_agenda', estado);
 
         // Se retorna la promesa para poder encadenar acciones que necesitan
         // esperar a que el calendario ya tenga los eventos repintados (p.ej.
@@ -332,6 +349,10 @@
                 if (!promotorOpcionesListas && !promotor) {
                     construirOpcionesPromotor(currentRows);
                     promotorOpcionesListas = true;
+                }
+                if (!tecnicoOpcionesListas) {
+                    construirOpcionesTecnico(currentRows);
+                    tecnicoOpcionesListas = true;
                 }
                 renderizar();
                 // agenda-crear.js lee esto para llenar su select de Promotor
@@ -863,6 +884,7 @@
         document.getElementById('agendaFiltroPromotor').addEventListener('change', cargarAgenda);
         document.getElementById('agendaFiltroEstado').addEventListener('change', cargarAgenda);
         document.getElementById('agendaBusqueda').addEventListener('input', renderizar);
+        document.getElementById('agendaFiltroTecnico').addEventListener('change', renderizar);
 
         document.getElementById('agendaEditCancelar').addEventListener('click', cerrarEdicion);
         document.getElementById('agendaEditClose').addEventListener('click', cerrarEdicion);

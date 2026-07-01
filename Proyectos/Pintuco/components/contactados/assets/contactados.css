@@ -146,3 +146,23 @@
 }
 .contactados-paginacion-btn:hover:not(:disabled) { background: #f0f4f9; border-color: #b8c2cf; }
 .contactados-paginacion-btn:disabled { opacity: .45; cursor: default; }
+
+/* ---------------------------------------------------
+   Barra de filtros — usa .mod-filtros global (style.css).
+   Solo el botón Excel es específico de Contactados.
+----------------------------------------------------- */
+.contactados-btn-excel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #1d6f42;
+    border-color: #1d6f42;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    padding: 8px 16px;
+    border-radius: 5px;
+    white-space: nowrap;
+}
+.contactados-btn-excel:hover { background: #175a36; border-color: #175a36; color: #fff; }

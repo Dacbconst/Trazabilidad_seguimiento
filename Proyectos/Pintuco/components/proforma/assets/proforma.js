@@ -3,8 +3,14 @@
     var GETTERS_BASE = app.dataset.gettersBase;
     var MODULO_BASE = app.dataset.moduloBase;
 
+    // Ruta base donde la app móvil sube las fotos de evidencia.
+    // El campo `evidencia` en DB llega como "Proforma/archivo.png".
+    // Si la ruta real cambia (otro folder, otro servidor) solo hay que
+    // cambiar esta constante — no tocar construirEvidencia().
+    var FOTO_BASE = MODULO_BASE + '/';
+
     var currentRows = [];
-    var filaAbiertaId = null; // un solo acordeón abierto a la vez
+    var filaAbiertaId = null;
     var toastTimer = null;
 
     // CONFIRMADO con el equipo de la app móvil (Constantes.java /
@@ -173,11 +179,16 @@
         if (p.evidencia) {
             var img = document.createElement('img');
             img.className = 'proforma-evidencia-foto';
-            // Ruta tal cual la guarda la app ("Proforma/archivo.png"), relativa
-            // a la carpeta del módulo — mismo patrón que getters-base.
-            img.src = MODULO_BASE + '/' + p.evidencia;
+            img.src = FOTO_BASE + p.evidencia;
             img.alt = 'Evidencia de la proforma';
             img.addEventListener('click', function () { window.open(img.src, '_blank'); });
+            img.addEventListener('error', function () {
+                img.style.display = 'none';
+                var aviso = document.createElement('div');
+                aviso.className = 'proforma-evidencia-vacia';
+                aviso.innerHTML = '<i class="glyphicon glyphicon-picture"></i><br>Foto no disponible en el servidor.<br><small style="word-break:break-all;opacity:.7">' + img.src + '</small>';
+                img.parentNode.insertBefore(aviso, img.nextSibling);
+            });
             wrap.appendChild(img);
         } else {
             var sinFoto = document.createElement('div');
@@ -259,8 +270,17 @@
         var acciones = document.createElement('div');
         acciones.className = 'proforma-auditoria-acciones';
 
-        function accionar(accion, confirmacion) {
-            if (!confirm(confirmacion)) return;
+        var estadoActual = estadoVisual(p);
+        var yaDespachado = estadoActual === 'aprobado' || estadoActual === 'rechazado';
+
+        function setBotonesOcupados(ocupado) {
+            [btnNegociacion, btnAprobar, btnRechazar].forEach(function (b) {
+                b.disabled = ocupado;
+            });
+        }
+
+        function accionar(accion) {
+            setBotonesOcupados(true);
             var body = new URLSearchParams();
             body.set('id', p.id);
             body.set('accion', accion);
@@ -270,43 +290,49 @@
                 .then(function (resp) { return resp.json(); })
                 .then(function (json) {
                     if (json.success) {
-                        mostrarToast('Listo: ' + json.message);
+                        mostrarToast('Guardado correctamente.');
                         onResuelto();
                     } else {
                         mostrarToast(json.message || 'No se pudo actualizar.', true);
+                        setBotonesOcupados(false);
                     }
                 })
-                .catch(function () { mostrarToast('No se pudo conectar con el servidor.', true); });
+                .catch(function () {
+                    mostrarToast('No se pudo conectar con el servidor.', true);
+                    setBotonesOcupados(false);
+                });
         }
 
         var btnNegociacion = document.createElement('button');
         btnNegociacion.type = 'button';
         btnNegociacion.className = 'proforma-btn-negociacion';
-        btnNegociacion.textContent = 'Enviar a Negociación (Paso 4)';
-        btnNegociacion.addEventListener('click', function () {
-            accionar('negociacion', '¿Enviar este caso a gerencia comercial para negociación?');
-        });
+        btnNegociacion.textContent = 'Enviar a Negociación';
+        btnNegociacion.addEventListener('click', function () { accionar('negociacion'); });
 
         var btnAprobar = document.createElement('button');
         btnAprobar.type = 'button';
         btnAprobar.className = 'proforma-btn-aprobar';
-        btnAprobar.textContent = 'Aprobar Proforma (Paso 5)';
-        btnAprobar.addEventListener('click', function () {
-            accionar('aprobar', '¿Aprobar esta proforma? El registro quedará habilitado para subir la factura final.');
-        });
+        btnAprobar.textContent = 'Aprobar Proforma';
+        btnAprobar.addEventListener('click', function () { accionar('aprobar'); });
 
         var btnRechazar = document.createElement('button');
         btnRechazar.type = 'button';
         btnRechazar.className = 'proforma-btn-rechazar';
         btnRechazar.textContent = 'Rechazar / Evidencia Falsa';
-        btnRechazar.addEventListener('click', function () {
-            accionar('rechazar', '¿Rechazar este registro por evidencia falsa o anomalías? Esta acción cierra el caso.');
-        });
+        btnRechazar.addEventListener('click', function () { accionar('rechazar'); });
 
-        acciones.appendChild(btnNegociacion);
-        acciones.appendChild(btnAprobar);
-        acciones.appendChild(btnRechazar);
-        wrap.appendChild(acciones);
+        // Casos ya cerrados: se muestran en modo solo-lectura, sin botones de acción
+        if (yaDespachado) {
+            var cerrado = document.createElement('div');
+            cerrado.className = 'proforma-auditoria-cerrada';
+            cerrado.textContent = estadoActual === 'aprobado' ? '✓ Proforma aprobada.' : '✗ Proforma rechazada.';
+            wrap.appendChild(cerrado);
+        } else {
+            acciones.appendChild(btnNegociacion);
+            acciones.appendChild(btnAprobar);
+            acciones.appendChild(btnRechazar);
+            wrap.appendChild(acciones);
+        }
 
         return wrap;
     }
@@ -412,14 +438,45 @@
         }
     }
 
+    function periodoDesde(clave) {
+        var hoy = new Date();
+        if (clave === 'mes_actual') {
+            return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        }
+        if (clave === 'mes_anterior') {
+            return new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        }
+        if (clave === 'ultimos_3') {
+            return new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
+        }
+        return null;
+    }
+
+    function periodoHasta(clave) {
+        var hoy = new Date();
+        if (clave === 'mes_anterior') {
+            return new Date(hoy.getFullYear(), hoy.getMonth(), 0); // último día mes anterior
+        }
+        return hoy;
+    }
+
     function filasFiltradas() {
         var promotorSel = document.getElementById('proformaFiltroPromotor');
-        var estadoSel = document.getElementById('proformaFiltroEstado');
-        var busqueda = document.getElementById('proformaBusqueda').value.toLowerCase().trim();
+        var estadoSel   = document.getElementById('proformaFiltroEstado');
+        var periodoClave= document.getElementById('proformaFiltroPeriodo').value;
+        var busqueda    = document.getElementById('proformaBusqueda').value.toLowerCase().trim();
+        var desde = periodoDesde(periodoClave);
+        var hasta = periodoHasta(periodoClave);
 
         return currentRows.filter(function (p) {
             if (promotorSel.value && p.usuario !== promotorSel.value) return false;
             if (estadoSel.value && estadoVisual(p) !== estadoSel.value) return false;
+            if (desde) {
+                var fechaRef = p.fecha_proforma || p.contacto_fecha_registro;
+                if (!fechaRef) return false;
+                var fechaD = new Date(fechaRef.split(' ')[0] + 'T00:00:00');
+                if (fechaD < desde || fechaD > hasta) return false;
+            }
             if (busqueda) {
                 var coincide = [p.pdv, p.codigo_pdv, p.empresa, p.contacto].some(function (v) {
                     return (v || '').toLowerCase().indexOf(busqueda) !== -1;
@@ -549,6 +606,7 @@
         document.getElementById('proformaBusqueda').addEventListener('input', renderizar);
         document.getElementById('proformaFiltroPromotor').addEventListener('change', renderizar);
         document.getElementById('proformaFiltroEstado').addEventListener('change', renderizar);
+        document.getElementById('proformaFiltroPeriodo').addEventListener('change', renderizar);
         document.getElementById('proformaExportar').addEventListener('click', descargarExcel);
     });
 })();

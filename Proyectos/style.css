@@ -408,6 +408,8 @@ a, a:hover, a:focus { text-decoration: none; }
 .badge-ejecutando { background: #fdf0d5; color: #b8860b; }
 .badge-cerrados    { background: #e3f7ea; color: #1d9a4d; }
 .badge-pendiente   { background: #eceef2; color: #8a93a3; }
+.badge-vencida     { background: #fbeaea; color: #a32a23; }
+.badge-cancelada   { background: #f0f3f7; color: #5b6577; }
 
 .comisiona-icon { font-size: 17px; }
 .comisiona-si { color: #27ae60; }
@@ -423,6 +425,38 @@ a, a:hover, a:focus { text-decoration: none; }
     color: #aab3c2;
     font-size: 14px;
     font-weight: 600;
+}
+
+/* ---------------------------------------------------
+   MÓDULOS — Barra de filtros unificada
+   Todos los módulos (Contactados, Agendamientos, Proforma,
+   Estado de Flujo, Principal/Avance) usan estas clases.
+   Cada módulo varía solo en cantidad de filtros.
+----------------------------------------------------- */
+.mod-filtros {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(20,30,50,.06);
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+/* En módulos los selects son más compactos que en el topbar global */
+.mod-filtros .filter-group .form-control { min-width: 160px; }
+/* Campo de búsqueda se estira para ocupar el espacio disponible */
+.filter-group.is-busqueda          { flex: 1; min-width: 220px; }
+.filter-group.is-busqueda .input-group { width: 100%; }
+/* Acciones alineadas a la derecha (legend, botones) */
+.mod-filtros-extra {
+    margin-left: auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 2px;
 }
 
 @media (max-width: 900px) {

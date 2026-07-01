@@ -84,24 +84,16 @@
         return tr;
     }
 
-    // Reusa el filtro GLOBAL del topbar (Promotor / Búsqueda rápida,
-    // partials/topbar.php) en vez de uno propio — esos 2 controles no los
-    // usa ninguna otra sección todavía, así que repintar sus opciones acá no
-    // rompe nada. "Mes" del topbar se deja afuera a propósito: viene
-    // preseleccionado con un mock fijo ($mes_actual en mock_data.php, no un
-    // mes real calculado), así que filtrar por él escondería datos sin que
-    // el analista lo haya pedido.
     function filasFiltradas() {
-        var promotorSel = document.getElementById('filtroPromotor');
-        var busquedaInput = document.getElementById('busquedaRapida');
-
-        var promotor = promotorSel ? promotorSel.value : '';
-        var q = busquedaInput ? busquedaInput.value.toLowerCase().trim() : '';
+        var q        = document.getElementById('contactadosBusqueda').value.toLowerCase().trim();
+        var estado   = document.getElementById('contactadosEstado').value;
+        var mercader = document.getElementById('contactadosMercaderista').value;
 
         return currentRows.filter(function (r) {
-            if (promotor && r.usuario !== promotor) return false;
+            if (mercader && r.usuario !== mercader) return false;
+            if (estado   && estadoVisual(r) !== estado) return false;
             if (q) {
-                var coincide = [r.contacto, r.empresa, r.pdv, r.mail].some(function (v) {
+                var coincide = [r.contacto, r.empresa, r.pdv, r.mail, r.direccion].some(function (v) {
                     return (v || '').toLowerCase().indexOf(q) !== -1;
                 });
                 if (!coincide) return false;
@@ -157,16 +149,10 @@
         filas.slice(inicio, inicio + FILAS_POR_PAGINA).forEach(function (r) { tbody.appendChild(pintarFila(r)); });
     }
 
-    // El <select> de Promotor del topbar global trae opciones de un mock
-    // (id numérico → "Promotor 1") que no corresponden a los valores reales
-    // de `usuario` en esta tabla. Mientras Contactados esté activo tiene más
-    // sentido mostrar los promotores reales que sí aparecen en los datos —
-    // ese select no lo usa ninguna otra sección hoy, así que pisarlo es seguro.
-    function construirOpcionesPromotor() {
-        var select = document.getElementById('filtroPromotor');
-        if (!select) return;
+    function construirOpcionesMercaderista() {
+        var select = document.getElementById('contactadosMercaderista');
         var valorPrevio = select.value;
-        select.innerHTML = '<option value="">Todos</option>';
+        select.innerHTML = '<option value="">Todos los mercaderistas</option>';
         var vistos = {};
         currentRows.forEach(function (r) {
             if (r.usuario && !vistos[r.usuario]) {
@@ -186,7 +172,7 @@
             .then(function (json) {
                 currentRows = json.data || [];
                 paginaActual = 1;
-                construirOpcionesPromotor();
+                construirOpcionesMercaderista();
                 renderizar();
             });
     }
@@ -231,8 +217,9 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         cargarContactados();
-        document.getElementById('filtroPromotor').addEventListener('change', renderizarDesdePrimeraPagina);
-        document.getElementById('busquedaRapida').addEventListener('input', renderizarDesdePrimeraPagina);
+        document.getElementById('contactadosBusqueda').addEventListener('input', renderizarDesdePrimeraPagina);
+        document.getElementById('contactadosEstado').addEventListener('change', renderizarDesdePrimeraPagina);
+        document.getElementById('contactadosMercaderista').addEventListener('change', renderizarDesdePrimeraPagina);
         document.getElementById('contactadosPagAnterior').addEventListener('click', function () {
             if (paginaActual > 1) { paginaActual--; renderizar(); }
         });
@@ -240,5 +227,6 @@
             paginaActual++;
             renderizar();
         });
+        document.getElementById('contactadosExportarExcel').addEventListener('click', descargarExcel);
     });
 })();

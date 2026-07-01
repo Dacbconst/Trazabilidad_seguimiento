@@ -1,26 +1,18 @@
 <?php
 /**
- * Datos de ejemplo (maqueta visual) de la cuenta Pintuco.
- * Reemplazar por consultas reales (vi_* / getters/) cuando se conecte la BD.
- * $usuario_actual (el usuario logueado) NO vive aquí — es del shell, se
- * define en Proyectos/index.php porque no depende de la cuenta elegida.
+ * Datos de la cuenta Pintuco para el módulo Principal.
+ * $usuario_actual y $mysqli vienen del shell (index.php).
  */
 
 // ================================================================
-// SECCIONES DEL SIDEBAR — todas viven en la misma página (sin rutas
-// propias) y se togglean por JS, igual mecanismo que el stepper de
-// pestañas de "Principal".
-// 'principal' es especial: no usa 'componente', envuelve el stepper
-// ($tabs) que ya existe en index.php.
-// Para agregar una sección nueva: crear su archivo en components/ y
-// sumar una entrada aquí.
+// SECCIONES DEL SIDEBAR
 // ================================================================
 $secciones = [
     ['id' => 'principal',     'label' => 'Principal',       'icono' => 'home'],
     ['id' => 'contactados',   'label' => 'Contactados',     'icono' => 'earphone',  'componente' => 'components/contactados/contactados.php'],
     ['id' => 'agendamientos', 'label' => 'Agendamientos',   'icono' => 'calendar',  'componente' => 'components/agendamiento/agendamientos.php'],
     ['id' => 'proforma',      'label' => 'Proforma',        'icono' => 'file',      'componente' => 'components/proforma/proforma.php'],
-    ['id' => 'estado-flujo',  'label' => 'Estado de Flujo', 'icono' => 'random',    'componente' => 'components/estado-flujo.php'],
+    ['id' => 'estado-flujo',  'label' => 'Estado de Flujo', 'icono' => 'random',    'componente' => 'components/estado-flujo/estado-flujo.php'],
 ];
 
 $promotores = [
@@ -52,5 +44,7 @@ $meses = [
     '2026-04' => 'Abril 2026',
     '2026-05' => 'Mayo 2026',
     '2026-06' => 'Junio 2026',
+    '2026-07' => 'Julio 2026',
 ];
-$mes_actual = '2026-06';
+$mes_actual = '2026-07';
+?>

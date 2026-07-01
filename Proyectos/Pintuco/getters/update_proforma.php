@@ -12,6 +12,9 @@
  * comportamiento documentado para cualquier valor que no reconoce, no es
  * un error, así seguirá funcionando sin romperse).
  */
+error_reporting(0);
+ini_set('display_errors', '0');
+
 header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -20,9 +23,9 @@ header('Content-Type: application/json');
 include_once '../db_connect.php';
 
 $ESTADOS_POR_ACCION = [
-    'negociacion' => 'en_negociacion', // Enviar a Negociación (Paso 4)
-    'aprobar'     => 'aprobado',       // Aprobar Proforma — cierra la auditoría, queda pendiente de factura para el Paso 5 real
-    'rechazar'    => 'rechazado',      // Rechazar / Evidencia falsa — estado terminal
+    'negociacion' => 'en_negociacion',
+    'aprobar'     => 'aprobado',
+    'rechazar'    => 'rechazado',
 ];
 
 $id            = isset($_POST['id'])     ? (int) $_POST['id'] : 0;
@@ -41,35 +44,51 @@ if (!isset($ESTADOS_POR_ACCION[$accion])) {
 
 $nuevoEstado = $ESTADOS_POR_ACCION[$accion];
 
-// monto_validado / observaciones_auditoria / fecha_auditoria son columnas
-// NUEVAS que todavía no existen en insert_proforma (ver memoria del
-// proyecto para el ALTER TABLE pendiente). Se intenta primero con ellas;
-// si la columna no existe, prepare() falla y se reintenta solo con el
-// estado para que la auditoría no quede totalmente bloqueada mientras
-// tanto (aunque sin guardar monto/observaciones hasta correr el ALTER).
-$query = "UPDATE insert_proforma
-          SET estado_proforma = ?, monto_validado = ?, observaciones_auditoria = ?, fecha_auditoria = NOW()
-          WHERE id = ?";
+// Detectar si las columnas de auditoría ya existen para elegir la query correcta.
+// Esto evita que un prepare() fallido deje el mysqli en estado de error y rompa
+// el segundo intento (comportamiento documentado en algunos PHP/MySQL en Azure).
+$colCheck = $mysqli->query(
+    "SELECT COUNT(*) AS tiene
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME   = 'insert_proforma'
+       AND COLUMN_NAME  = 'monto_validado'"
+);
+$tieneColumnas = false;
+if ($colCheck) {
+    $row = $colCheck->fetch_assoc();
+    $tieneColumnas = ($row && (int)$row['tiene'] > 0);
+    $colCheck->free();
+}
 
-if ($sql = $mysqli->prepare($query)) {
-    $sql->bind_param("sssi", $nuevoEstado, $monto, $observaciones, $id);
-    $ok = $sql->execute();
-    $sql->close();
-    echo json_encode(["success" => $ok, "message" => $ok ? "Actualizado." : $mysqli->error]);
+if ($tieneColumnas) {
+    $query = "UPDATE insert_proforma
+              SET estado_proforma = ?, monto_validado = ?, observaciones_auditoria = ?, fecha_auditoria = NOW()
+              WHERE id = ?";
+    $sql = $mysqli->prepare($query);
+    if ($sql) {
+        $sql->bind_param("sssi", $nuevoEstado, $monto, $observaciones, $id);
+        $ok = $sql->execute();
+        $msg = $ok ? "Actualizado." : $mysqli->error;
+        $sql->close();
+        echo json_encode(["success" => $ok, "message" => $msg]);
+    } else {
+        echo json_encode(["success" => false, "message" => "Error preparando query: " . $mysqli->error]);
+    }
 } else {
-    $queryFallback = "UPDATE insert_proforma SET estado_proforma = ? WHERE id = ?";
-    if ($sql = $mysqli->prepare($queryFallback)) {
+    // Columnas de auditoría aún no existen — solo actualiza el estado.
+    $query = "UPDATE insert_proforma SET estado_proforma = ? WHERE id = ?";
+    $sql = $mysqli->prepare($query);
+    if ($sql) {
         $sql->bind_param("si", $nuevoEstado, $id);
         $ok = $sql->execute();
+        $msg = $ok
+            ? "Estado actualizado. Monto/observaciones NO guardados — correr alter_proforma_auditoria.sql para habilitar."
+            : $mysqli->error;
         $sql->close();
-        echo json_encode([
-            "success" => $ok,
-            "message" => $ok
-                ? "Estado actualizado, pero monto/observaciones NO se guardaron — faltan columnas en insert_proforma (correr el ALTER TABLE pendiente)."
-                : $mysqli->error
-        ]);
+        echo json_encode(["success" => $ok, "message" => $msg]);
     } else {
-        echo json_encode(["success" => false, "message" => $mysqli->error]);
+        echo json_encode(["success" => false, "message" => "Error preparando fallback: " . $mysqli->error]);
     }
 }
 ?>
