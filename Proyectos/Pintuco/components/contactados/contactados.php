@@ -43,6 +43,9 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
             </select>
         </div>
         <div class="mod-filtros-extra">
+            <button type="button" class="btn btn-actualizar" id="contactadosActualizar">
+                <i class="glyphicon glyphicon-refresh"></i> Actualizar
+            </button>
             <button type="button" class="btn contactados-btn-excel" id="contactadosExportarExcel">
                 <i class="glyphicon glyphicon-save"></i> Descargar Excel
             </button>
@@ -56,7 +59,7 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
             <table class="contactados-table">
                 <thead>
                     <tr>
-                        <th>Local</th>
+                        <th>Direccion Empresa</th>
                         <th>Promotor</th>
                         <th>Contacto</th>
                         <th>Empresa</th>
@@ -82,6 +85,45 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
         </div>
     </div>
 
+</div>
+
+<!-- Marca de agua: popup card de historial por contacto -->
+<div class="ctc-popup-overlay" id="ctcPopupOverlay">
+    <div class="ctc-popup-card">
+        <div class="ctc-popup-header">
+            <div class="ctc-popup-col">
+                <span class="ctc-popup-col-label">Agendamiento</span>
+                <span class="ctc-popup-col-val" id="ctcPopupFecha">—</span>
+            </div>
+            <div class="ctc-popup-col">
+                <span class="ctc-popup-col-label">Contacto</span>
+                <span class="ctc-popup-col-val" id="ctcPopupContacto">—</span>
+            </div>
+            <div class="ctc-popup-col">
+                <span class="ctc-popup-col-label">Lugar</span>
+                <span class="ctc-popup-col-val" id="ctcPopupLugar">—</span>
+            </div>
+            <button type="button" class="ctc-popup-close" id="ctcPopupClose" title="Cerrar">&times;</button>
+        </div>
+        <div class="ctc-popup-body">
+            <table class="ctc-popup-table">
+                <thead>
+                    <tr>
+                        <th>F. Contacto</th>
+                        <th>Estado</th>
+                        <th>Evid.</th>
+                        <th>Ver</th>
+                    </tr>
+                </thead>
+                <tbody id="ctcPopupTbody">
+                    <tr><td colspan="4" class="ctc-popup-vacio">Cargando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="ctc-popup-footer">
+            <button type="button" class="btn btn-default" id="ctcPopupCerrar">Cerrar</button>
+        </div>
+    </div>
 </div>
 
 <script src="<?= htmlspecialchars($contactados_assets, ENT_QUOTES) ?>/contactados.js?v=<?= $contactados_js_v ?>"></script>

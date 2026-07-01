@@ -459,6 +459,25 @@ a, a:hover, a:focus { text-decoration: none; }
     padding-bottom: 2px;
 }
 
+/* Botón "Actualizar" global — mismo estilo en todos los módulos */
+.btn-mod-actualizar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #d8dee6;
+    color: #33415c;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s, border-color .12s;
+}
+.btn-mod-actualizar:hover { background: #f0f3f7; border-color: #b8c2cf; }
+.btn-mod-actualizar:active { background: #e8edf5; }
+
 @media (max-width: 900px) {
     /* En móvil .active significa "revelar" (no "encoger a riel" como en
        desktop): el sidebar arranca oculto fuera de pantalla y .active lo

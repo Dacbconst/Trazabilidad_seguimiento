@@ -248,6 +248,7 @@
     busquedaEl.addEventListener('input', aplicarFiltros);
     promotorEl.addEventListener('change', aplicarFiltros);
     tecnicoEl.addEventListener('change', aplicarFiltros);
+    document.getElementById('flujoActualizar').addEventListener('click', function () { _iniciado = true; cargar(); });
 
     document.getElementById('flujoPipeline').addEventListener('click', function (e) {
         var btn = e.target.closest('.flujo-etapa-btn');

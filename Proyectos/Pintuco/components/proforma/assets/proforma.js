@@ -1,180 +1,450 @@
 (function () {
-    var app = document.getElementById('proformaApp');
+    'use strict';
+
+    var app          = document.getElementById('proformaApp');
     var GETTERS_BASE = app.dataset.gettersBase;
-    var MODULO_BASE = app.dataset.moduloBase;
+    var MODULO_BASE  = app.dataset.moduloBase;
+    var FOTO_BASE    = 'https://luckyecuadorweb.blob.core.windows.net/app/AppPintuco/Inserts/';
 
-    // Ruta base donde la app móvil sube las fotos de evidencia.
-    // El campo `evidencia` en DB llega como "Proforma/archivo.png".
-    // Si la ruta real cambia (otro folder, otro servidor) solo hay que
-    // cambiar esta constante — no tocar construirEvidencia().
-    var FOTO_BASE = MODULO_BASE + '/';
-
-    var currentRows = [];
+    var currentRows   = [];
     var filaAbiertaId = null;
-    var toastTimer = null;
-
-    // CONFIRMADO con el equipo de la app móvil (Constantes.java /
-    // AdapterProforma.java, 2026-06-30): 'pendiente'/'en_proceso'/'realizado'
-    // son los 3 únicos valores que la app reconoce hoy — cualquier otro
-    // valor cae en su "else" y se muestra ahí como "Pendiente" sin importar
-    // qué diga el servidor. 'en_negociacion'/'aprobado'/'rechazado' son
-    // NUEVOS, acordados recién con ese equipo para que actualicen su
-    // if/else en paralelo — no escribir ningún otro literal sin avisarles.
-    // 'pendiente' (default de la columna en MySQL) se trata igual que
-    // 'en_proceso' acá — ambos significan "todavía no se audita".
-    var ESTADOS_VALIDOS = ['pendiente', 'en_proceso', 'en_negociacion', 'aprobado', 'rechazado'];
-    var ESTADO_LABEL = {
-        pendiente: 'Pendiente revisión',
-        en_proceso: 'Pendiente revisión',
-        en_negociacion: 'En negociación',
-        aprobado: 'Aprobada',
-        rechazado: 'Rechazada'
-    };
-
-    function estadoVisual(p) {
-        var estado = p.estado_proforma;
-        if (estado === 'pendiente') return 'en_proceso'; // mismo bucket visual
-        return ESTADOS_VALIDOS.indexOf(estado) !== -1 ? estado : 'en_proceso';
-    }
+    var toastTimer    = null;
 
     // ---------------------------------------------------------------
-    // Formato de fechas
+    // Helpers
     // ---------------------------------------------------------------
-    function soloFecha(valor) {
-        if (!valor) return null;
-        return valor.split(' ')[0];
+    function esc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
-
-    function formatFecha(valor) {
-        var iso = soloFecha(valor);
-        if (!iso || iso === '0000-00-00') return '—';
-        var partes = iso.split('-');
-        if (partes.length !== 3) return iso;
-        return partes[2] + '/' + partes[1] + '/' + partes[0];
-    }
-
-    function formatFechaHora(valor) {
-        if (!valor) return '—';
-        var partes = valor.split(' ');
-        var fecha = formatFecha(partes[0]);
-        if (partes.length < 2) return fecha;
-        return fecha + ' ' + partes[1].slice(0, 5);
-    }
-
-    function diasEntre(fechaA, fechaB) {
-        var isoA = soloFecha(fechaA), isoB = soloFecha(fechaB);
-        if (!isoA || !isoB || isoA === '0000-00-00' || isoB === '0000-00-00') return null;
-        var msPorDia = 24 * 60 * 60 * 1000;
-        return Math.round((new Date(isoB + 'T00:00:00') - new Date(isoA + 'T00:00:00')) / msPorDia);
-    }
-
+    function soloFecha(v) { return v ? v.split(' ')[0] : null; }
     function hoyISO() {
-        var hoy = new Date();
-        return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+        var h = new Date();
+        return h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0') + '-' + String(h.getDate()).padStart(2,'0');
+    }
+    function formatFecha(v) {
+        var iso = soloFecha(v);
+        if (!iso || iso === '0000-00-00') return '—';
+        var p = iso.split('-');
+        return p.length === 3 ? p[2]+'/'+p[1]+'/'+p[0] : iso;
+    }
+    function formatFechaHora(v) {
+        if (!v) return '—';
+        var pp = v.split(' ');
+        return formatFecha(pp[0]) + (pp[1] ? ' ' + pp[1].slice(0,5) : '');
     }
 
     // ---------------------------------------------------------------
-    // Toast (mismo patrón ya usado en Agendamientos/Contactados)
+    // Toast
     // ---------------------------------------------------------------
-    function mostrarToast(mensaje, esError) {
-        var toast = document.getElementById('proformaToast');
-        toast.textContent = mensaje;
-        toast.classList.toggle('is-error', !!esError);
-        toast.classList.add('is-visible');
+    function mostrarToast(msg, esError) {
+        var el = document.getElementById('proformaToast');
+        el.textContent = msg;
+        el.classList.toggle('is-error', !!esError);
+        el.classList.add('is-visible');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toast.classList.remove('is-visible'); }, 2500);
+        toastTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 2600);
     }
 
     // ---------------------------------------------------------------
-    // KPIs (calculados de los datos ya cargados, sin pedir nada extra)
+    // Fase lógica
+    // Fases 1 y 2 vienen del agendamiento (insert_proyectos_contacto).
+    // Fases 3-5 vienen de la proforma (insert_proforma).
+    // ---------------------------------------------------------------
+    // Fase 3: se cumple AUTOMÁTICAMENTE cuando el promotor sube la foto de proforma.
+    //   No requiere acción del analista — es solo un milestone en el timeline.
+    // Fase 4 (Negociación): arranca de inmediato después de que llega la foto.
+    //   El analista revisa, entra monto/obs y puede:
+    //   - "Solicitar nueva evidencia" → nuevo ciclo (promotor manda otra foto).
+    //   - "Finalizar Negociación" → aprueba y pasa a Fase 5.
+    //   - "Rechazar" → estado terminal.
+    // Fase 5: completo — se muestra foto_factura del celular (solo lectura).
+    function getFase(p) {
+        if (p.foto_factura || p.estado_proforma === 'aprobado') return 5;
+        if (p.estado_proforma === 'rechazado') return 4;          // terminal en negociación
+        if (p.id) return 4;                                        // proforma recibida → fase 4 automática
+        if (p.hora && p.tecnico) return 2;
+        return 1;
+    }
+
+    function getBadge(p) {
+        var f = getFase(p);
+        if (f === 5) return { label: 'Fase 5', cls: 'is-aprobado' };
+        if (f === 4) {
+            if (p.estado_proforma === 'rechazado') return { label: 'Fase 4', cls: 'is-rechazado' };
+            return { label: 'Fase 4', cls: 'is-en_proceso' };
+        }
+        if (f === 2) return { label: 'Fase 2', cls: 'is-pendiente' };
+        return           { label: 'Fase 1', cls: 'is-pendiente' };
+    }
+
+    // ---------------------------------------------------------------
+    // KPIs
     // ---------------------------------------------------------------
     function pintarKpis(rows) {
-        var pendientes = 0, negociacion = 0, aprobadasHoy = 0, montoTramite = 0;
+        var pendientes = 0, negociacion = 0, aprobadasHoy = 0, monto = 0;
         var hoy = hoyISO();
         rows.forEach(function (p) {
-            var estado = estadoVisual(p);
-            if (estado === 'en_proceso') pendientes++;
-            if (estado === 'en_negociacion') negociacion++;
-            if (estado === 'aprobado' && soloFecha(p.fecha_auditoria) === hoy) aprobadasHoy++;
-            if ((estado === 'en_negociacion' || estado === 'aprobado') && p.monto_validado) {
-                montoTramite += parseFloat(p.monto_validado) || 0;
-            }
+            var f = getFase(p);
+            if (f === 3 && p.estado_proforma !== 'rechazado') pendientes++;
+            if (f === 4) negociacion++;
+            if (p.estado_proforma === 'aprobado' && soloFecha(p.fecha_auditoria) === hoy) aprobadasHoy++;
+            if (f === 4 && p.monto_validado) monto += parseFloat(p.monto_validado) || 0;
         });
         document.getElementById('proformaKpiPendientes').textContent = pendientes;
         document.getElementById('proformaKpiNegociacion').textContent = negociacion;
         document.getElementById('proformaKpiAprobadasHoy').textContent = aprobadasHoy;
-        document.getElementById('proformaKpiMonto').textContent = '$' + montoTramite.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('proformaKpiMonto').textContent =
+            '$' + monto.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     // ---------------------------------------------------------------
-    // Timeline: Contacto inicial → Visita agendada → Proforma subida.
-    // SLA corporativo: 3 días máximo por fase (regla que viene del PDF de
-    // especificación) — si se excede, se resalta en rojo.
+    // Filtros
     // ---------------------------------------------------------------
-    function construirTimeline(p) {
-        var wrap = document.createElement('div');
-        wrap.className = 'proforma-timeline';
+    function filasFiltradas() {
+        var promotorSel  = document.getElementById('proformaFiltroPromotor').value;
+        var estadoSel    = document.getElementById('proformaFiltroEstado').value;
+        var periodoClave = document.getElementById('proformaFiltroPeriodo').value;
+        var busqueda     = document.getElementById('proformaBusqueda').value.toLowerCase().trim();
 
-        var pasos = [
-            { titulo: 'Contacto inicial', fecha: p.contacto_fecha_registro, esFechaHora: true },
-            { titulo: 'Agendamiento creado', fecha: p.fecha_agendamiento, esFechaHora: false },
-            { titulo: 'Proforma subida', fecha: p.proforma_fecha_registro, esFechaHora: true }
-        ];
+        return currentRows.filter(function (p) {
+            if (promotorSel && p.usuario !== promotorSel) return false;
 
-        for (var i = 0; i < pasos.length; i++) {
-            var paso = pasos[i];
-            var item = document.createElement('div');
-            item.className = 'proforma-timeline-item';
+            if (estadoSel) {
+                var f = getFase(p);
+                if (estadoSel === 'en_proceso'     && !(f === 3 && p.estado_proforma !== 'rechazado')) return false;
+                if (estadoSel === 'en_negociacion' && f !== 4)                                         return false;
+                if (estadoSel === 'aprobado'       && p.estado_proforma !== 'aprobado')                return false;
+                if (estadoSel === 'rechazado'      && p.estado_proforma !== 'rechazado')               return false;
+            }
 
-            var punto = document.createElement('span');
-            punto.className = 'proforma-timeline-punto';
-            item.appendChild(punto);
-
-            var texto = document.createElement('div');
-            texto.className = 'proforma-timeline-texto';
-
-            var titulo = document.createElement('div');
-            titulo.className = 'proforma-timeline-titulo';
-            titulo.textContent = paso.titulo;
-            texto.appendChild(titulo);
-
-            var fechaEl = document.createElement('div');
-            fechaEl.className = 'proforma-timeline-fecha';
-            fechaEl.textContent = paso.fecha ? (paso.esFechaHora ? formatFechaHora(paso.fecha) : formatFecha(paso.fecha)) : 'Sin registrar';
-            texto.appendChild(fechaEl);
-
-            if (i > 0) {
-                var dias = diasEntre(pasos[i - 1].fecha, paso.fecha);
-                if (dias !== null) {
-                    var sla = document.createElement('div');
-                    var excede = dias > 3;
-                    sla.className = 'proforma-timeline-sla' + (excede ? ' is-excedido' : '');
-                    sla.textContent = (dias <= 0 ? 'mismo día' : 'tardó ' + dias + ' día' + (dias === 1 ? '' : 's')) + (excede ? ' — excede el SLA (3 días)' : '');
-                    texto.appendChild(sla);
+            if (periodoClave) {
+                var hoy = new Date(), desde;
+                if (periodoClave === 'mes_actual')   desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                if (periodoClave === 'mes_anterior')  desde = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1);
+                if (periodoClave === 'ultimos_3')     desde = new Date(hoy.getFullYear(), hoy.getMonth()-3, 1);
+                if (desde) {
+                    var ref = p.proforma_fecha_registro || p.contacto_fecha_registro;
+                    if (!ref || new Date(ref.split(' ')[0]+'T00:00:00') < desde) return false;
                 }
             }
 
-            item.appendChild(texto);
-            wrap.appendChild(item);
+            if (busqueda) {
+                var haystack = [p.pdv, p.codigo_pdv, p.empresa, p.contacto].join(' ').toLowerCase();
+                if (haystack.indexOf(busqueda) === -1) return false;
+            }
+
+            return true;
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Opciones de promotor
+    // ---------------------------------------------------------------
+    function construirOpcionesPromotor() {
+        var select = document.getElementById('proformaFiltroPromotor');
+        var prev   = select.value;
+        select.innerHTML = '<option value="">Todos los promotores</option>';
+        var vistos = {};
+        currentRows.forEach(function (p) {
+            if (p.usuario && !vistos[p.usuario]) {
+                vistos[p.usuario] = true;
+                var o = document.createElement('option');
+                o.value = o.textContent = p.usuario;
+                select.appendChild(o);
+            }
+        });
+        if (vistos[prev]) select.value = prev;
+    }
+
+    // ---------------------------------------------------------------
+    // Deduplicación: el getter devuelve TODOS los ciclos de insert_proforma.
+    // Para la lista principal solo queremos el ciclo más reciente por
+    // id_agendamiento (el de mayor id). Los ciclos anteriores se cargan
+    // por separado cuando el analista expande una fila (historial gris).
+    // ---------------------------------------------------------------
+    function ultimosCiclos(rows) {
+        // Clave = agendamiento_id (c.id, siempre presente aunque no haya proforma).
+        // Si hay múltiples ciclos de negociación para un mismo agendamiento,
+        // se queda con el de mayor p.id (el ciclo más reciente).
+        // Si no hay proforma aún (p.id = null), parseInt da NaN → 0, y esa
+        // única fila es el máximo para ese agendamiento.
+        var maximo = {};
+        rows.forEach(function (p) {
+            var key = p.agendamiento_id;
+            var pid = parseInt(p.id, 10) || 0;
+            if (maximo[key] === undefined || pid > maximo[key]) {
+                maximo[key] = pid;
+            }
+        });
+        return rows.filter(function (p) {
+            var pid = parseInt(p.id, 10) || 0;
+            return pid === maximo[p.agendamiento_id];
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Agrupación por promotor
+    // ---------------------------------------------------------------
+    function agruparPorPromotor(rows) {
+        var grupos = {};
+        rows.forEach(function (p) {
+            var k = p.usuario || '(Sin promotor)';
+            if (!grupos[k]) grupos[k] = [];
+            grupos[k].push(p);
+        });
+        return grupos;
+    }
+
+    // ---------------------------------------------------------------
+    // Render principal
+    // ---------------------------------------------------------------
+    function renderizar() {
+        pintarKpis(currentRows);
+        var container = document.getElementById('proformaGrupos');
+        container.innerHTML = '';
+
+        var filas = filasFiltradas();
+        if (!filas.length) {
+            var vacio = document.createElement('div');
+            vacio.className = 'proforma-vacio';
+            vacio.textContent = 'Sin proformas que coincidan con el filtro.';
+            container.appendChild(vacio);
+            return;
         }
+
+        var grupos = agruparPorPromotor(ultimosCiclos(filas));
+        Object.keys(grupos).sort().forEach(function (promotor) {
+            container.appendChild(construirGrupo(promotor, grupos[promotor]));
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Grupo de promotor
+    // ---------------------------------------------------------------
+    function construirGrupo(promotor, filas) {
+        var wrap = document.createElement('div');
+        wrap.className = 'proforma-grupo';
+
+        // Header de grupo
+        var hdr = document.createElement('div');
+        hdr.className = 'proforma-grupo-header';
+
+        var avatar = document.createElement('div');
+        avatar.className = 'proforma-grupo-avatar';
+        avatar.innerHTML = '<i class="glyphicon glyphicon-user"></i>';
+
+        var info = document.createElement('div');
+        info.className = 'proforma-grupo-info';
+
+        var nombre = document.createElement('span');
+        nombre.className = 'proforma-grupo-nombre';
+        nombre.textContent = 'Promotor: ' + promotor;
+
+        var count = document.createElement('span');
+        count.className = 'proforma-grupo-count';
+        count.textContent = filas.length + ' agendamiento' + (filas.length !== 1 ? 's' : '') + ' en ruta';
+
+        info.appendChild(nombre);
+        info.appendChild(count);
+
+        var chevron = document.createElement('i');
+        chevron.className = 'glyphicon glyphicon-chevron-up proforma-grupo-chevron';
+
+        hdr.appendChild(avatar);
+        hdr.appendChild(info);
+        hdr.appendChild(chevron);
+
+        hdr.addEventListener('click', function () {
+            wrap.classList.toggle('is-cerrado');
+        });
+
+        wrap.appendChild(hdr);
+
+        // Sub-header de columnas
+        var sub = document.createElement('div');
+        sub.className = 'proforma-grupo-subheader';
+        sub.innerHTML =
+            '<span class="proforma-sh-cliente">Cliente / Punto de venta</span>'
+            + '<span class="proforma-sh-promotor">Promotor</span>'
+            + '<span class="proforma-sh-fecha">Fecha visita</span>'
+            + '<span class="proforma-sh-estado">Estado</span>';
+        wrap.appendChild(sub);
+
+        // Filas del grupo
+        var body = document.createElement('div');
+        body.className = 'proforma-grupo-body';
+        filas.forEach(function (p) {
+            body.appendChild(construirFilaWrap(p));
+        });
+        wrap.appendChild(body);
 
         return wrap;
     }
 
     // ---------------------------------------------------------------
-    // Evidencia: foto subida desde el celular + datos REALES disponibles
-    // (no se inventan coordenadas GPS de la foto ni datos de dispositivo,
-    // que no existen en la base — eso sería mostrar datos falsos en una
-    // pantalla cuyo propósito es justo detectar evidencia falsa).
+    // Fila de agendamiento + panel de detalle
     // ---------------------------------------------------------------
-    function construirEvidencia(p) {
+    function construirFilaWrap(p) {
         var wrap = document.createElement('div');
-        wrap.className = 'proforma-evidencia';
+        wrap.className = 'proforma-gfila-wrap';
 
-        var tituloFoto = document.createElement('div');
-        tituloFoto.className = 'proforma-seccion-titulo';
-        tituloFoto.textContent = 'Evidencia desde campo';
-        wrap.appendChild(tituloFoto);
+        // Fila principal
+        var fila = document.createElement('div');
+        fila.className = 'proforma-gfila';
+        fila.dataset.id = p.agendamiento_id;  // siempre presente (c.id)
+        if (filaAbiertaId !== null && filaAbiertaId === p.agendamiento_id) fila.classList.add('is-abierta');
+
+        var badge = getBadge(p);
+
+        var cCliente = document.createElement('div');
+        cCliente.className = 'proforma-gfila-cliente';
+        var empresa = document.createElement('div');
+        empresa.className = 'proforma-gfila-empresa';
+        empresa.textContent = p.empresa || p.contacto || '—';
+        var pdvEl = document.createElement('div');
+        pdvEl.className = 'proforma-gfila-pdv';
+        pdvEl.textContent = (p.pdv || '—') + (p.codigo_pdv ? ' · ' + p.codigo_pdv : '');
+        cCliente.appendChild(empresa);
+        cCliente.appendChild(pdvEl);
+
+        var cProm = document.createElement('div');
+        cProm.className = 'proforma-gfila-promotor';
+        cProm.textContent = p.usuario || '—';
+
+        var cFecha = document.createElement('div');
+        cFecha.className = 'proforma-gfila-fecha';
+        cFecha.textContent = formatFecha(p.fecha_agendamiento);
+
+        var cEstado = document.createElement('div');
+        cEstado.className = 'proforma-gfila-estado';
+        var badgeEl = document.createElement('span');
+        badgeEl.className = 'proforma-badge ' + badge.cls;
+        badgeEl.textContent = badge.label;
+        cEstado.appendChild(badgeEl);
+
+        fila.appendChild(cCliente);
+        fila.appendChild(cProm);
+        fila.appendChild(cFecha);
+        fila.appendChild(cEstado);
+
+        fila.addEventListener('click', function () { alternarFila(p.agendamiento_id); });
+
+        wrap.appendChild(fila);
+
+        // Panel de detalle si está abierta
+        if (filaAbiertaId !== null && filaAbiertaId === p.agendamiento_id) {
+            wrap.appendChild(construirDetalle(p));
+        }
+
+        return wrap;
+    }
+
+    function alternarFila(agendamientoId) {
+        filaAbiertaId = (filaAbiertaId === agendamientoId) ? null : agendamientoId;
+        renderizar();
+        if (filaAbiertaId !== null) {
+            setTimeout(function () {
+                var el = document.querySelector('.proforma-gfila[data-id="' + agendamientoId + '"]');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 60);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Panel de detalle (3 columnas)
+    // ---------------------------------------------------------------
+    function construirDetalle(p) {
+        var panel = document.createElement('div');
+        panel.className = 'proforma-gdetalle';
+
+        var grid = document.createElement('div');
+        grid.className = 'proforma-gdetalle-grid';
+
+        grid.appendChild(construirTimeline(p));
+        grid.appendChild(construirPanelEvidencia(p));
+        grid.appendChild(construirPanelAuditoria(p, function () { cargarProformas(); }));
+
+        panel.appendChild(grid);
+        return panel;
+    }
+
+    // ---------------------------------------------------------------
+    // Columna 1 — Timeline de 5 fases
+    // ---------------------------------------------------------------
+    function construirTimeline(p) {
+        var fase = getFase(p);
+
+        var wrap = document.createElement('div');
+
+        var titulo = document.createElement('div');
+        titulo.className = 'proforma-seccion-titulo';
+        titulo.textContent = 'Progreso del flujo';
+        wrap.appendChild(titulo);
+
+        var defs = [
+            { num: 1, label: 'Contacto inicial',
+              fecha: formatFecha(p.contacto_fecha_registro),
+              completa: true, activa: fase === 1 },
+            { num: 2, label: 'Visita agendada',
+              fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + p.hora.slice(0,5) : ''),
+              completa: !!(p.hora && p.tecnico), activa: fase === 2 },
+            { num: 3, label: 'Proforma recibida',
+              fecha: p.proforma_fecha_registro ? formatFechaHora(p.proforma_fecha_registro) : null,
+              completa: !!p.id,   // auto-completa cuando llega la foto del promotor
+              activa: false },    // nunca "activa": es solo un milestone
+            { num: 4, label: 'Negociación',
+              fecha: p.fecha_auditoria ? formatFechaHora(p.fecha_auditoria) : null,
+              completa: fase === 5, activa: fase === 4 },
+            { num: 5, label: 'Completado',
+              fecha: null, completa: fase === 5, activa: false }
+        ];
+
+        var list = document.createElement('div');
+        list.className = 'proforma-fase-list';
+
+        defs.forEach(function (f) {
+            var item = document.createElement('div');
+            item.className = 'proforma-fase-item '
+                + (f.completa ? 'is-completa' : f.activa ? 'is-activa' : 'is-pendiente');
+
+            var punto = document.createElement('div');
+            punto.className = 'proforma-fase-punto';
+            if (f.completa) punto.innerHTML = '<i class="glyphicon glyphicon-ok"></i>';
+            item.appendChild(punto);
+
+            var texto = document.createElement('div');
+            texto.className = 'proforma-fase-texto';
+
+            var lbl = document.createElement('div');
+            lbl.className = 'proforma-fase-label';
+            lbl.textContent = 'Fase ' + f.num + ': ' + f.label;
+            texto.appendChild(lbl);
+
+            if (f.fecha && f.fecha !== '—') {
+                var fEl = document.createElement('div');
+                fEl.className = 'proforma-fase-fecha';
+                fEl.textContent = f.fecha;
+                texto.appendChild(fEl);
+            }
+
+            item.appendChild(texto);
+            list.appendChild(item);
+        });
+
+        wrap.appendChild(list);
+        return wrap;
+    }
+
+    // ---------------------------------------------------------------
+    // Columna 2 — Evidencia fotográfica
+    // ---------------------------------------------------------------
+    function construirPanelEvidencia(p) {
+        var wrap = document.createElement('div');
+
+        var titulo = document.createElement('div');
+        titulo.className = 'proforma-seccion-titulo';
+        titulo.textContent = 'Evidencia fotográfica';
+        wrap.appendChild(titulo);
 
         if (p.evidencia) {
             var img = document.createElement('img');
@@ -184,405 +454,257 @@
             img.addEventListener('click', function () { window.open(img.src, '_blank'); });
             img.addEventListener('error', function () {
                 img.style.display = 'none';
-                var aviso = document.createElement('div');
-                aviso.className = 'proforma-evidencia-vacia';
-                aviso.innerHTML = '<i class="glyphicon glyphicon-picture"></i><br>Foto no disponible en el servidor.<br><small style="word-break:break-all;opacity:.7">' + img.src + '</small>';
-                img.parentNode.insertBefore(aviso, img.nextSibling);
+                var av = document.createElement('div');
+                av.className = 'proforma-evidencia-vacia';
+                av.innerHTML = '<i class="glyphicon glyphicon-picture"></i><br>Foto no disponible.<br><small style="word-break:break-all;opacity:.7">' + esc(img.src) + '</small>';
+                img.parentNode.insertBefore(av, img.nextSibling);
             });
             wrap.appendChild(img);
         } else {
-            var sinFoto = document.createElement('div');
-            sinFoto.className = 'proforma-evidencia-vacia';
-            sinFoto.textContent = 'Sin foto de evidencia.';
-            wrap.appendChild(sinFoto);
+            var sin = document.createElement('div');
+            sin.className = 'proforma-evidencia-vacia';
+            sin.innerHTML = '<i class="glyphicon glyphicon-camera"></i><br>Sin foto de evidencia.';
+            wrap.appendChild(sin);
         }
 
         var lat = parseFloat(p.latitud), lng = parseFloat(p.longitud);
         if (lat && lng) {
-            var ubicacion = document.createElement('a');
-            ubicacion.className = 'proforma-evidencia-ubicacion';
-            ubicacion.href = 'https://maps.google.com/maps?q=' + lat + ',' + lng;
-            ubicacion.target = '_blank';
-            ubicacion.rel = 'noopener';
-            ubicacion.innerHTML = '<i class="glyphicon glyphicon-map-marker"></i> Ver ubicación registrada de la visita';
-            wrap.appendChild(ubicacion);
+            var link = document.createElement('a');
+            link.className = 'proforma-evidencia-ubicacion';
+            link.href = 'https://maps.google.com/maps?q=' + lat + ',' + lng;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.innerHTML = '<i class="glyphicon glyphicon-map-marker"></i> Ver ubicación GPS';
+            wrap.appendChild(link);
         }
 
-        var reporteTitulo = document.createElement('div');
-        reporteTitulo.className = 'proforma-seccion-titulo proforma-seccion-titulo-mt';
-        reporteTitulo.textContent = 'Reporte del promotor';
-        wrap.appendChild(reporteTitulo);
-
-        var reporte = document.createElement('div');
-        reporte.className = 'proforma-reporte';
-        var caracteristicas = document.createElement('p');
-        caracteristicas.textContent = p.caracteristica_visita || 'Sin observaciones registradas.';
-        reporte.appendChild(caracteristicas);
-        var acompanamiento = document.createElement('p');
-        acompanamiento.className = 'proforma-reporte-meta';
-        acompanamiento.textContent = 'Acompañamiento técnico: ' + (p.acompanamiento_tecnico === 'SI' ? 'Sí' : 'No');
-        reporte.appendChild(acompanamiento);
-        wrap.appendChild(reporte);
+        if (p.caracteristica_visita || p.acompanamiento_tecnico) {
+            var rep = document.createElement('div');
+            rep.className = 'proforma-reporte';
+            if (p.caracteristica_visita) {
+                var c = document.createElement('p');
+                c.textContent = p.caracteristica_visita;
+                rep.appendChild(c);
+            }
+            var ac = document.createElement('p');
+            ac.className = 'proforma-reporte-meta';
+            ac.textContent = 'Acompañamiento técnico: ' + (p.acompanamiento_tecnico === 'SI' ? 'Sí' : 'No');
+            rep.appendChild(ac);
+            wrap.appendChild(rep);
+        }
 
         return wrap;
     }
 
     // ---------------------------------------------------------------
-    // Panel de auditoría y resolución
+    // Columna 3 — Auditoría (con historial de ciclos en fase 4)
     // ---------------------------------------------------------------
-    function construirAuditoria(p, onResuelto) {
+    function construirPanelAuditoria(p, onResuelto) {
+        var fase = getFase(p);
         var wrap = document.createElement('div');
-        wrap.className = 'proforma-auditoria';
 
         var titulo = document.createElement('div');
         titulo.className = 'proforma-seccion-titulo';
-        titulo.textContent = 'Auditoría y resolución';
+        titulo.textContent = 'Acciones de auditoría';
         wrap.appendChild(titulo);
 
+        // ── Fase 5: completado ──────────────────────────────────────────────
+        if (fase === 5) {
+            if (p.foto_factura) {
+                var tituloFact = document.createElement('div');
+                tituloFact.className = 'proforma-seccion-titulo';
+                tituloFact.textContent = 'Foto de factura';
+                wrap.appendChild(tituloFact);
+
+                var imgFact = document.createElement('img');
+                imgFact.className = 'proforma-evidencia-foto';
+                imgFact.src = FOTO_BASE + p.foto_factura;
+                imgFact.alt = 'Foto de factura';
+                imgFact.addEventListener('click', function () { window.open(imgFact.src, '_blank'); });
+                imgFact.addEventListener('error', function () {
+                    imgFact.style.display = 'none';
+                    var av = document.createElement('div');
+                    av.className = 'proforma-evidencia-vacia';
+                    av.innerHTML = '<i class="glyphicon glyphicon-picture"></i><br>Foto de factura no disponible.';
+                    imgFact.parentNode.insertBefore(av, imgFact.nextSibling);
+                });
+                wrap.appendChild(imgFact);
+            } else {
+                var espFact = document.createElement('div');
+                espFact.className = 'proforma-auditoria-cerrada';
+                espFact.innerHTML = '<i class="glyphicon glyphicon-ok-circle"></i> Negociación finalizada — esperando foto de factura del promotor.';
+                wrap.appendChild(espFact);
+            }
+            return wrap;
+        }
+
+        // ── Fase 1-2: sin proforma aún ─────────────────────────────────────
+        if (fase <= 2) {
+            var esp = document.createElement('div');
+            esp.className = 'proforma-auditoria-cerrada';
+            esp.textContent = 'Pendiente de que el promotor suba la proforma.';
+            wrap.appendChild(esp);
+            return wrap;
+        }
+
+        // ── Rechazado (terminal en fase 3) ─────────────────────────────────
+        if (p.estado_proforma === 'rechazado') {
+            var recMsg = document.createElement('div');
+            recMsg.className = 'proforma-auditoria-cerrada is-rechazado';
+            recMsg.innerHTML = '<i class="glyphicon glyphicon-remove"></i> Rechazada / Evidencia falsa.';
+            wrap.appendChild(recMsg);
+            return wrap;
+        }
+
+        // ── Fase 4: historial de ciclos anteriores ─────────────────────────
+        // proformas_listar.php?id_agendamiento=X devuelve TODOS los ciclos del
+        // agendamiento (del más antiguo al más reciente). Los anteriores al
+        // ciclo activo (id < p.id) se muestran como tarjetas grises.
+        var historialWrap = document.createElement('div');
+        historialWrap.className = 'proforma-historial';
+        wrap.appendChild(historialWrap);
+
+        if (fase === 4) {
+            var CICLO_LABEL = { en_negociacion: 'Aprobado → negociación', aprobado: 'Finalizado', rechazado: 'Rechazado', en_proceso: 'En revisión' };
+            fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(p.agendamiento_id))
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    var anteriores = (json.data || []).filter(function (h) {
+                        return parseInt(h.id, 10) !== parseInt(p.id, 10);
+                    });
+                    if (!anteriores.length) return;
+                    anteriores.forEach(function (h, idx) {
+                        var lbl = CICLO_LABEL[h.estado_proforma] || h.estado_proforma;
+                        var ciclo = document.createElement('div');
+                        ciclo.className = 'proforma-historial-ciclo';
+                        ciclo.innerHTML =
+                            '<div class="proforma-historial-ciclo-hdr">'
+                            + '<span class="proforma-historial-ciclo-num">Ciclo ' + (idx + 1) + '</span>'
+                            + '<span class="proforma-historial-ciclo-fecha">' + esc(formatFechaHora(h.fecha_auditoria || h.proforma_fecha_registro)) + '</span>'
+                            + '<span class="proforma-badge is-' + esc(h.estado_proforma) + '">' + esc(lbl) + '</span>'
+                            + '</div>'
+                            + (h.monto_validado
+                                ? '<div class="proforma-historial-ciclo-dato">Monto: $' + parseFloat(h.monto_validado).toLocaleString('es-EC', {minimumFractionDigits:2}) + '</div>'
+                                : '')
+                            + (h.observaciones_auditoria
+                                ? '<div class="proforma-historial-ciclo-dato">' + esc(h.observaciones_auditoria) + '</div>'
+                                : '');
+                        historialWrap.appendChild(ciclo);
+                    });
+                })
+                .catch(function () {});
+        }
+
+        // ── Formulario de auditoría (fase 3 y 4 activa) ────────────────────
         var campoMonto = document.createElement('div');
         campoMonto.className = 'proforma-campo';
         var labelMonto = document.createElement('label');
-        labelMonto.textContent = 'Monto cotizado (leer de la foto) $';
+        labelMonto.textContent = 'Monto cotizado ($)';
         var inputMonto = document.createElement('input');
-        inputMonto.type = 'number';
-        inputMonto.step = '0.01';
-        inputMonto.min = '0';
+        inputMonto.type = 'number'; inputMonto.step = '0.01'; inputMonto.min = '0';
         inputMonto.placeholder = 'Ej. 1200.00';
         inputMonto.className = 'form-control';
         inputMonto.value = p.monto_validado || '';
-        campoMonto.appendChild(labelMonto);
-        campoMonto.appendChild(inputMonto);
+        campoMonto.appendChild(labelMonto); campoMonto.appendChild(inputMonto);
         wrap.appendChild(campoMonto);
 
         var campoObs = document.createElement('div');
         campoObs.className = 'proforma-campo';
         var labelObs = document.createElement('label');
-        labelObs.textContent = 'Observaciones internas';
+        labelObs.textContent = 'Observaciones internas de validación';
         var inputObs = document.createElement('textarea');
-        inputObs.className = 'form-control';
-        inputObs.placeholder = 'Notas de validación...';
-        inputObs.rows = 2;
-        inputObs.value = p.observaciones_auditoria || '';
-        campoObs.appendChild(labelObs);
-        campoObs.appendChild(inputObs);
+        inputObs.className = 'form-control'; inputObs.placeholder = 'Notas...';
+        inputObs.rows = 3; inputObs.value = p.observaciones_auditoria || '';
+        campoObs.appendChild(labelObs); campoObs.appendChild(inputObs);
         wrap.appendChild(campoObs);
 
         var acciones = document.createElement('div');
         acciones.className = 'proforma-auditoria-acciones';
 
-        var estadoActual = estadoVisual(p);
-        var yaDespachado = estadoActual === 'aprobado' || estadoActual === 'rechazado';
+        var btnVerde = document.createElement('button');
+        var btnRec   = document.createElement('button');
 
-        function setBotonesOcupados(ocupado) {
-            [btnNegociacion, btnAprobar, btnRechazar].forEach(function (b) {
-                b.disabled = ocupado;
-            });
-        }
+        function setBusy(b) { btnVerde.disabled = b; btnRec.disabled = b; }
 
         function accionar(accion) {
-            setBotonesOcupados(true);
+            setBusy(true);
             var body = new URLSearchParams();
             body.set('id', p.id);
             body.set('accion', accion);
             body.set('monto', inputMonto.value.trim());
             body.set('observaciones', inputObs.value.trim());
             fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
-                .then(function (resp) { return resp.json(); })
+                .then(function (r) { return r.json(); })
                 .then(function (json) {
-                    if (json.success) {
-                        mostrarToast('Guardado correctamente.');
-                        onResuelto();
-                    } else {
-                        mostrarToast(json.message || 'No se pudo actualizar.', true);
-                        setBotonesOcupados(false);
-                    }
+                    if (json.success) { mostrarToast('Guardado correctamente.'); onResuelto(); }
+                    else { mostrarToast(json.message || 'No se pudo actualizar.', true); setBusy(false); }
                 })
-                .catch(function () {
-                    mostrarToast('No se pudo conectar con el servidor.', true);
-                    setBotonesOcupados(false);
-                });
+                .catch(function () { mostrarToast('Error de conexión.', true); setBusy(false); });
         }
 
-        var btnNegociacion = document.createElement('button');
-        btnNegociacion.type = 'button';
-        btnNegociacion.className = 'proforma-btn-negociacion';
-        btnNegociacion.textContent = 'Enviar a Negociación';
-        btnNegociacion.addEventListener('click', function () { accionar('negociacion'); });
+        // Fase 4 — 2 botones:
+        //   "Guardar"                  → registra monto/obs sin cambiar estado.
+        //   "Rechazar / Subir nuevamente" → rojo: pide nueva evidencia al promotor.
+        // La transición a fase 5 la hace el promotor subiendo foto_factura desde el celular.
+        btnVerde.type = 'button';
+        btnVerde.className = 'proforma-btn-aprobar';
+        btnVerde.textContent = 'Guardar';
+        btnVerde.addEventListener('click', function () { accionar('guardar'); });
 
-        var btnAprobar = document.createElement('button');
-        btnAprobar.type = 'button';
-        btnAprobar.className = 'proforma-btn-aprobar';
-        btnAprobar.textContent = 'Aprobar Proforma';
-        btnAprobar.addEventListener('click', function () { accionar('aprobar'); });
+        btnRec.type = 'button';
+        btnRec.className = 'proforma-btn-rechazar-rojo';
+        btnRec.textContent = 'Rechazar / Subir nuevamente';
+        btnRec.addEventListener('click', function () { accionar('negociacion'); });
 
-        var btnRechazar = document.createElement('button');
-        btnRechazar.type = 'button';
-        btnRechazar.className = 'proforma-btn-rechazar';
-        btnRechazar.textContent = 'Rechazar / Evidencia Falsa';
-        btnRechazar.addEventListener('click', function () { accionar('rechazar'); });
-
-        // Casos ya cerrados: se muestran en modo solo-lectura, sin botones de acción
-        if (yaDespachado) {
-            var cerrado = document.createElement('div');
-            cerrado.className = 'proforma-auditoria-cerrada';
-            cerrado.textContent = estadoActual === 'aprobado' ? '✓ Proforma aprobada.' : '✗ Proforma rechazada.';
-            wrap.appendChild(cerrado);
-        } else {
-            acciones.appendChild(btnNegociacion);
-            acciones.appendChild(btnAprobar);
-            acciones.appendChild(btnRechazar);
-            wrap.appendChild(acciones);
-        }
+        acciones.appendChild(btnVerde);
+        acciones.appendChild(btnRec);
+        wrap.appendChild(acciones);
 
         return wrap;
     }
 
     // ---------------------------------------------------------------
-    // Tabla + acordeón
+    // Sello de fecha
     // ---------------------------------------------------------------
-    function alertaSlaGeneral(p) {
-        var dias1 = diasEntre(p.contacto_fecha_registro, p.fecha_agendamiento);
-        var dias2 = diasEntre(p.fecha_agendamiento, p.proforma_fecha_registro);
-        var max = Math.max(dias1 || 0, dias2 || 0);
-        if (max <= 3) return null;
-        return 'Retraso (+' + max + ' día' + (max === 1 ? '' : 's') + ')';
-    }
-
-    function pintarFilaDetalle(p) {
-        var tr = document.createElement('tr');
-        tr.className = 'proforma-fila-detalle';
-
-        var td = document.createElement('td');
-        td.colSpan = 6;
-
-        var alerta = alertaSlaGeneral(p);
-        if (alerta) {
-            var aviso = document.createElement('div');
-            aviso.className = 'proforma-alerta-sistema';
-            aviso.innerHTML = '<i class="glyphicon glyphicon-warning-sign"></i> Alerta del sistema: el tiempo de gestión supera el SLA permitido (3 días por fase).';
-            td.appendChild(aviso);
-        }
-
-        var grid = document.createElement('div');
-        grid.className = 'proforma-detalle-grid';
-        grid.appendChild(construirTimeline(p));
-        grid.appendChild(construirEvidencia(p));
-        grid.appendChild(construirAuditoria(p, function () { cargarProformas(); }));
-        td.appendChild(grid);
-
-        tr.appendChild(td);
-        return tr;
-    }
-
-    function pintarFila(p) {
-        var tr = document.createElement('tr');
-        tr.className = 'proforma-fila';
-        tr.dataset.id = p.id;
-
-        var tdChevron = document.createElement('td');
-        tdChevron.className = 'proforma-chevron';
-        tdChevron.innerHTML = '<i class="glyphicon glyphicon-chevron-right"></i>';
-        tr.appendChild(tdChevron);
-
-        var tdCliente = document.createElement('td');
-        var nombreCliente = document.createElement('div');
-        nombreCliente.className = 'proforma-cliente-nombre';
-        nombreCliente.textContent = p.empresa || p.contacto || 'Sin nombre';
-        var pdvEl = document.createElement('div');
-        pdvEl.className = 'proforma-cliente-pdv';
-        pdvEl.textContent = (p.pdv || '—') + ' · ' + (p.codigo_pdv || '—');
-        tdCliente.appendChild(nombreCliente);
-        tdCliente.appendChild(pdvEl);
-        tr.appendChild(tdCliente);
-
-        var tdPromotor = document.createElement('td');
-        tdPromotor.textContent = p.usuario || '—';
-        tr.appendChild(tdPromotor);
-
-        var tdFecha = document.createElement('td');
-        tdFecha.textContent = formatFecha(p.fecha_agendamiento);
-        tr.appendChild(tdFecha);
-
-        var tdKpi = document.createElement('td');
-        var alerta = alertaSlaGeneral(p);
-        if (alerta) {
-            tdKpi.innerHTML = '<span class="proforma-kpi-retraso">' + alerta + '</span>';
-        } else {
-            tdKpi.innerHTML = '<span class="proforma-kpi-ok">A tiempo</span>';
-        }
-        tr.appendChild(tdKpi);
-
-        var tdEstado = document.createElement('td');
-        var estado = estadoVisual(p);
-        var badge = document.createElement('span');
-        badge.className = 'proforma-badge is-' + estado;
-        badge.textContent = ESTADO_LABEL[estado];
-        tdEstado.appendChild(badge);
-        tr.appendChild(tdEstado);
-
-        tr.addEventListener('click', function () {
-            alternarDetalle(p.id);
-        });
-
-        return tr;
-    }
-
-    function alternarDetalle(id) {
-        filaAbiertaId = (filaAbiertaId === id) ? null : id;
-        renderizar();
-        if (filaAbiertaId !== null) {
-            setTimeout(function () {
-                var el = document.querySelector('.proforma-fila[data-id="' + id + '"]');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 50);
-        }
-    }
-
-    function periodoDesde(clave) {
-        var hoy = new Date();
-        if (clave === 'mes_actual') {
-            return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        }
-        if (clave === 'mes_anterior') {
-            return new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-        }
-        if (clave === 'ultimos_3') {
-            return new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
-        }
-        return null;
-    }
-
-    function periodoHasta(clave) {
-        var hoy = new Date();
-        if (clave === 'mes_anterior') {
-            return new Date(hoy.getFullYear(), hoy.getMonth(), 0); // último día mes anterior
-        }
-        return hoy;
-    }
-
-    function filasFiltradas() {
-        var promotorSel = document.getElementById('proformaFiltroPromotor');
-        var estadoSel   = document.getElementById('proformaFiltroEstado');
-        var periodoClave= document.getElementById('proformaFiltroPeriodo').value;
-        var busqueda    = document.getElementById('proformaBusqueda').value.toLowerCase().trim();
-        var desde = periodoDesde(periodoClave);
-        var hasta = periodoHasta(periodoClave);
-
-        return currentRows.filter(function (p) {
-            if (promotorSel.value && p.usuario !== promotorSel.value) return false;
-            if (estadoSel.value && estadoVisual(p) !== estadoSel.value) return false;
-            if (desde) {
-                var fechaRef = p.fecha_proforma || p.contacto_fecha_registro;
-                if (!fechaRef) return false;
-                var fechaD = new Date(fechaRef.split(' ')[0] + 'T00:00:00');
-                if (fechaD < desde || fechaD > hasta) return false;
-            }
-            if (busqueda) {
-                var coincide = [p.pdv, p.codigo_pdv, p.empresa, p.contacto].some(function (v) {
-                    return (v || '').toLowerCase().indexOf(busqueda) !== -1;
-                });
-                if (!coincide) return false;
-            }
-            return true;
-        });
-    }
-
-    function renderizar() {
-        var tbody = document.getElementById('proformaTbody');
-        var filas = filasFiltradas();
-        tbody.innerHTML = '';
-
-        if (!filas.length) {
-            var tr = document.createElement('tr');
-            var td = document.createElement('td');
-            td.colSpan = 6;
-            td.className = 'proforma-vacio';
-            td.textContent = 'Sin proformas que coincidan con el filtro.';
-            tr.appendChild(td);
-            tbody.appendChild(tr);
-            return;
-        }
-
-        filas.forEach(function (p) {
-            var filaP = pintarFila(p);
-            if (filaAbiertaId === p.id) filaP.classList.add('is-abierta');
-            tbody.appendChild(filaP);
-            if (filaAbiertaId === p.id) {
-                tbody.appendChild(pintarFilaDetalle(p));
-            }
-        });
-
-        pintarKpis(currentRows);
-    }
-
-    function construirOpcionesPromotor() {
-        var select = document.getElementById('proformaFiltroPromotor');
-        var valorPrevio = select.value;
-        select.innerHTML = '<option value="">Todos los promotores</option>';
-        var vistos = {};
-        currentRows.forEach(function (p) {
-            if (p.usuario && !vistos[p.usuario]) {
-                vistos[p.usuario] = true;
-                var opt = document.createElement('option');
-                opt.value = p.usuario;
-                opt.textContent = p.usuario;
-                select.appendChild(opt);
-            }
-        });
-        if (vistos[valorPrevio]) select.value = valorPrevio;
-    }
-
     function actualizarSelloFecha() {
-        var ahora = new Date();
-        var hh = ahora.getHours();
-        var ampm = hh >= 12 ? 'PM' : 'AM';
-        var hh12 = hh % 12 || 12;
+        var h = new Date(), hh = h.getHours(), h12 = hh % 12 || 12;
         document.getElementById('proformaActualizado').textContent =
-            'Hoy, ' + String(hh12).padStart(2, '0') + ':' + String(ahora.getMinutes()).padStart(2, '0') + ' ' + ampm;
+            'Hoy, ' + String(h12).padStart(2,'0') + ':' + String(h.getMinutes()).padStart(2,'0') + ' ' + (hh >= 12 ? 'PM' : 'AM');
     }
 
+    // ---------------------------------------------------------------
+    // Carga
+    // ---------------------------------------------------------------
     function cargarProformas() {
-        var params = new URLSearchParams();
-        return fetch(GETTERS_BASE + 'proformas_listar.php?' + params.toString())
-            .then(function (resp) { return resp.json(); })
+        return fetch(GETTERS_BASE + 'proformas_listar.php')
+            .then(function (r) { return r.json(); })
             .then(function (json) {
                 currentRows = json.data || [];
                 construirOpcionesPromotor();
                 renderizar();
                 actualizarSelloFecha();
             })
-            // Sin esto, cualquier falla (getter no desplegado todavía, error
-            // de PHP, etc.) quedaba en una promesa rechazada sin manejar —
-            // la tabla se veía pegada en "Cargando..." para siempre sin
-            // ninguna pista de qué pasó.
             .catch(function (err) {
-                document.getElementById('proformaTbody').innerHTML =
-                    '<tr><td colspan="6" class="proforma-vacio">No se pudo cargar la información. Verifica que proformas_listar.php esté desplegado y revisa la consola del navegador.</td></tr>';
-                mostrarToast('Error al cargar proformas: ' + err.message, true);
+                document.getElementById('proformaGrupos').innerHTML =
+                    '<div class="proforma-vacio">No se pudo cargar. Verifica que proformas_listar.php esté desplegado.</div>';
+                mostrarToast('Error: ' + err.message, true);
             });
     }
 
     // ---------------------------------------------------------------
-    // Exportar reporte (.xlsx real vía SheetJS, ya cargado en otros
-    // módulos — si esta sección abre antes que Contactados, hay que
-    // verificar que xlsx.full.min.js esté disponible; se carga aquí
-    // también por si acaso).
+    // Excel
     // ---------------------------------------------------------------
     function descargarExcel() {
-        if (typeof XLSX === 'undefined') {
-            mostrarToast('Falta la librería de exportación (XLSX).', true);
-            return;
-        }
-        var filas = filasFiltradas();
-        var datos = filas.map(function (p) {
+        if (typeof XLSX === 'undefined') { mostrarToast('Falta librería XLSX.', true); return; }
+        var datos = filasFiltradas().map(function (p) {
             return {
-                'PDV': p.pdv || '',
-                'Código PDV': p.codigo_pdv || '',
-                'Cliente': p.empresa || p.contacto || '',
-                'Promotor': p.usuario || '',
-                'Fecha visita': formatFecha(p.fecha_agendamiento),
-                'Proforma subida': formatFechaHora(p.proforma_fecha_registro),
-                'Estado': ESTADO_LABEL[estadoVisual(p)],
+                'PDV':            p.pdv || '',
+                'Código':         p.codigo_pdv || '',
+                'Cliente':        p.empresa || p.contacto || '',
+                'Promotor':       p.usuario || '',
+                'Fecha visita':   formatFecha(p.fecha_agendamiento),
+                'Proforma subida':formatFechaHora(p.proforma_fecha_registro),
+                'Estado':         getBadge(p).label,
                 'Monto validado': p.monto_validado || ''
             };
         });
@@ -595,18 +717,14 @@
     window.ProformaRecargar = cargarProformas;
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (typeof XLSX === 'undefined') {
-            var script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-            document.head.appendChild(script);
-        }
-
         cargarProformas();
-
-        document.getElementById('proformaBusqueda').addEventListener('input', renderizar);
-        document.getElementById('proformaFiltroPromotor').addEventListener('change', renderizar);
-        document.getElementById('proformaFiltroEstado').addEventListener('change', renderizar);
-        document.getElementById('proformaFiltroPeriodo').addEventListener('change', renderizar);
+        ['proformaBusqueda'].forEach(function (id) {
+            document.getElementById(id).addEventListener('input', renderizar);
+        });
+        ['proformaFiltroPromotor','proformaFiltroEstado','proformaFiltroPeriodo'].forEach(function (id) {
+            document.getElementById(id).addEventListener('change', renderizar);
+        });
+        document.getElementById('proformaActualizar').addEventListener('click', cargarProformas);
         document.getElementById('proformaExportar').addEventListener('click', descargarExcel);
     });
 })();

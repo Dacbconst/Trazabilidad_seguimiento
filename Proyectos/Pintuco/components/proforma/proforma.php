@@ -81,28 +81,17 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
             </select>
         </div>
         <div class="mod-filtros-extra">
+            <button type="button" class="btn btn-actualizar" id="proformaActualizar">
+                <i class="glyphicon glyphicon-refresh"></i> Actualizar
+            </button>
             <button type="button" class="proforma-btn-exportar" id="proformaExportar">
                 <i class="glyphicon glyphicon-save"></i> Exportar Reporte
             </button>
         </div>
     </div>
 
-    <div class="proforma-scroll">
-        <table class="proforma-table">
-            <thead>
-                <tr>
-                    <th></th>
-                    <th>Cliente / Punto de venta</th>
-                    <th>Promotor asignado</th>
-                    <th>Fecha visita</th>
-                    <th>KPI tiempos</th>
-                    <th>Estado auditoría</th>
-                </tr>
-            </thead>
-            <tbody id="proformaTbody">
-                <tr><td colspan="6" class="proforma-vacio">Cargando...</td></tr>
-            </tbody>
-        </table>
+    <div class="proforma-grupos" id="proformaGrupos">
+        <div class="proforma-vacio">Cargando...</div>
     </div>
 
     <div class="proforma-toast" id="proformaToast"></div>

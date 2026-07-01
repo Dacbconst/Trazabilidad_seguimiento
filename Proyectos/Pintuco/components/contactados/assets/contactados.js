@@ -4,6 +4,10 @@
     var FILAS_POR_PAGINA = 15;
     var paginaActual = 1;
 
+    // Mismo blob storage que proforma.js — las fotos de evidencia de
+    // proformas se sirven desde Azure, no desde el servidor IIS.
+    var FOTO_BASE = 'https://luckyecuadorweb.blob.core.windows.net/app/AppPintuco/Inserts/';
+
     // Mismo contrato de 6 estados que Agendamientos (estado_agenda), pero
     // con etiqueta propia de este directorio — "pendiente" se llama "Nuevo"
     // aquí porque es justo eso: un contacto recién capturado que todavía no
@@ -63,6 +67,7 @@
 
     function pintarFila(r) {
         var tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
         // PDV oculto a pedido del usuario (2026-06-30), no se quiere ver por ahora
         // tr.appendChild(celda(r.pdv));
         tr.appendChild(celdaDireccion(r));
@@ -81,7 +86,119 @@
         tdEstado.appendChild(badge);
         tr.appendChild(tdEstado);
 
+        tr.addEventListener('click', function (ev) {
+            if (ev.target.closest('a')) return; // no interceptar el link de mapa
+            abrirPopup(r);
+        });
+
         return tr;
+    }
+
+    // ---------------------------------------------------------------
+    // Marca de agua — popup card con encabezado de agendamiento y
+    // historial de proformas del contacto. Mismo patrón de datos que
+    // el modal de edición de Agendamientos: fecha_agendamiento,
+    // usuario (promotor) y pdv/dirección como "lugar".
+    // ---------------------------------------------------------------
+    var PROFORMA_ESTADO_LABEL = {
+        pendiente:      'Pendiente',
+        en_proceso:     'En proceso',
+        realizado:      'Realizado',
+        en_negociacion: 'Negociación',
+        aprobado:       'Aprobado',
+        rechazado:      'Rechazado'
+    };
+
+    function formatFechaSolo(valor) {
+        if (!valor) return '—';
+        var iso = valor.split(' ')[0];
+        if (!iso || iso === '0000-00-00') return '—';
+        var p = iso.split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+    }
+
+    function abrirPopup(r) {
+        document.getElementById('ctcPopupFecha').textContent    = formatFechaSolo(r.fecha_agendamiento);
+        document.getElementById('ctcPopupContacto').textContent = r.usuario || '—';
+        document.getElementById('ctcPopupLugar').textContent    = r.pdv || r.direccion || '—';
+
+        var tbody = document.getElementById('ctcPopupTbody');
+        tbody.innerHTML = '<tr><td colspan="4" class="ctc-popup-vacio">Cargando...</td></tr>';
+
+        document.getElementById('ctcPopupOverlay').classList.add('active');
+
+        fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(r.id))
+            .then(function (resp) { return resp.json(); })
+            .then(function (json) {
+                var proformas = json.data || [];
+                tbody.innerHTML = '';
+
+                if (!proformas.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="ctc-popup-vacio">Sin proformas registradas para este contacto.</td></tr>';
+                    return;
+                }
+
+                proformas.forEach(function (p) {
+                    var tr = document.createElement('tr');
+
+                    // F. Contacto — fecha de registro de la proforma
+                    var tdFecha = document.createElement('td');
+                    tdFecha.textContent = formatFechaSolo(p.proforma_fecha_registro);
+                    tr.appendChild(tdFecha);
+
+                    // Estado
+                    var tdEstado = document.createElement('td');
+                    var estadoKey = p.estado_proforma || 'pendiente';
+                    var badge = document.createElement('span');
+                    badge.className = 'ctc-popup-badge is-' + estadoKey;
+                    badge.textContent = PROFORMA_ESTADO_LABEL[estadoKey] || estadoKey;
+                    tdEstado.appendChild(badge);
+                    tr.appendChild(tdEstado);
+
+                    // Evid. — ícono de cámara; abre la foto si existe
+                    var tdEvid = document.createElement('td');
+                    var btnEvid = document.createElement('button');
+                    btnEvid.type = 'button';
+                    btnEvid.className = 'ctc-popup-icon-btn' + (p.evidencia ? '' : ' is-sin-foto');
+                    btnEvid.title = p.evidencia ? 'Ver evidencia' : 'Sin evidencia';
+                    btnEvid.innerHTML = '<i class="glyphicon glyphicon-camera"></i>';
+                    if (p.evidencia) {
+                        btnEvid.addEventListener('click', function (ev) {
+                            ev.stopPropagation();
+                            window.open(FOTO_BASE + p.evidencia, '_blank');
+                        });
+                    }
+                    tdEvid.appendChild(btnEvid);
+                    tr.appendChild(tdEvid);
+
+                    // Ver — ícono de ojo; abre la foto o navega a proforma
+                    var tdVer = document.createElement('td');
+                    var btnVer = document.createElement('button');
+                    btnVer.type = 'button';
+                    btnVer.className = 'ctc-popup-icon-btn';
+                    btnVer.title = 'Ver en Auditoría de Proformas';
+                    btnVer.innerHTML = '<i class="glyphicon glyphicon-eye-open"></i>';
+                    btnVer.addEventListener('click', function (ev) {
+                        ev.stopPropagation();
+                        // Navegar al módulo Proforma (mismo patrón que
+                        // el sidebar de index.php: activa #sec-proforma)
+                        var linkProforma = document.querySelector('.sidebar-nav a[href="#sec-proforma"]');
+                        if (linkProforma) { linkProforma.click(); }
+                        cerrarPopup();
+                    });
+                    tdVer.appendChild(btnVer);
+                    tr.appendChild(tdVer);
+
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(function () {
+                tbody.innerHTML = '<tr><td colspan="4" class="ctc-popup-vacio">No se pudo cargar el historial.</td></tr>';
+            });
+    }
+
+    function cerrarPopup() {
+        document.getElementById('ctcPopupOverlay').classList.remove('active');
     }
 
     function filasFiltradas() {
@@ -227,6 +344,13 @@
             paginaActual++;
             renderizar();
         });
+        document.getElementById('contactadosActualizar').addEventListener('click', cargarContactados);
         document.getElementById('contactadosExportarExcel').addEventListener('click', descargarExcel);
+
+        document.getElementById('ctcPopupClose').addEventListener('click', cerrarPopup);
+        document.getElementById('ctcPopupCerrar').addEventListener('click', cerrarPopup);
+        document.getElementById('ctcPopupOverlay').addEventListener('click', function (ev) {
+            if (ev.target === this) cerrarPopup(); // clic en el overlay oscuro cierra
+        });
     });
 })();

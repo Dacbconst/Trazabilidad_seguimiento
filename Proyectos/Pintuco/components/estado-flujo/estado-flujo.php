@@ -118,6 +118,11 @@ $flujo_js_v  = @filemtime($flujo_dir . '/assets/flujo.js')  ?: time();
                 <option value="">Todos</option>
             </select>
         </div>
+        <div class="mod-filtros-extra">
+            <button type="button" class="btn btn-actualizar" id="flujoActualizar">
+                <i class="glyphicon glyphicon-refresh"></i> Actualizar
+            </button>
+        </div>
     </div>
 
     <!-- Tabla -->
