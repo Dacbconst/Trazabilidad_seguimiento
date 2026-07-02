@@ -27,25 +27,6 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
         <span class="proforma-actualizado">Actualizado: <span id="proformaActualizado">—</span></span>
     </div>
 
-    <div class="proforma-kpis">
-        <div class="proforma-kpi">
-            <span class="proforma-kpi-label">Pendientes de revisión</span>
-            <span class="proforma-kpi-valor" id="proformaKpiPendientes">0</span>
-        </div>
-        <div class="proforma-kpi">
-            <span class="proforma-kpi-label">En negociación</span>
-            <span class="proforma-kpi-valor is-ambar" id="proformaKpiNegociacion">0</span>
-        </div>
-        <div class="proforma-kpi">
-            <span class="proforma-kpi-label">Aprobadas hoy</span>
-            <span class="proforma-kpi-valor is-verde" id="proformaKpiAprobadasHoy">0</span>
-        </div>
-        <div class="proforma-kpi">
-            <span class="proforma-kpi-label">Monto validado en trámite</span>
-            <span class="proforma-kpi-valor is-verde" id="proformaKpiMonto">$0</span>
-        </div>
-    </div>
-
     <!-- Filtros unificados (.mod-filtros definido en style.css global) -->
     <div class="mod-filtros">
         <div class="filter-group is-busqueda">
@@ -95,6 +76,11 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
     </div>
 
     <div class="proforma-toast" id="proformaToast"></div>
+
+    <div class="proforma-foto-overlay" id="proformaFotoOverlay">
+        <button type="button" class="proforma-foto-cerrar" id="proformaFotoCerrar" aria-label="Cerrar">&times;</button>
+        <img class="proforma-foto-grande" id="proformaFotoGrande" alt="">
+    </div>
 </div>
 
 <script src="<?= htmlspecialchars($proforma_assets, ENT_QUOTES) ?>/proforma.js?v=<?= $proforma_js_v ?>"></script>

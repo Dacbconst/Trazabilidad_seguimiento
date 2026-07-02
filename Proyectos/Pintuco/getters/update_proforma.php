@@ -2,20 +2,33 @@
 /**
  * update_proforma.php — auditoría web de proformas.
  *
+ * Modelo de ciclos (2026-07-01): cada ronda de negociación es una fila propia
+ * en insert_proforma (mismo id_agendamiento, id distinto). El historial de
+ * fecha+monto por ronda se lee directamente de esas filas — no hace falta
+ * una tabla de historial aparte.
+ *
  * Acciones:
- *  'guardar'     → Solo registra monto/obs. No cambia estado ni fase.
- *                  La web puede guardar múltiples veces mientras llega nueva evidencia.
- *  'negociacion' → Rechaza evidencia actual y pide nueva al promotor.
- *                  UPDATE estado='en_negociacion' + INSERT nuevo ciclo vacío.
- *  'rechazar'    → Rechazo definitivo (terminal). estado='rechazado', fase_actual=4.
+ *  'rechazar_calidad'   → Fase 3: la foto que llegó no sirve (borrosa, no es
+ *                         la proforma, etc.). NO borra la foto — la deja
+ *                         intacta en la fila y solo marca
+ *                         estado_proforma='correccion_solicitada', que el
+ *                         móvil debe leer para avisarle al promotor que
+ *                         reenvíe. Reversible con 'cancelar_correccion'.
+ *                         No toca monto/fecha_auditoria, no crea ciclo
+ *                         nuevo, no es una ronda de negociación.
+ *  'cancelar_correccion' → Deshace 'rechazar_calidad': vuelve el estado a
+ *                         'en_proceso'. Como la foto nunca se borró, vuelve
+ *                         a verse tal cual estaba; la alerta del móvil
+ *                         desaparece en cuanto deja de ver
+ *                         'correccion_solicitada'.
+ *  'guardar'            → Fase 4: cierra la ronda actual (sella monto+fecha
+ *                         en la fila activa) y abre automáticamente un
+ *                         ciclo nuevo vacío para la siguiente foto — igual
+ *                         patrón que ya usaba 'negociacion' antes.
+ *  'rechazar'            → Rechazo definitivo (terminal). estado='rechazado'.
  *
- * La decisión final (fase 5) la toma el promotor al subir foto_factura desde el celular.
- * La web NO tiene botón de "aprobar" ni de "finalizar" — eso es responsabilidad del móvil.
- *
- * Estados acordados con la app móvil (2026-06-30):
- *   Existentes: 'pendiente' / 'en_proceso' / 'realizado'
- *   Nuevos:     'en_negociacion' / 'rechazado'
- *   fase_actual: 4=negociación  5=completado (el móvil pone 4 al crear, 5 al subir factura)
+ * La decisión final (fase 5) la toma el promotor al subir foto_factura desde
+ * el celular. La web NO tiene botón de "aprobar"/"finalizar".
  */
 error_reporting(0);
 ini_set('display_errors', '0');
@@ -27,130 +40,99 @@ header('Content-Type: application/json');
 
 include_once '../db_connect.php';
 
-$ESTADOS = [
-    'guardar'     => null,             // sin cambio de estado
-    'negociacion' => 'en_negociacion', // pide nueva evidencia
-    'rechazar'    => 'rechazado',      // terminal
-];
-$FASES = [
-    'guardar'     => null,
-    'negociacion' => 4,
-    'rechazar'    => 4,
-];
-
-$id            = isset($_POST['id'])             ? (int)$_POST['id']     : 0;
+$id            = isset($_POST['id'])             ? (int)$_POST['id']      : 0;
 $accion        = isset($_POST['accion'])         ? trim($_POST['accion']) : '';
 $monto         = (isset($_POST['monto'])          && $_POST['monto']          !== '') ? $_POST['monto']          : null;
 $observaciones = (isset($_POST['observaciones']) && $_POST['observaciones'] !== '') ? $_POST['observaciones'] : null;
 
-if ($id <= 0 || !array_key_exists($accion, $ESTADOS)) {
+if ($id <= 0 || !in_array($accion, ['rechazar_calidad', 'cancelar_correccion', 'guardar', 'rechazar'], true)) {
     echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
     exit;
 }
 
-$nuevoEstado = $ESTADOS[$accion];
-$nuevaFase   = $FASES[$accion];
-
-// ── Detectar qué columnas nuevas existen ya (por si el ALTER no corrió aún) ──
-function columnaExiste($mysqli, $tabla, $columna): bool {
-    $r = $mysqli->query(
-        "SELECT COUNT(*) AS tiene FROM information_schema.COLUMNS
-         WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='$tabla' AND COLUMN_NAME='$columna'"
+// ── 1. 'rechazar_calidad': la foto no sirve, se pide reenvío. Reversible —
+//      NO se borra nada, solo se marca el estado; ver 'cancelar_correccion'.
+if ($accion === 'rechazar_calidad') {
+    $sql = $mysqli->prepare(
+        "UPDATE insert_proforma SET estado_proforma = 'correccion_solicitada' WHERE id = ?"
     );
-    if (!$r) return false;
-    $row = $r->fetch_assoc();
-    $r->free();
-    return (int)($row['tiene'] ?? 0) > 0;
-}
-
-$tieneMonto = columnaExiste($mysqli, 'insert_proforma', 'monto_validado');
-$tieneFase  = columnaExiste($mysqli, 'insert_proforma', 'fase_actual');
-
-// ── 1. Acción 'guardar': solo monto/obs, sin tocar estado ni fase ──────────────
-if ($accion === 'guardar') {
-    if ($tieneMonto) {
-        $sql = $mysqli->prepare(
-            "UPDATE insert_proforma
-             SET monto_validado=?, observaciones_auditoria=?
-             WHERE id=?"
-        );
-        if (!$sql) { echo json_encode(['success'=>false,'message'=>$mysqli->error]); exit; }
-        $sql->bind_param('ssi', $monto, $observaciones, $id);
-        $ok = $sql->execute();
-        $sql->close();
-        echo json_encode(['success' => $ok, 'message' => $ok ? 'Guardado.' : $mysqli->error]);
-    } else {
-        echo json_encode(['success' => true, 'message' => 'Sin columnas de auditoría aún — correr ALTER TABLE.']);
-    }
+    if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
+    $sql->bind_param('i', $id);
+    $ok = $sql->execute();
+    $sql->close();
+    echo json_encode(['success' => $ok, 'message' => $ok ? 'Se pidió una corrección.' : $mysqli->error]);
     exit;
 }
 
-// ── 2. UPDATE del estado del ciclo actual ──────────────────────────────────────
-if ($tieneMonto && $tieneFase) {
+// ── 1b. 'cancelar_correccion': deshace el paso anterior ──────────────────────
+if ($accion === 'cancelar_correccion') {
     $sql = $mysqli->prepare(
-        "UPDATE insert_proforma
-         SET estado_proforma=?, monto_validado=?, observaciones_auditoria=?,
-             fecha_auditoria=NOW(), fase_actual=?
-         WHERE id=?"
+        "UPDATE insert_proforma SET estado_proforma = 'en_proceso' WHERE id = ?"
     );
-    if (!$sql) { echo json_encode(['success'=>false,'message'=>$mysqli->error]); exit; }
-    $sql->bind_param('sssii', $nuevoEstado, $monto, $observaciones, $nuevaFase, $id);
-} elseif ($tieneMonto) {
-    $sql = $mysqli->prepare(
-        "UPDATE insert_proforma
-         SET estado_proforma=?, monto_validado=?, observaciones_auditoria=?, fecha_auditoria=NOW()
-         WHERE id=?"
-    );
-    if (!$sql) { echo json_encode(['success'=>false,'message'=>$mysqli->error]); exit; }
-    $sql->bind_param('sssi', $nuevoEstado, $monto, $observaciones, $id);
-} else {
-    $sql = $mysqli->prepare("UPDATE insert_proforma SET estado_proforma=? WHERE id=?");
-    if (!$sql) { echo json_encode(['success'=>false,'message'=>$mysqli->error]); exit; }
-    $sql->bind_param('si', $nuevoEstado, $id);
+    if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
+    $sql->bind_param('i', $id);
+    $ok = $sql->execute();
+    $sql->close();
+    echo json_encode(['success' => $ok, 'message' => $ok ? 'Corrección cancelada.' : $mysqli->error]);
+    exit;
 }
 
+// ── 2. 'rechazar': terminal, no abre ciclo nuevo ─────────────────────────────
+if ($accion === 'rechazar') {
+    $sql = $mysqli->prepare(
+        "UPDATE insert_proforma
+         SET estado_proforma = 'rechazado', monto_validado = ?, observaciones_auditoria = ?,
+             fecha_auditoria = NOW(), fase_actual = 4
+         WHERE id = ?"
+    );
+    if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
+    $sql->bind_param('ssi', $monto, $observaciones, $id);
+    $ok = $sql->execute();
+    $sql->close();
+    echo json_encode(['success' => $ok, 'message' => $ok ? 'Rechazada.' : $mysqli->error]);
+    exit;
+}
+
+// ── 3. 'guardar': monto es obligatorio en esta acción — sella la ronda actual
+//     y abre el siguiente ciclo vacío esperando la próxima foto ──────────────
+if ($monto === null || $monto === '') {
+    echo json_encode(['success' => false, 'message' => 'El monto cotizado es obligatorio.']);
+    exit;
+}
+
+$sql = $mysqli->prepare(
+    "UPDATE insert_proforma
+     SET estado_proforma = 'en_negociacion', monto_validado = ?, observaciones_auditoria = ?,
+         fecha_auditoria = NOW(), fase_actual = 4
+     WHERE id = ?"
+);
+if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
+$sql->bind_param('ssi', $monto, $observaciones, $id);
 $ok = $sql->execute();
 $sql->close();
-if (!$ok) { echo json_encode(['success'=>false,'message'=>$mysqli->error]); exit; }
+if (!$ok) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
 
-// ── 3. Si es 'negociacion': insertar nuevo ciclo para que el promotor suba ────
-if ($accion === 'negociacion') {
-    $orig = null;
-    $copyRes = $mysqli->query(
-        "SELECT id_agendamiento, codigo_pdv, usuario, evidencia,
-                caracteristica_visita, acompanamiento_tecnico
-         FROM insert_proforma WHERE id=$id"
+// Ciclo nuevo, sin evidencia/reporte (a propósito: si se copiara la foto
+// vieja, el analista la vería como si ya hubiera llegado la nueva).
+$orig = null;
+$copyRes = $mysqli->query(
+    "SELECT id_agendamiento, codigo_pdv, usuario FROM insert_proforma WHERE id=$id"
+);
+if ($copyRes) {
+    $orig = $copyRes->fetch_assoc();
+    $copyRes->free();
+}
+if ($orig) {
+    $ins = $mysqli->prepare(
+        "INSERT INTO insert_proforma
+         (id_agendamiento, codigo_pdv, usuario,
+          estado_proforma, fase_actual, pendiente_insercion, fecha_registro)
+         VALUES (?, ?, ?, 'en_proceso', 4, 0, NOW())"
     );
-    if ($copyRes) {
-        $orig = $copyRes->fetch_assoc();
-        $copyRes->free();
-    }
-    if ($orig) {
-        if ($tieneFase) {
-            $ins = $mysqli->prepare(
-                "INSERT INTO insert_proforma
-                 (id_agendamiento, codigo_pdv, usuario, evidencia,
-                  caracteristica_visita, acompanamiento_tecnico,
-                  estado_proforma, fase_actual, pendiente_insercion, fecha_registro)
-                 VALUES (?, ?, ?, ?, ?, ?, 'en_proceso', 4, 0, NOW())"
-            );
-        } else {
-            $ins = $mysqli->prepare(
-                "INSERT INTO insert_proforma
-                 (id_agendamiento, codigo_pdv, usuario, evidencia,
-                  caracteristica_visita, acompanamiento_tecnico,
-                  estado_proforma, pendiente_insercion, fecha_registro)
-                 VALUES (?, ?, ?, ?, ?, ?, 'en_proceso', 0, NOW())"
-            );
-        }
-        if ($ins) {
-            $ins->bind_param('ssssss',
-                $orig['id_agendamiento'], $orig['codigo_pdv'], $orig['usuario'],
-                $orig['evidencia'], $orig['caracteristica_visita'], $orig['acompanamiento_tecnico']
-            );
-            $ins->execute();
-            $ins->close();
-        }
+    if ($ins) {
+        $ins->bind_param('sss', $orig['id_agendamiento'], $orig['codigo_pdv'], $orig['usuario']);
+        $ins->execute();
+        $ins->close();
     }
 }
 

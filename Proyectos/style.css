@@ -214,9 +214,13 @@ a, a:hover, a:focus { text-decoration: none; }
 .filter-group { display: flex; flex-direction: column; gap: 5px; }
 
 .filter-group label {
+    /* Antes #8a93a3 (el mismo gris clarito del texto secundario/placeholder):
+       la etiqueta se perdía contra el valor del campo, todo se veía con el
+       mismo peso visual. Un gris oscuro real le da jerarquía: se lee
+       "esto es la etiqueta" de un vistazo, sin competir con el valor. */
     font-size: 10.5px;
     font-weight: 700;
-    color: #8a93a3;
+    color: #5b6577;
     text-transform: uppercase;
     letter-spacing: .4px;
 }
@@ -225,12 +229,16 @@ a, a:hover, a:focus { text-decoration: none; }
 
 .btn-actualizar {
     margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     background: var(--brand-light);
     border-color: var(--brand-light);
     color: #fff;
+    font-size: 12.5px;
     font-weight: 700;
-    letter-spacing: .5px;
-    padding: 9px 28px;
+    letter-spacing: .3px;
+    padding: 8px 16px;
     border-radius: 5px;
 }
 

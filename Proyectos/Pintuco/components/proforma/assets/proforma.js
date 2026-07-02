@@ -9,6 +9,12 @@
     var currentRows   = [];
     var filaAbiertaId = null;
     var toastTimer    = null;
+    // Paso "revisar calidad de foto" (fase 3 dentro del panel de fase 4): es
+    // puramente de sesión en el navegador, no se guarda en BD — al hacer clic
+    // en "Aceptar" solo se revela el formulario de monto, sin llamar al
+    // backend. Si el analista refresca, vuelve a pedir la confirmación —
+    // intencional, es un paso de verificación, no un estado de negocio.
+    var fotosAceptadas = {};
 
     // ---------------------------------------------------------------
     // Helpers
@@ -31,6 +37,18 @@
         if (!v) return '—';
         var pp = v.split(' ');
         return formatFecha(pp[0]) + (pp[1] ? ' ' + pp[1].slice(0,5) : '');
+    }
+
+    // ---------------------------------------------------------------
+    // Mini ventana de foto (evidencia / factura)
+    // ---------------------------------------------------------------
+    function mostrarFoto(src) {
+        document.getElementById('proformaFotoGrande').src = src;
+        document.getElementById('proformaFotoOverlay').classList.add('is-visible');
+    }
+    function cerrarFoto() {
+        document.getElementById('proformaFotoOverlay').classList.remove('is-visible');
+        document.getElementById('proformaFotoGrande').src = '';
     }
 
     // ---------------------------------------------------------------
@@ -77,24 +95,11 @@
         return           { label: 'Fase 1', cls: 'is-pendiente' };
     }
 
-    // ---------------------------------------------------------------
-    // KPIs
-    // ---------------------------------------------------------------
-    function pintarKpis(rows) {
-        var pendientes = 0, negociacion = 0, aprobadasHoy = 0, monto = 0;
-        var hoy = hoyISO();
-        rows.forEach(function (p) {
-            var f = getFase(p);
-            if (f === 3 && p.estado_proforma !== 'rechazado') pendientes++;
-            if (f === 4) negociacion++;
-            if (p.estado_proforma === 'aprobado' && soloFecha(p.fecha_auditoria) === hoy) aprobadasHoy++;
-            if (f === 4 && p.monto_validado) monto += parseFloat(p.monto_validado) || 0;
-        });
-        document.getElementById('proformaKpiPendientes').textContent = pendientes;
-        document.getElementById('proformaKpiNegociacion').textContent = negociacion;
-        document.getElementById('proformaKpiAprobadasHoy').textContent = aprobadasHoy;
-        document.getElementById('proformaKpiMonto').textContent =
-            '$' + monto.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Paso "Fase 3 — revisar calidad": hay foto pero esta fila todavía no
+    // tiene un monto guardado y el analista no la aceptó en esta sesión.
+    // Rechazar aquí NO es una ronda de negociación (no genera histórico).
+    function necesitaRevisarCalidad(p) {
+        return !!p.evidencia && !p.monto_validado && !fotosAceptadas[p.id];
     }
 
     // ---------------------------------------------------------------
@@ -199,7 +204,6 @@
     // Render principal
     // ---------------------------------------------------------------
     function renderizar() {
-        pintarKpis(currentRows);
         var container = document.getElementById('proformaGrupos');
         container.innerHTML = '';
 
@@ -264,8 +268,7 @@
         var sub = document.createElement('div');
         sub.className = 'proforma-grupo-subheader';
         sub.innerHTML =
-            '<span class="proforma-sh-cliente">Cliente / Punto de venta</span>'
-            + '<span class="proforma-sh-promotor">Promotor</span>'
+            '<span class="proforma-sh-cliente">Cliente / Dirección</span>'
             + '<span class="proforma-sh-fecha">Fecha visita</span>'
             + '<span class="proforma-sh-estado">Estado</span>';
         wrap.appendChild(sub);
@@ -301,15 +304,13 @@
         var empresa = document.createElement('div');
         empresa.className = 'proforma-gfila-empresa';
         empresa.textContent = p.empresa || p.contacto || '—';
-        var pdvEl = document.createElement('div');
-        pdvEl.className = 'proforma-gfila-pdv';
-        pdvEl.textContent = (p.pdv || '—') + (p.codigo_pdv ? ' · ' + p.codigo_pdv : '');
+        // Dirección real guardada en BD (c.direccion), no el nombre del PDV
+        // — el promotor ya se ve una sola vez en el header del grupo.
+        var direccionEl = document.createElement('div');
+        direccionEl.className = 'proforma-gfila-pdv';
+        direccionEl.textContent = p.direccion || '—';
         cCliente.appendChild(empresa);
-        cCliente.appendChild(pdvEl);
-
-        var cProm = document.createElement('div');
-        cProm.className = 'proforma-gfila-promotor';
-        cProm.textContent = p.usuario || '—';
+        cCliente.appendChild(direccionEl);
 
         var cFecha = document.createElement('div');
         cFecha.className = 'proforma-gfila-fecha';
@@ -323,7 +324,6 @@
         cEstado.appendChild(badgeEl);
 
         fila.appendChild(cCliente);
-        fila.appendChild(cProm);
         fila.appendChild(cFecha);
         fila.appendChild(cEstado);
 
@@ -359,20 +359,76 @@
 
         var grid = document.createElement('div');
         grid.className = 'proforma-gdetalle-grid';
-
-        grid.appendChild(construirTimeline(p));
-        grid.appendChild(construirPanelEvidencia(p));
-        grid.appendChild(construirPanelAuditoria(p, function () { cargarProformas(); }));
-
+        grid.innerHTML = '<div class="proforma-gdetalle-cargando">Cargando historial…</div>';
         panel.appendChild(grid);
+
+        // Un solo fetch compartido por las 3 columnas: el timeline (fecha+
+        // monto del último ciclo con monto) y el historial de auditoría
+        // necesitan ver TODOS los ciclos del agendamiento, no solo la fila
+        // activa — que ahora casi siempre está vacía esperando la próxima foto.
+        function pintar(ciclos) {
+            grid.innerHTML = '';
+            grid.appendChild(construirTimeline(p, ciclos));
+
+            // Corrección pendiente: la foto está intacta en la BD (nunca se
+            // borró), solo oculta detrás de este aviso hasta que llegue la
+            // nueva o se cancele el pedido — un solo bloque en vez de las
+            // columnas de Evidencia+Auditoría por separado.
+            if (p.estado_proforma === 'correccion_solicitada') {
+                grid.appendChild(construirBloqueCorreccion(p, function () { cargarProformas(); }));
+                return;
+            }
+
+            grid.appendChild(construirPanelEvidencia(p, function () { cargarProformas(); }));
+            grid.appendChild(construirPanelAuditoria(p, ciclos, function () { cargarProformas(); }));
+        }
+
+        // Un solo fetch compartido por las 3 columnas: el timeline (fecha+
+        // monto del último ciclo con monto) y el historial de auditoría
+        // necesitan ver TODOS los ciclos del agendamiento, no solo la fila
+        // activa — que ahora casi siempre está vacía esperando la próxima foto.
+        fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(p.agendamiento_id))
+            .then(function (r) { return r.json(); })
+            .then(function (json) { pintar(json.data || []); })
+            .catch(function () { pintar([p]); });
+
         return panel;
     }
 
     // ---------------------------------------------------------------
     // Columna 1 — Timeline de 5 fases
     // ---------------------------------------------------------------
-    function construirTimeline(p) {
+    // Ciclo de mayor id, dentro de "ciclos", que ya tiene un monto guardado
+    // — es "la última ronda de negociación que se cerró", sin importar si la
+    // fila activa (la de mayor id absoluto) está vacía esperando otra foto.
+    function ultimoCicloConMonto(ciclos) {
+        var candidatos = ciclos
+            .filter(function (c) { return !!c.monto_validado; })
+            .sort(function (a, b) { return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
+        return candidatos[0] || null;
+    }
+
+    // Igual que arriba pero para evidencia: un agendamiento puede tener
+    // varias fotos de proforma a lo largo de sus rondas de negociación —
+    // "Proforma recibida" debe reflejar la más reciente que SÍ llegó, no la
+    // fila activa (que casi siempre está vacía esperando la próxima).
+    function ultimoCicloConEvidencia(ciclos) {
+        var candidatos = ciclos
+            .filter(function (c) { return !!c.evidencia; })
+            .sort(function (a, b) { return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
+        return candidatos[0] || null;
+    }
+
+    function formatMonto(valor) {
+        var n = parseFloat(valor);
+        if (isNaN(n)) return null;
+        return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function construirTimeline(p, ciclos) {
         var fase = getFase(p);
+        var ultimo = ultimoCicloConMonto(ciclos);
+        var ultimaEvidencia = ultimoCicloConEvidencia(ciclos);
 
         var wrap = document.createElement('div');
 
@@ -389,11 +445,24 @@
               fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + p.hora.slice(0,5) : ''),
               completa: !!(p.hora && p.tecnico), activa: fase === 2 },
             { num: 3, label: 'Proforma recibida',
-              fecha: p.proforma_fecha_registro ? formatFechaHora(p.proforma_fecha_registro) : null,
-              completa: !!p.id,   // auto-completa cuando llega la foto del promotor
+              // Un agendamiento puede tener varias fotos de proforma a lo
+              // largo de sus rondas de negociación (y por ende varios
+              // montos). "Recibida" se calcula sobre TODOS los ciclos del
+              // agendamiento (ultimoCicloConEvidencia), no solo la fila
+              // activa — que se vacía a propósito tras cada "Guardar" para
+              // esperar la siguiente foto. Antes usaba solo p.evidencia, lo
+              // que hacía que este paso "se desmarcara" después de guardar.
+              fecha: ultimaEvidencia ? formatFechaHora(ultimaEvidencia.proforma_fecha_registro) : null,
+              completa: !!ultimaEvidencia,
               activa: false },    // nunca "activa": es solo un milestone
+            // La fecha+monto de Fase 4 viene del ÚLTIMO ciclo que ya tiene
+            // monto guardado — casi nunca es la fila activa "p" (que suele
+            // estar vacía esperando la próxima foto tras cada "Guardar").
+            // Se resalta en negrita (is-ultimo-dato) por ser el más reciente.
             { num: 4, label: 'Negociación',
-              fecha: p.fecha_auditoria ? formatFechaHora(p.fecha_auditoria) : null,
+              fecha: ultimo ? formatFechaHora(ultimo.fecha_auditoria) : null,
+              extra: ultimo ? formatMonto(ultimo.monto_validado) : null,
+              destacar: !!ultimo,
               completa: fase === 5, activa: fase === 4 },
             { num: 5, label: 'Completado',
               fecha: null, completa: fase === 5, activa: false }
@@ -422,8 +491,8 @@
 
             if (f.fecha && f.fecha !== '—') {
                 var fEl = document.createElement('div');
-                fEl.className = 'proforma-fase-fecha';
-                fEl.textContent = f.fecha;
+                fEl.className = 'proforma-fase-fecha' + (f.destacar ? ' is-ultimo-dato' : '');
+                fEl.textContent = f.fecha + (f.extra ? ' · ' + f.extra : '');
                 texto.appendChild(fEl);
             }
 
@@ -436,9 +505,60 @@
     }
 
     // ---------------------------------------------------------------
+    // Bloque unificado (ocupa columnas 2+3): corrección solicitada
+    // ---------------------------------------------------------------
+    function construirBloqueCorreccion(p, onResuelto) {
+        // .proforma-correccion-bloque: el fondo rayado gris (panel "bloqueado").
+        // .proforma-correccion-card: la ventanita flotante centrada encima,
+        // con el mensaje y la acción — mismo patrón visual que un overlay de
+        // "sección deshabilitada" en vez de solo un mensaje suelto.
+        var wrap = document.createElement('div');
+        wrap.className = 'proforma-correccion-bloque';
+
+        var card = document.createElement('div');
+        card.className = 'proforma-correccion-card';
+        card.innerHTML =
+            '<i class="glyphicon glyphicon-camera"></i>'
+            + '<div class="proforma-correccion-titulo">Has solicitado una nueva foto</div>'
+            + '<div class="proforma-correccion-sub">Espera hasta que el promotor la suba.</div>';
+
+        var btnCancelar = document.createElement('button');
+        btnCancelar.type = 'button';
+        btnCancelar.className = 'proforma-btn-aprobar';
+        btnCancelar.textContent = 'Cancelar solicitud';
+        btnCancelar.addEventListener('click', function () {
+            btnCancelar.disabled = true;
+            var body = new URLSearchParams();
+            body.set('id', p.id);
+            body.set('accion', 'cancelar_correccion');
+            fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    if (json.success) {
+                        // La foto nunca se borró: al cancelar, se considera
+                        // que ya estaba aceptada (por eso se había llegado a
+                        // pedir monto) — se salta directo al formulario en
+                        // vez de volver a preguntar "¿aceptás esta foto?".
+                        fotosAceptadas[p.id] = true;
+                        mostrarToast('Solicitud cancelada.');
+                        onResuelto();
+                    } else {
+                        mostrarToast(json.message || 'No se pudo cancelar.', true);
+                        btnCancelar.disabled = false;
+                    }
+                })
+                .catch(function () { mostrarToast('Error de conexión.', true); btnCancelar.disabled = false; });
+        });
+        card.appendChild(btnCancelar);
+        wrap.appendChild(card);
+
+        return wrap;
+    }
+
+    // ---------------------------------------------------------------
     // Columna 2 — Evidencia fotográfica
     // ---------------------------------------------------------------
-    function construirPanelEvidencia(p) {
+    function construirPanelEvidencia(p, onResuelto) {
         var wrap = document.createElement('div');
 
         var titulo = document.createElement('div');
@@ -451,7 +571,7 @@
             img.className = 'proforma-evidencia-foto';
             img.src = FOTO_BASE + p.evidencia;
             img.alt = 'Evidencia de la proforma';
-            img.addEventListener('click', function () { window.open(img.src, '_blank'); });
+            img.addEventListener('click', function () { mostrarFoto(img.src); });
             img.addEventListener('error', function () {
                 img.style.display = 'none';
                 var av = document.createElement('div');
@@ -460,6 +580,39 @@
                 img.parentNode.insertBefore(av, img.nextSibling);
             });
             wrap.appendChild(img);
+
+            // Disponible en TODO momento mientras haya foto y el ciclo no
+            // haya terminado (fase 5) — antes solo existía en el paso
+            // previo a "Aceptar"; si el analista notaba recién en el
+            // formulario de monto que la foto está mal, quedaba sin forma
+            // de pedir un reenvío. Mismo endpoint que ya existía
+            // (rechazar_calidad): no genera histórico, es corrección de foto.
+            if (getFase(p) !== 5) {
+                var btnRechazarFoto = document.createElement('button');
+                btnRechazarFoto.type = 'button';
+                btnRechazarFoto.className = 'proforma-btn-rechazar-foto';
+                btnRechazarFoto.innerHTML = '<i class="glyphicon glyphicon-remove"></i> Rechazar / Pedir nueva foto';
+                btnRechazarFoto.addEventListener('click', function () {
+                    btnRechazarFoto.disabled = true;
+                    var body = new URLSearchParams();
+                    body.set('id', p.id);
+                    body.set('accion', 'rechazar_calidad');
+                    fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
+                        .then(function (r) { return r.json(); })
+                        .then(function (json) {
+                            if (json.success) {
+                                delete fotosAceptadas[p.id];
+                                mostrarToast('Se pidió una nueva foto.');
+                                onResuelto();
+                            } else {
+                                mostrarToast(json.message || 'No se pudo actualizar.', true);
+                                btnRechazarFoto.disabled = false;
+                            }
+                        })
+                        .catch(function () { mostrarToast('Error de conexión.', true); btnRechazarFoto.disabled = false; });
+                });
+                wrap.appendChild(btnRechazarFoto);
+            }
         } else {
             var sin = document.createElement('div');
             sin.className = 'proforma-evidencia-vacia';
@@ -497,9 +650,20 @@
     }
 
     // ---------------------------------------------------------------
+    // Formato de moneda para el input de monto: acepta comas de miles y
+    // punto decimal mientras se escribe; al perder foco se reformatea bonito.
+    // ---------------------------------------------------------------
+    function limpiarMonto(texto) {
+        var limpio = String(texto || '').replace(/[^0-9.]/g, '');
+        var partes = limpio.split('.');
+        if (partes.length > 2) limpio = partes[0] + '.' + partes.slice(1).join('');
+        return limpio;
+    }
+
+    // ---------------------------------------------------------------
     // Columna 3 — Auditoría (con historial de ciclos en fase 4)
     // ---------------------------------------------------------------
-    function construirPanelAuditoria(p, onResuelto) {
+    function construirPanelAuditoria(p, ciclos, onResuelto) {
         var fase = getFase(p);
         var wrap = document.createElement('div');
 
@@ -520,7 +684,7 @@
                 imgFact.className = 'proforma-evidencia-foto';
                 imgFact.src = FOTO_BASE + p.foto_factura;
                 imgFact.alt = 'Foto de factura';
-                imgFact.addEventListener('click', function () { window.open(imgFact.src, '_blank'); });
+                imgFact.addEventListener('click', function () { mostrarFoto(imgFact.src); });
                 imgFact.addEventListener('error', function () {
                     imgFact.style.display = 'none';
                     var av = document.createElement('div');
@@ -529,6 +693,11 @@
                     imgFact.parentNode.insertBefore(av, imgFact.nextSibling);
                 });
                 wrap.appendChild(imgFact);
+
+                var terminado = document.createElement('div');
+                terminado.className = 'proforma-fases-terminadas';
+                terminado.innerHTML = '<i class="glyphicon glyphicon-ok-sign"></i> Fases terminadas';
+                wrap.appendChild(terminado);
             } else {
                 var espFact = document.createElement('div');
                 espFact.className = 'proforma-auditoria-cerrada';
@@ -556,55 +725,111 @@
             return wrap;
         }
 
-        // ── Fase 4: historial de ciclos anteriores ─────────────────────────
-        // proformas_listar.php?id_agendamiento=X devuelve TODOS los ciclos del
-        // agendamiento (del más antiguo al más reciente). Los anteriores al
-        // ciclo activo (id < p.id) se muestran como tarjetas grises.
-        var historialWrap = document.createElement('div');
-        historialWrap.className = 'proforma-historial';
-        wrap.appendChild(historialWrap);
+        // ── Fase 3 dentro del panel: confirmar la foto ANTES de habilitar el
+        // formulario de monto. El botón de "Rechazar / Pedir nueva foto"
+        // vive junto a la foto (columna de Evidencia), disponible tanto
+        // aquí como más adelante en fase 4 — así hay un solo lugar
+        // consistente para pedir reenvío, sin importar en qué momento el
+        // analista note que la foto está mal. ──────────────────────────────
+        if (necesitaRevisarCalidad(p)) {
+            var msgRevisar = document.createElement('div');
+            msgRevisar.className = 'proforma-revisar-calidad-msg';
+            msgRevisar.textContent = '¿La foto es legible y corresponde a esta proforma?';
+            wrap.appendChild(msgRevisar);
 
-        if (fase === 4) {
-            var CICLO_LABEL = { en_negociacion: 'Aprobado → negociación', aprobado: 'Finalizado', rechazado: 'Rechazado', en_proceso: 'En revisión' };
-            fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(p.agendamiento_id))
-                .then(function (r) { return r.json(); })
-                .then(function (json) {
-                    var anteriores = (json.data || []).filter(function (h) {
-                        return parseInt(h.id, 10) !== parseInt(p.id, 10);
-                    });
-                    if (!anteriores.length) return;
-                    anteriores.forEach(function (h, idx) {
-                        var lbl = CICLO_LABEL[h.estado_proforma] || h.estado_proforma;
-                        var ciclo = document.createElement('div');
-                        ciclo.className = 'proforma-historial-ciclo';
-                        ciclo.innerHTML =
-                            '<div class="proforma-historial-ciclo-hdr">'
-                            + '<span class="proforma-historial-ciclo-num">Ciclo ' + (idx + 1) + '</span>'
-                            + '<span class="proforma-historial-ciclo-fecha">' + esc(formatFechaHora(h.fecha_auditoria || h.proforma_fecha_registro)) + '</span>'
-                            + '<span class="proforma-badge is-' + esc(h.estado_proforma) + '">' + esc(lbl) + '</span>'
-                            + '</div>'
-                            + (h.monto_validado
-                                ? '<div class="proforma-historial-ciclo-dato">Monto: $' + parseFloat(h.monto_validado).toLocaleString('es-EC', {minimumFractionDigits:2}) + '</div>'
-                                : '')
-                            + (h.observaciones_auditoria
-                                ? '<div class="proforma-historial-ciclo-dato">' + esc(h.observaciones_auditoria) + '</div>'
-                                : '');
-                        historialWrap.appendChild(ciclo);
-                    });
-                })
-                .catch(function () {});
+            var accionesCalidad = document.createElement('div');
+            accionesCalidad.className = 'proforma-auditoria-acciones';
+
+            var btnAceptar = document.createElement('button');
+            btnAceptar.type = 'button';
+            btnAceptar.className = 'proforma-btn-aprobar';
+            btnAceptar.textContent = 'Aceptar';
+            btnAceptar.addEventListener('click', function () {
+                fotosAceptadas[p.id] = true;
+                onResuelto();
+            });
+
+            accionesCalidad.appendChild(btnAceptar);
+            wrap.appendChild(accionesCalidad);
+            return wrap;
         }
 
-        // ── Formulario de auditoría (fase 3 y 4 activa) ────────────────────
+        // ── Fase 4: historial de ciclos anteriores ─────────────────────────
+        // "ciclos" trae TODOS los ciclos del agendamiento. Los anteriores al
+        // activo (id != p.id) se muestran como tarjetas; el más reciente que
+        // ya tiene monto se resalta (mismo dato que ve el timeline).
+        var CICLO_LABEL = { en_negociacion: 'Negociado', aprobado: 'Finalizado', rechazado: 'Rechazado', en_proceso: 'En revisión' };
+        var ultimo = ultimoCicloConMonto(ciclos);
+        var anteriores = ciclos.filter(function (h) { return parseInt(h.id, 10) !== parseInt(p.id, 10) && h.monto_validado; });
+        if (anteriores.length) {
+            var historialWrap = document.createElement('div');
+            historialWrap.className = 'proforma-historial';
+            anteriores.forEach(function (h, idx) {
+                var esUltimo = ultimo && parseInt(h.id, 10) === parseInt(ultimo.id, 10);
+                var lbl = CICLO_LABEL[h.estado_proforma] || h.estado_proforma;
+                var ciclo = document.createElement('div');
+                ciclo.className = 'proforma-historial-ciclo' + (esUltimo ? ' is-ultimo' : '');
+
+                // La foto de esa ronda nunca se borra (solo se limpia la
+                // fila NUEVA que se crea al guardar) — se conserva en la BD
+                // y se muestra aquí como miniatura clickeable.
+                if (h.evidencia) {
+                    var mini = document.createElement('img');
+                    mini.className = 'proforma-historial-ciclo-mini';
+                    mini.src = FOTO_BASE + h.evidencia;
+                    mini.alt = 'Foto de la ronda ' + (idx + 1);
+                    mini.addEventListener('click', function () { mostrarFoto(mini.src); });
+                    mini.addEventListener('error', function () { mini.style.display = 'none'; });
+                    ciclo.appendChild(mini);
+                }
+
+                var cicloTexto = document.createElement('div');
+                cicloTexto.className = 'proforma-historial-ciclo-texto';
+                cicloTexto.innerHTML =
+                    '<div class="proforma-historial-ciclo-hdr">'
+                    + '<span class="proforma-historial-ciclo-num">Ronda ' + (idx + 1) + (esUltimo ? ' · última' : '') + '</span>'
+                    + '<span class="proforma-historial-ciclo-fecha">' + esc(formatFechaHora(h.fecha_auditoria || h.proforma_fecha_registro)) + '</span>'
+                    + '<span class="proforma-badge is-' + esc(h.estado_proforma) + '">' + esc(lbl) + '</span>'
+                    + '</div>'
+                    + '<div class="proforma-historial-ciclo-dato">Monto: ' + esc(formatMonto(h.monto_validado) || '—') + '</div>'
+                    + (h.observaciones_auditoria
+                        ? '<div class="proforma-historial-ciclo-dato">' + esc(h.observaciones_auditoria) + '</div>'
+                        : '');
+                ciclo.appendChild(cicloTexto);
+
+                historialWrap.appendChild(ciclo);
+            });
+            wrap.appendChild(historialWrap);
+        }
+
+        // El ciclo activo puede estar vacío (recién guardado el anterior,
+        // esperando que el promotor mande la siguiente foto) — sin foto no
+        // hay nada que cotizar todavía, el formulario no debe mostrarse.
+        if (!p.evidencia) {
+            var espFoto = document.createElement('div');
+            espFoto.className = 'proforma-auditoria-cerrada';
+            espFoto.innerHTML = '<i class="glyphicon glyphicon-hourglass"></i> Esperando la próxima foto de proforma del promotor.';
+            wrap.appendChild(espFoto);
+            return wrap;
+        }
+
+        // ── Formulario de monto (obligatorio) + observaciones (opcional) ──
         var campoMonto = document.createElement('div');
         campoMonto.className = 'proforma-campo';
         var labelMonto = document.createElement('label');
-        labelMonto.textContent = 'Monto cotizado ($)';
+        labelMonto.textContent = 'Monto cotizado ($) *';
         var inputMonto = document.createElement('input');
-        inputMonto.type = 'number'; inputMonto.step = '0.01'; inputMonto.min = '0';
-        inputMonto.placeholder = 'Ej. 1200.00';
+        inputMonto.type = 'text'; inputMonto.inputMode = 'decimal';
+        inputMonto.placeholder = 'Ej. 1,200.00';
         inputMonto.className = 'form-control';
-        inputMonto.value = p.monto_validado || '';
+        inputMonto.value = p.monto_validado ? parseFloat(p.monto_validado).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+        inputMonto.addEventListener('input', function () {
+            inputMonto.value = limpiarMonto(inputMonto.value);
+        });
+        inputMonto.addEventListener('blur', function () {
+            var n = parseFloat(inputMonto.value);
+            if (!isNaN(n)) inputMonto.value = n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        });
         campoMonto.appendChild(labelMonto); campoMonto.appendChild(inputMonto);
         wrap.appendChild(campoMonto);
 
@@ -613,7 +838,7 @@
         var labelObs = document.createElement('label');
         labelObs.textContent = 'Observaciones internas de validación';
         var inputObs = document.createElement('textarea');
-        inputObs.className = 'form-control'; inputObs.placeholder = 'Notas...';
+        inputObs.className = 'form-control'; inputObs.placeholder = 'Notas... (opcional)';
         inputObs.rows = 3; inputObs.value = p.observaciones_auditoria || '';
         campoObs.appendChild(labelObs); campoObs.appendChild(inputObs);
         wrap.appendChild(campoObs);
@@ -621,43 +846,33 @@
         var acciones = document.createElement('div');
         acciones.className = 'proforma-auditoria-acciones';
 
-        var btnVerde = document.createElement('button');
-        var btnRec   = document.createElement('button');
-
-        function setBusy(b) { btnVerde.disabled = b; btnRec.disabled = b; }
-
-        function accionar(accion) {
-            setBusy(true);
+        var btnGuardar = document.createElement('button');
+        btnGuardar.type = 'button';
+        btnGuardar.className = 'proforma-btn-aprobar';
+        btnGuardar.textContent = 'Guardar';
+        btnGuardar.addEventListener('click', function () {
+            var montoLimpio = limpiarMonto(inputMonto.value);
+            if (!montoLimpio) {
+                mostrarToast('El monto cotizado es obligatorio.', true);
+                inputMonto.focus();
+                return;
+            }
+            btnGuardar.disabled = true;
             var body = new URLSearchParams();
             body.set('id', p.id);
-            body.set('accion', accion);
-            body.set('monto', inputMonto.value.trim());
+            body.set('accion', 'guardar');
+            body.set('monto', montoLimpio);
             body.set('observaciones', inputObs.value.trim());
             fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
                 .then(function (r) { return r.json(); })
                 .then(function (json) {
                     if (json.success) { mostrarToast('Guardado correctamente.'); onResuelto(); }
-                    else { mostrarToast(json.message || 'No se pudo actualizar.', true); setBusy(false); }
+                    else { mostrarToast(json.message || 'No se pudo actualizar.', true); btnGuardar.disabled = false; }
                 })
-                .catch(function () { mostrarToast('Error de conexión.', true); setBusy(false); });
-        }
+                .catch(function () { mostrarToast('Error de conexión.', true); btnGuardar.disabled = false; });
+        });
 
-        // Fase 4 — 2 botones:
-        //   "Guardar"                  → registra monto/obs sin cambiar estado.
-        //   "Rechazar / Subir nuevamente" → rojo: pide nueva evidencia al promotor.
-        // La transición a fase 5 la hace el promotor subiendo foto_factura desde el celular.
-        btnVerde.type = 'button';
-        btnVerde.className = 'proforma-btn-aprobar';
-        btnVerde.textContent = 'Guardar';
-        btnVerde.addEventListener('click', function () { accionar('guardar'); });
-
-        btnRec.type = 'button';
-        btnRec.className = 'proforma-btn-rechazar-rojo';
-        btnRec.textContent = 'Rechazar / Subir nuevamente';
-        btnRec.addEventListener('click', function () { accionar('negociacion'); });
-
-        acciones.appendChild(btnVerde);
-        acciones.appendChild(btnRec);
+        acciones.appendChild(btnGuardar);
         wrap.appendChild(acciones);
 
         return wrap;
@@ -726,5 +941,10 @@
         });
         document.getElementById('proformaActualizar').addEventListener('click', cargarProformas);
         document.getElementById('proformaExportar').addEventListener('click', descargarExcel);
+
+        document.getElementById('proformaFotoCerrar').addEventListener('click', cerrarFoto);
+        document.getElementById('proformaFotoOverlay').addEventListener('click', function (ev) {
+            if (ev.target.id === 'proformaFotoOverlay') cerrarFoto();
+        });
     });
 })();
