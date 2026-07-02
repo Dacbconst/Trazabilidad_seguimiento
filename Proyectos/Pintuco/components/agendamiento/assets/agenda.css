@@ -1073,17 +1073,116 @@
     color: #33415c;
 }
 
-.agenda-edit-row-lapiz {
-    flex-shrink: 0;
-    border: none;
-    background: transparent;
-    color: #aab3c2;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
+/* Switch único de edición — reemplaza el lápiz por-campo de antes: un solo
+   control decide si toda la card (menos Promotor/Local) se puede tocar. */
+.agenda-edit-mode-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 12px;
+    font-weight: 700;
+    color: #5b6577;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    margin-top: 3px;
 }
-.agenda-edit-row-lapiz:hover { background: #eef1f6; color: #5b6577; }
+.agenda-edit-mode-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.agenda-edit-mode-slider {
+    position: relative;
+    width: 34px;
+    height: 19px;
+    background: #d7dbe2;
+    border-radius: 10px;
+    transition: background .15s;
+    flex-shrink: 0;
+}
+.agenda-edit-mode-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 15px;
+    height: 15px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.agenda-edit-mode-switch input:checked + .agenda-edit-mode-slider { background: var(--brand-light); }
+.agenda-edit-mode-switch input:checked + .agenda-edit-mode-slider::before { transform: translateX(15px); }
+
+/* Modo lectura (por defecto): se ve el texto de cada fila editable, se
+   ocultan sus inputs y el mapa. Promotor/Local no entran en este mecanismo
+   — en modal-edicion.php siempre son solo <span>, sin importar el switch. */
+.agenda-edit-row .form-control,
+.agenda-edit-row .agenda-edit-hora-dropdown {
+    display: none;
+}
+.agenda-edit-card.is-editando .agenda-edit-row-texto { display: none; }
+.agenda-edit-card.is-editando .agenda-edit-row .form-control,
+.agenda-edit-card.is-editando .agenda-edit-row .agenda-edit-hora-dropdown {
+    display: block;
+}
+
+/* Modo pendiente: fecha/hora/técnico siempre editables (sin switch).
+   El switch se oculta porque para pendiente nunca hace falta activarlo:
+   el analista necesita llenar los campos de inmediato. Empresa/mail/
+   dirección/etc. siguen siendo solo lectura igual que antes. */
+.agenda-edit-card.is-pendiente-modo .agenda-edit-mode-switch { display: none; }
+.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="fecha"] .agenda-edit-row-texto,
+.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="hora"]  .agenda-edit-row-texto,
+.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="tecnico"] .agenda-edit-row-texto { display: none; }
+.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="fecha"]   .form-control,
+.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="tecnico"] .form-control { display: block; }
+.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="hora"] .agenda-edit-hora-dropdown { display: block; }
+
+/* En modo edición la card crece y se acomoda como el modal de "Crear
+   visita" (form + mapa lado a lado) — mismo patrón visual a propósito. */
+.agenda-edit-card.is-editando { max-width: 1100px; }
+.agenda-edit-card.is-editando .agenda-edit-body {
+    display: flex;
+    gap: 28px;
+}
+.agenda-edit-card.is-editando .agenda-edit-form-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.agenda-edit-mapa-col {
+    display: none;
+    width: 380px;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 10px;
+    background: #f7f8fa;
+    border-radius: 10px;
+    padding: 14px;
+}
+.agenda-edit-card.is-editando .agenda-edit-mapa-col { display: flex; }
+.agenda-edit-mapa-col label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #5b6577;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.agenda-edit-mapa-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 280px;
+}
+.agenda-edit-mapa-pin {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+@media (max-width: 1000px) {
+    .agenda-edit-card.is-editando .agenda-edit-body { flex-direction: column; }
+    .agenda-edit-mapa-col { width: 100%; }
+    .agenda-edit-mapa-wrap { min-height: 320px; }
+}
 
 .agenda-edit-actions {
     display: flex;

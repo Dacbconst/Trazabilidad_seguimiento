@@ -57,6 +57,7 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
                 <option value="">Todos</option>
                 <option value="en_proceso">Pendiente revisión</option>
                 <option value="en_negociacion">En negociación</option>
+                <option value="correccion_solicitada">Corrección solicitada</option>
                 <option value="aprobado">Aprobada</option>
                 <option value="rechazado">Rechazada</option>
             </select>

@@ -74,6 +74,42 @@ if (!$fecha_agendamiento || $fecha_agendamiento < date('Y-m-d')) {
 if (!$hora)    error("La hora es obligatoria.");
 if (!$tecnico) error("El técnico es obligatorio.");
 
+// Un técnico no puede estar en dos visitas a la vez — mismo criterio que
+// usa update_agenda.php al reagendar: se rechaza si la hora cae dentro de
+// DURACION_APROX_MIN minutos de otra visita ya agendada del mismo técnico,
+// el mismo día, que no esté cancelada/eliminada.
+$DURACION_APROX_MIN = 45;
+$query = "SELECT hora, titulo, pdv, contacto, empresa, estado_agenda FROM insert_proyectos_contacto
+          WHERE fecha_agendamiento = ? AND tecnico = ? AND activar = 'SI'
+            AND estado_agenda != 'cancelada' AND hora IS NOT NULL AND hora != ''";
+if ($sql = $mysqli->prepare($query)) {
+    $sql->bind_param("ss", $fecha_agendamiento, $tecnico);
+    $sql->execute();
+    $resultado = $sql->get_result();
+    $minutosNuevaHora = (int)substr($hora, 0, 2) * 60 + (int)substr($hora, 3, 2);
+    while ($fila = $resultado->fetch_assoc()) {
+        $horaExistente = $fila['hora'];
+        $minutosExistente = (int)substr($horaExistente, 0, 2) * 60 + (int)substr($horaExistente, 3, 2);
+        if (abs($minutosNuevaHora - $minutosExistente) < $DURACION_APROX_MIN) {
+            $sql->close();
+            echo json_encode([
+                "success" => false,
+                "message" => "El técnico ya tiene una visita a esa hora.",
+                "conflicto" => [
+                    "hora" => substr($horaExistente, 0, 5),
+                    "titulo" => $fila['titulo'],
+                    "pdv" => $fila['pdv'],
+                    "contacto" => $fila['contacto'],
+                    "empresa" => $fila['empresa'],
+                    "estado_agenda" => $fila['estado_agenda'],
+                ],
+            ]);
+            exit;
+        }
+    }
+    $sql->close();
+}
+
 // Con fecha+hora+técnico siempre presentes (las 3 son obligatorias en este
 // panel), una visita creada aquí nace 'confirmado' — igual que cuando
 // update_agenda.php asigna técnico/hora por primera vez a una pendiente.

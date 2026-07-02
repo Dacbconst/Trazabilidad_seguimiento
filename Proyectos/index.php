@@ -56,12 +56,6 @@
 			$cuenta_dir = __DIR__.'/'.$modulos_implementados[$cuenta_actual];
 			require $cuenta_dir.'/includes/mock_data.php';
 
-			$tabs = [
-				['id' => 'tab-avance',       'label' => 'Avance %',    'partial' => 'partials/tab-avance.php'],
-				['id' => 'tab-detalle',      'label' => 'Detalle',     'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Detalle'],
-				['id' => 'tab-historico',    'label' => 'Histórico',   'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Histórico'],
-				['id' => 'tab-estadistico',  'label' => 'Estadístico', 'partial' => 'partials/tab-placeholder.php', 'placeholder' => 'Estadístico'],
-			];
 		}
 ?>
 <!DOCTYPE html>
@@ -103,28 +97,8 @@
 				<div class="section-pane <?= $i === 0 ? 'active' : '' ?>" id="sec-<?= $seccion['id'] ?>">
 					<?php if ($seccion['id'] === 'principal'): ?>
 
-						<ul class="stepper" id="main-tabs">
-							<?php foreach ($tabs as $j => $tab): ?>
-							<li class="<?= $j === 0 ? 'active' : '' ?>">
-								<a href="#<?= $tab['id'] ?>" data-toggle="tab"><?= htmlspecialchars($tab['label']) ?></a>
-							</li>
-							<?php endforeach; ?>
-						</ul>
-
 						<div class="content-panel">
-							<div class="tab-content">
-								<?php foreach ($tabs as $j => $tab): ?>
-								<div class="tab-pane <?= $j === 0 ? 'active' : '' ?>" id="<?= $tab['id'] ?>">
-									<?php
-										if (isset($tab['placeholder'])) {
-											$placeholder_label = $tab['placeholder'];
-											$placeholder_message = null;
-										}
-										include __DIR__.'/'.$tab['partial'];
-									?>
-								</div>
-								<?php endforeach; ?>
-							</div>
+							<?php include __DIR__.'/partials/tab-avance.php'; ?>
 						</div>
 
 					<?php else: ?>
@@ -174,16 +148,7 @@
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 	<script>
 		$(document).ready(function () {
-			$('#main-tabs a[data-toggle="tab"]').on('click', function (e) {
-				e.preventDefault();
-				$('#main-tabs li').removeClass('active');
-				$(this).parent('li').addClass('active');
-				$('.tab-pane').removeClass('active');
-				$($(this).attr('href')).addClass('active');
-				window.dispatchEvent(new Event('resize'));
-			});
-
-			$('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
+$('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 				e.preventDefault();
 				$('.sidebar-nav li').removeClass('active');
 				$(this).parent('li').addClass('active');
@@ -192,7 +157,7 @@
 
 				// Secciones con filtros propios — el topbar global se oculta para no duplicar.
 				// Principal también se oculta: sus tabs (Avance %, Detalle...) tienen filtros propios.
-				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma', '#sec-contactados', '#sec-principal', '#sec-estado-flujo'].indexOf($(this).attr('href')) !== -1;
+				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma', '#sec-contactados', '#sec-principal', '#sec-flujo-comercial'].indexOf($(this).attr('href')) !== -1;
 				$('.topbar').toggleClass('is-hidden', seccionConFiltroPropio);
 
 				$('#btnDescargarExcel').toggle($(this).attr('href') === '#sec-contactados');
@@ -219,15 +184,10 @@
 					window.ContactadosRefrescar();
 				} else if (secActiva === 'sec-proforma' && window.ProformaRecargar) {
 					window.ProformaRecargar();
-				} else if (secActiva === 'sec-estado-flujo' && window.FlujoRecargar) {
+				} else if (secActiva === 'sec-flujo-comercial' && window.FlujoRecargar) {
 					window.FlujoRecargar();
-				} else if (secActiva === 'sec-principal') {
-					var tabActivo = $('#main-tabs li.active a').attr('href');
-					if (tabActivo === '#tab-avance' && window.AvanceRecargar) {
-						window.AvanceRecargar();
-					} else {
-						location.reload();
-					}
+				} else if (secActiva === 'sec-principal' && window.DashboardRecargar) {
+					window.DashboardRecargar();
 				} else {
 					location.reload();
 				}

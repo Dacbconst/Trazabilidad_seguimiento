@@ -15,6 +15,11 @@ header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Content-Type: application/json');
+// Sin esto, el navegador (o un proxy de IIS/Azure) puede servir una
+// respuesta cacheada de esta misma URL tras una acción que acaba de
+// cambiar estado_proforma, mostrando datos viejos aunque el UPDATE en BD
+// ya se haya aplicado correctamente.
+header('Cache-Control: no-store, no-cache, must-revalidate');
 
 include_once '../db_connect.php';
 

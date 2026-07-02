@@ -9,12 +9,6 @@
     var currentRows   = [];
     var filaAbiertaId = null;
     var toastTimer    = null;
-    // Paso "revisar calidad de foto" (fase 3 dentro del panel de fase 4): es
-    // puramente de sesión en el navegador, no se guarda en BD — al hacer clic
-    // en "Aceptar" solo se revela el formulario de monto, sin llamar al
-    // backend. Si el analista refresca, vuelve a pedir la confirmación —
-    // intencional, es un paso de verificación, no un estado de negocio.
-    var fotosAceptadas = {};
 
     // ---------------------------------------------------------------
     // Helpers
@@ -88,18 +82,12 @@
         var f = getFase(p);
         if (f === 5) return { label: 'Fase 5', cls: 'is-aprobado' };
         if (f === 4) {
-            if (p.estado_proforma === 'rechazado') return { label: 'Fase 4', cls: 'is-rechazado' };
+            if (p.estado_proforma === 'rechazado')              return { label: 'Fase 4', cls: 'is-rechazado' };
+            if (p.estado_proforma === 'correccion_solicitada')  return { label: '⚠ Corrección', cls: 'is-correccion' };
             return { label: 'Fase 4', cls: 'is-en_proceso' };
         }
         if (f === 2) return { label: 'Fase 2', cls: 'is-pendiente' };
         return           { label: 'Fase 1', cls: 'is-pendiente' };
-    }
-
-    // Paso "Fase 3 — revisar calidad": hay foto pero esta fila todavía no
-    // tiene un monto guardado y el analista no la aceptó en esta sesión.
-    // Rechazar aquí NO es una ronda de negociación (no genera histórico).
-    function necesitaRevisarCalidad(p) {
-        return !!p.evidencia && !p.monto_validado && !fotosAceptadas[p.id];
     }
 
     // ---------------------------------------------------------------
@@ -116,10 +104,11 @@
 
             if (estadoSel) {
                 var f = getFase(p);
-                if (estadoSel === 'en_proceso'     && !(f === 3 && p.estado_proforma !== 'rechazado')) return false;
-                if (estadoSel === 'en_negociacion' && f !== 4)                                         return false;
-                if (estadoSel === 'aprobado'       && p.estado_proforma !== 'aprobado')                return false;
-                if (estadoSel === 'rechazado'      && p.estado_proforma !== 'rechazado')               return false;
+                if (estadoSel === 'en_proceso'            && !(f === 3 && p.estado_proforma !== 'rechazado')) return false;
+                if (estadoSel === 'en_negociacion'        && f !== 4)                                         return false;
+                if (estadoSel === 'correccion_solicitada' && p.estado_proforma !== 'correccion_solicitada')   return false;
+                if (estadoSel === 'aprobado'              && p.estado_proforma !== 'aprobado')                return false;
+                if (estadoSel === 'rechazado'             && p.estado_proforma !== 'rechazado')               return false;
             }
 
             if (periodoClave) {
@@ -370,17 +359,23 @@
             grid.innerHTML = '';
             grid.appendChild(construirTimeline(p, ciclos));
 
+            // Evidencia+Auditoría van dentro de un wrapper propio (columnas
+            // 2+3) para poder anclarle encima el overlay de bloqueo sin
+            // taparlas: la foto y el formulario siguen intactos debajo,
+            // solo quedan visualmente deshabilitados.
+            var central = document.createElement('div');
+            central.className = 'proforma-gdetalle-central';
+            central.appendChild(construirPanelEvidencia(p, function () { cargarProformas(); }));
+            central.appendChild(construirPanelAuditoria(p, ciclos, function () { cargarProformas(); }));
+
             // Corrección pendiente: la foto está intacta en la BD (nunca se
             // borró), solo oculta detrás de este aviso hasta que llegue la
-            // nueva o se cancele el pedido — un solo bloque en vez de las
-            // columnas de Evidencia+Auditoría por separado.
+            // nueva o se cancele el pedido.
             if (p.estado_proforma === 'correccion_solicitada') {
-                grid.appendChild(construirBloqueCorreccion(p, function () { cargarProformas(); }));
-                return;
+                central.appendChild(construirOverlayBloqueo(p, function () { cargarProformas(); }));
             }
 
-            grid.appendChild(construirPanelEvidencia(p, function () { cargarProformas(); }));
-            grid.appendChild(construirPanelAuditoria(p, ciclos, function () { cargarProformas(); }));
+            grid.appendChild(central);
         }
 
         // Un solo fetch compartido por las 3 columnas: el timeline (fecha+
@@ -505,26 +500,24 @@
     }
 
     // ---------------------------------------------------------------
-    // Bloque unificado (ocupa columnas 2+3): corrección solicitada
+    // Overlay de bloqueo (flota sobre columnas 2+3): corrección solicitada
     // ---------------------------------------------------------------
-    function construirBloqueCorreccion(p, onResuelto) {
-        // .proforma-correccion-bloque: el fondo rayado gris (panel "bloqueado").
-        // .proforma-correccion-card: la ventanita flotante centrada encima,
-        // con el mensaje y la acción — mismo patrón visual que un overlay de
-        // "sección deshabilitada" en vez de solo un mensaje suelto.
-        var wrap = document.createElement('div');
-        wrap.className = 'proforma-correccion-bloque';
+    function construirOverlayBloqueo(p, onResuelto) {
+        // Evidencia+Auditoría siguen renderizadas debajo con su contenido
+        // real (la foto nunca se borra) — este overlay solo las cubre
+        // visualmente hasta que llegue la nueva foto o se cancele el pedido.
+        var overlay = document.createElement('div');
+        overlay.className = 'proforma-bloqueo-overlay';
 
         var card = document.createElement('div');
-        card.className = 'proforma-correccion-card';
+        card.className = 'proforma-bloqueo-card';
         card.innerHTML =
-            '<i class="glyphicon glyphicon-camera"></i>'
-            + '<div class="proforma-correccion-titulo">Has solicitado una nueva foto</div>'
-            + '<div class="proforma-correccion-sub">Espera hasta que el promotor la suba.</div>';
+            '<i class="glyphicon glyphicon-warning-sign"></i>'
+            + '<div class="proforma-bloqueo-texto">Solicitud de cambio de foto en curso.<br>Esta sección está bloqueada temporalmente.</div>';
 
         var btnCancelar = document.createElement('button');
         btnCancelar.type = 'button';
-        btnCancelar.className = 'proforma-btn-aprobar';
+        btnCancelar.className = 'proforma-btn-rechazar-rojo';
         btnCancelar.textContent = 'Cancelar solicitud';
         btnCancelar.addEventListener('click', function () {
             btnCancelar.disabled = true;
@@ -535,11 +528,6 @@
                 .then(function (r) { return r.json(); })
                 .then(function (json) {
                     if (json.success) {
-                        // La foto nunca se borró: al cancelar, se considera
-                        // que ya estaba aceptada (por eso se había llegado a
-                        // pedir monto) — se salta directo al formulario en
-                        // vez de volver a preguntar "¿aceptás esta foto?".
-                        fotosAceptadas[p.id] = true;
                         mostrarToast('Solicitud cancelada.');
                         onResuelto();
                     } else {
@@ -550,9 +538,9 @@
                 .catch(function () { mostrarToast('Error de conexión.', true); btnCancelar.disabled = false; });
         });
         card.appendChild(btnCancelar);
-        wrap.appendChild(card);
+        overlay.appendChild(card);
 
-        return wrap;
+        return overlay;
     }
 
     // ---------------------------------------------------------------
@@ -601,7 +589,6 @@
                         .then(function (r) { return r.json(); })
                         .then(function (json) {
                             if (json.success) {
-                                delete fotosAceptadas[p.id];
                                 mostrarToast('Se pidió una nueva foto.');
                                 onResuelto();
                             } else {
@@ -682,7 +669,7 @@
 
                 var imgFact = document.createElement('img');
                 imgFact.className = 'proforma-evidencia-foto';
-                imgFact.src = FOTO_BASE + p.foto_factura;
+                imgFact.src = FOTO_BASE + 'Factura/' + p.foto_factura;
                 imgFact.alt = 'Foto de factura';
                 imgFact.addEventListener('click', function () { mostrarFoto(imgFact.src); });
                 imgFact.addEventListener('error', function () {
@@ -722,35 +709,6 @@
             recMsg.className = 'proforma-auditoria-cerrada is-rechazado';
             recMsg.innerHTML = '<i class="glyphicon glyphicon-remove"></i> Rechazada / Evidencia falsa.';
             wrap.appendChild(recMsg);
-            return wrap;
-        }
-
-        // ── Fase 3 dentro del panel: confirmar la foto ANTES de habilitar el
-        // formulario de monto. El botón de "Rechazar / Pedir nueva foto"
-        // vive junto a la foto (columna de Evidencia), disponible tanto
-        // aquí como más adelante en fase 4 — así hay un solo lugar
-        // consistente para pedir reenvío, sin importar en qué momento el
-        // analista note que la foto está mal. ──────────────────────────────
-        if (necesitaRevisarCalidad(p)) {
-            var msgRevisar = document.createElement('div');
-            msgRevisar.className = 'proforma-revisar-calidad-msg';
-            msgRevisar.textContent = '¿La foto es legible y corresponde a esta proforma?';
-            wrap.appendChild(msgRevisar);
-
-            var accionesCalidad = document.createElement('div');
-            accionesCalidad.className = 'proforma-auditoria-acciones';
-
-            var btnAceptar = document.createElement('button');
-            btnAceptar.type = 'button';
-            btnAceptar.className = 'proforma-btn-aprobar';
-            btnAceptar.textContent = 'Aceptar';
-            btnAceptar.addEventListener('click', function () {
-                fotosAceptadas[p.id] = true;
-                onResuelto();
-            });
-
-            accionesCalidad.appendChild(btnAceptar);
-            wrap.appendChild(accionesCalidad);
             return wrap;
         }
 

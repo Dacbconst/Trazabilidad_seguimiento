@@ -1,91 +1,112 @@
 <div class="agenda-edit-overlay" id="agendaEditOverlay">
-    <div class="agenda-edit-card">
+    <div class="agenda-edit-card" id="agendaEditCard">
         <button type="button" class="agenda-edit-close" id="agendaEditClose" aria-label="Cerrar">&times;</button>
 
         <div class="agenda-edit-header">
             <h4 class="agenda-edit-title" id="agendaEditTitulo"></h4>
+            <label class="agenda-edit-mode-switch">
+                <input type="checkbox" id="agendaEditModoEdicion">
+                <span class="agenda-edit-mode-slider"></span>
+                Editar
+            </label>
             <span class="agenda-edit-badge" id="agendaEditBadge">Pendiente</span>
         </div>
 
         <div class="agenda-edit-body">
 
-            <div class="agenda-edit-registro" id="agendaEditRegistro"></div>
+            <div class="agenda-edit-form-col">
 
-            <div class="agenda-edit-alert" id="agendaEditAlerta" style="display:none">
-                <i class="glyphicon glyphicon-warning-sign"></i>
-                <span id="agendaEditAlertaTexto"></span>
-            </div>
+                <div class="agenda-edit-registro" id="agendaEditRegistro"></div>
 
-            <div class="agenda-edit-divider"></div>
+                <div class="agenda-edit-alert" id="agendaEditAlerta" style="display:none">
+                    <i class="glyphicon glyphicon-warning-sign"></i>
+                    <span id="agendaEditAlertaTexto"></span>
+                </div>
 
-            <div class="agenda-edit-info">
-                <div class="agenda-edit-info-row">
-                    <i class="glyphicon glyphicon-briefcase"></i>
-                    <div class="agenda-edit-info-text">
-                        <span class="agenda-edit-info-label">Promotor</span>
-                        <span class="agenda-edit-info-value" id="agendaEditPromotor">—</span>
+                <div class="agenda-edit-divider"></div>
+
+                <!-- Promotor y Local: siempre solo texto, sin importar el
+                     switch de edición — están fuera de alcance a propósito. -->
+                <div class="agenda-edit-info">
+                    <div class="agenda-edit-info-row">
+                        <i class="glyphicon glyphicon-briefcase"></i>
+                        <div class="agenda-edit-info-text">
+                            <span class="agenda-edit-info-label">Promotor</span>
+                            <span class="agenda-edit-info-value" id="agendaEditPromotor">—</span>
+                        </div>
+                    </div>
+                    <div class="agenda-edit-info-row">
+                        <i class="glyphicon glyphicon-home"></i>
+                        <div class="agenda-edit-info-text">
+                            <span class="agenda-edit-info-label">Local</span>
+                            <span class="agenda-edit-info-value" id="agendaEditLocal">—</span>
+                        </div>
                     </div>
                 </div>
-                <div class="agenda-edit-info-row">
-                    <i class="glyphicon glyphicon-home"></i>
-                    <div class="agenda-edit-info-text">
-                        <span class="agenda-edit-info-label">Local</span>
-                        <span class="agenda-edit-info-value" id="agendaEditLocal">—</span>
-                    </div>
-                </div>
-                <div class="agenda-edit-info-row">
+
+                <div class="agenda-edit-divider"></div>
+
+                <div class="agenda-edit-row" data-campo="empresa">
                     <i class="glyphicon glyphicon-building"></i>
-                    <div class="agenda-edit-info-text">
-                        <span class="agenda-edit-info-label">Empresa</span>
-                        <span class="agenda-edit-info-value" id="agendaEditEmpresa">—</span>
-                    </div>
+                    <span class="agenda-edit-row-texto" id="agendaEditEmpresaTexto"></span>
+                    <input type="text" class="form-control" id="agendaEditEmpresa" placeholder="Nombre de la empresa" maxlength="80">
                 </div>
-                <div class="agenda-edit-info-row">
+                <div class="agenda-edit-row" data-campo="mail">
                     <i class="glyphicon glyphicon-envelope"></i>
-                    <div class="agenda-edit-info-text">
-                        <span class="agenda-edit-info-label">Correo</span>
-                        <span class="agenda-edit-info-value" id="agendaEditMail">—</span>
-                    </div>
+                    <span class="agenda-edit-row-texto" id="agendaEditMailTexto"></span>
+                    <input type="email" class="form-control" id="agendaEditMail" placeholder="correo@dominio.com">
                 </div>
-                <div class="agenda-edit-info-row">
+                <div class="agenda-edit-row" data-campo="direccion">
                     <i class="glyphicon glyphicon-map-marker"></i>
-                    <div class="agenda-edit-info-text">
-                        <span class="agenda-edit-info-label">Dirección</span>
-                        <span class="agenda-edit-info-value" id="agendaEditDireccion">—</span>
-                    </div>
+                    <span class="agenda-edit-row-texto" id="agendaEditDireccionTexto"></span>
+                    <input type="text" class="form-control" id="agendaEditDireccion" placeholder="Se completa al confirmar el pin">
                 </div>
-                <div class="agenda-edit-info-row">
+                <div class="agenda-edit-row" data-campo="celular">
                     <i class="glyphicon glyphicon-earphone"></i>
-                    <div class="agenda-edit-info-text">
-                        <span class="agenda-edit-info-label">Teléfono</span>
-                        <span class="agenda-edit-info-value" id="agendaEditTelefono">—</span>
+                    <span class="agenda-edit-row-texto" id="agendaEditCelularTexto"></span>
+                    <input type="text" class="form-control" id="agendaEditCelular" placeholder="0987654321" maxlength="10">
+                </div>
+                <div class="agenda-edit-row" data-campo="convencional">
+                    <i class="glyphicon glyphicon-phone"></i>
+                    <span class="agenda-edit-row-texto" id="agendaEditConvencionalTexto"></span>
+                    <input type="text" class="form-control" id="agendaEditConvencional" placeholder="022345678 (opcional)" maxlength="9">
+                </div>
+
+                <div class="agenda-edit-divider"></div>
+
+                <div class="agenda-edit-fecha-label" id="agendaEditFechaLabel">Fecha agendada</div>
+                <div class="agenda-edit-row" data-campo="fecha">
+                    <i class="glyphicon glyphicon-calendar"></i>
+                    <span class="agenda-edit-row-texto" id="agendaEditFechaTexto"></span>
+                    <input type="date" class="form-control" id="agendaEditFecha">
+                </div>
+                <div class="agenda-edit-row" data-campo="hora">
+                    <i class="glyphicon glyphicon-time"></i>
+                    <span class="agenda-edit-row-texto" id="agendaEditHoraTexto"></span>
+                    <div class="agenda-edit-hora-dropdown" id="agendaEditHora">
+                        <button type="button" class="form-control agenda-edit-hora-trigger" id="agendaEditHoraTrigger">Selecciona una hora</button>
+                        <div class="agenda-edit-hora-lista" id="agendaEditHoraLista"></div>
                     </div>
                 </div>
-            </div>
-
-            <div class="agenda-edit-divider"></div>
-
-            <div class="agenda-edit-fecha-label" id="agendaEditFechaLabel">Fecha agendada</div>
-            <div class="agenda-edit-row" data-campo="fecha">
-                <i class="glyphicon glyphicon-calendar"></i>
-                <span class="agenda-edit-row-texto" id="agendaEditFechaTexto"></span>
-                <input type="date" class="form-control" id="agendaEditFecha">
-                <button type="button" class="agenda-edit-row-lapiz" data-campo="fecha" title="Editar fecha"><i class="glyphicon glyphicon-pencil"></i></button>
-            </div>
-            <div class="agenda-edit-row" data-campo="hora">
-                <i class="glyphicon glyphicon-time"></i>
-                <span class="agenda-edit-row-texto" id="agendaEditHoraTexto"></span>
-                <div class="agenda-edit-hora-dropdown" id="agendaEditHora">
-                    <button type="button" class="form-control agenda-edit-hora-trigger" id="agendaEditHoraTrigger">Selecciona una hora</button>
-                    <div class="agenda-edit-hora-lista" id="agendaEditHoraLista"></div>
+                <div class="agenda-edit-row" data-campo="tecnico">
+                    <i class="glyphicon glyphicon-user"></i>
+                    <span class="agenda-edit-row-texto" id="agendaEditTecnicoTexto"></span>
+                    <input type="text" class="form-control" id="agendaEditTecnico" placeholder="Técnico asignado">
                 </div>
-                <button type="button" class="agenda-edit-row-lapiz" data-campo="hora" title="Editar hora"><i class="glyphicon glyphicon-pencil"></i></button>
+
             </div>
-            <div class="agenda-edit-row" data-campo="tecnico">
-                <i class="glyphicon glyphicon-user"></i>
-                <span class="agenda-edit-row-texto" id="agendaEditTecnicoTexto"></span>
-                <input type="text" class="form-control" id="agendaEditTecnico" placeholder="Técnico asignado">
-                <button type="button" class="agenda-edit-row-lapiz" data-campo="tecnico" title="Editar técnico"><i class="glyphicon glyphicon-pencil"></i></button>
+
+            <!-- Columna de mapa: misma UX que "Crear visita" (Leaflet + pin
+                 fijo + reverse-geocode Mapbox). Solo visible cuando la card
+                 tiene la clase is-editando (ver agenda.css). -->
+            <div class="agenda-edit-mapa-col" id="agendaEditMapaCol">
+                <label>Ubicación en el mapa</label>
+                <div class="agenda-edit-mapa-wrap">
+                    <div class="agenda-edit-mapa-pin" id="agendaEditMapaPin"></div>
+                    <div class="agenda-crear-mapa-pin-fijo"><i class="glyphicon glyphicon-map-marker"></i></div>
+                </div>
+                <button type="button" class="agenda-crear-btn-secundario" id="agendaEditConfirmarPin">Confirmar pin</button>
+                <span class="agenda-crear-mapa-hint">Navega el mapa hasta ubicar el sitio exacto debajo del pin y confirma.</span>
             </div>
 
         </div>

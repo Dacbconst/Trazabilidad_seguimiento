@@ -201,19 +201,32 @@
     padding: 30px 0;
 }
 
-/* Ocupa el espacio de las columnas Evidencia+Auditoría (2 y 3) — la foto
-   sigue intacta en la BD, solo queda oculta detrás de este aviso hasta que
-   llegue la nueva o se cancele el pedido. Fondo de rayas diagonales, como un
-   panel "bloqueado", con una ventanita flotante centrada encima. */
-.proforma-correccion-bloque {
+/* Envuelve Evidencia+Auditoría (columnas 2 y 3) para poder anclarles encima
+   el overlay de bloqueo sin ocultar su contenido real. */
+.proforma-gdetalle-central {
     grid-column: 2 / -1;
     position: relative;
-    min-height: 260px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+}
+@media (max-width: 1000px) {
+    .proforma-gdetalle-central { grid-column: 1 / -1; grid-template-columns: 1fr; }
+}
+
+/* Overlay que bloquea visualmente Evidencia+Auditoría mientras hay una
+   corrección de foto solicitada — el contenido real sigue debajo (la foto
+   nunca se borra), solo queda tapado tras este aviso hasta que llegue la
+   nueva foto o se cancele el pedido. Fondo de rayas diagonales, como un
+   panel "bloqueado", con una ventanita flotante centrada encima. */
+.proforma-bloqueo-overlay {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    background-color: #eef1f5;
+    background-color: rgba(238,241,245,.92);
     background-image: repeating-linear-gradient(
         45deg,
         rgba(138,147,163,.14),
@@ -222,26 +235,23 @@
         transparent 20px
     );
 }
-@media (max-width: 1000px) {
-    .proforma-correccion-bloque { grid-column: 1 / -1; }
-}
 
-.proforma-correccion-card {
+.proforma-bloqueo-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
     background: #fff;
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(20,30,50,.16);
     padding: 26px 30px;
     text-align: center;
+    max-width: 320px;
     color: #5b6577;
 }
-.proforma-correccion-card .glyphicon { font-size: 26px; color: #aab3c2; margin-bottom: 4px; }
-.proforma-correccion-titulo { font-size: 14.5px; font-weight: 700; color: #33415c; }
-.proforma-correccion-sub { font-size: 12.5px; color: #8a93a3; margin-bottom: 10px; }
-.proforma-correccion-card .proforma-btn-aprobar { padding: 9px 22px; }
+.proforma-bloqueo-card .glyphicon { font-size: 30px; color: #f0ad4e; }
+.proforma-bloqueo-texto { font-size: 13px; font-weight: 600; color: #33415c; line-height: 1.5; }
+.proforma-bloqueo-card .proforma-btn-rechazar-rojo { margin-top: 4px; padding: 9px 22px; }
 
 /* ---------------------------------------------------
    Timeline de 5 fases (columna izquierda)
@@ -425,6 +435,7 @@
 .proforma-badge.is-en_negociacion { background: #e8f0fa; color: #1d4e89; border-color: #c7d9f0; }
 .proforma-badge.is-aprobado     { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
 .proforma-badge.is-rechazado    { background: #fbeaea; color: #a32a23; border-color: #f0c9c7; }
+.proforma-badge.is-correccion   { background: #fff4e0; color: #8a4a00; border-color: #f0d5a0; font-weight: 700; }
 
 /* ---------------------------------------------------
    Fila de detalle (acordeón)
@@ -638,15 +649,6 @@
     font-weight: 700;
 }
 .proforma-fases-terminadas .glyphicon { font-size: 18px; }
-
-/* Fase 3 (paso previo, dentro del panel de fase 4): revisar si la foto que
-   llegó sirve, antes de habilitar el formulario de monto. */
-.proforma-revisar-calidad-msg {
-    font-size: 13px;
-    color: #5b6577;
-    margin-bottom: 12px;
-    text-align: center;
-}
 
 .proforma-evidencia-vacia i {
     font-size: 28px;

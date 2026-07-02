@@ -166,10 +166,22 @@ a, a:hover, a:focus { text-decoration: none; }
     padding: 4px 0 20px;
 }
 
+.sidebar-nav li {
+    display: block;
+    width: 100%;
+}
+
+/* width + box-sizing explícitos: sin esto, el recuadro de fondo (hover y
+   .active) se ajustaba al ancho del contenido en vez de al ancho fijo del
+   sidebar — se notaba porque "Flujo Comercial" (texto largo) se veía con
+   un recuadro de un tamaño y "Principal" (texto corto) con otro. */
 .sidebar-nav li a {
     display: flex;
     align-items: center;
     gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
     padding: 12px 22px;
     font-size: 13px;
     font-weight: 600;

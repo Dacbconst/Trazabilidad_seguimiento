@@ -1,123 +1,152 @@
-/* =======================================================
-   PRINCIPAL — Vista de avance de promotores (mock)
-   ======================================================= */
+/* ========================================================
+   DASHBOARD — Principal (Pintuco)
+   ======================================================== */
 
 #principalApp { color: #1f2d3d; }
 
-.principal-header {
+.dash-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 18px;
+    margin-bottom: 22px;
     flex-wrap: wrap;
 }
-.principal-header h2 {
-    margin: 0 0 4px;
-    font-size: 20px;
-    font-weight: 700;
-    color: #1f2d3d;
-}
-.principal-header p { margin: 0; font-size: 13px; color: #8a93a3; }
+.dash-header h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: #1f2d3d; }
+.dash-header p  { margin: 0; font-size: 13px; color: #8a93a3; }
 
-/* KPIs */
-.principal-kpis {
+/* ── KPI cards ── */
+.dash-kpis {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 14px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
-.principal-kpi {
+.dash-kpi {
     background: #fff;
     border: 1px solid #e3e8ee;
-    border-radius: 8px;
-    padding: 14px 16px;
+    border-radius: 10px;
+    padding: 18px 20px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    transition: box-shadow .15s;
 }
-.principal-kpi-label {
+.dash-kpi:hover { box-shadow: 0 3px 12px rgba(20,30,50,.08); }
+.dash-kpi.is-loading .dash-kpi-valor { color: #d0d5dd; }
+
+.dash-kpi-label {
     font-size: 10.5px;
     font-weight: 700;
     color: #8a93a3;
     text-transform: uppercase;
     letter-spacing: .4px;
 }
-.principal-kpi-valor { font-size: 28px; font-weight: 700; color: #1f2d3d; }
-.principal-kpi-valor.is-verde { color: #1e7a45; }
-.principal-kpi-valor.is-ambar { color: #a66a00; }
-.principal-kpi-valor.is-azul  { color: #1d4e89; }
-.principal-kpi-valor.is-rojo  { color: #b3261e; }
+.dash-kpi-valor          { font-size: 28px; font-weight: 800; color: #1f2d3d; line-height: 1.1; }
+.dash-kpi-valor.is-verde { color: #1e7a45; }
+.dash-kpi-valor.is-azul  { color: #1d4e89; }
+.dash-kpi-valor.is-ambar { color: #a66a00; }
 
-/* Barra de progreso global */
-.principal-progreso {
+/* ── Paneles lado a lado ── */
+.dash-paneles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.dash-panel {
     background: #fff;
     border: 1px solid #e3e8ee;
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
+    border-radius: 10px;
+    padding: 20px;
 }
-.principal-progreso-label { font-size: 12.5px; font-weight: 700; color: #5b6577; white-space: nowrap; }
-.principal-progreso-track {
-    flex: 1;
-    height: 10px;
-    background: #edf0f4;
-    border-radius: 5px;
-    overflow: hidden;
-}
-.principal-progreso-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #337ab7, #1d4e89);
-    border-radius: 5px;
-    transition: width .4s;
-}
-.principal-progreso-pct { font-size: 13px; font-weight: 700; color: #33415c; white-space: nowrap; }
-
-/* Tabla de promotores */
-.principal-scroll {
-    background: #fff;
-    border: 1px solid #e3e8ee;
-    border-radius: 8px;
-    overflow: hidden;
-}
-.principal-table { width: 100%; border-collapse: collapse; }
-.principal-table th {
-    background: #f7f8fa;
-    color: #5b6577;
-    text-align: left;
+.dash-panel-titulo {
     font-size: 11px;
     font-weight: 700;
+    color: #5b6577;
     text-transform: uppercase;
-    letter-spacing: .3px;
-    padding: 11px 14px;
-    border-bottom: 1px solid #e3e8ee;
-}
-.principal-table td {
-    padding: 12px 14px;
+    letter-spacing: .4px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
     border-bottom: 1px solid #edf0f4;
-    font-size: 13px;
-    vertical-align: middle;
 }
-.principal-table tbody tr:hover td { background: #f7f9fc; }
-.principal-table tbody tr:last-child td { border-bottom: none; }
+.dash-cargando { color: #aab3c2; font-size: 13px; text-align: center; padding: 20px 0; }
 
-/* Badges de estado */
-.principal-badge {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: .2px;
-    text-transform: uppercase;
-    padding: 4px 10px;
-    border-radius: 12px;
-    border: 1px solid transparent;
-    white-space: nowrap;
+/* ── Embudo de fases ── */
+.dash-funnel-fila {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 11px;
 }
-.principal-badge.is-ejecutando { background: #e8f0fa; color: #1d4e89; border-color: #c7d9f0; }
-.principal-badge.is-cerrado    { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
-.principal-badge.is-pendiente  { background: #fbf2e3; color: #8a5a00; border-color: #f0ddb3; }
-.principal-badge.is-comisiona      { background: #fef9e7; color: #7d5a00; border-color: #f0d875; }
-.principal-badge.is-no-comisiona   { background: #fbeaea; color: #a32a23; border-color: #f0c9c7; }
+.dash-funnel-etiqueta {
+    width: 160px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #5b6577;
+    line-height: 1.3;
+}
+.dash-funnel-barra-wrap {
+    flex: 1;
+    height: 22px;
+    background: #edf0f4;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.dash-funnel-barra {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #337ab7, #5063b8);
+    transition: width .5s ease;
+    min-width: 4px;
+}
+.dash-funnel-barra.is-f5 { background: linear-gradient(90deg, #1e7a45, #27ae60); }
+.dash-funnel-count {
+    width: 32px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 700;
+    color: #33415c;
+    flex-shrink: 0;
+}
+
+/* ── Top promotores ── */
+.dash-promo-fila {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf0f4;
+}
+.dash-promo-fila:last-child { border-bottom: none; }
+.dash-promo-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #eef1f8;
+    color: var(--brand-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.dash-promo-nombre {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: #33415c;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-promo-meta  { font-size: 11px; color: #8a93a3; white-space: nowrap; }
+.dash-promo-monto { font-size: 13px; font-weight: 700; color: #1e7a45; white-space: nowrap; }
+.dash-promo-vacio { color: #aab3c2; font-size: 13px; text-align: center; padding: 20px 0; }
+
+@media (max-width: 900px) {
+    .dash-kpis    { grid-template-columns: repeat(2, 1fr); }
+    .dash-paneles { grid-template-columns: 1fr; }
+    .dash-funnel-etiqueta { width: 120px; font-size: 11px; }
+}

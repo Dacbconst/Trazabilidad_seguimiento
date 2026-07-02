@@ -1,5 +1,6 @@
 (function () {
     var GETTERS_BASE = document.getElementById('agendaApp').dataset.gettersBase;
+    var MAPBOX_TOKEN = document.getElementById('agendaApp').dataset.mapboxToken;
     var calendar, miniCalendar, map;
     var markersById = {};
     var editingId = null;
@@ -9,6 +10,16 @@
     var yearPickerYear = new Date().getFullYear();
     var DURACION_APROX_MIN = 45;
     var estadosPorFecha = {}; // { 'YYYY-MM-DD': { agendada: true, ... } } — para los puntitos del mini-calendario
+
+    // Mapa de la card de edición (switch "Editar") — mismo patrón de pin fijo
+    // + reverse-geocode Mapbox que ya usa agenda-crear.js, duplicado con IDs
+    // propios para no chocar con el modal de creación (self-contenido, mismo
+    // criterio que ya sigue este proyecto entre agenda.js/agenda-crear.js).
+    var editMapaPin = null;
+    var editCoordenadas = null; // { lat, lng } — arranca con la ubicación ya guardada de la visita
+    var PUNTO_INICIAL_EDICION = [-2.170998, -79.922359];
+    var PATRON_PLUS_CODE_EDICION = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
+    var RE_EMPRESA_EDICION = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\-&' ]+$/;
 
     function indexarEstadosPorFecha(rows) {
         estadosPorFecha = {};
@@ -507,34 +518,76 @@
         document.getElementById('agendaEditHora').classList.remove('abierto');
     }
 
-    function idCampo(campo) {
-        return 'agendaEdit' + campo.charAt(0).toUpperCase() + campo.slice(1);
+    // Switch único de edición: reemplaza el lápiz por-campo de antes. La
+    // clase is-editando en la card decide en CSS qué se ve — texto o
+    // input/mapa — para todos los campos editables a la vez (Promotor y
+    // Local quedan fuera de este mecanismo, siempre son solo texto).
+    function setModoEdicion(activo) {
+        document.getElementById('agendaEditCard').classList.toggle('is-editando', activo);
+        document.getElementById('agendaEditModoEdicion').checked = activo;
+        if (activo) inicializarMapaEdicion();
     }
 
-    // Antes de la primera vez que se agenda (sin hora todavía), la fecha
-    // queda bloqueada: el analista solo confirma técnico/hora para la fecha
-    // que ya llegó del lado móvil, no la reagenda en ese mismo paso. Una vez
-    // que la visita ya está agendada, fecha/hora/técnico se muestran como
-    // texto con un lápiz para editar cada uno a propósito (eso es lo que
-    // cuenta como "reagendar").
-    function configurarCampo(campo, yaAgendada, bloqueadoSiempre) {
-        var texto = document.getElementById(idCampo(campo) + 'Texto');
-        var input = document.getElementById(idCampo(campo));
-        var lapiz = input.closest('.agenda-edit-row').querySelector('.agenda-edit-row-lapiz');
-
-        if (bloqueadoSiempre) {
-            texto.style.display = '';
-            input.style.display = 'none';
-            lapiz.style.display = 'none';
-        } else if (yaAgendada) {
-            texto.style.display = '';
-            input.style.display = 'none';
-            lapiz.style.display = '';
-        } else {
-            texto.style.display = 'none';
-            input.style.display = '';
-            lapiz.style.display = 'none';
+    // Mismo patrón de mapa que agenda-crear.js (Leaflet + pin fijo, sin
+    // arrastre — el mapa se desplaza debajo). Arranca centrado en la
+    // ubicación YA guardada de la visita (editCoordenadas, seteado en
+    // abrirEdicion) en vez del punto por defecto, para no obligar al
+    // analista a rebuscar la ubicación si solo va a corregir otro campo.
+    function inicializarMapaEdicion() {
+        var centro = editCoordenadas ? [editCoordenadas.lat, editCoordenadas.lng] : PUNTO_INICIAL_EDICION;
+        if (editMapaPin) {
+            editMapaPin.setView(centro, 15);
+            setTimeout(function () { editMapaPin.invalidateSize(); }, 80);
+            return;
         }
+        editMapaPin = L.map(document.getElementById('agendaEditMapaPin')).setView(centro, 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 19
+        }).addTo(editMapaPin);
+        setTimeout(function () { editMapaPin.invalidateSize(); }, 80);
+    }
+
+    function esPlusCodeEdicion(texto) {
+        return PATRON_PLUS_CODE_EDICION.test((texto || '').trim());
+    }
+
+    // Única consulta a Mapbox de este flujo: se dispara solo al hacer clic
+    // en "Confirmar pin", igual que en agenda-crear.js.
+    function confirmarPinEdicion() {
+        var pos = editMapaPin.getCenter();
+        editCoordenadas = { lat: pos.lat, lng: pos.lng };
+
+        if (!MAPBOX_TOKEN) {
+            alert('Pin fijado. Falta el token de Mapbox para autocompletar la calle — escríbela a mano.');
+            return;
+        }
+
+        var url = 'https://api.mapbox.com/search/geocode/v6/reverse'
+            + '?longitude=' + pos.lng + '&latitude=' + pos.lat
+            + '&language=es&access_token=' + MAPBOX_TOKEN;
+
+        var input = document.getElementById('agendaEditDireccion');
+        fetch(url)
+            .then(function (resp) { return resp.json(); })
+            .then(function (json) {
+                var feature = (json.features || [])[0];
+                var nombre = feature && (feature.properties.full_address || feature.properties.name);
+                if (!nombre || esPlusCodeEdicion(nombre)) return;
+                input.value = nombre;
+            });
+    }
+
+    function validarEmailEdicion(valor) {
+        var partes = valor.split('@');
+        if (partes.length !== 2) return false;
+        var local = partes[0], dominio = partes[1];
+        if (local.length < 2) return false;
+        if (local.charAt(0) === '.' || local.charAt(local.length - 1) === '.') return false;
+        if (valor.indexOf('..') !== -1) return false;
+        if (!/^[^\s@]+$/.test(local)) return false;
+        if (!/^[^\s@]+\.[^\s@]+$/.test(dominio)) return false;
+        return true;
     }
 
     function abrirEdicion(props) {
@@ -557,33 +610,45 @@
         document.getElementById('agendaEditFechaLabel').textContent =
             estado === 'pendiente' ? 'Fecha sugerida' : 'Fecha agendada';
 
+        // Promotor y Local: siempre solo texto, el switch de edición no los toca.
         document.getElementById('agendaEditPromotor').textContent = props.usuario || '—';
         document.getElementById('agendaEditLocal').textContent = props.pdv || '—';
-        document.getElementById('agendaEditEmpresa').textContent = props.empresa || '—';
+
+        document.getElementById('agendaEditEmpresaTexto').textContent = props.empresa || '—';
+        document.getElementById('agendaEditEmpresa').value = props.empresa || '';
+
         // Un correo es una sola "palabra" sin espacios: sin esto, el navegador
         // lo corta donde quiera (a mitad de "hotmail.com") en una columna
         // angosta — se le da un punto de corte sensato justo tras el "@".
-        var mailEl = document.getElementById('agendaEditMail');
-        mailEl.textContent = '';
+        var mailTexto = document.getElementById('agendaEditMailTexto');
+        mailTexto.textContent = '';
         if (props.mail) {
             var arrobaPos = props.mail.indexOf('@');
             if (arrobaPos === -1) {
-                mailEl.textContent = props.mail;
+                mailTexto.textContent = props.mail;
             } else {
-                mailEl.appendChild(document.createTextNode(props.mail.slice(0, arrobaPos + 1)));
-                mailEl.appendChild(document.createElement('wbr'));
-                mailEl.appendChild(document.createTextNode(props.mail.slice(arrobaPos + 1)));
+                mailTexto.appendChild(document.createTextNode(props.mail.slice(0, arrobaPos + 1)));
+                mailTexto.appendChild(document.createElement('wbr'));
+                mailTexto.appendChild(document.createTextNode(props.mail.slice(arrobaPos + 1)));
             }
         } else {
-            mailEl.textContent = '—';
+            mailTexto.textContent = '—';
         }
-        document.getElementById('agendaEditDireccion').textContent = props.direccion || '—';
-        // El convencional es opcional: si llega, se pega después de un
-        // guion en la misma línea (ej. "0956235897 - 042234567"); si no, se
-        // muestra solo el celular como antes.
-        document.getElementById('agendaEditTelefono').textContent = props.telefono_convencional
-            ? (props.telefono || '—') + ' - ' + props.telefono_convencional
-            : (props.telefono || '—');
+        document.getElementById('agendaEditMail').value = props.mail || '';
+
+        document.getElementById('agendaEditDireccionTexto').textContent = props.direccion || '—';
+        document.getElementById('agendaEditDireccion').value = props.direccion || '';
+
+        document.getElementById('agendaEditCelularTexto').textContent = props.telefono || '—';
+        document.getElementById('agendaEditCelular').value = props.telefono || '';
+        document.getElementById('agendaEditConvencionalTexto').textContent = props.telefono_convencional || '—';
+        document.getElementById('agendaEditConvencional').value = props.telefono_convencional || '';
+
+        // Arranca centrado en la ubicación ya guardada — si el analista
+        // activa el switch sin tocar el mapa, esta misma coordenada se
+        // reenvía tal cual (no se pierde por no haber confirmado un pin).
+        var lat = parseFloat(props.latitud), lng = parseFloat(props.longitud);
+        editCoordenadas = (!isNaN(lat) && !isNaN(lng)) ? { lat: lat, lng: lng } : null;
 
         document.getElementById('agendaEditFecha').value = props.fecha_agendamiento || '';
         // La BD guarda "HH:MM:SS"; el panel usa "HH:MM". Si la hora real no
@@ -596,12 +661,14 @@
         document.getElementById('agendaEditHoraTexto').textContent = formatHoraVisual(props.hora);
         document.getElementById('agendaEditTecnicoTexto').textContent = props.tecnico || '—';
 
-        // Mismo criterio que usa el backend (update_agenda.php) para decidir
-        // "confirmado" vs "reagendada": si ya tenía hora, ya está agendada.
-        var yaAgendada = !!props.hora;
-        configurarCampo('fecha', yaAgendada, !yaAgendada);
-        configurarCampo('hora', yaAgendada, false);
-        configurarCampo('tecnico', yaAgendada, false);
+        // Pendiente/vencida: los campos de fecha, hora y técnico se muestran
+        // directamente como inputs (sin switch) — el analista necesita
+        // llenarlos de inmediato. Empresa/mail/dirección siguen siendo solo
+        // lectura. Para cualquier otro estado abre en modo lectura y el
+        // switch activa la edición completa.
+        var esPendiente = (estado === 'pendiente' || estado === 'vencida');
+        document.getElementById('agendaEditCard').classList.toggle('is-pendiente-modo', esPendiente);
+        setModoEdicion(false);
 
         // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
         // pasó sin reagendarse; aquí solo se le pide al analista que la
@@ -626,6 +693,8 @@
 
     function cerrarEdicion() {
         editingId = null;
+        setModoEdicion(false);
+        document.getElementById('agendaEditCard').classList.remove('is-pendiente-modo');
         document.getElementById('agendaEditOverlay').classList.remove('active');
     }
 
@@ -705,6 +774,33 @@
         body.set('tecnico', document.getElementById('agendaEditTecnico').value);
         // El lugar se sincroniza con la dirección guardada y el estado
         // (confirmado/reagendada) lo decide el backend.
+
+        // Los campos del switch solo se mandan (y validan) si el switch
+        // estuvo activo — si el analista solo reagenda fecha/hora/técnico
+        // sin haber tocado "Editar", el guardado se comporta exactamente
+        // como antes, sin arriesgar datos legado que no pasen estas reglas.
+        if (document.getElementById('agendaEditModoEdicion').checked) {
+            var empresa = document.getElementById('agendaEditEmpresa').value.trim();
+            var mail = document.getElementById('agendaEditMail').value.trim();
+            var direccion = document.getElementById('agendaEditDireccion').value.trim();
+            var celular = document.getElementById('agendaEditCelular').value.trim();
+            var convencional = document.getElementById('agendaEditConvencional').value.trim();
+
+            if (!empresa || !RE_EMPRESA_EDICION.test(empresa)) { alert('Empresa inválida.'); return; }
+            if (!mail || !validarEmailEdicion(mail)) { alert('Correo inválido.'); return; }
+            if (!direccion) { alert('La dirección es obligatoria.'); return; }
+            if (esPlusCodeEdicion(direccion)) { alert('Esa dirección parece un Plus Code — escribe una más específica.'); return; }
+            if (!/^\d{10}$/.test(celular)) { alert('El celular debe ser numérico y de exactamente 10 dígitos.'); return; }
+            if (convencional && !/^\d+$/.test(convencional)) { alert('El teléfono convencional solo admite dígitos.'); return; }
+
+            body.set('empresa', empresa);
+            body.set('mail', mail);
+            body.set('direccion', direccion);
+            body.set('latitud', editCoordenadas ? editCoordenadas.lat : '');
+            body.set('longitud', editCoordenadas ? editCoordenadas.lng : '');
+            body.set('telefono', celular);
+            body.set('telefono_convencional', convencional);
+        }
 
         fetch(GETTERS_BASE + 'update_agenda.php', { method: 'POST', body: body })
             .then(function (resp) { return resp.json(); })
@@ -893,18 +989,10 @@
         document.getElementById('agendaEditEliminar').addEventListener('click', eliminarVisita);
         document.getElementById('agendaConflictoCerrar').addEventListener('click', cerrarConflicto);
 
-        document.querySelectorAll('.agenda-edit-row-lapiz').forEach(function (lapiz) {
-            lapiz.addEventListener('click', function () {
-                var campo = lapiz.dataset.campo;
-                document.getElementById(idCampo(campo) + 'Texto').style.display = 'none';
-                lapiz.style.display = 'none';
-                var contenedor = document.getElementById(idCampo(campo));
-                contenedor.style.display = '';
-                // "hora" es un div disparador, no un input directo.
-                var trigger = contenedor.querySelector('.agenda-edit-hora-trigger');
-                (trigger || contenedor).focus();
-            });
+        document.getElementById('agendaEditModoEdicion').addEventListener('change', function () {
+            setModoEdicion(this.checked);
         });
+        document.getElementById('agendaEditConfirmarPin').addEventListener('click', confirmarPinEdicion);
 
         document.getElementById('agendaEditHoraTrigger').addEventListener('click', function (ev) {
             ev.stopPropagation();
