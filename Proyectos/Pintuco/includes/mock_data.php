@@ -12,6 +12,6 @@ $secciones = [
     ['id' => 'contactados',   'label' => 'Contactados',     'icono' => 'earphone',  'componente' => 'components/contactados/contactados.php'],
     ['id' => 'agendamientos', 'label' => 'Agendamientos',   'icono' => 'calendar',  'componente' => 'components/agendamiento/agendamientos.php'],
     ['id' => 'proforma',      'label' => 'Proforma',        'icono' => 'file',      'componente' => 'components/proforma/proforma.php'],
-    ['id' => 'flujo-comercial', 'label' => 'Flujo Comercial', 'icono' => 'random', 'componente' => 'components/flujo-comercial/flujo-comercial.php'],
+    ['id' => 'estado-flujo', 'label' => 'Estado de Flujo', 'icono' => 'random', 'componente' => 'components/estado-flujo/estado-flujo.php'],
 ];
 ?>

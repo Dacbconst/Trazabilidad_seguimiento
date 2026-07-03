@@ -464,6 +464,12 @@
                             if (window.AgendaResaltar) window.AgendaResaltar(json.id, fechaGuardada, horaGuardada);
                         });
                     }
+                } else if (json.conflicto && window.AgendaMostrarConflicto) {
+                    // El modal de creación se queda abierto (igual que hace
+                    // guardarEdicion() en agenda.js) — el analista solo
+                    // cierra el diálogo de conflicto y cambia la hora, sin
+                    // perder el resto de los datos ya escritos.
+                    window.AgendaMostrarConflicto(json.conflicto, fechaGuardada);
                 } else {
                     mostrarToast(json.message || 'No se pudo registrar la visita.', true);
                 }

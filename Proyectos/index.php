@@ -156,7 +156,7 @@
 					'sec-agendamientos': window.AgendaRecargar,
 					'sec-contactados': window.ContactadosRefrescar,
 					'sec-proforma': window.ProformaRecargar,
-					'sec-flujo-comercial': window.FlujoRecargar,
+					'sec-estado-flujo': window.EstadoFlujoRecargar,
 					'sec-principal': window.DashboardRecargar
 				}[idSeccion];
 			}
@@ -170,7 +170,7 @@ $('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 
 				// Secciones con filtros propios — el topbar global se oculta para no duplicar.
 				// Principal también se oculta: sus tabs (Avance %, Detalle...) tienen filtros propios.
-				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma', '#sec-contactados', '#sec-principal', '#sec-flujo-comercial'].indexOf($(this).attr('href')) !== -1;
+				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma', '#sec-contactados', '#sec-principal', '#sec-estado-flujo'].indexOf($(this).attr('href')) !== -1;
 				$('.topbar').toggleClass('is-hidden', seccionConFiltroPropio);
 
 				$('#btnDescargarExcel').toggle($(this).attr('href') === '#sec-contactados');

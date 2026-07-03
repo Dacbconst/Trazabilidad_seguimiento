@@ -201,42 +201,39 @@
     padding: 30px 0;
 }
 
-/* Envuelve Evidencia+Auditoría (columnas 2 y 3) para poder anclarles encima
-   el overlay de bloqueo sin ocultar su contenido real. */
 .proforma-gdetalle-central {
     grid-column: 2 / -1;
-    position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 28px;
+    transition: filter .2s;
 }
 @media (max-width: 1000px) {
     .proforma-gdetalle-central { grid-column: 1 / -1; grid-template-columns: 1fr; }
 }
 
-/* Overlay que bloquea visualmente Evidencia+Auditoría mientras hay una
-   corrección de foto solicitada — el contenido real sigue debajo (la foto
-   nunca se borra), solo queda tapado tras este aviso hasta que llegue la
-   nueva foto o se cancele el pedido. Fondo de rayas diagonales, como un
-   panel "bloqueado", con una ventanita flotante centrada encima. */
-.proforma-bloqueo-overlay {
-    position: absolute;
+/* Bloqueo por corrección de foto solicitada (ver mecanica-bloqueo-foto.md):
+   el contenido real de Evidencia+Auditoría sigue ahí (la foto nunca se
+   borra), solo se difumina y se deshabilita — un solo blur para toda la
+   zona, nada de overlays rayados por bloque. */
+.proforma-gdetalle-central.is-bloqueado {
+    filter: blur(4px);
+    pointer-events: none;
+}
+
+/* Modal centrado en viewport (fixed, no anclado a la columna) mientras dura
+   la corrección de foto solicitada. */
+.proforma-bloqueo-modal-overlay {
+    position: fixed;
     inset: 0;
+    z-index: 2000;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    background-color: rgba(238,241,245,.92);
-    background-image: repeating-linear-gradient(
-        45deg,
-        rgba(138,147,163,.14),
-        rgba(138,147,163,.14) 10px,
-        transparent 10px,
-        transparent 20px
-    );
+    background: rgba(15,23,42,.15);
 }
 
-.proforma-bloqueo-card {
+.proforma-bloqueo-modal-card {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -249,9 +246,19 @@
     max-width: 320px;
     color: #5b6577;
 }
-.proforma-bloqueo-card .glyphicon { font-size: 30px; color: #f0ad4e; }
+.proforma-bloqueo-modal-card .glyphicon {
+    font-size: 30px;
+    color: #f0ad4e;
+    background: #fdf3d9;
+    border-radius: 50%;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .proforma-bloqueo-texto { font-size: 13px; font-weight: 600; color: #33415c; line-height: 1.5; }
-.proforma-bloqueo-card .proforma-btn-rechazar-rojo { margin-top: 4px; padding: 9px 22px; }
+.proforma-bloqueo-modal-card .proforma-btn-rechazar-rojo { margin-top: 4px; padding: 9px 22px; }
 
 /* ---------------------------------------------------
    Timeline de 5 fases (columna izquierda)

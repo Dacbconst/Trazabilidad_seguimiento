@@ -7,12 +7,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
 
 include_once '../db_connect.php';
 
-function colExisteDash($mysqli, $tabla, $col) {
-    $r = $mysqli->query("SHOW COLUMNS FROM `$tabla` LIKE '$col'");
-    return $r && $r->num_rows > 0;
-}
-
-$tieneFoto = colExisteDash($mysqli, 'insert_proforma', 'foto_factura');
+// foto_factura confirmada en producción vía ALTER TABLE (2026-07-03).
 
 // 1. Total PDVs activos
 $q = $mysqli->query("SELECT COUNT(*) AS n FROM insert_proyectos_contacto WHERE activar = 'SI'");
@@ -31,11 +26,7 @@ $q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_pro
 $fase3act = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
 
 // 5. Fase 5: facturados
-if ($tieneFoto) {
-    $q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_proforma WHERE foto_factura IS NOT NULL AND foto_factura != ''");
-} else {
-    $q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_proforma WHERE estado_proforma = 'aprobado'");
-}
+$q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_proforma WHERE foto_factura IS NOT NULL AND foto_factura != ''");
 $fase5 = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
 
 // Distribución de fases por diferencia
@@ -47,11 +38,7 @@ $fase4 = max(0, $conProforma - $fase3act - $fase5);
 $q = $mysqli->query("SELECT COALESCE(SUM(monto_validado+0), 0) AS tot FROM insert_proforma WHERE monto_validado IS NOT NULL AND monto_validado != ''");
 $montoNeg = $q ? (float)($q->fetch_assoc()['tot'] ?? 0) : 0;
 
-if ($tieneFoto) {
-    $q = $mysqli->query("SELECT COALESCE(SUM(CASE WHEN foto_factura IS NOT NULL AND foto_factura != '' THEN monto_validado+0 ELSE 0 END), 0) AS tot FROM insert_proforma WHERE monto_validado IS NOT NULL AND monto_validado != ''");
-} else {
-    $q = $mysqli->query("SELECT COALESCE(SUM(CASE WHEN estado_proforma = 'aprobado' THEN monto_validado+0 ELSE 0 END), 0) AS tot FROM insert_proforma WHERE monto_validado IS NOT NULL AND monto_validado != ''");
-}
+$q = $mysqli->query("SELECT COALESCE(SUM(CASE WHEN foto_factura IS NOT NULL AND foto_factura != '' THEN monto_validado+0 ELSE 0 END), 0) AS tot FROM insert_proforma WHERE monto_validado IS NOT NULL AND monto_validado != ''");
 $montoFact = $q ? (float)($q->fetch_assoc()['tot'] ?? 0) : 0;
 
 $convPct = $totalPdvs > 0 ? round($fase5 / $totalPdvs * 100, 1) : 0;
@@ -66,11 +53,7 @@ if ($q) {
 }
 
 // Monto facturado por promotor
-if ($tieneFoto) {
-    $q = $mysqli->query("SELECT usuario, COALESCE(SUM(CASE WHEN foto_factura IS NOT NULL AND foto_factura != '' THEN monto_validado+0 ELSE 0 END), 0) AS mf FROM insert_proforma WHERE monto_validado IS NOT NULL GROUP BY usuario");
-} else {
-    $q = $mysqli->query("SELECT usuario, COALESCE(SUM(CASE WHEN estado_proforma = 'aprobado' THEN monto_validado+0 ELSE 0 END), 0) AS mf FROM insert_proforma WHERE monto_validado IS NOT NULL GROUP BY usuario");
-}
+$q = $mysqli->query("SELECT usuario, COALESCE(SUM(CASE WHEN foto_factura IS NOT NULL AND foto_factura != '' THEN monto_validado+0 ELSE 0 END), 0) AS mf FROM insert_proforma WHERE monto_validado IS NOT NULL GROUP BY usuario");
 if ($q) {
     while ($r = $q->fetch_assoc()) {
         if (isset($promMap[$r['usuario']])) {

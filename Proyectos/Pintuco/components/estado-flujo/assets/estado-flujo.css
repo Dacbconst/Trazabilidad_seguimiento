@@ -1,0 +1,481 @@
+/* ========================================================
+   ESTADO DE FLUJO — Kanban por fase + Por Promotor + Auditoría
+   Paleta: la misma del resto del proyecto (var(--brand-light) etc.,
+   definidas en Proyectos/style.css y ya cargadas globalmente) — no una
+   paleta propia, para no dar la sensación de estar en otro módulo/sitio.
+
+   El semáforo de días y los badges de estado de proforma son códigos
+   funcionales (verde/ámbar/rojo, verde/rojo/azul) — no forman parte de
+   la paleta de marca, se mantienen tal cual.
+   ======================================================== */
+
+#estadoFlujoApp { color: #1f2d3d; }
+#estadoFlujoApp .ef-mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* Sub-tabs "Por Fase" / "Por Promotor" — pill con el mismo acento azul
+   (var(--brand-light)) que usan los botones y estados activos del resto
+   del proyecto. */
+.ef-tabs {
+    display: inline-flex;
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 2px;
+    margin-bottom: 18px;
+}
+.ef-tab-btn {
+    cursor: pointer;
+    padding: 9px 22px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--brand-light);
+    background: transparent;
+    transition: background .15s, color .15s;
+}
+.ef-tab-btn:hover { background: #eaf3fb; }
+.ef-tab-btn.active { background: var(--brand-light); color: #fff; }
+.ef-tab-btn.active:hover { background: var(--brand-light); }
+
+.ef-pane { display: none; }
+.ef-pane.active { display: block; }
+
+.ef-vacio {
+    color: #aab3c2;
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* ── Kanban — 5 columnas simultáneas ── */
+.ef-kanban {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-top: 18px;
+    align-items: start;
+}
+.ef-col {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 11px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 640px;
+}
+.ef-col-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 13px 0;
+    background: #eaf3fb;
+}
+.ef-col-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--brand-light);
+    flex-shrink: 0;
+}
+.ef-col-fase {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--brand-light);
+    flex: 1;
+}
+.ef-col-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--brand-light-dark);
+}
+.ef-col-label {
+    padding: 2px 13px 11px;
+    background: #eaf3fb;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text-dark);
+    border-bottom: 2px solid var(--brand-light);
+}
+.ef-col-body {
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 120px;
+}
+
+.ef-card {
+    cursor: pointer;
+    border: 1px solid #e3e8ee;
+    border-radius: 9px;
+    padding: 10px 11px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.ef-card:hover {
+    border-color: var(--brand-light);
+    box-shadow: 0 2px 10px rgba(51,122,183,.12);
+}
+.ef-card-empresa { font-size: 12.5px; font-weight: 700; color: #1f2d3d; }
+.ef-card-pdv     { font-size: 11px; color: #5b6577; margin-top: 1px; }
+.ef-card-footer  {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    gap: 8px;
+}
+.ef-card-promotor {
+    font-size: 10.5px;
+    color: var(--brand-light);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Pill de días en fase — código funcional, umbral: verde <=3, ámbar 4-7, rojo 8+ */
+.ef-dias-pill {
+    border-radius: 10px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ef-dias-pill.is-verde { background: #eaf5ee; color: #1e7a45; }
+.ef-dias-pill.is-ambar { background: #fdf0d5; color: #a66a00; }
+.ef-dias-pill.is-rojo  { background: #fbeaea; color: #b3261e; }
+
+/* ── Por Promotor ── */
+.ef-por-promotor {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 14px;
+    align-items: start;
+    margin-top: 4px;
+}
+
+.ef-promo-col-izq {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 11px;
+    overflow: hidden;
+}
+.ef-promo-buscar-wrap {
+    padding: 12px;
+    border-bottom: 1px solid #edf0f4;
+}
+.ef-promo-lista { max-height: 680px; overflow-y: auto; }
+.ef-promo-item {
+    cursor: pointer;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f3f7;
+    border-left: 3px solid transparent;
+    transition: background .1s;
+}
+.ef-promo-item:hover { background: #f7f8fa; }
+.ef-promo-item.is-activo { background: #eaf3fb; border-left-color: var(--brand-light); }
+.ef-promo-item-nombre { font-size: 12.5px; font-weight: 700; color: #1f2d3d; }
+.ef-promo-item-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 3px;
+    font-size: 10.5px;
+    color: #5b6577;
+}
+.ef-promo-item-monto {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1e7a45;
+}
+
+.ef-promo-detalle { display: flex; flex-direction: column; gap: 12px; }
+
+.ef-promo-header-d {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 11px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.ef-promo-header-left { display: flex; align-items: center; gap: 12px; }
+.ef-promo-avatar {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    background: var(--brand-light);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px;
+    flex-shrink: 0;
+}
+.ef-promo-nombre-d { font-size: 16px; font-weight: 800; color: #1f2d3d; }
+.ef-promo-stats-d  { font-size: 11.5px; color: #5b6577; margin-top: 1px; }
+.ef-promo-header-right { text-align: right; }
+.ef-promo-total-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #5b6577;
+}
+.ef-promo-total-valor {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px; font-weight: 800; color: #1e7a45;
+}
+.ef-promo-total-caption { font-size: 10.5px; color: #8a93a3; }
+
+.ef-promo-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ef-fase-badge-mini {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #eaf3fb;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--brand-light);
+}
+.ef-fase-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand-light); }
+
+.ef-promo-tabla-wrap {
+    background: #fff;
+    border: 1px solid #e3e8ee;
+    border-radius: 11px;
+    overflow: hidden;
+}
+.ef-tabla-prom { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ef-tabla-prom th {
+    background: #f7f8fa;
+    color: #5b6577;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 9px 12px;
+    border-bottom: 1px solid #e3e8ee;
+    text-align: left;
+    white-space: nowrap;
+}
+.ef-tabla-prom td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f3f7;
+    vertical-align: middle;
+}
+.ef-tabla-prom tbody tr:last-child td { border-bottom: none; }
+.ef-tabla-prom tbody tr:hover td { background: #f7f9fc; }
+.ef-tabla-empresa { font-weight: 700; color: #1f2d3d; }
+.ef-tabla-pdv     { font-size: 11px; color: #8a93a3; margin-top: 2px; }
+.ef-monto { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #33415c; }
+
+/* Fila resaltada al llegar desde "Por fase" — fondo semitransparente
+   detrás del texto oscuro existente (NO texto blanco), pasa AA en todo
+   el rango de opacidad. Se desvanece solo con la transición al quitar
+   la clase (el JS remueve is-highlight con setTimeout). */
+.ef-tabla-prom tr {
+    background: transparent;
+    transition: background 1.6s ease;
+}
+.ef-tabla-prom tr.is-highlight { background: rgba(51,122,183,.22); transition: background .15s ease; }
+
+.ef-btn-auditar {
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--brand-light);
+    border: none;
+    border-radius: 7px;
+    padding: 6px 11px;
+    white-space: nowrap;
+}
+.ef-btn-auditar:hover { background: var(--brand-light-dark); }
+
+/* Badges de fase (kanban de tabla) — un solo acento, se distinguen por etiqueta */
+.ef-fase-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: #eaf3fb;
+    color: var(--brand-light);
+}
+
+/* ── Panel de auditoría (slide-over) ── */
+.ef-auditoria-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,30,.4);
+    /* Por encima del navbar-fixed-top de Bootstrap (z-index:1030) — si no,
+       la barra superior "Principal" queda sin oscurecer y se ve flotando
+       encima del overlay en vez de cubierta por él. */
+    z-index: 1040;
+    display: none;
+}
+.ef-auditoria-overlay.is-abierto { display: block; }
+
+.ef-auditoria-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 460px;
+    max-width: 92vw;
+    background: #fff;
+    box-shadow: -16px 0 40px rgba(0,0,0,.18);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .25s ease-out;
+    overflow-y: auto;
+}
+.ef-auditoria-overlay.is-abierto .ef-auditoria-panel { transform: translateX(0); }
+
+.ef-auditoria-header {
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid #edf0f4;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 2;
+}
+.ef-auditoria-kicker {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #5b6577;
+}
+.ef-auditoria-nombre { font-size: 16.5px; font-weight: 800; color: #1f2d3d; margin-top: 3px; }
+.ef-auditoria-sub { font-size: 12px; color: #5b6577; margin-top: 1px; }
+.ef-auditoria-close {
+    background: none; border: none; cursor: pointer;
+    color: #5b6577; font-size: 22px; line-height: 1; padding: 2px 4px;
+}
+.ef-auditoria-close:hover { color: #1f2d3d; }
+
+.ef-auditoria-badgerow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px 0;
+}
+.ef-auditoria-dias { font-size: 11px; color: #5b6577; }
+
+.ef-auditoria-body { padding: 18px 22px; }
+.ef-auditoria-seccion-titulo {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #5b6577;
+    margin-bottom: 12px;
+}
+.ef-auditoria-divider { height: 1px; background: #edf0f4; margin: 18px 0 16px; }
+
+/* Timeline */
+.ef-tl-item { display: flex; gap: 12px; }
+.ef-tl-marker { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.ef-tl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--brand-light); margin-top: 3px; flex-shrink: 0; }
+.ef-tl-line { width: 1.5px; flex: 1; background: #e3e8ee; min-height: 26px; }
+.ef-tl-content { padding-bottom: 16px; flex: 1; }
+.ef-tl-titulo { font-size: 12.5px; font-weight: 700; color: #1f2d3d; margin-bottom: 4px; }
+/* Una fila por envío/ronda: texto a la izquierda, foto a la derecha A LA
+   MISMA ALTURA de esa fila — no debajo del bloque, para que se entienda a
+   cuál envío corresponde cada foto. */
+.ef-tl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 0;
+}
+.ef-tl-row + .ef-tl-row { border-top: 1px solid #f0f3f7; }
+.ef-tl-row-texto { flex: 1; min-width: 0; }
+.ef-tl-fecha  { font-size: 11px; color: #5b6577; margin-top: 1px; }
+.ef-tl-detalle { font-size: 11.5px; color: #33415c; margin-top: 4px; line-height: 1.4; }
+.ef-tl-thumb {
+    width: 48px; height: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 1px solid #e3e8ee;
+    flex-shrink: 0;
+}
+
+/* Historial de proformas */
+.ef-hist-card {
+    border: 1.5px solid #e3e8ee;
+    border-radius: 10px;
+    padding: 12px 13px;
+    margin-bottom: 9px;
+    background: #fff;
+}
+.ef-hist-card.is-vigente { border-color: #a8dcb8; background: #f6fbf8; }
+.ef-hist-top { display: flex; align-items: center; justify-content: space-between; }
+.ef-hist-ciclo { font-size: 12px; font-weight: 800; color: #1f2d3d; }
+.ef-hist-fecha { font-size: 10.5px; color: #5b6577; margin-top: 3px; }
+.ef-hist-montorow { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ef-hist-monto {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px; font-weight: 800; color: var(--text-dark);
+}
+.ef-hist-caract { font-size: 11px; color: #33415c; margin-top: 7px; line-height: 1.45; }
+.ef-hist-caract strong { color: #5b6577; font-weight: 600; }
+
+/* Badges de estado de proforma — código funcional, no paleta de marca */
+.ef-estado-badge {
+    border-radius: 10px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 700;
+}
+.ef-estado-badge.is-enviada   { background: #e8f0fa; color: #1d4e89; }
+.ef-estado-badge.is-aprobada  { background: #eaf5ee; color: #1e7a45; }
+.ef-estado-badge.is-rechazada { background: #fbeaea; color: #b3261e; }
+
+.ef-badge-vigente {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--brand-light-dark);
+    border-radius: 8px;
+    padding: 2px 7px;
+}
+
+/* Lightbox de foto */
+.ef-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,14,20,.85);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+.ef-lightbox.is-visible { display: flex; }
+.ef-lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
+
+@media (max-width: 1100px) {
+    .ef-kanban { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 860px) {
+    .ef-kanban { grid-template-columns: repeat(2, 1fr); }
+    .ef-por-promotor { grid-template-columns: 1fr; }
+    .ef-auditoria-panel { width: 100vw; max-width: 100vw; }
+}

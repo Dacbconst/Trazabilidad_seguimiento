@@ -28,7 +28,8 @@ $usuario         = isset($_GET['usuario'])           ? $_GET['usuario']         
 $id_agendamiento = isset($_GET['id_agendamiento'])  ? (int)$_GET['id_agendamiento'] : 0;
 
 // c.id AS agendamiento_id: siempre presente aunque no haya proforma todavía.
-// foto_factura y fase_actual excluidos del SELECT hasta que existan en BD.
+// foto_factura y fase_actual agregadas en producción vía ALTER TABLE
+// (confirmado 2026-07-03) — ya se seleccionan como columnas reales.
 $selectBase = "SELECT
         c.id           AS agendamiento_id,
         c.codigo_pdv,
@@ -50,9 +51,11 @@ $selectBase = "SELECT
         p.fecha_proforma,
         p.estado_proforma,
         p.evidencia,
+        p.foto_factura,
         p.monto_validado,
         p.observaciones_auditoria,
         p.fecha_auditoria,
+        p.fase_actual,
         p.caracteristica_visita,
         p.acompanamiento_tecnico,
         p.fecha_registro   AS proforma_fecha_registro
@@ -61,11 +64,6 @@ $selectBase = "SELECT
     WHERE c.activar = 'SI'";
 
 $registros = [];
-
-function rellenarNulos(array &$fila): void {
-    $fila['foto_factura'] = null;
-    $fila['fase_actual']  = null;
-}
 
 if ($id_agendamiento > 0) {
     // Historial completo: todos los ciclos de proforma de un agendamiento,
@@ -76,7 +74,7 @@ if ($id_agendamiento > 0) {
         if ($sql->execute()) {
             $res = $sql->get_result();
             if ($res) {
-                while ($fila = $res->fetch_assoc()) { rellenarNulos($fila); $registros[] = $fila; }
+                while ($fila = $res->fetch_assoc()) { $registros[] = $fila; }
             }
         }
         $sql->close();
@@ -85,7 +83,7 @@ if ($id_agendamiento > 0) {
     // Sin filtros: $mysqli->query() directo — patrón probado de get_pdvs.php.
     $res = $mysqli->query($selectBase . " ORDER BY c.fecha_registro DESC");
     if ($res) {
-        while ($fila = $res->fetch_assoc()) { rellenarNulos($fila); $registros[] = $fila; }
+        while ($fila = $res->fetch_assoc()) { $registros[] = $fila; }
     }
 } else {
     // Con filtros de estado_proforma y/o usuario.
@@ -110,7 +108,7 @@ if ($id_agendamiento > 0) {
         if ($sql->execute()) {
             $res = $sql->get_result();
             if ($res) {
-                while ($fila = $res->fetch_assoc()) { rellenarNulos($fila); $registros[] = $fila; }
+                while ($fila = $res->fetch_assoc()) { $registros[] = $fila; }
             }
         }
         $sql->close();

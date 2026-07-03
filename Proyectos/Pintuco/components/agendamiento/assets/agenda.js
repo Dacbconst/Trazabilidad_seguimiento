@@ -381,6 +381,11 @@
     // manualmente hasta ahí (esto era el bug: "se guardó pero no apareció").
     window.AgendaRecargar = cargarAgenda;
     window.AgendaResaltar = function (id, fecha, hora) { resaltarVisita(id, fecha, hora); };
+    // Reusado por agenda-crear.js: el modal de "Nueva visita" pega contra el
+    // mismo endpoint/misma regla de conflicto (DURACION_APROX_MIN por
+    // técnico) y quiere el mismo diálogo detallado, no un toast genérico que
+    // desaparece solo — así el analista ve claramente CON QUÉ visita choca.
+    window.AgendaMostrarConflicto = mostrarConflicto;
 
     // El locale 'es' formatea AM/PM como "a. m."/"p. m."; lo normalizamos a
     // "AM"/"PM" para que se vea igual que en Google Calendar.

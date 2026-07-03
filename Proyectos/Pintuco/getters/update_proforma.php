@@ -21,10 +21,13 @@
  *                         a verse tal cual estaba; la alerta del móvil
  *                         desaparece en cuanto deja de ver
  *                         'correccion_solicitada'.
- *  'guardar'            → Fase 4: cierra la ronda actual (sella monto+fecha
- *                         en la fila activa) y abre automáticamente un
- *                         ciclo nuevo vacío para la siguiente foto — igual
- *                         patrón que ya usaba 'negociacion' antes.
+ *  'guardar'            → Fase 4: sella monto+fecha en la fila activa
+ *                         (UPDATE por id, nunca INSERT). Confirmado con la
+ *                         app móvil (2026-07-03): ya NO se crea un ciclo
+ *                         nuevo vacío acá — esa fila vacía era el origen de
+ *                         las "proformas fantasma"; ahora el promotor
+ *                         registra la siguiente proforma desde la app en
+ *                         cuanto ve el monto puesto.
  *  'rechazar'            → Rechazo definitivo (terminal). estado='rechazado'.
  *
  * La decisión final (fase 5) la toma el promotor al subir foto_factura desde
@@ -93,8 +96,8 @@ if ($accion === 'rechazar') {
     exit;
 }
 
-// ── 3. 'guardar': monto es obligatorio en esta acción — sella la ronda actual
-//     y abre el siguiente ciclo vacío esperando la próxima foto ──────────────
+// ── 3. 'guardar': monto es obligatorio en esta acción — sella la ronda
+//     actual (UPDATE por id, nunca INSERT de un ciclo nuevo) ────────────────
 if ($monto === null || $monto === '') {
     echo json_encode(['success' => false, 'message' => 'El monto cotizado es obligatorio.']);
     exit;
@@ -110,31 +113,11 @@ if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error])
 $sql->bind_param('ssi', $monto, $observaciones, $id);
 $ok = $sql->execute();
 $sql->close();
-if (!$ok) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
 
-// Ciclo nuevo, sin evidencia/reporte (a propósito: si se copiara la foto
-// vieja, el analista la vería como si ya hubiera llegado la nueva).
-$orig = null;
-$copyRes = $mysqli->query(
-    "SELECT id_agendamiento, codigo_pdv, usuario FROM insert_proforma WHERE id=$id"
-);
-if ($copyRes) {
-    $orig = $copyRes->fetch_assoc();
-    $copyRes->free();
-}
-if ($orig) {
-    $ins = $mysqli->prepare(
-        "INSERT INTO insert_proforma
-         (id_agendamiento, codigo_pdv, usuario,
-          estado_proforma, fase_actual, pendiente_insercion, fecha_registro)
-         VALUES (?, ?, ?, 'en_proceso', 4, 0, NOW())"
-    );
-    if ($ins) {
-        $ins->bind_param('sss', $orig['id_agendamiento'], $orig['codigo_pdv'], $orig['usuario']);
-        $ins->execute();
-        $ins->close();
-    }
-}
-
-echo json_encode(['success' => true, 'message' => 'Guardado.']);
+// Ya NO se inserta un ciclo nuevo vacío acá (confirmado con la app móvil,
+// 2026-07-03): esa fila vacía era el origen de las "proformas fantasma" que
+// aparecían solas. Ahora el promotor registra la siguiente proforma desde
+// la propia app en cuanto ve el monto puesto — el backend solo actualiza la
+// fila existente por su id, nunca inserta como parte de esta acción.
+echo json_encode(['success' => $ok, 'message' => $ok ? 'Guardado.' : $mysqli->error]);
 ?>

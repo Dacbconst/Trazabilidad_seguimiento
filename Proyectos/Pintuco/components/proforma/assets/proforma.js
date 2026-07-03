@@ -360,22 +360,25 @@
             grid.appendChild(construirTimeline(p, ciclos));
 
             // Evidencia+Auditoría van dentro de un wrapper propio (columnas
-            // 2+3) para poder anclarle encima el overlay de bloqueo sin
-            // taparlas: la foto y el formulario siguen intactos debajo,
-            // solo quedan visualmente deshabilitados.
+            // 2+3): la foto y el formulario siguen intactos ahí debajo — el
+            // bloqueo es un simple blur + pointer-events:none sobre ESTE
+            // wrapper (ver mecanica-bloqueo-foto.md), no un overlay que lo
+            // reemplace o lo tape con contenido propio.
             var central = document.createElement('div');
             central.className = 'proforma-gdetalle-central';
             central.appendChild(construirPanelEvidencia(p, function () { cargarProformas(); }));
             central.appendChild(construirPanelAuditoria(p, ciclos, function () { cargarProformas(); }));
+            grid.appendChild(central);
 
             // Corrección pendiente: la foto está intacta en la BD (nunca se
-            // borró), solo oculta detrás de este aviso hasta que llegue la
-            // nueva o se cancele el pedido.
+            // borró), solo queda borrosa/deshabilitada detrás del modal
+            // hasta que llegue la nueva o se cancele el pedido. El modal se
+            // agrega como hermano de "central" (no dentro) para que el blur
+            // de "central" no lo afecte a él también.
             if (p.estado_proforma === 'correccion_solicitada') {
-                central.appendChild(construirOverlayBloqueo(p, function () { cargarProformas(); }));
+                central.classList.add('is-bloqueado');
+                panel.appendChild(construirModalBloqueo(p, function () { cargarProformas(); }));
             }
-
-            grid.appendChild(central);
         }
 
         // Un solo fetch compartido por las 3 columnas: el timeline (fecha+
@@ -414,6 +417,14 @@
         return candidatos[0] || null;
     }
 
+    // Igual patrón, para saber CUÁNDO llegó la foto de factura (fase 5).
+    function ultimoCicloConFactura(ciclos) {
+        var candidatos = ciclos
+            .filter(function (c) { return !!c.foto_factura; })
+            .sort(function (a, b) { return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
+        return candidatos[0] || null;
+    }
+
     function formatMonto(valor) {
         var n = parseFloat(valor);
         if (isNaN(n)) return null;
@@ -424,6 +435,21 @@
         var fase = getFase(p);
         var ultimo = ultimoCicloConMonto(ciclos);
         var ultimaEvidencia = ultimoCicloConEvidencia(ciclos);
+        var ultimaFactura = ultimoCicloConFactura(ciclos);
+
+        // Todas las RONDAS DE NEGOCIACIÓN (una por cada vez que el analista
+        // guardó un monto), ascendente — esto va en "Fase 4: Negociación",
+        // no en "Fase 3": la 3 es solo el milestone de "llegó la primera
+        // proforma", la 4 es donde se listan los envíos con su monto.
+        var rondasNegociacion = ciclos
+            .filter(function (c) { return !!c.monto_validado; })
+            .sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); })
+            .map(function (c) {
+                return {
+                    fecha: formatFechaHora(c.fecha_auditoria),
+                    monto: formatMonto(c.monto_validado)
+                };
+            });
 
         var wrap = document.createElement('div');
 
@@ -440,27 +466,26 @@
               fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + p.hora.slice(0,5) : ''),
               completa: !!(p.hora && p.tecnico), activa: fase === 2 },
             { num: 3, label: 'Proforma recibida',
-              // Un agendamiento puede tener varias fotos de proforma a lo
-              // largo de sus rondas de negociación (y por ende varios
-              // montos). "Recibida" se calcula sobre TODOS los ciclos del
-              // agendamiento (ultimoCicloConEvidencia), no solo la fila
-              // activa — que se vacía a propósito tras cada "Guardar" para
-              // esperar la siguiente foto. Antes usaba solo p.evidencia, lo
-              // que hacía que este paso "se desmarcara" después de guardar.
+              // Una sola fecha — la de la evidencia más reciente. El listado
+              // de rondas con monto va en Fase 4, no aquí.
               fecha: ultimaEvidencia ? formatFechaHora(ultimaEvidencia.proforma_fecha_registro) : null,
               completa: !!ultimaEvidencia,
               activa: false },    // nunca "activa": es solo un milestone
-            // La fecha+monto de Fase 4 viene del ÚLTIMO ciclo que ya tiene
-            // monto guardado — casi nunca es la fila activa "p" (que suele
-            // estar vacía esperando la próxima foto tras cada "Guardar").
-            // Se resalta en negrita (is-ultimo-dato) por ser el más reciente.
+            // Fase 4: el listado de rondas de negociación (fecha+monto de
+            // CADA vez que se guardó un monto), no solo la última.
             { num: 4, label: 'Negociación',
-              fecha: ultimo ? formatFechaHora(ultimo.fecha_auditoria) : null,
-              extra: ultimo ? formatMonto(ultimo.monto_validado) : null,
-              destacar: !!ultimo,
+              envios: rondasNegociacion,
               completa: fase === 5, activa: fase === 4 },
+            // Fase 5: fecha en que llegó la foto de factura + el monto de la
+            // última proforma con monto registrado (mismo valor que "monto
+            // vigente" en otras vistas, no un monto propio de la fila de
+            // factura — esa fila casi nunca tiene monto_validado propio).
             { num: 5, label: 'Completado',
-              fecha: null, completa: fase === 5, activa: false }
+              envios: ultimaFactura ? [{
+                  fecha: formatFechaHora(ultimaFactura.fecha_auditoria || ultimaFactura.proforma_fecha_registro),
+                  monto: ultimo ? formatMonto(ultimo.monto_validado) : null
+              }] : [],
+              completa: fase === 5, activa: false }
         ];
 
         var list = document.createElement('div');
@@ -484,7 +509,16 @@
             lbl.textContent = 'Fase ' + f.num + ': ' + f.label;
             texto.appendChild(lbl);
 
-            if (f.fecha && f.fecha !== '—') {
+            if (f.envios && f.envios.length) {
+                // Un renglón por cada envío de proforma (ronda), no solo el
+                // último — el más reciente se resalta en negrita.
+                f.envios.forEach(function (envio, i) {
+                    var eEl = document.createElement('div');
+                    eEl.className = 'proforma-fase-fecha' + (i === f.envios.length - 1 ? ' is-ultimo-dato' : '');
+                    eEl.textContent = envio.fecha + (envio.monto ? ' · ' + envio.monto : '');
+                    texto.appendChild(eEl);
+                });
+            } else if (f.fecha && f.fecha !== '—') {
                 var fEl = document.createElement('div');
                 fEl.className = 'proforma-fase-fecha' + (f.destacar ? ' is-ultimo-dato' : '');
                 fEl.textContent = f.fecha + (f.extra ? ' · ' + f.extra : '');
@@ -500,17 +534,19 @@
     }
 
     // ---------------------------------------------------------------
-    // Overlay de bloqueo (flota sobre columnas 2+3): corrección solicitada
+    // Modal de bloqueo (fixed, centrado en viewport): corrección solicitada.
+    // Ver mecanica-bloqueo-foto.md — un solo booleano lógico ("locked" =
+    // estado_proforma === 'correccion_solicitada'), efecto visual es blur +
+    // pointer-events:none en el wrapper de Evidencia+Auditoría (aplicado por
+    // el llamador vía la clase .is-bloqueado) y este modal centrado encima
+    // de TODA la pantalla, no solo de esa zona.
     // ---------------------------------------------------------------
-    function construirOverlayBloqueo(p, onResuelto) {
-        // Evidencia+Auditoría siguen renderizadas debajo con su contenido
-        // real (la foto nunca se borra) — este overlay solo las cubre
-        // visualmente hasta que llegue la nueva foto o se cancele el pedido.
+    function construirModalBloqueo(p, onResuelto) {
         var overlay = document.createElement('div');
-        overlay.className = 'proforma-bloqueo-overlay';
+        overlay.className = 'proforma-bloqueo-modal-overlay';
 
         var card = document.createElement('div');
-        card.className = 'proforma-bloqueo-card';
+        card.className = 'proforma-bloqueo-modal-card';
         card.innerHTML =
             '<i class="glyphicon glyphicon-warning-sign"></i>'
             + '<div class="proforma-bloqueo-texto">Solicitud de cambio de foto en curso.<br>Esta sección está bloqueada temporalmente.</div>';
@@ -669,7 +705,10 @@
 
                 var imgFact = document.createElement('img');
                 imgFact.className = 'proforma-evidencia-foto';
-                imgFact.src = FOTO_BASE + 'Factura/' + p.foto_factura;
+                // p.foto_factura ya incluye el prefijo "Factura/" en el valor
+                // guardado por el móvil (confirmado 2026-07-03 con URL real:
+                // agregar 'Factura/' de nuevo aquí duplica la carpeta y da 404).
+                imgFact.src = FOTO_BASE + p.foto_factura;
                 imgFact.alt = 'Foto de factura';
                 imgFact.addEventListener('click', function () { mostrarFoto(imgFact.src); });
                 imgFact.addEventListener('error', function () {
@@ -778,15 +817,21 @@
         labelMonto.textContent = 'Monto cotizado ($) *';
         var inputMonto = document.createElement('input');
         inputMonto.type = 'text'; inputMonto.inputMode = 'decimal';
-        inputMonto.placeholder = 'Ej. 1,200.00';
+        inputMonto.placeholder = 'Ej. 1200.00';
         inputMonto.className = 'form-control';
-        inputMonto.value = p.monto_validado ? parseFloat(p.monto_validado).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+        // OJO: nunca usar toLocaleString('es-EC', ...) aquí — esa localización
+        // usa "." como separador de miles y "," como decimal (2000 -> "2.000,00"),
+        // y al reenviarlo por limpiarMonto() (que solo entiende "." como
+        // decimal) el valor se corrompe (2000 terminaba guardándose como 2).
+        // toFixed(2) usa siempre punto decimal y no agrega miles, así que es
+        // seguro re-parsearlo tal cual.
+        inputMonto.value = p.monto_validado ? parseFloat(p.monto_validado).toFixed(2) : '';
         inputMonto.addEventListener('input', function () {
             inputMonto.value = limpiarMonto(inputMonto.value);
         });
         inputMonto.addEventListener('blur', function () {
             var n = parseFloat(inputMonto.value);
-            if (!isNaN(n)) inputMonto.value = n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (!isNaN(n)) inputMonto.value = n.toFixed(2);
         });
         campoMonto.appendChild(labelMonto); campoMonto.appendChild(inputMonto);
         wrap.appendChild(campoMonto);
