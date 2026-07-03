@@ -624,6 +624,22 @@
 .agenda-conflicto-mini-evento .gcal-event-title { font-size: 13.5px; }
 .agenda-conflicto-mini-evento .gcal-event-time { font-size: 12px; }
 
+/* Paleta propia (oklch) del rediseño pedido para este modal — separada de
+   las variables --brand-* globales porque el mockup adjunto especificaba
+   estos tonos exactos y no debe alterar el resto de la app. */
+.agenda-edit-overlay {
+    --ed-ink: oklch(0.22 0.02 260);
+    --ed-ink-soft: oklch(0.4 0.02 260);
+    --ed-ink-faint: oklch(0.6 0.015 260);
+    --ed-line: oklch(0.93 0.006 260);
+    --ed-border: oklch(0.87 0.008 260);
+    --ed-blue: oklch(0.55 0.16 250);
+    --ed-blue-dark: oklch(0.45 0.13 250);
+    --ed-blue-tint: oklch(0.97 0.02 250);
+    --ed-blue-tint-2: oklch(0.94 0.03 250);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 .agenda-edit-close {
     position: absolute;
     top: 14px;
@@ -633,12 +649,13 @@
     border: none;
     background: transparent;
     border-radius: 50%;
-    color: #8a93a3;
+    color: var(--ed-ink-faint);
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
+    z-index: 5;
 }
-.agenda-edit-close:hover { background: #eef1f6; color: #33415c; }
+.agenda-edit-close:hover { background: #eef1f6; color: var(--ed-ink-soft); }
 
 .agenda-edit-header {
     display: flex;
@@ -650,7 +667,7 @@
 
 .agenda-edit-registro {
     font-size: 11.5px;
-    color: #8a93a3;
+    color: var(--ed-ink-faint);
     margin-top: 4px;
 }
 
@@ -658,7 +675,7 @@
     margin: 0;
     font-size: 19px;
     font-weight: 700;
-    color: var(--text-dark);
+    color: var(--ed-ink);
     line-height: 1.3;
 }
 
@@ -677,27 +694,40 @@
 }
 .agenda-edit-alert .glyphicon { margin-top: 2px; flex-shrink: 0; }
 
+/* Pill con punto de color — reemplaza el badge sólido anterior. Se oculta
+   por completo en modo edición (ver .is-editando más abajo): el mockup de
+   ese modo no lo muestra, el foco pasa a los campos y el mapa. */
+.agenda-edit-badge-row { margin-top: 10px; }
 .agenda-edit-badge {
-    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .3px;
-    padding: 4px 10px;
-    border-radius: 12px;
+    padding: 5px 12px 5px 9px;
+    border-radius: 20px;
     white-space: nowrap;
-    margin-top: 2px;
 }
-.agenda-edit-badge.is-pendiente { background: rgba(138,147,163,.18); color: #5b6577; }
-.agenda-edit-badge.is-confirmado { background: rgba(30,142,62,.15); color: #1e8e3e; }
-.agenda-edit-badge.is-reagendada { background: rgba(249,171,0,.18); color: #a06800; }
-.agenda-edit-badge.is-vencida { background: rgba(217,48,37,.12); color: #d93025; }
-.agenda-edit-badge.is-cancelada { background: rgba(217,48,37,.12); color: #d93025; }
-.agenda-edit-badge.is-completada { background: rgba(11,128,67,.15); color: #0b8043; }
+.agenda-edit-badge-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.agenda-edit-badge.is-pendiente { background: oklch(0.93 0.01 260); color: oklch(0.45 0.02 260); }
+.agenda-edit-badge.is-pendiente .agenda-edit-badge-dot { background: oklch(0.6 0.02 260); }
+.agenda-edit-badge.is-confirmado { background: oklch(0.93 0.06 150); color: oklch(0.4 0.13 150); }
+.agenda-edit-badge.is-confirmado .agenda-edit-badge-dot { background: oklch(0.55 0.15 150); }
+.agenda-edit-badge.is-reagendada { background: oklch(0.95 0.05 75); color: oklch(0.5 0.13 65); }
+.agenda-edit-badge.is-reagendada .agenda-edit-badge-dot { background: oklch(0.65 0.16 65); }
+.agenda-edit-badge.is-vencida,
+.agenda-edit-badge.is-cancelada { background: oklch(0.93 0.05 25); color: oklch(0.5 0.18 25); }
+.agenda-edit-badge.is-vencida .agenda-edit-badge-dot,
+.agenda-edit-badge.is-cancelada .agenda-edit-badge-dot { background: oklch(0.55 0.18 25); }
+.agenda-edit-badge.is-completada { background: oklch(0.92 0.06 160); color: oklch(0.38 0.12 160); }
+.agenda-edit-badge.is-completada .agenda-edit-badge-dot { background: oklch(0.5 0.14 160); }
+.agenda-edit-card.is-editando .agenda-edit-badge-row { display: none; }
 
 .agenda-edit-divider {
     height: 1px;
-    background: #edf0f4;
+    background: var(--ed-line);
     margin: 14px 0;
 }
 
@@ -965,11 +995,11 @@
     .agenda-crear-bloque.agenda-crear-grid { grid-template-columns: 1fr; }
 }
 
-/* Grilla 3x2: Promotor/Local/Empresa arriba, Correo/Dirección/Teléfono abajo
-   (mismo orden que ya trae el HTML, solo cambia cómo se acomoda). */
+/* Solo Promotor y Local viven acá — siempre solo texto, sin importar el
+   switch (fuera de alcance del rediseño a propósito). */
 .agenda-edit-info {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 14px 12px;
 }
 
@@ -979,7 +1009,7 @@
     gap: 8px;
     min-width: 0;
 }
-.agenda-edit-info-row .glyphicon { color: #8a93a3; font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; margin-top: 2px; }
+.agenda-edit-info-row .glyphicon { color: var(--ed-ink-faint); font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; margin-top: 2px; }
 
 .agenda-edit-info-text {
     display: flex;
@@ -989,38 +1019,158 @@
 .agenda-edit-info-label {
     font-size: 10.5px;
     font-weight: 700;
-    color: #aab3c2;
+    color: var(--ed-ink-faint);
     text-transform: uppercase;
     letter-spacing: .3px;
 }
 .agenda-edit-info-value {
     font-size: 13px;
     word-break: break-word;
-    color: #33415c;
+    color: var(--ed-ink-soft);
     overflow-wrap: break-word;
+}
+
+/* Grid de contacto: el orden visual de estos 5 campos se reordena por
+   completo entre modo vista y modo edición vía grid-template-areas (mismo
+   HTML, sin duplicar nada) — replica los dos mockups tal cual. */
+.agenda-edit-contacto-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 14px;
+    grid-template-areas:
+        "direccion direccion"
+        "empresa correo"
+        "celular convencional";
+}
+.agenda-edit-card.is-editando .agenda-edit-contacto-grid {
+    grid-template-areas:
+        "empresa empresa"
+        "correo celular"
+        "direccion direccion"
+        "convencional convencional";
+}
+.agenda-edit-campo-v2[data-area="empresa"] { grid-area: empresa; }
+.agenda-edit-campo-v2[data-area="correo"] { grid-area: correo; }
+.agenda-edit-campo-v2[data-area="celular"] { grid-area: celular; }
+.agenda-edit-campo-v2[data-area="direccion"] { grid-area: direccion; }
+.agenda-edit-campo-v2[data-area="convencional"] { grid-area: convencional; }
+
+.agenda-edit-campo-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.agenda-edit-campo-v2-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ed-ink-faint);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.agenda-edit-campo-v2-header .glyphicon { font-size: 11px; color: var(--ed-ink-faint); }
+.agenda-edit-campo-v2-opcional {
+    font-size: 9.5px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ed-ink-faint);
+}
+.agenda-edit-campo-v2-valor {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ed-ink);
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+.agenda-edit-campo-v2-input {
+    display: none;
+    width: 100%;
+    border: 1px solid var(--ed-border);
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ed-ink);
+    background: #fff;
+}
+.agenda-edit-campo-v2-input:focus {
+    outline: none;
+    border-color: var(--ed-blue);
+    box-shadow: 0 0 0 3px rgba(51,122,183,.18);
+}
+.agenda-edit-card.is-editando .agenda-edit-campo-v2-valor { display: none; }
+.agenda-edit-card.is-editando .agenda-edit-campo-v2-input { display: block; }
+
+.agenda-edit-agendar-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ed-ink-faint);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    margin-bottom: 10px;
 }
 
 /* "Fecha sugerida" (llegó del móvil, nunca se confirmó) vs "Fecha agendada"
    (ya se confirmó al menos una vez) — mismo dato, distinta certeza. */
 .agenda-edit-fecha-label {
-    font-size: 10.5px;
-    font-weight: 700;
-    color: #aab3c2;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    margin-bottom: 4px;
-    padding-left: 28px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ed-blue-dark);
+    background: var(--ed-blue-tint-2);
+    padding: 2px 8px;
+    border-radius: 8px;
 }
 
-.agenda-edit-row {
+/* Fecha/hora/técnico: SIEMPRE editables (en los dos mockups, con switch
+   apagado o encendido) — ya no dependen de un modo especial por estado. */
+.agenda-edit-agendar-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.agenda-edit-agendar-campo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    border: 1px solid var(--ed-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-width: 0;
+    cursor: text;
+}
+.agenda-edit-agendar-campo .glyphicon { color: var(--ed-ink-faint); font-size: 13px; flex-shrink: 0; }
+.agenda-edit-agendar-campo input[type="date"],
+.agenda-edit-agendar-campo input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ed-ink);
+    padding: 0;
+}
+
+/* Técnico resaltado en azul sólido, como en ambos mockups. */
+.agenda-edit-agendar-tecnico {
+    background: var(--ed-blue-tint);
+    border-color: var(--ed-blue-tint-2);
     margin-bottom: 14px;
 }
-.agenda-edit-row:last-of-type { margin-bottom: 0; }
-.agenda-edit-row .glyphicon { color: #8a93a3; font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
-.agenda-edit-row .form-control { flex: 1; }
+.agenda-edit-agendar-tecnico .glyphicon,
+.agenda-edit-agendar-tecnico input { color: var(--ed-blue-dark); }
+.agenda-edit-agendar-tecnico input::placeholder { color: rgba(69,105,168,.55); }
 
 /* Panel propio de hora con alto fijo y scroll interno — un <select> nativo
    con 69 opciones (cada 15 min, 6 AM-11 PM) abre una lista sin límite de
@@ -1028,11 +1178,17 @@
 .agenda-edit-hora-dropdown {
     position: relative;
     flex: 1;
+    min-width: 0;
 }
 .agenda-edit-hora-trigger {
     width: 100%;
     text-align: left;
-    background: #fff;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ed-ink);
     cursor: pointer;
 }
 .agenda-edit-hora-lista {
@@ -1062,26 +1218,23 @@
     text-align: left;
     padding: 8px 14px;
     font-size: 13px;
-    color: #33415c;
+    color: var(--ed-ink-soft);
 }
 .agenda-edit-hora-item:hover { background: #f0f4ff; }
 .agenda-edit-hora-item.is-actual { background: rgba(51,122,183,.12); font-weight: 700; }
 
-.agenda-edit-row-texto {
-    flex: 1;
-    font-size: 13.5px;
-    color: #33415c;
-}
-
 /* Switch único de edición — reemplaza el lápiz por-campo de antes: un solo
-   control decide si toda la card (menos Promotor/Local) se puede tocar. */
+   control decide si Empresa/Correo/Celular/Dirección/Convencional + mapa se
+   pueden tocar (Promotor/Local quedan siempre fuera; fecha/hora/técnico
+   quedan siempre editables sin importar el switch). El texto alterna
+   "Modo edición" / "Editando" vía JS (ver setModoEdicion en agenda.js). */
 .agenda-edit-mode-switch {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 12px;
     font-weight: 700;
-    color: #5b6577;
+    color: var(--ed-ink-soft);
     cursor: pointer;
     user-select: none;
     flex-shrink: 0;
@@ -1109,33 +1262,9 @@
     transition: transform .15s;
     box-shadow: 0 1px 3px rgba(0,0,0,.25);
 }
-.agenda-edit-mode-switch input:checked + .agenda-edit-mode-slider { background: var(--brand-light); }
+.agenda-edit-mode-switch input:checked + .agenda-edit-mode-slider { background: var(--ed-blue); }
 .agenda-edit-mode-switch input:checked + .agenda-edit-mode-slider::before { transform: translateX(15px); }
-
-/* Modo lectura (por defecto): se ve el texto de cada fila editable, se
-   ocultan sus inputs y el mapa. Promotor/Local no entran en este mecanismo
-   — en modal-edicion.php siempre son solo <span>, sin importar el switch. */
-.agenda-edit-row .form-control,
-.agenda-edit-row .agenda-edit-hora-dropdown {
-    display: none;
-}
-.agenda-edit-card.is-editando .agenda-edit-row-texto { display: none; }
-.agenda-edit-card.is-editando .agenda-edit-row .form-control,
-.agenda-edit-card.is-editando .agenda-edit-row .agenda-edit-hora-dropdown {
-    display: block;
-}
-
-/* Modo pendiente: fecha/hora/técnico siempre editables (sin switch).
-   El switch se oculta porque para pendiente nunca hace falta activarlo:
-   el analista necesita llenar los campos de inmediato. Empresa/mail/
-   dirección/etc. siguen siendo solo lectura igual que antes. */
-.agenda-edit-card.is-pendiente-modo .agenda-edit-mode-switch { display: none; }
-.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="fecha"] .agenda-edit-row-texto,
-.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="hora"]  .agenda-edit-row-texto,
-.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="tecnico"] .agenda-edit-row-texto { display: none; }
-.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="fecha"]   .form-control,
-.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="tecnico"] .form-control { display: block; }
-.agenda-edit-card.is-pendiente-modo .agenda-edit-row[data-campo="hora"] .agenda-edit-hora-dropdown { display: block; }
+.agenda-edit-mode-switch input:checked ~ span:last-child { color: var(--ed-blue-dark); }
 
 /* En modo edición la card crece y se acomoda como el modal de "Crear
    visita" (form + mapa lado a lado) — mismo patrón visual a propósito. */
@@ -1149,6 +1278,9 @@
     min-width: 0;
 }
 
+/* Sin badge de estado aquí: se quitó por pedido explícito (la "mini card de
+   reagendado" del mockup 2), y no se reemplaza por nada — el foco de esta
+   columna es solo el mapa. */
 .agenda-edit-mapa-col {
     display: none;
     width: 380px;
@@ -1163,7 +1295,7 @@
 .agenda-edit-mapa-col label {
     font-size: 10.5px;
     font-weight: 700;
-    color: #5b6577;
+    color: var(--ed-ink-soft);
     text-transform: uppercase;
     letter-spacing: .3px;
 }
@@ -1189,7 +1321,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-top: 16px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ed-line);
 }
 
 .agenda-edit-actions-left { display: flex; align-items: center; gap: 16px; }
@@ -1198,7 +1332,7 @@
 .agenda-edit-cancelar-visita {
     border: none;
     background: transparent;
-    color: #d93025;
+    color: oklch(0.55 0.18 25);
     font-size: 12.5px;
     font-weight: 600;
     padding: 8px 4px;
@@ -1211,9 +1345,9 @@
 .agenda-edit-eliminar {
     border: none;
     background: transparent;
-    color: #aab3c2;
+    color: var(--ed-ink-faint);
     font-size: 11.5px;
     font-weight: 600;
     padding: 8px 4px;
 }
-.agenda-edit-eliminar:hover { color: #8a93a3; text-decoration: underline; }
+.agenda-edit-eliminar:hover { color: var(--ed-ink-soft); text-decoration: underline; }

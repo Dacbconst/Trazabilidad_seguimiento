@@ -148,6 +148,19 @@
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 	<script>
 		$(document).ready(function () {
+			// Un solo mapa sección→función de recarga: lo usan tanto el botón
+			// "Actualizar" manual como la navegación automática de abajo, para
+			// no mantener dos listas separadas que se puedan desincronizar.
+			function funcionRefrescoDe(idSeccion) {
+				return {
+					'sec-agendamientos': window.AgendaRecargar,
+					'sec-contactados': window.ContactadosRefrescar,
+					'sec-proforma': window.ProformaRecargar,
+					'sec-flujo-comercial': window.FlujoRecargar,
+					'sec-principal': window.DashboardRecargar
+				}[idSeccion];
+			}
+
 $('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 				e.preventDefault();
 				$('.sidebar-nav li').removeClass('active');
@@ -161,6 +174,12 @@ $('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 				$('.topbar').toggleClass('is-hidden', seccionConFiltroPropio);
 
 				$('#btnDescargarExcel').toggle($(this).attr('href') === '#sec-contactados');
+
+				// Auto-actualizar la sección a la que se acaba de entrar, para
+				// que los datos siempre estén frescos sin depender de que el
+				// analista se acuerde de pulsar "Actualizar" cada vez.
+				var fnAuto = funcionRefrescoDe($(this).attr('href').replace('#', ''));
+				if (fnAuto) fnAuto();
 
 				window.dispatchEvent(new Event('resize'));
 			});
@@ -180,17 +199,8 @@ $('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 
 			$('#btnActualizar').on('click', function () {
 				var secActiva = $('.section-pane.active').attr('id');
-				if (secActiva === 'sec-contactados' && window.ContactadosRefrescar) {
-					window.ContactadosRefrescar();
-				} else if (secActiva === 'sec-proforma' && window.ProformaRecargar) {
-					window.ProformaRecargar();
-				} else if (secActiva === 'sec-flujo-comercial' && window.FlujoRecargar) {
-					window.FlujoRecargar();
-				} else if (secActiva === 'sec-principal' && window.DashboardRecargar) {
-					window.DashboardRecargar();
-				} else {
-					location.reload();
-				}
+				var fn = funcionRefrescoDe(secActiva);
+				if (fn) { fn(); } else { location.reload(); }
 			});
 
 			$('#btnDescargarExcel').on('click', function () {

@@ -525,6 +525,7 @@
     function setModoEdicion(activo) {
         document.getElementById('agendaEditCard').classList.toggle('is-editando', activo);
         document.getElementById('agendaEditModoEdicion').checked = activo;
+        document.getElementById('agendaEditModoTexto').textContent = activo ? 'Editando' : 'Modo edición';
         if (activo) inicializarMapaEdicion();
     }
 
@@ -596,7 +597,7 @@
             (props.titulo && props.titulo.trim() !== '') ? props.titulo : '(Sin título)';
         var estado = estadoVisual(props);
         var badge = document.getElementById('agendaEditBadge');
-        badge.textContent = ESTADO_LABEL[estado];
+        document.getElementById('agendaEditBadgeTexto').textContent = ESTADO_LABEL[estado];
         badge.className = 'agenda-edit-badge is-' + estado;
 
         var registro = formatFechaHoraRegistro(props.fecha_registro);
@@ -641,7 +642,7 @@
 
         document.getElementById('agendaEditCelularTexto').textContent = props.telefono || '—';
         document.getElementById('agendaEditCelular').value = props.telefono || '';
-        document.getElementById('agendaEditConvencionalTexto').textContent = props.telefono_convencional || '—';
+        document.getElementById('agendaEditConvencionalTexto').textContent = props.telefono_convencional || 'No registrado';
         document.getElementById('agendaEditConvencional').value = props.telefono_convencional || '';
 
         // Arranca centrado en la ubicación ya guardada — si el analista
@@ -657,17 +658,6 @@
         setHora(props.hora ? props.hora.slice(0, 5) : '');
         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
 
-        document.getElementById('agendaEditFechaTexto').textContent = formatFecha(props.fecha_agendamiento);
-        document.getElementById('agendaEditHoraTexto').textContent = formatHoraVisual(props.hora);
-        document.getElementById('agendaEditTecnicoTexto').textContent = props.tecnico || '—';
-
-        // Pendiente/vencida: los campos de fecha, hora y técnico se muestran
-        // directamente como inputs (sin switch) — el analista necesita
-        // llenarlos de inmediato. Empresa/mail/dirección siguen siendo solo
-        // lectura. Para cualquier otro estado abre en modo lectura y el
-        // switch activa la edición completa.
-        var esPendiente = (estado === 'pendiente' || estado === 'vencida');
-        document.getElementById('agendaEditCard').classList.toggle('is-pendiente-modo', esPendiente);
         setModoEdicion(false);
 
         // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
@@ -694,7 +684,6 @@
     function cerrarEdicion() {
         editingId = null;
         setModoEdicion(false);
-        document.getElementById('agendaEditCard').classList.remove('is-pendiente-modo');
         document.getElementById('agendaEditOverlay').classList.remove('active');
     }
 

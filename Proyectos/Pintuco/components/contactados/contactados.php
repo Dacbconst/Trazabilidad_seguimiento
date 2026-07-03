@@ -10,120 +10,87 @@ $contactados_assets = $modulo_base.'/components/contactados/assets';
 $contactados_css_v = @filemtime($contactados_dir.'/assets/contactados.css') ?: time();
 $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: time();
 ?>
+<!-- Inter ya se carga global en style.css; solo falta IBM Plex Mono para
+     los datos tabulares (teléfonos, horas) del rediseño pedido. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="<?= htmlspecialchars($contactados_assets, ENT_QUOTES) ?>/contactados.css?v=<?= $contactados_css_v ?>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <div id="contactadosApp" data-getters-base="<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>/getters/">
 
-    <!-- Filtros — misma barra unificada que Agendamiento y Principal -->
-    <div class="mod-filtros">
-        <div class="filter-group is-busqueda">
-            <label>PDV, empresa o contacto</label>
-            <div class="input-group">
-                <input type="text" class="form-control" id="contactadosBusqueda" placeholder="Buscar PDV, empresa o contacto...">
-                <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
+    <!-- Barra de filtros propia (paleta oklch pedida para este rediseño) -->
+    <div class="ctc-filtros">
+        <div class="ctc-filtro-group ctc-filtro-busqueda">
+            <label>Buscar empresa o contacto</label>
+            <div class="ctc-filtro-input-wrap">
+                <i class="glyphicon glyphicon-search"></i>
+                <input type="text" id="contactadosBusqueda" placeholder="Buscar empresa o contacto...">
             </div>
         </div>
-        <div class="filter-group">
-            <label>Estado de gestión</label>
-            <select class="form-control" id="contactadosEstado">
-                <option value="">Todos los estados</option>
-                <option value="pendiente">Nuevo (sin gestionar)</option>
-                <option value="confirmado">Visita confirmada</option>
-                <option value="reagendada">Reagendada</option>
-                <option value="vencida">Vencida</option>
-                <option value="cancelada">Cancelada</option>
-                <option value="completada">Completada</option>
+        <div class="ctc-filtro-group">
+            <label>Promotor</label>
+            <select id="contactadosMercaderista">
+                <option value="">Todos los mercaderistas</option>
             </select>
         </div>
-        <div class="filter-group">
-            <label>Mercaderista</label>
-            <select class="form-control" id="contactadosMercaderista">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="mod-filtros-extra">
-            <button type="button" class="btn btn-actualizar" id="contactadosActualizar">
-                <i class="glyphicon glyphicon-refresh"></i> Actualizar
-            </button>
-            <button type="button" class="btn contactados-btn-excel" id="contactadosExportarExcel">
-                <i class="glyphicon glyphicon-save"></i> Descargar Excel
-            </button>
-        </div>
+
+        <button type="button" class="btn-actualizar" id="contactadosActualizar">
+            <i class="glyphicon glyphicon-refresh"></i> Actualizar
+        </button>
+        <!-- Siempre visible (no aparece/desaparece): estado "apagado" hasta
+             que haya al menos 1 fila marcada — ver contactados.js. -->
+        <button type="button" class="ctc-btn ctc-btn-descarga is-seleccion" id="contactadosDescargarSeleccion" disabled>
+            <i class="glyphicon glyphicon-save"></i>
+            <span id="contactadosSeleccionTexto">Descargar selección</span>
+        </button>
+        <button type="button" class="ctc-btn ctc-btn-descarga is-todo" id="contactadosDescargarTodo">
+            <i class="glyphicon glyphicon-save"></i> Descargar todo
+        </button>
     </div>
 
     <!-- Tabla de contactos -->
-    <div class="contactados-card">
-        <div class="contactados-topbar">Contactos</div>
-        <div class="contactados-scroll">
-            <table class="contactados-table">
+    <div class="ctc-card">
+        <div class="ctc-card-header">
+            <div class="ctc-card-header-left">
+                <span class="ctc-card-title">Contactos</span>
+                <span class="ctc-card-count" id="contactadosCount">0 registros</span>
+            </div>
+            <span class="ctc-seleccion-info" id="contactadosSeleccionInfo"></span>
+        </div>
+
+        <div class="ctc-scroll">
+            <table class="ctc-table">
                 <thead>
                     <tr>
-                        <th>Direccion Empresa</th>
-                        <th>Promotor</th>
-                        <th>Contacto</th>
+                        <th class="ctc-th-check">
+                            <input type="checkbox" id="contactadosCheckTodo" title="Seleccionar todo lo filtrado">
+                        </th>
                         <th>Empresa</th>
-                        <th>Correo</th>
-                        <th>Teléfono</th>
+                        <th>Contacto</th>
+                        <th>Dirección empresa</th>
+                        <th>Correo / Teléfono</th>
+                        <th>Promotor</th>
+                        <th>PDV</th>
                         <th>Registrado</th>
-                        <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody id="contactadosTbody">
-                    <tr><td colspan="8" class="contactados-vacio">Cargando...</td></tr>
+                    <tr><td colspan="8" class="ctc-vacio">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="contactados-paginacion">
-            <span class="contactados-paginacion-info" id="contactadosPaginacionInfo"></span>
-            <div class="contactados-paginacion-controles">
-                <button type="button" class="contactados-paginacion-btn" id="contactadosPagAnterior">&laquo; Anterior</button>
-                <span class="contactados-paginacion-pagina" id="contactadosPaginaActual"></span>
-                <button type="button" class="contactados-paginacion-btn" id="contactadosPagSiguiente">Siguiente &raquo;</button>
+        <div class="ctc-paginacion">
+            <span class="ctc-paginacion-info" id="contactadosPaginacionInfo"></span>
+            <div class="ctc-paginacion-controles">
+                <button type="button" class="ctc-paginacion-btn" id="contactadosPagAnterior">&laquo; Anterior</button>
+                <span class="ctc-paginacion-pagina" id="contactadosPaginaActual"></span>
+                <button type="button" class="ctc-paginacion-btn" id="contactadosPagSiguiente">Siguiente &raquo;</button>
             </div>
         </div>
     </div>
 
-</div>
-
-<!-- Marca de agua: popup card de historial por contacto -->
-<div class="ctc-popup-overlay" id="ctcPopupOverlay">
-    <div class="ctc-popup-card">
-        <div class="ctc-popup-header">
-            <div class="ctc-popup-col">
-                <span class="ctc-popup-col-label">Agendamiento</span>
-                <span class="ctc-popup-col-val" id="ctcPopupFecha">—</span>
-            </div>
-            <div class="ctc-popup-col">
-                <span class="ctc-popup-col-label">Contacto</span>
-                <span class="ctc-popup-col-val" id="ctcPopupContacto">—</span>
-            </div>
-            <div class="ctc-popup-col">
-                <span class="ctc-popup-col-label">Lugar</span>
-                <span class="ctc-popup-col-val" id="ctcPopupLugar">—</span>
-            </div>
-            <button type="button" class="ctc-popup-close" id="ctcPopupClose" title="Cerrar">&times;</button>
-        </div>
-        <div class="ctc-popup-body">
-            <table class="ctc-popup-table">
-                <thead>
-                    <tr>
-                        <th>F. Contacto</th>
-                        <th>Estado</th>
-                        <th>Evid.</th>
-                        <th>Ver</th>
-                    </tr>
-                </thead>
-                <tbody id="ctcPopupTbody">
-                    <tr><td colspan="4" class="ctc-popup-vacio">Cargando...</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="ctc-popup-footer">
-            <button type="button" class="btn btn-default" id="ctcPopupCerrar">Cerrar</button>
-        </div>
-    </div>
 </div>
 
 <script src="<?= htmlspecialchars($contactados_assets, ENT_QUOTES) ?>/contactados.js?v=<?= $contactados_js_v ?>"></script>

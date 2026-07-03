@@ -3,28 +3,7 @@
     var currentRows = [];
     var FILAS_POR_PAGINA = 15;
     var paginaActual = 1;
-
-    // Mismo blob storage que proforma.js — las fotos de evidencia de
-    // proformas se sirven desde Azure, no desde el servidor IIS.
-    var FOTO_BASE = 'https://luckyecuadorweb.blob.core.windows.net/app/AppPintuco/Inserts/';
-
-    // Mismo contrato de 6 estados que Agendamientos (estado_agenda), pero
-    // con etiqueta propia de este directorio — "pendiente" se llama "Nuevo"
-    // aquí porque es justo eso: un contacto recién capturado que todavía no
-    // se ha gestionado.
-    var ESTADOS_VALIDOS = ['pendiente', 'confirmado', 'reagendada', 'vencida', 'cancelada', 'completada'];
-    var ESTADO_LABEL = {
-        pendiente: 'Nuevo',
-        confirmado: 'Confirmado',
-        reagendada: 'Reagendada',
-        vencida: 'Vencida',
-        cancelada: 'Cancelada',
-        completada: 'Completada'
-    };
-
-    function estadoVisual(r) {
-        return ESTADOS_VALIDOS.indexOf(r.estado_agenda) !== -1 ? r.estado_agenda : 'pendiente';
-    }
+    var selectedIds = {}; // { id: true } — IDs marcados, no índices (sobrevive a la paginación)
 
     function formatFechaHora(valor) {
         if (!valor) return '—';
@@ -32,13 +11,21 @@
         var fechaPartes = partes[0].split('-');
         if (fechaPartes.length !== 3) return valor;
         var fecha = fechaPartes[2] + '/' + fechaPartes[1] + '/' + fechaPartes[0];
-        if (partes.length < 2) return fecha;
-        return fecha + ' ' + partes[1].slice(0, 5);
+        if (partes.length < 2) return { fecha: fecha, hora: '' };
+        return { fecha: fecha, hora: partes[1].slice(0, 5) };
     }
 
-    function celda(texto) {
+    function iniciales(nombre) {
+        if (!nombre) return '?';
+        return nombre.trim().charAt(0).toUpperCase();
+    }
+
+    function celdaTexto(texto, claseSpan) {
         var td = document.createElement('td');
-        td.textContent = texto || '—';
+        var span = document.createElement('span');
+        if (claseSpan) span.className = claseSpan;
+        span.textContent = texto || '—';
+        td.appendChild(span);
         return td;
     }
 
@@ -49,6 +36,8 @@
     // confirmó pin en Agendamientos), no se pinta el ícono, solo el texto.
     function celdaDireccion(r) {
         var td = document.createElement('td');
+        var wrap = document.createElement('div');
+        wrap.className = 'ctc-direccion';
         var lat = parseFloat(r.latitud);
         var lng = parseFloat(r.longitud);
         if (lat && lng) {
@@ -56,161 +45,107 @@
             link.href = 'https://maps.google.com/maps?q=' + lat + ',' + lng;
             link.target = '_blank';
             link.rel = 'noopener';
-            link.className = 'contactados-pin-link';
+            link.className = 'ctc-pin-link';
             link.title = 'Ver en Google Maps';
             link.innerHTML = '<i class="glyphicon glyphicon-map-marker"></i>';
-            td.appendChild(link);
+            wrap.appendChild(link);
         }
-        td.appendChild(document.createTextNode(r.direccion || '—'));
+        wrap.appendChild(document.createTextNode(r.direccion || '—'));
+        td.appendChild(wrap);
+        return td;
+    }
+
+    function celdaCorreoTelefono(r) {
+        var td = document.createElement('td');
+        var correo = document.createElement('div');
+        correo.className = 'ctc-correo';
+        correo.textContent = r.mail || '—';
+        td.appendChild(correo);
+
+        var tel = r.telefono || '';
+        if (r.telefono_convencional) tel = tel ? (tel + '-' + r.telefono_convencional) : r.telefono_convencional;
+        if (tel) {
+            var telDiv = document.createElement('div');
+            telDiv.className = 'ctc-telefono';
+            telDiv.textContent = tel;
+            td.appendChild(telDiv);
+        }
+        return td;
+    }
+
+    function celdaPromotor(r) {
+        var td = document.createElement('td');
+        var wrap = document.createElement('div');
+        wrap.className = 'ctc-promotor';
+        var avatar = document.createElement('div');
+        avatar.className = 'ctc-promotor-avatar';
+        avatar.textContent = iniciales(r.usuario);
+        var nombre = document.createElement('span');
+        nombre.className = 'ctc-promotor-nombre';
+        nombre.textContent = r.usuario || 'Sin promotor';
+        wrap.appendChild(avatar);
+        wrap.appendChild(nombre);
+        td.appendChild(wrap);
+        return td;
+    }
+
+    function celdaRegistrado(r) {
+        var td = document.createElement('td');
+        var partes = formatFechaHora(r.fecha_registro);
+        if (typeof partes === 'string') {
+            td.textContent = partes;
+            return td;
+        }
+        var fecha = document.createElement('div');
+        fecha.className = 'ctc-registrado-fecha';
+        fecha.textContent = partes.fecha;
+        td.appendChild(fecha);
+        if (partes.hora) {
+            var hora = document.createElement('div');
+            hora.className = 'ctc-registrado-hora';
+            hora.textContent = partes.hora;
+            td.appendChild(hora);
+        }
         return td;
     }
 
     function pintarFila(r) {
         var tr = document.createElement('tr');
-        tr.style.cursor = 'pointer';
-        // PDV oculto a pedido del usuario (2026-06-30), no se quiere ver por ahora
-        // tr.appendChild(celda(r.pdv));
-        tr.appendChild(celdaDireccion(r));
-        tr.appendChild(celda(r.usuario));
-        tr.appendChild(celda(r.contacto));
-        tr.appendChild(celda(r.empresa));
-        tr.appendChild(celda(r.mail));
-        tr.appendChild(celda(r.telefono || r.telefono_convencional));
-        tr.appendChild(celda(formatFechaHora(r.fecha_registro)));
+        var id = String(r.id);
 
-        var estado = estadoVisual(r);
-        var tdEstado = document.createElement('td');
-        var badge = document.createElement('span');
-        badge.className = 'contactados-badge is-' + estado;
-        badge.textContent = ESTADO_LABEL[estado];
-        tdEstado.appendChild(badge);
-        tr.appendChild(tdEstado);
-
-        tr.addEventListener('click', function (ev) {
-            if (ev.target.closest('a')) return; // no interceptar el link de mapa
-            abrirPopup(r);
+        var tdCheck = document.createElement('td');
+        var check = document.createElement('input');
+        check.type = 'checkbox';
+        check.checked = !!selectedIds[id];
+        check.addEventListener('change', function (ev) {
+            ev.stopPropagation();
+            if (check.checked) { selectedIds[id] = true; } else { delete selectedIds[id]; }
+            actualizarBarraSeleccion();
         });
+        tdCheck.appendChild(check);
+        tr.appendChild(tdCheck);
+
+        tr.appendChild(celdaTexto(r.empresa, 'ctc-empresa'));
+        tr.appendChild(celdaTexto(r.contacto, 'ctc-contacto'));
+        tr.appendChild(celdaDireccion(r));
+        tr.appendChild(celdaCorreoTelefono(r));
+        tr.appendChild(celdaPromotor(r));
+        tr.appendChild(celdaTexto(r.pdv));
+        tr.appendChild(celdaRegistrado(r));
 
         return tr;
     }
 
-    // ---------------------------------------------------------------
-    // Marca de agua — popup card con encabezado de agendamiento y
-    // historial de proformas del contacto. Mismo patrón de datos que
-    // el modal de edición de Agendamientos: fecha_agendamiento,
-    // usuario (promotor) y pdv/dirección como "lugar".
-    // ---------------------------------------------------------------
-    var PROFORMA_ESTADO_LABEL = {
-        pendiente:      'Pendiente',
-        en_proceso:     'En proceso',
-        realizado:      'Realizado',
-        en_negociacion: 'Negociación',
-        aprobado:       'Aprobado',
-        rechazado:      'Rechazado'
-    };
-
-    function formatFechaSolo(valor) {
-        if (!valor) return '—';
-        var iso = valor.split(' ')[0];
-        if (!iso || iso === '0000-00-00') return '—';
-        var p = iso.split('-');
-        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
-    }
-
-    function abrirPopup(r) {
-        document.getElementById('ctcPopupFecha').textContent    = formatFechaSolo(r.fecha_agendamiento);
-        document.getElementById('ctcPopupContacto').textContent = r.usuario || '—';
-        document.getElementById('ctcPopupLugar').textContent    = r.pdv || r.direccion || '—';
-
-        var tbody = document.getElementById('ctcPopupTbody');
-        tbody.innerHTML = '<tr><td colspan="4" class="ctc-popup-vacio">Cargando...</td></tr>';
-
-        document.getElementById('ctcPopupOverlay').classList.add('active');
-
-        fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(r.id))
-            .then(function (resp) { return resp.json(); })
-            .then(function (json) {
-                var proformas = json.data || [];
-                tbody.innerHTML = '';
-
-                if (!proformas.length) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="ctc-popup-vacio">Sin proformas registradas para este contacto.</td></tr>';
-                    return;
-                }
-
-                proformas.forEach(function (p) {
-                    var tr = document.createElement('tr');
-
-                    // F. Contacto — fecha de registro de la proforma
-                    var tdFecha = document.createElement('td');
-                    tdFecha.textContent = formatFechaSolo(p.proforma_fecha_registro);
-                    tr.appendChild(tdFecha);
-
-                    // Estado
-                    var tdEstado = document.createElement('td');
-                    var estadoKey = p.estado_proforma || 'pendiente';
-                    var badge = document.createElement('span');
-                    badge.className = 'ctc-popup-badge is-' + estadoKey;
-                    badge.textContent = PROFORMA_ESTADO_LABEL[estadoKey] || estadoKey;
-                    tdEstado.appendChild(badge);
-                    tr.appendChild(tdEstado);
-
-                    // Evid. — ícono de cámara; abre la foto si existe
-                    var tdEvid = document.createElement('td');
-                    var btnEvid = document.createElement('button');
-                    btnEvid.type = 'button';
-                    btnEvid.className = 'ctc-popup-icon-btn' + (p.evidencia ? '' : ' is-sin-foto');
-                    btnEvid.title = p.evidencia ? 'Ver evidencia' : 'Sin evidencia';
-                    btnEvid.innerHTML = '<i class="glyphicon glyphicon-camera"></i>';
-                    if (p.evidencia) {
-                        btnEvid.addEventListener('click', function (ev) {
-                            ev.stopPropagation();
-                            window.open(FOTO_BASE + p.evidencia, '_blank');
-                        });
-                    }
-                    tdEvid.appendChild(btnEvid);
-                    tr.appendChild(tdEvid);
-
-                    // Ver — ícono de ojo; abre la foto o navega a proforma
-                    var tdVer = document.createElement('td');
-                    var btnVer = document.createElement('button');
-                    btnVer.type = 'button';
-                    btnVer.className = 'ctc-popup-icon-btn';
-                    btnVer.title = 'Ver en Auditoría de Proformas';
-                    btnVer.innerHTML = '<i class="glyphicon glyphicon-eye-open"></i>';
-                    btnVer.addEventListener('click', function (ev) {
-                        ev.stopPropagation();
-                        // Navegar al módulo Proforma (mismo patrón que
-                        // el sidebar de index.php: activa #sec-proforma)
-                        var linkProforma = document.querySelector('.sidebar-nav a[href="#sec-proforma"]');
-                        if (linkProforma) { linkProforma.click(); }
-                        cerrarPopup();
-                    });
-                    tdVer.appendChild(btnVer);
-                    tr.appendChild(tdVer);
-
-                    tbody.appendChild(tr);
-                });
-            })
-            .catch(function () {
-                tbody.innerHTML = '<tr><td colspan="4" class="ctc-popup-vacio">No se pudo cargar el historial.</td></tr>';
-            });
-    }
-
-    function cerrarPopup() {
-        document.getElementById('ctcPopupOverlay').classList.remove('active');
-    }
-
+    // Solo se busca por empresa/contacto/correo/dirección — PDV se excluyó
+    // a pedido explícito del usuario (el campo ya no dice "buscar PDV...").
     function filasFiltradas() {
         var q        = document.getElementById('contactadosBusqueda').value.toLowerCase().trim();
-        var estado   = document.getElementById('contactadosEstado').value;
         var mercader = document.getElementById('contactadosMercaderista').value;
 
         return currentRows.filter(function (r) {
             if (mercader && r.usuario !== mercader) return false;
-            if (estado   && estadoVisual(r) !== estado) return false;
             if (q) {
-                var coincide = [r.contacto, r.empresa, r.pdv, r.mail, r.direccion].some(function (v) {
+                var coincide = [r.contacto, r.empresa, r.mail, r.direccion].some(function (v) {
                     return (v || '').toLowerCase().indexOf(q) !== -1;
                 });
                 if (!coincide) return false;
@@ -219,10 +154,55 @@
         });
     }
 
-    // Paginado en cliente: la data ya llega completa de get_contactados.php
-    // (igual que el resto del filtrado), así que no hace falta tocar el
-    // getter — solo recortar lo que se pinta por página, para no tener una
-    // tabla eterna en pantalla.
+    // ---------------------------------------------------------------
+    // Selección + descarga: "Descargar selección" queda siempre visible
+    // (nunca aparece/desaparece), solo cambia de apagado a activo. El
+    // check del header selecciona/deselecciona TODO lo filtrado (no solo
+    // la página visible), para que "descargar selección" con el filtro
+    // puesto equivalga a "descargar todo lo que ves en ese filtro".
+    // ---------------------------------------------------------------
+    function actualizarBarraSeleccion() {
+        var ids = Object.keys(selectedIds);
+        var count = ids.length;
+
+        var btnSel = document.getElementById('contactadosDescargarSeleccion');
+        var textoSel = document.getElementById('contactadosSeleccionTexto');
+        btnSel.disabled = count === 0;
+        btnSel.classList.toggle('is-activo', count > 0);
+        textoSel.textContent = count > 0 ? ('Descargar selección (' + count + ')') : 'Descargar selección';
+
+        document.getElementById('contactadosSeleccionInfo').textContent =
+            count > 0 ? (count + ' seleccionado' + (count === 1 ? '' : 's')) : '';
+
+        var filtradas = filasFiltradas();
+        var idsFiltrados = filtradas.map(function (r) { return String(r.id); });
+        var checkTodo = document.getElementById('contactadosCheckTodo');
+        checkTodo.checked = idsFiltrados.length > 0 && idsFiltrados.every(function (id) { return selectedIds[id]; });
+    }
+
+    function toggleSeleccionarTodo() {
+        var idsFiltrados = filasFiltradas().map(function (r) { return String(r.id); });
+        var todosMarcados = idsFiltrados.length > 0 && idsFiltrados.every(function (id) { return selectedIds[id]; });
+        if (todosMarcados) {
+            idsFiltrados.forEach(function (id) { delete selectedIds[id]; });
+        } else {
+            idsFiltrados.forEach(function (id) { selectedIds[id] = true; });
+        }
+        renderizar();
+    }
+
+    // Cambiar cualquier filtro resetea la selección: mezclar selección de
+    // un filtro anterior con uno nuevo es más confuso que útil, y evita el
+    // caso de "tengo 5 marcados pero ya no veo 2 de ellos en pantalla".
+    function resetearSeleccionYRenderizar() {
+        selectedIds = {};
+        paginaActual = 1;
+        renderizar();
+    }
+
+    // ---------------------------------------------------------------
+    // Paginación (client-side)
+    // ---------------------------------------------------------------
     function renderizarPaginacion(totalFilas) {
         var totalPaginas = Math.max(1, Math.ceil(totalFilas / FILAS_POR_PAGINA));
         if (paginaActual > totalPaginas) paginaActual = totalPaginas;
@@ -249,21 +229,26 @@
         var filas = filasFiltradas();
         tbody.innerHTML = '';
 
+        document.getElementById('contactadosCount').textContent =
+            filas.length + (filas.length === 1 ? ' registro' : ' registros');
+
         if (!filas.length) {
             var tr = document.createElement('tr');
             var td = document.createElement('td');
             td.colSpan = 8;
-            td.className = 'contactados-vacio';
+            td.className = 'ctc-vacio';
             td.textContent = 'Sin contactos que coincidan con el filtro.';
             tr.appendChild(td);
             tbody.appendChild(tr);
             renderizarPaginacion(0);
+            actualizarBarraSeleccion();
             return;
         }
 
         renderizarPaginacion(filas.length);
         var inicio = (paginaActual - 1) * FILAS_POR_PAGINA;
         filas.slice(inicio, inicio + FILAS_POR_PAGINA).forEach(function (r) { tbody.appendChild(pintarFila(r)); });
+        actualizarBarraSeleccion();
     }
 
     function construirOpcionesMercaderista() {
@@ -288,55 +273,73 @@
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
                 currentRows = json.data || [];
+                selectedIds = {};
                 paginaActual = 1;
                 construirOpcionesMercaderista();
                 renderizar();
             });
     }
 
-    // .xlsx real vía SheetJS (cargado en contactados.php) — exporta
-    // exactamente lo que está filtrado/visible, no todo el directorio.
-    function descargarExcel() {
-        var filas = filasFiltradas();
+    // .xlsx real vía SheetJS (cargado en contactados.php).
+    function exportarExcel(filas, prefijoArchivo) {
         var datos = filas.map(function (r) {
-            var estado = estadoVisual(r);
             return {
-                'PDV': r.pdv || '',
-                'Local': r.direccion || '',
-                'Promotor': r.usuario || '',
-                'Contacto': r.contacto || '',
                 'Empresa': r.empresa || '',
+                'Contacto': r.contacto || '',
+                'Dirección': r.direccion || '',
                 'Correo': r.mail || '',
-                'Teléfono': r.telefono || r.telefono_convencional || '',
-                'Registrado': formatFechaHora(r.fecha_registro),
-                'Estado': ESTADO_LABEL[estado]
+                'Teléfono': r.telefono || '',
+                'Convencional': r.telefono_convencional || '-',
+                'Promotor': r.usuario || '',
+                'PDV': r.pdv || '',
+                'Registrado': formatFechaHoraTexto(r.fecha_registro)
             };
         });
 
         var hoja = XLSX.utils.json_to_sheet(datos);
-        hoja['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
+        hoja['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 26 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
 
         var libro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(libro, hoja, 'Contactos');
-        XLSX.writeFile(libro, 'contactados_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+
+        // Formato día-mes-año pedido explícitamente (no el YYYY-MM-DD de
+        // toISOString) para el nombre del archivo descargado.
+        var hoy = new Date();
+        var dd = String(hoy.getDate()).padStart(2, '0');
+        var mm = String(hoy.getMonth() + 1).padStart(2, '0');
+        var fechaArchivo = dd + '-' + mm + '-' + hoy.getFullYear();
+        XLSX.writeFile(libro, prefijoArchivo + fechaArchivo + '.xlsx');
+    }
+
+    function formatFechaHoraTexto(valor) {
+        var partes = formatFechaHora(valor);
+        if (typeof partes === 'string') return partes;
+        return partes.hora ? (partes.fecha + ' ' + partes.hora) : partes.fecha;
+    }
+
+    // "Descargar selección": solo las filas marcadas con checkbox.
+    function descargarSeleccionados() {
+        if (!Object.keys(selectedIds).length) return;
+        var filas = currentRows.filter(function (r) { return selectedIds[String(r.id)]; });
+        exportarExcel(filas, 'contactados_seleccion_');
+    }
+
+    // "Descargar todo": todo lo que hay en el filtro actual, sin importar
+    // qué esté marcado con checkbox (mismo comportamiento que el botón
+    // único de antes, ahora separado de "Descargar selección").
+    function descargarTodo() {
+        exportarExcel(filasFiltradas(), 'contactados_');
     }
 
     // Expuestos para que el topbar global (controlado desde index.php) sepa
-    // refrescar/exportar esta sección sin que index.php tenga que conocer
-    // los detalles internos de Contactados.
+    // refrescar esta sección sin conocer sus detalles internos.
     window.ContactadosRefrescar = cargarContactados;
-    window.ContactadosDescargarExcel = descargarExcel;
-
-    function renderizarDesdePrimeraPagina() {
-        paginaActual = 1;
-        renderizar();
-    }
+    window.ContactadosDescargarExcel = descargarTodo;
 
     document.addEventListener('DOMContentLoaded', function () {
         cargarContactados();
-        document.getElementById('contactadosBusqueda').addEventListener('input', renderizarDesdePrimeraPagina);
-        document.getElementById('contactadosEstado').addEventListener('change', renderizarDesdePrimeraPagina);
-        document.getElementById('contactadosMercaderista').addEventListener('change', renderizarDesdePrimeraPagina);
+        document.getElementById('contactadosBusqueda').addEventListener('input', resetearSeleccionYRenderizar);
+        document.getElementById('contactadosMercaderista').addEventListener('change', resetearSeleccionYRenderizar);
         document.getElementById('contactadosPagAnterior').addEventListener('click', function () {
             if (paginaActual > 1) { paginaActual--; renderizar(); }
         });
@@ -345,12 +348,8 @@
             renderizar();
         });
         document.getElementById('contactadosActualizar').addEventListener('click', cargarContactados);
-        document.getElementById('contactadosExportarExcel').addEventListener('click', descargarExcel);
-
-        document.getElementById('ctcPopupClose').addEventListener('click', cerrarPopup);
-        document.getElementById('ctcPopupCerrar').addEventListener('click', cerrarPopup);
-        document.getElementById('ctcPopupOverlay').addEventListener('click', function (ev) {
-            if (ev.target === this) cerrarPopup(); // clic en el overlay oscuro cierra
-        });
+        document.getElementById('contactadosCheckTodo').addEventListener('change', toggleSeleccionarTodo);
+        document.getElementById('contactadosDescargarSeleccion').addEventListener('click', descargarSeleccionados);
+        document.getElementById('contactadosDescargarTodo').addEventListener('click', descargarTodo);
     });
 })();

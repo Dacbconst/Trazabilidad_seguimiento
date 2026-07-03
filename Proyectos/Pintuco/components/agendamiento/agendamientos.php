@@ -28,6 +28,9 @@ $agenda_crear_js_v = @filemtime($agenda_dir.'/assets/agenda-crear.js') ?: time()
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="<?= htmlspecialchars($agenda_assets, ENT_QUOTES) ?>/agenda.css?v=<?= $agenda_css_v ?>">
 
 <div id="agendaApp"

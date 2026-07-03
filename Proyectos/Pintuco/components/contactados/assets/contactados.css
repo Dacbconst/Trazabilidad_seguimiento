@@ -1,334 +1,266 @@
 /* =====================================================
    CONTACTADOS — directorio de prospectos capturados.
-   Paleta propia (navy/azul claro), distinta de la de
-   Agendamientos — pedida así por el usuario para esta sección.
+   Paleta oklch + tipografía Inter/IBM Plex Mono, pedida por
+   el usuario vía mockup adjunto (mismo criterio que el modal
+   de Agendamientos) — reemplaza la paleta navy/dorado anterior.
    ===================================================== */
+#contactadosApp {
+    --ctc-ink: oklch(0.22 0.02 260);
+    --ctc-ink-soft: oklch(0.3 0.02 260);
+    --ctc-ink-faint: oklch(0.55 0.02 260);
+    --ctc-line: oklch(0.91 0.008 260);
+    --ctc-border: oklch(0.88 0.01 260);
+    --ctc-bg: oklch(0.975 0.004 260);
+    --ctc-blue: oklch(0.5 0.13 250);
+    --ctc-brand: oklch(0.32 0.09 260);
+    --ctc-green: oklch(0.4 0.13 150);
+    --ctc-green-dark: oklch(0.34 0.12 150);
+    --ctc-green-tint: oklch(0.96 0.03 150);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
 
-.contactados-card {
+/* ---------------------------------------------------
+   Barra de filtros
+----------------------------------------------------- */
+.ctc-filtros {
     background: #fff;
-    border-radius: 6px;
-    border: 1px solid #dde3ea;
-    box-shadow: 0 1px 3px rgba(20,30,50,.06);
+    border: 1px solid var(--ctc-line);
+    border-radius: 9px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.ctc-filtro-group { min-width: 170px; }
+.ctc-filtro-busqueda { flex: 1; min-width: 220px; }
+
+.ctc-filtro-group label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--ctc-ink-faint);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.ctc-filtro-group select {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 9px 12px;
+    border: 1px solid var(--ctc-border);
+    border-radius: 7px;
+    outline: none;
+    color: var(--ctc-ink-soft);
+    background: #fff;
+}
+
+.ctc-filtro-input-wrap { position: relative; }
+.ctc-filtro-input-wrap .glyphicon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ctc-ink-faint);
+    font-size: 12px;
+}
+.ctc-filtro-input-wrap input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12.5px;
+    padding: 9px 12px 9px 32px;
+    border: 1px solid var(--ctc-border);
+    border-radius: 7px;
+    outline: none;
+    color: var(--ctc-ink);
+}
+.ctc-filtro-input-wrap input:focus,
+.ctc-filtro-group select:focus {
+    border-color: var(--ctc-blue);
+    box-shadow: 0 0 0 3px rgba(51,122,183,.15);
+}
+
+.ctc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 7px;
+    padding: 9px 15px;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+
+/* El botón Actualizar usa la clase global .btn-actualizar (style.css) para
+   verse igual que en el resto de módulos — pedido explícito del usuario. */
+
+/* "Descargar selección": fijo en pantalla siempre (nunca aparece/
+   desaparece) — solo cambia de apagado a activo según haya algo
+   marcado, para que el analista sepa que existe sin buscarlo. */
+.ctc-btn-descarga.is-seleccion {
+    background: var(--ctc-bg);
+    color: oklch(0.65 0.01 260);
+    border-color: var(--ctc-line);
+    cursor: not-allowed;
+}
+.ctc-btn-descarga.is-seleccion.is-activo {
+    background: var(--ctc-green-tint);
+    color: var(--ctc-green-dark);
+    border-color: oklch(0.7 0.1 150);
+    cursor: pointer;
+}
+.ctc-btn-descarga.is-seleccion.is-activo:hover { background: oklch(0.93 0.05 150); }
+
+.ctc-btn-descarga.is-todo {
+    background: var(--ctc-green);
+    color: #fff;
+    border-color: var(--ctc-green);
+}
+.ctc-btn-descarga.is-todo:hover { background: var(--ctc-green-dark); border-color: var(--ctc-green-dark); }
+
+/* ---------------------------------------------------
+   Card + tabla
+----------------------------------------------------- */
+.ctc-card {
+    background: #fff;
+    border: 1px solid var(--ctc-line);
+    border-radius: 9px;
     overflow: hidden;
 }
 
-.contactados-topbar {
-    background: #003366;
-    color: #fff;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: .2px;
-    text-align: left;
-    padding: 14px 22px;
-    border-bottom: 2px solid #b88a2e;
+/* Fondo sólido con el azul de marca de la paleta (mismo tono que
+   --ctc-brand usado en los checkboxes) — cada texto interno se reajustó a
+   un tono claro para mantener buen contraste sobre ese fondo oscuro. */
+.ctc-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px;
+    background: var(--ctc-brand);
+    flex-wrap: wrap;
+    gap: 8px;
 }
+.ctc-card-header-left { display: flex; align-items: baseline; gap: 8px; }
+.ctc-card-title { font-size: 14px; font-weight: 800; letter-spacing: -.005em; color: #fff; }
+.ctc-card-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: oklch(0.85 0.02 260); }
+.ctc-seleccion-info { font-size: 12px; font-weight: 600; color: oklch(0.9 0.08 150); }
 
-/* ---------------------------------------------------
-   Tabla — estilo corporativo: sobrio, sin colores
-   pasteles llamativos, zebra striping sutil.
------------------------------------------------------ */
-.contactados-scroll {
-    overflow-x: auto;
-}
+.ctc-scroll { overflow-x: auto; }
 
-.contactados-table {
+.ctc-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 800px;
+    min-width: 960px;
 }
 
-.contactados-table th {
-    background: #f0f3f7;
-    color: #1f2d3d;
+.ctc-table th {
+    background: var(--ctc-bg);
     text-align: left;
-    font-size: 11.5px;
+    font-size: 10.5px;
     font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--ctc-ink-faint);
     text-transform: uppercase;
-    letter-spacing: .4px;
-    padding: 12px 18px;
-    border-bottom: 1px solid #d8dee6;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--ctc-line);
     white-space: nowrap;
 }
+.ctc-th-check { width: 20px; padding-left: 20px !important; }
 
-.contactados-table td {
+.ctc-table td {
     background: #fff;
-    color: #33415c;
-    font-size: 13px;
-    padding: 12px 18px;
-    border-bottom: 1px solid #edf0f4;
-    white-space: nowrap;
+    color: var(--ctc-ink-soft);
+    font-size: 12.5px;
+    padding: 14px 16px;
+    border-bottom: 1px solid oklch(0.95 0.005 260);
+    vertical-align: top;
+}
+.ctc-table td:first-child { padding-left: 20px; }
+.ctc-table tbody tr:hover td { background: oklch(0.98 0.004 260); }
+.ctc-table tr:last-child td { border-bottom: none; }
+
+.ctc-table input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--ctc-brand);
 }
 
-.contactados-table tbody tr:nth-child(even) td { background: #fafbfc; }
-.contactados-table tbody tr:hover td { background: #f0f4f9; }
-.contactados-table tr:last-child td { border-bottom: none; }
+.ctc-empresa { font-size: 12.5px; color: var(--ctc-ink-soft); }
+.ctc-contacto { font-size: 12.5px; font-weight: 600; color: var(--ctc-ink); }
 
 /* Ícono de coordenada al inicio de la dirección — abre Google Maps con
    las coordenadas guardadas (sin API, solo "?q=lat,lng"). */
-.contactados-pin-link {
+.ctc-direccion { display: flex; align-items: center; gap: 6px; }
+.ctc-pin-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-right: 7px;
-    color: #1d4e89;
+    flex-shrink: 0;
+    color: var(--ctc-blue);
 }
-.contactados-pin-link:hover { color: #143660; }
+.ctc-pin-link:hover { color: oklch(0.4 0.13 250); }
 
-.contactados-vacio {
+.ctc-correo { font-size: 12.5px; color: var(--ctc-ink-soft); }
+.ctc-telefono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ctc-ink-faint); margin-top: 3px; }
+
+.ctc-promotor { display: inline-flex; align-items: center; gap: 6px; }
+.ctc-promotor-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    background: oklch(0.9 0.03 260);
+    color: oklch(0.35 0.09 260);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ctc-promotor-nombre { font-size: 12.5px; font-weight: 600; color: var(--ctc-ink-soft); }
+
+.ctc-registrado-fecha { font-size: 12px; color: oklch(0.35 0.02 260); }
+.ctc-registrado-hora { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.6 0.02 260); margin-top: 2px; }
+
+.ctc-vacio {
     text-align: center;
-    color: #aab3c2;
+    color: oklch(0.7 0.01 260);
     padding: 30px 16px !important;
     white-space: normal;
-    background: #fff !important;
 }
-
-.contactados-badge {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: .2px;
-    text-transform: uppercase;
-    padding: 3px 10px;
-    border-radius: 3px;
-    white-space: nowrap;
-    border: 1px solid transparent;
-}
-
-/* "Nuevo" = pendiente (recién capturado, sin gestionar todavía). Tonos
-   desaturados a propósito — directorio corporativo, no un calendario. */
-.contactados-badge.is-pendiente { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
-.contactados-badge.is-confirmado { background: #e8f0fa; color: #1d4e89; border-color: #c7d9f0; }
-.contactados-badge.is-reagendada { background: #fbf2e3; color: #8a5a00; border-color: #f0ddb3; }
-.contactados-badge.is-vencida { background: #fbeaea; color: #a32a23; border-color: #f0c9c7; }
-.contactados-badge.is-cancelada { background: #f1eded; color: #6b4a4a; border-color: #ddd0d0; }
-.contactados-badge.is-completada { background: #e7f3ed; color: #0b6b3a; border-color: #c5e3d3; }
 
 /* ---------------------------------------------------
-   Paginación — evita una tabla eterna en pantalla.
+   Paginación
 ----------------------------------------------------- */
-.contactados-paginacion {
+.ctc-paginacion {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 12px 18px;
-    border-top: 1px solid #edf0f4;
+    padding: 12px 22px;
+    border-top: 1px solid var(--ctc-line);
     flex-wrap: wrap;
 }
-
-.contactados-paginacion-info {
-    font-size: 12px;
-    color: #6b7787;
-}
-
-.contactados-paginacion-controles {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.contactados-paginacion-pagina {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #33415c;
-    white-space: nowrap;
-}
-
-.contactados-paginacion-btn {
+.ctc-paginacion-info { font-size: 11.5px; color: var(--ctc-ink-faint); }
+.ctc-paginacion-controles { display: flex; align-items: center; gap: 10px; }
+.ctc-paginacion-pagina { font-size: 12.5px; font-weight: 600; color: var(--ctc-ink-soft); white-space: nowrap; }
+.ctc-paginacion-btn {
     background: #fff;
-    border: 1px solid #d8dee6;
-    color: #1f2d3d;
-    border-radius: 5px;
+    border: 1px solid var(--ctc-border);
+    color: var(--ctc-ink);
+    border-radius: 6px;
     padding: 6px 12px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
 }
-.contactados-paginacion-btn:hover:not(:disabled) { background: #f0f4f9; border-color: #b8c2cf; }
-.contactados-paginacion-btn:disabled { opacity: .45; cursor: default; }
-
-/* ---------------------------------------------------
-   Barra de filtros — usa .mod-filtros global (style.css).
-   Solo el botón Excel es específico de Contactados.
------------------------------------------------------ */
-.contactados-btn-excel {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #1d6f42;
-    border-color: #1d6f42;
-    color: #fff;
-    font-weight: 700;
-    font-size: 12.5px;
-    letter-spacing: .3px;
-    padding: 8px 16px;
-    border-radius: 5px;
-    white-space: nowrap;
-}
-.contactados-btn-excel:hover { background: #175a36; border-color: #175a36; color: #fff; }
-
-/* ---------------------------------------------------
-   Marca de agua — popup card que aparece al hacer clic
-   en una fila del directorio. Muestra el encabezado del
-   agendamiento (mismo patrón que el modal de edición de
-   Agendamientos) + historial de proformas del contacto.
------------------------------------------------------ */
-.ctc-popup-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(10, 18, 35, .52);
-    z-index: 1050;
-    align-items: center;
-    justify-content: center;
-}
-.ctc-popup-overlay.active { display: flex; }
-
-.ctc-popup-card {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(10,18,35,.28);
-    width: 100%;
-    max-width: 460px;
-    margin: 16px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 80px);
-}
-
-/* Encabezado: mismo tono navy que Contactados */
-.ctc-popup-header {
-    background: #003366;
-    border-bottom: 2px solid #b88a2e;
-    padding: 14px 16px 12px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    position: relative;
-}
-.ctc-popup-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-}
-.ctc-popup-col-label {
-    font-size: 9.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: #b88a2e;
-}
-.ctc-popup-col-val {
-    font-size: 13px;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.ctc-popup-close {
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    background: none;
-    border: none;
-    color: rgba(255,255,255,.6);
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-.ctc-popup-close:hover { color: #fff; background: rgba(255,255,255,.12); }
-
-/* Tabla de proformas del contacto */
-.ctc-popup-body { overflow-y: auto; flex: 1; }
-
-.ctc-popup-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-.ctc-popup-table th {
-    background: #f0f3f7;
-    color: #5b6577;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    padding: 9px 12px;
-    border-bottom: 1px solid #d8dee6;
-    text-align: left;
-    white-space: nowrap;
-}
-.ctc-popup-table th:nth-child(1) { width: 38%; }
-.ctc-popup-table th:nth-child(2) { width: 28%; }
-.ctc-popup-table th:nth-child(3) { width: 18%; }
-.ctc-popup-table th:nth-child(4) { width: 16%; }
-
-.ctc-popup-table td {
-    font-size: 12.5px;
-    color: #33415c;
-    padding: 10px 12px;
-    border-bottom: 1px solid #edf0f4;
-    vertical-align: middle;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.ctc-popup-table tr:last-child td { border-bottom: none; }
-.ctc-popup-table tbody tr:hover td { background: #f7f9fc; }
-
-.ctc-popup-badge {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .2px;
-    padding: 3px 8px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    white-space: nowrap;
-}
-.ctc-popup-badge.is-en_proceso  { background: #fbf2e3; color: #8a5a00; border-color: #f0ddb3; }
-.ctc-popup-badge.is-pendiente   { background: #fbf2e3; color: #8a5a00; border-color: #f0ddb3; }
-.ctc-popup-badge.is-realizado   { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
-.ctc-popup-badge.is-en_negociacion { background: #e8f0fa; color: #1d4e89; border-color: #c7d9f0; }
-.ctc-popup-badge.is-aprobado    { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
-.ctc-popup-badge.is-rechazado   { background: #fbeaea; color: #a32a23; border-color: #f0c9c7; }
-
-.ctc-popup-icon-btn {
-    background: none;
-    border: none;
-    color: #5b6577;
-    padding: 3px 5px;
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 14px;
-    line-height: 1;
-}
-.ctc-popup-icon-btn:hover { background: #eef1f6; color: #1f2d3d; }
-.ctc-popup-icon-btn.is-sin-foto { color: #d8dee6; cursor: default; }
-.ctc-popup-icon-btn.is-sin-foto:hover { background: none; }
-
-.ctc-popup-vacio {
-    text-align: center;
-    color: #aab3c2;
-    padding: 24px 12px;
-    font-size: 12.5px;
-}
-
-.ctc-popup-footer {
-    padding: 10px 14px;
-    border-top: 1px solid #edf0f4;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-.ctc-popup-footer .btn {
-    font-size: 12.5px;
-    padding: 7px 18px;
-}
+.ctc-paginacion-btn:hover:not(:disabled) { background: var(--ctc-bg); border-color: oklch(0.75 0.015 260); }
+.ctc-paginacion-btn:disabled { opacity: .45; cursor: default; }
