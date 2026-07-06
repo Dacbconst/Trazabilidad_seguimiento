@@ -282,7 +282,19 @@
 .ef-tabla-prom tbody tr:hover td { background: #f7f9fc; }
 .ef-tabla-empresa { font-weight: 700; color: #1f2d3d; }
 .ef-tabla-pdv     { font-size: 11px; color: #8a93a3; margin-top: 2px; }
-.ef-monto { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #33415c; }
+
+/* Días sin semáforo en esta tabla (a diferencia de las tarjetas del kanban,
+   que sí lo mantienen) — texto plano, pedido explícito del usuario. */
+.ef-dias-plano { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #33415c; }
+
+/* Cotización Inicial: el monto negociado (última proforma con monto
+   validado) — texto neutro, igual que el resto de montos de la tabla. */
+.ef-monto-cotizacion { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #33415c; }
+
+/* Monto Facturado: suma de insert_pago_factura.monto_pago para el
+   agendamiento (mecánica de pagos a plazos, 2026-07-03) — en rojo para
+   distinguirlo de la cotización inicial a simple vista. */
+.ef-monto-facturado { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #c0392b; }
 
 /* Fila resaltada al llegar desde "Por fase" — fondo semitransparente
    detrás del texto oscuro existente (NO texto blanco), pasa AA en todo

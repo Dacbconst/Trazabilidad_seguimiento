@@ -8,6 +8,7 @@
     var allRows           = [];   // todos los ciclos, de todos los agendamientos
     var pipeline           = [];  // 1 fila por agendamiento = su último ciclo
     var porAgendamiento    = {};  // { agendamiento_id: [ciclos ASC por id] }
+    var montoFacturadoPorAgendamiento = {}; // { agendamiento_id: suma de monto_pago }
     var tabActiva          = 'fase';
     var promActivo         = null;
     var highlightedAgId    = null;
@@ -108,6 +109,24 @@
     function ultimaProformaDe(agendamientoId) {
         var conMonto = ciclosRealesDe(agendamientoId).filter(function (c) { return !!c.monto_validado; });
         return conMonto.length ? conMonto[conMonto.length - 1] : null;
+    }
+
+    // Suma de todos los pagos/cuotas registrados (insert_pago_factura) para
+    // un agendamiento — nueva mecánica de facturación a plazos (2026-07-03).
+    // En un pago único (sin plazos) esto termina siendo el monto de esa
+    // única cuota; en una factura a plazos, se acumula a medida que llegan
+    // más pagos.
+    function agruparPagosPorAgendamiento(pagos) {
+        var mapa = {};
+        pagos.forEach(function (pg) {
+            var key = pg.id_agendamiento;
+            if (key === null || key === undefined) return;
+            mapa[key] = (mapa[key] || 0) + (parseFloat(pg.monto_pago) || 0);
+        });
+        return mapa;
+    }
+    function totalFacturadoDe(agendamientoId) {
+        return montoFacturadoPorAgendamiento[agendamientoId] || 0;
     }
 
     function totalAcumuladoPromotor(usuario) {
@@ -299,14 +318,16 @@
             var f = getFase(p);
             var dias = diasDesde(refFechaFase(p));
             var vigente = ultimaProformaDe(p.agendamiento_id);
-            var monto = vigente ? fmtMonto(vigente.monto_validado) : '—';
+            var cotizacionInicial = vigente ? fmtMonto(vigente.monto_validado) : '—';
+            var montoFacturado = fmtMonto(totalFacturadoDe(p.agendamiento_id));
             var hl = String(p.agendamiento_id) === String(highlightedAgId) ? 'is-highlight' : '';
             return '<tr data-agendamiento-id="' + esc(p.agendamiento_id) + '" class="' + hl + '">'
                 + '<td><div class="ef-tabla-empresa">' + esc(p.empresa || '—') + '</div>'
                 +     '<div class="ef-tabla-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div></td>'
                 + '<td><span class="ef-fase-badge is-f' + f + '">Fase ' + f + '</span></td>'
-                + '<td class="' + clsDias(dias) + '">' + fmtDias(dias) + '</td>'
-                + '<td class="ef-monto">' + monto + '</td>'
+                + '<td class="ef-dias-plano">' + fmtDias(dias) + '</td>'
+                + '<td class="ef-monto-cotizacion">' + cotizacionInicial + '</td>'
+                + '<td class="ef-monto-facturado">' + montoFacturado + '</td>'
                 + '<td><button type="button" class="ef-btn-auditar" data-agendamiento-id="' + esc(p.agendamiento_id) + '">Auditar</button></td>'
                 + '</tr>';
         }).join('');
@@ -328,8 +349,8 @@
             + '</div>'
             + '<div class="ef-promo-badges">' + badges + '</div>'
             + '<div class="ef-promo-tabla-wrap"><table class="ef-tabla-prom">'
-            +   '<thead><tr><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto vigente</th><th></th></tr></thead>'
-            +   '<tbody>' + (filas || '<tr><td colspan="5" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
+            +   '<thead><tr><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Cotización Inicial</th><th>Monto Facturado</th><th></th></tr></thead>'
+            +   '<tbody>' + (filas || '<tr><td colspan="6" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
             + '</table></div>';
     }
 
@@ -497,12 +518,17 @@
         document.getElementById('efPromoLista').innerHTML = '<div class="ef-vacio">Cargando...</div>';
         document.getElementById('efPromoDetalle').innerHTML = '<div class="ef-vacio">Selecciona un promotor.</div>';
 
-        return fetch(GETTERS_BASE + 'proformas_listar.php')
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                allRows = d.data || [];
+        return Promise.all([
+            fetch(GETTERS_BASE + 'proformas_listar.php').then(function (r) { return r.json(); }),
+            // get_pagos_factura.php degrada a {"data":[]} si insert_pago_factura
+            // todavía no existe en esta BD — no hace falta chequeo defensivo.
+            fetch(GETTERS_BASE + 'get_pagos_factura.php').then(function (r) { return r.json(); })
+        ])
+            .then(function (resultados) {
+                allRows = resultados[0].data || [];
                 pipeline = ultimosCiclos(allRows);
                 porAgendamiento = agruparPorAgendamiento(allRows);
+                montoFacturadoPorAgendamiento = agruparPagosPorAgendamiento(resultados[1].data || []);
                 construirEsqueletoKanban();
                 renderKanban(pipelineFiltrado());
                 renderPromoLista();
