@@ -17,7 +17,7 @@ include_once '../db_connect.php';
 $id_proforma = isset($_GET['id_proforma']) ? (int)$_GET['id_proforma'] : 0;
 
 $selectBase = "SELECT id, id_proforma, id_agendamiento, codigo_pdv, usuario,
-        numero_cuota, monto_pago, foto_pago, fecha_pago, fecha_registro
+        numero_cuota, monto_pago, foto_pago, fecha_pago, observacion, fecha_registro
     FROM insert_pago_factura";
 
 $registros = [];

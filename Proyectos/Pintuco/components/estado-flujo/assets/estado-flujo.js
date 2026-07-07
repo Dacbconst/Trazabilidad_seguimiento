@@ -9,10 +9,12 @@
     var pipeline           = [];  // 1 fila por agendamiento = su último ciclo
     var porAgendamiento    = {};  // { agendamiento_id: [ciclos ASC por id] }
     var montoFacturadoPorAgendamiento = {}; // { agendamiento_id: suma de monto_pago }
+    var pagosPorProforma  = {};   // { id_proforma: [pagos ASC por numero_cuota] }
     var tabActiva          = 'fase';
     var promActivo         = null;
     var highlightedAgId    = null;
     var auditoriaAbierta   = null;
+    var pagoModalAbierto   = false;
 
     // ── Helpers ──────────────────────────────────────────────────────
     function esc(s) {
@@ -127,6 +129,22 @@
     }
     function totalFacturadoDe(agendamientoId) {
         return montoFacturadoPorAgendamiento[agendamientoId] || 0;
+    }
+
+    // Mismos pagos, agrupados por id_proforma (la fila de factura puntual,
+    // no el agendamiento) y ordenados por numero_cuota — para dibujar la
+    // cuadrícula de cuotas del panel de Financiamiento.
+    function agruparPagosPorProforma(pagos) {
+        var mapa = {};
+        pagos.forEach(function (pg) {
+            var key = pg.id_proforma;
+            if (!mapa[key]) mapa[key] = [];
+            mapa[key].push(pg);
+        });
+        Object.keys(mapa).forEach(function (k) {
+            mapa[k].sort(function (a, b) { return (parseInt(a.numero_cuota, 10) || 0) - (parseInt(b.numero_cuota, 10) || 0); });
+        });
+        return mapa;
     }
 
     function totalAcumuladoPromotor(usuario) {
@@ -374,6 +392,7 @@
 
         renderAuditoriaTimeline(p, ciclos);
         renderAuditoriaHistorial(ciclos);
+        renderFinanciamiento(agendamientoId, ciclos);
 
         document.getElementById('efAuditoriaOverlay').classList.add('is-abierto');
     }
@@ -502,6 +521,140 @@
         document.getElementById('efAudHistorial').innerHTML = html;
     }
 
+    // ── Panel de Financiamiento (factura pagada a plazos, 2026-07-07) ──
+    // La "factura" no es una tabla aparte: es la fila de "ciclos" que tiene
+    // foto_factura lleno (misma insert_proforma de siempre). Cada pago/cuota
+    // vive en insert_pago_factura, agrupado por esa fila (id_proforma).
+    var CUOTAS_VISIBLES_MAX = 8;
+
+    function renderFinanciamiento(agendamientoId, ciclos) {
+        var cont = document.getElementById('efFinanciamiento');
+        var panel = document.getElementById('efAuditoriaPanel');
+        var factura = ultimoCicloConFactura(ciclos);
+
+        if (!factura) {
+            // Sin factura todavía (fase 1-4): panel de una sola columna,
+            // igual que antes de esta mecánica.
+            panel.classList.remove('has-financiamiento');
+            cont.innerHTML = '';
+            return;
+        }
+        panel.classList.add('has-financiamiento');
+
+        var cotizacionInicial = ultimaProformaDe(agendamientoId);
+        var montoFacturado = totalFacturadoDe(agendamientoId);
+        var pagos = pagosPorProforma[factura.id] || [];
+
+        var plazoMeses = parseInt(factura.plazo_meses, 10) || 0;
+        var esDirecto = plazoMeses <= 0;
+        var totalCuotas = esDirecto ? 1 : plazoMeses;
+        var progreso = Math.min(100, Math.round((pagos.length / totalCuotas) * 100));
+
+        var cuotasAMostrar = Math.min(totalCuotas, CUOTAS_VISIBLES_MAX);
+        var restantes = totalCuotas - cuotasAMostrar;
+
+        var tarjetas = '';
+        for (var n = 1; n <= cuotasAMostrar; n++) {
+            var pago = pagos.filter(function (pg) { return (parseInt(pg.numero_cuota, 10) || 0) === n; })[0];
+            var etiqueta = esDirecto ? 'Pago Único' : ('M' + n);
+            if (pago) {
+                var fotoUrl = pago.foto_pago ? (FOTO_BASE + pago.foto_pago) : null;
+                tarjetas +=
+                    '<div class="ef-fin-card is-pagada" data-pago-id="' + esc(pago.id) + '">'
+                    + '<div class="ef-fin-card-top">'
+                    +   '<div class="ef-fin-card-info">'
+                    +     '<span class="ef-fin-card-mes">' + esc(etiqueta) + '</span>'
+                    +     '<div class="ef-fin-card-monto">' + fmtMonto(pago.monto_pago) + '</div>'
+                    +     '<div class="ef-fin-card-fecha">' + esc(formatFechaHora(pago.fecha_pago || pago.fecha_registro)) + '</div>'
+                    +     (pago.observacion ? '<div class="ef-fin-card-obs">Obs: ' + esc(pago.observacion) + '</div>' : '')
+                    +   '</div>'
+                    +   (fotoUrl
+                            ? '<div class="ef-fin-card-foto-wrap"><img class="ef-fin-card-foto" src="' + esc(fotoUrl) + '" alt="Foto de pago"><span class="ef-fin-card-check"><i class="glyphicon glyphicon-ok"></i></span></div>'
+                            : '<div class="ef-fin-card-foto-wrap"><span class="ef-fin-card-check"><i class="glyphicon glyphicon-ok"></i></span></div>')
+                    + '</div>'
+                    + '</div>';
+            } else {
+                tarjetas +=
+                    '<div class="ef-fin-card is-pendiente">'
+                    +   '<span class="ef-fin-card-mes">' + esc(etiqueta) + '</span>'
+                    +   '<div class="ef-fin-card-monto is-pendiente">' + fmtMonto(montoTeoricoPorCuota(factura, totalCuotas)) + '</div>'
+                    +   '<span class="ef-fin-card-pendiente-label">Pendiente</span>'
+                    + '</div>';
+            }
+        }
+        if (restantes > 0) {
+            tarjetas += '<div class="ef-fin-card-restantes">+ ' + restantes + ' mes' + (restantes !== 1 ? 'es' : '') + ' restante' + (restantes !== 1 ? 's' : '') + '</div>';
+        }
+
+        var fechaActivacion = factura.fecha_factura || factura.fecha_auditoria || factura.proforma_fecha_registro;
+        var badgeTexto = esDirecto ? 'Pago Único' : (totalCuotas + ' Cuota' + (totalCuotas !== 1 ? 's' : ''));
+        var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado' }[factura.estado_pago] || null;
+
+        cont.innerHTML =
+            '<div class="ef-fin-resumen">'
+            +   '<div class="ef-fin-resumen-item">'
+            +     '<span class="ef-fin-resumen-label">Cotización Inicial</span>'
+            +     '<div class="ef-fin-resumen-valor">' + (cotizacionInicial ? fmtMonto(cotizacionInicial.monto_validado) : '—') + '</div>'
+            +   '</div>'
+            +   '<div class="ef-fin-resumen-sep"></div>'
+            +   '<div class="ef-fin-resumen-item is-derecha">'
+            +     '<span class="ef-fin-resumen-label">Monto Facturado</span>'
+            +     '<div class="ef-fin-resumen-valor is-verde">' + fmtMonto(montoFacturado) + '</div>'
+            +   '</div>'
+            + '</div>'
+            + '<div class="ef-fin-progreso">'
+            +   '<div class="ef-fin-progreso-top">'
+            +     '<span class="ef-fin-resumen-label">Progreso de Cobro</span>'
+            +     '<span class="ef-fin-progreso-pct">' + progreso + '%</span>'
+            +   '</div>'
+            +   '<div class="ef-fin-progreso-barra"><div class="ef-fin-progreso-relleno" style="width:' + progreso + '%"></div></div>'
+            + '</div>'
+            + '<div class="ef-fin-header">'
+            +   '<h3 class="ef-auditoria-seccion-titulo">Financiamiento' + (esDirecto ? '' : ' (' + totalCuotas + ' meses)') + '</h3>'
+            +   '<span class="ef-fin-badge">' + esc(badgeTexto) + '</span>'
+            + '</div>'
+            + (estadoPagoLabel ? '<div class="ef-fin-estado-pago">Estado de pago: <strong>' + esc(estadoPagoLabel) + '</strong></div>' : '')
+            + '<div class="ef-fin-grid">' + tarjetas + '</div>'
+            + '<div class="ef-fin-nota">'
+            +   '<p class="ef-fin-nota-titulo">Nota de Facturación</p>'
+            +   '<p class="ef-fin-nota-texto">El financiamiento se activó automáticamente tras la aprobación de la <strong>Fase 5</strong>'
+            +     (fechaActivacion ? ' el ' + esc(formatFecha(fechaActivacion)) : '') + '.</p>'
+            + '</div>';
+
+        cont.querySelectorAll('.ef-fin-card.is-pagada').forEach(function (card) {
+            card.addEventListener('click', function () {
+                var pagoId = card.dataset.pagoId;
+                var pago = pagos.filter(function (pg) { return String(pg.id) === String(pagoId); })[0];
+                if (pago) abrirPagoModal(pago, card.querySelector('.ef-fin-card-mes').textContent);
+            });
+        });
+    }
+
+    // Monto "teórico" de una cuota todavía pendiente — solo de referencia
+    // visual (el monto real de cada pago lo define el promotor al subirlo,
+    // no tiene que ser exactamente monto_total_factura/totalCuotas).
+    function montoTeoricoPorCuota(factura, totalCuotas) {
+        var total = parseFloat(factura.monto_total_factura) || 0;
+        if (!total || !totalCuotas) return null;
+        return total / totalCuotas;
+    }
+
+    // ── Modal de detalle de pago ───────────────────────────────────────
+    function abrirPagoModal(pago, etiquetaMes) {
+        document.getElementById('efPagoModalMes').textContent = etiquetaMes || '';
+        document.getElementById('efPagoModalMonto').textContent = fmtMonto(pago.monto_pago);
+        document.getElementById('efPagoModalFecha').textContent = formatFechaHora(pago.fecha_pago || pago.fecha_registro);
+        document.getElementById('efPagoModalObs').textContent = pago.observacion || 'Sin observación.';
+        document.getElementById('efPagoModalImg').src = pago.foto_pago ? (FOTO_BASE + pago.foto_pago) : '';
+        pagoModalAbierto = true;
+        document.getElementById('efPagoModalOverlay').classList.add('is-abierto');
+    }
+    function cerrarPagoModal() {
+        pagoModalAbierto = false;
+        document.getElementById('efPagoModalOverlay').classList.remove('is-abierto');
+        document.getElementById('efPagoModalImg').src = '';
+    }
+
     // ── Lightbox de foto ────────────────────────────────────────────
     function abrirLightbox(src) {
         document.getElementById('efLightboxImg').src = src;
@@ -529,6 +682,7 @@
                 pipeline = ultimosCiclos(allRows);
                 porAgendamiento = agruparPorAgendamiento(allRows);
                 montoFacturadoPorAgendamiento = agruparPagosPorAgendamiento(resultados[1].data || []);
+                pagosPorProforma = agruparPagosPorProforma(resultados[1].data || []);
                 construirEsqueletoKanban();
                 renderKanban(pipelineFiltrado());
                 renderPromoLista();
@@ -578,8 +732,15 @@
         abrirLightbox(img.src);
     });
     document.getElementById('efLightbox').addEventListener('click', cerrarLightbox);
+
+    document.getElementById('efPagoModalClose').addEventListener('click', cerrarPagoModal);
+    document.getElementById('efPagoModalOverlay').addEventListener('click', function (e) {
+        if (e.target.id === 'efPagoModalOverlay') cerrarPagoModal();
+    });
+
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
+        if (pagoModalAbierto) { cerrarPagoModal(); return; }
         if (document.getElementById('efLightbox').classList.contains('is-visible')) { cerrarLightbox(); return; }
         if (auditoriaAbierta) cerrarAuditoria();
     });

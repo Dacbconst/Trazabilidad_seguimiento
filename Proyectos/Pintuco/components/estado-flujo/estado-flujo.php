@@ -98,21 +98,47 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
                 <span class="ef-fase-badge" id="efAudFaseBadge"></span>
                 <span class="ef-auditoria-dias" id="efAudDias"></span>
             </div>
-            <div class="ef-auditoria-body">
-                <div class="ef-auditoria-seccion-titulo">Línea de tiempo por fase</div>
-                <div id="efAudTimeline"></div>
+            <div class="ef-auditoria-columns" id="efAuditoriaColumnas">
+                <div class="ef-auditoria-body">
+                    <div class="ef-auditoria-seccion-titulo">Línea de tiempo por fase</div>
+                    <div id="efAudTimeline"></div>
 
-                <div class="ef-auditoria-divider"></div>
+                    <div class="ef-auditoria-divider"></div>
 
-                <div class="ef-auditoria-seccion-titulo">Historial de proformas del analista</div>
-                <div id="efAudHistorial"></div>
+                    <div class="ef-auditoria-seccion-titulo">Historial de proformas del analista</div>
+                    <div id="efAudHistorial"></div>
+                </div>
+
+                <!-- Financiamiento: solo se llena/muestra cuando el agendamiento
+                     ya tiene una fila de factura (foto_factura) — ver
+                     renderFinanciamiento() en estado-flujo.js. -->
+                <div class="ef-financiamiento" id="efFinanciamiento"></div>
             </div>
         </div>
     </div>
 
-    <!-- Lightbox de foto -->
+    <!-- Lightbox de foto (timeline, sin info adicional) -->
     <div class="ef-lightbox" id="efLightbox">
         <img src="" alt="Foto" id="efLightboxImg">
+    </div>
+
+    <!-- Modal de detalle de pago (foto + mes + monto + fecha + observación) -->
+    <div class="ef-pago-modal-overlay" id="efPagoModalOverlay">
+        <div class="ef-pago-modal-card">
+            <button type="button" class="ef-pago-modal-close" id="efPagoModalClose" aria-label="Cerrar">&times;</button>
+            <div class="ef-pago-modal-foto">
+                <img src="" alt="Foto de pago" id="efPagoModalImg">
+            </div>
+            <div class="ef-pago-modal-info">
+                <div class="ef-pago-modal-top">
+                    <span class="ef-pago-modal-mes" id="efPagoModalMes"></span>
+                    <span class="ef-pago-modal-monto" id="efPagoModalMonto"></span>
+                </div>
+                <div class="ef-pago-modal-fecha" id="efPagoModalFecha"></div>
+                <div class="ef-pago-modal-obs-titulo">Observación</div>
+                <div class="ef-pago-modal-obs" id="efPagoModalObs"></div>
+            </div>
+        </div>
     </div>
 
 </div>

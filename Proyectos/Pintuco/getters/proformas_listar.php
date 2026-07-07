@@ -30,6 +30,11 @@ $id_agendamiento = isset($_GET['id_agendamiento'])  ? (int)$_GET['id_agendamient
 // c.id AS agendamiento_id: siempre presente aunque no haya proforma todavía.
 // foto_factura y fase_actual agregadas en producción vía ALTER TABLE
 // (confirmado 2026-07-03) — ya se seleccionan como columnas reales.
+// monto_total_factura/plazo_meses/estado_pago: factura pagada a plazos
+// (2026-07-07), los escribe la app — acá solo se leen. estado_pago es de
+// UN SOLO DUEÑO (la app): nunca escribirlo desde la web.
+// fecha_factura TODAVÍA NO se selecciona: pendiente ALTER TABLE
+// (ver memoria del proyecto) — agregarla acá en cuanto exista en BD.
 $selectBase = "SELECT
         c.id           AS agendamiento_id,
         c.codigo_pdv,
@@ -56,6 +61,9 @@ $selectBase = "SELECT
         p.observaciones_auditoria,
         p.fecha_auditoria,
         p.fase_actual,
+        p.monto_total_factura,
+        p.plazo_meses,
+        p.estado_pago,
         p.caracteristica_visita,
         p.acompanamiento_tecnico,
         p.fecha_registro   AS proforma_fecha_registro
