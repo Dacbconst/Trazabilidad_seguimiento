@@ -34,6 +34,29 @@
     }
 
     // ---------------------------------------------------------------
+    // Punto azul "hay un cambio sin atender" — puramente local (localStorage,
+    // por navegador/analista). "Cambio" = cualquier dato que mueva la fase o
+    // requiera revisión (llegó foto, se movió a negociación/corrección/
+    // aprobado/rechazado, llegó factura). Se guarda una "firma" del estado
+    // visto la última vez; si no coincide con la actual, se asume sin
+    // atender. Al abrir la fila (alternarFila) se marca como vista — eso
+    // cuenta como "atenderla". Si vuelve a cambiar después, el punto reaparece.
+    // ---------------------------------------------------------------
+    var VISTO_KEY_PREFIX = 'pintuco_proforma_visto_';
+
+    function firmaFila(p) {
+        return [p.estado_proforma, p.evidencia, p.foto_factura, p.monto_validado, p.fecha_auditoria].join('|');
+    }
+    function tieneCambioSinAtender(p) {
+        var guardada;
+        try { guardada = localStorage.getItem(VISTO_KEY_PREFIX + p.agendamiento_id); } catch (e) { return false; }
+        return guardada !== firmaFila(p);
+    }
+    function marcarVisto(p) {
+        try { localStorage.setItem(VISTO_KEY_PREFIX + p.agendamiento_id, firmaFila(p)); } catch (e) {}
+    }
+
+    // ---------------------------------------------------------------
     // Mini ventana de foto (evidencia / factura)
     // ---------------------------------------------------------------
     function mostrarFoto(src) {
@@ -235,7 +258,7 @@
 
         var count = document.createElement('span');
         count.className = 'proforma-grupo-count';
-        count.textContent = filas.length + ' agendamiento' + (filas.length !== 1 ? 's' : '') + ' en ruta';
+        count.textContent = filas.length + ' agendamiento' + (filas.length !== 1 ? 's' : '');
 
         info.appendChild(nombre);
         info.appendChild(count);
@@ -257,9 +280,10 @@
         var sub = document.createElement('div');
         sub.className = 'proforma-grupo-subheader';
         sub.innerHTML =
-            '<span class="proforma-sh-cliente">Cliente / Dirección</span>'
+            '<span class="proforma-sh-cliente">Empresa / Dirección</span>'
             + '<span class="proforma-sh-fecha">Fecha visita</span>'
-            + '<span class="proforma-sh-estado">Estado</span>';
+            + '<span class="proforma-sh-estado">Estado</span>'
+            + '<span class="proforma-sh-acciones">Acciones</span>';
         wrap.appendChild(sub);
 
         // Filas del grupo
@@ -292,7 +316,18 @@
         cCliente.className = 'proforma-gfila-cliente';
         var empresa = document.createElement('div');
         empresa.className = 'proforma-gfila-empresa';
-        empresa.textContent = p.empresa || p.contacto || '—';
+        var empresaTexto = document.createElement('span');
+        empresaTexto.textContent = p.empresa || p.contacto || '—';
+        empresa.appendChild(empresaTexto);
+        // Punto azul: hay un cambio (foto nueva, cambio de fase, etc.) que
+        // el analista todavía no revisó en esta sesión — ver
+        // tieneCambioSinAtender()/marcarVisto() más arriba.
+        if (tieneCambioSinAtender(p)) {
+            var dot = document.createElement('span');
+            dot.className = 'proforma-gfila-dot';
+            dot.title = 'Hay un cambio sin revisar';
+            empresa.appendChild(dot);
+        }
         // Dirección real guardada en BD (c.direccion), no el nombre del PDV
         // — el promotor ya se ve una sola vez en el header del grupo.
         var direccionEl = document.createElement('div');
@@ -312,11 +347,19 @@
         badgeEl.textContent = badge.label;
         cEstado.appendChild(badgeEl);
 
+        // Acciones: el ojo es puramente visual/indicativo — clickear en
+        // cualquier parte de la fila (incluido el ojo, por burbujeo normal
+        // del evento) abre el mismo detalle.
+        var cAcciones = document.createElement('div');
+        cAcciones.className = 'proforma-gfila-acciones';
+        cAcciones.innerHTML = '<i class="glyphicon glyphicon-eye-open"></i>';
+
         fila.appendChild(cCliente);
         fila.appendChild(cFecha);
         fila.appendChild(cEstado);
+        fila.appendChild(cAcciones);
 
-        fila.addEventListener('click', function () { alternarFila(p.agendamiento_id); });
+        fila.addEventListener('click', function () { alternarFila(p); });
 
         wrap.appendChild(fila);
 
@@ -328,8 +371,14 @@
         return wrap;
     }
 
-    function alternarFila(agendamientoId) {
-        filaAbiertaId = (filaAbiertaId === agendamientoId) ? null : agendamientoId;
+    function alternarFila(p) {
+        var agendamientoId = p.agendamiento_id;
+        var abriendo = filaAbiertaId !== agendamientoId;
+        filaAbiertaId = abriendo ? agendamientoId : null;
+        // Abrir la fila cuenta como "atenderla": el punto azul de esa fila
+        // se apaga y no vuelve a aparecer hasta que el estado cambie de
+        // nuevo (nueva foto, cambio de fase, etc.).
+        if (abriendo) marcarVisto(p);
         renderizar();
         if (filaAbiertaId !== null) {
             setTimeout(function () {

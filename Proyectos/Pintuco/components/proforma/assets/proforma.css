@@ -74,7 +74,7 @@
 /* Tarjeta de grupo */
 .proforma-grupo {
     background: #fff;
-    border: 1px solid #e3e8ee;
+    border: 1px solid #ccd3dc;
     border-radius: 8px;
     overflow: hidden;
 }
@@ -139,25 +139,26 @@
 /* Sub-header de columnas */
 .proforma-grupo-subheader {
     display: grid;
-    grid-template-columns: 1fr 110px 88px;
+    grid-template-columns: 2.2fr 1fr 0.9fr 0.7fr;
     gap: 8px;
     padding: 8px 18px;
     background: #f0f3f7;
-    border-bottom: 1px solid #e3e8ee;
+    border-bottom: 1px solid #ccd3dc;
     font-size: 10.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .4px;
     color: #5b6577;
 }
+.proforma-sh-acciones { text-align: center; }
 
 /* Filas de agendamiento */
-.proforma-gfila-wrap { border-bottom: 1px solid #edf0f4; }
+.proforma-gfila-wrap { border-bottom: 1px solid #d7dce3; }
 .proforma-gfila-wrap:last-child { border-bottom: none; }
 
 .proforma-gfila {
     display: grid;
-    grid-template-columns: 1fr 110px 88px;
+    grid-template-columns: 2.2fr 1fr 0.9fr 0.7fr;
     gap: 8px;
     align-items: center;
     padding: 13px 18px;
@@ -169,12 +170,26 @@
 
 /* Cada celda de la fila ocupa exactamente su columna — sin desborde */
 .proforma-gfila-cliente  { min-width: 0; overflow: hidden; }
-.proforma-gfila-empresa  { font-weight: 700; color: #1f2d3d; font-size: 13px;
-                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proforma-gfila-empresa  { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.proforma-gfila-empresa span:first-child {
+    font-weight: 700; color: #1f2d3d; font-size: 13px; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .proforma-gfila-pdv      { font-size: 11.5px; color: #8a93a3; margin-top: 2px;
                             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .proforma-gfila-fecha    { font-size: 13px; color: #33415c; white-space: nowrap; }
 .proforma-gfila-estado   { }
+.proforma-gfila-acciones { display: flex; align-items: center; justify-content: center; color: #5b6577; font-size: 15px; }
+
+/* Punto azul: cambio sin revisar en esta fila (ver tieneCambioSinAtender()
+   en proforma.js) — se queda hasta que el analista abra la fila. */
+.proforma-gfila-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2f6fed;
+    flex-shrink: 0;
+}
 
 /* Panel de detalle (3 columnas) */
 .proforma-gdetalle {

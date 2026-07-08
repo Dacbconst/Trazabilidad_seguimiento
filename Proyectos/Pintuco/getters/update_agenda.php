@@ -71,9 +71,15 @@ if ($editaCompleto) {
 // visita sin técnico y a cualquier hora — ya pasó en datos reales: hora
 // 00:00 con técnico vacío. El front ya restringe el input a este rango,
 // pero la validación real tiene que estar acá: nunca confiar solo en lo que
-// el navegador deja escribir.
-if ($hora === '' || $tecnico === '') {
-    echo json_encode(["success" => false, "message" => "Falta asignar hora y técnico antes de guardar."]);
+// el navegador deja escribir. Se valida por separado (en vez de un mensaje
+// genérico "hora y técnico") porque ahora la hora casi siempre ya viene
+// sugerida desde el móvil — lo que de verdad suele faltar es el técnico.
+if ($tecnico === '') {
+    echo json_encode(["success" => false, "message" => "Falta asignar un técnico antes de guardar."]);
+    exit;
+}
+if ($hora === '') {
+    echo json_encode(["success" => false, "message" => "Falta asignar una hora antes de guardar."]);
     exit;
 }
 $minutosHora = (int)substr($hora, 0, 2) * 60 + (int)substr($hora, 3, 2);
@@ -113,19 +119,24 @@ if ($editaCompleto) {
 }
 
 // Estado automático (contrato compartido con la app móvil — Constantes.java /
-// AdapterAgenda.java, que lee esta misma tabla por sync): si la visita no
-// tenía hora asignada todavía, esta gestión asigna técnico/hora por primera
-// vez ('confirmado'); si ya tenía una, guardar de nuevo (cambie o no la
-// fecha/hora) significa que se está reagendando ('reagendada').
-$horaPrevia = null;
-if ($sql = $mysqli->prepare("SELECT hora FROM insert_proyectos_contacto WHERE id = ?")) {
+// AdapterAgenda.java, que lee esta misma tabla por sync): mientras la visita
+// siga en 'pendiente' (el móvil ya puede sugerir fecha Y hora, pero nadie la
+// confirmó todavía), esta gestión es la primera confirmación del analista
+// ('confirmado'), edite o no la fecha/hora sugerida — con tal de que ponga
+// el técnico. Si ya estaba confirmado/reagendada/vencida de antes, guardar
+// de nuevo sí es un reagendamiento real ('reagendada').
+// (Antes esto se decidía mirando si `hora` ya tenía valor, pero eso se rompió
+// en cuanto el móvil empezó a mandar también una hora sugerida: la columna
+// ya no estaba vacía en la primera apertura, y todo caía como "reagendada".)
+$estadoPrevio = null;
+if ($sql = $mysqli->prepare("SELECT estado_agenda FROM insert_proyectos_contacto WHERE id = ?")) {
     $sql->bind_param("i", $id);
     $sql->execute();
-    $sql->bind_result($horaPrevia);
+    $sql->bind_result($estadoPrevio);
     $sql->fetch();
     $sql->close();
 }
-$estado_agenda = ($horaPrevia === null || $horaPrevia === '') ? 'confirmado' : 'reagendada';
+$estado_agenda = ($estadoPrevio === null || $estadoPrevio === '' || $estadoPrevio === 'pendiente') ? 'confirmado' : 'reagendada';
 
 // Un técnico no puede estar en dos visitas a la vez: se rechaza si la nueva
 // hora cae dentro de los DURACION_APROX_MIN minutos (mismo valor que usa el

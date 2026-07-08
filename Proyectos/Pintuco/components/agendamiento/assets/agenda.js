@@ -614,7 +614,7 @@
         // vez aquí en la web (cualquier cambio después de eso ya cuenta
         // como "reagendada", no como ajustar una sugerencia).
         document.getElementById('agendaEditFechaLabel').textContent =
-            estado === 'pendiente' ? 'Fecha sugerida' : 'Fecha agendada';
+            estado === 'pendiente' ? 'Sugerido' : 'Fecha agendada';
 
         // Promotor y Local: siempre solo texto, el switch de edición no los toca.
         document.getElementById('agendaEditPromotor').textContent = props.usuario || '—';
@@ -875,11 +875,19 @@
                 titulo.textContent = arg.event.title;
                 wrap.appendChild(titulo);
 
-                if (arg.timeText) {
-                    var hora = document.createElement('div');
-                    hora.className = 'gcal-event-time';
-                    hora.textContent = formatoHora12(arg.timeText) + (arg.event.end ? ' (aprox)' : '');
-                    wrap.appendChild(hora);
+                // El bloque solo tiene altura real para 2 líneas (lo mide la
+                // duración de 45 min contra el rango 6am-11pm — una 3ra línea
+                // se corta por overflow). Para que quepan las 3 cosas (título,
+                // empresa, hora) sin que nada se corte, empresa y hora
+                // comparten la 2da línea en vez de ir cada una en la suya.
+                var empresa = arg.event.extendedProps.empresa;
+                var horaTexto = arg.timeText ? (formatoHora12(arg.timeText) + (arg.event.end ? ' (aprox)' : '')) : '';
+                var subtitulo = [empresa, horaTexto].filter(Boolean).join(' · ');
+                if (subtitulo) {
+                    var sub = document.createElement('div');
+                    sub.className = 'gcal-event-time';
+                    sub.textContent = subtitulo;
+                    wrap.appendChild(sub);
                 }
 
                 return { domNodes: [wrap] };

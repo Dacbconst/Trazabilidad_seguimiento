@@ -23,6 +23,23 @@ $mysqli->query(
        AND estado_agenda NOT IN ('cancelada', 'completada', 'vencida')"
 );
 
+// "completada" tampoco la elige nadie a mano: en cuanto llega la primera foto
+// de proforma (insert_proforma.evidencia, la sube el promotor desde el
+// celular) para un agendamiento, se asume que la visita ya se hizo — se
+// corrige perezosamente acá, igual que "vencida" arriba. Corre DESPUÉS de la
+// corrección de "vencida" a propósito: si una visita venció sin reagendarse
+// pero después llegó su foto de proforma, sí debe pasar a "completada" (la
+// visita sí ocurrió), pisando el "vencida". Cancelada nunca se pisa: es una
+// decisión manual del analista.
+$mysqli->query(
+    "UPDATE insert_proyectos_contacto c
+     JOIN insert_proforma p ON p.id_agendamiento = c.id
+     SET c.estado_agenda = 'completada'
+     WHERE c.activar = 'SI'
+       AND p.evidencia IS NOT NULL AND p.evidencia != ''
+       AND c.estado_agenda NOT IN ('cancelada', 'completada')"
+);
+
 // Filtros opcionales por GET (todos opcionales, si no llegan no se aplican)
 $fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : '';
 $fecha_fin    = isset($_GET['fecha_fin'])    ? $_GET['fecha_fin']    : '';
