@@ -8,6 +8,7 @@
 
     var currentRows   = [];
     var filaAbiertaId = null;
+    var grupoAbierto  = null; // nombre del promotor cuyo grupo está expandido (null = todos cerrados)
     var toastTimer    = null;
 
     // ---------------------------------------------------------------
@@ -239,7 +240,11 @@
     // ---------------------------------------------------------------
     function construirGrupo(promotor, filas) {
         var wrap = document.createElement('div');
-        wrap.className = 'proforma-grupo';
+        // Acordeón por promotor: arranca cerrado, el usuario lo abre a mano
+        // y al abrir uno se cierra el que estaba abierto (mutuamente
+        // excluyentes) — mismo criterio que el acordeón de mantenimiento
+        // fotográfico.
+        wrap.className = 'proforma-grupo' + (promotor === grupoAbierto ? '' : ' is-cerrado');
 
         // Header de grupo
         var hdr = document.createElement('div');
@@ -271,7 +276,8 @@
         hdr.appendChild(chevron);
 
         hdr.addEventListener('click', function () {
-            wrap.classList.toggle('is-cerrado');
+            grupoAbierto = (grupoAbierto === promotor) ? null : promotor;
+            renderizar();
         });
 
         wrap.appendChild(hdr);
@@ -495,7 +501,13 @@
             .sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); })
             .map(function (c) {
                 return {
-                    fecha: formatFechaHora(c.fecha_auditoria),
+                    // fecha_auditoria solo se llena cuando el analista corre
+                    // 'guardar'/'rechazar' en la web. Si el monto vino puesto
+                    // directo por el promotor desde el celular (estado aún
+                    // 'en_proceso'), fecha_auditoria queda null — se usa la
+                    // fecha de registro de esa fila como respaldo (mismo
+                    // patrón ya usado en Fase 5 para ultimaFactura).
+                    fecha: formatFechaHora(c.fecha_auditoria || c.proforma_fecha_registro),
                     monto: formatMonto(c.monto_validado)
                 };
             });
@@ -583,12 +595,13 @@
     }
 
     // ---------------------------------------------------------------
-    // Modal de bloqueo (fixed, centrado en viewport): corrección solicitada.
-    // Ver mecanica-bloqueo-foto.md — un solo booleano lógico ("locked" =
-    // estado_proforma === 'correccion_solicitada'), efecto visual es blur +
-    // pointer-events:none en el wrapper de Evidencia+Auditoría (aplicado por
-    // el llamador vía la clase .is-bloqueado) y este modal centrado encima
-    // de TODA la pantalla, no solo de esa zona.
+    // Modal de bloqueo (absolute, centrado dentro del panel de detalle de
+    // ESE agendamiento): corrección solicitada. Ver mecanica-bloqueo-foto.md
+    // — un solo booleano lógico ("locked" = estado_proforma ===
+    // 'correccion_solicitada'), efecto visual es blur + pointer-events:none
+    // en el wrapper de Evidencia+Auditoría (aplicado por el llamador vía la
+    // clase .is-bloqueado) y este modal centrado sobre el panel (".proforma-
+    // gdetalle", que es position:relative), no sobre toda la página.
     // ---------------------------------------------------------------
     function construirModalBloqueo(p, onResuelto) {
         var overlay = document.createElement('div');

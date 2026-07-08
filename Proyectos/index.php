@@ -91,8 +91,6 @@
 
 			<?php if ($cuenta_habilitada): ?>
 
-				<?php include __DIR__.'/partials/topbar.php'; ?>
-
 				<?php foreach ($secciones as $i => $seccion): ?>
 				<div class="section-pane <?= $i === 0 ? 'active' : '' ?>" id="sec-<?= $seccion['id'] ?>">
 					<?php if ($seccion['id'] === 'principal'): ?>
@@ -168,13 +166,6 @@ $('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 				$('.section-pane').removeClass('active');
 				$($(this).attr('href')).addClass('active');
 
-				// Secciones con filtros propios — el topbar global se oculta para no duplicar.
-				// Principal también se oculta: sus tabs (Avance %, Detalle...) tienen filtros propios.
-				var seccionConFiltroPropio = ['#sec-agendamientos', '#sec-proforma', '#sec-contactados', '#sec-principal', '#sec-estado-flujo'].indexOf($(this).attr('href')) !== -1;
-				$('.topbar').toggleClass('is-hidden', seccionConFiltroPropio);
-
-				$('#btnDescargarExcel').toggle($(this).attr('href') === '#sec-contactados');
-
 				// Auto-actualizar la sección a la que se acaba de entrar, para
 				// que los datos siempre estén frescos sin depender de que el
 				// analista se acuerde de pulsar "Actualizar" cada vez.
@@ -196,16 +187,6 @@ $('.sidebar-nav a[data-toggle="section"]').on('click', function (e) {
 			if (localStorage.getItem('sidebarActivo') === '1') {
 				$('#sidebar').addClass('active');
 			}
-
-			$('#btnActualizar').on('click', function () {
-				var secActiva = $('.section-pane.active').attr('id');
-				var fn = funcionRefrescoDe(secActiva);
-				if (fn) { fn(); } else { location.reload(); }
-			});
-
-			$('#btnDescargarExcel').on('click', function () {
-				if (window.ContactadosDescargarExcel) window.ContactadosDescargarExcel();
-			});
 		});
 	</script>
 </body>

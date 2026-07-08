@@ -28,11 +28,23 @@ if ($usuario !== '') {
     $tipos .= "s";
 }
 
-$query = "SELECT id, codigo_pdv, pdv, direccion, latitud, longitud, usuario, contacto, empresa, mail, telefono,
-                 telefono_convencional, fecha_registro, estado_agenda, fecha_agendamiento
-          FROM insert_proyectos_contacto
+// LEFT JOIN con insert_proforma para obtener datos comerciales (foto_factura,
+// monto_validado, evidencia) — puede devolver N filas por contacto si tiene
+// varios ciclos de proforma; la deduplicación (quedarse con el proforma_id
+// mayor) se hace en JS igual que en estado-flujo.js, para no usar subqueries
+// (Azure/IIS: una subquery en query() devuelve false silenciosamente).
+$query = "SELECT c.id, c.codigo_pdv, c.pdv, c.direccion, c.latitud, c.longitud,
+                 c.usuario, c.contacto, c.empresa, c.mail, c.telefono,
+                 c.telefono_convencional, c.fecha_registro, c.estado_agenda,
+                 c.fecha_agendamiento, c.hora, c.tecnico,
+                 p.id          AS proforma_id,
+                 p.foto_factura,
+                 p.monto_validado,
+                 p.evidencia
+          FROM insert_proyectos_contacto c
+          LEFT JOIN insert_proforma p ON p.id_agendamiento = c.id
           WHERE " . implode(" AND ", $condiciones) . "
-          ORDER BY fecha_registro DESC";
+          ORDER BY c.fecha_registro DESC, p.id ASC";
 
 $registros = [];
 

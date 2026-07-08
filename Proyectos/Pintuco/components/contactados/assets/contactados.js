@@ -15,6 +15,44 @@
         return { fecha: fecha, hora: partes[1].slice(0, 5) };
     }
 
+    // Consolida las filas del JOIN: puede llegar 1 fila por ciclo de proforma.
+    // Se queda con la de mayor proforma_id por contacto (igual que ultimosCiclos
+    // en estado-flujo.js), manteniendo el orden original de fecha_registro DESC.
+    function consolidarContactos(rows) {
+        var mapa = {};
+        var orden = [];
+        rows.forEach(function (r) {
+            var key = String(r.id);
+            var pid = parseInt(r.proforma_id, 10) || 0;
+            if (!mapa[key]) {
+                mapa[key] = {};
+                for (var k in r) { if (r.hasOwnProperty(k)) mapa[key][k] = r[k]; }
+                orden.push(key);
+            } else {
+                var pidActual = parseInt(mapa[key].proforma_id, 10) || 0;
+                if (pid > pidActual) {
+                    mapa[key].proforma_id   = r.proforma_id;
+                    mapa[key].foto_factura  = r.foto_factura;
+                    mapa[key].monto_validado = r.monto_validado;
+                    mapa[key].evidencia     = r.evidencia;
+                }
+            }
+        });
+        return orden.map(function (k) { return mapa[k]; });
+    }
+
+    // Estado comercial del contacto — 5 valores posibles.
+    // Cancelado pisa todo; vencido es una alerta encima del estado comercial.
+    function getEstado(r) {
+        if (r.estado_agenda === 'cancelada') return { label: 'Cancelado', cls: 'is-cancelado' };
+        var vencido = r.estado_agenda === 'vencida';
+        if (r.foto_factura)   return { label: 'Facturado',   cls: 'is-facturado',   vencido: vencido };
+        if (r.monto_validado) return { label: 'Negociando',  cls: 'is-negociando',  vencido: vencido };
+        if (r.proforma_id || r.fecha_agendamiento || r.tecnico)
+                              return { label: 'Agendado',    cls: 'is-agendado',    vencido: vencido };
+        return { label: 'Sin agendar', cls: 'is-sin-agendar', vencido: vencido };
+    }
+
     function iniciales(nombre) {
         if (!nombre) return '?';
         return nombre.trim().charAt(0).toUpperCase();
@@ -89,6 +127,22 @@
         return td;
     }
 
+    function celdaEstado(r) {
+        var td = document.createElement('td');
+        var est = getEstado(r);
+        var badge = document.createElement('span');
+        badge.className = 'ctc-estado-badge ' + est.cls;
+        badge.textContent = est.label;
+        td.appendChild(badge);
+        if (est.vencido) {
+            var warn = document.createElement('div');
+            warn.className = 'ctc-estado-vencida';
+            warn.textContent = '⚠ Vencida';
+            td.appendChild(warn);
+        }
+        return td;
+    }
+
     function celdaRegistrado(r) {
         var td = document.createElement('td');
         var partes = formatFechaHora(r.fecha_registro);
@@ -126,6 +180,7 @@
         tr.appendChild(tdCheck);
 
         tr.appendChild(celdaTexto(r.empresa, 'ctc-empresa'));
+        tr.appendChild(celdaEstado(r));
         tr.appendChild(celdaTexto(r.contacto, 'ctc-contacto'));
         tr.appendChild(celdaDireccion(r));
         tr.appendChild(celdaCorreoTelefono(r));
@@ -141,9 +196,11 @@
     function filasFiltradas() {
         var q        = document.getElementById('contactadosBusqueda').value.toLowerCase().trim();
         var mercader = document.getElementById('contactadosMercaderista').value;
+        var estadoFil = document.getElementById('contactadosEstado').value;
 
         return currentRows.filter(function (r) {
             if (mercader && r.usuario !== mercader) return false;
+            if (estadoFil && getEstado(r).cls !== estadoFil) return false;
             if (q) {
                 var coincide = [r.contacto, r.empresa, r.mail, r.direccion].some(function (v) {
                     return (v || '').toLowerCase().indexOf(q) !== -1;
@@ -235,7 +292,7 @@
         if (!filas.length) {
             var tr = document.createElement('tr');
             var td = document.createElement('td');
-            td.colSpan = 8;
+            td.colSpan = 9;
             td.className = 'ctc-vacio';
             td.textContent = 'Sin contactos que coincidan con el filtro.';
             tr.appendChild(td);
@@ -272,7 +329,7 @@
         fetch(GETTERS_BASE + 'get_contactados.php')
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
-                currentRows = json.data || [];
+                currentRows = consolidarContactos(json.data || []);
                 selectedIds = {};
                 paginaActual = 1;
                 construirOpcionesMercaderista();
@@ -285,6 +342,7 @@
         var datos = filas.map(function (r) {
             return {
                 'Empresa': r.empresa || '',
+                'Estado': getEstado(r).label,
                 'Contacto': r.contacto || '',
                 'Dirección': r.direccion || '',
                 'Correo': r.mail || '',
@@ -297,7 +355,7 @@
         });
 
         var hoja = XLSX.utils.json_to_sheet(datos);
-        hoja['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 26 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
+        hoja['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 20 }, { wch: 26 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
 
         var libro = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(libro, hoja, 'Contactos');
@@ -340,6 +398,7 @@
         cargarContactados();
         document.getElementById('contactadosBusqueda').addEventListener('input', resetearSeleccionYRenderizar);
         document.getElementById('contactadosMercaderista').addEventListener('change', resetearSeleccionYRenderizar);
+        document.getElementById('contactadosEstado').addEventListener('change', resetearSeleccionYRenderizar);
         document.getElementById('contactadosPagAnterior').addEventListener('click', function () {
             if (paginaActual > 1) { paginaActual--; renderizar(); }
         });

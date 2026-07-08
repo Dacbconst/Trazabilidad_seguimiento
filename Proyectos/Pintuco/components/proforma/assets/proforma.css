@@ -196,6 +196,7 @@
     background: #fafbfd;
     border-top: 1px solid #d6e3f5;
     padding: 20px 22px 26px;
+    position: relative;
 }
 
 .proforma-gdetalle-grid {
@@ -236,12 +237,13 @@
     pointer-events: none;
 }
 
-/* Modal centrado en viewport (fixed, no anclado a la columna) mientras dura
-   la corrección de foto solicitada. */
+/* Modal centrado dentro del panel de detalle de ESE agendamiento (absolute,
+   anclado a .proforma-gdetalle vía position:relative) mientras dura la
+   corrección de foto solicitada — no debe cubrir el resto de la página. */
 .proforma-bloqueo-modal-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 2000;
+    z-index: 20;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -12,6 +12,7 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= htmlspecialchars($ef_assets, ENT_QUOTES) ?>/estado-flujo.css?v=<?= $ef_css_v ?>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <div id="estadoFlujoApp"
      data-getters-base="<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>/getters/"
@@ -41,6 +42,9 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
             <div class="mod-filtros-extra">
                 <button type="button" class="btn btn-mod-actualizar" id="efActualizar">
                     <i class="glyphicon glyphicon-refresh"></i> Actualizar
+                </button>
+                <button type="button" class="btn ef-btn-excel" id="efDescargarExcel">
+                    <i class="glyphicon glyphicon-save"></i> Descargar Excel
                 </button>
             </div>
         </div>
@@ -91,6 +95,7 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
                     <div class="ef-auditoria-kicker">Auditoría de agendamiento</div>
                     <div class="ef-auditoria-nombre" id="efAudNombre"></div>
                     <div class="ef-auditoria-sub" id="efAudSub"></div>
+                    <div class="ef-auditoria-pdv" id="efAudPdv"></div>
                 </div>
                 <button type="button" class="ef-auditoria-close" id="efAudClose" aria-label="Cerrar">&times;</button>
             </div>

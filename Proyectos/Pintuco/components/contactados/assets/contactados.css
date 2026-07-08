@@ -126,6 +126,31 @@
 .ctc-btn-descarga.is-todo:hover { background: var(--ctc-green-dark); border-color: var(--ctc-green-dark); }
 
 /* ---------------------------------------------------
+   Badges de estado comercial
+----------------------------------------------------- */
+.ctc-estado-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.ctc-estado-badge.is-facturado   { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
+.ctc-estado-badge.is-negociando  { background: #fdf0d5; color: #8a5a00; border-color: #f0ddb3; }
+.ctc-estado-badge.is-agendado    { background: #eaf3fb; color: #1d4e89; border-color: #c7d9f0; }
+.ctc-estado-badge.is-sin-agendar { background: #f0f2f5; color: #5b6577; border-color: #d8dee6; }
+.ctc-estado-badge.is-cancelado   { background: #fbeaea; color: #b3261e; border-color: #f3cfcf; }
+
+.ctc-estado-vencida {
+    font-size: 10px;
+    font-weight: 700;
+    color: #a66a00;
+    margin-top: 3px;
+}
+
+/* ---------------------------------------------------
    Card + tabla
 ----------------------------------------------------- */
 .ctc-card {

@@ -160,6 +160,21 @@
         return total;
     }
 
+    // Suma de "Monto Facturado" (pagos reales de insert_pago_factura, ver
+    // totalFacturadoDe) de TODOS los agendamientos de un promotor — mismo
+    // patrón que totalAcumuladoPromotor pero con los pagos, no la cotización.
+    function totalFacturadoPromotor(usuario) {
+        var total = 0;
+        Object.keys(porAgendamiento).forEach(function (agId) {
+            var ciclos = porAgendamiento[agId];
+            if (!ciclos.length) return;
+            var u = (ciclos[0].usuario || '(sin asignar)');
+            if (u !== usuario) return;
+            total += totalFacturadoDe(agId);
+        });
+        return total;
+    }
+
     function ultimoCicloConEvidencia(ciclos) {
         var candidatos = ciclos.filter(function (c) { return !!c.evidencia; })
             .sort(function (a, b) { return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0); });
@@ -288,8 +303,18 @@
         });
         Object.keys(mapa).forEach(function (u) {
             mapa[u].montoAcumulado = totalAcumuladoPromotor(u);
+            mapa[u].montoFacturado = totalFacturadoPromotor(u);
         });
         return mapa;
+    }
+
+    // "$facturado / $cotizado" — como una nota de examen (logrado / total).
+    // El facturado va resaltado (ya "ganado"); el cotizado en color neutro
+    // (es la referencia, no el logro).
+    function fmtMontoSlash(facturado, cotizado) {
+        return '<span class="ef-slash-facturado">' + fmtMonto(facturado) + '</span>'
+            + ' <span class="ef-slash-sep">/</span> '
+            + '<span class="ef-slash-cotizado">' + fmtMonto(cotizado) + '</span>';
     }
 
     function renderPromoLista() {
@@ -309,8 +334,8 @@
                 + '<div class="ef-promo-item-nombre">' + esc(p.usuario) + '</div>'
                 + '<div class="ef-promo-item-meta">'
                 +   '<span>' + p.total + ' agendado' + (p.total !== 1 ? 's' : '') + '</span>'
-                +   '<span class="ef-promo-item-monto">' + fmtMonto(p.montoAcumulado) + '</span>'
                 + '</div>'
+                + '<div class="ef-promo-item-monto">' + fmtMontoSlash(p.montoFacturado, p.montoAcumulado) + '</div>'
                 + '</div>';
         }).join('');
     }
@@ -327,6 +352,7 @@
         var conteosFase = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         pdvs.forEach(function (p) { conteosFase[getFase(p)]++; });
         var total = totalAcumuladoPromotor(usuario);
+        var totalFacturado = totalFacturadoPromotor(usuario);
 
         var badges = FASES_META.map(function (m) {
             return '<div class="ef-fase-badge-mini"><span class="ef-fase-badge-dot"></span>F' + m.fase + ': ' + conteosFase[m.fase] + '</div>';
@@ -344,8 +370,8 @@
                 +     '<div class="ef-tabla-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div></td>'
                 + '<td><span class="ef-fase-badge is-f' + f + '">Fase ' + f + '</span></td>'
                 + '<td class="ef-dias-plano">' + fmtDias(dias) + '</td>'
-                + '<td class="ef-monto-cotizacion">' + cotizacionInicial + '</td>'
                 + '<td class="ef-monto-facturado">' + montoFacturado + '</td>'
+                + '<td class="ef-monto-cotizacion">' + cotizacionInicial + '</td>'
                 + '<td><button type="button" class="ef-btn-auditar" data-agendamiento-id="' + esc(p.agendamiento_id) + '">Auditar</button></td>'
                 + '</tr>';
         }).join('');
@@ -360,14 +386,14 @@
             +     '</div>'
             +   '</div>'
             +   '<div class="ef-promo-header-right">'
-            +     '<div class="ef-promo-total-label">Total negociado acumulado</div>'
-            +     '<div class="ef-promo-total-valor">' + fmtMonto(total) + '</div>'
-            +     '<div class="ef-promo-total-caption">Suma de la última proforma de cada agendamiento</div>'
+            +     '<div class="ef-promo-total-label">Total Monto Facturado</div>'
+            +     '<div class="ef-promo-total-valor">' + fmtMontoSlash(totalFacturado, total) + '</div>'
+            +     '<div class="ef-promo-total-caption">Monto facturado / Cotización — suma de cada agendamiento</div>'
             +   '</div>'
             + '</div>'
             + '<div class="ef-promo-badges">' + badges + '</div>'
             + '<div class="ef-promo-tabla-wrap"><table class="ef-tabla-prom">'
-            +   '<thead><tr><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Cotización Inicial</th><th>Monto Facturado</th><th></th></tr></thead>'
+            +   '<thead><tr><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto Facturado</th><th>Cotización Inicial</th><th></th></tr></thead>'
             +   '<tbody>' + (filas || '<tr><td colspan="6" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
             + '</table></div>';
     }
@@ -383,8 +409,9 @@
         var dias = diasDesde(refFechaFase(p));
         var meta = FASES_META[f - 1];
 
-        document.getElementById('efAudNombre').textContent = p.pdv || p.codigo_pdv || '—';
-        document.getElementById('efAudSub').textContent = (p.empresa || '—') + ' · Promotor: ' + (p.usuario || '(sin asignar)');
+        document.getElementById('efAudNombre').textContent = p.empresa || '—';
+        document.getElementById('efAudSub').textContent = (p.contacto || '—') + ' · Promotor: ' + (p.usuario || '(sin asignar)');
+        document.getElementById('efAudPdv').textContent = 'PDV: ' + (p.pdv || p.codigo_pdv || '—');
         var faseBadge = document.getElementById('efAudFaseBadge');
         faseBadge.className = 'ef-fase-badge is-f' + f;
         faseBadge.textContent = 'Fase ' + f + ' · ' + meta.label;
@@ -420,7 +447,13 @@
         var ultimoConMonto = ciclosConMonto[0] || null; // la primera ya es la más reciente
         var rondasNegociacion = ciclosConMonto.map(function (c) {
             return {
-                fecha: formatFechaHora(c.fecha_auditoria),
+                // fecha_auditoria solo se llena cuando el analista corre
+                // 'guardar'/'rechazar' en la web. Si el monto vino puesto
+                // directo por el promotor desde el celular (estado aún
+                // 'en_proceso'), fecha_auditoria queda null — se usa la
+                // fecha de registro de esa fila como respaldo (mismo patrón
+                // ya usado abajo para ultimaFactura).
+                fecha: formatFechaHora(c.fecha_auditoria || c.proforma_fecha_registro),
                 detalle: 'Monto cotizado: ' + fmtMonto(c.monto_validado),
                 foto: c.evidencia ? (FOTO_BASE + c.evidencia) : null
             };
@@ -429,7 +462,7 @@
         var defs = [
             { num: 1, label: 'Contacto',
               filas: [{ fecha: formatFechaHora(p.contacto_fecha_registro),
-                        detalle: 'Primer contacto registrado con el punto de venta.' }] },
+                        detalle: 'Primer contacto registrado con el Cliente.' }] },
             { num: 2, label: 'Agendado',
               filas: [{ fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + String(p.hora).slice(0, 5) : ''),
                         detalle: 'Visita técnica agendada' + (p.tecnico ? ' con ' + p.tecnico : '') + '.' }] },
@@ -503,19 +536,18 @@
         var html = reales.map(function (c, i) {
             var est = estadoVisual(c.estado_proforma);
             var esVigente = (parseInt(c.id, 10) || 0) === ultimaId;
-            return '<div class="ef-hist-card ' + (esVigente ? 'is-vigente' : '') + '">'
-                + '<div class="ef-hist-top">'
-                +   '<span class="ef-hist-ciclo">Ciclo ' + (i + 1) + '</span>'
-                +   '<span class="ef-estado-badge ' + est.cls + '">' + est.label + '</span>'
+            return '<div class="ef-hist-row' + (esVigente ? ' is-vigente' : '') + '">'
+                + '<div class="ef-hist-row-left">'
+                +   '<div class="ef-hist-row-titulo">Ciclo ' + (i + 1) + '</div>'
+                +   '<div class="ef-hist-row-sub">' + esc(formatFecha(c.fecha_proforma))
+                +     (c.caracteristica_visita ? ' · ' + esc(c.caracteristica_visita) : '')
+                +   '</div>'
                 + '</div>'
-                + '<div class="ef-hist-fecha">' + esc(formatFecha(c.fecha_proforma)) + '</div>'
-                + '<div class="ef-hist-montorow">'
-                +   '<span class="ef-hist-monto">' + fmtMonto(c.monto_validado) + '</span>'
+                + '<div class="ef-hist-row-right">'
+                +   '<div class="ef-hist-row-monto">' + fmtMonto(c.monto_validado) + '</div>'
+                +   '<span class="ef-estado-badge ' + est.cls + '">' + est.label + '</span>'
                 +   (esVigente ? '<span class="ef-badge-vigente">✓ Cuenta para el total</span>' : '')
                 + '</div>'
-                + (c.caracteristica_visita
-                    ? '<div class="ef-hist-caract"><strong>Características:</strong> ' + esc(c.caracteristica_visita) + '</div>'
-                    : '')
                 + '</div>';
         }).join('');
         document.getElementById('efAudHistorial').innerHTML = html;
@@ -665,6 +697,98 @@
         document.getElementById('efLightboxImg').src = '';
     }
 
+    // ── Exportar a Excel ─────────────────────────────────────────────
+    // Descarga lo que está en pantalla (respeta los filtros activos de PDV/
+    // empresa y promotor). Una fila por agendamiento (último ciclo, igual
+    // que el kanban). Columnas de dinero como números para poder sumar/
+    // ordenar en Excel. URLs de fotos como hipervínculos clickeables.
+    function exportarExcel() {
+        var filas = pipelineFiltrado();
+        if (!filas.length) return;
+
+        var LABELS_FASE  = { 1:'Contacto', 2:'Agendado', 3:'Proforma', 4:'Negociación', 5:'Facturado' };
+        var LABELS_ESTADO = {
+            pendiente:'Pendiente', confirmado:'Confirmado', reagendada:'Reagendada',
+            vencida:'Vencida', completada:'Completada', cancelada:'Cancelada'
+        };
+        var LABELS_PAGO  = { pendiente:'Pendiente', en_proceso:'En proceso', completado:'Completado' };
+
+        var datos = filas.map(function (p) {
+            var fase      = getFase(p);
+            var dias      = diasDesde(refFechaFase(p));
+            var ciclos    = porAgendamiento[p.agendamiento_id] || [];
+            var ultimaP   = ultimaProformaDe(p.agendamiento_id);
+            var cobrado   = totalFacturadoDe(p.agendamiento_id);
+            var cotiz     = ultimaP ? (parseFloat(ultimaP.monto_validado) || 0) : 0;
+            var montoTot  = parseFloat(p.monto_total_factura) || 0;
+            // Pendiente por cobrar: solo aplica en Fase 5 con factura registrada
+            var pendiente = (fase === 5 && montoTot > 0) ? Math.max(0, montoTot - cobrado) : null;
+
+            var cicloEvid    = ultimoCicloConEvidencia(ciclos);
+            var cicloFact    = ultimoCicloConFactura(ciclos);
+            var urlEvidencia = cicloEvid ? (FOTO_BASE + cicloEvid.evidencia)       : '';
+            var urlFactura   = cicloFact ? (FOTO_BASE + cicloFact.foto_factura)    : '';
+
+            return {
+                'Empresa':              p.empresa     || '',
+                'PDV':                  p.pdv         || p.codigo_pdv || '',
+                'Código PDV':           p.codigo_pdv  || '',
+                'Dirección':            p.direccion   || '',
+                'Teléfono':             p.telefono    || '',
+                'Promotor':             p.usuario     || '',
+                'Técnico':              p.tecnico     || '',
+                'Fecha visita':         formatFecha(p.fecha_agendamiento),
+                'Hora':                 p.hora ? String(p.hora).slice(0, 5) : '',
+                'Fase':                 fase + ' — ' + (LABELS_FASE[fase] || ''),
+                'Días en fase':         dias !== null ? dias : '',
+                'Estado agenda':        LABELS_ESTADO[p.estado_agenda] || (p.estado_agenda || ''),
+                'Cotización inicial':   cotiz     || '',
+                'Monto total factura':  montoTot  || '',
+                'Plazo (meses)':        parseInt(p.plazo_meses, 10) || '',
+                'Monto cobrado':        cobrado   || '',
+                'Pendiente por cobrar': pendiente !== null ? pendiente : '',
+                'Estado pago':          fase === 5 ? (LABELS_PAGO[p.estado_pago] || '') : '',
+                'Foto proforma':        urlEvidencia,
+                'Foto factura':         urlFactura,
+                'Observaciones':        p.observaciones_auditoria || '',
+                'Características':      p.caracteristica_visita   || ''
+            };
+        });
+
+        var hoja = XLSX.utils.json_to_sheet(datos);
+
+        // Convertir las celdas de foto en hipervínculos clickeables — el
+        // texto que ve el usuario es "Ver foto" en vez de la URL larga, pero
+        // al hacer clic abre el blob directamente en el navegador.
+        var COL_FOTO_P = 18; // índice 0-based de "Foto proforma"
+        var COL_FOTO_F = 19; // índice 0-based de "Foto factura"
+        var rango = XLSX.utils.decode_range(hoja['!ref'] || 'A1');
+        for (var R = rango.s.r + 1; R <= rango.e.r; R++) {
+            [COL_FOTO_P, COL_FOTO_F].forEach(function (C) {
+                var addr = XLSX.utils.encode_cell({ r: R, c: C });
+                if (hoja[addr] && hoja[addr].v) {
+                    hoja[addr] = { t: 's', v: 'Ver foto', l: { Target: hoja[addr].v } };
+                }
+            });
+        }
+
+        hoja['!cols'] = [
+            { wch: 22 }, { wch: 18 }, { wch: 12 }, { wch: 26 }, { wch: 13 },
+            { wch: 18 }, { wch: 18 }, { wch: 13 }, { wch: 7  }, { wch: 18 },
+            { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 13 },
+            { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+            { wch: 30 }, { wch: 26 }
+        ];
+
+        var libro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(libro, hoja, 'Estado de Flujo');
+
+        var hoy = new Date();
+        var dd  = String(hoy.getDate()).padStart(2, '0');
+        var mm  = String(hoy.getMonth() + 1).padStart(2, '0');
+        XLSX.writeFile(libro, 'flujo_comercial_' + dd + '-' + mm + '-' + hoy.getFullYear() + '.xlsx');
+    }
+
     // ── Carga de datos ────────────────────────────────────────────────
     function cargar() {
         document.getElementById('efKanban').innerHTML = '<div class="ef-vacio">Cargando...</div>';
@@ -737,6 +861,12 @@
     document.getElementById('efPagoModalOverlay').addEventListener('click', function (e) {
         if (e.target.id === 'efPagoModalOverlay') cerrarPagoModal();
     });
+    // Click en la foto del modal de pago → la misma foto, a pantalla
+    // completa, en el lightbox ya existente (reusado tal cual).
+    document.getElementById('efPagoModalImg').addEventListener('click', function (e) {
+        if (!e.target.src) return;
+        abrirLightbox(e.target.src);
+    });
 
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
@@ -747,6 +877,7 @@
 
     document.getElementById('efActualizar').addEventListener('click', cargar);
     document.getElementById('efActualizarProm').addEventListener('click', cargar);
+    document.getElementById('efDescargarExcel').addEventListener('click', exportarExcel);
 
     window.EstadoFlujoRecargar = cargar;
     cargar();

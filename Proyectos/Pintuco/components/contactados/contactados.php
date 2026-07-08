@@ -34,6 +34,17 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                 <option value="">Todos los mercaderistas</option>
             </select>
         </div>
+        <div class="ctc-filtro-group">
+            <label>Estado</label>
+            <select id="contactadosEstado">
+                <option value="">Todos los estados</option>
+                <option value="is-facturado">Facturado</option>
+                <option value="is-negociando">Negociando</option>
+                <option value="is-agendado">Agendado</option>
+                <option value="is-sin-agendar">Sin agendar</option>
+                <option value="is-cancelado">Cancelado</option>
+            </select>
+        </div>
 
         <button type="button" class="btn-actualizar" id="contactadosActualizar">
             <i class="glyphicon glyphicon-refresh"></i> Actualizar
@@ -67,6 +78,7 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                             <input type="checkbox" id="contactadosCheckTodo" title="Seleccionar todo lo filtrado">
                         </th>
                         <th>Empresa</th>
+                        <th>Estado</th>
                         <th>Contacto</th>
                         <th>Dirección empresa</th>
                         <th>Correo / Teléfono</th>
@@ -76,7 +88,7 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                     </tr>
                 </thead>
                 <tbody id="contactadosTbody">
-                    <tr><td colspan="8" class="ctc-vacio">Cargando...</td></tr>
+                    <tr><td colspan="9" class="ctc-vacio">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>

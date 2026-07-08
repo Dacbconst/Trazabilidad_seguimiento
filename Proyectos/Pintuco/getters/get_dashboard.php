@@ -7,80 +7,47 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
 
 include_once '../db_connect.php';
 
+// Fuente cruda (un registro por agendamiento×ciclo de proforma, igual patrón
+// que proformas_listar.php): el agregado (KPIs, embudo, top promotores) se
+// calcula en el cliente para que los filtros de Promotor y Período (mismos
+// que Proforma) recalculen todo sin ida y vuelta al servidor — mismo
+// criterio que proforma.js / contactados.js, que ya filtran así.
 // foto_factura confirmada en producción vía ALTER TABLE (2026-07-03).
-
-// 1. Total PDVs activos
-$q = $mysqli->query("SELECT COUNT(*) AS n FROM insert_proyectos_contacto WHERE activar = 'SI'");
-$totalPdvs = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
-
-// 2. PDVs con visita confirmada (hora + tecnico asignados) → fase 2+
-$q = $mysqli->query("SELECT COUNT(*) AS n FROM insert_proyectos_contacto WHERE activar = 'SI' AND hora IS NOT NULL AND hora != '' AND tecnico IS NOT NULL AND tecnico != ''");
-$conAgenda = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
-
-// 3. PDVs con al menos una proforma → fase 3+
-$q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_proforma");
-$conProforma = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
-
-// 4. Fase 3 actual: fotos recién llegadas, sin monto todavía (pendiente de revisión)
-$q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_proforma WHERE estado_proforma = 'en_proceso' AND (monto_validado IS NULL OR monto_validado = '')");
-$fase3act = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
-
-// 5. Fase 5: facturados
-$q = $mysqli->query("SELECT COUNT(DISTINCT id_agendamiento) AS n FROM insert_proforma WHERE foto_factura IS NOT NULL AND foto_factura != ''");
-$fase5 = $q ? (int)($q->fetch_assoc()['n'] ?? 0) : 0;
-
-// Distribución de fases por diferencia
-$fase1 = max(0, $totalPdvs - $conAgenda);
-$fase2 = max(0, $conAgenda - $conProforma);
-$fase4 = max(0, $conProforma - $fase3act - $fase5);
-
-// 6. Montos totales
-$q = $mysqli->query("SELECT COALESCE(SUM(monto_validado+0), 0) AS tot FROM insert_proforma WHERE monto_validado IS NOT NULL AND monto_validado != ''");
-$montoNeg = $q ? (float)($q->fetch_assoc()['tot'] ?? 0) : 0;
-
-$q = $mysqli->query("SELECT COALESCE(SUM(CASE WHEN foto_factura IS NOT NULL AND foto_factura != '' THEN monto_validado+0 ELSE 0 END), 0) AS tot FROM insert_proforma WHERE monto_validado IS NOT NULL AND monto_validado != ''");
-$montoFact = $q ? (float)($q->fetch_assoc()['tot'] ?? 0) : 0;
-
-$convPct = $totalPdvs > 0 ? round($fase5 / $totalPdvs * 100, 1) : 0;
-
-// 7. Top promotores — PDVs por promotor
-$q = $mysqli->query("SELECT usuario, COUNT(*) AS total FROM insert_proyectos_contacto WHERE activar = 'SI' AND usuario IS NOT NULL AND usuario != '' GROUP BY usuario ORDER BY total DESC LIMIT 10");
-$promMap = [];
+$q = $mysqli->query("
+    SELECT
+        c.id               AS agendamiento_id,
+        c.usuario,
+        c.hora, c.tecnico,
+        c.fecha_registro   AS contacto_fecha_registro,
+        p.id               AS proforma_id,
+        p.estado_proforma,
+        p.foto_factura,
+        p.monto_validado,
+        p.fecha_registro   AS proforma_fecha_registro
+    FROM insert_proyectos_contacto c
+    LEFT JOIN insert_proforma p ON p.id_agendamiento = c.id
+    WHERE c.activar = 'SI'
+    ORDER BY p.id ASC
+");
+$registros = [];
 if ($q) {
-    while ($r = $q->fetch_assoc()) {
-        $promMap[$r['usuario']] = ['usuario' => $r['usuario'], 'total' => (int)$r['total'], 'monto_facturado' => 0.0];
-    }
+    while ($r = $q->fetch_assoc()) { $registros[] = $r; }
 }
 
-// Monto facturado por promotor
-$q = $mysqli->query("SELECT usuario, COALESCE(SUM(CASE WHEN foto_factura IS NOT NULL AND foto_factura != '' THEN monto_validado+0 ELSE 0 END), 0) AS mf FROM insert_proforma WHERE monto_validado IS NOT NULL GROUP BY usuario");
+// Pagos/cuotas reales — mecánica de facturación a plazos confirmada con la
+// app móvil (2026-07-03). El monto negociado (monto_validado) NO equivale
+// al monto facturado: ver comentario de ultimaProformaDe() en
+// estado-flujo.js — cada "Guardar" cierra la ronda vigente con su monto y
+// abre una ronda nueva vacía esperando la próxima foto, así que ambos casi
+// nunca coinciden en la misma fila de insert_proforma.
+$q = $mysqli->query("SELECT id_agendamiento, usuario, monto_pago FROM insert_pago_factura");
+$pagos = [];
 if ($q) {
-    while ($r = $q->fetch_assoc()) {
-        if (isset($promMap[$r['usuario']])) {
-            $promMap[$r['usuario']]['monto_facturado'] = (float)$r['mf'];
-        }
-    }
+    while ($r = $q->fetch_assoc()) { $pagos[] = $r; }
 }
-
-$promotores = array_values($promMap);
-usort($promotores, fn($a, $b) => $b['monto_facturado'] <=> $a['monto_facturado']);
-$promotores = array_slice($promotores, 0, 8);
 
 echo json_encode([
-    'kpis' => [
-        'total_pdvs'      => $totalPdvs,
-        'monto_negociado' => $montoNeg,
-        'monto_facturado' => $montoFact,
-        'conversion_pct'  => $convPct,
-        'fase5_count'     => $fase5,
-    ],
-    'fases' => [
-        ['fase' => 1, 'label' => 'Contacto inicial',  'count' => $fase1],
-        ['fase' => 2, 'label' => 'Agendamiento',      'count' => $fase2],
-        ['fase' => 3, 'label' => 'Proforma recibida', 'count' => $fase3act],
-        ['fase' => 4, 'label' => 'Negociación',       'count' => $fase4],
-        ['fase' => 5, 'label' => 'Facturado',         'count' => $fase5],
-    ],
-    'promotores' => $promotores,
+    'registros' => $registros,
+    'pagos'     => $pagos,
 ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 ?>
