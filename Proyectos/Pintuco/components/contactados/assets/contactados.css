@@ -289,3 +289,126 @@
 }
 .ctc-paginacion-btn:hover:not(:disabled) { background: var(--ctc-bg); border-color: oklch(0.75 0.015 260); }
 .ctc-paginacion-btn:disabled { opacity: .45; cursor: default; }
+
+/* ---------------------------------------------------
+   Modal "Gestión de Contacto" — historial de cotizaciones (ciclos de
+   proforma) del contacto de la fila clicada.
+----------------------------------------------------- */
+.ctc-table tbody tr { cursor: pointer; }
+
+.ctc-gestion-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 24, 34, .55);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+.ctc-gestion-overlay.is-abierto { display: flex; }
+
+.ctc-gestion-card {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(20, 24, 34, .35);
+}
+
+.ctc-gestion-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid var(--ctc-line);
+}
+.ctc-gestion-titulo { font-size: 16px; font-weight: 800; color: var(--ctc-ink); }
+.ctc-gestion-sub { font-size: 12.5px; color: var(--ctc-ink-faint); margin-top: 4px; }
+.ctc-gestion-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--ctc-ink-faint);
+    cursor: pointer;
+    padding: 2px 4px;
+}
+.ctc-gestion-close:hover { color: var(--ctc-ink); }
+
+.ctc-gestion-tabs { padding: 14px 24px 0; }
+.ctc-gestion-tab {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ctc-blue);
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--ctc-blue);
+}
+
+.ctc-gestion-body { padding: 16px 24px 4px; overflow-y: auto; }
+
+.ctc-gestion-scroll { overflow-x: auto; border: 1px solid var(--ctc-line); border-radius: 8px; }
+
+.ctc-gestion-table { width: 100%; border-collapse: collapse; min-width: 420px; }
+.ctc-gestion-table th {
+    background: var(--ctc-bg);
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--ctc-ink-faint);
+    text-transform: uppercase;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--ctc-line);
+    white-space: nowrap;
+}
+.ctc-gestion-table td {
+    font-size: 12.5px;
+    color: var(--ctc-ink-soft);
+    padding: 11px 16px;
+    border-bottom: 1px solid oklch(0.95 0.005 260);
+    white-space: nowrap;
+}
+.ctc-gestion-table tbody tr:last-child td { border-bottom: none; }
+.ctc-gestion-table th:not(:first-child),
+.ctc-gestion-table td:not(:first-child) { text-align: right; }
+
+.ctc-gestion-subtotal td {
+    font-weight: 800;
+    color: var(--ctc-ink);
+    background: var(--ctc-bg);
+    border-top: 1px solid var(--ctc-border);
+    border-bottom: none;
+}
+#ctcGestionSubtotalFacturado { color: var(--ctc-blue); }
+
+.ctc-gestion-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--ctc-line);
+}
+.ctc-gestion-btn-nuevo {
+    background: var(--ctc-brand);
+    color: #fff;
+}
+.ctc-gestion-btn-nuevo:hover { background: oklch(0.26 0.09 260); }
+
+.ctc-gestion-btn-cerrar {
+    background: #fff;
+    border: 1px solid var(--ctc-border);
+    color: var(--ctc-ink-soft);
+    border-radius: 7px;
+    padding: 9px 18px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ctc-gestion-btn-cerrar:hover { background: var(--ctc-bg); }

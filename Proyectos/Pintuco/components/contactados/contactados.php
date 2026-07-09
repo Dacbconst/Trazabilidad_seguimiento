@@ -78,13 +78,13 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                             <input type="checkbox" id="contactadosCheckTodo" title="Seleccionar todo lo filtrado">
                         </th>
                         <th>Empresa</th>
-                        <th>Estado</th>
                         <th>Contacto</th>
                         <th>Dirección empresa</th>
                         <th>Correo / Teléfono</th>
                         <th>Promotor</th>
                         <th>PDV</th>
                         <th>Registrado</th>
+                        <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody id="contactadosTbody">
@@ -99,6 +99,58 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                 <button type="button" class="ctc-paginacion-btn" id="contactadosPagAnterior">&laquo; Anterior</button>
                 <span class="ctc-paginacion-pagina" id="contactadosPaginaActual"></span>
                 <button type="button" class="ctc-paginacion-btn" id="contactadosPagSiguiente">Siguiente &raquo;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal "Gestión de Contacto": historial de cotizaciones (ciclos de
+         proforma) del contacto de la fila clicada — ver contactados.js. -->
+    <div class="ctc-gestion-overlay" id="ctcGestionOverlay">
+        <div class="ctc-gestion-card">
+            <div class="ctc-gestion-header">
+                <div>
+                    <div class="ctc-gestion-titulo">Gestión de Contacto</div>
+                    <div class="ctc-gestion-sub" id="ctcGestionSub"></div>
+                </div>
+                <button type="button" class="ctc-gestion-close" id="ctcGestionClose" aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="ctc-gestion-tabs">
+                <span class="ctc-gestion-tab is-activa">Historial de Cotizaciones (mes actual)</span>
+            </div>
+
+            <div class="ctc-gestion-body">
+                <div class="ctc-gestion-scroll">
+                    <table class="ctc-gestion-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Monto Cotizado</th>
+                                <th>Monto Facturado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ctcGestionTbody">
+                            <tr><td colspan="3" class="ctc-vacio">Cargando...</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="ctc-gestion-subtotal">
+                                <td>SUBTOTAL</td>
+                                <td id="ctcGestionSubtotalCotizado">—</td>
+                                <td id="ctcGestionSubtotalFacturado">—</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="ctc-gestion-footer">
+                <!-- Abre la misma card "Visita Técnica" del módulo de Agendamiento
+                     (agenda-crear.js expone window.AgendaAbrirCrear), prellenada
+                     con los datos de este contacto — ver contactados.js. -->
+                <button type="button" class="ctc-btn ctc-gestion-btn-nuevo" id="ctcGestionBtnNuevo">
+                    <i class="glyphicon glyphicon-plus"></i> Registrar nuevo agendamiento
+                </button>
+                <button type="button" class="ctc-gestion-btn-cerrar" id="ctcGestionCerrar">Cerrar</button>
             </div>
         </div>
     </div>

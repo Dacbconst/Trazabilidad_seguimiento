@@ -4,6 +4,7 @@
     var FILAS_POR_PAGINA = 15;
     var paginaActual = 1;
     var selectedIds = {}; // { id: true } — IDs marcados, no índices (sobrevive a la paginación)
+    var contactoGestionActual = null; // fila abierta en el modal "Gestión de Contacto"
 
     function formatFechaHora(valor) {
         if (!valor) return '—';
@@ -86,6 +87,7 @@
             link.className = 'ctc-pin-link';
             link.title = 'Ver en Google Maps';
             link.innerHTML = '<i class="glyphicon glyphicon-map-marker"></i>';
+            link.addEventListener('click', function (ev) { ev.stopPropagation(); });
             wrap.appendChild(link);
         }
         wrap.appendChild(document.createTextNode(r.direccion || '—'));
@@ -171,6 +173,7 @@
         var check = document.createElement('input');
         check.type = 'checkbox';
         check.checked = !!selectedIds[id];
+        check.addEventListener('click', function (ev) { ev.stopPropagation(); });
         check.addEventListener('change', function (ev) {
             ev.stopPropagation();
             if (check.checked) { selectedIds[id] = true; } else { delete selectedIds[id]; }
@@ -180,15 +183,173 @@
         tr.appendChild(tdCheck);
 
         tr.appendChild(celdaTexto(r.empresa, 'ctc-empresa'));
-        tr.appendChild(celdaEstado(r));
         tr.appendChild(celdaTexto(r.contacto, 'ctc-contacto'));
         tr.appendChild(celdaDireccion(r));
         tr.appendChild(celdaCorreoTelefono(r));
         tr.appendChild(celdaPromotor(r));
         tr.appendChild(celdaTexto(r.pdv));
         tr.appendChild(celdaRegistrado(r));
+        tr.appendChild(celdaEstado(r));
+
+        // Clic en cualquier parte de la fila (menos el checkbox y el link
+        // de mapa, que ya frenan la propagación) abre el historial de
+        // cotizaciones de ese contacto.
+        tr.addEventListener('click', function () { abrirGestionContacto(r); });
 
         return tr;
+    }
+
+    // ---------------------------------------------------------------
+    // Modal "Gestión de Contacto": historial de cotizaciones (todos los
+    // ciclos de proforma del agendamiento) + monto facturado por ciclo
+    // (suma de insert_pago_factura por id_proforma, mismo patrón que
+    // agruparPagosPorAgendamiento en estado-flujo.js).
+    // ---------------------------------------------------------------
+    function fmtMonedaModal(v) {
+        var n = parseFloat(v) || 0;
+        return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Historial acotado al mes en curso — pedido explícito del usuario.
+    function esDelMesActual(fechaStr) {
+        if (!fechaStr) return false;
+        var partes = String(fechaStr).split(' ')[0].split('-'); // "YYYY-MM-DD..."
+        if (partes.length < 2) return false;
+        var hoy = new Date();
+        return parseInt(partes[0], 10) === hoy.getFullYear() && parseInt(partes[1], 10) === (hoy.getMonth() + 1);
+    }
+
+    // Cada "ronda" real de negociación queda partida en 2+ filas de
+    // insert_proforma: una o varias con monto_validado (en_proceso, el
+    // promotor puede corregir el monto antes de cerrar) y luego una sin
+    // monto (realizado, con foto_factura) donde queda enganchado el pago —
+    // confirmado contra BD 2026-07-09. Se agrupan en una sola fila por
+    // ronda: el monto vigente es el último con monto_validado ANTES de que
+    // aparezca la primera fila de factura de esa ronda; todas las filas de
+    // factura que sigan (pueden ser varias cuotas) se suman como facturado
+    // de esa misma ronda. Igual criterio que "ciclosConMonto"/"ultimaFactura"
+    // en estado-flujo.js, aplicado aquí a TODO el historial en vez de solo
+    // la ronda vigente.
+    function agruparCiclosCotizacion(ciclosOrdenAsc) {
+        var grupos = [];
+        var actual = null;
+        ciclosOrdenAsc.forEach(function (c) {
+            var tieneMonto = c.monto_validado !== null && c.monto_validado !== '' && c.monto_validado !== undefined;
+            if (tieneMonto) {
+                if (actual && !actual.facturaCiclos.length) {
+                    actual.montoCiclo = c; // corrección de monto antes de facturar: reemplaza, no suma fila nueva
+                } else {
+                    actual = { montoCiclo: c, facturaCiclos: [] };
+                    grupos.push(actual);
+                }
+            } else {
+                if (!actual) {
+                    actual = { montoCiclo: null, facturaCiclos: [] };
+                    grupos.push(actual);
+                }
+                actual.facturaCiclos.push(c);
+            }
+        });
+        return grupos;
+    }
+
+    function pintarHistorialCotizaciones(grupos, facturadoPorProforma) {
+        var tbody = document.getElementById('ctcGestionTbody');
+        tbody.innerHTML = '';
+
+        if (!grupos.length) {
+            tbody.innerHTML = '<tr><td colspan="3" class="ctc-vacio">Sin cotizaciones este mes.</td></tr>';
+            document.getElementById('ctcGestionSubtotalCotizado').textContent = fmtMonedaModal(0);
+            document.getElementById('ctcGestionSubtotalFacturado').textContent = fmtMonedaModal(0);
+            return;
+        }
+
+        var totalCotizado = 0;
+        var totalFacturado = 0;
+
+        grupos.forEach(function (g) {
+            var fechaBase = g.montoCiclo || g.facturaCiclos[0];
+            var fecha = formatFechaHora(fechaBase.proforma_fecha_registro || fechaBase.fecha_proforma);
+            var fechaTexto = typeof fecha === 'string' ? fecha : fecha.fecha;
+            var cotizado = g.montoCiclo ? (parseFloat(g.montoCiclo.monto_validado) || 0) : 0;
+            var facturado = g.facturaCiclos.reduce(function (suma, fc) {
+                return suma + (facturadoPorProforma[String(fc.id)] || 0);
+            }, 0);
+            totalCotizado += cotizado;
+            totalFacturado += facturado;
+
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + fechaTexto + '</td>'
+                + '<td>' + fmtMonedaModal(cotizado) + '</td>'
+                + '<td>' + fmtMonedaModal(facturado) + '</td>';
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('ctcGestionSubtotalCotizado').textContent = fmtMonedaModal(totalCotizado);
+        document.getElementById('ctcGestionSubtotalFacturado').textContent = fmtMonedaModal(totalFacturado);
+    }
+
+    function abrirGestionContacto(r) {
+        contactoGestionActual = r;
+        document.getElementById('ctcGestionSub').textContent =
+            'Empresa: ' + (r.empresa || '—') + ' | Contacto: ' + (r.contacto || '—');
+        document.getElementById('ctcGestionTbody').innerHTML = '<tr><td colspan="3" class="ctc-vacio">Cargando...</td></tr>';
+        document.getElementById('ctcGestionSubtotalCotizado').textContent = '—';
+        document.getElementById('ctcGestionSubtotalFacturado').textContent = '—';
+        document.getElementById('ctcGestionOverlay').classList.add('is-abierto');
+
+        Promise.all([
+            fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(r.id)).then(function (resp) { return resp.json(); }),
+            fetch(GETTERS_BASE + 'get_pagos_factura.php').then(function (resp) { return resp.json(); })
+        ]).then(function (resultados) {
+            // Filas del LEFT JOIN sin proforma (p.id null) se descartan: no
+            // son un ciclo de cotización, son solo el agendamiento base.
+            // Además, solo el mes en curso (pedido explícito del usuario).
+            var ciclos = (resultados[0].data || []).filter(function (c) {
+                return !!c.id && esDelMesActual(c.proforma_fecha_registro || c.fecha_proforma);
+            });
+            var pagos = resultados[1].data || [];
+
+            var facturadoPorProforma = {};
+            pagos.forEach(function (p) {
+                var pid = String(p.id_proforma);
+                facturadoPorProforma[pid] = (facturadoPorProforma[pid] || 0) + (parseFloat(p.monto_pago) || 0);
+            });
+
+            // Orden ascendente por id para agrupar rondas correctamente
+            // (agruparCiclosCotizacion necesita ver primero el monto y
+            // después su factura); se invierte al final para mostrar la
+            // ronda más reciente primero, igual que el mockup pedido.
+            ciclos.sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); });
+            var grupos = agruparCiclosCotizacion(ciclos).reverse();
+
+            pintarHistorialCotizaciones(grupos, facturadoPorProforma);
+        });
+    }
+
+    function cerrarGestionContacto() {
+        document.getElementById('ctcGestionOverlay').classList.remove('is-abierto');
+    }
+
+    // Abre la misma card "Visita Técnica" del módulo de Agendamiento
+    // (agenda-crear.js), prellenada con los datos de este contacto.
+    // Promotor, PDV, fecha de agendamiento, hora y técnico quedan libres
+    // — pedido explícito del usuario, son datos de la NUEVA visita, no del
+    // contacto ya existente.
+    function registrarNuevoAgendamiento() {
+        if (!contactoGestionActual || !window.AgendaAbrirCrear) return;
+        var r = contactoGestionActual;
+        cerrarGestionContacto();
+        window.AgendaAbrirCrear({
+            contacto: r.contacto,
+            empresa: r.empresa,
+            mail: r.mail,
+            direccion: r.direccion,
+            telefono: r.telefono,
+            telefono_convencional: r.telefono_convencional,
+            latitud: r.latitud,
+            longitud: r.longitud
+        });
     }
 
     // Solo se busca por empresa/contacto/correo/dirección — PDV se excluyó
@@ -410,5 +571,16 @@
         document.getElementById('contactadosCheckTodo').addEventListener('change', toggleSeleccionarTodo);
         document.getElementById('contactadosDescargarSeleccion').addEventListener('click', descargarSeleccionados);
         document.getElementById('contactadosDescargarTodo').addEventListener('click', descargarTodo);
+
+        var gestionOverlay = document.getElementById('ctcGestionOverlay');
+        document.getElementById('ctcGestionClose').addEventListener('click', cerrarGestionContacto);
+        document.getElementById('ctcGestionCerrar').addEventListener('click', cerrarGestionContacto);
+        document.getElementById('ctcGestionBtnNuevo').addEventListener('click', registrarNuevoAgendamiento);
+        gestionOverlay.addEventListener('click', function (ev) {
+            if (ev.target === gestionOverlay) cerrarGestionContacto();
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && gestionOverlay.classList.contains('is-abierto')) cerrarGestionContacto();
+        });
     });
 })();

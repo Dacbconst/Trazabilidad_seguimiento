@@ -56,6 +56,36 @@
 .ef-btn-excel:hover,
 .ef-btn-excel:focus { background: #186038; border-color: #12472a; color: #fff; }
 
+/* "Seleccionar todo" / "Desmarcar todo" — selección para exportar en el
+   tab Por Promotor. "Desmarcar todo" solo se muestra (display:none inline
+   en el HTML) cuando hay al menos un checkbox marcado. */
+.ef-btn-select-all,
+.ef-btn-clear-sel {
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.ef-btn-select-all {
+    background: #fff;
+    color: var(--brand-light);
+    border: 1px solid var(--brand-light);
+}
+.ef-btn-select-all:hover,
+.ef-btn-select-all:focus { background: #eaf3fb; color: var(--brand-light); }
+.ef-btn-clear-sel {
+    background: #fbeaea;
+    color: #b3261e;
+    border: 1px solid #f3cfcf;
+}
+.ef-btn-clear-sel:hover,
+.ef-btn-clear-sel:focus { background: #f6d9d9; color: #b3261e; }
+
 .ef-pane { display: none; }
 .ef-pane.active { display: block; }
 
@@ -186,10 +216,6 @@
     border-radius: 11px;
     overflow: hidden;
 }
-.ef-promo-buscar-wrap {
-    padding: 12px;
-    border-bottom: 1px solid #edf0f4;
-}
 .ef-promo-lista { max-height: 680px; overflow-y: auto; }
 .ef-promo-item {
     cursor: pointer;
@@ -197,9 +223,20 @@
     border-bottom: 1px solid #f0f3f7;
     border-left: 3px solid transparent;
     transition: background .1s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
 }
 .ef-promo-item:hover { background: #f7f8fa; }
 .ef-promo-item.is-activo { background: #eaf3fb; border-left-color: var(--brand-light); }
+.ef-promo-check {
+    margin-top: 2px;
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--brand-light);
+}
+.ef-promo-item-body { flex: 1; min-width: 0; }
 .ef-promo-item-nombre { font-size: 12.5px; font-weight: 700; color: #1f2d3d; }
 .ef-promo-item-meta {
     display: flex;
@@ -302,6 +339,13 @@
 }
 .ef-tabla-prom tbody tr:last-child td { border-bottom: none; }
 .ef-tabla-prom tbody tr:hover td { background: #f7f9fc; }
+.ef-tabla-prom th.ef-th-check,
+.ef-tabla-prom td.ef-td-check { width: 34px; padding-right: 0; }
+.ef-row-check {
+    width: 16px; height: 16px;
+    cursor: pointer;
+    accent-color: var(--brand-light);
+}
 .ef-tabla-empresa { font-weight: 700; color: #1f2d3d; }
 .ef-tabla-pdv     { font-size: 11px; color: #8a93a3; margin-top: 2px; }
 

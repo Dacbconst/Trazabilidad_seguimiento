@@ -912,6 +912,107 @@
 }
 .agenda-crear-mail-chip:hover { background: #dfe9f8; }
 
+/* ---------------------------------------------------
+   Combobox con buscador (Promotor / PDV) — el <select> real queda oculto
+   y sigue siendo la fuente de verdad; esto es solo la piel encima.
+----------------------------------------------------- */
+.agenda-combo { position: relative; }
+
+.agenda-combo-select-oculto { display: none; }
+
+.agenda-combo-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    background: #fff;
+    cursor: pointer;
+}
+.agenda-combo-trigger-texto {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.agenda-combo-trigger.is-placeholder .agenda-combo-trigger-texto { color: #98a1b3; }
+.agenda-combo-trigger .glyphicon-chevron-down { font-size: 10px; color: #98a1b3; flex-shrink: 0; }
+
+/* Mismo estado de error que el resto de campos (rojo), reflejado desde el
+   <select> oculto vía selector de hermano — marcarError() ya le pone
+   .is-invalid al <select>, no hace falta tocar esa función. */
+.agenda-crear-campo .agenda-combo-select-oculto.is-invalid + .agenda-combo-trigger {
+    border-color: #d93025;
+    background: rgba(217,48,37,.04);
+}
+
+.agenda-combo-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #d7dbe2;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(20,30,50,.16);
+    z-index: 30;
+    overflow: hidden;
+}
+.agenda-combo-panel.is-abierto { display: block; }
+
+.agenda-combo-buscador-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-bottom: 1px solid #edf0f4;
+    color: #98a1b3;
+}
+.agenda-combo-buscador {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: #33415c;
+}
+
+.agenda-combo-lista {
+    max-height: 220px;
+    overflow-y: auto;
+}
+.agenda-combo-item {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: #33415c;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.agenda-combo-item:hover { background: #f2f5fa; }
+.agenda-combo-item.is-activo { background: #eef3fb; font-weight: 700; color: var(--brand-light); }
+
+.agenda-combo-vacio {
+    padding: 14px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: #98a1b3;
+}
+
+/* Campos autorrellenados con datos del contacto en el flujo de
+   reagendamiento desde Contactados — bloqueados y en gris para que quede
+   claro que no se editan ahí (mismo gris ya usado en .agenda-crear-mapa-col,
+   no se introduce un tono nuevo). Solo aplica cuando agenda-crear.js abre
+   el modal con datos precargados; el resto de la card queda intacta. */
+.agenda-crear-input-bloqueado {
+    background: #f7f8fa !important;
+    color: #5b6577;
+    cursor: not-allowed;
+    border-color: #e2e5eb;
+}
+
 /* flex:1 (no una altura fija en px) es justo lo que hace que el mapa
    termine del mismo alto que la columna de campos a su izquierda. */
 .agenda-crear-mapa-wrap {

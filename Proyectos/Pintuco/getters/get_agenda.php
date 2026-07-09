@@ -70,6 +70,12 @@ if ($estado !== '') {
     $condiciones[] = "estado_agenda = ?";
     $parametros[] = $estado;
     $tipos .= "s";
+} else {
+    // Una vez asistida (llegó su primera foto de proforma, ver UPDATE de
+    // arriba) la visita ya cumplió su propósito en la agenda — desaparece
+    // del calendario por defecto. El analista todavía puede revisarlas
+    // filtrando manualmente por Estado = "Completada".
+    $condiciones[] = "estado_agenda != 'completada'";
 }
 if ($usuario !== '') {
     $condiciones[] = "usuario = ?";

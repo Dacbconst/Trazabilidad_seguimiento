@@ -12,7 +12,10 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= htmlspecialchars($ef_assets, ENT_QUOTES) ?>/estado-flujo.css?v=<?= $ef_css_v ?>">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Fork de SheetJS con soporte de estilos de celda (fill/font) en la
+     escritura del .xlsx — la edición community de xlsx.full.min.js ignora
+     la propiedad "s" al exportar, por eso no se ve el encabezado azul. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
 <div id="estadoFlujoApp"
      data-getters-base="<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>/getters/"
@@ -43,9 +46,6 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
                 <button type="button" class="btn btn-mod-actualizar" id="efActualizar">
                     <i class="glyphicon glyphicon-refresh"></i> Actualizar
                 </button>
-                <button type="button" class="btn ef-btn-excel" id="efDescargarExcel">
-                    <i class="glyphicon glyphicon-save"></i> Descargar Excel
-                </button>
             </div>
         </div>
 
@@ -58,21 +58,38 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
     <!-- ══ Tab: Por Promotor ══ -->
     <div class="ef-pane" id="efPane-promotor">
 
-        <div class="mod-filtros" style="margin-bottom:14px">
+        <div class="mod-filtros">
+            <div class="filter-group is-busqueda">
+                <label>PDV o empresa</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="efPromoBusquedaPdv" placeholder="Buscar PDV o empresa...">
+                    <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
+                </div>
+            </div>
+            <div class="filter-group">
+                <label>Promotor</label>
+                <input type="text" class="form-control" id="efPromoSearch" placeholder="Buscar promotor...">
+            </div>
             <div class="mod-filtros-extra">
                 <button type="button" class="btn btn-mod-actualizar" id="efActualizarProm">
                     <i class="glyphicon glyphicon-refresh"></i> Actualizar
+                </button>
+                <button type="button" class="btn ef-btn-select-all" id="efSeleccionarTodo">
+                    <i class="glyphicon glyphicon-ok"></i> Seleccionar todo
+                </button>
+                <button type="button" class="btn ef-btn-clear-sel" id="efDesmarcarTodo" style="display:none">
+                    <i class="glyphicon glyphicon-remove"></i> Desmarcar todo (<span id="efSelCount">0</span>)
+                </button>
+                <button type="button" class="btn ef-btn-excel" id="efDescargarExcel">
+                    <i class="glyphicon glyphicon-save"></i> Descargar Excel
                 </button>
             </div>
         </div>
 
         <div class="ef-por-promotor" id="efPromotorLayout">
 
-            <!-- Columna izquierda: buscador + lista de promotores -->
+            <!-- Columna izquierda: lista de promotores (buscador subió a la barra de filtros de arriba) -->
             <div class="ef-promo-col-izq">
-                <div class="ef-promo-buscar-wrap">
-                    <input type="text" class="form-control" id="efPromoSearch" placeholder="Buscar promotor...">
-                </div>
                 <div class="ef-promo-lista" id="efPromoLista">
                     <div class="ef-vacio">Cargando...</div>
                 </div>

@@ -5,8 +5,19 @@
 
     var DOMINIOS_COMUNES = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com'];
 
+    // Campos que llegan prellenados con datos del CONTACTO ya existente
+    // cuando el modal se abre desde Contactados ("Registrar nuevo
+    // agendamiento") — se bloquean visualmente (solo en ese flujo) para
+    // que quede claro que no son editables ahí; promotor/PDV/fecha/hora/
+    // técnico son las reglas de la visita nueva y siempre quedan libres.
+    var CAMPOS_AUTORELLENADOS = [
+        'agendaCrearContacto', 'agendaCrearEmpresa', 'agendaCrearMail',
+        'agendaCrearDireccion', 'agendaCrearCelular', 'agendaCrearConvencional'
+    ];
+
     var pdvsCache = null;
     var promotoresCache = null;
+    var ciudadesPorPromotor = {}; // { mercaderista: Set(ciudades) } — para filtrar PDV por promotor
     var pinMap = null;
     var coordenadas = null; // { lat, lng } del centro del mapa al confirmar
     var toastTimer = null;
@@ -88,9 +99,9 @@
     function poblarPromotores() {
         var select = document.getElementById('agendaCrearPromotor');
 
-        function pintar(promotores) {
+        function pintar() {
             select.innerHTML = '<option value="">Seleccione un promotor</option>';
-            promotores.forEach(function (nombre) {
+            Object.keys(ciudadesPorPromotor).sort().forEach(function (nombre) {
                 var opt = document.createElement('option');
                 opt.value = nombre;
                 opt.textContent = nombre;
@@ -99,34 +110,45 @@
         }
 
         if (promotoresCache) {
-            pintar(promotoresCache);
+            pintar();
             return;
         }
         select.innerHTML = '<option value="">Cargando promotores...</option>';
         fetch(GETTERS_BASE + 'get_promotores.php')
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
-                promotoresCache = json.data || [];
-                pintar(promotoresCache);
+                // Un promotor puede tener varias filas (una por PDV/ciudad
+                // asignados en lvi_rutero) — se agrupan todas sus ciudades
+                // en un Set para el filtro de PDV (ver filtrarPdvsPorPromotor).
+                ciudadesPorPromotor = {};
+                (json.data || []).forEach(function (fila) {
+                    var nombre = fila.mercaderista;
+                    if (!nombre) return;
+                    if (!ciudadesPorPromotor[nombre]) ciudadesPorPromotor[nombre] = new Set();
+                    if (fila.city) ciudadesPorPromotor[nombre].add(String(fila.city).trim().toUpperCase());
+                });
+                promotoresCache = true;
+                pintar();
             });
+    }
+
+    function pintarPdvs(pdvs) {
+        var select = document.getElementById('agendaCrearPdv');
+        select.innerHTML = '<option value="">Seleccione un PDV</option>';
+        pdvs.forEach(function (p) {
+            var opt = document.createElement('option');
+            opt.value = p.pos_id;
+            opt.textContent = p.pos_name;
+            opt.dataset.nombre = p.pos_name;
+            opt.dataset.ciudad = p.city || '';
+            select.appendChild(opt);
+        });
     }
 
     function poblarPdvs() {
         var select = document.getElementById('agendaCrearPdv');
-
-        function pintar(pdvs) {
-            select.innerHTML = '<option value="">Seleccione un PDV</option>';
-            pdvs.forEach(function (p) {
-                var opt = document.createElement('option');
-                opt.value = p.pos_id;
-                opt.textContent = p.pos_name;
-                opt.dataset.nombre = p.pos_name;
-                select.appendChild(opt);
-            });
-        }
-
         if (pdvsCache) {
-            pintar(pdvsCache);
+            pintarPdvs(pdvsCache);
             return;
         }
         select.innerHTML = '<option value="">Cargando PDV...</option>';
@@ -134,8 +156,154 @@
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
                 pdvsCache = json.data || [];
-                pintar(pdvsCache);
+                // filtrarPdvsPorPromotor() ya cae a pintarPdvs(pdvsCache) sin
+                // promotor elegido — pero si el analista ya eligió promotor
+                // antes de que esta respuesta llegara, respeta ese filtro en
+                // vez de pisarlo con la lista completa.
+                filtrarPdvsPorPromotor();
             });
+    }
+
+    // Al elegir un promotor, el PDV se acota a las ciudades donde ese
+    // promotor tiene rutero asignado — pedido explícito del usuario
+    // ("elijo a Pepito de Guayaquil, no me muestre PDV de Quito").
+    // Sin promotor elegido (o sin ciudad registrada para ese promotor) se
+    // ven todos los PDV, igual que antes.
+    function filtrarPdvsPorPromotor() {
+        if (!pdvsCache) return; // todavía cargando
+        var promotor = document.getElementById('agendaCrearPromotor').value;
+        var ciudades = promotor ? ciudadesPorPromotor[promotor] : null;
+
+        if (!ciudades || !ciudades.size) {
+            pintarPdvs(pdvsCache);
+            return;
+        }
+        var filtrados = pdvsCache.filter(function (p) {
+            return ciudades.has(String(p.city || '').trim().toUpperCase());
+        });
+        if (!filtrados.length) {
+            var select = document.getElementById('agendaCrearPdv');
+            select.innerHTML = '<option value="">Sin PDV para la ciudad de este promotor</option>';
+            return;
+        }
+        pintarPdvs(filtrados);
+    }
+
+    // ---------------------------------------------------------------
+    // Combobox con buscador DENTRO del desplegable — pedido explícito del
+    // usuario, para Promotor (182 opciones) y PDV. Envuelve el <select> ya
+    // existente en un widget con un trigger + panel con buscador; el
+    // <select> original queda oculto pero sigue siendo la fuente de verdad
+    // (value, dataset, evento 'change') para no tocar validación/guardado
+    // ni el filtro de PDV por ciudad, que siguen leyendo el <select> normal.
+    // ---------------------------------------------------------------
+    function habilitarComboBuscador(selectId) {
+        var select = document.getElementById(selectId);
+        if (select.dataset.comboListo) return;
+        select.dataset.comboListo = '1';
+
+        var placeholder = (select.options[0] && select.options[0].textContent) || 'Seleccione...';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'agenda-combo';
+        select.parentNode.insertBefore(wrap, select);
+        wrap.appendChild(select);
+        select.classList.add('agenda-combo-select-oculto');
+
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'agenda-combo-trigger form-control';
+        trigger.innerHTML = '<span class="agenda-combo-trigger-texto"></span><i class="glyphicon glyphicon-chevron-down"></i>';
+        wrap.appendChild(trigger);
+
+        var panel = document.createElement('div');
+        panel.className = 'agenda-combo-panel';
+        panel.innerHTML = '<div class="agenda-combo-buscador-wrap">'
+            + '<i class="glyphicon glyphicon-search"></i>'
+            + '<input type="text" class="agenda-combo-buscador" placeholder="Buscar...">'
+            + '</div><div class="agenda-combo-lista"></div>';
+        wrap.appendChild(panel);
+
+        var buscador = panel.querySelector('.agenda-combo-buscador');
+        var lista = panel.querySelector('.agenda-combo-lista');
+        var triggerTexto = trigger.querySelector('.agenda-combo-trigger-texto');
+
+        function opcionesReales() {
+            // Respeta las opciones que el <select> tenga EN ESE MOMENTO
+            // (ya filtradas por ciudad si aplica), solo descarta el
+            // placeholder ("Seleccione...", value="").
+            return Array.prototype.slice.call(select.options).filter(function (o) { return o.value !== ''; });
+        }
+
+        function actualizarTrigger() {
+            var actual = select.options[select.selectedIndex];
+            var hayValor = actual && actual.value !== '';
+            triggerTexto.textContent = hayValor ? actual.textContent : placeholder;
+            trigger.classList.toggle('is-placeholder', !hayValor);
+            trigger.disabled = select.disabled;
+        }
+
+        function pintarLista(filtro) {
+            lista.innerHTML = '';
+            var q = (filtro || '').toLowerCase().trim();
+            var opciones = opcionesReales().filter(function (o) {
+                return !q || o.textContent.toLowerCase().indexOf(q) !== -1;
+            });
+            if (!opciones.length) {
+                var vacio = document.createElement('div');
+                vacio.className = 'agenda-combo-vacio';
+                vacio.textContent = 'Sin resultados.';
+                lista.appendChild(vacio);
+                return;
+            }
+            opciones.forEach(function (o) {
+                var item = document.createElement('div');
+                item.className = 'agenda-combo-item';
+                item.textContent = o.textContent;
+                if (o.value === select.value) item.classList.add('is-activo');
+                item.addEventListener('click', function () {
+                    select.value = o.value;
+                    select.dispatchEvent(new Event('change'));
+                    cerrarPanel();
+                });
+                lista.appendChild(item);
+            });
+        }
+
+        function abrirPanel() {
+            if (select.disabled || !opcionesReales().length) return;
+            panel.classList.add('is-abierto');
+            buscador.value = '';
+            pintarLista('');
+            setTimeout(function () { buscador.focus(); }, 0);
+        }
+
+        function cerrarPanel() {
+            panel.classList.remove('is-abierto');
+            actualizarTrigger();
+        }
+
+        trigger.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            if (panel.classList.contains('is-abierto')) cerrarPanel();
+            else abrirPanel();
+        });
+        buscador.addEventListener('input', function () { pintarLista(buscador.value); });
+        buscador.addEventListener('click', function (ev) { ev.stopPropagation(); });
+        document.addEventListener('click', function (ev) {
+            if (!wrap.contains(ev.target)) cerrarPanel();
+        });
+
+        // El <select> se repinta desde afuera (poblarPromotores, pintarPdvs,
+        // filtrarPdvsPorPromotor, limpiarFormulario) — hay que reflejar eso
+        // en el trigger, y en la lista si el panel está abierto.
+        select.addEventListener('change', actualizarTrigger);
+        new MutationObserver(function () {
+            actualizarTrigger();
+            if (panel.classList.contains('is-abierto')) pintarLista(buscador.value);
+        }).observe(select, { childList: true });
+
+        actualizarTrigger();
     }
 
     // ---------------------------------------------------------------
@@ -158,12 +326,63 @@
         reiniciarPin();
     }
 
-    function abrirModal() {
+    // El modal vive normalmente dentro del section-pane de Agendamientos
+    // (display:none cuando esa sección no está activa, lo que oculta a
+    // TODOS sus descendientes sin importar su position:fixed). Para poder
+    // abrirlo desde otro módulo (ver Contactados → "Registrar nuevo
+    // agendamiento") se "teletransporta" una sola vez como hijo directo de
+    // <body> — mismo nodo, mismos listeners ya enlazados, misma clase
+    // agenda-edit-overlay (con sus variables --ed-* propias, así que el
+    // estilo no se rompe al moverlo). Abrir el modal desde su botón
+    // original dentro de Agendamientos sigue funcionando igual.
+    function asegurarModalEnBody() {
+        var overlay = document.getElementById('agendaCrearOverlay');
+        if (overlay && overlay.parentElement !== document.body) {
+            document.body.appendChild(overlay);
+        }
+    }
+
+    // Gris + candado visual SOLO para el flujo de reagendamiento desde
+    // Contactados — el resto de la card queda intacta (pedido explícito).
+    function marcarCamposBloqueados(bloqueado) {
+        CAMPOS_AUTORELLENADOS.forEach(function (id) {
+            var input = document.getElementById(id);
+            input.readOnly = bloqueado;
+            input.classList.toggle('agenda-crear-input-bloqueado', bloqueado);
+        });
+    }
+
+    // prefill (opcional): datos del contacto ya conocido con el que se abre
+    // el formulario — se usa desde Contactados. Promotor, PDV, fecha, hora
+    // y técnico quedan SIEMPRE vacíos (pedido explícito): son reglas del
+    // nuevo agendamiento en sí, no datos del contacto.
+    function abrirModal(prefill) {
+        asegurarModalEnBody();
         limpiarFormulario();
+        if (prefill) {
+            document.getElementById('agendaCrearContacto').value = prefill.contacto || '';
+            document.getElementById('agendaCrearEmpresa').value = prefill.empresa || '';
+            document.getElementById('agendaCrearMail').value = prefill.mail || '';
+            document.getElementById('agendaCrearDireccion').value = prefill.direccion || '';
+            document.getElementById('agendaCrearCelular').value = prefill.telefono || '';
+            document.getElementById('agendaCrearConvencional').value = prefill.telefono_convencional || '';
+            var lat = parseFloat(prefill.latitud);
+            var lng = parseFloat(prefill.longitud);
+            if (lat && lng) coordenadas = { lat: lat, lng: lng };
+        }
+        marcarCamposBloqueados(!!prefill);
         poblarPromotores();
         poblarPdvs();
         document.getElementById('agendaCrearOverlay').classList.add('active');
         inicializarMapaPin();
+        if (coordenadas) {
+            // Centra el mapa en el pin que ya tenía confirmado el contacto,
+            // sin volver a geocodificar (la dirección ya vino prellenada y
+            // no se debe pisar con la respuesta de Mapbox).
+            setTimeout(function () {
+                if (pinMap) pinMap.setView([coordenadas.lat, coordenadas.lng], 16);
+            }, 90);
+        }
     }
 
     function cerrarModal() {
@@ -480,12 +699,20 @@
             });
     }
 
+    // Expuesto para que otros módulos (Contactados) puedan abrir esta misma
+    // card de "Visita Técnica" con datos de un contacto ya precargados.
+    window.AgendaAbrirCrear = abrirModal;
+
     document.addEventListener('DOMContentLoaded', function () {
-        document.getElementById('agendaCrearBtn').addEventListener('click', abrirModal);
+        document.getElementById('agendaCrearBtn').addEventListener('click', function () { abrirModal(); });
         document.getElementById('agendaCrearClose').addEventListener('click', cerrarModal);
         document.getElementById('agendaCrearCancelar').addEventListener('click', cerrarModal);
         document.getElementById('agendaCrearGuardar').addEventListener('click', guardar);
         document.getElementById('agendaCrearConfirmarPin').addEventListener('click', confirmarPin);
+        document.getElementById('agendaCrearPromotor').addEventListener('change', filtrarPdvsPorPromotor);
+
+        habilitarComboBuscador('agendaCrearPromotor');
+        habilitarComboBuscador('agendaCrearPdv');
 
         normalizarMayusculas(document.getElementById('agendaCrearContacto'));
         normalizarMayusculas(document.getElementById('agendaCrearEmpresa'));

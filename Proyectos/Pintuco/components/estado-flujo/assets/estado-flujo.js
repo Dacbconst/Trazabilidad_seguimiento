@@ -15,6 +15,10 @@
     var highlightedAgId    = null;
     var auditoriaAbierta   = null;
     var pagoModalAbierto   = false;
+    // Selección para exportar (tab Por Promotor) — Set de agendamiento_id
+    // (string) marcados con checkbox, a nivel de promotor completo o de
+    // fila suelta dentro del detalle de un promotor.
+    var agendamientosSeleccionados = new Set();
 
     // ── Helpers ──────────────────────────────────────────────────────
     function esc(s) {
@@ -147,9 +151,14 @@
         return mapa;
     }
 
-    function totalAcumuladoPromotor(usuario) {
+    // idsPermitidos (opcional): Set de agendamiento_id (string) al que
+    // restringir la suma — se usa cuando hay un filtro de PDV/empresa o una
+    // selección activa en el tab Por Promotor. Sin idsPermitidos, suma TODO
+    // el histórico del promotor (comportamiento original).
+    function totalAcumuladoPromotor(usuario, idsPermitidos) {
         var total = 0;
         Object.keys(porAgendamiento).forEach(function (agId) {
+            if (idsPermitidos && !idsPermitidos.has(String(agId))) return;
             var ciclos = porAgendamiento[agId];
             if (!ciclos.length) return;
             var u = (ciclos[0].usuario || '(sin asignar)');
@@ -163,9 +172,10 @@
     // Suma de "Monto Facturado" (pagos reales de insert_pago_factura, ver
     // totalFacturadoDe) de TODOS los agendamientos de un promotor — mismo
     // patrón que totalAcumuladoPromotor pero con los pagos, no la cotización.
-    function totalFacturadoPromotor(usuario) {
+    function totalFacturadoPromotor(usuario, idsPermitidos) {
         var total = 0;
         Object.keys(porAgendamiento).forEach(function (agId) {
+            if (idsPermitidos && !idsPermitidos.has(String(agId))) return;
             var ciclos = porAgendamiento[agId];
             if (!ciclos.length) return;
             var u = (ciclos[0].usuario || '(sin asignar)');
@@ -173,6 +183,18 @@
             total += totalFacturadoDe(agId);
         });
         return total;
+    }
+
+    // Conteo por fase de un promotor, opcionalmente restringido a
+    // idsPermitidos (mismo criterio que las funciones de arriba).
+    function conteoFasePorPromotor(usuario, idsPermitidos) {
+        var conteos = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        pipeline.forEach(function (p) {
+            if ((p.usuario || '(sin asignar)') !== usuario) return;
+            if (idsPermitidos && !idsPermitidos.has(String(p.agendamiento_id))) return;
+            conteos[getFase(p)]++;
+        });
+        return conteos;
     }
 
     function ultimoCicloConEvidencia(ciclos) {
@@ -244,14 +266,17 @@
         });
     }
 
+    // PDV o empresa: mismo criterio de búsqueda en Por Fase y en Por Promotor.
+    function matchPdv(p, q) {
+        var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
+        return hay.indexOf(q) !== -1;
+    }
+
     function pipelineFiltrado() {
         var bus  = document.getElementById('efBusqueda').value.toLowerCase().trim();
         var prom = document.getElementById('efFiltroPromotor').value.toLowerCase().trim();
         return pipeline.filter(function (p) {
-            if (bus) {
-                var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
-                if (hay.indexOf(bus) === -1) return false;
-            }
+            if (bus && !matchPdv(p, bus)) return false;
             if (prom && (p.usuario || '').toLowerCase().indexOf(prom) === -1) return false;
             return true;
         });
@@ -294,16 +319,26 @@
     }
 
     // ── Por Promotor — lista izquierda ────────────────────────────────
+    // Respeta el filtro "PDV o empresa" de la barra de arriba: sin filtro,
+    // cada promotor muestra su histórico completo (igual que siempre); con
+    // filtro, el conteo/montos se recalculan solo con los agendamientos que
+    // matchean, para que coincida con lo que se ve al abrir su detalle.
+    // p.ids: Set de agendamiento_id (string) que matchean el filtro actual —
+    // se usa para saber qué marcar al tildar el checkbox de ese promotor.
     function construirMapaPromotores() {
+        var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
         var mapa = {};
         pipeline.forEach(function (p) {
+            if (filtroPdv && !matchPdv(p, filtroPdv)) return;
             var u = p.usuario || '(sin asignar)';
-            if (!mapa[u]) mapa[u] = { usuario: u, total: 0 };
+            if (!mapa[u]) mapa[u] = { usuario: u, total: 0, ids: new Set() };
             mapa[u].total++;
+            mapa[u].ids.add(String(p.agendamiento_id));
         });
         Object.keys(mapa).forEach(function (u) {
-            mapa[u].montoAcumulado = totalAcumuladoPromotor(u);
-            mapa[u].montoFacturado = totalFacturadoPromotor(u);
+            var idsPermitidos = filtroPdv ? mapa[u].ids : null;
+            mapa[u].montoAcumulado = totalAcumuladoPromotor(u, idsPermitidos);
+            mapa[u].montoFacturado = totalFacturadoPromotor(u, idsPermitidos);
         });
         return mapa;
     }
@@ -317,6 +352,16 @@
             + '<span class="ef-slash-cotizado">' + fmtMonto(cotizado) + '</span>';
     }
 
+    // Actualiza el botón "Desmarcar todo" (solo visible con selección activa)
+    // y su contador — se llama cada vez que cambia agendamientosSeleccionados.
+    function actualizarBotonSeleccion() {
+        var totalSel = agendamientosSeleccionados.size;
+        var btn = document.getElementById('efDesmarcarTodo');
+        var count = document.getElementById('efSelCount');
+        if (count) count.textContent = totalSel;
+        if (btn) btn.style.display = totalSel > 0 ? '' : 'none';
+    }
+
     function renderPromoLista() {
         var container = document.getElementById('efPromoLista');
         var mapa = construirMapaPromotores();
@@ -326,18 +371,52 @@
         var visible = q ? lista.filter(function (p) { return p.usuario.toLowerCase().indexOf(q) !== -1; }) : lista;
         if (!visible.length) {
             container.innerHTML = '<div class="ef-vacio">' + (q ? 'Sin resultados para "' + esc(q) + '".' : 'Sin datos.') + '</div>';
+            actualizarBotonSeleccion();
             return;
         }
         container.innerHTML = visible.map(function (p) {
             var activo = p.usuario === promActivo ? 'is-activo' : '';
+            var seleccionados = 0;
+            p.ids.forEach(function (id) { if (agendamientosSeleccionados.has(id)) seleccionados++; });
+            var marcado = seleccionados > 0 && seleccionados === p.total;
             return '<div class="ef-promo-item ' + activo + '" data-usuario="' + esc(p.usuario) + '">'
-                + '<div class="ef-promo-item-nombre">' + esc(p.usuario) + '</div>'
-                + '<div class="ef-promo-item-meta">'
-                +   '<span>' + p.total + ' agendado' + (p.total !== 1 ? 's' : '') + '</span>'
+                + '<input type="checkbox" class="ef-promo-check" data-usuario="' + esc(p.usuario) + '"' + (marcado ? ' checked' : '') + '>'
+                + '<div class="ef-promo-item-body">'
+                +   '<div class="ef-promo-item-nombre">' + esc(p.usuario) + '</div>'
+                +   '<div class="ef-promo-item-meta">'
+                +     '<span>' + p.total + ' agendado' + (p.total !== 1 ? 's' : '') + '</span>'
+                +   '</div>'
+                +   '<div class="ef-promo-item-monto">' + fmtMontoSlash(p.montoFacturado, p.montoAcumulado) + '</div>'
                 + '</div>'
-                + '<div class="ef-promo-item-monto">' + fmtMontoSlash(p.montoFacturado, p.montoAcumulado) + '</div>'
                 + '</div>';
         }).join('');
+
+        // El estado "parcialmente seleccionado" (indeterminate) no se puede
+        // fijar por HTML — se aplica después de insertar el DOM.
+        var porUsuario = {};
+        visible.forEach(function (p) { porUsuario[p.usuario] = p; });
+        container.querySelectorAll('.ef-promo-check').forEach(function (cb) {
+            var p = porUsuario[cb.dataset.usuario];
+            if (!p) return;
+            var seleccionados = 0;
+            p.ids.forEach(function (id) { if (agendamientosSeleccionados.has(id)) seleccionados++; });
+            cb.indeterminate = seleccionados > 0 && seleccionados < p.total;
+        });
+
+        actualizarBotonSeleccion();
+    }
+
+    // Marca/desmarca TODOS los agendamientos de un promotor que matchean el
+    // filtro "PDV o empresa" actual (mapa[usuario].ids ya viene filtrado).
+    function toggleSeleccionPromotor(usuario, marcar) {
+        var mapa = construirMapaPromotores();
+        var p = mapa[usuario];
+        if (!p) return;
+        p.ids.forEach(function (id) {
+            if (marcar) agendamientosSeleccionados.add(id); else agendamientosSeleccionados.delete(id);
+        });
+        renderPromoLista();
+        if (promActivo === usuario) renderPromoDetalle(promActivo);
     }
 
     // ── Por Promotor — panel derecho ──────────────────────────────────
@@ -348,11 +427,18 @@
             return;
         }
 
-        var pdvs = pipeline.filter(function (p) { return (p.usuario || '(sin asignar)') === usuario; });
-        var conteosFase = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        pdvs.forEach(function (p) { conteosFase[getFase(p)]++; });
-        var total = totalAcumuladoPromotor(usuario);
-        var totalFacturado = totalFacturadoPromotor(usuario);
+        var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
+        var todos = pipeline.filter(function (p) { return (p.usuario || '(sin asignar)') === usuario; });
+        var pdvs = filtroPdv ? todos.filter(function (p) { return matchPdv(p, filtroPdv); }) : todos;
+
+        // Con filtro de PDV/empresa activo, badges y totales se recalculan
+        // solo con lo que queda visible en la tabla de abajo (para que
+        // cuadren entre sí); sin filtro, muestran el histórico completo del
+        // promotor, igual que siempre.
+        var idsPermitidos = filtroPdv ? new Set(pdvs.map(function (p) { return String(p.agendamiento_id); })) : null;
+        var conteosFase = conteoFasePorPromotor(usuario, idsPermitidos);
+        var total = totalAcumuladoPromotor(usuario, idsPermitidos);
+        var totalFacturado = totalFacturadoPromotor(usuario, idsPermitidos);
 
         var badges = FASES_META.map(function (m) {
             return '<div class="ef-fase-badge-mini"><span class="ef-fase-badge-dot"></span>F' + m.fase + ': ' + conteosFase[m.fase] + '</div>';
@@ -365,7 +451,9 @@
             var cotizacionInicial = vigente ? fmtMonto(vigente.monto_validado) : '—';
             var montoFacturado = fmtMonto(totalFacturadoDe(p.agendamiento_id));
             var hl = String(p.agendamiento_id) === String(highlightedAgId) ? 'is-highlight' : '';
+            var marcado = agendamientosSeleccionados.has(String(p.agendamiento_id));
             return '<tr data-agendamiento-id="' + esc(p.agendamiento_id) + '" class="' + hl + '">'
+                + '<td class="ef-td-check"><input type="checkbox" class="ef-row-check" data-agendamiento-id="' + esc(p.agendamiento_id) + '"' + (marcado ? ' checked' : '') + '></td>'
                 + '<td><div class="ef-tabla-empresa">' + esc(p.empresa || '—') + '</div>'
                 +     '<div class="ef-tabla-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div></td>'
                 + '<td><span class="ef-fase-badge is-f' + f + '">Fase ' + f + '</span></td>'
@@ -393,8 +481,8 @@
             + '</div>'
             + '<div class="ef-promo-badges">' + badges + '</div>'
             + '<div class="ef-promo-tabla-wrap"><table class="ef-tabla-prom">'
-            +   '<thead><tr><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto Facturado</th><th>Cotización Inicial</th><th></th></tr></thead>'
-            +   '<tbody>' + (filas || '<tr><td colspan="6" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
+            +   '<thead><tr><th class="ef-th-check"></th><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto Facturado</th><th>Cotización Inicial</th><th></th></tr></thead>'
+            +   '<tbody>' + (filas || '<tr><td colspan="7" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
             + '</table></div>';
     }
 
@@ -698,95 +786,183 @@
     }
 
     // ── Exportar a Excel ─────────────────────────────────────────────
-    // Descarga lo que está en pantalla (respeta los filtros activos de PDV/
-    // empresa y promotor). Una fila por agendamiento (último ciclo, igual
-    // que el kanban). Columnas de dinero como números para poder sumar/
-    // ordenar en Excel. URLs de fotos como hipervínculos clickeables.
-    function exportarExcel() {
-        var filas = pipelineFiltrado();
-        if (!filas.length) return;
+    // El botón vive en el tab "Por Promotor". El libro tiene dos hojas: un
+    // resumen por promotor (mismo dato que la lista izquierda + badges de
+    // fase del panel derecho) y un detalle por agendamiento — ambas
+    // restringidas a lo que el usuario marcó con checkbox (ver
+    // agendamientosSeleccionados, "Seleccionar todo" y "Desmarcar todo").
+    var ESTILO_ENCABEZADO = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FF1D5FA8' } },
+        font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+        alignment: { vertical: 'center', horizontal: 'left' }
+    };
 
-        var LABELS_FASE  = { 1:'Contacto', 2:'Agendado', 3:'Proforma', 4:'Negociación', 5:'Facturado' };
-        var LABELS_ESTADO = {
-            pendiente:'Pendiente', confirmado:'Confirmado', reagendada:'Reagendada',
-            vencida:'Vencida', completada:'Completada', cancelada:'Cancelada'
-        };
-        var LABELS_PAGO  = { pendiente:'Pendiente', en_proceso:'En proceso', completado:'Completado' };
+    function estilizarEncabezado(hoja) {
+        var rango = XLSX.utils.decode_range(hoja['!ref'] || 'A1');
+        for (var C = rango.s.c; C <= rango.e.c; C++) {
+            var addr = XLSX.utils.encode_cell({ r: rango.s.r, c: C });
+            if (hoja[addr]) hoja[addr].s = ESTILO_ENCABEZADO;
+        }
+    }
+
+    // promotores: [{ usuario, total, ids: Set(agendamiento_id) }] — ids son
+    // los agendamientos de ESE promotor que efectivamente entran al Excel
+    // (los marcados con checkbox). Fases y montos se recalculan solo con
+    // esos ids, para que el resumen cuadre exacto con la hoja de detalle.
+    function construirHojaResumenPromotor(promotores) {
+        var datos = promotores.map(function (pr) {
+            var fases = conteoFasePorPromotor(pr.usuario, pr.ids);
+            var montoAcumulado = totalAcumuladoPromotor(pr.usuario, pr.ids);
+            var montoFacturado = totalFacturadoPromotor(pr.usuario, pr.ids);
+            var pct = montoAcumulado > 0 ? Math.round((montoFacturado / montoAcumulado) * 100) : 0;
+            return {
+                'Promotor':             pr.usuario,
+                'Total Agendados':      pr.total,
+                'F1 Contacto':          fases[1],
+                'F2 Agendado':          fases[2],
+                'F3 Proforma':          fases[3],
+                'F4 Negociación':       fases[4],
+                'F5 Facturado':         fases[5],
+                'Monto Cotizado':       montoAcumulado || 0,
+                'Monto Facturado':      montoFacturado || 0,
+                '% Cobro':              pct
+            };
+        });
+        var hoja = XLSX.utils.json_to_sheet(datos);
+        hoja['!cols'] = [
+            { wch: 22 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+            { wch: 14 }, { wch: 13 }, { wch: 15 }, { wch: 15 }, { wch: 9 }
+        ];
+        estilizarEncabezado(hoja);
+        return hoja;
+    }
+
+    // Historial de proformas para la celda "Proformas": TODAS las rondas
+    // reales (no solo las que tienen monto) unidas con " - ", en el orden
+    // en que ocurrieron — una ronda sin monto todavía (la "vacía" que abre
+    // cada "Guardar", ver ultimaProformaDe más arriba) se muestra como "-"
+    // en su propio lugar, sin saltársela, para no perder la posición dentro
+    // del historial. En negrita real de Excel (runs con <rPr><b/></rPr>,
+    // no un truco de texto plano) va la ronda VIGENTE — la que cuenta para
+    // el total (ultimaProformaDe) — que casi nunca es la última fila de la
+    // lista, porque esa suele ser la ronda vacía recién abierta.
+    function historialProformasCelda(agendamientoId) {
+        var ciclos = ciclosRealesDe(agendamientoId); // ASC por id
+        if (!ciclos.length) return { plano: '—', rico: null };
+
+        var vigente = ultimaProformaDe(agendamientoId);
+        var vigenteId = vigente ? (parseInt(vigente.id, 10) || 0) : null;
+
+        var partes = ciclos.map(function (c) { return c.monto_validado ? fmtMonto(c.monto_validado) : '-'; });
+        var plano = partes.join(' - ');
+
+        var runs = ciclos.map(function (c, i) {
+            var esVigente = vigenteId !== null && (parseInt(c.id, 10) || 0) === vigenteId;
+            var contenido = partes[i] + (i < partes.length - 1 ? ' - ' : '');
+            return '<r>' + (esVigente ? '<rPr><b/></rPr>' : '') + '<t xml:space="preserve">' + esc(contenido) + '</t></r>';
+        }).join('');
+
+        return { plano: plano, rico: runs };
+    }
+
+    function construirHojaDetalle(filas) {
+        var historiales = []; // en paralelo a "filas", para inyectar el rich text después de json_to_sheet
 
         var datos = filas.map(function (p) {
-            var fase      = getFase(p);
-            var dias      = diasDesde(refFechaFase(p));
-            var ciclos    = porAgendamiento[p.agendamiento_id] || [];
-            var ultimaP   = ultimaProformaDe(p.agendamiento_id);
-            var cobrado   = totalFacturadoDe(p.agendamiento_id);
-            var cotiz     = ultimaP ? (parseFloat(ultimaP.monto_validado) || 0) : 0;
-            var montoTot  = parseFloat(p.monto_total_factura) || 0;
-            // Pendiente por cobrar: solo aplica en Fase 5 con factura registrada
-            var pendiente = (fase === 5 && montoTot > 0) ? Math.max(0, montoTot - cobrado) : null;
+            var ultimaP    = ultimaProformaDe(p.agendamiento_id);
+            var cobrado    = totalFacturadoDe(p.agendamiento_id);
+            var cotiz      = ultimaP ? (parseFloat(ultimaP.monto_validado) || 0) : 0;
+            var montoTot   = parseFloat(p.monto_total_factura) || 0;
+            var plazoMeses = parseInt(p.plazo_meses, 10) || 0;
+            var pendiente  = montoTot > 0 ? Math.max(0, montoTot - cobrado) : '';
 
-            var cicloEvid    = ultimoCicloConEvidencia(ciclos);
-            var cicloFact    = ultimoCicloConFactura(ciclos);
-            var urlEvidencia = cicloEvid ? (FOTO_BASE + cicloEvid.evidencia)       : '';
-            var urlFactura   = cicloFact ? (FOTO_BASE + cicloFact.foto_factura)    : '';
+            var historial = historialProformasCelda(p.agendamiento_id);
+            historiales.push(historial.rico);
 
             return {
-                'Empresa':              p.empresa     || '',
-                'PDV':                  p.pdv         || p.codigo_pdv || '',
-                'Código PDV':           p.codigo_pdv  || '',
-                'Dirección':            p.direccion   || '',
-                'Teléfono':             p.telefono    || '',
-                'Promotor':             p.usuario     || '',
-                'Técnico':              p.tecnico     || '',
-                'Fecha visita':         formatFecha(p.fecha_agendamiento),
-                'Hora':                 p.hora ? String(p.hora).slice(0, 5) : '',
-                'Fase':                 fase + ' — ' + (LABELS_FASE[fase] || ''),
-                'Días en fase':         dias !== null ? dias : '',
-                'Estado agenda':        LABELS_ESTADO[p.estado_agenda] || (p.estado_agenda || ''),
-                'Cotización inicial':   cotiz     || '',
-                'Monto total factura':  montoTot  || '',
-                'Plazo (meses)':        parseInt(p.plazo_meses, 10) || '',
-                'Monto cobrado':        cobrado   || '',
-                'Pendiente por cobrar': pendiente !== null ? pendiente : '',
-                'Estado pago':          fase === 5 ? (LABELS_PAGO[p.estado_pago] || '') : '',
-                'Foto proforma':        urlEvidencia,
-                'Foto factura':         urlFactura,
-                'Observaciones':        p.observaciones_auditoria || '',
-                'Características':      p.caracteristica_visita   || ''
+                'Promotor':             p.usuario  || '(sin asignar)',
+                'PDV':                  p.pdv      || p.codigo_pdv || '',
+                'Empresa':              p.empresa  || '',
+                'Contacto':             p.contacto || '',
+                'Proformas':            historial.plano,
+                'Factura':              montoTot  || '',
+                'A plazos?':            plazoMeses > 0 ? 1 : 0,
+                'Plazos Meses':         plazoMeses > 0 ? plazoMeses : '-',
+                'Cotización inicial':   cotiz || '',
+                'Monto Facturado':      cobrado || '',
+                'Pendiente por cobrar': pendiente
             };
         });
 
         var hoja = XLSX.utils.json_to_sheet(datos);
 
-        // Convertir las celdas de foto en hipervínculos clickeables — el
-        // texto que ve el usuario es "Ver foto" en vez de la URL larga, pero
-        // al hacer clic abre el blob directamente en el navegador.
-        var COL_FOTO_P = 18; // índice 0-based de "Foto proforma"
-        var COL_FOTO_F = 19; // índice 0-based de "Foto factura"
+        // Inyectar el rich text (negrita del último monto) en la columna
+        // "Proformas" — json_to_sheet solo escribió el texto plano de
+        // fallback, ahora se reemplaza por la versión con runs con formato.
+        // Centrada horizontalmente para que los "-" de rondas vacías no
+        // queden pegados a la izquierda de la celda.
+        var COL_PROFORMAS   = 4; // índice 0-based de "Proformas"
+        var COL_PLAZO_MESES = 7; // índice 0-based de "Plazos Meses" (también usa "-" cuando no aplica)
+        var ALINEACION_CENTRO = { alignment: { horizontal: 'center', vertical: 'center' } };
         var rango = XLSX.utils.decode_range(hoja['!ref'] || 'A1');
         for (var R = rango.s.r + 1; R <= rango.e.r; R++) {
-            [COL_FOTO_P, COL_FOTO_F].forEach(function (C) {
-                var addr = XLSX.utils.encode_cell({ r: R, c: C });
-                if (hoja[addr] && hoja[addr].v) {
-                    hoja[addr] = { t: 's', v: 'Ver foto', l: { Target: hoja[addr].v } };
-                }
-            });
+            var addrProf = XLSX.utils.encode_cell({ r: R, c: COL_PROFORMAS });
+            if (hoja[addrProf]) {
+                var rico = historiales[R - rango.s.r - 1];
+                if (rico) hoja[addrProf].r = rico;
+                hoja[addrProf].s = ALINEACION_CENTRO;
+            }
+            var addrPlazo = XLSX.utils.encode_cell({ r: R, c: COL_PLAZO_MESES });
+            if (hoja[addrPlazo]) hoja[addrPlazo].s = ALINEACION_CENTRO;
         }
 
         hoja['!cols'] = [
-            { wch: 22 }, { wch: 18 }, { wch: 12 }, { wch: 26 }, { wch: 13 },
-            { wch: 18 }, { wch: 18 }, { wch: 13 }, { wch: 7  }, { wch: 18 },
-            { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 13 },
-            { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
-            { wch: 30 }, { wch: 26 }
+            { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 30 },
+            { wch: 13 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 },
+            { wch: 16 }
         ];
+        estilizarEncabezado(hoja);
+        return hoja;
+    }
+
+    // Exporta EXACTAMENTE lo marcado con checkbox (a nivel de promotor
+    // completo o de fila suelta) — sin selección no se exporta nada, se le
+    // pide al usuario que marque algo primero.
+    function exportarExcel() {
+        if (!agendamientosSeleccionados.size) {
+            alert('Marca al menos un promotor o un agendamiento (checkbox) antes de descargar el Excel.');
+            return;
+        }
+
+        var filasDetalle = pipeline
+            .filter(function (p) { return agendamientosSeleccionados.has(String(p.agendamiento_id)); })
+            .sort(function (a, b) {
+                var ua = (a.usuario || '(sin asignar)'), ub = (b.usuario || '(sin asignar)');
+                if (ua !== ub) return ua < ub ? -1 : 1;
+                return (a.empresa || '').localeCompare(b.empresa || '');
+            });
+
+        // Un promotor entra al resumen si tiene al menos un agendamiento
+        // marcado — sus ids (para fases/montos) son solo los que quedaron
+        // seleccionados de ese promotor, no todo su histórico.
+        var idsPorPromotor = {};
+        filasDetalle.forEach(function (p) {
+            var u = p.usuario || '(sin asignar)';
+            if (!idsPorPromotor[u]) idsPorPromotor[u] = new Set();
+            idsPorPromotor[u].add(String(p.agendamiento_id));
+        });
+        var promotores = Object.keys(idsPorPromotor).map(function (u) {
+            return { usuario: u, total: idsPorPromotor[u].size, ids: idsPorPromotor[u] };
+        }).sort(function (a, b) { return b.total - a.total; });
 
         var libro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(libro, hoja, 'Estado de Flujo');
+        XLSX.utils.book_append_sheet(libro, construirHojaResumenPromotor(promotores), 'Resumen por Promotor');
+        XLSX.utils.book_append_sheet(libro, construirHojaDetalle(filasDetalle), 'Detalle por Agendamiento');
 
         var hoy = new Date();
         var dd  = String(hoy.getDate()).padStart(2, '0');
         var mm  = String(hoy.getMonth() + 1).padStart(2, '0');
-        XLSX.writeFile(libro, 'flujo_comercial_' + dd + '-' + mm + '-' + hoy.getFullYear() + '.xlsx');
+        XLSX.writeFile(libro, 'flujo_por_promotor_' + dd + '-' + mm + '-' + hoy.getFullYear() + '.xlsx');
     }
 
     // ── Carga de datos ────────────────────────────────────────────────
@@ -825,6 +1001,12 @@
     document.getElementById('efBusqueda').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efFiltroPromotor').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efPromoSearch').addEventListener('input', renderPromoLista);
+    // "PDV o empresa" en Por Promotor: recalcula lista, badges/totales y
+    // filas de la tabla del promotor abierto (ver renderPromoDetalle).
+    document.getElementById('efPromoBusquedaPdv').addEventListener('input', function () {
+        renderPromoLista();
+        if (promActivo) renderPromoDetalle(promActivo);
+    });
 
     document.getElementById('efKanban').addEventListener('click', function (e) {
         var card = e.target.closest('.ef-card');
@@ -833,6 +1015,14 @@
     });
 
     document.getElementById('efPromoLista').addEventListener('click', function (e) {
+        // Checkbox del promotor: selecciona/deselecciona todos sus
+        // agendamientos (filtrados por PDV/empresa si hay filtro activo) —
+        // no abre el detalle, solo marca.
+        var check = e.target.closest('.ef-promo-check');
+        if (check) {
+            toggleSeleccionPromotor(check.dataset.usuario, check.checked);
+            return;
+        }
         var item = e.target.closest('.ef-promo-item');
         if (!item) return;
         promActivo = item.dataset.usuario;
@@ -841,9 +1031,35 @@
     });
 
     document.getElementById('efPromoDetalle').addEventListener('click', function (e) {
+        var check = e.target.closest('.ef-row-check');
+        if (check) {
+            var id = String(check.dataset.agendamientoId);
+            if (check.checked) agendamientosSeleccionados.add(id); else agendamientosSeleccionados.delete(id);
+            renderPromoLista(); // sincroniza el checkbox/indeterminate del promotor en la lista izquierda
+            return;
+        }
         var btn = e.target.closest('.ef-btn-auditar');
         if (!btn) return;
         abrirAuditoria(btn.dataset.agendamientoId);
+    });
+
+    // "Seleccionar todo": solo lo visible/filtrado (respeta PDV/empresa y
+    // el buscador de promotor de la lista izquierda).
+    document.getElementById('efSeleccionarTodo').addEventListener('click', function () {
+        var mapa = construirMapaPromotores();
+        var q = (document.getElementById('efPromoSearch').value || '').toLowerCase().trim();
+        Object.keys(mapa).forEach(function (u) {
+            if (q && u.toLowerCase().indexOf(q) === -1) return;
+            mapa[u].ids.forEach(function (id) { agendamientosSeleccionados.add(id); });
+        });
+        renderPromoLista();
+        if (promActivo) renderPromoDetalle(promActivo);
+    });
+
+    document.getElementById('efDesmarcarTodo').addEventListener('click', function () {
+        agendamientosSeleccionados.clear();
+        renderPromoLista();
+        if (promActivo) renderPromoDetalle(promActivo);
     });
 
     document.getElementById('efAudClose').addEventListener('click', cerrarAuditoria);

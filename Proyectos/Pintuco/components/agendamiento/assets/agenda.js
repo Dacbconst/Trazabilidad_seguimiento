@@ -117,7 +117,7 @@
 
     var ESTADO_LABEL = {
         pendiente: 'Pendiente técnico',
-        confirmado: 'Técnico confirmado',
+        confirmado: 'Agendado',
         reagendada: 'Reagendada',
         vencida: 'Vencida',
         cancelada: 'Cancelada',

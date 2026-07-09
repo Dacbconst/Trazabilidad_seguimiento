@@ -7,7 +7,7 @@
     </div>
 
     <div class="sidebar-user">
-        <div class="avatar"><i class="glyphicon glyphicon-user"></i></div>
+        <div class="avatar"><img src="assets/img/avatar-default.webp" alt="" onerror="this.parentElement.innerHTML='&lt;i class=&quot;glyphicon glyphicon-user&quot;&gt;&lt;/i&gt;'"></div>
         <div>
             <div class="name"><?= htmlspecialchars($usuario_actual['nombre']) ?></div>
         </div>
