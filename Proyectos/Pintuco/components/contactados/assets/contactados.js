@@ -352,6 +352,23 @@
         });
     }
 
+    // Filtro "Periodo" — default "Mes actual" (pedido explícito del
+    // usuario, mismo criterio ya usado en Estado de Flujo): al entrar al
+    // módulo, la tabla arranca mostrando solo lo registrado este mes.
+    // Fecha de referencia: fecha_registro del contacto.
+    function coincidePeriodo(r) {
+        var sel = document.getElementById('contactadosPeriodo');
+        var clave = sel ? sel.value : '';
+        if (!clave) return true; // "Todos"
+        var iso = (r.fecha_registro || '').split(' ')[0];
+        if (!iso || iso === '0000-00-00') return false;
+        var fecha = new Date(iso + 'T00:00:00');
+        var hoy = new Date();
+        var base = hoy;
+        if (clave === 'mes_anterior') base = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        return fecha.getFullYear() === base.getFullYear() && fecha.getMonth() === base.getMonth();
+    }
+
     // Solo se busca por empresa/contacto/correo/dirección — PDV se excluyó
     // a pedido explícito del usuario (el campo ya no dice "buscar PDV...").
     function filasFiltradas() {
@@ -360,6 +377,7 @@
         var estadoFil = document.getElementById('contactadosEstado').value;
 
         return currentRows.filter(function (r) {
+            if (!coincidePeriodo(r)) return false;
             if (mercader && r.usuario !== mercader) return false;
             if (estadoFil && getEstado(r).cls !== estadoFil) return false;
             if (q) {
@@ -560,6 +578,7 @@
         document.getElementById('contactadosBusqueda').addEventListener('input', resetearSeleccionYRenderizar);
         document.getElementById('contactadosMercaderista').addEventListener('change', resetearSeleccionYRenderizar);
         document.getElementById('contactadosEstado').addEventListener('change', resetearSeleccionYRenderizar);
+        document.getElementById('contactadosPeriodo').addEventListener('change', resetearSeleccionYRenderizar);
         document.getElementById('contactadosPagAnterior').addEventListener('click', function () {
             if (paginaActual > 1) { paginaActual--; renderizar(); }
         });

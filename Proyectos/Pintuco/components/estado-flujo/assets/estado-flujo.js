@@ -272,6 +272,25 @@
         return hay.indexOf(q) !== -1;
     }
 
+    // Filtro "Periodo" — solo en el tab Por Promotor (donde vive el botón de
+    // descarga de Excel). Arranca en "Mes actual" por defecto: al entrar a
+    // la página, la lista/detalle/total de ese tab solo muestran lo del mes
+    // en curso, sin que el analista tenga que tocar nada. Fecha de
+    // referencia: fecha_agendamiento (visita), con contacto_fecha_registro
+    // como respaldo para agendamientos que aún no tienen visita agendada.
+    function coincidePeriodo(p) {
+        var sel = document.getElementById('efPromoFiltroPeriodo');
+        var clave = sel ? sel.value : '';
+        if (!clave) return true; // "Todos"
+        var ref = soloFecha(p.fecha_agendamiento || p.contacto_fecha_registro);
+        if (!ref || ref === '0000-00-00') return false;
+        var fecha = new Date(ref + 'T00:00:00');
+        var hoy = new Date();
+        var base = hoy;
+        if (clave === 'mes_anterior') base = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+        return fecha.getFullYear() === base.getFullYear() && fecha.getMonth() === base.getMonth();
+    }
+
     function pipelineFiltrado() {
         var bus  = document.getElementById('efBusqueda').value.toLowerCase().trim();
         var prom = document.getElementById('efFiltroPromotor').value.toLowerCase().trim();
@@ -327,8 +346,11 @@
     // se usa para saber qué marcar al tildar el checkbox de ese promotor.
     function construirMapaPromotores() {
         var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
+        var sel = document.getElementById('efPromoFiltroPeriodo');
+        var conPeriodo = !!(sel && sel.value);
         var mapa = {};
         pipeline.forEach(function (p) {
+            if (!coincidePeriodo(p)) return;
             if (filtroPdv && !matchPdv(p, filtroPdv)) return;
             var u = p.usuario || '(sin asignar)';
             if (!mapa[u]) mapa[u] = { usuario: u, total: 0, ids: new Set() };
@@ -336,7 +358,7 @@
             mapa[u].ids.add(String(p.agendamiento_id));
         });
         Object.keys(mapa).forEach(function (u) {
-            var idsPermitidos = filtroPdv ? mapa[u].ids : null;
+            var idsPermitidos = (filtroPdv || conPeriodo) ? mapa[u].ids : null;
             mapa[u].montoAcumulado = totalAcumuladoPromotor(u, idsPermitidos);
             mapa[u].montoFacturado = totalFacturadoPromotor(u, idsPermitidos);
         });
@@ -428,14 +450,18 @@
         }
 
         var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
-        var todos = pipeline.filter(function (p) { return (p.usuario || '(sin asignar)') === usuario; });
+        var sel = document.getElementById('efPromoFiltroPeriodo');
+        var conPeriodo = !!(sel && sel.value);
+        var todos = pipeline.filter(function (p) {
+            return (p.usuario || '(sin asignar)') === usuario && coincidePeriodo(p);
+        });
         var pdvs = filtroPdv ? todos.filter(function (p) { return matchPdv(p, filtroPdv); }) : todos;
 
-        // Con filtro de PDV/empresa activo, badges y totales se recalculan
-        // solo con lo que queda visible en la tabla de abajo (para que
-        // cuadren entre sí); sin filtro, muestran el histórico completo del
-        // promotor, igual que siempre.
-        var idsPermitidos = filtroPdv ? new Set(pdvs.map(function (p) { return String(p.agendamiento_id); })) : null;
+        // Con filtro de PDV/empresa o de Periodo activo, badges y totales se
+        // recalculan solo con lo que queda visible en la tabla de abajo (para
+        // que cuadren entre sí); sin ningún filtro, muestran el histórico
+        // completo del promotor, igual que siempre.
+        var idsPermitidos = (filtroPdv || conPeriodo) ? new Set(pdvs.map(function (p) { return String(p.agendamiento_id); })) : null;
         var conteosFase = conteoFasePorPromotor(usuario, idsPermitidos);
         var total = totalAcumuladoPromotor(usuario, idsPermitidos);
         var totalFacturado = totalFacturadoPromotor(usuario, idsPermitidos);
@@ -805,122 +831,24 @@
         }
     }
 
-    // promotores: [{ usuario, total, ids: Set(agendamiento_id) }] — ids son
-    // los agendamientos de ESE promotor que efectivamente entran al Excel
-    // (los marcados con checkbox). Fases y montos se recalculan solo con
-    // esos ids, para que el resumen cuadre exacto con la hoja de detalle.
-    function construirHojaResumenPromotor(promotores) {
-        var datos = promotores.map(function (pr) {
-            var fases = conteoFasePorPromotor(pr.usuario, pr.ids);
-            var montoAcumulado = totalAcumuladoPromotor(pr.usuario, pr.ids);
-            var montoFacturado = totalFacturadoPromotor(pr.usuario, pr.ids);
-            var pct = montoAcumulado > 0 ? Math.round((montoFacturado / montoAcumulado) * 100) : 0;
-            return {
-                'Promotor':             pr.usuario,
-                'Total Agendados':      pr.total,
-                'F1 Contacto':          fases[1],
-                'F2 Agendado':          fases[2],
-                'F3 Proforma':          fases[3],
-                'F4 Negociación':       fases[4],
-                'F5 Facturado':         fases[5],
-                'Monto Cotizado':       montoAcumulado || 0,
-                'Monto Facturado':      montoFacturado || 0,
-                '% Cobro':              pct
-            };
-        });
-        var hoja = XLSX.utils.json_to_sheet(datos);
-        hoja['!cols'] = [
-            { wch: 22 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-            { wch: 14 }, { wch: 13 }, { wch: 15 }, { wch: 15 }, { wch: 9 }
-        ];
-        estilizarEncabezado(hoja);
-        return hoja;
-    }
-
-    // Historial de proformas para la celda "Proformas": TODAS las rondas
-    // reales (no solo las que tienen monto) unidas con " - ", en el orden
-    // en que ocurrieron — una ronda sin monto todavía (la "vacía" que abre
-    // cada "Guardar", ver ultimaProformaDe más arriba) se muestra como "-"
-    // en su propio lugar, sin saltársela, para no perder la posición dentro
-    // del historial. En negrita real de Excel (runs con <rPr><b/></rPr>,
-    // no un truco de texto plano) va la ronda VIGENTE — la que cuenta para
-    // el total (ultimaProformaDe) — que casi nunca es la última fila de la
-    // lista, porque esa suele ser la ronda vacía recién abierta.
-    function historialProformasCelda(agendamientoId) {
-        var ciclos = ciclosRealesDe(agendamientoId); // ASC por id
-        if (!ciclos.length) return { plano: '—', rico: null };
-
-        var vigente = ultimaProformaDe(agendamientoId);
-        var vigenteId = vigente ? (parseInt(vigente.id, 10) || 0) : null;
-
-        var partes = ciclos.map(function (c) { return c.monto_validado ? fmtMonto(c.monto_validado) : '-'; });
-        var plano = partes.join(' - ');
-
-        var runs = ciclos.map(function (c, i) {
-            var esVigente = vigenteId !== null && (parseInt(c.id, 10) || 0) === vigenteId;
-            var contenido = partes[i] + (i < partes.length - 1 ? ' - ' : '');
-            return '<r>' + (esVigente ? '<rPr><b/></rPr>' : '') + '<t xml:space="preserve">' + esc(contenido) + '</t></r>';
-        }).join('');
-
-        return { plano: plano, rico: runs };
-    }
-
+    // Columnas pedidas por el usuario, en este orden exacto: Promotor, PDV,
+    // Contacto, Empresa, Monto Facturado, Cotización inicial.
     function construirHojaDetalle(filas) {
-        var historiales = []; // en paralelo a "filas", para inyectar el rich text después de json_to_sheet
-
         var datos = filas.map(function (p) {
-            var ultimaP    = ultimaProformaDe(p.agendamiento_id);
-            var cobrado    = totalFacturadoDe(p.agendamiento_id);
-            var cotiz      = ultimaP ? (parseFloat(ultimaP.monto_validado) || 0) : 0;
-            var montoTot   = parseFloat(p.monto_total_factura) || 0;
-            var plazoMeses = parseInt(p.plazo_meses, 10) || 0;
-            var pendiente  = montoTot > 0 ? Math.max(0, montoTot - cobrado) : '';
-
-            var historial = historialProformasCelda(p.agendamiento_id);
-            historiales.push(historial.rico);
-
+            var ultimaP = ultimaProformaDe(p.agendamiento_id);
+            var cobrado = totalFacturadoDe(p.agendamiento_id);
+            var cotiz   = ultimaP ? (parseFloat(ultimaP.monto_validado) || 0) : 0;
             return {
-                'Promotor':             p.usuario  || '(sin asignar)',
-                'PDV':                  p.pdv      || p.codigo_pdv || '',
-                'Empresa':              p.empresa  || '',
-                'Contacto':             p.contacto || '',
-                'Proformas':            historial.plano,
-                'Factura':              montoTot  || '',
-                'A plazos?':            plazoMeses > 0 ? 1 : 0,
-                'Plazos Meses':         plazoMeses > 0 ? plazoMeses : '-',
-                'Cotización inicial':   cotiz || '',
-                'Monto Facturado':      cobrado || '',
-                'Pendiente por cobrar': pendiente
+                'Promotor':           p.usuario  || '(sin asignar)',
+                'PDV':                p.pdv      || p.codigo_pdv || '',
+                'Contacto':           p.contacto || '',
+                'Empresa':            p.empresa  || '',
+                'Monto Facturado':    cobrado || '',
+                'Cotización inicial': cotiz || ''
             };
         });
-
         var hoja = XLSX.utils.json_to_sheet(datos);
-
-        // Inyectar el rich text (negrita del último monto) en la columna
-        // "Proformas" — json_to_sheet solo escribió el texto plano de
-        // fallback, ahora se reemplaza por la versión con runs con formato.
-        // Centrada horizontalmente para que los "-" de rondas vacías no
-        // queden pegados a la izquierda de la celda.
-        var COL_PROFORMAS   = 4; // índice 0-based de "Proformas"
-        var COL_PLAZO_MESES = 7; // índice 0-based de "Plazos Meses" (también usa "-" cuando no aplica)
-        var ALINEACION_CENTRO = { alignment: { horizontal: 'center', vertical: 'center' } };
-        var rango = XLSX.utils.decode_range(hoja['!ref'] || 'A1');
-        for (var R = rango.s.r + 1; R <= rango.e.r; R++) {
-            var addrProf = XLSX.utils.encode_cell({ r: R, c: COL_PROFORMAS });
-            if (hoja[addrProf]) {
-                var rico = historiales[R - rango.s.r - 1];
-                if (rico) hoja[addrProf].r = rico;
-                hoja[addrProf].s = ALINEACION_CENTRO;
-            }
-            var addrPlazo = XLSX.utils.encode_cell({ r: R, c: COL_PLAZO_MESES });
-            if (hoja[addrPlazo]) hoja[addrPlazo].s = ALINEACION_CENTRO;
-        }
-
-        hoja['!cols'] = [
-            { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 30 },
-            { wch: 13 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 },
-            { wch: 16 }
-        ];
+        hoja['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 16 }, { wch: 16 }];
         estilizarEncabezado(hoja);
         return hoja;
     }
@@ -942,21 +870,7 @@
                 return (a.empresa || '').localeCompare(b.empresa || '');
             });
 
-        // Un promotor entra al resumen si tiene al menos un agendamiento
-        // marcado — sus ids (para fases/montos) son solo los que quedaron
-        // seleccionados de ese promotor, no todo su histórico.
-        var idsPorPromotor = {};
-        filasDetalle.forEach(function (p) {
-            var u = p.usuario || '(sin asignar)';
-            if (!idsPorPromotor[u]) idsPorPromotor[u] = new Set();
-            idsPorPromotor[u].add(String(p.agendamiento_id));
-        });
-        var promotores = Object.keys(idsPorPromotor).map(function (u) {
-            return { usuario: u, total: idsPorPromotor[u].size, ids: idsPorPromotor[u] };
-        }).sort(function (a, b) { return b.total - a.total; });
-
         var libro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(libro, construirHojaResumenPromotor(promotores), 'Resumen por Promotor');
         XLSX.utils.book_append_sheet(libro, construirHojaDetalle(filasDetalle), 'Detalle por Agendamiento');
 
         var hoy = new Date();
@@ -1004,6 +918,10 @@
     // "PDV o empresa" en Por Promotor: recalcula lista, badges/totales y
     // filas de la tabla del promotor abierto (ver renderPromoDetalle).
     document.getElementById('efPromoBusquedaPdv').addEventListener('input', function () {
+        renderPromoLista();
+        if (promActivo) renderPromoDetalle(promActivo);
+    });
+    document.getElementById('efPromoFiltroPeriodo').addEventListener('change', function () {
         renderPromoLista();
         if (promActivo) renderPromoDetalle(promActivo);
     });

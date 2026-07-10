@@ -70,6 +70,14 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
                 <label>Promotor</label>
                 <input type="text" class="form-control" id="efPromoSearch" placeholder="Buscar promotor...">
             </div>
+            <div class="filter-group">
+                <label>Periodo</label>
+                <select class="form-control" id="efPromoFiltroPeriodo">
+                    <option value="mes_actual" selected>Mes actual</option>
+                    <option value="mes_anterior">Mes anterior</option>
+                    <option value="">Todos</option>
+                </select>
+            </div>
             <div class="mod-filtros-extra">
                 <button type="button" class="btn btn-mod-actualizar" id="efActualizarProm">
                     <i class="glyphicon glyphicon-refresh"></i> Actualizar

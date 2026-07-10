@@ -45,6 +45,14 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                 <option value="is-cancelado">Cancelado</option>
             </select>
         </div>
+        <div class="ctc-filtro-group">
+            <label>Periodo</label>
+            <select id="contactadosPeriodo">
+                <option value="mes_actual" selected>Mes actual</option>
+                <option value="mes_anterior">Mes anterior</option>
+                <option value="">Todos</option>
+            </select>
+        </div>
 
         <button type="button" class="btn-actualizar" id="contactadosActualizar">
             <i class="glyphicon glyphicon-refresh"></i> Actualizar

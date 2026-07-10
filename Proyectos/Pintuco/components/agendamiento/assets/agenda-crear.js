@@ -37,6 +37,20 @@
         return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
     }
 
+    function horaActualHHMM() {
+        var h = new Date();
+        return String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0');
+    }
+
+    // Si la fecha elegida es HOY, la hora mínima seleccionable es la hora
+    // actual (no tiene sentido agendar "hoy a las 10am" si ya son las 2pm)
+    // — pedido explícito del usuario. Cualquier fecha futura no tiene
+    // restricción de hora.
+    function actualizarMinHora() {
+        var fecha = document.getElementById('agendaCrearFechaAgenda').value;
+        document.getElementById('agendaCrearHora').min = (fecha === hoyISO()) ? horaActualHHMM() : '';
+    }
+
     function mostrarToast(mensaje, esError) {
         var toast = document.getElementById('agendaCrearToast');
         toast.textContent = mensaje;
@@ -320,6 +334,7 @@
         document.getElementById('agendaCrearFechaAgenda').value = '';
         document.getElementById('agendaCrearFechaAgenda').min = hoyISO();
         document.getElementById('agendaCrearHora').value = '';
+        actualizarMinHora();
         document.getElementById('agendaCrearTecnico').value = '';
         document.getElementById('agendaCrearMailSugerencias').innerHTML = '';
         limpiarErrores();
@@ -624,8 +639,13 @@
             marcarError('agendaCrearFechaAgenda', 'agendaCrearErrFechaAgenda', '');
         }
 
-        if (!hora) ok = marcarError('agendaCrearHora', 'agendaCrearErrHora', 'La hora es obligatoria.') && ok;
-        else marcarError('agendaCrearHora', 'agendaCrearErrHora', '');
+        if (!hora) {
+            ok = marcarError('agendaCrearHora', 'agendaCrearErrHora', 'La hora es obligatoria.') && ok;
+        } else if (fechaAgenda === hoyISO() && hora < horaActualHHMM()) {
+            ok = marcarError('agendaCrearHora', 'agendaCrearErrHora', 'No se permiten horas pasadas para hoy.') && ok;
+        } else {
+            marcarError('agendaCrearHora', 'agendaCrearErrHora', '');
+        }
 
         if (!tecnico) ok = marcarError('agendaCrearTecnico', 'agendaCrearErrTecnico', 'El técnico es obligatorio.') && ok;
         else marcarError('agendaCrearTecnico', 'agendaCrearErrTecnico', '');
@@ -710,6 +730,7 @@
         document.getElementById('agendaCrearGuardar').addEventListener('click', guardar);
         document.getElementById('agendaCrearConfirmarPin').addEventListener('click', confirmarPin);
         document.getElementById('agendaCrearPromotor').addEventListener('change', filtrarPdvsPorPromotor);
+        document.getElementById('agendaCrearFechaAgenda').addEventListener('change', actualizarMinHora);
 
         habilitarComboBuscador('agendaCrearPromotor');
         habilitarComboBuscador('agendaCrearPdv');

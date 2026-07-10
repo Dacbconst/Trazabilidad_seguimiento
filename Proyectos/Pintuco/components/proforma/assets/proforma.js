@@ -102,6 +102,35 @@
         return 1;
     }
 
+    // Bandeja de trabajo activo: una vez en Fase 5, la fila se saca del
+    // módulo 24h después de que llegó la foto de factura — pedido explícito
+    // del usuario para que Proforma solo muestre lo que todavía está en
+    // proceso. No se pierde nada: el histórico completo sigue disponible
+    // en Estado de Flujo (que nunca oculta nada), esto es solo un filtro de
+    // vista acá. Referencia de tiempo: proforma_fecha_registro de la fila
+    // que trae foto_factura (la ronda de fase 5 en sí).
+    var VENTANA_FASE5_MS = 24 * 60 * 60 * 1000;
+    function pasaronMasDe24h(fechaStr) {
+        if (!fechaStr) return false;
+        var ref = new Date(String(fechaStr).replace(' ', 'T'));
+        if (isNaN(ref.getTime())) return false;
+        return (Date.now() - ref.getTime()) > VENTANA_FASE5_MS;
+    }
+
+    // agendamiento_id → true para los que hay que ocultar del todo (no solo
+    // su fila más reciente): si no se excluyeran TODOS sus ciclos, al
+    // filtrar la fila vencida de fase 5 quedaría un ciclo anterior (fase 4)
+    // como "el de mayor id" restante y reaparecería como si siguiera activo.
+    function agendamientosOcultosPorFase5() {
+        var ocultos = {};
+        ultimosCiclos(currentRows).forEach(function (p) {
+            if (getFase(p) === 5 && pasaronMasDe24h(p.proforma_fecha_registro)) {
+                ocultos[p.agendamiento_id] = true;
+            }
+        });
+        return ocultos;
+    }
+
     function getBadge(p) {
         var f = getFase(p);
         if (f === 5) return { label: 'Fase 5', cls: 'is-aprobado' };
@@ -122,8 +151,10 @@
         var estadoSel    = document.getElementById('proformaFiltroEstado').value;
         var periodoClave = document.getElementById('proformaFiltroPeriodo').value;
         var busqueda     = document.getElementById('proformaBusqueda').value.toLowerCase().trim();
+        var ocultosFase5 = agendamientosOcultosPorFase5();
 
         return currentRows.filter(function (p) {
+            if (ocultosFase5[p.agendamiento_id]) return false;
             if (promotorSel && p.usuario !== promotorSel) return false;
 
             if (estadoSel) {
@@ -888,12 +919,19 @@
         // toFixed(2) usa siempre punto decimal y no agrega miles, así que es
         // seguro re-parsearlo tal cual.
         inputMonto.value = p.monto_validado ? parseFloat(p.monto_validado).toFixed(2) : '';
+        // Monto tal como llegó (del promotor o de un guardado previo). El
+        // botón "Guardar cambios" arranca deshabilitado y solo se habilita
+        // si el analista lo edita — mientras el valor sea igual al que
+        // llegó, no hay nada que actualizar.
+        var montoOriginal = inputMonto.value;
         inputMonto.addEventListener('input', function () {
             inputMonto.value = limpiarMonto(inputMonto.value);
+            btnGuardar.disabled = (inputMonto.value === montoOriginal);
         });
         inputMonto.addEventListener('blur', function () {
             var n = parseFloat(inputMonto.value);
             if (!isNaN(n)) inputMonto.value = n.toFixed(2);
+            btnGuardar.disabled = (inputMonto.value === montoOriginal);
         });
         campoMonto.appendChild(labelMonto); campoMonto.appendChild(inputMonto);
         wrap.appendChild(campoMonto);
@@ -914,7 +952,9 @@
         var btnGuardar = document.createElement('button');
         btnGuardar.type = 'button';
         btnGuardar.className = 'proforma-btn-aprobar';
-        btnGuardar.textContent = 'Guardar';
+        btnGuardar.textContent = 'Guardar cambios';
+        // Deshabilitado hasta que el monto se edite (ver montoOriginal arriba).
+        btnGuardar.disabled = (inputMonto.value === montoOriginal);
         btnGuardar.addEventListener('click', function () {
             var montoLimpio = limpiarMonto(inputMonto.value);
             if (!montoLimpio) {
