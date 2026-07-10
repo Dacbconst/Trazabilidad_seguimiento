@@ -340,7 +340,14 @@
 }
 .ctc-gestion-close:hover { color: var(--ctc-ink); }
 
-.ctc-gestion-tabs { padding: 14px 24px 0; }
+.ctc-gestion-tabs {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 24px 0;
+    flex-wrap: wrap;
+}
 .ctc-gestion-tab {
     display: inline-block;
     font-size: 12px;
@@ -348,6 +355,38 @@
     color: var(--ctc-blue);
     padding-bottom: 10px;
     border-bottom: 2px solid var(--ctc-blue);
+}
+
+/* Selector de periodo del historial: mes actual por defecto (ver
+   poblarSelectorMes en contactados.js), con opción de elegir otro mes u
+   "Todos los meses" — pedido explícito del usuario. */
+.ctc-gestion-mes-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+}
+.ctc-gestion-mes-wrap label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--ctc-ink-faint);
+}
+.ctc-gestion-mes-wrap select {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border: 1px solid var(--ctc-border);
+    border-radius: 7px;
+    color: var(--ctc-ink-soft);
+    background: #fff;
+    outline: none;
+}
+.ctc-gestion-mes-wrap select:focus {
+    border-color: var(--ctc-blue);
+    box-shadow: 0 0 0 3px rgba(51,122,183,.15);
 }
 
 .ctc-gestion-body { padding: 16px 24px 4px; overflow-y: auto; }

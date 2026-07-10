@@ -47,11 +47,11 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
         </div>
         <div class="ctc-filtro-group">
             <label>Periodo</label>
-            <select id="contactadosPeriodo">
-                <option value="mes_actual" selected>Mes actual</option>
-                <option value="mes_anterior">Mes anterior</option>
-                <option value="">Todos</option>
-            </select>
+            <!-- Se llena en JS (poblarSelectorPeriodoPrincipal) con los
+                 meses/año que realmente tienen contactos registrados, para
+                 que el analista pueda elegir CUALQUIER mes y año, no solo
+                 "actual"/"anterior" — pedido explícito del usuario. -->
+            <select id="contactadosPeriodo"></select>
         </div>
 
         <button type="button" class="btn-actualizar" id="contactadosActualizar">
@@ -124,7 +124,11 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
             </div>
 
             <div class="ctc-gestion-tabs">
-                <span class="ctc-gestion-tab is-activa">Historial de Cotizaciones (mes actual)</span>
+                <span class="ctc-gestion-tab is-activa">Historial de Cotizaciones</span>
+                <div class="ctc-gestion-mes-wrap">
+                    <label for="ctcGestionMes">Periodo</label>
+                    <select id="ctcGestionMes"></select>
+                </div>
             </div>
 
             <div class="ctc-gestion-body">

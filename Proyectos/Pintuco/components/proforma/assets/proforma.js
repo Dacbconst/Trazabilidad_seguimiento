@@ -34,6 +34,19 @@
         return formatFecha(pp[0]) + (pp[1] ? ' ' + pp[1].slice(0,5) : '');
     }
 
+    // Columna "Fecha visita" de la lista/Excel: si el flujo ya avanzó a
+    // proforma o más allá (fase 4+) y nunca hubo hora/técnico, no fue un
+    // paso pendiente — fue un "no requiere agendamiento" a propósito (ver
+    // construirTimeline). Mismo criterio que la nota "(no requiere)" del
+    // timeline, pero acá el texto es "No requirió" en vez de un guion —
+    // pedido explícito del usuario, para no confundirlo con "todavía no
+    // se sabe". Un agendamiento genuinamente sin visita agendada (fase 1-2
+    // real) sigue mostrando "—", sin cambios.
+    function formatFechaVisita(p) {
+        if (!(p.hora && p.tecnico) && getFase(p) >= 4) return 'No requirió';
+        return formatFecha(p.fecha_agendamiento);
+    }
+
     // ---------------------------------------------------------------
     // Punto azul "hay un cambio sin atender" — puramente local (localStorage,
     // por navegador/analista). "Cambio" = cualquier dato que mueva la fase o
@@ -375,7 +388,7 @@
 
         var cFecha = document.createElement('div');
         cFecha.className = 'proforma-gfila-fecha';
-        cFecha.textContent = formatFecha(p.fecha_agendamiento);
+        cFecha.textContent = formatFechaVisita(p);
 
         var cEstado = document.createElement('div');
         cEstado.className = 'proforma-gfila-estado';
@@ -554,9 +567,18 @@
             { num: 1, label: 'Contacto inicial',
               fecha: formatFecha(p.contacto_fecha_registro),
               completa: true, activa: fase === 1 },
+            // "No requiere agendamiento": el analista puede saltarse la
+            // visita y mandar la proforma directo — si el flujo YA avanzó
+            // más allá de agendamiento (fase 4+) pero nunca hubo
+            // hora/técnico, no fue un paso "pendiente", fue un paso
+            // saltado a propósito. Se pinta completo igual que los demás
+            // (con su check) pero con la nota "(no requiere)" en vez de
+            // una fecha — pedido explícito del usuario, no dejarlo vacío.
             { num: 2, label: 'Visita agendada',
               fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + p.hora.slice(0,5) : ''),
-              completa: !!(p.hora && p.tecnico), activa: fase === 2 },
+              completa: !!(p.hora && p.tecnico) || fase >= 4,
+              omitida: !(p.hora && p.tecnico) && fase >= 4,
+              activa: fase === 2 },
             { num: 3, label: 'Proforma recibida',
               // Una sola fecha — la de la evidencia más reciente. El listado
               // de rondas con monto va en Fase 4, no aquí.
@@ -599,6 +621,12 @@
             var lbl = document.createElement('div');
             lbl.className = 'proforma-fase-label';
             lbl.textContent = 'Fase ' + f.num + ': ' + f.label;
+            if (f.omitida) {
+                var notaOmitida = document.createElement('span');
+                notaOmitida.className = 'proforma-fase-omitida';
+                notaOmitida.textContent = ' (no requiere)';
+                lbl.appendChild(notaOmitida);
+            }
             texto.appendChild(lbl);
 
             if (f.envios && f.envios.length) {
@@ -1022,7 +1050,7 @@
                 'Código':         p.codigo_pdv || '',
                 'Cliente':        p.empresa || p.contacto || '',
                 'Promotor':       p.usuario || '',
-                'Fecha visita':   formatFecha(p.fecha_agendamiento),
+                'Fecha visita':   formatFechaVisita(p),
                 'Proforma subida':formatFechaHora(p.proforma_fecha_registro),
                 'Estado':         getBadge(p).label,
                 'Monto validado': p.monto_validado || ''

@@ -6,6 +6,7 @@
 
     var registrosCrudos = [];
     var pagosCrudos      = [];
+    var agendamientosVista = []; // último cálculo de renderizar(), con los filtros ya aplicados
 
     var FASES_META = [
         { fase: 1, label: 'Contacto inicial' },
@@ -76,9 +77,13 @@
             return {
                 agendamiento_id: id,
                 usuario: ciclos[0].usuario,
+                empresa: ciclos[0].empresa,
+                contacto: ciclos[0].contacto,
+                pdv: ciclos[0].pdv,
                 fase: fase,
                 montoNegociado: ultimoConMonto ? (parseFloat(ultimoConMonto.monto_validado) || 0) : 0,
                 fechaRef: fechaRef,
+                dias: dias,
                 estancado: fase < 5 && dias !== null && dias > 7,
             };
         });
@@ -195,6 +200,7 @@
             if (promotorSel && a.usuario !== promotorSel) return false;
             return pasaPeriodo(a.fechaRef, periodoClave);
         });
+        agendamientosVista = agendamientos; // para el modal de "PDVs estancados"
 
         var idsPermitidos = {};
         agendamientos.forEach(function (a) { idsPermitidos[a.agendamiento_id] = true; });
@@ -249,6 +255,52 @@
         renderPromotores(promotores);
     }
 
+    // ---------------------------------------------------------------
+    // Modal "PDVs estancados" — antes el número de la tarjeta no llevaba a
+    // ningún lado; ahora al hacer clic muestra CUÁLES son (empresa,
+    // contacto, PDV, promotor, fase y días sin avance), más estancado
+    // primero. Usa agendamientosVista, el mismo cálculo ya filtrado por
+    // Promotor/Período de renderizar() — sin pedir nada nuevo al servidor.
+    // ---------------------------------------------------------------
+    function labelFase(fase) {
+        var meta = FASES_META.filter(function (m) { return m.fase === fase; })[0];
+        return meta ? meta.label : ('Fase ' + fase);
+    }
+
+    function abrirModalEstancados() {
+        var lista = agendamientosVista
+            .filter(function (a) { return a.estancado; })
+            .slice()
+            .sort(function (a, b) { return (b.dias || 0) - (a.dias || 0); });
+
+        var cuerpo = document.getElementById('dashEstancadosBody');
+        if (!lista.length) {
+            cuerpo.innerHTML = '<div class="dash-cargando">Ningún PDV estancado con los filtros actuales.</div>';
+        } else {
+            cuerpo.innerHTML = '<table class="dash-estancados-tabla"><thead><tr>'
+                + '<th>Empresa / Contacto</th><th>PDV</th><th>Promotor</th><th>Fase actual</th><th>Días sin avance</th>'
+                + '</tr></thead><tbody>'
+                + lista.map(function (a) {
+                    return '<tr>'
+                        + '<td><div class="dash-est-empresa">' + esc(a.empresa || '—') + '</div>'
+                        +     '<div class="dash-est-contacto">' + esc(a.contacto || '—') + '</div></td>'
+                        + '<td>' + esc(a.pdv || '—') + '</td>'
+                        + '<td>' + esc(a.usuario || 'Sin asignar') + '</td>'
+                        + '<td>Fase ' + a.fase + ' — ' + esc(labelFase(a.fase)) + '</td>'
+                        + '<td><span class="dash-est-dias">' + a.dias + ' días</span></td>'
+                        + '</tr>';
+                }).join('')
+                + '</tbody></table>';
+        }
+        document.getElementById('dashEstancadosCount').textContent =
+            lista.length + (lista.length === 1 ? ' PDV estancado' : ' PDVs estancados');
+        document.getElementById('dashEstancadosOverlay').classList.add('is-abierto');
+    }
+
+    function cerrarModalEstancados() {
+        document.getElementById('dashEstancadosOverlay').classList.remove('is-abierto');
+    }
+
     function cargar() {
         document.getElementById('dashFunnel').innerHTML     = '<div class="dash-cargando">Cargando...</div>';
         document.getElementById('dashPromotores').innerHTML = '<div class="dash-cargando">Cargando...</div>';
@@ -276,5 +328,16 @@
     ['dashFiltroPromotor', 'dashFiltroPeriodo'].forEach(function (id) {
         document.getElementById(id).addEventListener('change', renderizar);
     });
+
+    document.getElementById('kpiEstancadosCard').addEventListener('click', abrirModalEstancados);
+    document.getElementById('dashEstancadosClose').addEventListener('click', cerrarModalEstancados);
+    var estancadosOverlay = document.getElementById('dashEstancadosOverlay');
+    estancadosOverlay.addEventListener('click', function (ev) {
+        if (ev.target === estancadosOverlay) cerrarModalEstancados();
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && estancadosOverlay.classList.contains('is-abierto')) cerrarModalEstancados();
+    });
+
     cargar();
 })();

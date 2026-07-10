@@ -5,6 +5,8 @@
     var paginaActual = 1;
     var selectedIds = {}; // { id: true } — IDs marcados, no índices (sobrevive a la paginación)
     var contactoGestionActual = null; // fila abierta en el modal "Gestión de Contacto"
+    var gestionGruposCache = []; // rondas de TODO el historial del contacto abierto (sin filtrar por mes)
+    var gestionFacturadoCache = {}; // facturadoPorProforma del contacto abierto, para re-filtrar sin refetch
 
     function formatFechaHora(valor) {
         if (!valor) return '—';
@@ -210,13 +212,62 @@
         return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // Historial acotado al mes en curso — pedido explícito del usuario.
-    function esDelMesActual(fechaStr) {
-        if (!fechaStr) return false;
+    // Selector de periodo del historial: mes actual por defecto, con opción
+    // de elegir otro mes (con su año, para no confundir "julio" de un año
+    // con el de otro) o "Todos los meses" — pedido explícito del usuario.
+    var NOMBRES_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    function claveMes(fechaStr) {
+        if (!fechaStr) return null;
         var partes = String(fechaStr).split(' ')[0].split('-'); // "YYYY-MM-DD..."
-        if (partes.length < 2) return false;
+        if (partes.length < 2) return null;
+        return partes[0] + '-' + partes[1]; // "YYYY-MM"
+    }
+
+    function claveMesActual() {
         var hoy = new Date();
-        return parseInt(partes[0], 10) === hoy.getFullYear() && parseInt(partes[1], 10) === (hoy.getMonth() + 1);
+        return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    }
+
+    function etiquetaMes(clave) {
+        var partes = clave.split('-');
+        var nombre = NOMBRES_MES[parseInt(partes[1], 10) - 1];
+        return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + partes[0];
+    }
+
+    function claveDelGrupo(g) {
+        var fechaBase = g.montoCiclo || g.facturaCiclos[0];
+        return claveMes(fechaBase.proforma_fecha_registro || fechaBase.fecha_proforma);
+    }
+
+    // Arma las opciones del selector a partir de los meses que realmente
+    // tienen datos + el mes actual (siempre presente, aunque esté vacío,
+    // para que el default pedido tenga dónde caer), más reciente primero.
+    function poblarSelectorMes(grupos) {
+        var select = document.getElementById('ctcGestionMes');
+        var actual = claveMesActual();
+
+        var claves = {};
+        claves[actual] = true;
+        grupos.forEach(function (g) {
+            var clave = claveDelGrupo(g);
+            if (clave) claves[clave] = true;
+        });
+
+        select.innerHTML = '<option value="todos">Todos los meses</option>';
+        Object.keys(claves).sort().reverse().forEach(function (clave) {
+            var opt = document.createElement('option');
+            opt.value = clave;
+            opt.textContent = etiquetaMes(clave);
+            select.appendChild(opt);
+        });
+        select.value = actual;
+    }
+
+    function filtrarGruposPorMes(grupos, valor) {
+        if (valor === 'todos') return grupos;
+        return grupos.filter(function (g) { return claveDelGrupo(g) === valor; });
     }
 
     // Cada "ronda" real de negociación queda partida en 2+ filas de
@@ -258,7 +309,7 @@
         tbody.innerHTML = '';
 
         if (!grupos.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="ctc-vacio">Sin cotizaciones este mes.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="ctc-vacio">Sin cotizaciones en este periodo.</td></tr>';
             document.getElementById('ctcGestionSubtotalCotizado').textContent = fmtMonedaModal(0);
             document.getElementById('ctcGestionSubtotalFacturado').textContent = fmtMonedaModal(0);
             return;
@@ -304,10 +355,11 @@
         ]).then(function (resultados) {
             // Filas del LEFT JOIN sin proforma (p.id null) se descartan: no
             // son un ciclo de cotización, son solo el agendamiento base.
-            // Además, solo el mes en curso (pedido explícito del usuario).
-            var ciclos = (resultados[0].data || []).filter(function (c) {
-                return !!c.id && esDelMesActual(c.proforma_fecha_registro || c.fecha_proforma);
-            });
+            // Se trae TODO el historial (no se filtra acá) — agrupar por
+            // ronda necesita ver la secuencia completa para emparejar bien
+            // monto↔factura aunque caigan en meses distintos; el filtro de
+            // periodo se aplica después, solo sobre qué se muestra.
+            var ciclos = (resultados[0].data || []).filter(function (c) { return !!c.id; });
             var pagos = resultados[1].data || [];
 
             var facturadoPorProforma = {};
@@ -323,7 +375,12 @@
             ciclos.sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); });
             var grupos = agruparCiclosCotizacion(ciclos).reverse();
 
-            pintarHistorialCotizaciones(grupos, facturadoPorProforma);
+            gestionGruposCache = grupos;
+            gestionFacturadoCache = facturadoPorProforma;
+            poblarSelectorMes(grupos);
+
+            var mesSeleccionado = document.getElementById('ctcGestionMes').value;
+            pintarHistorialCotizaciones(filtrarGruposPorMes(grupos, mesSeleccionado), facturadoPorProforma);
         });
     }
 
@@ -352,21 +409,42 @@
         });
     }
 
-    // Filtro "Periodo" — default "Mes actual" (pedido explícito del
-    // usuario, mismo criterio ya usado en Estado de Flujo): al entrar al
-    // módulo, la tabla arranca mostrando solo lo registrado este mes.
-    // Fecha de referencia: fecha_registro del contacto.
+    // Filtro "Periodo" de la lista principal — arranca en "Mes actual" pero
+    // deja elegir CUALQUIER mes/año con contactos registrados, o "Todos"
+    // (pedido explícito del usuario). Mismo mecanismo de mes+año que
+    // poblarSelectorMes/claveDelGrupo del historial de cotizaciones (ver
+    // más abajo), aplicado acá sobre fecha_registro de cada contacto.
+    function poblarSelectorPeriodoPrincipal() {
+        var select = document.getElementById('contactadosPeriodo');
+        var valorPrevio = select.value;
+        var actual = claveMesActual();
+
+        var claves = {};
+        claves[actual] = true;
+        currentRows.forEach(function (r) {
+            var clave = claveMes(r.fecha_registro);
+            if (clave) claves[clave] = true;
+        });
+
+        select.innerHTML = '<option value="todos">Todos</option>';
+        Object.keys(claves).sort().reverse().forEach(function (clave) {
+            var opt = document.createElement('option');
+            opt.value = clave;
+            opt.textContent = etiquetaMes(clave);
+            select.appendChild(opt);
+        });
+
+        // Al refrescar (botón "Actualizar"), respeta el mes que el
+        // analista ya tenía elegido en vez de saltar siempre a "actual".
+        var opciones = Array.prototype.map.call(select.options, function (o) { return o.value; });
+        select.value = opciones.indexOf(valorPrevio) !== -1 ? valorPrevio : actual;
+    }
+
     function coincidePeriodo(r) {
         var sel = document.getElementById('contactadosPeriodo');
-        var clave = sel ? sel.value : '';
-        if (!clave) return true; // "Todos"
-        var iso = (r.fecha_registro || '').split(' ')[0];
-        if (!iso || iso === '0000-00-00') return false;
-        var fecha = new Date(iso + 'T00:00:00');
-        var hoy = new Date();
-        var base = hoy;
-        if (clave === 'mes_anterior') base = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-        return fecha.getFullYear() === base.getFullYear() && fecha.getMonth() === base.getMonth();
+        var valor = sel ? sel.value : 'todos';
+        if (!valor || valor === 'todos') return true;
+        return claveMes(r.fecha_registro) === valor;
     }
 
     // Solo se busca por empresa/contacto/correo/dirección — PDV se excluyó
@@ -512,6 +590,7 @@
                 selectedIds = {};
                 paginaActual = 1;
                 construirOpcionesMercaderista();
+                poblarSelectorPeriodoPrincipal();
                 renderizar();
             });
     }
@@ -595,6 +674,9 @@
         document.getElementById('ctcGestionClose').addEventListener('click', cerrarGestionContacto);
         document.getElementById('ctcGestionCerrar').addEventListener('click', cerrarGestionContacto);
         document.getElementById('ctcGestionBtnNuevo').addEventListener('click', registrarNuevoAgendamiento);
+        document.getElementById('ctcGestionMes').addEventListener('change', function () {
+            pintarHistorialCotizaciones(filtrarGruposPorMes(gestionGruposCache, this.value), gestionFacturadoCache);
+        });
         gestionOverlay.addEventListener('click', function (ev) {
             if (ev.target === gestionOverlay) cerrarGestionContacto();
         });

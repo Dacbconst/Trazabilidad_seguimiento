@@ -282,7 +282,19 @@
         var sel = document.getElementById('efPromoFiltroPeriodo');
         var clave = sel ? sel.value : '';
         if (!clave) return true; // "Todos"
-        var ref = soloFecha(p.fecha_agendamiento || p.contacto_fecha_registro);
+        // fecha_agendamiento en blanco llega de MySQL como '0000-00-00...'
+        // (string, no null) cuando el agendamiento todavía no tiene visita
+        // agendada — ese string es "truthy" en JS, así que "p.fecha_agendamiento
+        // || p.contacto_fecha_registro" NUNCA caía al respaldo como decía el
+        // comentario de arriba, y ese agendamiento desaparecía sin explicación
+        // de "Mes actual"/"Mes anterior" aunque se hubiera registrado hoy
+        // (confirmado 2026-07-10: agendamiento sin fecha aún, creado hoy,
+        // no aparecía en Por Promotor). Se normaliza ANTES del fallback.
+        var fechaAgendaValida = soloFecha(p.fecha_agendamiento);
+        var refCruda = (fechaAgendaValida && fechaAgendaValida !== '0000-00-00')
+            ? p.fecha_agendamiento
+            : p.contacto_fecha_registro;
+        var ref = soloFecha(refCruda);
         if (!ref || ref === '0000-00-00') return false;
         var fecha = new Date(ref + 'T00:00:00');
         var hoy = new Date();
@@ -637,7 +649,15 @@
     }
 
     function renderAuditoriaHistorial(ciclos) {
-        var reales = ciclos.filter(function (c) { return !!c.id; });
+        // Cada vez que el móvil sube una foto de factura o una cuota de
+        // pago crea una fila NUEVA en insert_proforma (estado_proforma
+        // 'realizado', sin evidencia ni monto_validado) en vez de escribir
+        // sobre la existente — confirmado contra BD 2026-07-10. Esa fila
+        // no es una proforma real (no tiene ni foto de cotización ni
+        // monto), así que salía acá como un "Ciclo N" vacío con guion. Ese
+        // evento de factura ya se ve en el panel de Financiamiento (más
+        // abajo, vía foto_factura/pagos), así que se descarta acá.
+        var reales = ciclos.filter(function (c) { return !!c.id && (!!c.monto_validado || !!c.evidencia); });
         if (!reales.length) {
             document.getElementById('efAudHistorial').innerHTML = '<div class="ef-vacio">Sin proformas registradas.</div>';
             return;
@@ -671,8 +691,15 @@
     // La "factura" no es una tabla aparte: es la fila de "ciclos" que tiene
     // foto_factura lleno (misma insert_proforma de siempre). Cada pago/cuota
     // vive en insert_pago_factura, agrupado por esa fila (id_proforma).
-    var CUOTAS_VISIBLES_MAX = 8;
-
+    //
+    // 2026-07-10 — pedido explícito del usuario: ya no se dibujan tarjetas
+    // "Pendiente" para las cuotas que todavía no llegaron (antes se
+    // rellenaba hasta totalCuotas con placeholders vacíos, con un monto
+    // "teórico" inventado). Ahora solo se pinta una tarjeta por cada pago
+    // REAL que ya subió el promotor — se va llenando de una en una según
+    // llegan, sin espacios vacíos. También se quitó la barra "Progreso de
+    // Cobro" y el badge "N Cuotas"; el título "Financiamiento (N meses)" y
+    // "Estado de pago" se mantienen igual que antes.
     function renderFinanciamiento(agendamientoId, ciclos) {
         var cont = document.getElementById('efFinanciamiento');
         var panel = document.getElementById('efAuditoriaPanel');
@@ -694,46 +721,29 @@
         var plazoMeses = parseInt(factura.plazo_meses, 10) || 0;
         var esDirecto = plazoMeses <= 0;
         var totalCuotas = esDirecto ? 1 : plazoMeses;
-        var progreso = Math.min(100, Math.round((pagos.length / totalCuotas) * 100));
 
-        var cuotasAMostrar = Math.min(totalCuotas, CUOTAS_VISIBLES_MAX);
-        var restantes = totalCuotas - cuotasAMostrar;
-
-        var tarjetas = '';
-        for (var n = 1; n <= cuotasAMostrar; n++) {
-            var pago = pagos.filter(function (pg) { return (parseInt(pg.numero_cuota, 10) || 0) === n; })[0];
-            var etiqueta = esDirecto ? 'Pago Único' : ('M' + n);
-            if (pago) {
-                var fotoUrl = pago.foto_pago ? (FOTO_BASE + pago.foto_pago) : null;
-                tarjetas +=
-                    '<div class="ef-fin-card is-pagada" data-pago-id="' + esc(pago.id) + '">'
-                    + '<div class="ef-fin-card-top">'
-                    +   '<div class="ef-fin-card-info">'
-                    +     '<span class="ef-fin-card-mes">' + esc(etiqueta) + '</span>'
-                    +     '<div class="ef-fin-card-monto">' + fmtMonto(pago.monto_pago) + '</div>'
-                    +     '<div class="ef-fin-card-fecha">' + esc(formatFechaHora(pago.fecha_pago || pago.fecha_registro)) + '</div>'
-                    +     (pago.observacion ? '<div class="ef-fin-card-obs">Obs: ' + esc(pago.observacion) + '</div>' : '')
-                    +   '</div>'
-                    +   (fotoUrl
-                            ? '<div class="ef-fin-card-foto-wrap"><img class="ef-fin-card-foto" src="' + esc(fotoUrl) + '" alt="Foto de pago"><span class="ef-fin-card-check"><i class="glyphicon glyphicon-ok"></i></span></div>'
-                            : '<div class="ef-fin-card-foto-wrap"><span class="ef-fin-card-check"><i class="glyphicon glyphicon-ok"></i></span></div>')
-                    + '</div>'
-                    + '</div>';
-            } else {
-                tarjetas +=
-                    '<div class="ef-fin-card is-pendiente">'
-                    +   '<span class="ef-fin-card-mes">' + esc(etiqueta) + '</span>'
-                    +   '<div class="ef-fin-card-monto is-pendiente">' + fmtMonto(montoTeoricoPorCuota(factura, totalCuotas)) + '</div>'
-                    +   '<span class="ef-fin-card-pendiente-label">Pendiente</span>'
-                    + '</div>';
-            }
-        }
-        if (restantes > 0) {
-            tarjetas += '<div class="ef-fin-card-restantes">+ ' + restantes + ' mes' + (restantes !== 1 ? 'es' : '') + ' restante' + (restantes !== 1 ? 's' : '') + '</div>';
-        }
+        var pagosOrdenados = pagos.slice().sort(function (a, b) {
+            return (parseInt(a.numero_cuota, 10) || 0) - (parseInt(b.numero_cuota, 10) || 0);
+        });
+        var tarjetas = pagosOrdenados.map(function (pago) {
+            var etiqueta = esDirecto ? 'Pago Único' : ('M' + (parseInt(pago.numero_cuota, 10) || ''));
+            var fotoUrl = pago.foto_pago ? (FOTO_BASE + pago.foto_pago) : null;
+            return '<div class="ef-fin-card is-pagada" data-pago-id="' + esc(pago.id) + '">'
+                + '<div class="ef-fin-card-top">'
+                +   '<div class="ef-fin-card-info">'
+                +     '<span class="ef-fin-card-mes">' + esc(etiqueta) + '</span>'
+                +     '<div class="ef-fin-card-monto">' + fmtMonto(pago.monto_pago) + '</div>'
+                +     '<div class="ef-fin-card-fecha">' + esc(formatFechaHora(pago.fecha_pago || pago.fecha_registro)) + '</div>'
+                +     (pago.observacion ? '<div class="ef-fin-card-obs">Obs: ' + esc(pago.observacion) + '</div>' : '')
+                +   '</div>'
+                +   (fotoUrl
+                        ? '<div class="ef-fin-card-foto-wrap"><img class="ef-fin-card-foto" src="' + esc(fotoUrl) + '" alt="Foto de pago"><span class="ef-fin-card-check"><i class="glyphicon glyphicon-ok"></i></span></div>'
+                        : '<div class="ef-fin-card-foto-wrap"><span class="ef-fin-card-check"><i class="glyphicon glyphicon-ok"></i></span></div>')
+                + '</div>'
+                + '</div>';
+        }).join('') || '<div class="ef-fin-sin-pagos">Todavía no se registran pagos.</div>';
 
         var fechaActivacion = factura.fecha_factura || factura.fecha_auditoria || factura.proforma_fecha_registro;
-        var badgeTexto = esDirecto ? 'Pago Único' : (totalCuotas + ' Cuota' + (totalCuotas !== 1 ? 's' : ''));
         var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado' }[factura.estado_pago] || null;
 
         cont.innerHTML =
@@ -748,16 +758,8 @@
             +     '<div class="ef-fin-resumen-valor is-verde">' + fmtMonto(montoFacturado) + '</div>'
             +   '</div>'
             + '</div>'
-            + '<div class="ef-fin-progreso">'
-            +   '<div class="ef-fin-progreso-top">'
-            +     '<span class="ef-fin-resumen-label">Progreso de Cobro</span>'
-            +     '<span class="ef-fin-progreso-pct">' + progreso + '%</span>'
-            +   '</div>'
-            +   '<div class="ef-fin-progreso-barra"><div class="ef-fin-progreso-relleno" style="width:' + progreso + '%"></div></div>'
-            + '</div>'
             + '<div class="ef-fin-header">'
             +   '<h3 class="ef-auditoria-seccion-titulo">Financiamiento' + (esDirecto ? '' : ' (' + totalCuotas + ' meses)') + '</h3>'
-            +   '<span class="ef-fin-badge">' + esc(badgeTexto) + '</span>'
             + '</div>'
             + (estadoPagoLabel ? '<div class="ef-fin-estado-pago">Estado de pago: <strong>' + esc(estadoPagoLabel) + '</strong></div>' : '')
             + '<div class="ef-fin-grid">' + tarjetas + '</div>'
@@ -774,15 +776,6 @@
                 if (pago) abrirPagoModal(pago, card.querySelector('.ef-fin-card-mes').textContent);
             });
         });
-    }
-
-    // Monto "teórico" de una cuota todavía pendiente — solo de referencia
-    // visual (el monto real de cada pago lo define el promotor al subirlo,
-    // no tiene que ser exactamente monto_total_factura/totalCuotas).
-    function montoTeoricoPorCuota(factura, totalCuotas) {
-        var total = parseFloat(factura.monto_total_factura) || 0;
-        if (!total || !totalCuotas) return null;
-        return total / totalCuotas;
     }
 
     // ── Modal de detalle de pago ───────────────────────────────────────
