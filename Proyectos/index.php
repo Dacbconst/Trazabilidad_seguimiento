@@ -154,6 +154,7 @@
 					'sec-agendamientos': window.AgendaRecargar,
 					'sec-contactados': window.ContactadosRefrescar,
 					'sec-proforma': window.ProformaRecargar,
+					'sec-factura': window.FacturaRecargar,
 					'sec-estado-flujo': window.EstadoFlujoRecargar,
 					'sec-principal': window.DashboardRecargar
 				}[idSeccion];

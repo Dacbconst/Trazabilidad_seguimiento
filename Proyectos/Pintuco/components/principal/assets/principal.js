@@ -127,7 +127,7 @@
         document.getElementById('kpiNegociado').textContent  = fmtMonto(kpis.monto_negociado);
         document.getElementById('kpiConversion').textContent = kpis.conversion_pct + '%';
         document.getElementById('kpiEstancados').textContent = kpis.estancados_count;
-        document.getElementById('dashFunnelTotal').textContent = kpis.total_pdvs + ' PDV' + (kpis.total_pdvs !== 1 ? 's' : '') + ' totales';
+        document.getElementById('dashFunnelTotal').textContent = kpis.total_pdvs + ' agendamiento' + (kpis.total_pdvs !== 1 ? 's' : '') + ' totales';
         document.querySelectorAll('.dash-kpi').forEach(function (el) {
             el.classList.remove('is-loading');
         });
@@ -166,7 +166,7 @@
 
         var filas = promotores.map(function (p, i) {
             var inicial = (p.usuario || '?').charAt(0).toUpperCase();
-            var pdvs    = p.total + ' PDV' + (p.total !== 1 ? 's' : '');
+            var pdvs    = p.total + ' agendamiento' + (p.total !== 1 ? 's' : '');
             var pct     = maxMonto > 0 ? Math.round(p.monto_facturado / maxMonto * 100) : Math.round(p.total / maxTotal * 100);
             return '<div class="dash-promo-fila">'
                 + '<span class="dash-promo-rank">' + (i + 1) + '</span>'
@@ -200,7 +200,7 @@
             if (promotorSel && a.usuario !== promotorSel) return false;
             return pasaPeriodo(a.fechaRef, periodoClave);
         });
-        agendamientosVista = agendamientos; // para el modal de "PDVs estancados"
+        agendamientosVista = agendamientos; // para el modal de "Agendamientos estancados"
 
         var idsPermitidos = {};
         agendamientos.forEach(function (a) { idsPermitidos[a.agendamiento_id] = true; });
@@ -256,11 +256,12 @@
     }
 
     // ---------------------------------------------------------------
-    // Modal "PDVs estancados" — antes el número de la tarjeta no llevaba a
-    // ningún lado; ahora al hacer clic muestra CUÁLES son (empresa,
-    // contacto, PDV, promotor, fase y días sin avance), más estancado
-    // primero. Usa agendamientosVista, el mismo cálculo ya filtrado por
-    // Promotor/Período de renderizar() — sin pedir nada nuevo al servidor.
+    // Modal "Agendamientos estancados" — antes el número de la tarjeta no
+    // llevaba a ningún lado; ahora al hacer clic muestra CUÁLES son
+    // (empresa, contacto, punto de venta, promotor, fase y días sin
+    // avance), más estancado primero. Usa agendamientosVista, el mismo
+    // cálculo ya filtrado por Promotor/Período de renderizar() — sin pedir
+    // nada nuevo al servidor.
     // ---------------------------------------------------------------
     function labelFase(fase) {
         var meta = FASES_META.filter(function (m) { return m.fase === fase; })[0];
@@ -275,10 +276,10 @@
 
         var cuerpo = document.getElementById('dashEstancadosBody');
         if (!lista.length) {
-            cuerpo.innerHTML = '<div class="dash-cargando">Ningún PDV estancado con los filtros actuales.</div>';
+            cuerpo.innerHTML = '<div class="dash-cargando">Ningún agendamiento estancado con los filtros actuales.</div>';
         } else {
             cuerpo.innerHTML = '<table class="dash-estancados-tabla"><thead><tr>'
-                + '<th>Empresa / Contacto</th><th>PDV</th><th>Promotor</th><th>Fase actual</th><th>Días sin avance</th>'
+                + '<th>Empresa / Contacto</th><th>Punto de venta</th><th>Promotor</th><th>Fase actual</th><th>Días sin avance</th>'
                 + '</tr></thead><tbody>'
                 + lista.map(function (a) {
                     return '<tr>'
@@ -293,7 +294,7 @@
                 + '</tbody></table>';
         }
         document.getElementById('dashEstancadosCount').textContent =
-            lista.length + (lista.length === 1 ? ' PDV estancado' : ' PDVs estancados');
+            lista.length + (lista.length === 1 ? ' agendamiento estancado' : ' agendamientos estancados');
         document.getElementById('dashEstancadosOverlay').classList.add('is-abierto');
     }
 

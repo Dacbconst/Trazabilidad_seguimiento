@@ -98,7 +98,7 @@
 .dash-kpi.is-loading.is-violeta .dash-kpi-valor,
 .dash-kpi.is-loading.is-rojo .dash-kpi-valor { color: oklch(0.85 0.008 260); }
 
-/* La tarjeta "PDVs estancados" es un <button> real (accesible por teclado)
+/* La tarjeta "Agendamientos estancados" es un <button> real (accesible por teclado)
    pero debe verse IGUAL que las demás tarjetas — reset de apariencia nativa. */
 button.dash-kpi {
     font: inherit;
@@ -121,7 +121,7 @@ button.dash-kpi {
 .dash-kpi.is-loading .dash-kpi-ver-detalle { visibility: hidden; }
 
 /* ---------------------------------------------------
-   Modal: detalle de PDVs estancados
+   Modal: detalle de Agendamientos estancados
 ----------------------------------------------------- */
 .dash-estancados-overlay {
     display: none;

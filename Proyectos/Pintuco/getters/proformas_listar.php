@@ -33,6 +33,14 @@ $id_agendamiento = isset($_GET['id_agendamiento'])  ? (int)$_GET['id_agendamient
 // monto_total_factura/plazo_meses/estado_pago: factura pagada a plazos
 // (2026-07-07), los escribe la app — acá solo se leen. estado_pago es de
 // UN SOLO DUEÑO (la app): nunca escribirlo desde la web.
+// motivo_cierre/motivo_cierre_pago (2026-07-14): al revés que lo de
+// arriba — estas SÍ son de la web (ver update_proforma.php, acciones
+// 'rechazar' y 'cerrar_plan_pago'). Son columnas propias, nunca pisan
+// estado_pago ni ningún campo de la app. No hay columna de fecha
+// aparte para el cierre del plan de pago: esa fila (la de foto_factura)
+// nunca pasa por 'guardar'/'rechazar' desde la web, así que
+// fecha_auditoria queda libre ahí y se reusa para "cuándo se cerró el
+// plan de pago" sin riesgo de choque.
 // fecha_factura TODAVÍA NO se selecciona: pendiente ALTER TABLE
 // (ver memoria del proyecto) — agregarla acá en cuanto exista en BD.
 $selectBase = "SELECT
@@ -59,11 +67,13 @@ $selectBase = "SELECT
         p.foto_factura,
         p.monto_validado,
         p.observaciones_auditoria,
+        p.motivo_cierre,
         p.fecha_auditoria,
         p.fase_actual,
         p.monto_total_factura,
         p.plazo_meses,
         p.estado_pago,
+        p.motivo_cierre_pago,
         p.caracteristica_visita,
         p.acompanamiento_tecnico,
         p.fecha_registro   AS proforma_fecha_registro

@@ -1,0 +1,131 @@
+diff --git a/Proyectos/Pintuco/components/principal/assets/principal.css b/Proyectos/Pintuco/components/principal/assets/principal.css
+index 8deb828..7e51216 100644
+--- a/Proyectos/Pintuco/components/principal/assets/principal.css
++++ b/Proyectos/Pintuco/components/principal/assets/principal.css
+@@ -98,7 +98,7 @@
+ .dash-kpi.is-loading.is-violeta .dash-kpi-valor,
+ .dash-kpi.is-loading.is-rojo .dash-kpi-valor { color: oklch(0.85 0.008 260); }
+ 
+-/* La tarjeta "PDVs estancados" es un <button> real (accesible por teclado)
++/* La tarjeta "Agendamientos estancados" es un <button> real (accesible por teclado)
+    pero debe verse IGUAL que las demás tarjetas — reset de apariencia nativa. */
+ button.dash-kpi {
+     font: inherit;
+@@ -121,7 +121,7 @@ button.dash-kpi {
+ .dash-kpi.is-loading .dash-kpi-ver-detalle { visibility: hidden; }
+ 
+ /* ---------------------------------------------------
+-   Modal: detalle de PDVs estancados
++   Modal: detalle de Agendamientos estancados
+ ----------------------------------------------------- */
+ .dash-estancados-overlay {
+     display: none;
+diff --git a/Proyectos/Pintuco/components/principal/assets/principal.js b/Proyectos/Pintuco/components/principal/assets/principal.js
+index fd4fe60..d1b4b50 100644
+--- a/Proyectos/Pintuco/components/principal/assets/principal.js
++++ b/Proyectos/Pintuco/components/principal/assets/principal.js
+@@ -127,7 +127,7 @@
+         document.getElementById('kpiNegociado').textContent  = fmtMonto(kpis.monto_negociado);
+         document.getElementById('kpiConversion').textContent = kpis.conversion_pct + '%';
+         document.getElementById('kpiEstancados').textContent = kpis.estancados_count;
+-        document.getElementById('dashFunnelTotal').textContent = kpis.total_pdvs + ' PDV' + (kpis.total_pdvs !== 1 ? 's' : '') + ' totales';
++        document.getElementById('dashFunnelTotal').textContent = kpis.total_pdvs + ' agendamiento' + (kpis.total_pdvs !== 1 ? 's' : '') + ' totales';
+         document.querySelectorAll('.dash-kpi').forEach(function (el) {
+             el.classList.remove('is-loading');
+         });
+@@ -166,7 +166,7 @@
+ 
+         var filas = promotores.map(function (p, i) {
+             var inicial = (p.usuario || '?').charAt(0).toUpperCase();
+-            var pdvs    = p.total + ' PDV' + (p.total !== 1 ? 's' : '');
++            var pdvs    = p.total + ' agendamiento' + (p.total !== 1 ? 's' : '');
+             var pct     = maxMonto > 0 ? Math.round(p.monto_facturado / maxMonto * 100) : Math.round(p.total / maxTotal * 100);
+             return '<div class="dash-promo-fila">'
+                 + '<span class="dash-promo-rank">' + (i + 1) + '</span>'
+@@ -200,7 +200,7 @@
+             if (promotorSel && a.usuario !== promotorSel) return false;
+             return pasaPeriodo(a.fechaRef, periodoClave);
+         });
+-        agendamientosVista = agendamientos; // para el modal de "PDVs estancados"
++        agendamientosVista = agendamientos; // para el modal de "Agendamientos estancados"
+ 
+         var idsPermitidos = {};
+         agendamientos.forEach(function (a) { idsPermitidos[a.agendamiento_id] = true; });
+@@ -256,11 +256,12 @@
+     }
+ 
+     // ---------------------------------------------------------------
+-    // Modal "PDVs estancados" — antes el número de la tarjeta no llevaba a
+-    // ningún lado; ahora al hacer clic muestra CUÁLES son (empresa,
+-    // contacto, PDV, promotor, fase y días sin avance), más estancado
+-    // primero. Usa agendamientosVista, el mismo cálculo ya filtrado por
+-    // Promotor/Período de renderizar() — sin pedir nada nuevo al servidor.
++    // Modal "Agendamientos estancados" — antes el número de la tarjeta no
++    // llevaba a ningún lado; ahora al hacer clic muestra CUÁLES son
++    // (empresa, contacto, punto de venta, promotor, fase y días sin
++    // avance), más estancado primero. Usa agendamientosVista, el mismo
++    // cálculo ya filtrado por Promotor/Período de renderizar() — sin pedir
++    // nada nuevo al servidor.
+     // ---------------------------------------------------------------
+     function labelFase(fase) {
+         var meta = FASES_META.filter(function (m) { return m.fase === fase; })[0];
+@@ -275,10 +276,10 @@
+ 
+         var cuerpo = document.getElementById('dashEstancadosBody');
+         if (!lista.length) {
+-            cuerpo.innerHTML = '<div class="dash-cargando">Ningún PDV estancado con los filtros actuales.</div>';
++            cuerpo.innerHTML = '<div class="dash-cargando">Ningún agendamiento estancado con los filtros actuales.</div>';
+         } else {
+             cuerpo.innerHTML = '<table class="dash-estancados-tabla"><thead><tr>'
+-                + '<th>Empresa / Contacto</th><th>PDV</th><th>Promotor</th><th>Fase actual</th><th>Días sin avance</th>'
++                + '<th>Empresa / Contacto</th><th>Punto de venta</th><th>Promotor</th><th>Fase actual</th><th>Días sin avance</th>'
+                 + '</tr></thead><tbody>'
+                 + lista.map(function (a) {
+                     return '<tr>'
+@@ -293,7 +294,7 @@
+                 + '</tbody></table>';
+         }
+         document.getElementById('dashEstancadosCount').textContent =
+-            lista.length + (lista.length === 1 ? ' PDV estancado' : ' PDVs estancados');
++            lista.length + (lista.length === 1 ? ' agendamiento estancado' : ' agendamientos estancados');
+         document.getElementById('dashEstancadosOverlay').classList.add('is-abierto');
+     }
+ 
+diff --git a/Proyectos/Pintuco/components/principal/principal.php b/Proyectos/Pintuco/components/principal/principal.php
+index d164561..26631c5 100644
+--- a/Proyectos/Pintuco/components/principal/principal.php
++++ b/Proyectos/Pintuco/components/principal/principal.php
+@@ -53,7 +53,7 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
+                 <span class="dash-kpi-icono">
+                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
+                 </span>
+-                <span class="dash-kpi-label">PDVs en seguimiento</span>
++                <span class="dash-kpi-label">Agendamientos en seguimiento</span>
+             </div>
+             <span class="dash-kpi-valor" id="kpiTotal">—</span>
+         </div>
+@@ -86,20 +86,20 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
+                 <span class="dash-kpi-icono">
+                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                 </span>
+-                <span class="dash-kpi-label">PDVs estancados</span>
++                <span class="dash-kpi-label">Agendamientos estancados</span>
+             </div>
+             <span class="dash-kpi-valor" id="kpiEstancados">—</span>
+             <span class="dash-kpi-ver-detalle">Ver detalle →</span>
+         </button>
+     </div>
+ 
+-    <!-- Modal: detalle de PDVs estancados (fase < 5 y más de 7 días sin
+-         avance) — ver abrirModalEstancados en principal.js. -->
++    <!-- Modal: detalle de Agendamientos estancados (fase < 5 y más de 7
++         días sin avance) — ver abrirModalEstancados en principal.js. -->
+     <div class="dash-estancados-overlay" id="dashEstancadosOverlay">
+         <div class="dash-estancados-card">
+             <div class="dash-estancados-header">
+                 <div>
+-                    <div class="dash-estancados-titulo">PDVs estancados</div>
++                    <div class="dash-estancados-titulo">Agendamientos estancados</div>
+                     <div class="dash-estancados-sub" id="dashEstancadosCount"></div>
+                 </div>
+                 <button type="button" class="dash-estancados-close" id="dashEstancadosClose" aria-label="Cerrar">&times;</button>

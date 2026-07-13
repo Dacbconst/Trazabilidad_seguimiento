@@ -663,6 +663,14 @@
         setHora(props.hora ? props.hora.slice(0, 5) : '');
         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
 
+        // "Pendiente técnico" nunca tuvo nada confirmado todavía — el
+        // switch "ver vs editar" no debería ni aparecer ahí. Ojo: esto es
+        // SOLO ocultar el switch, no activar modo edición (eso trae el
+        // layout ancho + mapa, que no se pidió) — la card se queda exactamente
+        // igual que siempre (modo vista, campos de agendar ya editables como
+        // ya eran). Pedido explícito del usuario (2026-07-13).
+        document.getElementById('agendaEditModeSwitchWrap').style.display =
+            (estado === 'pendiente') ? 'none' : '';
         setModoEdicion(false);
 
         // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
@@ -676,6 +684,16 @@
         } else {
             alerta.style.display = 'none';
         }
+
+        // Motivo de reagendación: solo aparece (y solo se exige) cuando esta
+        // visita estaba Vencida — es la ÚNICA situación que hoy cuenta como
+        // reagendamiento real (ver update_agenda.php). Siempre arranca vacío:
+        // es el motivo de ESTA reagendación, no el de una anterior.
+        var motivoInput = document.getElementById('agendaEditMotivo');
+        motivoInput.value = '';
+        motivoInput.classList.remove('is-invalid');
+        document.getElementById('agendaEditErrMotivo').textContent = '';
+        document.getElementById('agendaEditMotivoWrap').style.display = (estado === 'vencida') ? 'block' : 'none';
 
         document.getElementById('agendaEditOverlay').classList.add('active');
 
@@ -761,11 +779,27 @@
             return;
         }
 
+        // El campo de motivo solo está visible cuando esta visita estaba
+        // Vencida (ver abrirEdicion) — ahí sí es obligatorio, en cualquier
+        // otro guardado ni se pide ni se manda.
+        var motivoWrap = document.getElementById('agendaEditMotivoWrap');
+        var reagendandoVencida = motivoWrap.style.display !== 'none';
+        var motivoReagendacion = document.getElementById('agendaEditMotivo').value.trim();
+        if (reagendandoVencida && !motivoReagendacion) {
+            document.getElementById('agendaEditMotivo').classList.add('is-invalid');
+            document.getElementById('agendaEditErrMotivo').textContent = 'El motivo de la reagendación es obligatorio.';
+            document.getElementById('agendaEditMotivo').focus();
+            return;
+        }
+
         var body = new URLSearchParams();
         body.set('id', idGuardado);
         body.set('fecha', fechaGuardada);
         body.set('hora', horaGuardada);
         body.set('tecnico', document.getElementById('agendaEditTecnico').value);
+        if (reagendandoVencida) {
+            body.set('motivo_reagendacion', motivoReagendacion);
+        }
         // El lugar se sincroniza con la dirección guardada y el estado
         // (confirmado/reagendada) lo decide el backend.
 

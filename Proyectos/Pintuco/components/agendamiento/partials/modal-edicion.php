@@ -10,7 +10,7 @@
                         <h4 class="agenda-edit-title" id="agendaEditTitulo"></h4>
                         <div class="agenda-edit-registro" id="agendaEditRegistro"></div>
                     </div>
-                    <label class="agenda-edit-mode-switch">
+                    <label class="agenda-edit-mode-switch" id="agendaEditModeSwitchWrap">
                         <input type="checkbox" id="agendaEditModoEdicion">
                         <span class="agenda-edit-mode-slider"></span>
                         <span id="agendaEditModoTexto">Modo edición</span>
@@ -27,6 +27,15 @@
                 <div class="agenda-edit-alert" id="agendaEditAlerta" style="display:none">
                     <i class="glyphicon glyphicon-warning-sign"></i>
                     <span id="agendaEditAlertaTexto"></span>
+                </div>
+
+                <!-- Solo aparece al reagendar una visita Vencida (mecánica
+                     2026-07-14): en cualquier otro guardado queda oculto y
+                     no se toca la columna motivo_reagendacion. -->
+                <div class="agenda-edit-motivo" id="agendaEditMotivoWrap" style="display:none">
+                    <label for="agendaEditMotivo">Motivo de la reagendación <span class="agenda-edit-motivo-obligatorio">*</span></label>
+                    <textarea class="agenda-edit-motivo-input" id="agendaEditMotivo" rows="2" maxlength="255" placeholder="¿Por qué se reagenda esta visita?"></textarea>
+                    <span class="agenda-edit-motivo-error" id="agendaEditErrMotivo"></span>
                 </div>
 
                 <div class="agenda-edit-divider"></div>

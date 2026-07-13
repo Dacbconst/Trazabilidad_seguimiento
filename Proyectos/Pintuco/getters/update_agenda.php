@@ -119,15 +119,16 @@ if ($editaCompleto) {
 }
 
 // Estado automático (contrato compartido con la app móvil — Constantes.java /
-// AdapterAgenda.java, que lee esta misma tabla por sync): mientras la visita
-// siga en 'pendiente' (el móvil ya puede sugerir fecha Y hora, pero nadie la
-// confirmó todavía), esta gestión es la primera confirmación del analista
-// ('confirmado'), edite o no la fecha/hora sugerida — con tal de que ponga
-// el técnico. Si ya estaba confirmado/reagendada/vencida de antes, guardar
-// de nuevo sí es un reagendamiento real ('reagendada').
-// (Antes esto se decidía mirando si `hora` ya tenía valor, pero eso se rompió
-// en cuanto el móvil empezó a mandar también una hora sugerida: la columna
-// ya no estaba vacía en la primera apertura, y todo caía como "reagendada".)
+// AdapterAgenda.java, que lee esta misma tabla por sync).
+//
+// 2026-07-14 — pedido explícito del usuario, mecánica nueva de "reagendada":
+// antes CUALQUIER guardado sobre una visita que ya no estaba en 'pendiente'
+// se marcaba 'reagendada' (así fuera solo corregir el técnico de una visita
+// ya confirmada). Eso ya no aplica — 'reagendada' ahora es EXCLUSIVAMENTE la
+// transición de una visita que estaba 'vencida' y el analista le pone fecha
+// de nuevo. Cualquier otro guardado (esté 'pendiente', 'confirmado' o incluso
+// 'reagendada' de antes) cae a 'confirmado' — cambiar fecha/hora/técnico o
+// editar la info de una visita ya confirmada NO la vuelve a marcar reagendada.
 $estadoPrevio = null;
 if ($sql = $mysqli->prepare("SELECT estado_agenda FROM insert_proyectos_contacto WHERE id = ?")) {
     $sql->bind_param("i", $id);
@@ -136,7 +137,18 @@ if ($sql = $mysqli->prepare("SELECT estado_agenda FROM insert_proyectos_contacto
     $sql->fetch();
     $sql->close();
 }
-$estado_agenda = ($estadoPrevio === null || $estadoPrevio === '' || $estadoPrevio === 'pendiente') ? 'confirmado' : 'reagendada';
+$estado_agenda = ($estadoPrevio === 'vencida') ? 'reagendada' : 'confirmado';
+$reagendando   = ($estado_agenda === 'reagendada');
+
+// El motivo es obligatorio SOLO en el guardado que de verdad reagenda una
+// visita vencida (pedido explícito del usuario) — en cualquier otro guardado
+// ni se pide ni se toca la columna, para no pisar un motivo ya guardado de
+// una reagendación anterior.
+$motivo_reagendacion = isset($_POST['motivo_reagendacion']) ? trim($_POST['motivo_reagendacion']) : '';
+if ($reagendando && $motivo_reagendacion === '') {
+    echo json_encode(["success" => false, "message" => "El motivo de la reagendación es obligatorio."]);
+    exit;
+}
 
 // Un técnico no puede estar en dos visitas a la vez: se rechaza si la nueva
 // hora cae dentro de los DURACION_APROX_MIN minutos (mismo valor que usa el
@@ -183,56 +195,50 @@ if ($fecha !== '' && $hora !== '' && $tecnico !== '') {
 // eso, "lugar" se sigue sincronizando con la dirección ya guardada, como
 // siempre. La fecha solo se actualiza si llega un valor (nunca se deja la
 // visita sin fecha; para eso está la acción "eliminar").
+//
+// SET armado dinámicamente (en vez de 4 variantes casi idénticas): motivo_
+// reagendacion solo entra en la lista cuando $reagendando es real, así una
+// edición posterior normal nunca pisa el motivo ya guardado de una
+// reagendación anterior.
+$set    = [];
+$params = [];
+$types  = '';
+
 if ($fecha !== '') {
-    if ($editaCompleto) {
-        $query = "UPDATE insert_proyectos_contacto
-                  SET fecha_agendamiento = ?, hora = ?, tecnico = ?, estado_agenda = ?,
-                      empresa = ?, mail = ?, direccion = ?, latitud = ?, longitud = ?,
-                      telefono = ?, telefono_convencional = ?, lugar = ?
-                  WHERE id = ?";
-        $sql = $mysqli->prepare($query);
-        if ($sql) {
-            $sql->bind_param(
-                "sssssssddsssi",
-                $fecha, $hora, $tecnico, $estado_agenda,
-                $empresa, $mail, $direccion, $latitud, $longitud,
-                $telefono, $telefono_convencional, $direccion, $id
-            );
-        }
-    } else {
-        $query = "UPDATE insert_proyectos_contacto
-                  SET fecha_agendamiento = ?, hora = ?, tecnico = ?, estado_agenda = ?, lugar = direccion
-                  WHERE id = ?";
-        $sql = $mysqli->prepare($query);
-        if ($sql) {
-            $sql->bind_param("ssssi", $fecha, $hora, $tecnico, $estado_agenda, $id);
-        }
-    }
+    $set[] = 'fecha_agendamiento = ?';
+    $params[] = $fecha;
+    $types .= 's';
+}
+$set[] = 'hora = ?';           $params[] = $hora;           $types .= 's';
+$set[] = 'tecnico = ?';        $params[] = $tecnico;        $types .= 's';
+$set[] = 'estado_agenda = ?';  $params[] = $estado_agenda;  $types .= 's';
+
+if ($reagendando) {
+    $set[] = 'motivo_reagendacion = ?';
+    $params[] = $motivo_reagendacion;
+    $types .= 's';
+}
+
+if ($editaCompleto) {
+    $set[] = 'empresa = ?';               $params[] = $empresa;               $types .= 's';
+    $set[] = 'mail = ?';                  $params[] = $mail;                  $types .= 's';
+    $set[] = 'direccion = ?';             $params[] = $direccion;             $types .= 's';
+    $set[] = 'latitud = ?';               $params[] = $latitud;               $types .= 'd';
+    $set[] = 'longitud = ?';              $params[] = $longitud;              $types .= 'd';
+    $set[] = 'telefono = ?';              $params[] = $telefono;              $types .= 's';
+    $set[] = 'telefono_convencional = ?'; $params[] = $telefono_convencional; $types .= 's';
+    $set[] = 'lugar = ?';                 $params[] = $direccion;             $types .= 's';
 } else {
-    if ($editaCompleto) {
-        $query = "UPDATE insert_proyectos_contacto
-                  SET hora = ?, tecnico = ?, estado_agenda = ?,
-                      empresa = ?, mail = ?, direccion = ?, latitud = ?, longitud = ?,
-                      telefono = ?, telefono_convencional = ?, lugar = ?
-                  WHERE id = ?";
-        $sql = $mysqli->prepare($query);
-        if ($sql) {
-            $sql->bind_param(
-                "ssssssddsssi",
-                $hora, $tecnico, $estado_agenda,
-                $empresa, $mail, $direccion, $latitud, $longitud,
-                $telefono, $telefono_convencional, $direccion, $id
-            );
-        }
-    } else {
-        $query = "UPDATE insert_proyectos_contacto
-                  SET hora = ?, tecnico = ?, estado_agenda = ?, lugar = direccion
-                  WHERE id = ?";
-        $sql = $mysqli->prepare($query);
-        if ($sql) {
-            $sql->bind_param("sssi", $hora, $tecnico, $estado_agenda, $id);
-        }
-    }
+    $set[] = 'lugar = direccion';
+}
+
+$query = "UPDATE insert_proyectos_contacto SET " . implode(', ', $set) . " WHERE id = ?";
+$params[] = $id;
+$types .= 'i';
+
+$sql = $mysqli->prepare($query);
+if ($sql) {
+    $sql->bind_param($types, ...$params);
 }
 
 if ($sql) {

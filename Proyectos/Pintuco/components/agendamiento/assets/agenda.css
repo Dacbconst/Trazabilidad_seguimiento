@@ -697,6 +697,36 @@
 }
 .agenda-edit-alert .glyphicon { margin-top: 2px; flex-shrink: 0; }
 
+.agenda-edit-motivo { margin-top: 12px; }
+.agenda-edit-motivo label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    color: #5b6577;
+    margin-bottom: 5px;
+}
+.agenda-edit-motivo-obligatorio { color: #d93025; }
+.agenda-edit-motivo-input {
+    width: 100%;
+    resize: vertical;
+    min-height: 52px;
+    border: 1px solid var(--ed-border);
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ed-ink);
+}
+.agenda-edit-motivo-input:focus {
+    outline: none;
+    border-color: var(--ed-blue);
+    box-shadow: 0 0 0 3px rgba(51,122,183,.18);
+}
+.agenda-edit-motivo-input.is-invalid { border-color: #d93025; background: rgba(217,48,37,.04); }
+.agenda-edit-motivo-error { display: block; font-size: 11px; color: #d93025; margin-top: 4px; min-height: 0; }
+
 /* Pill con punto de color — reemplaza el badge sólido anterior. Se oculta
    por completo en modo edición (ver .is-editando más abajo): el mockup de
    ese modo no lo muestra, el foco pasa a los campos y el mapa. */

@@ -1,0 +1,171 @@
+diff --git a/Proyectos/Pintuco/components/proforma/assets/proforma.js b/Proyectos/Pintuco/components/proforma/assets/proforma.js
+index 73b7528..0cee17a 100644
+--- a/Proyectos/Pintuco/components/proforma/assets/proforma.js
++++ b/Proyectos/Pintuco/components/proforma/assets/proforma.js
+@@ -148,7 +148,7 @@
+         var f = getFase(p);
+         if (f === 5) return { label: 'Fase 5', cls: 'is-aprobado' };
+         if (f === 4) {
+-            if (p.estado_proforma === 'rechazado')              return { label: 'Fase 4', cls: 'is-rechazado' };
++            if (p.estado_proforma === 'rechazado')              return { label: 'Rechazada', cls: 'is-rechazado' };
+             if (p.estado_proforma === 'correccion_solicitada')  return { label: '⚠ Corrección', cls: 'is-correccion' };
+             return { label: 'Fase 4', cls: 'is-en_proceso' };
+         }
+@@ -167,6 +167,14 @@
+         var ocultosFase5 = agendamientosOcultosPorFase5();
+ 
+         return currentRows.filter(function (p) {
++            // Pedido explícito del usuario (2026-07-14): Proforma es la
++            // bandeja de trabajo de "ya llegó la foto de la cotización" —
++            // un agendamiento que todavía no tiene ninguna proforma subida
++            // (fase 1 "Contacto" o fase 2 "Agendado") no pertenece acá
++            // todavía, aunque exista y esté agendado. Cuando llega su
++            // primera foto (fase 4+) aparece con fase 1 y 2 ya marcadas
++            // completas en el timeline (construirTimeline), sin más cambios.
++            if (getFase(p) < 4) return false;
+             if (ocultosFase5[p.agendamiento_id]) return false;
+             if (promotorSel && p.usuario !== promotorSel) return false;
+ 
+@@ -700,6 +708,115 @@
+         return overlay;
+     }
+ 
++    // ---------------------------------------------------------------
++    // Cierre de proceso: para cuando la negociación se queda en pura
++    // cotización y nunca llega a factura (cliente ya no quiso, se fue con
++    // la competencia, etc.) — pedido explícito del usuario. Reusa la
++    // acción 'rechazar' que ya existía en update_proforma.php (terminal,
++    // estado_proforma='rechazado', ya soportada por getFase/getBadge/el
++    // filtro "Estado auditoría" → "Rechazada") pero que nunca tuvo un
++    // botón conectado en esta pantalla. El motivo queda guardado en
++    // observaciones_auditoria, igual que las demás rondas.
++    // ---------------------------------------------------------------
++    function agregarBotonCerrarProceso(wrap, p, onResuelto) {
++        var cont = document.createElement('div');
++        cont.className = 'proforma-cerrar-proceso-wrap';
++
++        var btn = document.createElement('button');
++        btn.type = 'button';
++        btn.className = 'proforma-btn-cerrar-proceso';
++        btn.innerHTML = '<i class="glyphicon glyphicon-ban-circle"></i> Cerrar proceso';
++        btn.addEventListener('click', function () { mostrarConfirmacionCierre(p, wrap, onResuelto); });
++
++        cont.appendChild(btn);
++        wrap.appendChild(cont);
++    }
++
++    function mostrarConfirmacionCierre(p, wrap, onResuelto) {
++        var overlay = document.createElement('div');
++        overlay.className = 'proforma-bloqueo-modal-overlay';
++
++        var card = document.createElement('div');
++        card.className = 'proforma-cierre-modal-card';
++        card.innerHTML =
++            '<i class="glyphicon glyphicon-question-sign"></i>'
++            + '<div class="proforma-cierre-modal-titulo">¿Cerrar este proceso?</div>'
++            + '<div class="proforma-cierre-modal-texto">'
++            +   'Se va a marcar como <strong>Rechazada</strong> (cerrada sin llegar a factura) y ya no se podrá seguir editando. Esta acción no se puede deshacer.'
++            + '</div>';
++
++        var campoObs = document.createElement('div');
++        campoObs.className = 'proforma-campo';
++        var labelObs = document.createElement('label');
++        labelObs.textContent = 'Motivo del cierre *';
++        var inputObs = document.createElement('textarea');
++        inputObs.className = 'form-control';
++        inputObs.rows = 3;
++        inputObs.placeholder = 'Explica por qué se cierra este proceso...';
++        campoObs.appendChild(labelObs);
++        campoObs.appendChild(inputObs);
++        card.appendChild(campoObs);
++
++        var errorObs = document.createElement('div');
++        errorObs.className = 'proforma-cierre-modal-error';
++        card.appendChild(errorObs);
++
++        var acciones = document.createElement('div');
++        acciones.className = 'proforma-cierre-modal-acciones';
++
++        var btnCancelar = document.createElement('button');
++        btnCancelar.type = 'button';
++        btnCancelar.className = 'btn';
++        btnCancelar.textContent = 'Cancelar';
++        btnCancelar.addEventListener('click', function () { overlay.remove(); });
++
++        var btnConfirmar = document.createElement('button');
++        btnConfirmar.type = 'button';
++        btnConfirmar.className = 'proforma-btn-rechazar-rojo';
++        btnConfirmar.textContent = 'Cerrar proceso';
++        btnConfirmar.addEventListener('click', function () {
++            var motivo = inputObs.value.trim();
++            if (!motivo) {
++                errorObs.textContent = 'El motivo del cierre es obligatorio.';
++                inputObs.focus();
++                return;
++            }
++            errorObs.textContent = '';
++            btnConfirmar.disabled = true;
++            btnCancelar.disabled = true;
++            var body = new URLSearchParams();
++            body.set('id', p.id);
++            body.set('accion', 'rechazar');
++            body.set('monto', p.monto_validado || '');
++            body.set('motivo_cierre', motivo);
++            fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
++                .then(function (r) { return r.json(); })
++                .then(function (json) {
++                    if (json.success) {
++                        mostrarToast('Proceso cerrado.');
++                        onResuelto();
++                    } else {
++                        mostrarToast(json.message || 'No se pudo cerrar.', true);
++                        btnConfirmar.disabled = false;
++                        btnCancelar.disabled = false;
++                    }
++                })
++                .catch(function () {
++                    mostrarToast('Error de conexión.', true);
++                    btnConfirmar.disabled = false;
++                    btnCancelar.disabled = false;
++                });
++        });
++
++        acciones.appendChild(btnCancelar);
++        acciones.appendChild(btnConfirmar);
++        card.appendChild(acciones);
++
++        overlay.appendChild(card);
++        wrap.appendChild(overlay);
++        inputObs.focus();
++    }
++
+     // ---------------------------------------------------------------
+     // Columna 2 — Evidencia fotográfica
+     // ---------------------------------------------------------------
+@@ -912,6 +1029,9 @@
+                     + '<div class="proforma-historial-ciclo-dato">Monto: ' + esc(formatMonto(h.monto_validado) || '—') + '</div>'
+                     + (h.observaciones_auditoria
+                         ? '<div class="proforma-historial-ciclo-dato">' + esc(h.observaciones_auditoria) + '</div>'
++                        : '')
++                    + (h.motivo_cierre
++                        ? '<div class="proforma-historial-ciclo-dato proforma-historial-ciclo-cierre"><strong>Motivo de cierre:</strong> ' + esc(h.motivo_cierre) + '</div>'
+                         : '');
+                 ciclo.appendChild(cicloTexto);
+ 
+@@ -928,6 +1048,7 @@
+             espFoto.className = 'proforma-auditoria-cerrada';
+             espFoto.innerHTML = '<i class="glyphicon glyphicon-hourglass"></i> Esperando la próxima foto de proforma del promotor.';
+             wrap.appendChild(espFoto);
++            agregarBotonCerrarProceso(wrap, p, onResuelto);
+             return wrap;
+         }
+ 
+@@ -1008,6 +1129,8 @@
+         acciones.appendChild(btnGuardar);
+         wrap.appendChild(acciones);
+ 
++        agregarBotonCerrarProceso(wrap, p, onResuelto);
++
+         return wrap;
+     }
+ 

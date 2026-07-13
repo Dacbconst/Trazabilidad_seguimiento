@@ -53,7 +53,7 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
                 <span class="dash-kpi-icono">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
                 </span>
-                <span class="dash-kpi-label">PDVs en seguimiento</span>
+                <span class="dash-kpi-label">Agendamientos en seguimiento</span>
             </div>
             <span class="dash-kpi-valor" id="kpiTotal">—</span>
         </div>
@@ -86,20 +86,20 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
                 <span class="dash-kpi-icono">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
                 </span>
-                <span class="dash-kpi-label">PDVs estancados</span>
+                <span class="dash-kpi-label">Agendamientos estancados</span>
             </div>
             <span class="dash-kpi-valor" id="kpiEstancados">—</span>
             <span class="dash-kpi-ver-detalle">Ver detalle →</span>
         </button>
     </div>
 
-    <!-- Modal: detalle de PDVs estancados (fase < 5 y más de 7 días sin
-         avance) — ver abrirModalEstancados en principal.js. -->
+    <!-- Modal: detalle de Agendamientos estancados (fase < 5 y más de 7
+         días sin avance) — ver abrirModalEstancados en principal.js. -->
     <div class="dash-estancados-overlay" id="dashEstancadosOverlay">
         <div class="dash-estancados-card">
             <div class="dash-estancados-header">
                 <div>
-                    <div class="dash-estancados-titulo">PDVs estancados</div>
+                    <div class="dash-estancados-titulo">Agendamientos estancados</div>
                     <div class="dash-estancados-sub" id="dashEstancadosCount"></div>
                 </div>
                 <button type="button" class="dash-estancados-close" id="dashEstancadosClose" aria-label="Cerrar">&times;</button>

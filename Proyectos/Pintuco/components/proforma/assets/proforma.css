@@ -280,6 +280,66 @@
 .proforma-bloqueo-texto { font-size: 13px; font-weight: 600; color: #33415c; line-height: 1.5; }
 .proforma-bloqueo-modal-card .proforma-btn-rechazar-rojo { margin-top: 4px; padding: 9px 22px; }
 
+/* "Cerrar proceso" — para negociaciones que se quedan en pura cotización y
+   nunca llegan a factura (pedido explícito del usuario, 2026-07-14). Botón
+   discreto (no rojo sólido como la confirmación) porque solo ABRE el
+   modal — la acción destructiva de verdad se confirma ahí adentro. */
+.proforma-cerrar-proceso-wrap {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed #e3e8ee;
+}
+.proforma-btn-cerrar-proceso {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #d8dee6;
+    border-radius: 6px;
+    background: #fff;
+    color: #5b6577;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.proforma-btn-cerrar-proceso:hover { background: #fbeaea; border-color: #f3c6c2; color: #b3261e; }
+
+/* Modal de confirmación de cierre — mismo overlay que el de bloqueo de
+   foto, card propia (más ancha, con formulario). */
+.proforma-cierre-modal-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(20,30,50,.16);
+    padding: 26px 28px;
+    text-align: center;
+    width: 100%;
+    max-width: 380px;
+    color: #5b6577;
+}
+.proforma-cierre-modal-card .glyphicon {
+    font-size: 28px;
+    color: #d93025;
+    background: #fbeaea;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.proforma-cierre-modal-titulo { font-size: 15px; font-weight: 800; color: #1f2d3d; }
+.proforma-cierre-modal-texto { font-size: 12.5px; line-height: 1.5; }
+.proforma-cierre-modal-card .proforma-campo { width: 100%; text-align: left; margin-bottom: 0; }
+.proforma-cierre-modal-error { font-size: 11.5px; color: #d93025; font-weight: 600; min-height: 14px; }
+.proforma-cierre-modal-acciones { display: flex; gap: 8px; width: 100%; margin-top: 4px; }
+.proforma-cierre-modal-acciones .btn,
+.proforma-cierre-modal-acciones .proforma-btn-rechazar-rojo { flex: 1; }
+
 /* ---------------------------------------------------
    Timeline de 5 fases (columna izquierda)
 ----------------------------------------------------- */
@@ -434,6 +494,13 @@
     margin-top: 3px;
     line-height: 1.4;
 }
+.proforma-historial-ciclo-dato.proforma-historial-ciclo-cierre {
+    color: #b3261e;
+    background: #fbeaea;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+.proforma-historial-ciclo-dato.proforma-historial-ciclo-cierre strong { color: #8a1f18; }
 
 /* ---------------------------------------------------
    Alias de clases legacy (evidencia, reporte, etc.

@@ -1,0 +1,93 @@
+diff --git a/Proyectos/Pintuco/components/agendamiento/assets/agenda.js b/Proyectos/Pintuco/components/agendamiento/assets/agenda.js
+index 6f2affa..50f34e4 100644
+--- a/Proyectos/Pintuco/components/agendamiento/assets/agenda.js
++++ b/Proyectos/Pintuco/components/agendamiento/assets/agenda.js
+@@ -663,6 +663,14 @@
+         setHora(props.hora ? props.hora.slice(0, 5) : '');
+         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
+ 
++        // "Pendiente técnico" nunca tuvo nada confirmado todavía — el
++        // switch "ver vs editar" no debería ni aparecer ahí. Ojo: esto es
++        // SOLO ocultar el switch, no activar modo edición (eso trae el
++        // layout ancho + mapa, que no se pidió) — la card se queda exactamente
++        // igual que siempre (modo vista, campos de agendar ya editables como
++        // ya eran). Pedido explícito del usuario (2026-07-13).
++        document.getElementById('agendaEditModeSwitchWrap').style.display =
++            (estado === 'pendiente') ? 'none' : '';
+         setModoEdicion(false);
+ 
+         // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
+@@ -677,6 +685,16 @@
+             alerta.style.display = 'none';
+         }
+ 
++        // Motivo de reagendación: solo aparece (y solo se exige) cuando esta
++        // visita estaba Vencida — es la ÚNICA situación que hoy cuenta como
++        // reagendamiento real (ver update_agenda.php). Siempre arranca vacío:
++        // es el motivo de ESTA reagendación, no el de una anterior.
++        var motivoInput = document.getElementById('agendaEditMotivo');
++        motivoInput.value = '';
++        motivoInput.classList.remove('is-invalid');
++        document.getElementById('agendaEditErrMotivo').textContent = '';
++        document.getElementById('agendaEditMotivoWrap').style.display = (estado === 'vencida') ? 'block' : 'none';
++
+         document.getElementById('agendaEditOverlay').classList.add('active');
+ 
+         var marker = markersById[editingId];
+@@ -761,11 +779,27 @@
+             return;
+         }
+ 
++        // El campo de motivo solo está visible cuando esta visita estaba
++        // Vencida (ver abrirEdicion) — ahí sí es obligatorio, en cualquier
++        // otro guardado ni se pide ni se manda.
++        var motivoWrap = document.getElementById('agendaEditMotivoWrap');
++        var reagendandoVencida = motivoWrap.style.display !== 'none';
++        var motivoReagendacion = document.getElementById('agendaEditMotivo').value.trim();
++        if (reagendandoVencida && !motivoReagendacion) {
++            document.getElementById('agendaEditMotivo').classList.add('is-invalid');
++            document.getElementById('agendaEditErrMotivo').textContent = 'El motivo de la reagendación es obligatorio.';
++            document.getElementById('agendaEditMotivo').focus();
++            return;
++        }
++
+         var body = new URLSearchParams();
+         body.set('id', idGuardado);
+         body.set('fecha', fechaGuardada);
+         body.set('hora', horaGuardada);
+         body.set('tecnico', document.getElementById('agendaEditTecnico').value);
++        if (reagendandoVencida) {
++            body.set('motivo_reagendacion', motivoReagendacion);
++        }
+         // El lugar se sincroniza con la dirección guardada y el estado
+         // (confirmado/reagendada) lo decide el backend.
+ 
+diff --git a/Proyectos/Pintuco/components/agendamiento/partials/modal-edicion.php b/Proyectos/Pintuco/components/agendamiento/partials/modal-edicion.php
+index 4023658..9e49ec2 100644
+--- a/Proyectos/Pintuco/components/agendamiento/partials/modal-edicion.php
++++ b/Proyectos/Pintuco/components/agendamiento/partials/modal-edicion.php
+@@ -10,7 +10,7 @@
+                         <h4 class="agenda-edit-title" id="agendaEditTitulo"></h4>
+                         <div class="agenda-edit-registro" id="agendaEditRegistro"></div>
+                     </div>
+-                    <label class="agenda-edit-mode-switch">
++                    <label class="agenda-edit-mode-switch" id="agendaEditModeSwitchWrap">
+                         <input type="checkbox" id="agendaEditModoEdicion">
+                         <span class="agenda-edit-mode-slider"></span>
+                         <span id="agendaEditModoTexto">Modo edición</span>
+@@ -29,6 +29,15 @@
+                     <span id="agendaEditAlertaTexto"></span>
+                 </div>
+ 
++                <!-- Solo aparece al reagendar una visita Vencida (mecánica
++                     2026-07-14): en cualquier otro guardado queda oculto y
++                     no se toca la columna motivo_reagendacion. -->
++                <div class="agenda-edit-motivo" id="agendaEditMotivoWrap" style="display:none">
++                    <label for="agendaEditMotivo">Motivo de la reagendación <span class="agenda-edit-motivo-obligatorio">*</span></label>
++                    <textarea class="agenda-edit-motivo-input" id="agendaEditMotivo" rows="2" maxlength="255" placeholder="¿Por qué se reagenda esta visita?"></textarea>
++                    <span class="agenda-edit-motivo-error" id="agendaEditErrMotivo"></span>
++                </div>
++
+                 <div class="agenda-edit-divider"></div>
+ 
+                 <!-- Promotor y Local: siempre solo texto, sin importar el

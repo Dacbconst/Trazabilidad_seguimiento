@@ -1,0 +1,541 @@
+--- C:\Users\DiegoAntonioConstant\Desktop\TrazabilidadSeguimiento\_old_ef.js	2026-07-13 15:46:23.768730500 -0500
++++ Proyectos/Pintuco/components/factura/assets/factura.js	2026-07-13 15:31:57.328239800 -0500
+@@ -1,7 +1,7 @@
+ (function () {
+     'use strict';
+ 
+-    var app          = document.getElementById('estadoFlujoApp');
++    var app          = document.getElementById('facturaApp');
+     var GETTERS_BASE = app.dataset.gettersBase;
+     var FOTO_BASE    = 'https://luckyecuadorweb.blob.core.windows.net/app/AppPintuco/Inserts/';
+ 
+@@ -10,16 +10,37 @@
+     var porAgendamiento    = {};  // { agendamiento_id: [ciclos ASC por id] }
+     var montoFacturadoPorAgendamiento = {}; // { agendamiento_id: suma de monto_pago }
+     var pagosPorProforma  = {};   // { id_proforma: [pagos ASC por numero_cuota] }
+-    var tabActiva          = 'fase';
+     var promActivo         = null;
+-    var highlightedAgId    = null;
+     var auditoriaAbierta   = null;
+     var pagoModalAbierto   = false;
+-    // Selección para exportar (tab Por Promotor) — Set de agendamiento_id
+-    // (string) marcados con checkbox, a nivel de promotor completo o de
+-    // fila suelta dentro del detalle de un promotor.
++    // Selección para exportar — Set de agendamiento_id (string) marcados con
++    // checkbox, a nivel de promotor completo o de fila suelta del detalle.
+     var agendamientosSeleccionados = new Set();
+ 
++    // ── Punto azul "hay un cambio sin atender" — misma mecánica que
++    // proforma.js (localStorage por navegador/analista, namespace propio
++    // para no mezclarse con la de Proforma). "Cambio" acá también incluye
++    // el monto facturado (llegó un pago/cuota nueva), a diferencia de
++    // Proforma — es justo lo que este módulo vigila. Se marca visto al
++    // abrir el panel de Auditoría de ese agendamiento (ver abrirAuditoria).
++    // ---------------------------------------------------------------
++    var VISTO_KEY_PREFIX = 'pintuco_factura_visto_';
++
++    function firmaFila(p) {
++        return [
++            p.estado_proforma, p.evidencia, p.foto_factura, p.monto_validado, p.fecha_auditoria,
++            totalFacturadoDe(p.agendamiento_id)
++        ].join('|');
++    }
++    function tieneCambioSinAtender(p) {
++        var guardada;
++        try { guardada = localStorage.getItem(VISTO_KEY_PREFIX + p.agendamiento_id); } catch (e) { return false; }
++        return guardada !== firmaFila(p);
++    }
++    function marcarVisto(p) {
++        try { localStorage.setItem(VISTO_KEY_PREFIX + p.agendamiento_id, firmaFila(p)); } catch (e) {}
++    }
++
+     // ── Helpers ──────────────────────────────────────────────────────
+     function esc(s) {
+         return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+@@ -42,13 +63,6 @@
+         return Math.floor((new Date() - new Date(f + 'T00:00:00')) / 86400000);
+     }
+     function fmtDias(d) { return d === null ? '—' : (d < 0 ? '0d' : d + 'd'); }
+-    // Umbral: verde <=3 días, ámbar 4-7, rojo 8+.
+-    function clsDias(d) {
+-        if (d === null) return '';
+-        if (d <= 3) return 'is-verde';
+-        if (d <= 7) return 'is-ambar';
+-        return 'is-rojo';
+-    }
+     function fmtMonto(v) {
+         var n = parseFloat(v) || 0;
+         if (n === 0) return '—';
+@@ -118,7 +132,7 @@
+     }
+ 
+     // Suma de todos los pagos/cuotas registrados (insert_pago_factura) para
+-    // un agendamiento — nueva mecánica de facturación a plazos (2026-07-03).
++    // un agendamiento — mecánica de facturación a plazos (2026-07-03).
+     // En un pago único (sin plazos) esto termina siendo el monto de esa
+     // única cuota; en una factura a plazos, se acumula a medida que llegan
+     // más pagos.
+@@ -153,8 +167,7 @@
+ 
+     // idsPermitidos (opcional): Set de agendamiento_id (string) al que
+     // restringir la suma — se usa cuando hay un filtro de PDV/empresa o una
+-    // selección activa en el tab Por Promotor. Sin idsPermitidos, suma TODO
+-    // el histórico del promotor (comportamiento original).
++    // selección activa. Sin idsPermitidos, suma TODO el histórico del promotor.
+     function totalAcumuladoPromotor(usuario, idsPermitidos) {
+         var total = 0;
+         Object.keys(porAgendamiento).forEach(function (agId) {
+@@ -215,6 +228,12 @@
+         return { label: 'Enviada', cls: 'is-enviada' }; // pendiente | en_proceso | en_negociacion | realizado
+     }
+ 
++    // PDV o empresa: mismo criterio de búsqueda que usaba Por Fase.
++    function matchPdv(p, q) {
++        var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
++        return hay.indexOf(q) !== -1;
++    }
++
+     // ── Metadatos de fase ──────────────────────────────────────────────
+     var FASES_META = [
+         { fase: 1, label: 'Contacto' },
+@@ -224,60 +243,11 @@
+         { fase: 5, label: 'Facturado' },
+     ];
+ 
+-    // ── Kanban "Por fase" — 5 columnas simultáneas ────────────────────
+-    function construirEsqueletoKanban() {
+-        var cont = document.getElementById('efKanban');
+-        cont.innerHTML = FASES_META.map(function (m) {
+-            return '<div class="ef-col">'
+-                + '<div class="ef-col-header">'
+-                +   '<span class="ef-col-dot"></span>'
+-                +   '<span class="ef-col-fase">Fase ' + m.fase + '</span>'
+-                +   '<span class="ef-col-count" id="efColCount-' + m.fase + '">0</span>'
+-                + '</div>'
+-                + '<div class="ef-col-label">' + esc(m.label) + '</div>'
+-                + '<div class="ef-col-body" id="efColBody-' + m.fase + '"></div>'
+-                + '</div>';
+-        }).join('');
+-    }
+-
+-    function renderTarjetaKanban(p) {
+-        var dias = diasDesde(refFechaFase(p));
+-        return '<div class="ef-card" data-agendamiento-id="' + esc(p.agendamiento_id) + '">'
+-            + '<div class="ef-card-empresa">' + esc(p.empresa || '—') + '</div>'
+-            + '<div class="ef-card-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div>'
+-            + '<div class="ef-card-footer">'
+-            +   '<span class="ef-card-promotor"><i class="glyphicon glyphicon-user"></i> ' + esc(p.usuario || '(sin asignar)') + '</span>'
+-            +   '<span class="ef-dias-pill ' + clsDias(dias) + '">' + fmtDias(dias) + '</span>'
+-            + '</div>'
+-            + '</div>';
+-    }
+-
+-    function renderKanban(rows) {
+-        var porFase = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+-        rows.forEach(function (p) { porFase[getFase(p)].push(p); });
+-        FASES_META.forEach(function (m) {
+-            var countEl = document.getElementById('efColCount-' + m.fase);
+-            var bodyEl  = document.getElementById('efColBody-' + m.fase);
+-            if (!countEl || !bodyEl) return;
+-            countEl.textContent = porFase[m.fase].length;
+-            bodyEl.innerHTML = porFase[m.fase].length
+-                ? porFase[m.fase].map(renderTarjetaKanban).join('')
+-                : '<div class="ef-vacio">Sin registros.</div>';
+-        });
+-    }
+-
+-    // PDV o empresa: mismo criterio de búsqueda en Por Fase y en Por Promotor.
+-    function matchPdv(p, q) {
+-        var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
+-        return hay.indexOf(q) !== -1;
+-    }
+-
+-    // Filtro "Periodo" — solo en el tab Por Promotor (donde vive el botón de
+-    // descarga de Excel). Arranca en "Mes actual" por defecto: al entrar a
+-    // la página, la lista/detalle/total de ese tab solo muestran lo del mes
+-    // en curso, sin que el analista tenga que tocar nada. Fecha de
+-    // referencia: fecha_agendamiento (visita), con contacto_fecha_registro
+-    // como respaldo para agendamientos que aún no tienen visita agendada.
++    // Filtro "Periodo" — arranca en "Mes actual" por defecto: al entrar a la
++    // página, la lista/detalle/total solo muestran lo del mes en curso, sin
++    // que el analista tenga que tocar nada. Fecha de referencia:
++    // fecha_agendamiento (visita), con contacto_fecha_registro como
++    // respaldo para agendamientos que aún no tienen visita agendada.
+     function coincidePeriodo(p) {
+         var sel = document.getElementById('efPromoFiltroPeriodo');
+         var clave = sel ? sel.value : '';
+@@ -288,8 +258,7 @@
+         // || p.contacto_fecha_registro" NUNCA caía al respaldo como decía el
+         // comentario de arriba, y ese agendamiento desaparecía sin explicación
+         // de "Mes actual"/"Mes anterior" aunque se hubiera registrado hoy
+-        // (confirmado 2026-07-10: agendamiento sin fecha aún, creado hoy,
+-        // no aparecía en Por Promotor). Se normaliza ANTES del fallback.
++        // (confirmado 2026-07-10). Se normaliza ANTES del fallback.
+         var fechaAgendaValida = soloFecha(p.fecha_agendamiento);
+         var refCruda = (fechaAgendaValida && fechaAgendaValida !== '0000-00-00')
+             ? p.fecha_agendamiento
+@@ -303,53 +272,7 @@
+         return fecha.getFullYear() === base.getFullYear() && fecha.getMonth() === base.getMonth();
+     }
+ 
+-    function pipelineFiltrado() {
+-        var bus  = document.getElementById('efBusqueda').value.toLowerCase().trim();
+-        var prom = document.getElementById('efFiltroPromotor').value.toLowerCase().trim();
+-        return pipeline.filter(function (p) {
+-            if (bus && !matchPdv(p, bus)) return false;
+-            if (prom && (p.usuario || '').toLowerCase().indexOf(prom) === -1) return false;
+-            return true;
+-        });
+-    }
+-
+-    // ── Navegación cruzada: click en tarjeta → tab Por Promotor + scroll + highlight ──
+-    function irAPromotorDesdeTarjeta(agendamientoId) {
+-        var fila = pipeline.filter(function (p) { return String(p.agendamiento_id) === String(agendamientoId); })[0];
+-        if (!fila) return;
+-
+-        cambiarTab('promotor');
+-        promActivo = fila.usuario || '(sin asignar)';
+-        renderPromoLista();
+-        renderPromoDetalle(promActivo);
+-        highlightedAgId = agendamientoId;
+-
+-        // requestAnimationFrame: da tiempo a que el layout del pane recién
+-        // vuelto visible se asiente antes de medir con scrollIntoView.
+-        requestAnimationFrame(function () {
+-            var row = document.querySelector('.ef-tabla-prom tr[data-agendamiento-id="' + agendamientoId + '"]');
+-            if (!row) return;
+-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+-            row.classList.add('is-highlight');
+-            setTimeout(function () {
+-                row.classList.remove('is-highlight');
+-                if (String(highlightedAgId) === String(agendamientoId)) highlightedAgId = null;
+-            }, 1800);
+-        });
+-    }
+-
+-    // ── Tabs internos ─────────────────────────────────────────────────
+-    function cambiarTab(tab) {
+-        tabActiva = tab;
+-        document.querySelectorAll('#efTabs .ef-tab-btn').forEach(function (a) { a.classList.remove('active'); });
+-        var link = document.querySelector('#efTabs a[data-ef-tab="' + tab + '"]');
+-        if (link) link.classList.add('active');
+-        document.querySelectorAll('.ef-pane').forEach(function (p) { p.classList.remove('active'); });
+-        var pane = document.getElementById('efPane-' + tab);
+-        if (pane) pane.classList.add('active');
+-    }
+-
+-    // ── Por Promotor — lista izquierda ────────────────────────────────
++    // ── Lista izquierda ────────────────────────────────────────────────
+     // Respeta el filtro "PDV o empresa" de la barra de arriba: sin filtro,
+     // cada promotor muestra su histórico completo (igual que siempre); con
+     // filtro, el conteo/montos se recalculan solo con los agendamientos que
+@@ -413,10 +336,20 @@
+             var seleccionados = 0;
+             p.ids.forEach(function (id) { if (agendamientosSeleccionados.has(id)) seleccionados++; });
+             var marcado = seleccionados > 0 && seleccionados === p.total;
++            // Punto azul agregado: alguno de los agendamientos de este
++            // promotor tiene un cambio sin revisar — así el analista sabe a
++            // cuál promotor entrar sin tener que abrirlos todos uno a uno.
++            var tieneCambios = false;
++            p.ids.forEach(function (id) {
++                if (tieneCambios) return;
++                var fila = pipeline.filter(function (x) { return String(x.agendamiento_id) === id; })[0];
++                if (fila && tieneCambioSinAtender(fila)) tieneCambios = true;
++            });
++            var dot = tieneCambios ? '<span class="ef-promo-item-dot" title="Hay un cambio sin revisar"></span>' : '';
+             return '<div class="ef-promo-item ' + activo + '" data-usuario="' + esc(p.usuario) + '">'
+                 + '<input type="checkbox" class="ef-promo-check" data-usuario="' + esc(p.usuario) + '"' + (marcado ? ' checked' : '') + '>'
+                 + '<div class="ef-promo-item-body">'
+-                +   '<div class="ef-promo-item-nombre">' + esc(p.usuario) + '</div>'
++                +   '<div class="ef-promo-item-nombre">' + esc(p.usuario) + dot + '</div>'
+                 +   '<div class="ef-promo-item-meta">'
+                 +     '<span>' + p.total + ' agendado' + (p.total !== 1 ? 's' : '') + '</span>'
+                 +   '</div>'
+@@ -453,7 +386,7 @@
+         if (promActivo === usuario) renderPromoDetalle(promActivo);
+     }
+ 
+-    // ── Por Promotor — panel derecho ──────────────────────────────────
++    // ── Panel derecho ──────────────────────────────────────────────────
+     function renderPromoDetalle(usuario) {
+         var container = document.getElementById('efPromoDetalle');
+         if (!usuario) {
+@@ -488,11 +421,15 @@
+             var vigente = ultimaProformaDe(p.agendamiento_id);
+             var cotizacionInicial = vigente ? fmtMonto(vigente.monto_validado) : '—';
+             var montoFacturado = fmtMonto(totalFacturadoDe(p.agendamiento_id));
+-            var hl = String(p.agendamiento_id) === String(highlightedAgId) ? 'is-highlight' : '';
+             var marcado = agendamientosSeleccionados.has(String(p.agendamiento_id));
+-            return '<tr data-agendamiento-id="' + esc(p.agendamiento_id) + '" class="' + hl + '">'
++            // Punto azul: hay un cambio (foto nueva, cambio de fase, pago
++            // nuevo, etc.) que el analista todavía no revisó en esta sesión
++            // — misma mecánica que Proforma (ver tieneCambioSinAtender
++            // arriba), se apaga al abrir "Auditar" de esa fila.
++            var dot = tieneCambioSinAtender(p) ? '<span class="ef-tabla-dot" title="Hay un cambio sin revisar"></span>' : '';
++            return '<tr data-agendamiento-id="' + esc(p.agendamiento_id) + '">'
+                 + '<td class="ef-td-check"><input type="checkbox" class="ef-row-check" data-agendamiento-id="' + esc(p.agendamiento_id) + '"' + (marcado ? ' checked' : '') + '></td>'
+-                + '<td><div class="ef-tabla-empresa">' + esc(p.empresa || '—') + '</div>'
++                + '<td><div class="ef-tabla-empresa">' + esc(p.empresa || '—') + dot + '</div>'
+                 +     '<div class="ef-tabla-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div></td>'
+                 + '<td><span class="ef-fase-badge is-f' + f + '">Fase ' + f + '</span></td>'
+                 + '<td class="ef-dias-plano">' + fmtDias(dias) + '</td>'
+@@ -531,6 +468,13 @@
+         var ciclos = porAgendamiento[agendamientoId] || [];
+         auditoriaAbierta = agendamientoId;
+ 
++        // Abrir la auditoría cuenta como "atenderla": el punto azul de esa
++        // fila (y del promotor, si era el único cambio pendiente) se apaga
++        // hasta que algo vuelva a cambiar.
++        marcarVisto(p);
++        renderPromoLista();
++        if (promActivo) renderPromoDetalle(promActivo);
++
+         var f = getFase(p);
+         var dias = diasDesde(refFechaFase(p));
+         var meta = FASES_META[f - 1];
+@@ -743,9 +687,28 @@
+                 + '</div>';
+         }).join('') || '<div class="ef-fin-sin-pagos">Todavía no se registran pagos.</div>';
+ 
+-        var fechaActivacion = factura.fecha_factura || factura.fecha_auditoria || factura.proforma_fecha_registro;
++        // Ya NO incluye factura.fecha_auditoria en el respaldo — desde que
++        // 'cerrar_plan_pago' reusa esa misma columna para la fecha de
++        // cierre del plan (ver más abajo), dejarla acá pisaría "fecha de
++        // aprobación de Fase 5" con la fecha de cierre después de cerrar
++        // un plan. fecha_factura todavía no se selecciona en
++        // proformas_listar.php (pendiente ALTER TABLE), así que hoy este
++        // respaldo cae siempre en proforma_fecha_registro — mismo
++        // resultado que antes, sin el riesgo.
++        var fechaActivacion = factura.fecha_factura || factura.proforma_fecha_registro;
+         var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado' }[factura.estado_pago] || null;
+ 
++        // Cierre de plan de pago a plazos que se quedó a medias (dejó de
++        // pagar cuotas y nunca va a terminar) — pedido explícito del
++        // usuario, 2026-07-14. NUNCA toca estado_pago (de un solo dueño,
++        // la app) — es solo una anotación propia de la web en una columna
++        // separada (motivo_cierre_pago; la fecha reusa fecha_auditoria,
++        // ver nota arriba). No aplica a
++        // "Pago Directo" (ya está completo por definición) ni si ya está
++        // 'completado' según la app, ni si ya se cerró antes.
++        var planCerrado = !!factura.motivo_cierre_pago;
++        var puedeCerrarPlan = !esDirecto && !planCerrado && factura.estado_pago !== 'completado';
++
+         cont.innerHTML =
+             '<div class="ef-fin-resumen">'
+             +   '<div class="ef-fin-resumen-item">'
+@@ -760,14 +723,24 @@
+             + '</div>'
+             + '<div class="ef-fin-header">'
+             +   '<h3 class="ef-auditoria-seccion-titulo">Financiamiento' + (esDirecto ? '' : ' (' + totalCuotas + ' meses)') + '</h3>'
++            +   '<span class="ef-fin-tipo-badge">' + (esDirecto ? 'Pago Directo' : 'Pago a Meses') + '</span>'
+             + '</div>'
+             + (estadoPagoLabel ? '<div class="ef-fin-estado-pago">Estado de pago: <strong>' + esc(estadoPagoLabel) + '</strong></div>' : '')
++            + (planCerrado
++                ? '<div class="ef-fin-cierre-banner"><i class="glyphicon glyphicon-ban-circle"></i> '
++                  + '<div><strong>Plan de pago cerrado</strong>' + (factura.fecha_auditoria ? ' el ' + esc(formatFecha(factura.fecha_auditoria)) : '') + '.'
++                  + '<div class="ef-fin-cierre-banner-motivo">' + esc(factura.motivo_cierre_pago) + '</div></div></div>'
++                : '')
+             + '<div class="ef-fin-grid">' + tarjetas + '</div>'
+             + '<div class="ef-fin-nota">'
+             +   '<p class="ef-fin-nota-titulo">Nota de Facturación</p>'
+             +   '<p class="ef-fin-nota-texto">El financiamiento se activó automáticamente tras la aprobación de la <strong>Fase 5</strong>'
+             +     (fechaActivacion ? ' el ' + esc(formatFecha(fechaActivacion)) : '') + '.</p>'
+-            + '</div>';
++            + '</div>'
++            + (puedeCerrarPlan
++                ? '<div class="ef-fin-cerrar-plan-wrap"><button type="button" class="ef-fin-btn-cerrar-plan" id="efBtnCerrarPlanPago">'
++                  + '<i class="glyphicon glyphicon-ban-circle"></i> Cerrar plan de pago</button></div>'
++                : '');
+ 
+         cont.querySelectorAll('.ef-fin-card.is-pagada').forEach(function (card) {
+             card.addEventListener('click', function () {
+@@ -776,6 +749,105 @@
+                 if (pago) abrirPagoModal(pago, card.querySelector('.ef-fin-card-mes').textContent);
+             });
+         });
++
++        var btnCerrarPlan = document.getElementById('efBtnCerrarPlanPago');
++        if (btnCerrarPlan) {
++            btnCerrarPlan.addEventListener('click', function () {
++                mostrarConfirmacionCierrePlanPago(factura, agendamientoId, ciclos);
++            });
++        }
++    }
++
++    function mostrarConfirmacionCierrePlanPago(factura, agendamientoId, ciclos) {
++        var overlay = document.createElement('div');
++        overlay.className = 'ef-fin-cierre-modal-overlay';
++
++        var card = document.createElement('div');
++        card.className = 'ef-fin-cierre-modal-card';
++        card.innerHTML =
++            '<i class="glyphicon glyphicon-question-sign"></i>'
++            + '<div class="ef-fin-cierre-modal-titulo">¿Cerrar este plan de pago?</div>'
++            + '<div class="ef-fin-cierre-modal-texto">'
++            +   'Se va a marcar como cerrado desde la web. El estado de pago que reporta la app no se modifica — esto queda como una anotación aparte. Esta acción no se puede deshacer.'
++            + '</div>';
++
++        var campoObs = document.createElement('div');
++        campoObs.className = 'ef-fin-cierre-campo';
++        var labelObs = document.createElement('label');
++        labelObs.textContent = 'Motivo del cierre *';
++        var inputObs = document.createElement('textarea');
++        inputObs.className = 'form-control';
++        inputObs.rows = 3;
++        inputObs.placeholder = 'Explica por qué se cierra este plan de pago...';
++        campoObs.appendChild(labelObs);
++        campoObs.appendChild(inputObs);
++        card.appendChild(campoObs);
++
++        var errorObs = document.createElement('div');
++        errorObs.className = 'ef-fin-cierre-modal-error';
++        card.appendChild(errorObs);
++
++        var acciones = document.createElement('div');
++        acciones.className = 'ef-fin-cierre-modal-acciones';
++
++        var btnCancelar = document.createElement('button');
++        btnCancelar.type = 'button';
++        btnCancelar.className = 'btn';
++        btnCancelar.textContent = 'Cancelar';
++        btnCancelar.addEventListener('click', function () { overlay.remove(); });
++
++        var btnConfirmar = document.createElement('button');
++        btnConfirmar.type = 'button';
++        btnConfirmar.className = 'ef-fin-btn-confirmar-cierre';
++        btnConfirmar.textContent = 'Cerrar plan de pago';
++        btnConfirmar.addEventListener('click', function () {
++            var motivo = inputObs.value.trim();
++            if (!motivo) {
++                errorObs.textContent = 'El motivo del cierre es obligatorio.';
++                inputObs.focus();
++                return;
++            }
++            errorObs.textContent = '';
++            btnConfirmar.disabled = true;
++            btnCancelar.disabled = true;
++            var body = new URLSearchParams();
++            body.set('id', factura.id);
++            body.set('accion', 'cerrar_plan_pago');
++            body.set('motivo_cierre_pago', motivo);
++            fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
++                .then(function (r) { return r.json(); })
++                .then(function (json) {
++                    if (json.success) {
++                        // Refleja el cambio de inmediato en el mismo objeto
++                        // (ciclos/factura son la misma referencia usada por
++                        // renderFinanciamiento) sin esperar un round-trip;
++                        // cargar() en segundo plano mantiene todo lo demás
++                        // sincronizado para la próxima vez que se abra.
++                        factura.motivo_cierre_pago = motivo;
++                        factura.fecha_auditoria = new Date().toISOString().slice(0, 19).replace('T', ' ');
++                        overlay.remove();
++                        renderFinanciamiento(agendamientoId, ciclos);
++                        cargar();
++                    } else {
++                        errorObs.textContent = json.message || 'No se pudo cerrar.';
++                        btnConfirmar.disabled = false;
++                        btnCancelar.disabled = false;
++                    }
++                })
++                .catch(function () {
++                    errorObs.textContent = 'Error de conexión.';
++                    btnConfirmar.disabled = false;
++                    btnCancelar.disabled = false;
++                });
++        });
++
++        acciones.appendChild(btnCancelar);
++        acciones.appendChild(btnConfirmar);
++        card.appendChild(acciones);
++
++        overlay.appendChild(card);
++        document.body.appendChild(overlay);
++        inputObs.focus();
+     }
+ 
+     // ── Modal de detalle de pago ───────────────────────────────────────
+@@ -805,11 +877,9 @@
+     }
+ 
+     // ── Exportar a Excel ─────────────────────────────────────────────
+-    // El botón vive en el tab "Por Promotor". El libro tiene dos hojas: un
+-    // resumen por promotor (mismo dato que la lista izquierda + badges de
+-    // fase del panel derecho) y un detalle por agendamiento — ambas
+-    // restringidas a lo que el usuario marcó con checkbox (ver
+-    // agendamientosSeleccionados, "Seleccionar todo" y "Desmarcar todo").
++    // El libro tiene una hoja de detalle por agendamiento — restringida a
++    // lo que el usuario marcó con checkbox (ver agendamientosSeleccionados,
++    // "Seleccionar todo" y "Desmarcar todo").
+     var ESTILO_ENCABEZADO = {
+         fill: { patternType: 'solid', fgColor: { rgb: 'FF1D5FA8' } },
+         font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+@@ -869,12 +939,11 @@
+         var hoy = new Date();
+         var dd  = String(hoy.getDate()).padStart(2, '0');
+         var mm  = String(hoy.getMonth() + 1).padStart(2, '0');
+-        XLSX.writeFile(libro, 'flujo_por_promotor_' + dd + '-' + mm + '-' + hoy.getFullYear() + '.xlsx');
++        XLSX.writeFile(libro, 'factura_por_promotor_' + dd + '-' + mm + '-' + hoy.getFullYear() + '.xlsx');
+     }
+ 
+     // ── Carga de datos ────────────────────────────────────────────────
+     function cargar() {
+-        document.getElementById('efKanban').innerHTML = '<div class="ef-vacio">Cargando...</div>';
+         document.getElementById('efPromoLista').innerHTML = '<div class="ef-vacio">Cargando...</div>';
+         document.getElementById('efPromoDetalle').innerHTML = '<div class="ef-vacio">Selecciona un promotor.</div>';
+ 
+@@ -890,26 +959,18 @@
+                 porAgendamiento = agruparPorAgendamiento(allRows);
+                 montoFacturadoPorAgendamiento = agruparPagosPorAgendamiento(resultados[1].data || []);
+                 pagosPorProforma = agruparPagosPorProforma(resultados[1].data || []);
+-                construirEsqueletoKanban();
+-                renderKanban(pipelineFiltrado());
+                 renderPromoLista();
+                 if (promActivo) renderPromoDetalle(promActivo);
+             })
+             .catch(function () {
+-                document.getElementById('efKanban').innerHTML = '<div class="ef-vacio">Error al cargar datos.</div>';
++                document.getElementById('efPromoLista').innerHTML = '<div class="ef-vacio">Error al cargar datos.</div>';
+             });
+     }
+ 
+     // ── Eventos (delegación, un solo listener por contenedor) ─────────
+-    document.querySelectorAll('#efTabs a[data-ef-tab]').forEach(function (a) {
+-        a.addEventListener('click', function (e) { e.preventDefault(); cambiarTab(a.dataset.efTab); });
+-    });
+-
+-    document.getElementById('efBusqueda').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
+-    document.getElementById('efFiltroPromotor').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
+     document.getElementById('efPromoSearch').addEventListener('input', renderPromoLista);
+-    // "PDV o empresa" en Por Promotor: recalcula lista, badges/totales y
+-    // filas de la tabla del promotor abierto (ver renderPromoDetalle).
++    // "PDV o empresa": recalcula lista, badges/totales y filas de la tabla
++    // del promotor abierto (ver renderPromoDetalle).
+     document.getElementById('efPromoBusquedaPdv').addEventListener('input', function () {
+         renderPromoLista();
+         if (promActivo) renderPromoDetalle(promActivo);
+@@ -919,12 +980,6 @@
+         if (promActivo) renderPromoDetalle(promActivo);
+     });
+ 
+-    document.getElementById('efKanban').addEventListener('click', function (e) {
+-        var card = e.target.closest('.ef-card');
+-        if (!card) return;
+-        irAPromotorDesdeTarjeta(card.dataset.agendamientoId);
+-    });
+-
+     document.getElementById('efPromoLista').addEventListener('click', function (e) {
+         // Checkbox del promotor: selecciona/deselecciona todos sus
+         // agendamientos (filtrados por PDV/empresa si hay filtro activo) —
+@@ -1002,10 +1057,9 @@
+         if (auditoriaAbierta) cerrarAuditoria();
+     });
+ 
+-    document.getElementById('efActualizar').addEventListener('click', cargar);
+     document.getElementById('efActualizarProm').addEventListener('click', cargar);
+     document.getElementById('efDescargarExcel').addEventListener('click', exportarExcel);
+ 
+-    window.EstadoFlujoRecargar = cargar;
++    window.FacturaRecargar = cargar;
+     cargar();
+ })();
