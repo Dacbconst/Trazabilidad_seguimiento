@@ -33,6 +33,37 @@ $id_agendamiento = isset($_GET['id_agendamiento'])  ? (int)$_GET['id_agendamient
 // monto_total_factura/plazo_meses/estado_pago: factura pagada a plazos
 // (2026-07-07), los escribe la app — acá solo se leen. estado_pago es de
 // UN SOLO DUEÑO (la app): nunca escribirlo desde la web.
+//
+// ══════════════════════════════════════════════════════════════════════
+// CONTRATO DE "Monto Facturado" — CONFIRMADO con el agente Android y con el
+// usuario (2026-07-14), corrige dos notas anteriores que estaban mal:
+// ══════════════════════════════════════════════════════════════════════
+// monto_total_factura es la META cotizada FIJA — se copia una sola vez de
+// monto_validado (al facturar directo o al pasar a "a plazos") y no vuelve
+// a cambiar. Confirmado con datos reales 2026-07-14: 3 filas del mismo
+// agendamiento a plazos traían monto_total_factura=4000.00 las tres, el
+// mismo total repetido — por eso NUNCA se suma esta columna entre filas
+// (sumarlas daría 12000, triplicando el total real).
+//
+// "Monto Facturado" en la web (ver totalFacturadoDe en factura.js) es
+// HÍBRIDO según plazo_meses de la fila "factura" vigente (la de mayor id
+// que ya trae foto_factura):
+//   - Pago Directo (plazo_meses vacío o <= 0, una sola factura): se lee
+//     directo monto_total_factura de esa fila — coincide con la Cotización
+//     Inicial, es la misma factura única (ej. cotizado $235 → facturado
+//     $235, sin nada que acumular).
+//   - A plazos (plazo_meses > 1): se ACUMULA cada factura parcial que el
+//     promotor teclea a mano (primera factura al activar "a plazos" + cada
+//     cuota siguiente desde el módulo Facturas de la app) — cada una es
+//     una fila propia en insert_pago_factura, con su monto_pago y su
+//     numero_cuota, todas con el mismo id_proforma (la fila "factura" de
+//     arriba). Ej.: cotizado $5000, van llegando facturas de $1500+$500+
+//     $100 → "Monto Facturado" muestra $2100 hasta que lleguen más.
+//
+// No hay ningún cambio pendiente del lado Android para esto — el modelo
+// que ya implementa (cotización fija + facturas parciales tecleadas una
+// por una en insert_pago_factura) era el correcto; el error estaba solo en
+// esta consulta del lado web.
 // motivo_cierre/motivo_cierre_pago (2026-07-14): al revés que lo de
 // arriba — estas SÍ son de la web (ver update_proforma.php, acciones
 // 'rechazar' y 'cerrar_plan_pago'). Son columnas propias, nunca pisan
@@ -59,6 +90,7 @@ $selectBase = "SELECT
         c.fecha_agendamiento,
         c.hora,
         c.tecnico,
+        c.no_requiere_visita,
         p.id,
         p.id_agendamiento,
         p.fecha_proforma,

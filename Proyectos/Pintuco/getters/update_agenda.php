@@ -146,7 +146,12 @@ $reagendando   = ($estado_agenda === 'reagendada');
 // una reagendación anterior.
 $motivo_reagendacion = isset($_POST['motivo_reagendacion']) ? trim($_POST['motivo_reagendacion']) : '';
 if ($reagendando && $motivo_reagendacion === '') {
-    echo json_encode(["success" => false, "message" => "El motivo de la reagendación es obligatorio."]);
+    // requiere_motivo: le avisa al front que esta visita pasó a 'vencida' en
+    // el servidor DESPUÉS de que se abrió el panel de edición (ej. otra
+    // pestaña recargó el calendario mientras tanto), así el campo de motivo
+    // nunca se mostró aunque ahora sí es obligatorio — sin este flag el
+    // analista se queda con un error sin campo visible para resolverlo.
+    echo json_encode(["success" => false, "message" => "El motivo de la reagendación es obligatorio.", "requiere_motivo" => true]);
     exit;
 }
 

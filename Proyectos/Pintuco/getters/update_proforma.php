@@ -181,15 +181,71 @@ if ($accion === 'cerrar_plan_pago') {
         echo json_encode(['success' => false, 'message' => 'El motivo del cierre es obligatorio.']);
         exit;
     }
+    // Las mismas reglas que ya filtran el botón en factura.js (puedeCerrarPlan)
+    // se repiten acá del lado servidor — ese endpoint es alcanzable directo,
+    // sin pasar por esa UI, así que las reglas de negocio no pueden vivir
+    // solo en el frontend.
+    $chk = $mysqli->prepare(
+        "SELECT id_agendamiento, plazo_meses, estado_pago, motivo_cierre_pago FROM insert_proforma WHERE id = ?"
+    );
+    if (!$chk) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
+    $chk->bind_param('i', $id);
+    $chk->execute();
+    $fila = $chk->get_result()->fetch_assoc();
+    $chk->close();
+    if (!$fila) {
+        echo json_encode(['success' => false, 'message' => 'Registro no encontrado.']);
+        exit;
+    }
+    // plazo_meses no siempre vive en esta fila puntual (misma inconsistencia
+    // que corrige plazoMesesDe en factura.js: el celular a veces la deja
+    // NULL en la fila que trae foto_factura) — si viene vacía, se usa el
+    // mayor plazo_meses entre los demás ciclos del mismo agendamiento antes
+    // de concluir que es Pago Directo.
+    $plazoMeses = (int)$fila['plazo_meses'];
+    if ($plazoMeses <= 0) {
+        $maxPlazo = $mysqli->prepare(
+            "SELECT MAX(plazo_meses) AS max_plazo FROM insert_proforma WHERE id_agendamiento = ?"
+        );
+        if ($maxPlazo) {
+            $maxPlazo->bind_param('i', $fila['id_agendamiento']);
+            $maxPlazo->execute();
+            $filaMax = $maxPlazo->get_result()->fetch_assoc();
+            $maxPlazo->close();
+            $plazoMeses = (int)($filaMax['max_plazo'] ?? 0);
+        }
+    }
+    if ($plazoMeses <= 0) {
+        echo json_encode(['success' => false, 'message' => 'No aplica: es un Pago Directo.']);
+        exit;
+    }
+    if ($fila['estado_pago'] === 'completado') {
+        echo json_encode(['success' => false, 'message' => 'El plan ya está completado.']);
+        exit;
+    }
+    if ($fila['motivo_cierre_pago'] !== null && $fila['motivo_cierre_pago'] !== '') {
+        echo json_encode(['success' => false, 'message' => 'El plan ya fue cerrado.']);
+        exit;
+    }
     $sql = $mysqli->prepare(
         "UPDATE insert_proforma
          SET motivo_cierre_pago = ?, fecha_auditoria = NOW()
-         WHERE id = ?"
+         WHERE id = ? AND (motivo_cierre_pago IS NULL OR motivo_cierre_pago = '')"
     );
     if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
     $sql->bind_param('si', $motivo_cierre_pago, $id);
     $ok = $sql->execute();
+    // execute() devuelve true aunque el WHERE no matchee ninguna fila (ej.
+    // otra petición casi simultánea ya cerró este mismo plan entre el SELECT
+    // de arriba y este UPDATE) — sin este chequeo, esa segunda petición
+    // reportaría éxito falso y el frontend pisaría su estado local con datos
+    // que nunca quedaron en BD.
+    $afectadas = $ok ? $sql->affected_rows : 0;
     $sql->close();
+    if ($ok && $afectadas === 0) {
+        echo json_encode(['success' => false, 'message' => 'El plan ya fue cerrado en otra sesión.']);
+        exit;
+    }
     echo json_encode(['success' => $ok, 'message' => $ok ? 'Plan de pago cerrado.' : $mysqli->error]);
     exit;
 }

@@ -44,11 +44,12 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
         </div>
         <div class="filter-group">
             <label>Período</label>
+            <!-- Se llena en JS (poblarSelectorPeriodo) con los meses/año que
+                 realmente tienen datos, igual que Contactados y Facturación
+                 — pedido explícito del usuario, en vez de "mes actual/
+                 anterior/últimos 3" fijos. -->
             <select class="form-control" id="proformaFiltroPeriodo">
                 <option value="">Cualquier fecha</option>
-                <option value="mes_actual">Este mes</option>
-                <option value="mes_anterior">Mes anterior</option>
-                <option value="ultimos_3">Últimos 3 meses</option>
             </select>
         </div>
         <div class="filter-group">

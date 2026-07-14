@@ -31,7 +31,10 @@
         if (p.foto_factura || p.estado_proforma === 'aprobado') return 5;
         if (p.estado_proforma === 'rechazado') return 4;
         if (p.id) return 4;
-        if (p.hora && p.tecnico) return 2;
+        // no_requiere_visita: el promotor marcó desde el móvil que este
+        // contacto no necesita visita técnica — cuenta igual como fase 2
+        // (mismo criterio que proforma.js/factura.js en su timeline).
+        if ((p.hora && p.tecnico) || p.no_requiere_visita === 'SI') return 2;
         return 1;
     }
 
@@ -84,6 +87,8 @@
         return '<div class="ef-card" data-agendamiento-id="' + esc(p.agendamiento_id) + '">'
             + '<div class="ef-card-empresa">' + esc(p.empresa || '—') + '</div>'
             + '<div class="ef-card-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div>'
+            + (p.no_requiere_visita === 'SI' && !(p.hora && p.tecnico)
+                ? '<div class="ef-card-nota">No requirió visita</div>' : '')
             + '<div class="ef-card-footer">'
             +   '<span class="ef-card-promotor"><i class="glyphicon glyphicon-user"></i> ' + esc(p.usuario || '(sin asignar)') + '</span>'
             +   '<span class="ef-dias-pill ' + clsDias(dias) + '">' + fmtDias(dias) + '</span>'

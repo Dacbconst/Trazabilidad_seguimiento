@@ -8,7 +8,6 @@
     var allRows           = [];   // todos los ciclos, de todos los agendamientos
     var pipeline           = [];  // 1 fila por agendamiento = su último ciclo
     var porAgendamiento    = {};  // { agendamiento_id: [ciclos ASC por id] }
-    var montoFacturadoPorAgendamiento = {}; // { agendamiento_id: suma de monto_pago }
     var pagosPorProforma  = {};   // { id_proforma: [pagos ASC por numero_cuota] }
     var promActivo         = null;
     var auditoriaAbierta   = null;
@@ -74,7 +73,9 @@
         if (p.foto_factura || p.estado_proforma === 'aprobado') return 5;
         if (p.estado_proforma === 'rechazado') return 4;
         if (p.id) return 4;
-        if (p.hora && p.tecnico) return 2;
+        // no_requiere_visita: el promotor marcó desde el móvil que este
+        // contacto no necesita visita técnica — cuenta igual como fase 2.
+        if ((p.hora && p.tecnico) || p.no_requiere_visita === 'SI') return 2;
         return 1;
     }
 
@@ -131,22 +132,76 @@
         return conMonto.length ? conMonto[conMonto.length - 1] : null;
     }
 
-    // Suma de todos los pagos/cuotas registrados (insert_pago_factura) para
-    // un agendamiento — mecánica de facturación a plazos (2026-07-03).
-    // En un pago único (sin plazos) esto termina siendo el monto de esa
-    // única cuota; en una factura a plazos, se acumula a medida que llegan
-    // más pagos.
-    function agruparPagosPorAgendamiento(pagos) {
-        var mapa = {};
-        pagos.forEach(function (pg) {
-            var key = pg.id_agendamiento;
-            if (key === null || key === undefined) return;
-            mapa[key] = (mapa[key] || 0) + (parseFloat(pg.monto_pago) || 0);
-        });
-        return mapa;
+    // plazo_meses no siempre vive en la misma fila que foto_factura — el
+    // celular abre una fila vacía nueva por cada cuota y a veces el plazo
+    // queda ahí, no en la fila final que trae la foto de factura (confirmado
+    // contra datos reales 2026-07-14: agendamiento con plan a 3 meses cuya
+    // fila con foto_factura tenía plazo_meses NULL). Se prioriza el
+    // plazo_meses de la PROPIA fila de factura (cada ciclo de factura puede
+    // tener su propio plan); si viene vacío, se usa el mayor plazo_meses
+    // entre los demás ciclos del agendamiento como respaldo, para no
+    // clasificar ese ciclo como "Pago Directo" solo porque esa fila puntual
+    // quedó vacía.
+    function plazoMesesDe(factura, ciclos) {
+        var propio = parseInt(factura.plazo_meses, 10);
+        if (!isNaN(propio) && propio > 0) return propio;
+        return ciclos.reduce(function (max, c) {
+            var v = parseInt(c.plazo_meses, 10);
+            return (!isNaN(v) && v > max) ? v : max;
+        }, 0);
     }
+
+    // "Monto Facturado" (corregido 2026-07-14 tras confirmar el contrato real
+    // con el usuario y con el equipo Android): monto_total_factura es la
+    // META cotizada fija (se copia una sola vez de monto_validado al pasar a
+    // "a plazos" o al facturar directo), NO un acumulador.
+    //   - Pago Directo (una sola factura): "Monto Facturado" = esa misma
+    //     meta fija (monto_total_factura) — coincide con la Cotización
+    //     Inicial, es la misma factura única.
+    //   - A plazos: se acumula cada factura PARCIAL que el promotor teclea a
+    //     mano (primera cuota al activar "a plazos" + cada cuota siguiente
+    //     desde el módulo Facturas de la app), una fila propia en
+    //     insert_pago_factura por cada una, agrupadas por id_proforma = la
+    //     fila "factura" a la que corresponden. Ese agrupamiento ya existe
+    //     en pagosPorProforma (ver agruparPagosPorProforma), la misma fuente
+    //     que pinta las tarjetas del panel de Financiamiento.
+    //
+    // Se suma sobre CADA ciclo con foto_factura del agendamiento, no solo el
+    // más reciente — una re-negociación puede abrir un segundo ciclo de
+    // factura (id_proforma distinto) sin que los pagos ya cobrados bajo el
+    // ciclo anterior dejen de contar para el total.
+    function sumarFacturadoDe(agendamientoId, periodoClave) {
+        var ciclos = ciclosRealesDe(agendamientoId);
+        var facturas = ciclos.filter(function (c) { return !!c.foto_factura; });
+        return facturas.reduce(function (total, factura) {
+            if (plazoMesesDe(factura, ciclos) <= 0) {
+                // Pago Directo: todavía no existe fecha_factura en
+                // insert_proforma (pendiente ALTER TABLE, ver
+                // proformas_listar.php) — se usa proforma_fecha_registro del
+                // ciclo con foto_factura como proxy de "fecha de
+                // facturación". Migrar a fecha_factura en cuanto exista.
+                if (periodoClave && !fechaEnPeriodo(factura.proforma_fecha_registro, periodoClave)) return total;
+                return total + (parseFloat(factura.monto_total_factura) || 0);
+            }
+            var pagos = pagosPorProforma[factura.id] || [];
+            return total + pagos.reduce(function (sum, pg) {
+                if (periodoClave && !fechaEnPeriodo(pg.fecha_pago || pg.fecha_registro, periodoClave)) return sum;
+                return sum + (parseFloat(pg.monto_pago) || 0);
+            }, 0);
+        }, 0);
+    }
+
     function totalFacturadoDe(agendamientoId) {
-        return montoFacturadoPorAgendamiento[agendamientoId] || 0;
+        return sumarFacturadoDe(agendamientoId, null);
+    }
+
+    // Igual criterio que totalFacturadoDe, pero restringido a lo que cayó
+    // DENTRO del periodo seleccionado — usar SOLO en las vistas de reporte
+    // mensual (lista/detalle de promotor, Excel). periodoClave === '' o
+    // 'todos' delega en totalFacturadoDe.
+    function montoFacturadoEnPeriodo(agendamientoId, periodoClave) {
+        if (!periodoClave || periodoClave === 'todos') return totalFacturadoDe(agendamientoId);
+        return sumarFacturadoDe(agendamientoId, periodoClave);
     }
 
     // Mismos pagos, agrupados por id_proforma (la fila de factura puntual,
@@ -183,9 +238,12 @@
     }
 
     // Suma de "Monto Facturado" (pagos reales de insert_pago_factura, ver
-    // totalFacturadoDe) de TODOS los agendamientos de un promotor — mismo
-    // patrón que totalAcumuladoPromotor pero con los pagos, no la cotización.
-    function totalFacturadoPromotor(usuario, idsPermitidos) {
+    // totalFacturadoDe/montoFacturadoEnPeriodo) de TODOS los agendamientos de
+    // un promotor — mismo patrón que totalAcumuladoPromotor pero con los
+    // pagos, no la cotización. periodoClave === '' ("Todos") suma el
+    // histórico completo, vía montoFacturadoEnPeriodo delegando en
+    // totalFacturadoDe.
+    function totalFacturadoPromotorEnPeriodo(usuario, idsPermitidos, periodoClave) {
         var total = 0;
         Object.keys(porAgendamiento).forEach(function (agId) {
             if (idsPermitidos && !idsPermitidos.has(String(agId))) return;
@@ -193,7 +251,7 @@
             if (!ciclos.length) return;
             var u = (ciclos[0].usuario || '(sin asignar)');
             if (u !== usuario) return;
-            total += totalFacturadoDe(agId);
+            total += montoFacturadoEnPeriodo(agId, periodoClave);
         });
         return total;
     }
@@ -243,15 +301,103 @@
         { fase: 5, label: 'Facturado' },
     ];
 
-    // Filtro "Periodo" — arranca en "Mes actual" por defecto: al entrar a la
-    // página, la lista/detalle/total solo muestran lo del mes en curso, sin
-    // que el analista tenga que tocar nada. Fecha de referencia:
-    // fecha_agendamiento (visita), con contacto_fecha_registro como
-    // respaldo para agendamientos que aún no tienen visita agendada.
+    // Selector de Periodo con meses reales (igual mecanismo que
+    // poblarSelectorPeriodoPrincipal en contactados.js, pedido explícito del
+    // usuario: mostrar solo los meses que tienen datos, como en la app
+    // móvil, en vez de solo "mes actual/anterior"). Clave = "YYYY-MM"
+    // (o "todos" para sin filtro).
+    var NOMBRES_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    function claveMes(fechaStr) {
+        var f = soloFecha(fechaStr);
+        if (!f || f === '0000-00-00') return null;
+        var partes = f.split('-'); // "YYYY-MM-DD"
+        if (partes.length < 2) return null;
+        return partes[0] + '-' + partes[1]; // "YYYY-MM"
+    }
+
+    function claveMesActual() {
+        var hoy = new Date();
+        return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    }
+
+    function etiquetaMes(clave) {
+        var partes = clave.split('-');
+        var nombre = NOMBRES_MES[parseInt(partes[1], 10) - 1];
+        return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + partes[0];
+    }
+
+    // Mismo criterio que coincidePeriodo, pero como helper standalone
+    // reusable por montoFacturadoEnPeriodo — para poder comparar la fecha
+    // de un PAGO puntual (no solo la fecha de visita/contacto) contra la
+    // clave de Periodo seleccionada. clave === '' o 'todos' no filtra nada.
+    function fechaEnPeriodo(fechaStr, clave) {
+        if (!clave || clave === 'todos') return true;
+        var propia = claveMes(fechaStr);
+        return propia !== null && propia === clave;
+    }
+
+    // Etiqueta visual del periodo activo, para dejar claro en los títulos
+    // que el monto mostrado es SOLO de ese periodo. '' / 'todos' no agrega
+    // sufijo.
+    function etiquetaPeriodo(clave) {
+        return (clave && clave !== 'todos') ? (' (' + etiquetaMes(clave) + ')') : '';
+    }
+
+    // Arma las opciones del selector de Periodo a partir de los meses que
+    // realmente tienen datos (visita/contacto, o algún pago/factura — mismos
+    // criterios que coincidePeriodo/montoFacturadoEnPeriodo) + el mes actual
+    // (siempre presente, para que el default tenga dónde caer), más
+    // reciente primero. Respeta el mes ya elegido al refrescar.
+    function poblarSelectorPeriodo() {
+        var select = document.getElementById('efPromoFiltroPeriodo');
+        var valorPrevio = select.value;
+        var actual = claveMesActual();
+
+        var claves = {};
+        claves[actual] = true;
+        allRows.forEach(function (c) {
+            var fechaAgendaValida = soloFecha(c.fecha_agendamiento);
+            var refCruda = (fechaAgendaValida && fechaAgendaValida !== '0000-00-00')
+                ? c.fecha_agendamiento
+                : c.contacto_fecha_registro;
+            var clave = claveMes(refCruda);
+            if (clave) claves[clave] = true;
+            if (c.foto_factura) {
+                var claveFactura = claveMes(c.proforma_fecha_registro);
+                if (claveFactura) claves[claveFactura] = true;
+            }
+        });
+        Object.keys(pagosPorProforma).forEach(function (idProforma) {
+            pagosPorProforma[idProforma].forEach(function (pg) {
+                var clavePago = claveMes(pg.fecha_pago || pg.fecha_registro);
+                if (clavePago) claves[clavePago] = true;
+            });
+        });
+
+        select.innerHTML = '<option value="todos">Todos</option>';
+        Object.keys(claves).sort().reverse().forEach(function (clave) {
+            var opt = document.createElement('option');
+            opt.value = clave;
+            opt.textContent = etiquetaMes(clave);
+            select.appendChild(opt);
+        });
+
+        var opciones = Array.prototype.map.call(select.options, function (o) { return o.value; });
+        select.value = opciones.indexOf(valorPrevio) !== -1 ? valorPrevio : actual;
+    }
+
+    // Filtro "Periodo" — arranca en el mes actual por defecto (ver
+    // poblarSelectorPeriodo): al entrar a la página, la lista/detalle/total
+    // solo muestran lo del mes en curso, sin que el analista tenga que
+    // tocar nada. Fecha de referencia: fecha_agendamiento (visita), con
+    // contacto_fecha_registro como respaldo para agendamientos que aún no
+    // tienen visita agendada.
     function coincidePeriodo(p) {
         var sel = document.getElementById('efPromoFiltroPeriodo');
-        var clave = sel ? sel.value : '';
-        if (!clave) return true; // "Todos"
+        var clave = sel ? sel.value : 'todos';
+        if (!clave || clave === 'todos') return true; // "Todos"
         // fecha_agendamiento en blanco llega de MySQL como '0000-00-00...'
         // (string, no null) cuando el agendamiento todavía no tiene visita
         // agendada — ese string es "truthy" en JS, así que "p.fecha_agendamiento
@@ -263,13 +409,12 @@
         var refCruda = (fechaAgendaValida && fechaAgendaValida !== '0000-00-00')
             ? p.fecha_agendamiento
             : p.contacto_fecha_registro;
-        var ref = soloFecha(refCruda);
-        if (!ref || ref === '0000-00-00') return false;
-        var fecha = new Date(ref + 'T00:00:00');
-        var hoy = new Date();
-        var base = hoy;
-        if (clave === 'mes_anterior') base = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-        return fecha.getFullYear() === base.getFullYear() && fecha.getMonth() === base.getMonth();
+        if (fechaEnPeriodo(refCruda, clave)) return true;
+        // También cuenta como "del periodo" si recibió un pago/factura EN ese
+        // periodo, aunque la visita haya sido meses atrás — típico de
+        // financiamiento a plazos, donde la cuota de julio no debe
+        // desaparecer del reporte de julio solo porque la visita fue en mayo.
+        return montoFacturadoEnPeriodo(p.agendamiento_id, clave) > 0;
     }
 
     // ── Lista izquierda ────────────────────────────────────────────────
@@ -282,7 +427,8 @@
     function construirMapaPromotores() {
         var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
         var sel = document.getElementById('efPromoFiltroPeriodo');
-        var conPeriodo = !!(sel && sel.value);
+        var clave = sel ? sel.value : 'todos';
+        var conPeriodo = clave !== 'todos';
         var mapa = {};
         pipeline.forEach(function (p) {
             if (!coincidePeriodo(p)) return;
@@ -295,7 +441,7 @@
         Object.keys(mapa).forEach(function (u) {
             var idsPermitidos = (filtroPdv || conPeriodo) ? mapa[u].ids : null;
             mapa[u].montoAcumulado = totalAcumuladoPromotor(u, idsPermitidos);
-            mapa[u].montoFacturado = totalFacturadoPromotor(u, idsPermitidos);
+            mapa[u].montoFacturado = totalFacturadoPromotorEnPeriodo(u, idsPermitidos, clave);
         });
         return mapa;
     }
@@ -396,7 +542,8 @@
 
         var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
         var sel = document.getElementById('efPromoFiltroPeriodo');
-        var conPeriodo = !!(sel && sel.value);
+        var clave = sel ? sel.value : 'todos';
+        var conPeriodo = clave !== 'todos';
         var todos = pipeline.filter(function (p) {
             return (p.usuario || '(sin asignar)') === usuario && coincidePeriodo(p);
         });
@@ -409,7 +556,7 @@
         var idsPermitidos = (filtroPdv || conPeriodo) ? new Set(pdvs.map(function (p) { return String(p.agendamiento_id); })) : null;
         var conteosFase = conteoFasePorPromotor(usuario, idsPermitidos);
         var total = totalAcumuladoPromotor(usuario, idsPermitidos);
-        var totalFacturado = totalFacturadoPromotor(usuario, idsPermitidos);
+        var totalFacturado = totalFacturadoPromotorEnPeriodo(usuario, idsPermitidos, clave);
 
         var badges = FASES_META.map(function (m) {
             return '<div class="ef-fase-badge-mini"><span class="ef-fase-badge-dot"></span>F' + m.fase + ': ' + conteosFase[m.fase] + '</div>';
@@ -419,8 +566,23 @@
             var f = getFase(p);
             var dias = diasDesde(refFechaFase(p));
             var vigente = ultimaProformaDe(p.agendamiento_id);
+            var cotizacionNum = vigente ? (parseFloat(vigente.monto_validado) || 0) : 0;
+            // facturadoNum se mantiene HISTÓRICO (totalFacturadoDe) — decide
+            // el color rojo/negro (facturaCompleta), un concepto "de por
+            // vida" (¿ya se pagó completo?), no mensual. facturadoPeriodo es
+            // lo que se MUESTRA en la celda cuando hay un periodo activo.
+            var facturadoNum = totalFacturadoDe(p.agendamiento_id);
+            var facturadoPeriodo = montoFacturadoEnPeriodo(p.agendamiento_id, clave);
+            // Rojo mientras falte por facturar; negro en cuanto lo facturado
+            // alcanza o supera lo cotizado — pedido explícito del usuario
+            // (2026-07-14), antes quedaba siempre en rojo sin importar el
+            // avance real. cotizacionNum > 0 evita marcar "completo" un
+            // ciclo con monto_validado="0" (string no vacío, cuenta como
+            // cotización real para ultimaProformaDe) donde 0 >= 0 daría un
+            // falso "completo" sin haberse cotizado ni facturado nada.
+            var facturaCompleta = vigente && cotizacionNum > 0 && facturadoNum >= cotizacionNum;
             var cotizacionInicial = vigente ? fmtMonto(vigente.monto_validado) : '—';
-            var montoFacturado = fmtMonto(totalFacturadoDe(p.agendamiento_id));
+            var montoFacturado = fmtMonto(facturadoPeriodo);
             var marcado = agendamientosSeleccionados.has(String(p.agendamiento_id));
             // Punto azul: hay un cambio (foto nueva, cambio de fase, pago
             // nuevo, etc.) que el analista todavía no revisó en esta sesión
@@ -433,7 +595,7 @@
                 +     '<div class="ef-tabla-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div></td>'
                 + '<td><span class="ef-fase-badge is-f' + f + '">Fase ' + f + '</span></td>'
                 + '<td class="ef-dias-plano">' + fmtDias(dias) + '</td>'
-                + '<td class="ef-monto-facturado">' + montoFacturado + '</td>'
+                + '<td class="ef-monto-facturado' + (facturaCompleta ? ' is-completo' : '') + '">' + montoFacturado + '</td>'
                 + '<td class="ef-monto-cotizacion">' + cotizacionInicial + '</td>'
                 + '<td><button type="button" class="ef-btn-auditar" data-agendamiento-id="' + esc(p.agendamiento_id) + '">Auditar</button></td>'
                 + '</tr>';
@@ -449,14 +611,14 @@
             +     '</div>'
             +   '</div>'
             +   '<div class="ef-promo-header-right">'
-            +     '<div class="ef-promo-total-label">Total Monto Facturado</div>'
+            +     '<div class="ef-promo-total-label">Total Monto Facturado' + esc(etiquetaPeriodo(clave)) + '</div>'
             +     '<div class="ef-promo-total-valor">' + fmtMontoSlash(totalFacturado, total) + '</div>'
-            +     '<div class="ef-promo-total-caption">Monto facturado / Cotización — suma de cada agendamiento</div>'
+            +     '<div class="ef-promo-total-caption">Monto facturado / Cotización</div>'
             +   '</div>'
             + '</div>'
             + '<div class="ef-promo-badges">' + badges + '</div>'
             + '<div class="ef-promo-tabla-wrap"><table class="ef-tabla-prom">'
-            +   '<thead><tr><th class="ef-th-check"></th><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto Facturado</th><th>Cotización Inicial</th><th></th></tr></thead>'
+            +   '<thead><tr><th class="ef-th-check"></th><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto Facturado' + esc(etiquetaPeriodo(clave)) + '</th><th>Cotización Inicial</th><th></th></tr></thead>'
             +   '<tbody>' + (filas || '<tr><td colspan="7" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
             + '</table></div>';
     }
@@ -534,8 +696,10 @@
               filas: [{ fecha: formatFechaHora(p.contacto_fecha_registro),
                         detalle: 'Primer contacto registrado con el Cliente.' }] },
             { num: 2, label: 'Agendado',
-              filas: [{ fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + String(p.hora).slice(0, 5) : ''),
-                        detalle: 'Visita técnica agendada' + (p.tecnico ? ' con ' + p.tecnico : '') + '.' }] },
+              filas: [p.no_requiere_visita === 'SI'
+                  ? { fecha: '—', detalle: 'No requirió visita técnica.' }
+                  : { fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + String(p.hora).slice(0, 5) : ''),
+                      detalle: 'Visita técnica agendada' + (p.tecnico ? ' con ' + p.tecnico : '') + '.' }] },
             { num: 3, label: 'Proforma',
               filas: [{ fecha: ultimaEvidencia ? formatFechaHora(ultimaEvidencia.proforma_fecha_registro) : '—',
                         detalle: 'Proforma recibida del promotor.',
@@ -550,7 +714,11 @@
               // casi nunca tiene uno. Título distinto a Fase 4 ("Monto
               // Aprobado" en vez de "Monto cotizado") porque acá ya es el
               // monto final, no una ronda más de negociación.
-              filas: [{ fecha: ultimaFactura ? formatFechaHora(ultimaFactura.fecha_auditoria || ultimaFactura.proforma_fecha_registro) : '—',
+              // Ya NO cae en ultimaFactura.fecha_auditoria — esa columna la
+              // pisa 'cerrar_plan_pago' con la fecha de cierre del plan (ver
+              // el mismo ajuste ya hecho arriba en fechaActivacion), y esta
+              // fila de "Facturado" es la misma que esa acción actualiza.
+              filas: [{ fecha: ultimaFactura ? formatFechaHora(ultimaFactura.proforma_fecha_registro) : '—',
                         detalle: ultimoConMonto
                             ? 'Monto Aprobado: ' + fmtMonto(ultimoConMonto.monto_validado)
                             : 'Proforma final aprobada y factura emitida.',
@@ -617,9 +785,7 @@
             return '<div class="ef-hist-row' + (esVigente ? ' is-vigente' : '') + '">'
                 + '<div class="ef-hist-row-left">'
                 +   '<div class="ef-hist-row-titulo">Ciclo ' + (i + 1) + '</div>'
-                +   '<div class="ef-hist-row-sub">' + esc(formatFecha(c.fecha_proforma))
-                +     (c.caracteristica_visita ? ' · ' + esc(c.caracteristica_visita) : '')
-                +   '</div>'
+                +   '<div class="ef-hist-row-sub">' + esc(formatFecha(c.fecha_proforma)) + ' · Cotizado</div>'
                 + '</div>'
                 + '<div class="ef-hist-row-right">'
                 +   '<div class="ef-hist-row-monto">' + fmtMonto(c.monto_validado) + '</div>'
@@ -662,7 +828,7 @@
         var montoFacturado = totalFacturadoDe(agendamientoId);
         var pagos = pagosPorProforma[factura.id] || [];
 
-        var plazoMeses = parseInt(factura.plazo_meses, 10) || 0;
+        var plazoMeses = plazoMesesDe(factura, ciclos);
         var esDirecto = plazoMeses <= 0;
         var totalCuotas = esDirecto ? 1 : plazoMeses;
 
@@ -825,8 +991,17 @@
                         // sincronizado para la próxima vez que se abra.
                         factura.motivo_cierre_pago = motivo;
                         factura.fecha_auditoria = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        // Sin esto, firmaFila(p) (que incluye fecha_auditoria)
+                        // deja de coincidir con lo que marcarVisto guardó al
+                        // abrir esta Auditoría, y el punto azul "cambio sin
+                        // revisar" reaparece sobre la misma fila que el
+                        // analista acaba de cerrar.
+                        var pFila = pipeline.filter(function (x) { return String(x.agendamiento_id) === String(agendamientoId); })[0];
+                        if (pFila) marcarVisto(pFila);
                         overlay.remove();
                         renderFinanciamiento(agendamientoId, ciclos);
+                        renderPromoLista();
+                        if (promActivo) renderPromoDetalle(promActivo);
                         cargar();
                     } else {
                         errorObs.textContent = json.message || 'No se pudo cerrar.';
@@ -895,20 +1070,24 @@
     }
 
     // Columnas pedidas por el usuario, en este orden exacto: Promotor, PDV,
-    // Contacto, Empresa, Monto Facturado, Cotización inicial.
-    function construirHojaDetalle(filas) {
+    // Contacto, Empresa, Monto Facturado, Cotización inicial. periodoClave
+    // periodiza "Monto Facturado" igual que en pantalla (ver
+    // montoFacturadoEnPeriodo) y etiqueta la columna con el periodo activo.
+    function construirHojaDetalle(filas, periodoClave) {
+        var colMonto = 'Monto Facturado' + etiquetaPeriodo(periodoClave);
         var datos = filas.map(function (p) {
             var ultimaP = ultimaProformaDe(p.agendamiento_id);
-            var cobrado = totalFacturadoDe(p.agendamiento_id);
+            var cobrado = montoFacturadoEnPeriodo(p.agendamiento_id, periodoClave);
             var cotiz   = ultimaP ? (parseFloat(ultimaP.monto_validado) || 0) : 0;
-            return {
-                'Promotor':           p.usuario  || '(sin asignar)',
-                'PDV':                p.pdv      || p.codigo_pdv || '',
-                'Contacto':           p.contacto || '',
-                'Empresa':            p.empresa  || '',
-                'Monto Facturado':    cobrado || '',
-                'Cotización inicial': cotiz || ''
+            var fila = {
+                'Promotor': p.usuario  || '(sin asignar)',
+                'PDV':      p.pdv      || p.codigo_pdv || '',
+                'Contacto': p.contacto || '',
+                'Empresa':  p.empresa  || ''
             };
+            fila[colMonto] = cobrado || '';
+            fila['Cotización inicial'] = cotiz || '';
+            return fila;
         });
         var hoja = XLSX.utils.json_to_sheet(datos);
         hoja['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 16 }, { wch: 16 }];
@@ -925,6 +1104,9 @@
             return;
         }
 
+        var sel = document.getElementById('efPromoFiltroPeriodo');
+        var periodoClave = sel ? sel.value : 'todos';
+
         var filasDetalle = pipeline
             .filter(function (p) { return agendamientosSeleccionados.has(String(p.agendamiento_id)); })
             .sort(function (a, b) {
@@ -934,7 +1116,7 @@
             });
 
         var libro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(libro, construirHojaDetalle(filasDetalle), 'Detalle por Agendamiento');
+        XLSX.utils.book_append_sheet(libro, construirHojaDetalle(filasDetalle, periodoClave), 'Detalle por Agendamiento');
 
         var hoy = new Date();
         var dd  = String(hoy.getDate()).padStart(2, '0');
@@ -957,8 +1139,8 @@
                 allRows = resultados[0].data || [];
                 pipeline = ultimosCiclos(allRows);
                 porAgendamiento = agruparPorAgendamiento(allRows);
-                montoFacturadoPorAgendamiento = agruparPagosPorAgendamiento(resultados[1].data || []);
                 pagosPorProforma = agruparPagosPorProforma(resultados[1].data || []);
+                poblarSelectorPeriodo();
                 renderPromoLista();
                 if (promActivo) renderPromoDetalle(promActivo);
             })

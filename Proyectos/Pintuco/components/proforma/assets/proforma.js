@@ -34,6 +34,63 @@
         return formatFecha(pp[0]) + (pp[1] ? ' ' + pp[1].slice(0,5) : '');
     }
 
+    // Selector de Periodo con meses reales (mismo mecanismo que
+    // poblarSelectorPeriodoPrincipal en contactados.js / poblarSelectorPeriodo
+    // en factura.js, pedido explícito del usuario: mostrar solo los meses
+    // que tienen datos, no "mes actual/anterior/últimos 3" fijos). Clave =
+    // "YYYY-MM" (cadena vacía '' = sin filtro, "Cualquier fecha").
+    var NOMBRES_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    function claveMes(fechaStr) {
+        var f = soloFecha(fechaStr);
+        if (!f || f === '0000-00-00') return null;
+        var partes = f.split('-'); // "YYYY-MM-DD"
+        if (partes.length < 2) return null;
+        return partes[0] + '-' + partes[1]; // "YYYY-MM"
+    }
+
+    function claveMesActual() {
+        var hoy = new Date();
+        return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    }
+
+    function etiquetaMes(clave) {
+        var partes = clave.split('-');
+        var nombre = NOMBRES_MES[parseInt(partes[1], 10) - 1];
+        return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + partes[0];
+    }
+
+    // Arma las opciones a partir de los meses que realmente tienen datos
+    // (misma fecha de referencia que usa filasFiltradas para el periodo:
+    // proforma_fecha_registro, con contacto_fecha_registro como respaldo) +
+    // el mes actual (siempre presente). Respeta el mes ya elegido al
+    // refrescar. Mantiene "Cualquier fecha" (sin filtro) como default,
+    // igual que antes.
+    function poblarSelectorPeriodo() {
+        var select = document.getElementById('proformaFiltroPeriodo');
+        var valorPrevio = select.value;
+        var actual = claveMesActual();
+
+        var claves = {};
+        claves[actual] = true;
+        currentRows.forEach(function (p) {
+            var clave = claveMes(p.proforma_fecha_registro || p.contacto_fecha_registro);
+            if (clave) claves[clave] = true;
+        });
+
+        select.innerHTML = '<option value="">Cualquier fecha</option>';
+        Object.keys(claves).sort().reverse().forEach(function (clave) {
+            var opt = document.createElement('option');
+            opt.value = clave;
+            opt.textContent = etiquetaMes(clave);
+            select.appendChild(opt);
+        });
+
+        var opciones = Array.prototype.map.call(select.options, function (o) { return o.value; });
+        select.value = opciones.indexOf(valorPrevio) !== -1 ? valorPrevio : '';
+    }
+
     // Columna "Fecha visita" de la lista/Excel: si el flujo ya avanzó a
     // proforma o más allá (fase 4+) y nunca hubo hora/técnico, no fue un
     // paso pendiente — fue un "no requiere agendamiento" a propósito (ver
@@ -43,7 +100,8 @@
     // se sabe". Un agendamiento genuinamente sin visita agendada (fase 1-2
     // real) sigue mostrando "—", sin cambios.
     function formatFechaVisita(p) {
-        if (!(p.hora && p.tecnico) && getFase(p) >= 4) return 'No requirió';
+        if (p.no_requiere_visita === 'SI') return 'No requirió';
+        if (!(p.hora && p.tecnico) && getFase(p) >= 4) return 'No requirió'; // datos históricos sin el campo
         return formatFecha(p.fecha_agendamiento);
     }
 
@@ -111,7 +169,9 @@
         if (p.foto_factura || p.estado_proforma === 'aprobado') return 5;
         if (p.estado_proforma === 'rechazado') return 4;          // terminal en negociación
         if (p.id) return 4;                                        // proforma recibida → fase 4 automática
-        if (p.hora && p.tecnico) return 2;
+        // no_requiere_visita: el promotor marcó desde el móvil que este
+        // contacto no necesita visita técnica — cuenta igual como fase 2.
+        if ((p.hora && p.tecnico) || p.no_requiere_visita === 'SI') return 2;
         return 1;
     }
 
@@ -187,15 +247,11 @@
                 if (estadoSel === 'rechazado'             && p.estado_proforma !== 'rechazado')               return false;
             }
 
+            // Clave "YYYY-MM" exacta (ver poblarSelectorPeriodo) — mismo mes
+            // y año, no un rango "desde" abierto hacia adelante.
             if (periodoClave) {
-                var hoy = new Date(), desde;
-                if (periodoClave === 'mes_actual')   desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-                if (periodoClave === 'mes_anterior')  desde = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1);
-                if (periodoClave === 'ultimos_3')     desde = new Date(hoy.getFullYear(), hoy.getMonth()-3, 1);
-                if (desde) {
-                    var ref = p.proforma_fecha_registro || p.contacto_fecha_registro;
-                    if (!ref || new Date(ref.split(' ')[0]+'T00:00:00') < desde) return false;
-                }
+                var ref = p.proforma_fecha_registro || p.contacto_fecha_registro;
+                if (claveMes(ref) !== periodoClave) return false;
             }
 
             if (busqueda) {
@@ -584,8 +640,8 @@
             // una fecha — pedido explícito del usuario, no dejarlo vacío.
             { num: 2, label: 'Visita agendada',
               fecha: formatFecha(p.fecha_agendamiento) + (p.hora ? ' · ' + p.hora.slice(0,5) : ''),
-              completa: !!(p.hora && p.tecnico) || fase >= 4,
-              omitida: !(p.hora && p.tecnico) && fase >= 4,
+              completa: !!(p.hora && p.tecnico) || p.no_requiere_visita === 'SI' || fase >= 4,
+              omitida: p.no_requiere_visita === 'SI' || (!(p.hora && p.tecnico) && fase >= 4),
               activa: fase === 2 },
             { num: 3, label: 'Proforma recibida',
               // Una sola fecha — la de la evidencia más reciente. El listado
@@ -603,8 +659,11 @@
             // vigente" en otras vistas, no un monto propio de la fila de
             // factura — esa fila casi nunca tiene monto_validado propio).
             { num: 5, label: 'Completado',
+              // Ya NO cae en ultimaFactura.fecha_auditoria — 'cerrar_plan_pago'
+              // (módulo Factura) reusa esa columna para la fecha de cierre del
+              // plan de pago, en esta misma fila. Mismo ajuste que en factura.js.
               envios: ultimaFactura ? [{
-                  fecha: formatFechaHora(ultimaFactura.fecha_auditoria || ultimaFactura.proforma_fecha_registro),
+                  fecha: formatFechaHora(ultimaFactura.proforma_fecha_registro),
                   monto: ultimo ? formatMonto(ultimo.monto_validado) : null
               }] : [],
               completa: fase === 5, activa: false }
@@ -715,10 +774,16 @@
     // acción 'rechazar' que ya existía en update_proforma.php (terminal,
     // estado_proforma='rechazado', ya soportada por getFase/getBadge/el
     // filtro "Estado auditoría" → "Rechazada") pero que nunca tuvo un
-    // botón conectado en esta pantalla. El motivo queda guardado en
-    // observaciones_auditoria, igual que las demás rondas.
+    // botón conectado en esta pantalla. El motivo queda guardado en su
+    // propia columna motivo_cierre, no en observaciones_auditoria (esa es
+    // de la acción 'guardar' — ver update_proforma.php).
     // ---------------------------------------------------------------
-    function agregarBotonCerrarProceso(wrap, p, onResuelto) {
+    // obtenerMontoActual (opcional): cuando existe el input de "Monto
+    // cotizado" en pantalla, lee su valor EN VIVO en vez del p.monto_validado
+    // ya obsoleto que llegó del último fetch — sin esto, un monto recién
+    // tecleado pero no guardado con "Guardar cambios" se perdía en silencio
+    // al cerrar el proceso directamente.
+    function agregarBotonCerrarProceso(wrap, p, onResuelto, obtenerMontoActual) {
         var cont = document.createElement('div');
         cont.className = 'proforma-cerrar-proceso-wrap';
 
@@ -726,13 +791,13 @@
         btn.type = 'button';
         btn.className = 'proforma-btn-cerrar-proceso';
         btn.innerHTML = '<i class="glyphicon glyphicon-ban-circle"></i> Cerrar proceso';
-        btn.addEventListener('click', function () { mostrarConfirmacionCierre(p, wrap, onResuelto); });
+        btn.addEventListener('click', function () { mostrarConfirmacionCierre(p, wrap, onResuelto, obtenerMontoActual); });
 
         cont.appendChild(btn);
         wrap.appendChild(cont);
     }
 
-    function mostrarConfirmacionCierre(p, wrap, onResuelto) {
+    function mostrarConfirmacionCierre(p, wrap, onResuelto, obtenerMontoActual) {
         var overlay = document.createElement('div');
         overlay.className = 'proforma-bloqueo-modal-overlay';
 
@@ -785,9 +850,10 @@
             btnConfirmar.disabled = true;
             btnCancelar.disabled = true;
             var body = new URLSearchParams();
+            var montoActual = (typeof obtenerMontoActual === 'function' ? obtenerMontoActual() : null) || p.monto_validado || '';
             body.set('id', p.id);
             body.set('accion', 'rechazar');
-            body.set('monto', p.monto_validado || '');
+            body.set('monto', montoActual);
             body.set('motivo_cierre', motivo);
             fetch(GETTERS_BASE + 'update_proforma.php', { method: 'POST', body: body })
                 .then(function (r) { return r.json(); })
@@ -1129,7 +1195,7 @@
         acciones.appendChild(btnGuardar);
         wrap.appendChild(acciones);
 
-        agregarBotonCerrarProceso(wrap, p, onResuelto);
+        agregarBotonCerrarProceso(wrap, p, onResuelto, function () { return limpiarMonto(inputMonto.value); });
 
         return wrap;
     }
@@ -1152,6 +1218,7 @@
             .then(function (json) {
                 currentRows = json.data || [];
                 construirOpcionesPromotor();
+                poblarSelectorPeriodo();
                 renderizar();
                 actualizarSelloFecha();
             })

@@ -40,11 +40,12 @@ $factura_js_v   = @filemtime($factura_dir . '/assets/factura.js') ?: time();
         </div>
         <div class="filter-group">
             <label>Periodo</label>
-            <select class="form-control" id="efPromoFiltroPeriodo">
-                <option value="mes_actual" selected>Mes actual</option>
-                <option value="mes_anterior">Mes anterior</option>
-                <option value="">Todos</option>
-            </select>
+            <!-- Se llena en JS (poblarSelectorPeriodo) con los meses/año que
+                 realmente tienen datos (visita, contacto o algún pago/factura),
+                 igual que el selector de Contactados — para que el analista
+                 pueda elegir cualquier mes con actividad, no solo "actual"/
+                 "anterior". -->
+            <select class="form-control" id="efPromoFiltroPeriodo"></select>
         </div>
         <div class="mod-filtros-extra">
             <button type="button" class="btn btn-mod-actualizar" id="efActualizarProm">

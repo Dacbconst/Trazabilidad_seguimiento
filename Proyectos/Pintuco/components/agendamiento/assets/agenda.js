@@ -840,6 +840,15 @@
                     });
                 } else if (json.conflicto) {
                     mostrarConflicto(json.conflicto, fechaGuardada);
+                } else if (json.requiere_motivo) {
+                    // El servidor detectó que esta visita ya está 'vencida'
+                    // aunque el panel se abrió antes de eso, así que el campo
+                    // nunca se mostró — se revela ahora para que el analista
+                    // pueda completarlo y reintentar guardar.
+                    document.getElementById('agendaEditMotivoWrap').style.display = 'block';
+                    document.getElementById('agendaEditMotivo').classList.add('is-invalid');
+                    document.getElementById('agendaEditErrMotivo').textContent = json.message || 'El motivo de la reagendación es obligatorio.';
+                    document.getElementById('agendaEditMotivo').focus();
                 } else {
                     alert(json.message || 'No se pudo guardar.');
                 }

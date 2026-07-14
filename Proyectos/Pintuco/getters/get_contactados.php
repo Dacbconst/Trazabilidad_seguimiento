@@ -36,7 +36,7 @@ if ($usuario !== '') {
 $query = "SELECT c.id, c.codigo_pdv, c.pdv, c.direccion, c.latitud, c.longitud,
                  c.usuario, c.contacto, c.empresa, c.mail, c.telefono,
                  c.telefono_convencional, c.fecha_registro, c.estado_agenda,
-                 c.fecha_agendamiento, c.hora, c.tecnico,
+                 c.fecha_agendamiento, c.hora, c.tecnico, c.no_requiere_visita,
                  p.id          AS proforma_id,
                  p.foto_factura,
                  p.monto_validado,

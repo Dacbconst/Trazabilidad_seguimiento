@@ -51,8 +51,19 @@
         var vencido = r.estado_agenda === 'vencida';
         if (r.foto_factura)   return { label: 'Facturado',   cls: 'is-facturado',   vencido: vencido };
         if (r.monto_validado) return { label: 'Negociando',  cls: 'is-negociando',  vencido: vencido };
-        if (r.proforma_id || r.fecha_agendamiento || r.tecnico)
+        // fecha_agendamiento llega de MySQL como '0000-00-00' (no NULL)
+        // cuando no se ha agendado nada — mismo chequeo que ya usan
+        // estado-flujo.js, principal.js, factura.js y proforma.js; sin él,
+        // ese string no vacío se evalúa como truthy y marcaba "Agendado"
+        // contactos que en realidad nunca tuvieron visita ni técnico.
+        if (r.proforma_id || (r.fecha_agendamiento && r.fecha_agendamiento !== '0000-00-00') || r.tecnico)
                               return { label: 'Agendado',    cls: 'is-agendado',    vencido: vencido };
+        // El promotor marcó desde el móvil que este contacto no necesita
+        // visita técnica — para el analista cuenta igual como "ya pasó por
+        // agendamiento" (mismo criterio que ya usa proforma.js/factura.js
+        // en su timeline de auditoría), con su propia etiqueta.
+        if (r.no_requiere_visita === 'SI')
+                              return { label: 'No requirió visita', cls: 'is-agendado', vencido: vencido };
         return { label: 'Sin agendar', cls: 'is-sin-agendar', vencido: vencido };
     }
 

@@ -245,10 +245,12 @@
    validado) — texto neutro, igual que el resto de montos de la tabla. */
 .ef-monto-cotizacion { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #33415c; }
 
-/* Monto Facturado: suma de insert_pago_factura.monto_pago para el
-   agendamiento (mecánica de pagos a plazos, 2026-07-03) — en rojo para
-   distinguirlo de la cotización inicial a simple vista. */
+/* Monto Facturado: suma de monto_total_factura de las filas con
+   foto_factura (ver totalFacturadoDe en factura.js) — en rojo mientras
+   todavía falte por facturar respecto a la cotización; en negro/oscuro en
+   cuanto lo facturado alcanza o supera lo cotizado (.is-completo). */
 .ef-monto-facturado { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #c0392b; }
+.ef-monto-facturado.is-completo { color: #1f2d3d; }
 
 .ef-btn-auditar {
     cursor: pointer;
@@ -514,6 +516,12 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    /* Sin esto, un grid item no se achica por debajo del min-content de su
+       texto interno (ej. la observación larga de un pago) y empuja la fila
+       del grid más ancha que el panel, causando scroll horizontal y
+       cortando la última tarjeta — con min-width:0 el elipsis de
+       .ef-fin-card-obs sí puede actuar. */
+    min-width: 0;
 }
 .ef-fin-card.is-pagada { border: 1px solid #c9e6d3; cursor: pointer; transition: box-shadow .12s, border-color .12s; }
 .ef-fin-card.is-pagada:hover { border-color: #9fd4b1; box-shadow: 0 2px 8px rgba(30,122,69,.12); }
