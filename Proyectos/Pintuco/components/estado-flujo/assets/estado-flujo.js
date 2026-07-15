@@ -32,9 +32,11 @@
         if (p.estado_proforma === 'rechazado') return 4;
         if (p.id) return 4;
         // no_requiere_visita: el promotor marcó desde el móvil que este
-        // contacto no necesita visita técnica — cuenta igual como fase 2
-        // (mismo criterio que proforma.js/factura.js en su timeline).
-        if ((p.hora && p.tecnico) || p.no_requiere_visita === 'SI') return 2;
+        // contacto no necesita visita técnica — no hay agendamiento que
+        // esperar, el siguiente paso real es que suba la foto directo, así
+        // que cae en fase 3 (mismo criterio que proforma.js/factura.js).
+        if (p.no_requiere_visita === 'SI') return 3;
+        if (p.hora && p.tecnico) return 2;
         return 1;
     }
 
@@ -110,6 +112,128 @@
         });
     }
 
+    // ── Vista rápida (clic en una tarjeta) ─────────────────────────────
+    // Contenido validado con el usuario: solo datos que YA vienen en el
+    // fetch de proformas_listar.php (cero llamadas nuevas al abrir), y
+    // recortado a "qué está pasando" — el detalle de auditoría/cuotas
+    // completo se queda en el botón "Ver más" hacia el módulo dueño.
+    var ESTADOS_AGENDA_LABEL = {
+        pendiente: 'Pendiente técnico',
+        confirmado: 'Agendado',
+        reagendada: 'Reagendada',
+        vencida: 'Vencida',
+        cancelada: 'Cancelada',
+        completada: 'Completada'
+    };
+
+    function fmtMonto(v) {
+        var n = parseFloat(v) || 0;
+        return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function formatHora(h) { return h ? String(h).slice(0, 5) : ''; }
+    function formatFechaCorta(v) {
+        var f = soloFecha(v);
+        if (!f || f === '0000-00-00') return '—';
+        var partes = f.split('-');
+        return partes.length === 3 ? partes[2] + '/' + partes[1] + '/' + partes[0] : f;
+    }
+
+    function ciclosDe(agendamientoId) {
+        return allRows.filter(function (r) { return String(r.agendamiento_id) === String(agendamientoId) && !!r.id; });
+    }
+
+    // Rondas de cotización = ciclos con monto_validado, orden ascendente
+    // (mismo criterio que agruparCiclosCotizacion en contactados.js).
+    // Mostrar solo "monto cotizado" sin esto escondía que ya se había
+    // vuelto a cotizar más de una vez — hallazgo del consejo 2026-07-15.
+    function infoRondas(agendamientoId) {
+        var conMonto = ciclosDe(agendamientoId)
+            .filter(function (c) { return c.monto_validado !== null && c.monto_validado !== '' && c.monto_validado !== undefined; })
+            .sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); });
+        if (!conMonto.length) return null;
+        return {
+            numero: conMonto.length,
+            actual: conMonto[conMonto.length - 1],
+            anterior: conMonto.length > 1 ? conMonto[conMonto.length - 2] : null
+        };
+    }
+
+    function badgeEstadoAgenda(p) {
+        var estado = p.estado_agenda || 'pendiente';
+        var label = ESTADOS_AGENDA_LABEL[estado] || estado;
+        return '<span class="ef-detalle-badge is-' + esc(estado) + '">' + esc(label) + '</span>';
+    }
+
+    function badgeAuditoria(p) {
+        if (p.estado_proforma === 'rechazado') return '<span class="ef-detalle-badge is-rechazado">Rechazada</span>';
+        if (p.estado_proforma === 'correccion_solicitada') return '<span class="ef-detalle-badge is-correccion">⚠ Corrección solicitada</span>';
+        return '<span class="ef-detalle-badge is-negociacion">En negociación</span>';
+    }
+
+    function abrirDetalle(p) {
+        var f = getFase(p);
+        var meta = FASES_META[f - 1];
+
+        document.getElementById('efDetalleTitulo').textContent = p.empresa || '—';
+        document.getElementById('efDetalleSub').textContent =
+            (p.pdv || p.codigo_pdv || '—') + ' · Fase ' + f + ' · ' + meta.label;
+
+        var filas = [badgeEstadoAgenda(p)];
+
+        if (f === 2) {
+            filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Visita</span>'
+                + esc(formatFechaCorta(p.fecha_agendamiento)) + (p.hora ? ' · ' + esc(formatHora(p.hora)) : '')
+                + (p.tecnico ? ' · ' + esc(p.tecnico) : '') + '</div>');
+        }
+
+        if (f === 3) {
+            filas.push('<div class="ef-detalle-linea">No requirió visita técnica — esperando que suba la foto de la proforma.</div>');
+        }
+
+        if (f === 4 || f === 5) {
+            var rondas = infoRondas(p.agendamiento_id);
+            if (rondas) {
+                var texto = (rondas.numero > 1 ? rondas.numero + 'ª ronda de cotización: ' : 'Cotización: ')
+                    + fmtMonto(rondas.actual.monto_validado)
+                    + (rondas.anterior ? ' (antes ' + fmtMonto(rondas.anterior.monto_validado) + ')' : '');
+                filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Monto</span>' + esc(texto) + '</div>');
+            }
+        }
+
+        if (f === 4) {
+            filas.push(badgeAuditoria(p));
+            if (p.estado_proforma === 'rechazado' && p.motivo_cierre) {
+                filas.push('<div class="ef-detalle-motivo"><strong>Motivo:</strong> ' + esc(p.motivo_cierre) + '</div>');
+            }
+        }
+
+        if (f === 5) {
+            var plazoMeses = parseInt(p.plazo_meses, 10) || 0;
+            if (plazoMeses > 0) {
+                var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado' }[p.estado_pago] || 'Pendiente';
+                filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Plan de pago</span>'
+                    + plazoMeses + ' meses · ' + esc(estadoPagoLabel) + '</div>');
+                if (p.motivo_cierre_pago) {
+                    filas.push('<div class="ef-detalle-motivo is-cierre"><strong>Plan cerrado:</strong> ' + esc(p.motivo_cierre_pago) + '</div>');
+                }
+            } else {
+                filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Facturado</span>' + fmtMonto(p.monto_total_factura) + '</div>');
+            }
+        }
+
+        document.getElementById('efDetalleBody').innerHTML = filas.join('');
+
+        var btnVerMas = document.getElementById('efDetalleBtnVerMas');
+        btnVerMas.dataset.target = (f <= 2) ? '#sec-agendamientos' : (f <= 4 ? '#sec-proforma' : '#sec-factura');
+        btnVerMas.style.display = '';
+
+        document.getElementById('efDetalleOverlay').classList.add('is-abierto');
+    }
+
+    function cerrarDetalle() {
+        document.getElementById('efDetalleOverlay').classList.remove('is-abierto');
+    }
+
     // PDV o empresa: filtro del buscador de arriba.
     function matchPdv(p, q) {
         var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
@@ -147,6 +271,35 @@
     document.getElementById('efBusqueda').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efFiltroPromotor').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efActualizar').addEventListener('click', cargar);
+
+    // Delegado sobre el contenedor (las tarjetas se repintan enteras en
+    // cada renderKanban, un listener por tarjeta se perdería en cada refresh).
+    document.getElementById('efKanban').addEventListener('click', function (ev) {
+        var card = ev.target.closest('.ef-card');
+        if (!card) return;
+        var p = pipeline.filter(function (x) { return String(x.agendamiento_id) === String(card.dataset.agendamientoId); })[0];
+        if (p) abrirDetalle(p);
+    });
+
+    document.getElementById('efDetalleClose').addEventListener('click', cerrarDetalle);
+    document.getElementById('efDetalleCerrar').addEventListener('click', cerrarDetalle);
+    document.getElementById('efDetalleOverlay').addEventListener('click', function (ev) {
+        if (ev.target === this) cerrarDetalle();
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && document.getElementById('efDetalleOverlay').classList.contains('is-abierto')) cerrarDetalle();
+    });
+    // "Ver más": reusa el mismo mecanismo de navegación del sidebar (ver
+    // index.php) simulando el clic en el link real, en vez de reimplementar
+    // el toggle de secciones acá — así hereda gratis el auto-refresco de la
+    // sección destino y el manejo de "activo" del sidebar.
+    document.getElementById('efDetalleBtnVerMas').addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var destino = this.dataset.target;
+        cerrarDetalle();
+        var link = document.querySelector('.sidebar-nav a[href="' + destino + '"]');
+        if (link) link.click();
+    });
 
     window.EstadoFlujoRecargar = cargar;
     cargar();

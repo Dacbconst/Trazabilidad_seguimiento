@@ -170,8 +170,11 @@
         if (p.estado_proforma === 'rechazado') return 4;          // terminal en negociación
         if (p.id) return 4;                                        // proforma recibida → fase 4 automática
         // no_requiere_visita: el promotor marcó desde el móvil que este
-        // contacto no necesita visita técnica — cuenta igual como fase 2.
-        if ((p.hora && p.tecnico) || p.no_requiere_visita === 'SI') return 2;
+        // contacto no necesita visita técnica — no hay agendamiento que
+        // esperar, el siguiente paso real es que suba la foto directo, así
+        // que cae en fase 3 (activa, no milestone) en vez de fase 2.
+        if (p.no_requiere_visita === 'SI') return 3;
+        if (p.hora && p.tecnico) return 2;
         return 1;
     }
 
@@ -212,6 +215,7 @@
             if (p.estado_proforma === 'correccion_solicitada')  return { label: '⚠ Corrección', cls: 'is-correccion' };
             return { label: 'Fase 4', cls: 'is-en_proceso' };
         }
+        if (f === 3) return { label: 'Esperando foto', cls: 'is-en_proceso' };
         if (f === 2) return { label: 'Fase 2', cls: 'is-pendiente' };
         return           { label: 'Fase 1', cls: 'is-pendiente' };
     }
@@ -234,7 +238,13 @@
             // todavía, aunque exista y esté agendado. Cuando llega su
             // primera foto (fase 4+) aparece con fase 1 y 2 ya marcadas
             // completas en el timeline (construirTimeline), sin más cambios.
-            if (getFase(p) < 4) return false;
+            // Excepción (2026-07-15): fase 3 SÍ entra — hoy solo la alcanzan
+            // los contactos "no_requiere_visita" sin foto todavía (ver
+            // getFase), que no tienen ningún paso de agendamiento pendiente
+            // en otro módulo; el único siguiente paso real es la foto, así
+            // que le corresponde vivir acá como "Esperando foto" en vez de
+            // quedar invisible hasta que la foto llegue sola.
+            if (getFase(p) < 3) return false;
             if (ocultosFase5[p.agendamiento_id]) return false;
             if (promotorSel && p.usuario !== promotorSel) return false;
 
@@ -648,7 +658,11 @@
               // de rondas con monto va en Fase 4, no aquí.
               fecha: ultimaEvidencia ? formatFechaHora(ultimaEvidencia.proforma_fecha_registro) : null,
               completa: !!ultimaEvidencia,
-              activa: false },    // nunca "activa": es solo un milestone
+              // En el flujo normal nunca es "activa" (es solo un milestone:
+              // en cuanto llega la foto ya se saltó a fase 4). La única
+              // excepción es "no_requiere_visita" sin foto todavía — ahí SÍ
+              // es el paso activo, es literalmente lo único que falta.
+              activa: fase === 3 },
             // Fase 4: el listado de rondas de negociación (fecha+monto de
             // CADA vez que se guardó un monto), no solo la última.
             { num: 4, label: 'Negociación',
@@ -1037,8 +1051,10 @@
             return wrap;
         }
 
-        // ── Fase 1-2: sin proforma aún ─────────────────────────────────────
-        if (fase <= 2) {
+        // ── Fase 1-3: sin proforma aún ──────────────────────────────────────
+        // !p.id cubre fase 1, 2 y 3 por igual (p.id existiendo siempre fuerza
+        // fase 4+ en getFase) — más robusto que comparar el número de fase.
+        if (!p.id) {
             var esp = document.createElement('div');
             esp.className = 'proforma-auditoria-cerrada';
             esp.textContent = 'Pendiente de que el promotor suba la proforma.';
@@ -1059,7 +1075,6 @@
         // "ciclos" trae TODOS los ciclos del agendamiento. Los anteriores al
         // activo (id != p.id) se muestran como tarjetas; el más reciente que
         // ya tiene monto se resalta (mismo dato que ve el timeline).
-        var CICLO_LABEL = { en_negociacion: 'Negociado', aprobado: 'Finalizado', rechazado: 'Rechazado', en_proceso: 'En revisión' };
         var ultimo = ultimoCicloConMonto(ciclos);
         var anteriores = ciclos.filter(function (h) { return parseInt(h.id, 10) !== parseInt(p.id, 10) && h.monto_validado; });
         if (anteriores.length) {
@@ -1067,7 +1082,6 @@
             historialWrap.className = 'proforma-historial';
             anteriores.forEach(function (h, idx) {
                 var esUltimo = ultimo && parseInt(h.id, 10) === parseInt(ultimo.id, 10);
-                var lbl = CICLO_LABEL[h.estado_proforma] || h.estado_proforma;
                 var ciclo = document.createElement('div');
                 ciclo.className = 'proforma-historial-ciclo' + (esUltimo ? ' is-ultimo' : '');
 
@@ -1078,7 +1092,7 @@
                     var mini = document.createElement('img');
                     mini.className = 'proforma-historial-ciclo-mini';
                     mini.src = FOTO_BASE + h.evidencia;
-                    mini.alt = 'Foto de la ronda ' + (idx + 1);
+                    mini.alt = 'Foto de la proforma ' + (idx + 1);
                     mini.addEventListener('click', function () { mostrarFoto(mini.src); });
                     mini.addEventListener('error', function () { mini.style.display = 'none'; });
                     ciclo.appendChild(mini);
@@ -1088,9 +1102,8 @@
                 cicloTexto.className = 'proforma-historial-ciclo-texto';
                 cicloTexto.innerHTML =
                     '<div class="proforma-historial-ciclo-hdr">'
-                    + '<span class="proforma-historial-ciclo-num">Ronda ' + (idx + 1) + (esUltimo ? ' · última' : '') + '</span>'
+                    + '<span class="proforma-historial-ciclo-num">Proforma ' + (idx + 1) + (esUltimo ? ' · última' : '') + '</span>'
                     + '<span class="proforma-historial-ciclo-fecha">' + esc(formatFechaHora(h.fecha_auditoria || h.proforma_fecha_registro)) + '</span>'
-                    + '<span class="proforma-badge is-' + esc(h.estado_proforma) + '">' + esc(lbl) + '</span>'
                     + '</div>'
                     + '<div class="proforma-historial-ciclo-dato">Monto: ' + esc(formatMonto(h.monto_validado) || '—') + '</div>'
                     + (h.observaciones_auditoria

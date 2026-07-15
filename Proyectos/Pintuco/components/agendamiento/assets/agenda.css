@@ -1283,6 +1283,10 @@
     cursor: text;
 }
 .agenda-edit-agendar-campo .glyphicon { color: var(--ed-ink-faint); font-size: 13px; flex-shrink: 0; }
+/* Vencida sin reagendar todavía — mismo rojo que .agenda-edit-alert y
+   .agenda-edit-motivo-input.is-invalid, para que el campo que falta tocar
+   quede marcado con la misma señal que ya usa el resto de la card. */
+.agenda-edit-agendar-campo.is-invalid { border-color: #d93025; background: rgba(217,48,37,.04); }
 .agenda-edit-agendar-campo input[type="date"],
 .agenda-edit-agendar-campo input[type="text"] {
     flex: 1;

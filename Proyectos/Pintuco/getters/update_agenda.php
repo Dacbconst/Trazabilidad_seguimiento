@@ -155,6 +155,25 @@ if ($reagendando && $motivo_reagendacion === '') {
     exit;
 }
 
+// Reagendar de verdad exige una fecha NUEVA (hoy o futura) — sin esto se
+// podía guardar (y pasar a estado_agenda='reagendada') una visita vencida
+// escribiendo solo el motivo, sin tocar la fecha: como $fecha llega
+// pre-cargada con la fecha vieja desde el front (ver agenda.js abrirEdicion),
+// el SET de abajo la "actualizaba" al mismo valor vencido de siempre.
+// Confirmado con un caso real 2026-07-15: el analista escribió el motivo,
+// no tocó fecha/hora, y quedó guardada como "reagendada" con la fecha
+// todavía en el pasado — false positive que apaga la alerta sin resolver
+// nada. requiere_fecha (mismo patrón que requiere_motivo) le dice al front
+// que resalte el campo de fecha en vez de un alert genérico.
+if ($reagendando && ($fecha === '' || $fecha < date('Y-m-d'))) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Elige una fecha válida (hoy o posterior) para reagendar esta visita — no se puede guardar con la misma fecha vencida.",
+        "requiere_fecha" => true,
+    ]);
+    exit;
+}
+
 // Un técnico no puede estar en dos visitas a la vez: se rechaza si la nueva
 // hora cae dentro de los DURACION_APROX_MIN minutos (mismo valor que usa el
 // calendario web para dibujar el bloque) de otra visita YA agendada del

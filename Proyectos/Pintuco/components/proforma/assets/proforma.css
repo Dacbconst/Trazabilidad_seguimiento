@@ -412,7 +412,7 @@
     line-height: 1.3;
 }
 .proforma-fase-item.is-pendiente .proforma-fase-label { color: #aab3c2; font-weight: 400; }
-.proforma-fase-omitida { color: #b3261e; font-weight: 700; font-size: 11px; }
+.proforma-fase-omitida { color: #8a5a00; font-weight: 700; font-size: 11px; }
 
 .proforma-fase-fecha {
     font-size: 11.5px;

@@ -74,8 +74,11 @@
         if (p.estado_proforma === 'rechazado') return 4;
         if (p.id) return 4;
         // no_requiere_visita: el promotor marcó desde el móvil que este
-        // contacto no necesita visita técnica — cuenta igual como fase 2.
-        if ((p.hora && p.tecnico) || p.no_requiere_visita === 'SI') return 2;
+        // contacto no necesita visita técnica — no hay agendamiento que
+        // esperar, el siguiente paso real es que suba la foto directo, así
+        // que cae en fase 3 (mismo criterio que proforma.js/estado-flujo.js).
+        if (p.no_requiere_visita === 'SI') return 3;
+        if (p.hora && p.tecnico) return 2;
         return 1;
     }
 
@@ -431,6 +434,10 @@
         var conPeriodo = clave !== 'todos';
         var mapa = {};
         pipeline.forEach(function (p) {
+            // Factura es el libro de facturas reales: un agendamiento solo
+            // aparece acá una vez que llegó a Fase 5 (foto_factura o
+            // aprobado), no antes — pedido explícito del usuario (2026-07-15).
+            if (getFase(p) !== 5) return;
             if (!coincidePeriodo(p)) return;
             if (filtroPdv && !matchPdv(p, filtroPdv)) return;
             var u = p.usuario || '(sin asignar)';
@@ -545,7 +552,9 @@
         var clave = sel ? sel.value : 'todos';
         var conPeriodo = clave !== 'todos';
         var todos = pipeline.filter(function (p) {
-            return (p.usuario || '(sin asignar)') === usuario && coincidePeriodo(p);
+            // Mismo criterio que construirMapaPromotores: solo Fase 5 (ya
+            // facturado) entra al libro de Factura.
+            return getFase(p) === 5 && (p.usuario || '(sin asignar)') === usuario && coincidePeriodo(p);
         });
         var pdvs = filtroPdv ? todos.filter(function (p) { return matchPdv(p, filtroPdv); }) : todos;
 

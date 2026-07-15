@@ -42,6 +42,26 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
         <div class="ef-vacio">Cargando...</div>
     </div>
 
+    <!-- Vista rápida al hacer clic en una tarjeta: resumen de "qué está
+         pasando" con ese agendamiento sin salir del kanban — ver
+         abrirDetalle() en estado-flujo.js. -->
+    <div class="ef-detalle-overlay" id="efDetalleOverlay">
+        <div class="ef-detalle-card">
+            <div class="ef-detalle-header">
+                <div>
+                    <div class="ef-detalle-titulo" id="efDetalleTitulo"></div>
+                    <div class="ef-detalle-sub" id="efDetalleSub"></div>
+                </div>
+                <button type="button" class="ef-detalle-close" id="efDetalleClose" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="ef-detalle-body" id="efDetalleBody"></div>
+            <div class="ef-detalle-footer">
+                <a href="#" class="ef-detalle-btn-vermas" id="efDetalleBtnVerMas" style="display:none">Ver más &raquo;</a>
+                <button type="button" class="ef-detalle-btn-cerrar" id="efDetalleCerrar">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="<?= htmlspecialchars($ef_assets, ENT_QUOTES) ?>/estado-flujo.js?v=<?= $ef_js_v ?>"></script>

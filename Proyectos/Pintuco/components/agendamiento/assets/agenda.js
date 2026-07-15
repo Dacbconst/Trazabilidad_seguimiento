@@ -21,6 +21,14 @@
     var PATRON_PLUS_CODE_EDICION = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
     var RE_EMPRESA_EDICION = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\-&' ]+$/;
 
+    // Mismo helper que ya usa agenda-crear.js — fecha local en formato
+    // "YYYY-MM-DD" (no toISOString(), que corre por UTC y puede desfasar un
+    // día según la hora).
+    function hoyISO() {
+        var h = new Date();
+        return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
+    }
+
     function indexarEstadosPorFecha(rows) {
         estadosPorFecha = {};
         rows.forEach(function (r) {
@@ -677,6 +685,14 @@
         // pasó sin reagendarse; aquí solo se le pide al analista que la
         // reagende ahora mismo en vez de dejarlo pasar desapercibido.
         var alerta = document.getElementById('agendaEditAlerta');
+        // Sombreado del campo de fecha: mientras esté vencida, queda marcado
+        // en rojo (mismo color que la alerta de arriba) como lo que hay que
+        // tocar antes de poder guardar. Se quita al reabrir la card ya
+        // reagendada. Pedido explícito del usuario (2026-07-15): antes se
+        // podía guardar el motivo solo, sin tocar la fecha, y quedaba
+        // "reagendada" con la fecha todavía vencida.
+        var campoFecha = document.querySelector('.agenda-edit-agendar-campo[data-campo="fecha"]');
+        campoFecha.classList.toggle('is-invalid', estado === 'vencida');
         if (estado === 'vencida') {
             document.getElementById('agendaEditAlertaTexto').textContent =
                 'Esta visita estaba programada para el ' + formatFecha(props.fecha_agendamiento) + ' y ya venció. Reagenda la fecha antes de guardar.';
@@ -792,6 +808,21 @@
             return;
         }
 
+        // Reagendar de verdad exige una fecha nueva (hoy o futura) — el
+        // input ya viene pre-cargado con la fecha vieja (ver abrirEdicion),
+        // así que sin este chequeo se podía guardar solo el motivo y dejar
+        // la visita "reagendada" con la misma fecha vencida. Mismo criterio
+        // que valida update_agenda.php del lado servidor.
+        if (reagendandoVencida && (!fechaGuardada || fechaGuardada < hoyISO())) {
+            var campoFechaInvalido = document.querySelector('.agenda-edit-agendar-campo[data-campo="fecha"]');
+            campoFechaInvalido.classList.add('is-invalid');
+            document.getElementById('agendaEditAlertaTexto').textContent =
+                'Elige una fecha válida (hoy o posterior) — no se puede reagendar dejando la misma fecha vencida.';
+            document.getElementById('agendaEditAlerta').style.display = 'flex';
+            document.getElementById('agendaEditFecha').focus();
+            return;
+        }
+
         var body = new URLSearchParams();
         body.set('id', idGuardado);
         body.set('fecha', fechaGuardada);
@@ -849,6 +880,14 @@
                     document.getElementById('agendaEditMotivo').classList.add('is-invalid');
                     document.getElementById('agendaEditErrMotivo').textContent = json.message || 'El motivo de la reagendación es obligatorio.';
                     document.getElementById('agendaEditMotivo').focus();
+                } else if (json.requiere_fecha) {
+                    // Respaldo del servidor por si el chequeo de fecha del
+                    // cliente se saltó (misma mecánica que requiere_motivo).
+                    var campoFechaRechazado = document.querySelector('.agenda-edit-agendar-campo[data-campo="fecha"]');
+                    campoFechaRechazado.classList.add('is-invalid');
+                    document.getElementById('agendaEditAlertaTexto').textContent = json.message || 'Elige una fecha válida (hoy o posterior) para reagendar.';
+                    document.getElementById('agendaEditAlerta').style.display = 'flex';
+                    document.getElementById('agendaEditFecha').focus();
                 } else {
                     alert(json.message || 'No se pudo guardar.');
                 }
