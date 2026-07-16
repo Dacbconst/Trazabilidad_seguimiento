@@ -47,6 +47,13 @@ $estado       = isset($_GET['estado_agenda'])? $_GET['estado_agenda']: '';
 $usuario      = isset($_GET['usuario'])      ? $_GET['usuario']      : '';
 $tecnico      = isset($_GET['tecnico'])      ? $_GET['tecnico']      : '';
 $pdv          = isset($_GET['pdv'])          ? $_GET['pdv']          : '';
+$empresa      = isset($_GET['empresa'])      ? $_GET['empresa']      : '';
+// Vía de escape al "desaparece del calendario por defecto" de abajo: la
+// usan las listas de opciones de los filtros (Promotor/Técnico/Empresa) y
+// el panel de "Agendas pendientes", que necesitan ver el universo completo
+// de agendamientos (o al menos no perder los que ya se completaron) sin
+// depender de qué Estado tenga seleccionado el analista en ese momento.
+$incluirCompletadas = isset($_GET['incluir_completadas']) && $_GET['incluir_completadas'] === '1';
 
 // fecha_agendamiento es columna DATE real (no string dd/mm/yyyy); se compara directo.
 // "activar" es varchar(2) NOT NULL con valores 'SI'/'NO' (default 'SI'),
@@ -70,7 +77,7 @@ if ($estado !== '') {
     $condiciones[] = "estado_agenda = ?";
     $parametros[] = $estado;
     $tipos .= "s";
-} else {
+} elseif (!$incluirCompletadas) {
     // Una vez asistida (llegó su primera foto de proforma, ver UPDATE de
     // arriba) la visita ya cumplió su propósito en la agenda — desaparece
     // del calendario por defecto. El analista todavía puede revisarlas
@@ -90,6 +97,11 @@ if ($tecnico !== '') {
 if ($pdv !== '') {
     $condiciones[] = "pdv = ?";
     $parametros[] = $pdv;
+    $tipos .= "s";
+}
+if ($empresa !== '') {
+    $condiciones[] = "empresa = ?";
+    $parametros[] = $empresa;
     $tipos .= "s";
 }
 

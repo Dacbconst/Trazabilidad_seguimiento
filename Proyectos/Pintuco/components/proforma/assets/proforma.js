@@ -10,6 +10,7 @@
     var filaAbiertaId = null;
     var grupoAbierto  = null; // nombre del promotor cuyo grupo está expandido (null = todos cerrados)
     var toastTimer    = null;
+    var cargaEnCurso  = null; // promesa en vuelo de cargarProformas(), ver abajo
 
     // ---------------------------------------------------------------
     // Helpers
@@ -510,6 +511,38 @@
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 60);
         }
+    }
+
+    // Abre directamente la fila de un agendamiento puntual — llamado desde
+    // Estado de Flujo al hacer clic en "Ver más" de una mini card en fase 3/4
+    // (ver estado-flujo.js). Resetea los filtros de promotor/estado/periodo/
+    // búsqueda porque cualquiera de ellos, si quedó activo de antes, puede
+    // dejar la fila escondida de filasFiltradas() sin que el analista sepa
+    // por qué "no aparece" — mismo espíritu que AgendaResaltar en agenda.js.
+    function abrirDesdeFuera(agendamientoId) {
+        var p = ultimosCiclos(currentRows).filter(function (x) {
+            return String(x.agendamiento_id) === String(agendamientoId);
+        })[0];
+        if (!p) return;
+
+        document.getElementById('proformaFiltroPromotor').value = '';
+        document.getElementById('proformaFiltroEstado').value = '';
+        document.getElementById('proformaFiltroPeriodo').value = '';
+        document.getElementById('proformaBusqueda').value = '';
+
+        grupoAbierto  = p.usuario || '(Sin promotor)';
+        filaAbiertaId = p.agendamiento_id;
+        marcarVisto(p);
+        renderizar();
+
+        setTimeout(function () {
+            var el = document.querySelector('.proforma-gfila[data-id="' + agendamientoId + '"]');
+            // 'center' (no 'nearest' como alternarFila): acá el analista
+            // recién llega desde otro módulo sin contexto visual previo, así
+            // que conviene centrarlo bien en pantalla en vez de solo
+            // asomarlo al borde del viewport.
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
     }
 
     // ---------------------------------------------------------------
@@ -1225,8 +1258,19 @@
     // ---------------------------------------------------------------
     // Carga
     // ---------------------------------------------------------------
+    // Si ya hay una carga en vuelo se devuelve esa misma promesa en vez de
+    // disparar un fetch nuevo en paralelo. Sin esto, el salto desde Estado
+    // de Flujo (que llama a esta función a mano) competía con la recarga
+    // automática que ya dispara el clic del sidebar (ver index.php) — dos
+    // fetches en paralelo a la misma URL, y cuando el del sidebar terminaba
+    // último volvía a pintar la lista SIN el scroll hacia la fila puntual
+    // (abrirDesdeFuera ya había corrido), dejando al analista con la fila
+    // correcta abierta pero fuera de vista. Con una sola promesa compartida,
+    // el callback de abrirDesdeFuera (encolado después) siempre corre
+    // después del único render real.
     function cargarProformas() {
-        return fetch(GETTERS_BASE + 'proformas_listar.php')
+        if (cargaEnCurso) return cargaEnCurso;
+        cargaEnCurso = fetch(GETTERS_BASE + 'proformas_listar.php')
             .then(function (r) { return r.json(); })
             .then(function (json) {
                 currentRows = json.data || [];
@@ -1239,7 +1283,9 @@
                 document.getElementById('proformaGrupos').innerHTML =
                     '<div class="proforma-vacio">No se pudo cargar. Verifica que proformas_listar.php esté desplegado.</div>';
                 mostrarToast('Error: ' + err.message, true);
-            });
+            })
+            .then(function () { cargaEnCurso = null; });
+        return cargaEnCurso;
     }
 
     // ---------------------------------------------------------------
@@ -1266,6 +1312,7 @@
     }
 
     window.ProformaRecargar = cargarProformas;
+    window.ProformaAbrir    = abrirDesdeFuera;
 
     document.addEventListener('DOMContentLoaded', function () {
         cargarProformas();

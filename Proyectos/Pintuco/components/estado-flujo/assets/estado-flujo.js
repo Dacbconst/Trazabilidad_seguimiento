@@ -6,6 +6,7 @@
 
     var allRows  = [];  // todos los ciclos, de todos los agendamientos
     var pipeline = [];  // 1 fila por agendamiento = su último ciclo
+    var detalleAbierto = null;  // fila de la mini card actualmente abierta (para "Ver más")
 
     // ── Helpers ──────────────────────────────────────────────────────
     function esc(s) {
@@ -18,10 +19,13 @@
         return Math.floor((new Date() - new Date(f + 'T00:00:00')) / 86400000);
     }
     function fmtDias(d) { return d === null ? '—' : (d < 0 ? '0d' : d + 'd'); }
-    // Umbral: verde <=3 días, ámbar 4-7, rojo 8+.
+    // Umbral: neutro <=3 días, ámbar 4-7, rojo 8+. Antes <=3 era verde, pero
+    // "verde" comunica "está bien" — y un agendamiento recién llegado a su
+    // fase no está ni bien ni mal, solo no lleva tiempo todavía. Sin señal
+    // positiva: el pill queda neutro hasta que empieza a demorarse de verdad.
     function clsDias(d) {
         if (d === null) return '';
-        if (d <= 3) return 'is-verde';
+        if (d <= 3) return 'is-neutro';
         if (d <= 7) return 'is-ambar';
         return 'is-rojo';
     }
@@ -171,6 +175,7 @@
     }
 
     function abrirDetalle(p) {
+        detalleAbierto = p;
         var f = getFase(p);
         var meta = FASES_META[f - 1];
 
@@ -234,20 +239,62 @@
         document.getElementById('efDetalleOverlay').classList.remove('is-abierto');
     }
 
-    // PDV o empresa: filtro del buscador de arriba.
-    function matchPdv(p, q) {
-        var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
-        return hay.indexOf(q) !== -1;
+    // PDV y Empresa: antes un solo cuadro de texto con match por substring
+    // contra pdv/empresa/codigo_pdv junto; ahora dos desplegables
+    // independientes (con buscador propio) que comparan contra el valor
+    // exacto elegido — pedido explícito del usuario (2026-07-16: "separa
+    // pdv empresa ponle como tenemos" [en Agendamientos]).
+    function matchPdv(p, valor) {
+        return !valor || (p.pdv || '') === valor;
+    }
+    function matchEmpresa(p, valor) {
+        return !valor || (p.empresa || '') === valor;
     }
 
     function pipelineFiltrado() {
-        var bus  = document.getElementById('efBusqueda').value.toLowerCase().trim();
-        var prom = document.getElementById('efFiltroPromotor').value.toLowerCase().trim();
+        var prom = document.getElementById('efFiltroPromotor').value;
+        var pdv  = document.getElementById('efFiltroPdv').value;
+        var emp  = document.getElementById('efFiltroEmpresa').value;
         return pipeline.filter(function (p) {
-            if (bus && !matchPdv(p, bus)) return false;
-            if (prom && (p.usuario || '').toLowerCase().indexOf(prom) === -1) return false;
+            if (prom && (p.usuario || '') !== prom) return false;
+            if (!matchPdv(p, pdv) || !matchEmpresa(p, emp)) return false;
             return true;
         });
+    }
+
+    // ── Filtros: Promotor / PDV / Empresa ──────────────────────────────
+    // Promotor y Empresa salen de allRows (todo lo ya cargado); PDV usa el
+    // mismo catálogo de locales que Agendamientos (get_pdvs.php). Los 3
+    // usan el combobox con buscador compartido con Agendamientos
+    // (habilitarComboBuscador en agenda-crear.js, ver
+    // window.AgendaHabilitarComboBuscador) — pedido explícito del usuario
+    // (2026-07-16).
+    function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
+        var select = document.getElementById(selectId);
+        var valorPrevio = select.value;
+        var vistos = {};
+        var valores = [];
+        rows.forEach(function (r) {
+            var v = r[campo];
+            if (v && !vistos[v]) { vistos[v] = true; valores.push(v); }
+        });
+        valores.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+        select.innerHTML = '<option value="">' + etiquetaTodos + '</option>';
+        valores.forEach(function (v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+        });
+        if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
+    }
+
+    function cargarOpcionesPdv() {
+        fetch(GETTERS_BASE + 'get_pdvs.php')
+            .then(function (r) { return r.json(); })
+            .then(function (json) {
+                poblarSelectDistinct('efFiltroPdv', json.data || [], 'pos_name', 'Todos');
+            });
     }
 
     // ── Carga de datos ────────────────────────────────────────────────
@@ -259,6 +306,8 @@
             .then(function (json) {
                 allRows = json.data || [];
                 pipeline = ultimosCiclos(allRows);
+                poblarSelectDistinct('efFiltroPromotor', allRows, 'usuario', 'Todos');
+                poblarSelectDistinct('efFiltroEmpresa', allRows, 'empresa', 'Todas');
                 construirEsqueletoKanban();
                 renderKanban(pipelineFiltrado());
             })
@@ -268,9 +317,14 @@
     }
 
     // ── Eventos ────────────────────────────────────────────────────────
-    document.getElementById('efBusqueda').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
-    document.getElementById('efFiltroPromotor').addEventListener('input', function () { renderKanban(pipelineFiltrado()); });
+    document.getElementById('efFiltroPromotor').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
+    document.getElementById('efFiltroPdv').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
+    document.getElementById('efFiltroEmpresa').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efActualizar').addEventListener('click', cargar);
+    ['efFiltroPromotor', 'efFiltroPdv', 'efFiltroEmpresa'].forEach(function (id) {
+        window.AgendaHabilitarComboBuscador(id);
+    });
+    cargarOpcionesPdv();
 
     // Delegado sobre el contenedor (las tarjetas se repintan enteras en
     // cada renderKanban, un listener por tarjeta se perdería en cada refresh).
@@ -296,9 +350,31 @@
     document.getElementById('efDetalleBtnVerMas').addEventListener('click', function (ev) {
         ev.preventDefault();
         var destino = this.dataset.target;
+        var p = detalleAbierto;
         cerrarDetalle();
         var link = document.querySelector('.sidebar-nav a[href="' + destino + '"]');
         if (link) link.click();
+
+        // No alcanza con solo cambiar de sección: cada módulo destino expone
+        // su propio "abrir este agendamiento puntual" (mismo patrón que ya
+        // usa agenda-crear.js al guardar una visita nueva —
+        // Recargar().then(Abrir) — para no apuntar a datos viejos de antes
+        // de refrescar) y así el analista cae directo en el registro
+        // correcto en vez de tener que buscarlo a mano entre todos los demás.
+        if (!p) return;
+        if (destino === '#sec-agendamientos' && window.AgendaRecargar && window.AgendaResaltar) {
+            window.AgendaRecargar().then(function () {
+                window.AgendaResaltar(p.agendamiento_id, p.fecha_agendamiento, p.hora);
+            });
+        } else if (destino === '#sec-proforma' && window.ProformaRecargar && window.ProformaAbrir) {
+            window.ProformaRecargar().then(function () {
+                window.ProformaAbrir(p.agendamiento_id);
+            });
+        } else if (destino === '#sec-factura' && window.FacturaRecargar && window.FacturaAbrirAuditoria) {
+            window.FacturaRecargar().then(function () {
+                window.FacturaAbrirAuditoria(p.agendamiento_id);
+            });
+        }
     });
 
     window.EstadoFlujoRecargar = cargar;

@@ -260,6 +260,22 @@
         function pintarLista(filtro) {
             lista.innerHTML = '';
             var q = (filtro || '').toLowerCase().trim();
+
+            // "Todos"/"Todas" (value="") siempre arriba y sin filtrar por el
+            // buscador — sin esto, una vez elegido algo específico no había
+            // forma de volver a "ver todo" desde el propio desplegable, solo
+            // recargando la página. Pedido explícito del usuario (2026-07-16).
+            var todos = document.createElement('div');
+            todos.className = 'agenda-combo-item agenda-combo-item-todos';
+            todos.textContent = placeholder;
+            if (select.value === '') todos.classList.add('is-activo');
+            todos.addEventListener('click', function () {
+                select.value = '';
+                select.dispatchEvent(new Event('change'));
+                cerrarPanel();
+            });
+            lista.appendChild(todos);
+
             var opciones = opcionesReales().filter(function (o) {
                 return !q || o.textContent.toLowerCase().indexOf(q) !== -1;
             });
@@ -286,6 +302,31 @@
 
         function abrirPanel() {
             if (select.disabled || !opcionesReales().length) return;
+
+            // El panel vivía con position:absolute contra .agenda-combo, que
+            // no siempre tiene un ancho propio bien definido (columna flex
+            // con el <select> real oculto adentro) — en la barra de filtros
+            // de agenda.js eso hacía que el panel terminara más angosto de
+            // lo que se veía el trigger y el texto de sus opciones saliera
+            // recortado. Mismo arreglo que ya usa el dropdown de hora
+            // (agendaEditHoraLista en agenda.js): medir el trigger con
+            // getBoundingClientRect() y fijar el panel con position:fixed
+            // en píxeles exactos, así deja de depender de ese ancho
+            // ambiguo — pedido explícito del usuario (2026-07-16).
+            // Ancho mínimo propio de 280px, más ancho que el trigger si hace
+            // falta (nunca más angosto) — pedido explícito del usuario
+            // (2026-07-16): "dale más ancho". Si la lista queda más angosta
+            // que la pantalla completa se recorta contra el borde derecho
+            // del viewport en vez de salirse.
+            var rect = trigger.getBoundingClientRect();
+            var ancho = Math.max(rect.width, 280);
+            var izquierda = Math.min(rect.left, window.innerWidth - ancho - 12);
+            panel.style.position = 'fixed';
+            panel.style.top = (rect.bottom + 4) + 'px';
+            panel.style.left = Math.max(izquierda, 12) + 'px';
+            panel.style.width = ancho + 'px';
+            panel.style.right = 'auto';
+
             panel.classList.add('is-abierto');
             buscador.value = '';
             pintarLista('');
@@ -319,6 +360,16 @@
 
         actualizarTrigger();
     }
+
+    // agenda.js reusa este mismo combobox para los <select> de la barra de
+    // filtros (Promotor/Técnico/PDV/Empresa) — mismo widget que acá, sin
+    // duplicar la lógica de trigger+panel+buscador (pedido explícito del
+    // usuario 2026-07-16: "pon ese buscador... como lo tiene crear
+    // agendamiento"). agenda.js carga antes que este archivo en
+    // agendamientos.php, así que solo puede llamarlo desde su propio
+    // DOMContentLoaded (que corre después de que este script ya definió
+    // window.AgendaHabilitarComboBuscador).
+    window.AgendaHabilitarComboBuscador = habilitarComboBuscador;
 
     // ---------------------------------------------------------------
     // Abrir / cerrar / limpiar

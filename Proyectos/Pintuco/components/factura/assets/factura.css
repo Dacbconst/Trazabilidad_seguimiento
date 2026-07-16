@@ -184,8 +184,8 @@
     gap: 5px;
     background: #eaf3fb;
     border-radius: 6px;
-    padding: 5px 9px;
-    font-size: 10.5px;
+    padding: 6px 10px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--brand-light);
 }
@@ -237,9 +237,6 @@
     flex-shrink: 0;
 }
 .ef-tabla-pdv     { font-size: 11px; color: #8a93a3; margin-top: 2px; }
-
-/* Días sin semáforo en esta tabla — texto plano, pedido explícito del usuario. */
-.ef-dias-plano { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #33415c; }
 
 /* Cotización Inicial: el monto negociado (última proforma con monto
    validado) — texto neutro, igual que el resto de montos de la tabla. */

@@ -20,16 +20,25 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
      data-modulo-base="<?= htmlspecialchars($modulo_base, ENT_QUOTES) ?>">
 
     <div class="mod-filtros">
-        <div class="filter-group is-busqueda">
-            <label>PDV o empresa</label>
-            <div class="input-group">
-                <input type="text" class="form-control" id="efBusqueda" placeholder="Buscar PDV o empresa...">
-                <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
-            </div>
-        </div>
         <div class="filter-group">
             <label>Promotor</label>
-            <input type="text" class="form-control" id="efFiltroPromotor" placeholder="Buscar promotor...">
+            <select class="form-control" id="efFiltroPromotor">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <!-- Mismo catálogo de locales que usa "Crear visita" en
+                 Agendamientos (get_pdvs.php). -->
+            <label>PDV</label>
+            <select class="form-control" id="efFiltroPdv">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Empresa</label>
+            <select class="form-control" id="efFiltroEmpresa">
+                <option value="">Todas</option>
+            </select>
         </div>
         <div class="mod-filtros-extra">
             <button type="button" class="btn btn-mod-actualizar" id="efActualizar">

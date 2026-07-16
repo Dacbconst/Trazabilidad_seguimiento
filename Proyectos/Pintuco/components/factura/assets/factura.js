@@ -289,10 +289,17 @@
         return { label: 'Enviada', cls: 'is-enviada' }; // pendiente | en_proceso | en_negociacion | realizado
     }
 
-    // PDV o empresa: mismo criterio de búsqueda que usaba Por Fase.
-    function matchPdv(p, q) {
-        var hay = [(p.pdv || ''), (p.empresa || ''), (p.codigo_pdv || '')].join(' ').toLowerCase();
-        return hay.indexOf(q) !== -1;
+    // PDV y Empresa: antes era un solo cuadro de texto con match por
+    // substring contra pdv/empresa/codigo_pdv junto; ahora son dos
+    // desplegables independientes (con buscador propio, ver
+    // habilitarFiltros) que comparan contra el valor exacto elegido —
+    // pedido explícito del usuario (2026-07-16: "separa pdv empresa ponle
+    // como tenemos" [en Agendamientos]).
+    function matchPdv(p, valor) {
+        return !valor || (p.pdv || '') === valor;
+    }
+    function matchEmpresa(p, valor) {
+        return !valor || (p.empresa || '') === valor;
     }
 
     // ── Metadatos de fase ──────────────────────────────────────────────
@@ -421,14 +428,15 @@
     }
 
     // ── Lista izquierda ────────────────────────────────────────────────
-    // Respeta el filtro "PDV o empresa" de la barra de arriba: sin filtro,
+    // Respeta los filtros PDV/Empresa de la barra de arriba: sin filtro,
     // cada promotor muestra su histórico completo (igual que siempre); con
     // filtro, el conteo/montos se recalculan solo con los agendamientos que
     // matchean, para que coincida con lo que se ve al abrir su detalle.
     // p.ids: Set de agendamiento_id (string) que matchean el filtro actual —
     // se usa para saber qué marcar al tildar el checkbox de ese promotor.
     function construirMapaPromotores() {
-        var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
+        var filtroPdv = document.getElementById('efPromoFiltroPdv').value;
+        var filtroEmpresa = document.getElementById('efPromoFiltroEmpresa').value;
         var sel = document.getElementById('efPromoFiltroPeriodo');
         var clave = sel ? sel.value : 'todos';
         var conPeriodo = clave !== 'todos';
@@ -439,14 +447,14 @@
             // aprobado), no antes — pedido explícito del usuario (2026-07-15).
             if (getFase(p) !== 5) return;
             if (!coincidePeriodo(p)) return;
-            if (filtroPdv && !matchPdv(p, filtroPdv)) return;
+            if (!matchPdv(p, filtroPdv) || !matchEmpresa(p, filtroEmpresa)) return;
             var u = p.usuario || '(sin asignar)';
             if (!mapa[u]) mapa[u] = { usuario: u, total: 0, ids: new Set() };
             mapa[u].total++;
             mapa[u].ids.add(String(p.agendamiento_id));
         });
         Object.keys(mapa).forEach(function (u) {
-            var idsPermitidos = (filtroPdv || conPeriodo) ? mapa[u].ids : null;
+            var idsPermitidos = (filtroPdv || filtroEmpresa || conPeriodo) ? mapa[u].ids : null;
             mapa[u].montoAcumulado = totalAcumuladoPromotor(u, idsPermitidos);
             mapa[u].montoFacturado = totalFacturadoPromotorEnPeriodo(u, idsPermitidos, clave);
         });
@@ -477,10 +485,10 @@
         var mapa = construirMapaPromotores();
         var lista = Object.keys(mapa).map(function (k) { return mapa[k]; })
             .sort(function (a, b) { return b.total - a.total; });
-        var q = (document.getElementById('efPromoSearch').value || '').toLowerCase().trim();
-        var visible = q ? lista.filter(function (p) { return p.usuario.toLowerCase().indexOf(q) !== -1; }) : lista;
+        var promotorSel = document.getElementById('efPromoFiltroPromotor').value;
+        var visible = promotorSel ? lista.filter(function (p) { return p.usuario === promotorSel; }) : lista;
         if (!visible.length) {
-            container.innerHTML = '<div class="ef-vacio">' + (q ? 'Sin resultados para "' + esc(q) + '".' : 'Sin datos.') + '</div>';
+            container.innerHTML = '<div class="ef-vacio">' + (promotorSel ? 'Sin resultados para "' + esc(promotorSel) + '".' : 'Sin datos.') + '</div>';
             actualizarBotonSeleccion();
             return;
         }
@@ -547,7 +555,8 @@
             return;
         }
 
-        var filtroPdv = (document.getElementById('efPromoBusquedaPdv').value || '').toLowerCase().trim();
+        var filtroPdv = document.getElementById('efPromoFiltroPdv').value;
+        var filtroEmpresa = document.getElementById('efPromoFiltroEmpresa').value;
         var sel = document.getElementById('efPromoFiltroPeriodo');
         var clave = sel ? sel.value : 'todos';
         var conPeriodo = clave !== 'todos';
@@ -556,13 +565,13 @@
             // facturado) entra al libro de Factura.
             return getFase(p) === 5 && (p.usuario || '(sin asignar)') === usuario && coincidePeriodo(p);
         });
-        var pdvs = filtroPdv ? todos.filter(function (p) { return matchPdv(p, filtroPdv); }) : todos;
+        var pdvs = todos.filter(function (p) { return matchPdv(p, filtroPdv) && matchEmpresa(p, filtroEmpresa); });
 
         // Con filtro de PDV/empresa o de Periodo activo, badges y totales se
         // recalculan solo con lo que queda visible en la tabla de abajo (para
         // que cuadren entre sí); sin ningún filtro, muestran el histórico
         // completo del promotor, igual que siempre.
-        var idsPermitidos = (filtroPdv || conPeriodo) ? new Set(pdvs.map(function (p) { return String(p.agendamiento_id); })) : null;
+        var idsPermitidos = (filtroPdv || filtroEmpresa || conPeriodo) ? new Set(pdvs.map(function (p) { return String(p.agendamiento_id); })) : null;
         var conteosFase = conteoFasePorPromotor(usuario, idsPermitidos);
         var total = totalAcumuladoPromotor(usuario, idsPermitidos);
         var totalFacturado = totalFacturadoPromotorEnPeriodo(usuario, idsPermitidos, clave);
@@ -573,7 +582,6 @@
 
         var filas = pdvs.map(function (p) {
             var f = getFase(p);
-            var dias = diasDesde(refFechaFase(p));
             var vigente = ultimaProformaDe(p.agendamiento_id);
             var cotizacionNum = vigente ? (parseFloat(vigente.monto_validado) || 0) : 0;
             // facturadoNum se mantiene HISTÓRICO (totalFacturadoDe) — decide
@@ -603,7 +611,6 @@
                 + '<td><div class="ef-tabla-empresa">' + esc(p.empresa || '—') + dot + '</div>'
                 +     '<div class="ef-tabla-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div></td>'
                 + '<td><span class="ef-fase-badge is-f' + f + '">Fase ' + f + '</span></td>'
-                + '<td class="ef-dias-plano">' + fmtDias(dias) + '</td>'
                 + '<td class="ef-monto-facturado' + (facturaCompleta ? ' is-completo' : '') + '">' + montoFacturado + '</td>'
                 + '<td class="ef-monto-cotizacion">' + cotizacionInicial + '</td>'
                 + '<td><button type="button" class="ef-btn-auditar" data-agendamiento-id="' + esc(p.agendamiento_id) + '">Auditar</button></td>'
@@ -626,9 +633,14 @@
             +   '</div>'
             + '</div>'
             + '<div class="ef-promo-badges">' + badges + '</div>'
+            // Sin columna "Días": a diferencia de las otras fases, Fase 5
+            // no tiene un "debería resolverse pronto" — un agendamiento
+            // facturado se queda acá esperando nuevas cuotas/pagos durante
+            // meses de forma normal, así que un contador de días solo
+            // sugería falsamente que algo estaba demorado.
             + '<div class="ef-promo-tabla-wrap"><table class="ef-tabla-prom">'
-            +   '<thead><tr><th class="ef-th-check"></th><th>Empresa / PDV</th><th>Fase</th><th>Días</th><th>Monto Facturado' + esc(etiquetaPeriodo(clave)) + '</th><th>Cotización Inicial</th><th></th></tr></thead>'
-            +   '<tbody>' + (filas || '<tr><td colspan="7" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
+            +   '<thead><tr><th class="ef-th-check"></th><th>Empresa / PDV</th><th>Fase</th><th>Monto Facturado' + esc(etiquetaPeriodo(clave)) + '</th><th>Cotización Inicial</th><th></th></tr></thead>'
+            +   '<tbody>' + (filas || '<tr><td colspan="6" class="ef-vacio">Sin agendamientos.</td></tr>') + '</tbody>'
             + '</table></div>';
     }
 
@@ -668,6 +680,24 @@
     function cerrarAuditoria() {
         document.getElementById('efAuditoriaOverlay').classList.remove('is-abierto');
         auditoriaAbierta = null;
+    }
+
+    // Entrada externa desde Estado de Flujo ("Ver más" en fase 5) — a
+    // diferencia del botón "Auditar" (que ya corre con un promotor
+    // seleccionado a mano en la lista de la izquierda), acá hay que fijar
+    // promActivo y limpiar el filtro de Periodo/PDV que haya quedado de
+    // antes: si no, el panel de auditoría se abre bien pero la tabla de
+    // fondo puede quedar en "Selecciona un promotor" o sin esa fila (mes
+    // distinto al actual, que es el default de efPromoFiltroPeriodo).
+    function abrirAuditoriaDesdeFuera(agendamientoId) {
+        var p = pipeline.filter(function (x) { return String(x.agendamiento_id) === String(agendamientoId); })[0];
+        if (!p) return;
+        document.getElementById('efPromoFiltroPeriodo').value = 'todos';
+        document.getElementById('efPromoFiltroPdv').value = '';
+        document.getElementById('efPromoFiltroEmpresa').value = '';
+        document.getElementById('efPromoFiltroPromotor').value = '';
+        promActivo = p.usuario || '(sin asignar)';
+        abrirAuditoria(agendamientoId);
     }
 
     function renderAuditoriaTimeline(p, ciclos) {
@@ -1133,6 +1163,45 @@
         XLSX.writeFile(libro, 'factura_por_promotor_' + dd + '-' + mm + '-' + hoy.getFullYear() + '.xlsx');
     }
 
+    // ── Filtros: Promotor / PDV / Empresa ──────────────────────────────
+    // Promotor y Empresa salen de allRows (todo lo ya cargado, cualquier
+    // fase/estado); PDV usa el mismo catálogo de locales que Agendamientos
+    // (get_pdvs.php) para ofrecer todo el canal, no solo los PDV que ya
+    // tienen facturación. Los 3 usan el combobox con buscador compartido
+    // con Agendamientos (habilitarComboBuscador en agenda-crear.js, ver
+    // window.AgendaHabilitarComboBuscador) — pedido explícito del usuario
+    // (2026-07-16: "separa pdv empresa ponle como tenemos [en
+    // Agendamientos]... el promotor también con sus búsquedas").
+    function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
+        var select = document.getElementById(selectId);
+        var valorPrevio = select.value;
+        var vistos = {};
+        var valores = [];
+        rows.forEach(function (r) {
+            var v = r[campo];
+            if (v && !vistos[v]) { vistos[v] = true; valores.push(v); }
+        });
+        valores.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+        select.innerHTML = '<option value="">' + etiquetaTodos + '</option>';
+        valores.forEach(function (v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+        });
+        // Conserva la selección activa entre refrescos (p.ej. al apretar
+        // Actualizar) si ese valor sigue existiendo en el nuevo listado.
+        if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
+    }
+
+    function cargarOpcionesPdv() {
+        fetch(GETTERS_BASE + 'get_pdvs.php')
+            .then(function (r) { return r.json(); })
+            .then(function (json) {
+                poblarSelectDistinct('efPromoFiltroPdv', json.data || [], 'pos_name', 'Todos');
+            });
+    }
+
     // ── Carga de datos ────────────────────────────────────────────────
     function cargar() {
         document.getElementById('efPromoLista').innerHTML = '<div class="ef-vacio">Cargando...</div>';
@@ -1150,6 +1219,8 @@
                 porAgendamiento = agruparPorAgendamiento(allRows);
                 pagosPorProforma = agruparPagosPorProforma(resultados[1].data || []);
                 poblarSelectorPeriodo();
+                poblarSelectDistinct('efPromoFiltroPromotor', allRows, 'usuario', 'Todos');
+                poblarSelectDistinct('efPromoFiltroEmpresa', allRows, 'empresa', 'Todas');
                 renderPromoLista();
                 if (promActivo) renderPromoDetalle(promActivo);
             })
@@ -1159,10 +1230,14 @@
     }
 
     // ── Eventos (delegación, un solo listener por contenedor) ─────────
-    document.getElementById('efPromoSearch').addEventListener('input', renderPromoLista);
-    // "PDV o empresa": recalcula lista, badges/totales y filas de la tabla
-    // del promotor abierto (ver renderPromoDetalle).
-    document.getElementById('efPromoBusquedaPdv').addEventListener('input', function () {
+    document.getElementById('efPromoFiltroPromotor').addEventListener('change', renderPromoLista);
+    // PDV/Empresa: recalcula lista, badges/totales y filas de la tabla del
+    // promotor abierto (ver renderPromoDetalle).
+    document.getElementById('efPromoFiltroPdv').addEventListener('change', function () {
+        renderPromoLista();
+        if (promActivo) renderPromoDetalle(promActivo);
+    });
+    document.getElementById('efPromoFiltroEmpresa').addEventListener('change', function () {
         renderPromoLista();
         if (promActivo) renderPromoDetalle(promActivo);
     });
@@ -1170,6 +1245,12 @@
         renderPromoLista();
         if (promActivo) renderPromoDetalle(promActivo);
     });
+    // Combo con buscador dentro del desplegable — mismo widget que ya usa
+    // "Crear visita" en Agendamientos, reutilizado tal cual acá.
+    ['efPromoFiltroPromotor', 'efPromoFiltroPdv', 'efPromoFiltroEmpresa'].forEach(function (id) {
+        window.AgendaHabilitarComboBuscador(id);
+    });
+    cargarOpcionesPdv();
 
     document.getElementById('efPromoLista').addEventListener('click', function (e) {
         // Checkbox del promotor: selecciona/deselecciona todos sus
@@ -1201,12 +1282,12 @@
     });
 
     // "Seleccionar todo": solo lo visible/filtrado (respeta PDV/empresa y
-    // el buscador de promotor de la lista izquierda).
+    // el filtro de promotor de la lista izquierda).
     document.getElementById('efSeleccionarTodo').addEventListener('click', function () {
         var mapa = construirMapaPromotores();
-        var q = (document.getElementById('efPromoSearch').value || '').toLowerCase().trim();
+        var promotorSel = document.getElementById('efPromoFiltroPromotor').value;
         Object.keys(mapa).forEach(function (u) {
-            if (q && u.toLowerCase().indexOf(q) === -1) return;
+            if (promotorSel && u !== promotorSel) return;
             mapa[u].ids.forEach(function (id) { agendamientosSeleccionados.add(id); });
         });
         renderPromoLista();
@@ -1252,5 +1333,6 @@
     document.getElementById('efDescargarExcel').addEventListener('click', exportarExcel);
 
     window.FacturaRecargar = cargar;
+    window.FacturaAbrirAuditoria = abrirAuditoriaDesdeFuera;
     cargar();
 })();

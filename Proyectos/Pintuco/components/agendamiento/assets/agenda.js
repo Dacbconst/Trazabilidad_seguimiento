@@ -4,7 +4,8 @@
     var calendar, miniCalendar, map;
     var markersById = {};
     var editingId = null;
-    var currentRows = [];
+    var currentRows = [];      // dataset "principal": respeta el filtro de Estado (calendario/mapa/leyenda)
+    var pendientesRows = [];   // dataset de "Agendas pendientes": mismos filtros MENOS Estado (ver cargarAgenda)
     var hiddenIds = {};
     var syncingMini = false;
     var yearPickerYear = new Date().getFullYear();
@@ -17,6 +18,7 @@
     // criterio que ya sigue este proyecto entre agenda.js/agenda-crear.js).
     var editMapaPin = null;
     var editCoordenadas = null; // { lat, lng } — arranca con la ubicación ya guardada de la visita
+    var editSnapshot = null; // foto de los campos al abrir, para saber si hay algo que guardar
     var PUNTO_INICIAL_EDICION = [-2.170998, -79.922359];
     var PATRON_PLUS_CODE_EDICION = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
     var RE_EMPRESA_EDICION = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\-&' ]+$/;
@@ -229,12 +231,14 @@
                 } else {
                     hiddenIds[r.id] = true;
                 }
-                var visibles = filtrarPorBusqueda(currentRows);
-                refrescarEventos(visibles);
+                // refrescarEventos/indexarEstadosPorFecha ya descartan los
+                // hiddenIds internamente (ver buildEvents) — no hace falta
+                // filtrar la lista antes de pasarla.
+                refrescarEventos(currentRows);
                 // Los puntitos del mini-calendario también deben dejar de
                 // marcar un día si la única visita de ese día se ocultó
                 // desde este checkbox — no solo cuando se recarga de la BD.
-                indexarEstadosPorFecha(visibles);
+                indexarEstadosPorFecha(currentRows);
                 pintarPuntosMiniCalendario();
             });
 
@@ -288,95 +292,151 @@
         buildEvents(rows).forEach(function (ev) { calendar.addEvent(ev); });
     }
 
-    function pintarLeyenda(rows) {
-        var c = { pendiente: 0, confirmado: 0, reagendada: 0, vencida: 0, cancelada: 0, completada: 0 };
-        rows.forEach(function (r) { c[estadoVisual(r)]++; });
-        document.getElementById('agendaCountPendientes').textContent = c.pendiente;
+    // "Pendientes" y "Vencidas" salen de pendientesRows (ignora el filtro de
+    // Estado, ver cargarAgenda) para que este contador nunca contradiga a la
+    // lista de "Agendas pendientes" de al lado — Confirmadas/Reagendadas/
+    // Canceladas sí reflejan el Estado elegido, son solo un resumen de lo
+    // que se está viendo en el calendario principal.
+    function pintarLeyenda(rows, pendientes) {
+        var c = { confirmado: 0, reagendada: 0, cancelada: 0 };
+        rows.forEach(function (r) { var e = estadoVisual(r); if (e in c) c[e]++; });
+        var cAccion = { pendiente: 0, vencida: 0 };
+        pendientes.forEach(function (r) { var e = estadoVisual(r); if (e in cAccion) cAccion[e]++; });
+        document.getElementById('agendaCountPendientes').textContent = cAccion.pendiente;
         document.getElementById('agendaCountConfirmadas').textContent = c.confirmado;
         document.getElementById('agendaCountReagendadas').textContent = c.reagendada;
-        document.getElementById('agendaCountVencidas').textContent = c.vencida;
+        document.getElementById('agendaCountVencidas').textContent = cAccion.vencida;
         document.getElementById('agendaCountCanceladas').textContent = c.cancelada;
     }
 
-    function filtrarPorBusqueda(rows) {
-        var q       = document.getElementById('agendaBusqueda').value.toLowerCase().trim();
-        var tecnico = document.getElementById('agendaFiltroTecnico').value;
-        return rows.filter(function (r) {
-            if (tecnico && r.tecnico !== tecnico) return false;
-            if (q && ![r.titulo, r.pdv, r.empresa, r.contacto].some(function (v) {
-                return (v || '').toLowerCase().indexOf(q) !== -1;
-            })) return false;
-            return true;
-        });
-    }
-
     function renderizar() {
-        var rows = filtrarPorBusqueda(currentRows);
-        refrescarEventos(rows);
-        pintarMapa(rows);
-        pintarPendientes(rows);
-        pintarLeyenda(rows);
-        indexarEstadosPorFecha(rows);
+        refrescarEventos(currentRows);
+        pintarMapa(currentRows);
+        pintarPendientes(pendientesRows);
+        pintarLeyenda(currentRows, pendientesRows);
+        indexarEstadosPorFecha(currentRows);
         pintarPuntosMiniCalendario();
     }
 
-    var promotorOpcionesListas = false;
-    var tecnicoOpcionesListas  = false;
-
-    function construirOpcionesPromotor(rows) {
-        var select = document.getElementById('agendaFiltroPromotor');
-        var vistos = {};
-        rows.forEach(function (r) {
-            if (r.usuario && !vistos[r.usuario]) {
-                vistos[r.usuario] = true;
-                var opt = document.createElement('option');
-                opt.value = r.usuario;
-                opt.textContent = r.usuario;
-                select.appendChild(opt);
-            }
-        });
-    }
-
-    function construirOpcionesTecnico(rows) {
-        var select = document.getElementById('agendaFiltroTecnico');
-        var vistos = {};
-        rows.forEach(function (r) {
-            if (r.tecnico && !vistos[r.tecnico]) {
-                vistos[r.tecnico] = true;
-                var opt = document.createElement('option');
-                opt.value = r.tecnico;
-                opt.textContent = r.tecnico;
-                select.appendChild(opt);
-            }
-        });
+    // ── Filtros: Promotor / Técnico / PDV / Empresa / Estado ───────────
+    // Los 4 primeros viajan como parámetros reales de get_agenda.php (AND
+    // entre sí) — antes Técnico se aplicaba solo en el cliente sobre lo que
+    // ya hubiera cargado, así que si esa visita no venía en el lote (por
+    // ejemplo, porque ya estaba "completada" y por defecto el getter no la
+    // trae) el filtro no tenía nada que mostrar, aunque el técnico sí
+    // tuviera agendamientos. Pedido explícito del usuario (2026-07-16).
+    function paramsFiltros(incluirEstado) {
+        var params = new URLSearchParams();
+        var promotor = document.getElementById('agendaFiltroPromotor').value;
+        var tecnico  = document.getElementById('agendaFiltroTecnico').value;
+        var pdv      = document.getElementById('agendaFiltroPdv').value;
+        var empresa  = document.getElementById('agendaFiltroEmpresa').value;
+        if (promotor) params.set('usuario', promotor);
+        if (tecnico)  params.set('tecnico', tecnico);
+        if (pdv)      params.set('pdv', pdv);
+        if (empresa)  params.set('empresa', empresa);
+        var estado = document.getElementById('agendaFiltroEstado').value;
+        if (incluirEstado && estado) {
+            params.set('estado_agenda', estado);
+        } else if (promotor || tecnico || pdv || empresa) {
+            // Buscando algo puntual (cualquiera de estos 4 filtros activo)
+            // sin haber tocado Estado: también se incluyen las visitas
+            // "completada". Sin esto, filtrar por un técnico/PDV/empresa
+            // cuyas visitas ya se completaron parecía no traer nada — pedido
+            // explícito del usuario (2026-07-16).
+            params.set('incluir_completadas', '1');
+        }
+        return params;
     }
 
     function cargarAgenda() {
-        var promotor = document.getElementById('agendaFiltroPromotor').value;
-        var estado   = document.getElementById('agendaFiltroEstado').value;
-        var params = new URLSearchParams();
-        if (promotor) params.set('usuario', promotor);
-        if (estado)   params.set('estado_agenda', estado);
+        var paramsPrincipal  = paramsFiltros(true);
+        // Ignora a propósito el filtro de Estado: "Agendas pendientes" (y su
+        // contador en la leyenda) debe seguir viéndose sin importar qué
+        // Estado tenga elegido el analista para el calendario principal.
+        var paramsPendientes = paramsFiltros(false);
 
         // Se retorna la promesa para poder encadenar acciones que necesitan
         // esperar a que el calendario ya tenga los eventos repintados (p.ej.
         // navegar y resaltar la visita recién guardada).
+        return Promise.all([
+            fetch(GETTERS_BASE + 'get_agenda.php?' + paramsPrincipal.toString()).then(function (r) { return r.json(); }),
+            fetch(GETTERS_BASE + 'get_agenda.php?' + paramsPendientes.toString()).then(function (r) { return r.json(); })
+        ]).then(function (respuestas) {
+            currentRows = respuestas[0].data || [];
+            pendientesRows = respuestas[1].data || [];
+            renderizar();
+            // agenda-crear.js lee esto para llenar su select de Promotor
+            // sin tener que pedirle los mismos datos de nuevo al getter.
+            window.AgendaCurrentRows = currentRows;
+        });
+    }
+
+    // Universo completo de agendamientos (todos los estados, incluida
+    // 'completada', sin ningún filtro) — fuente para los desplegables de
+    // Promotor y Empresa, que deben mostrar SIEMPRE todo lo que existe, no
+    // solo lo que el calendario principal decide traer por defecto.
+    var opcionesBaseCache = null;
+    function cargarOpcionesBase() {
+        if (opcionesBaseCache) return Promise.resolve(opcionesBaseCache);
+        var params = new URLSearchParams();
+        params.set('incluir_completadas', '1');
         return fetch(GETTERS_BASE + 'get_agenda.php?' + params.toString())
-            .then(function (resp) { return resp.json(); })
+            .then(function (r) { return r.json(); })
             .then(function (json) {
-                currentRows = json.data || [];
-                if (!promotorOpcionesListas && !promotor) {
-                    construirOpcionesPromotor(currentRows);
-                    promotorOpcionesListas = true;
-                }
-                if (!tecnicoOpcionesListas) {
-                    construirOpcionesTecnico(currentRows);
-                    tecnicoOpcionesListas = true;
-                }
-                renderizar();
-                // agenda-crear.js lee esto para llenar su select de Promotor
-                // sin tener que pedirle los mismos datos de nuevo al getter.
-                window.AgendaCurrentRows = currentRows;
+                opcionesBaseCache = json.data || [];
+                return opcionesBaseCache;
+            });
+    }
+
+    function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
+        var select = document.getElementById(selectId);
+        var vistos = {};
+        var valores = [];
+        rows.forEach(function (r) {
+            var v = r[campo];
+            if (v && !vistos[v]) { vistos[v] = true; valores.push(v); }
+        });
+        valores.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+        select.innerHTML = '<option value="">' + etiquetaTodos + '</option>';
+        valores.forEach(function (v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+        });
+    }
+
+    // Sin promotor elegido: todos los técnicos que han tenido agendamiento.
+    // Con promotor elegido: solo los técnicos que han trabajado con ese
+    // promotor — en ambos casos contando todos los estados (incluida
+    // 'completada'), el filtro de Estado no debe acotar esta lista. Se
+    // vuelve a llamar cada vez que cambia Promotor (ver DOMContentLoaded).
+    function cargarOpcionesTecnico(promotor) {
+        var params = new URLSearchParams();
+        params.set('incluir_completadas', '1');
+        if (promotor) params.set('usuario', promotor);
+        return fetch(GETTERS_BASE + 'get_agenda.php?' + params.toString())
+            .then(function (r) { return r.json(); })
+            .then(function (json) {
+                poblarSelectDistinct('agendaFiltroTecnico', json.data || [], 'tecnico', 'Todos');
+            });
+    }
+
+    // Mismo catálogo de locales que usa el modal "Crear visita"
+    // (get_pdvs.php / lvi_rutero) — así el filtro de PDV ofrece TODO el
+    // canal, no solo los PDV que ya tienen algún agendamiento cargado.
+    function cargarOpcionesPdv() {
+        return fetch(GETTERS_BASE + 'get_pdvs.php')
+            .then(function (r) { return r.json(); })
+            .then(function (json) {
+                // get_pdvs.php es DISTINCT sobre (pos_id, pos_name, city): un
+                // mismo nombre de local puede repetirse con otro pos_id/city
+                // (sucursales homónimas). El filtro solo puede pegarle a
+                // get_agenda.php por nombre (columna "pdv" es texto, no id),
+                // así que se dedupea por pos_name para no listar el mismo
+                // texto dos veces.
+                poblarSelectDistinct('agendaFiltroPdv', json.data || [], 'pos_name', 'Todos');
             });
     }
 
@@ -388,6 +448,18 @@
     // ese momento queda guardada en la BD pero invisible hasta navegar
     // manualmente hasta ahí (esto era el bug: "se guardó pero no apareció").
     window.AgendaRecargar = cargarAgenda;
+    // El calendario vive montado en el DOM todo el tiempo (esta app no
+    // recarga la página al cambiar de sección) — si el analista dejó la
+    // vista parqueada en otra semana/mes (por ejemplo, abrió una visita
+    // agendada a futuro) y se va a otra sección, al volver a Agendamientos
+    // seguía ahí parqueado, obligando a apretar "Hoy" a mano cada vez.
+    // index.php llama esto (en vez de AgendaRecargar a secas) específicamente
+    // al hacer clic en el link de Agendamientos del sidebar — pedido
+    // explícito del usuario (2026-07-16).
+    window.AgendaEntrar = function () {
+        if (calendar) calendar.today();
+        return cargarAgenda();
+    };
     window.AgendaResaltar = function (id, fecha, hora) { resaltarVisita(id, fecha, hora); };
     // Reusado por agenda-crear.js: el modal de "Nueva visita" pega contra el
     // mismo endpoint/misma regla de conflicto (DURACION_APROX_MIN por
@@ -489,6 +561,7 @@
             item.addEventListener('click', function () {
                 setHora(this.dataset.valor);
                 cerrarHoraDropdown();
+                actualizarEstadoGuardar();
             });
             lista.appendChild(item);
         }
@@ -542,6 +615,42 @@
         if (activo) inicializarMapaEdicion();
     }
 
+    // "Guardar" queda fijo en pantalla siempre (nunca aparece/desaparece,
+    // mismo criterio que .ctc-btn-descarga.is-seleccion en contactados.css)
+    // — solo cambia de apagado a activo cuando hay un cambio real que
+    // guardar, comparado contra la foto tomada al abrir la card
+    // (tomarSnapshotEdicion, llamada al final de abrirEdicion). Nota:
+    // "modoEdicion" queda fuera de esta foto a propósito — activar el
+    // switch por sí solo no es un cambio, así que no enciende el botón;
+    // recién se enciende cuando de verdad se toca un campo, y si ese campo
+    // vuelve a quedar igual que como llegó, se apaga otra vez (pedido
+    // explícito del usuario 2026-07-15).
+    function tomarSnapshotEdicion() {
+        return {
+            fecha: document.getElementById('agendaEditFecha').value,
+            hora: getHora(),
+            tecnico: document.getElementById('agendaEditTecnico').value,
+            empresa: document.getElementById('agendaEditEmpresa').value,
+            mail: document.getElementById('agendaEditMail').value,
+            direccion: document.getElementById('agendaEditDireccion').value,
+            celular: document.getElementById('agendaEditCelular').value,
+            convencional: document.getElementById('agendaEditConvencional').value,
+            lat: editCoordenadas ? editCoordenadas.lat : null,
+            lng: editCoordenadas ? editCoordenadas.lng : null
+        };
+    }
+
+    function actualizarEstadoGuardar() {
+        var btn = document.getElementById('agendaEditGuardar');
+        var hayCambios = false;
+        if (editSnapshot) {
+            var actual = tomarSnapshotEdicion();
+            hayCambios = Object.keys(actual).some(function (k) { return actual[k] !== editSnapshot[k]; });
+        }
+        btn.disabled = !hayCambios;
+        btn.classList.toggle('is-activo', hayCambios);
+    }
+
     // Mismo patrón de mapa que agenda-crear.js (Leaflet + pin fijo, sin
     // arrastre — el mapa se desplaza debajo). Arranca centrado en la
     // ubicación YA guardada de la visita (editCoordenadas, seteado en
@@ -571,6 +680,7 @@
     function confirmarPinEdicion() {
         var pos = editMapaPin.getCenter();
         editCoordenadas = { lat: pos.lat, lng: pos.lng };
+        actualizarEstadoGuardar();
 
         if (!MAPBOX_TOKEN) {
             alert('Pin fijado. Falta el token de Mapbox para autocompletar la calle — escríbela a mano.');
@@ -711,6 +821,12 @@
         document.getElementById('agendaEditErrMotivo').textContent = '';
         document.getElementById('agendaEditMotivoWrap').style.display = (estado === 'vencida') ? 'block' : 'none';
 
+        // Foto de "cómo llegó" la card, tomada al final de abrirEdicion ya con
+        // todos los campos cargados — a partir de acá cualquier diferencia
+        // contra esta foto es lo que decide si "Guardar" se enciende.
+        editSnapshot = tomarSnapshotEdicion();
+        actualizarEstadoGuardar();
+
         document.getElementById('agendaEditOverlay').classList.add('active');
 
         var marker = markersById[editingId];
@@ -722,6 +838,7 @@
 
     function cerrarEdicion() {
         editingId = null;
+        editSnapshot = null;
         setModoEdicion(false);
         document.getElementById('agendaEditOverlay').classList.remove('active');
     }
@@ -1058,13 +1175,35 @@
         }).addTo(map);
 
         construirOpcionesHora();
+
+        // Universo completo (Promotor/Empresa) y catálogo de locales (PDV) se
+        // piden una sola vez; Técnico se recalcula acá para el estado inicial
+        // (sin promotor => todos) y de nuevo cada vez que cambie Promotor.
+        cargarOpcionesPdv();
+        cargarOpcionesBase().then(function (base) {
+            poblarSelectDistinct('agendaFiltroPromotor', base, 'usuario', 'Todos');
+            poblarSelectDistinct('agendaFiltroEmpresa', base, 'empresa', 'Todas');
+        });
+        cargarOpcionesTecnico('');
         cargarAgenda();
 
+        // Combo con buscador dentro del desplegable — mismo widget que ya
+        // usa "Crear visita" (agenda-crear.js), reutilizado tal cual acá.
+        ['agendaFiltroPromotor', 'agendaFiltroTecnico', 'agendaFiltroPdv', 'agendaFiltroEmpresa'].forEach(function (id) {
+            window.AgendaHabilitarComboBuscador(id);
+        });
+
         document.getElementById('agendaBtnActualizar').addEventListener('click', cargarAgenda);
-        document.getElementById('agendaFiltroPromotor').addEventListener('change', cargarAgenda);
-        document.getElementById('agendaFiltroEstado').addEventListener('change', cargarAgenda);
-        document.getElementById('agendaBusqueda').addEventListener('input', renderizar);
-        document.getElementById('agendaFiltroTecnico').addEventListener('change', renderizar);
+        document.getElementById('agendaBtnBuscar').addEventListener('click', cargarAgenda);
+        // Elegir un filtro YA NO recarga solo — recarga únicamente al
+        // apretar "Buscar" (o "Actualizar"), pedido explícito del usuario
+        // (2026-07-16: "la búsqueda del filtro se aplicaba solo si le doy a
+        // buscar"). Promotor es la única excepción: solo recalcula las
+        // opciones de Técnico (no trae datos), así el desplegable ya está
+        // acotado para cuando el analista apriete Buscar.
+        document.getElementById('agendaFiltroPromotor').addEventListener('change', function () {
+            cargarOpcionesTecnico(this.value);
+        });
 
         document.getElementById('agendaEditCancelar').addEventListener('click', cerrarEdicion);
         document.getElementById('agendaEditClose').addEventListener('click', cerrarEdicion);
@@ -1075,8 +1214,18 @@
 
         document.getElementById('agendaEditModoEdicion').addEventListener('change', function () {
             setModoEdicion(this.checked);
+            actualizarEstadoGuardar();
         });
         document.getElementById('agendaEditConfirmarPin').addEventListener('click', confirmarPinEdicion);
+
+        // "Guardar" solo se activa si algo cambió respecto a como se abrió
+        // la card (ver actualizarEstadoGuardar) — un input por cada
+        // campo que se puede tocar, fecha/hora/técnico siempre y los de
+        // contacto solo visibles en modo edición pero igual escuchados acá.
+        ['agendaEditFecha', 'agendaEditTecnico', 'agendaEditEmpresa', 'agendaEditMail',
+            'agendaEditDireccion', 'agendaEditCelular', 'agendaEditConvencional'].forEach(function (id) {
+            document.getElementById(id).addEventListener('input', actualizarEstadoGuardar);
+        });
 
         document.getElementById('agendaEditHoraTrigger').addEventListener('click', function (ev) {
             ev.stopPropagation();

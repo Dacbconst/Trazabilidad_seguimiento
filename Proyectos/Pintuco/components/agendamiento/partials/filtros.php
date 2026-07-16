@@ -1,21 +1,33 @@
 <div class="mod-filtros" id="agendaFiltros">
-    <div class="filter-group is-busqueda">
-        <label>PDV o empresa</label>
-        <div class="input-group">
-            <input type="text" class="form-control" id="agendaBusqueda" placeholder="Buscar PDV o empresa...">
-            <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
-        </div>
-    </div>
     <div class="filter-group">
-        <label>Mercaderista</label>
+        <label>Promotor</label>
         <select class="form-control" id="agendaFiltroPromotor">
             <option value="">Todos</option>
         </select>
     </div>
     <div class="filter-group">
+        <!-- Sus opciones se recalculan cada vez que cambia Promotor (ver
+             cargarOpcionesTecnico en agenda.js): sin promotor elegido salen
+             TODOS los técnicos que han tenido agendamiento, con promotor
+             elegido se acota a los técnicos que han trabajado con ese
+             promotor — en ambos casos contando todos los estados, el
+             filtro de Estado no interviene acá a propósito. -->
         <label>Técnico asignado</label>
         <select class="form-control" id="agendaFiltroTecnico">
             <option value="">Todos</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <!-- Mismo catálogo de locales que usa "Crear visita" (get_pdvs.php) -->
+        <label>PDV</label>
+        <select class="form-control" id="agendaFiltroPdv">
+            <option value="">Todos</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Empresa</label>
+        <select class="form-control" id="agendaFiltroEmpresa">
+            <option value="">Todas</option>
         </select>
     </div>
     <div class="filter-group">
@@ -29,6 +41,16 @@
             <option value="cancelada">Cancelada</option>
             <option value="completada">Completada</option>
         </select>
+    </div>
+
+    <!-- Elegir un filtro NO dispara la búsqueda solo — recarga únicamente
+         al apretar este botón (o "Actualizar"), pedido explícito del
+         usuario (2026-07-16). -->
+    <div class="filter-group agenda-filtro-buscar-wrap">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-actualizar" id="agendaBtnBuscar">
+            <i class="glyphicon glyphicon-search"></i> Buscar
+        </button>
     </div>
 
     <div class="mod-filtros-extra">

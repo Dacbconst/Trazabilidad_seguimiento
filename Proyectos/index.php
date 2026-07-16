@@ -151,7 +151,13 @@
 			// no mantener dos listas separadas que se puedan desincronizar.
 			function funcionRefrescoDe(idSeccion) {
 				return {
-					'sec-agendamientos': window.AgendaRecargar,
+					// AgendaEntrar (no AgendaRecargar a secas): además de traer
+					// datos frescos, resetea el calendario a la semana de hoy
+					// — sin esto quedaba parqueado en la última fecha que se
+					// hubiera visto, obligando a apretar "Hoy" a mano cada vez
+					// que se volvía a esta sección (pedido explícito del
+					// usuario 2026-07-16).
+					'sec-agendamientos': window.AgendaEntrar,
 					'sec-contactados': window.ContactadosRefrescar,
 					'sec-proforma': window.ProformaRecargar,
 					'sec-factura': window.FacturaRecargar,
