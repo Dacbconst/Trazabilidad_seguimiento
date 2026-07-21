@@ -37,7 +37,8 @@
         if (ultimo.hora && ultimo.tecnico) return 2;
         return 1;
     }
-    // refFechaFase(): fecha de referencia para "días sin avance" en la fase actual.
+    // refFechaFase(): fecha de referencia para el filtro de Período (no para
+    // "vencida", que usa fecha_agendamiento — ver esVencida()).
     function refFechaFase(ultimo, fase) {
         if (fase >= 4) return ultimo.proforma_fecha_registro || ultimo.contacto_fecha_registro;
         return ultimo.contacto_fecha_registro;
@@ -47,6 +48,34 @@
         var f = String(fechaStr).split(' ')[0];
         if (!f || f === '0000-00-00') return null;
         return Math.floor((new Date() - new Date(f + 'T00:00:00')) / 86400000);
+    }
+
+    // Mismo helper que agenda.js — fecha local "YYYY-MM-DD" (no toISOString(),
+    // que corre por UTC y puede desfasar un día).
+    function hoyISO() {
+        var h = new Date();
+        return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
+    }
+
+    // Misma regla que el UPDATE perezoso de get_agenda.php (contrato de 6
+    // estados con la app móvil): una visita está vencida si su fecha ya pasó
+    // y no fue cancelada ni completada — sin importar si el literal
+    // estado_agenda en BD ya se corrigió (esa corrección solo corre cuando
+    // se abre la Agenda; el Dashboard es de solo lectura, así que recalcula
+    // la misma condición en vez de confiar ciegamente en el campo).
+    function esVencida(fechaAgendamiento, estadoAgenda) {
+        if (!fechaAgendamiento) return false;
+        if (estadoAgenda === 'cancelada' || estadoAgenda === 'completada') return false;
+        var f = String(fechaAgendamiento).split(' ')[0];
+        if (!f || f === '0000-00-00') return false;
+        return f < hoyISO();
+    }
+
+    function fmtFechaCorta(fechaStr) {
+        if (!fechaStr) return '—';
+        var partes = String(fechaStr).split(' ')[0].split('-');
+        if (partes.length !== 3) return '—';
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
     }
 
     // Agrupa las filas crudas (una por agendamiento×ciclo) en un registro por
@@ -68,11 +97,23 @@
             var ultimo = ciclos[ciclos.length - 1];
             var fase   = getFase(ultimo);
 
+            // Excluye agendamientos cuyo ciclo vigente quedó 'rechazado'
+            // (proceso cerrado sin llegar a factura, ver update_proforma.php)
+            // — "Monto negociado" vive al lado de "Monto facturado" como par
+            // pipeline-vs-cerrado, así que un proceso muerto debe contribuir
+            // $0, no el monto de una ronda anterior ya superada (decisión
+            // 2026-07-16, distinta a propósito del "Total acumulado" de
+            // Estado de Flujo, que sí las cuenta porque responde otra
+            // pregunta: actividad total, no pipeline vivo). 'rechazado' es
+            // siempre terminal — si aparece, solo puede ser en ciclos[último],
+            // nunca en una ronda intermedia (no se abre ciclo nuevo después).
             var ultimoConMonto = null;
-            ciclos.forEach(function (c) { if (c.monto_validado) ultimoConMonto = c; });
+            if (ultimo.estado_proforma !== 'rechazado') {
+                ciclos.forEach(function (c) { if (c.monto_validado) ultimoConMonto = c; });
+            }
 
-            var fechaRef = refFechaFase(ultimo, fase);
-            var dias     = diasDesde(fechaRef);
+            var fechaAgendamiento = ciclos[0].fecha_agendamiento;
+            var estadoAgenda      = ciclos[0].estado_agenda;
 
             return {
                 agendamiento_id: id,
@@ -82,9 +123,10 @@
                 pdv: ciclos[0].pdv,
                 fase: fase,
                 montoNegociado: ultimoConMonto ? (parseFloat(ultimoConMonto.monto_validado) || 0) : 0,
-                fechaRef: fechaRef,
-                dias: dias,
-                estancado: fase < 5 && dias !== null && dias > 7,
+                fechaRef: refFechaFase(ultimo, fase),
+                fechaAgendamiento: fechaAgendamiento,
+                estadoAgenda: estadoAgenda,
+                vencida: esVencida(fechaAgendamiento, estadoAgenda),
             };
         });
     }
@@ -122,12 +164,12 @@
     }
 
     function renderKpis(kpis) {
-        document.getElementById('kpiTotal').textContent      = kpis.total_pdvs;
+        document.getElementById('kpiPdvs').textContent       = kpis.pdvs_distintos;
         document.getElementById('kpiFacturado').textContent  = fmtMonto(kpis.monto_facturado);
         document.getElementById('kpiNegociado').textContent  = fmtMonto(kpis.monto_negociado);
         document.getElementById('kpiConversion').textContent = kpis.conversion_pct + '%';
-        document.getElementById('kpiEstancados').textContent = kpis.estancados_count;
-        document.getElementById('dashFunnelTotal').textContent = kpis.total_pdvs + ' agendamiento' + (kpis.total_pdvs !== 1 ? 's' : '') + ' totales';
+        document.getElementById('kpiVencidas').textContent = kpis.vencidas_count;
+        document.getElementById('dashFunnelTotal').textContent = kpis.total_agendamientos + ' agendamiento' + (kpis.total_agendamientos !== 1 ? 's' : '') + ' totales';
         document.querySelectorAll('.dash-kpi').forEach(function (el) {
             el.classList.remove('is-loading');
         });
@@ -189,6 +231,36 @@
         container.innerHTML = filas + nota;
     }
 
+    function renderTopPdv(pdvs) {
+        var container = document.getElementById('dashTopPdv');
+        if (!pdvs || !pdvs.length) {
+            container.innerHTML = '<div class="dash-promo-vacio">Sin datos.</div>';
+            return;
+        }
+        var maxMonto = Math.max.apply(null, pdvs.map(function (p) { return p.monto_facturado; }));
+        var maxTotal = Math.max.apply(null, pdvs.map(function (p) { return p.total; })) || 1;
+
+        var filas = pdvs.map(function (p, i) {
+            var inicial = (p.pdv || '?').charAt(0).toUpperCase();
+            var count   = p.total + ' agendamiento' + (p.total !== 1 ? 's' : '');
+            var pct     = maxMonto > 0 ? Math.round(p.monto_facturado / maxMonto * 100) : Math.round(p.total / maxTotal * 100);
+            return '<div class="dash-promo-fila">'
+                + '<span class="dash-promo-rank">' + (i + 1) + '</span>'
+                + '<div class="dash-promo-avatar">' + esc(inicial) + '</div>'
+                + '<div class="dash-promo-info">'
+                +   '<div class="dash-promo-nombre">' + esc(p.pdv || '—') + '</div>'
+                +   '<div class="dash-promo-barra-wrap"><div class="dash-promo-barra" style="width:' + Math.max(3, pct) + '%"></div></div>'
+                + '</div>'
+                + '<div class="dash-promo-meta">'
+                +   '<div class="dash-promo-pdvs">' + count + '</div>'
+                +   '<div class="dash-promo-monto">' + fmtMonto(p.monto_facturado) + '</div>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+
+        container.innerHTML = filas;
+    }
+
     // Recalcula KPIs/embudo/promotores a partir de los datos ya cargados,
     // aplicando los filtros de Promotor y Período — sin ida y vuelta al
     // servidor (mismo criterio que proforma.js / contactados.js).
@@ -200,22 +272,23 @@
             if (promotorSel && a.usuario !== promotorSel) return false;
             return pasaPeriodo(a.fechaRef, periodoClave);
         });
-        agendamientosVista = agendamientos; // para el modal de "Agendamientos estancados"
+        agendamientosVista = agendamientos; // para el modal de "Visitas vencidas"
 
         var idsPermitidos = {};
         agendamientos.forEach(function (a) { idsPermitidos[a.agendamiento_id] = true; });
 
-        var totalPdvs = agendamientos.length;
+        var totalAgendamientos = agendamientos.length;
+        var pdvsDistintos = new Set(agendamientos.map(function (a) { return a.pdv; }).filter(Boolean)).size;
         var conteoFase = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         var montoNeg = 0;
-        var estancados = 0;
+        var vencidas = 0;
         agendamientos.forEach(function (a) {
             conteoFase[a.fase]++;
             montoNeg += a.montoNegociado;
-            if (a.estancado) estancados++;
+            if (a.vencida) vencidas++;
         });
         var fase5 = conteoFase[5];
-        var convPct = totalPdvs > 0 ? Math.round((fase5 / totalPdvs) * 1000) / 10 : 0;
+        var convPct = totalAgendamientos > 0 ? Math.round((fase5 / totalAgendamientos) * 1000) / 10 : 0;
 
         // Pagos reales (insert_pago_factura) de los agendamientos que pasan
         // el filtro actual — el monto facturado no vive en insert_proforma
@@ -223,22 +296,25 @@
         var pagosFiltrados = pagosCrudos.filter(function (pg) { return idsPermitidos[pg.id_agendamiento]; });
         var montoFact = 0;
         var facturadoPorUsuario = {};
+        var facturadoPorAgendamiento = {};
         pagosFiltrados.forEach(function (pg) {
             var monto = parseFloat(pg.monto_pago) || 0;
             montoFact += monto;
             var u = pg.usuario || '(sin asignar)';
             facturadoPorUsuario[u] = (facturadoPorUsuario[u] || 0) + monto;
+            facturadoPorAgendamiento[pg.id_agendamiento] = (facturadoPorAgendamiento[pg.id_agendamiento] || 0) + monto;
         });
 
         renderKpis({
-            total_pdvs: totalPdvs,
+            pdvs_distintos: pdvsDistintos,
+            total_agendamientos: totalAgendamientos,
             monto_negociado: montoNeg,
             monto_facturado: montoFact,
             conversion_pct: convPct,
-            estancados_count: estancados,
+            vencidas_count: vencidas,
         });
 
-        renderFunnel(FASES_META.map(function (m) { return { fase: m.fase, label: m.label, count: conteoFase[m.fase] }; }), totalPdvs);
+        renderFunnel(FASES_META.map(function (m) { return { fase: m.fase, label: m.label, count: conteoFase[m.fase] }; }), totalAgendamientos);
 
         var promMap = {};
         agendamientos.forEach(function (a) {
@@ -253,60 +329,70 @@
             .sort(function (a, b) { return b.monto_facturado - a.monto_facturado; })
             .slice(0, 8);
         renderPromotores(promotores);
+
+        var pdvMap = {};
+        agendamientos.forEach(function (a) {
+            var key = a.pdv || '(sin PDV)';
+            if (!pdvMap[key]) pdvMap[key] = { pdv: key, total: 0, monto_facturado: 0 };
+            pdvMap[key].total++;
+            pdvMap[key].monto_facturado += facturadoPorAgendamiento[a.agendamiento_id] || 0;
+        });
+        var topPdvs = Object.values(pdvMap)
+            .sort(function (a, b) { return b.monto_facturado - a.monto_facturado; })
+            .slice(0, 8);
+        renderTopPdv(topPdvs);
     }
 
     // ---------------------------------------------------------------
-    // Modal "Agendamientos estancados" — antes el número de la tarjeta no
-    // llevaba a ningún lado; ahora al hacer clic muestra CUÁLES son
-    // (empresa, contacto, punto de venta, promotor, fase y días sin
-    // avance), más estancado primero. Usa agendamientosVista, el mismo
-    // cálculo ya filtrado por Promotor/Período de renderizar() — sin pedir
-    // nada nuevo al servidor.
+    // Modal "Visitas vencidas" — al hacer clic en la tarjeta muestra CUÁLES
+    // son (empresa, contacto, punto de venta, promotor, fecha que se pasó y
+    // hace cuántos días), más vencida primero. Usa agendamientosVista, el
+    // mismo cálculo ya filtrado por Promotor/Período de renderizar() — sin
+    // pedir nada nuevo al servidor. "Vencida" = misma regla que el contrato
+    // de estado_agenda con la app móvil (ver esVencida()), no el concepto
+    // viejo de "fase estancada".
     // ---------------------------------------------------------------
-    function labelFase(fase) {
-        var meta = FASES_META.filter(function (m) { return m.fase === fase; })[0];
-        return meta ? meta.label : ('Fase ' + fase);
-    }
-
-    function abrirModalEstancados() {
+    function abrirModalVencidas() {
         var lista = agendamientosVista
-            .filter(function (a) { return a.estancado; })
+            .filter(function (a) { return a.vencida; })
             .slice()
-            .sort(function (a, b) { return (b.dias || 0) - (a.dias || 0); });
+            .sort(function (a, b) { return (diasDesde(b.fechaAgendamiento) || 0) - (diasDesde(a.fechaAgendamiento) || 0); });
 
-        var cuerpo = document.getElementById('dashEstancadosBody');
+        var cuerpo = document.getElementById('dashVencidasBody');
         if (!lista.length) {
-            cuerpo.innerHTML = '<div class="dash-cargando">Ningún agendamiento estancado con los filtros actuales.</div>';
+            cuerpo.innerHTML = '<div class="dash-cargando">Ninguna visita vencida con los filtros actuales.</div>';
         } else {
-            cuerpo.innerHTML = '<table class="dash-estancados-tabla"><thead><tr>'
-                + '<th>Empresa / Contacto</th><th>Punto de venta</th><th>Promotor</th><th>Fase actual</th><th>Días sin avance</th>'
+            cuerpo.innerHTML = '<table class="dash-vencidas-tabla"><thead><tr>'
+                + '<th>Empresa / Contacto</th><th>Punto de venta</th><th>Promotor</th><th>Fecha agendada</th><th>Días vencida</th>'
                 + '</tr></thead><tbody>'
                 + lista.map(function (a) {
+                    var dias = diasDesde(a.fechaAgendamiento);
                     return '<tr>'
-                        + '<td><div class="dash-est-empresa">' + esc(a.empresa || '—') + '</div>'
-                        +     '<div class="dash-est-contacto">' + esc(a.contacto || '—') + '</div></td>'
+                        + '<td><div class="dash-venc-empresa">' + esc(a.empresa || '—') + '</div>'
+                        +     '<div class="dash-venc-contacto">' + esc(a.contacto || '—') + '</div></td>'
                         + '<td>' + esc(a.pdv || '—') + '</td>'
                         + '<td>' + esc(a.usuario || 'Sin asignar') + '</td>'
-                        + '<td>Fase ' + a.fase + ' — ' + esc(labelFase(a.fase)) + '</td>'
-                        + '<td><span class="dash-est-dias">' + a.dias + ' días</span></td>'
+                        + '<td>' + fmtFechaCorta(a.fechaAgendamiento) + '</td>'
+                        + '<td><span class="dash-venc-dias">' + dias + (dias === 1 ? ' día' : ' días') + '</span></td>'
                         + '</tr>';
                 }).join('')
                 + '</tbody></table>';
         }
-        document.getElementById('dashEstancadosCount').textContent =
-            lista.length + (lista.length === 1 ? ' agendamiento estancado' : ' agendamientos estancados');
-        document.getElementById('dashEstancadosOverlay').classList.add('is-abierto');
+        document.getElementById('dashVencidasCount').textContent =
+            lista.length + (lista.length === 1 ? ' visita vencida' : ' visitas vencidas');
+        document.getElementById('dashVencidasOverlay').classList.add('is-abierto');
     }
 
-    function cerrarModalEstancados() {
-        document.getElementById('dashEstancadosOverlay').classList.remove('is-abierto');
+    function cerrarModalVencidas() {
+        document.getElementById('dashVencidasOverlay').classList.remove('is-abierto');
     }
 
     function cargar() {
         document.getElementById('dashFunnel').innerHTML     = '<div class="dash-cargando">Cargando...</div>';
         document.getElementById('dashPromotores').innerHTML = '<div class="dash-cargando">Cargando...</div>';
+        document.getElementById('dashTopPdv').innerHTML     = '<div class="dash-cargando">Cargando...</div>';
         document.querySelectorAll('.dash-kpi').forEach(function (el) { el.classList.add('is-loading'); });
-        ['kpiTotal', 'kpiFacturado', 'kpiNegociado', 'kpiConversion', 'kpiEstancados', 'dashFunnelTotal'].forEach(function (id) {
+        ['kpiPdvs', 'kpiFacturado', 'kpiNegociado', 'kpiConversion', 'kpiVencidas', 'dashFunnelTotal'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.textContent = '—';
         });
@@ -330,14 +416,14 @@
         document.getElementById(id).addEventListener('change', renderizar);
     });
 
-    document.getElementById('kpiEstancadosCard').addEventListener('click', abrirModalEstancados);
-    document.getElementById('dashEstancadosClose').addEventListener('click', cerrarModalEstancados);
-    var estancadosOverlay = document.getElementById('dashEstancadosOverlay');
-    estancadosOverlay.addEventListener('click', function (ev) {
-        if (ev.target === estancadosOverlay) cerrarModalEstancados();
+    document.getElementById('kpiVencidasCard').addEventListener('click', abrirModalVencidas);
+    document.getElementById('dashVencidasClose').addEventListener('click', cerrarModalVencidas);
+    var vencidasOverlay = document.getElementById('dashVencidasOverlay');
+    vencidasOverlay.addEventListener('click', function (ev) {
+        if (ev.target === vencidasOverlay) cerrarModalVencidas();
     });
     document.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Escape' && estancadosOverlay.classList.contains('is-abierto')) cerrarModalEstancados();
+        if (ev.key === 'Escape' && vencidasOverlay.classList.contains('is-abierto')) cerrarModalVencidas();
     });
 
     cargar();

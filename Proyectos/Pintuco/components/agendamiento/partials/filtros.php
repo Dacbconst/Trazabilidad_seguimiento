@@ -35,7 +35,7 @@
         <select class="form-control" id="agendaFiltroEstado">
             <option value="">Todos</option>
             <option value="pendiente">Pendiente técnico</option>
-            <option value="confirmado">Agendado</option>
+            <option value="confirmado">Técnico confirmado</option>
             <option value="reagendada">Reagendada</option>
             <option value="vencida">Vencida</option>
             <option value="cancelada">Cancelada</option>
@@ -56,7 +56,7 @@
     <div class="mod-filtros-extra">
         <div class="agenda-legend">
             <span class="agenda-legend-item"><span class="agenda-legend-dot is-pendiente"></span><strong id="agendaCountPendientes">0</strong> Pendientes</span>
-            <span class="agenda-legend-item"><span class="agenda-legend-dot is-confirmado"></span><strong id="agendaCountConfirmadas">0</strong> Agendadas</span>
+            <span class="agenda-legend-item"><span class="agenda-legend-dot is-confirmado"></span><strong id="agendaCountConfirmadas">0</strong> Confirmadas</span>
             <span class="agenda-legend-item"><span class="agenda-legend-dot is-reagendada"></span><strong id="agendaCountReagendadas">0</strong> Reagendadas</span>
             <span class="agenda-legend-item"><span class="agenda-legend-dot is-vencida"></span><strong id="agendaCountVencidas">0</strong> Vencidas</span>
             <span class="agenda-legend-item"><span class="agenda-legend-dot is-cancelada"></span><strong id="agendaCountCanceladas">0</strong> Canceladas</span>

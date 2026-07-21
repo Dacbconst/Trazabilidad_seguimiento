@@ -719,6 +719,30 @@
 }
 .agenda-edit-alert .glyphicon { margin-top: 2px; flex-shrink: 0; }
 
+/* Motivo de una reagendación ya guardada, solo lectura — mismo tono ámbar
+   que el badge .is-reagendada, para asociarlos visualmente. */
+.agenda-edit-motivo-previo {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: oklch(0.97 0.03 75);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.agenda-edit-motivo-previo-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: oklch(0.5 0.13 65);
+}
+.agenda-edit-motivo-previo-texto {
+    font-size: 12.5px;
+    color: oklch(0.35 0.05 65);
+    line-height: 1.4;
+}
+
 .agenda-edit-motivo { margin-top: 12px; }
 .agenda-edit-motivo label {
     display: block;

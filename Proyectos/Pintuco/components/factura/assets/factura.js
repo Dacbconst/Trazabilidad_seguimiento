@@ -284,7 +284,7 @@
 
     // Mapea el valor real de estado_proforma a la etiqueta que ve el analista.
     function estadoVisual(estado) {
-        if (estado === 'rechazado') return { label: 'Rechazada', cls: 'is-rechazada' };
+        if (estado === 'rechazado') return { label: 'Cerrada', cls: 'is-rechazada' };
         if (estado === 'aprobado')  return { label: 'Aprobada',  cls: 'is-aprobada'  };
         return { label: 'Enviada', cls: 'is-enviada' }; // pendiente | en_proceso | en_negociacion | realizado
     }
@@ -424,7 +424,14 @@
         // periodo, aunque la visita haya sido meses atrás — típico de
         // financiamiento a plazos, donde la cuota de julio no debe
         // desaparecer del reporte de julio solo porque la visita fue en mayo.
-        return montoFacturadoEnPeriodo(p.agendamiento_id, clave) > 0;
+        if (montoFacturadoEnPeriodo(p.agendamiento_id, clave) > 0) return true;
+        // Mismo criterio para el cierre de un plan de pago: 'cerrar_plan_pago'
+        // pisa fecha_auditoria con la fecha real del cierre — sin este
+        // fallback, un plan cerrado HOY desaparecía de "Este mes" si la
+        // visita/factura original fue meses atrás, justo el mes en que el
+        // analista más necesita encontrarlo (hallazgo del consejo 2026-07-16).
+        if ((p.motivo_cierre_pago || p.estado_pago === 'cerrado') && fechaEnPeriodo(p.fecha_auditoria, clave)) return true;
+        return false;
     }
 
     // ── Lista izquierda ────────────────────────────────────────────────
@@ -901,18 +908,22 @@
         // respaldo cae siempre en proforma_fecha_registro — mismo
         // resultado que antes, sin el riesgo.
         var fechaActivacion = factura.fecha_factura || factura.proforma_fecha_registro;
-        var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado' }[factura.estado_pago] || null;
+        var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado', cerrado: 'Cerrado' }[factura.estado_pago] || null;
 
         // Cierre de plan de pago a plazos que se quedó a medias (dejó de
         // pagar cuotas y nunca va a terminar) — pedido explícito del
-        // usuario, 2026-07-14. NUNCA toca estado_pago (de un solo dueño,
-        // la app) — es solo una anotación propia de la web en una columna
-        // separada (motivo_cierre_pago; la fecha reusa fecha_auditoria,
-        // ver nota arriba). No aplica a
-        // "Pago Directo" (ya está completo por definición) ni si ya está
-        // 'completado' según la app, ni si ya se cerró antes.
-        var planCerrado = !!factura.motivo_cierre_pago;
+        // usuario, 2026-07-14. Desde 2026-07-16 SÍ toca estado_pago (pasa
+        // a 'cerrado', ver update_proforma.php) — contrato confirmado con
+        // Android: es el mismo valor que usa el propio cierre de la app,
+        // así que cualquiera de los dos lados que cierre primero se
+        // detecta acá, no solo el que dejó motivo_cierre_pago propio de
+        // la web. No aplica a "Pago Directo" (ya está completo por
+        // definición) ni si ya está 'completado' según la app.
+        var planCerrado = !!factura.motivo_cierre_pago || factura.estado_pago === 'cerrado';
         var puedeCerrarPlan = !esDirecto && !planCerrado && factura.estado_pago !== 'completado';
+        // motivo_cierre_pago es columna propia de la web — si cerró el móvil
+        // primero, esta queda vacía (el motivo lo maneja el móvil por su lado).
+        var motivoCierrePago = factura.motivo_cierre_pago || '';
 
         cont.innerHTML =
             '<div class="ef-fin-resumen">'
@@ -934,7 +945,8 @@
             + (planCerrado
                 ? '<div class="ef-fin-cierre-banner"><i class="glyphicon glyphicon-ban-circle"></i> '
                   + '<div><strong>Plan de pago cerrado</strong>' + (factura.fecha_auditoria ? ' el ' + esc(formatFecha(factura.fecha_auditoria)) : '') + '.'
-                  + '<div class="ef-fin-cierre-banner-motivo">' + esc(factura.motivo_cierre_pago) + '</div></div></div>'
+                  + (motivoCierrePago ? '<div class="ef-fin-cierre-banner-motivo">' + esc(motivoCierrePago) + '</div>' : '')
+                  + '</div></div>'
                 : '')
             + '<div class="ef-fin-grid">' + tarjetas + '</div>'
             + '<div class="ef-fin-nota">'
@@ -973,7 +985,7 @@
             '<i class="glyphicon glyphicon-question-sign"></i>'
             + '<div class="ef-fin-cierre-modal-titulo">¿Cerrar este plan de pago?</div>'
             + '<div class="ef-fin-cierre-modal-texto">'
-            +   'Se va a marcar como cerrado desde la web. El estado de pago que reporta la app no se modifica — esto queda como una anotación aparte. Esta acción no se puede deshacer.'
+            +   'Se va a marcar el plan como <strong>Cerrado</strong> (mismo estado que usa la propia app cuando cierra desde el celular). Esta acción no se puede deshacer.'
             + '</div>';
 
         var campoObs = document.createElement('div');
@@ -1029,6 +1041,7 @@
                         // cargar() en segundo plano mantiene todo lo demás
                         // sincronizado para la próxima vez que se abra.
                         factura.motivo_cierre_pago = motivo;
+                        factura.estado_pago = 'cerrado';
                         factura.fecha_auditoria = new Date().toISOString().slice(0, 19).replace('T', ' ');
                         // Sin esto, firmaFila(p) (que incluye fecha_auditoria)
                         // deja de coincidir con lo que marcarVisto guardó al
@@ -1041,6 +1054,15 @@
                         renderFinanciamiento(agendamientoId, ciclos);
                         renderPromoLista();
                         if (promActivo) renderPromoDetalle(promActivo);
+                        cargar();
+                    } else if (json.stale) {
+                        // El backend detectó que el plan ya cambió de estado
+                        // en otra sesión (otro analista, o el propio flujo
+                        // "Cierre Factura" del móvil) mientras este modal
+                        // seguía abierto con datos viejos — recargar en vez
+                        // de dejar el botón listo para reintentar contra un
+                        // estado que ya se sabe obsoleto.
+                        overlay.remove();
                         cargar();
                     } else {
                         errorObs.textContent = json.message || 'No se pudo cerrar.';
@@ -1164,14 +1186,15 @@
     }
 
     // ── Filtros: Promotor / PDV / Empresa ──────────────────────────────
-    // Promotor y Empresa salen de allRows (todo lo ya cargado, cualquier
-    // fase/estado); PDV usa el mismo catálogo de locales que Agendamientos
-    // (get_pdvs.php) para ofrecer todo el canal, no solo los PDV que ya
-    // tienen facturación. Los 3 usan el combobox con buscador compartido
-    // con Agendamientos (habilitarComboBuscador en agenda-crear.js, ver
-    // window.AgendaHabilitarComboBuscador) — pedido explícito del usuario
-    // (2026-07-16: "separa pdv empresa ponle como tenemos [en
-    // Agendamientos]... el promotor también con sus búsquedas").
+    // Los 3 salen de allRows — solo lo que YA existe registrado en este
+    // módulo, nunca el catálogo completo del canal (ese catálogo,
+    // get_promotores.php/get_pdvs.php, es solo para "Crear visita" en
+    // Agendamientos, donde sí hace falta ofrecer promotores/PDV sin
+    // registro previo) — pedido explícito del usuario (2026-07-16: "aca
+    // nomas es con lo existente en los tres modulos"). Los 3 usan el
+    // combobox con buscador compartido con Agendamientos
+    // (habilitarComboBuscador en agenda-crear.js, ver
+    // window.AgendaHabilitarComboBuscador).
     function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
         var select = document.getElementById(selectId);
         var valorPrevio = select.value;
@@ -1194,14 +1217,6 @@
         if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
     }
 
-    function cargarOpcionesPdv() {
-        fetch(GETTERS_BASE + 'get_pdvs.php')
-            .then(function (r) { return r.json(); })
-            .then(function (json) {
-                poblarSelectDistinct('efPromoFiltroPdv', json.data || [], 'pos_name', 'Todos');
-            });
-    }
-
     // ── Carga de datos ────────────────────────────────────────────────
     function cargar() {
         document.getElementById('efPromoLista').innerHTML = '<div class="ef-vacio">Cargando...</div>';
@@ -1219,8 +1234,17 @@
                 porAgendamiento = agruparPorAgendamiento(allRows);
                 pagosPorProforma = agruparPagosPorProforma(resultados[1].data || []);
                 poblarSelectorPeriodo();
-                poblarSelectDistinct('efPromoFiltroPromotor', allRows, 'usuario', 'Todos');
-                poblarSelectDistinct('efPromoFiltroEmpresa', allRows, 'empresa', 'Todas');
+                // Mismo criterio "elegible" que la vista de este módulo
+                // (getFase===5, facturado) — los dropdowns se poblaban antes
+                // desde allRows SIN este filtro, así que un promotor/PDV/
+                // empresa que todavía no tiene ninguna factura quedaba
+                // seleccionable en el filtro pero la búsqueda nunca traía
+                // nada (hallazgo del consejo 2026-07-16, misma clase de bug
+                // que el ya corregido en Agendamientos).
+                var facturados = allRows.filter(function (p) { return getFase(p) === 5; });
+                poblarSelectDistinct('efPromoFiltroPromotor', facturados, 'usuario', 'Todos');
+                poblarSelectDistinct('efPromoFiltroPdv', facturados, 'pdv', 'Todos');
+                poblarSelectDistinct('efPromoFiltroEmpresa', facturados, 'empresa', 'Todas');
                 renderPromoLista();
                 if (promActivo) renderPromoDetalle(promActivo);
             })
@@ -1250,7 +1274,6 @@
     ['efPromoFiltroPromotor', 'efPromoFiltroPdv', 'efPromoFiltroEmpresa'].forEach(function (id) {
         window.AgendaHabilitarComboBuscador(id);
     });
-    cargarOpcionesPdv();
 
     document.getElementById('efPromoLista').addEventListener('click', function (e) {
         // Checkbox del promotor: selecciona/deselecciona todos sus

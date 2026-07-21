@@ -75,7 +75,7 @@
 
         var claves = {};
         claves[actual] = true;
-        currentRows.forEach(function (p) {
+        filasElegibles().forEach(function (p) {
             var clave = claveMes(p.proforma_fecha_registro || p.contacto_fecha_registro);
             if (clave) claves[clave] = true;
         });
@@ -208,11 +208,23 @@
         return ocultos;
     }
 
+    // Mismo criterio "elegible" que filasFiltradas (getFase>=3, sin ocultos
+    // de fase 5 >24h) — los dropdowns de Promotor/PDV/Empresa y el selector
+    // de Período se poblaban antes desde currentRows SIN este filtro, así
+    // que un promotor/PDV/empresa/mes que solo tenía actividad en fase 1-2
+    // (o una fase 5 ya oculta) quedaba seleccionable pero la búsqueda nunca
+    // traía nada — misma clase de bug que el ya corregido en Agendamientos
+    // (hallazgo del consejo 2026-07-16).
+    function filasElegibles() {
+        var ocultosFase5 = agendamientosOcultosPorFase5();
+        return currentRows.filter(function (p) { return getFase(p) >= 3 && !ocultosFase5[p.agendamiento_id]; });
+    }
+
     function getBadge(p) {
         var f = getFase(p);
         if (f === 5) return { label: 'Fase 5', cls: 'is-aprobado' };
         if (f === 4) {
-            if (p.estado_proforma === 'rechazado')              return { label: 'Rechazada', cls: 'is-rechazado' };
+            if (p.estado_proforma === 'rechazado')              return { label: 'Cerrada', cls: 'is-rechazado' };
             if (p.estado_proforma === 'correccion_solicitada')  return { label: '⚠ Corrección', cls: 'is-correccion' };
             return { label: 'Fase 4', cls: 'is-en_proceso' };
         }
@@ -224,11 +236,25 @@
     // ---------------------------------------------------------------
     // Filtros
     // ---------------------------------------------------------------
+    // PDV y Empresa: antes un solo cuadro de texto "PDV o cliente" con match
+    // por substring; ahora dos desplegables independientes (con buscador
+    // propio vía AgendaHabilitarComboBuscador, ver DOMContentLoaded más
+    // abajo) que comparan contra el valor exacto elegido — mismo criterio
+    // que Factura/Estado de Flujo, pedido explícito del usuario
+    // (2026-07-16: "separa el filtro de pdv o cliente").
+    function matchPdv(p, valor) {
+        return !valor || (p.pdv || '') === valor;
+    }
+    function matchEmpresa(p, valor) {
+        return !valor || (p.empresa || '') === valor;
+    }
+
     function filasFiltradas() {
         var promotorSel  = document.getElementById('proformaFiltroPromotor').value;
+        var pdvSel       = document.getElementById('proformaFiltroPdv').value;
+        var empresaSel   = document.getElementById('proformaFiltroEmpresa').value;
         var estadoSel    = document.getElementById('proformaFiltroEstado').value;
         var periodoClave = document.getElementById('proformaFiltroPeriodo').value;
-        var busqueda     = document.getElementById('proformaBusqueda').value.toLowerCase().trim();
         var ocultosFase5 = agendamientosOcultosPorFase5();
 
         return currentRows.filter(function (p) {
@@ -248,6 +274,7 @@
             if (getFase(p) < 3) return false;
             if (ocultosFase5[p.agendamiento_id]) return false;
             if (promotorSel && p.usuario !== promotorSel) return false;
+            if (!matchPdv(p, pdvSel) || !matchEmpresa(p, empresaSel)) return false;
 
             if (estadoSel) {
                 var f = getFase(p);
@@ -265,32 +292,37 @@
                 if (claveMes(ref) !== periodoClave) return false;
             }
 
-            if (busqueda) {
-                var haystack = [p.pdv, p.codigo_pdv, p.empresa, p.contacto].join(' ').toLowerCase();
-                if (haystack.indexOf(busqueda) === -1) return false;
-            }
-
             return true;
         });
     }
 
     // ---------------------------------------------------------------
-    // Opciones de promotor
+    // Opciones de Promotor / PDV / Empresa
     // ---------------------------------------------------------------
-    function construirOpcionesPromotor() {
-        var select = document.getElementById('proformaFiltroPromotor');
-        var prev   = select.value;
-        select.innerHTML = '<option value="">Todos los promotores</option>';
+    // Los 3 salen de currentRows — solo lo que YA existe registrado en
+    // este módulo, nunca el catálogo completo del canal (ese catálogo,
+    // get_promotores.php/get_pdvs.php, es solo para "Crear visita" en
+    // Agendamientos) — mismo criterio que Factura/Estado de Flujo, pedido
+    // explícito del usuario (2026-07-16: "aca nomas es con lo existente
+    // en los tres modulos").
+    function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
+        var select = document.getElementById(selectId);
+        var valorPrevio = select.value;
         var vistos = {};
-        currentRows.forEach(function (p) {
-            if (p.usuario && !vistos[p.usuario]) {
-                vistos[p.usuario] = true;
-                var o = document.createElement('option');
-                o.value = o.textContent = p.usuario;
-                select.appendChild(o);
-            }
+        var valores = [];
+        rows.forEach(function (r) {
+            var v = r[campo];
+            if (v && !vistos[v]) { vistos[v] = true; valores.push(v); }
         });
-        if (vistos[prev]) select.value = prev;
+        valores.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+        select.innerHTML = '<option value="">' + etiquetaTodos + '</option>';
+        valores.forEach(function (v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+        });
+        if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
     }
 
     // ---------------------------------------------------------------
@@ -526,9 +558,10 @@
         if (!p) return;
 
         document.getElementById('proformaFiltroPromotor').value = '';
+        document.getElementById('proformaFiltroPdv').value = '';
+        document.getElementById('proformaFiltroEmpresa').value = '';
         document.getElementById('proformaFiltroEstado').value = '';
         document.getElementById('proformaFiltroPeriodo').value = '';
-        document.getElementById('proformaBusqueda').value = '';
 
         grupoAbierto  = p.usuario || '(Sin promotor)';
         filaAbiertaId = p.agendamiento_id;
@@ -820,7 +853,7 @@
     // la competencia, etc.) — pedido explícito del usuario. Reusa la
     // acción 'rechazar' que ya existía en update_proforma.php (terminal,
     // estado_proforma='rechazado', ya soportada por getFase/getBadge/el
-    // filtro "Estado auditoría" → "Rechazada") pero que nunca tuvo un
+    // filtro "Estado auditoría" → "Cerrada") pero que nunca tuvo un
     // botón conectado en esta pantalla. El motivo queda guardado en su
     // propia columna motivo_cierre, no en observaciones_auditoria (esa es
     // de la acción 'guardar' — ver update_proforma.php).
@@ -854,7 +887,7 @@
             '<i class="glyphicon glyphicon-question-sign"></i>'
             + '<div class="proforma-cierre-modal-titulo">¿Cerrar este proceso?</div>'
             + '<div class="proforma-cierre-modal-texto">'
-            +   'Se va a marcar como <strong>Rechazada</strong> (cerrada sin llegar a factura) y ya no se podrá seguir editando. Esta acción no se puede deshacer.'
+            +   'Se va a marcar como <strong>Cerrada</strong> (sin llegar a factura) y ya no se podrá seguir editando. Esta acción no se puede deshacer.'
             + '</div>';
 
         var campoObs = document.createElement('div');
@@ -907,6 +940,15 @@
                 .then(function (json) {
                     if (json.success) {
                         mostrarToast('Proceso cerrado.');
+                        onResuelto();
+                    } else if (json.stale) {
+                        // El backend detectó que el registro ya cambió de
+                        // estado en otra sesión (otro analista, u otro flujo
+                        // del móvil) mientras este panel seguía abierto —
+                        // recargar en vez de dejar el botón listo para
+                        // reintentar contra un estado que ya se sabe viejo.
+                        mostrarToast(json.message || 'El registro cambió, recargando…', true);
+                        overlay.remove();
                         onResuelto();
                     } else {
                         mostrarToast(json.message || 'No se pudo cerrar.', true);
@@ -962,7 +1004,12 @@
             // formulario de monto que la foto está mal, quedaba sin forma
             // de pedir un reenvío. Mismo endpoint que ya existía
             // (rechazar_calidad): no genera histórico, es corrección de foto.
-            if (getFase(p) !== 5) {
+            // getFase(p)!==5 NO alcanza para excluir un proceso ya cerrado —
+            // 'rechazado' también cae en fase 4, así que sin el chequeo
+            // explícito este botón seguía visible y funcional sobre un
+            // proceso terminal (hallazgo reportado 2026-07-16 con captura
+            // real: el botón aparecía debajo de un registro "RECHAZADA").
+            if (getFase(p) !== 5 && p.estado_proforma !== 'rechazado') {
                 var btnRechazarFoto = document.createElement('button');
                 btnRechazarFoto.type = 'button';
                 btnRechazarFoto.className = 'proforma-btn-rechazar-foto';
@@ -977,6 +1024,9 @@
                         .then(function (json) {
                             if (json.success) {
                                 mostrarToast('Se pidió una nueva foto.');
+                                onResuelto();
+                            } else if (json.stale) {
+                                mostrarToast(json.message || 'El registro cambió, recargando…', true);
                                 onResuelto();
                             } else {
                                 mostrarToast(json.message || 'No se pudo actualizar.', true);
@@ -1095,11 +1145,19 @@
             return wrap;
         }
 
-        // ── Rechazado (terminal en fase 3) ─────────────────────────────────
+        // ── Cerrado vía "Cerrar proceso" (terminal, acción 'rechazar') ─────
+        // Texto viejo ("Rechazada / Evidencia falsa.") era de antes de que
+        // esta misma acción se reusara como "Cerrar proceso" (2026-07-14) —
+        // hoy la única forma de llegar a estado_proforma='rechazado' es por
+        // ahí, con motivo_cierre siempre obligatorio, así que se muestra el
+        // motivo real en vez de un texto genérico que ya no aplica.
         if (p.estado_proforma === 'rechazado') {
             var recMsg = document.createElement('div');
             recMsg.className = 'proforma-auditoria-cerrada is-rechazado';
-            recMsg.innerHTML = '<i class="glyphicon glyphicon-remove"></i> Rechazada / Evidencia falsa.';
+            recMsg.innerHTML = '<i class="glyphicon glyphicon-ban-circle"></i> Proceso cerrado.'
+                + (p.motivo_cierre
+                    ? '<div class="proforma-auditoria-cerrada-motivo"><strong>Motivo:</strong> ' + esc(p.motivo_cierre) + '</div>'
+                    : '');
             wrap.appendChild(recMsg);
             return wrap;
         }
@@ -1233,7 +1291,13 @@
                 .then(function (r) { return r.json(); })
                 .then(function (json) {
                     if (json.success) { mostrarToast('Guardado correctamente.'); onResuelto(); }
-                    else { mostrarToast(json.message || 'No se pudo actualizar.', true); btnGuardar.disabled = false; }
+                    else if (json.stale) {
+                        // Mismo caso que en "Cerrar proceso": el registro ya
+                        // cambió de estado en otra sesión mientras este panel
+                        // seguía abierto — recargar en vez de reintentar.
+                        mostrarToast(json.message || 'El registro cambió, recargando…', true);
+                        onResuelto();
+                    } else { mostrarToast(json.message || 'No se pudo actualizar.', true); btnGuardar.disabled = false; }
                 })
                 .catch(function () { mostrarToast('Error de conexión.', true); btnGuardar.disabled = false; });
         });
@@ -1274,7 +1338,10 @@
             .then(function (r) { return r.json(); })
             .then(function (json) {
                 currentRows = json.data || [];
-                construirOpcionesPromotor();
+                var elegibles = filasElegibles();
+                poblarSelectDistinct('proformaFiltroPromotor', elegibles, 'usuario', 'Todos');
+                poblarSelectDistinct('proformaFiltroPdv', elegibles, 'pdv', 'Todos');
+                poblarSelectDistinct('proformaFiltroEmpresa', elegibles, 'empresa', 'Todas');
                 poblarSelectorPeriodo();
                 renderizar();
                 actualizarSelloFecha();
@@ -1316,11 +1383,13 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         cargarProformas();
-        ['proformaBusqueda'].forEach(function (id) {
-            document.getElementById(id).addEventListener('input', renderizar);
-        });
-        ['proformaFiltroPromotor','proformaFiltroEstado','proformaFiltroPeriodo'].forEach(function (id) {
+        ['proformaFiltroPromotor','proformaFiltroPdv','proformaFiltroEmpresa','proformaFiltroEstado','proformaFiltroPeriodo'].forEach(function (id) {
             document.getElementById(id).addEventListener('change', renderizar);
+        });
+        // Combo con buscador dentro del desplegable — mismo widget que ya
+        // usa Factura/Estado de Flujo/Agendamientos.
+        ['proformaFiltroPromotor', 'proformaFiltroPdv', 'proformaFiltroEmpresa'].forEach(function (id) {
+            window.AgendaHabilitarComboBuscador(id);
         });
         document.getElementById('proformaActualizar').addEventListener('click', cargarProformas);
         document.getElementById('proformaExportar').addEventListener('click', descargarExcel);

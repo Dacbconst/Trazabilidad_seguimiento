@@ -3,7 +3,7 @@
  * COMPONENTE: proforma/proforma.php
  * Auditoría de Proformas (Paso 3 del flujo comercial) — bandeja master-detail
  * para que el analista revise la evidencia subida desde el celular y
- * enrute el registro a Negociación, Aprobada o Rechazada.
+ * enrute el registro a Negociación, Aprobada o Cerrada (sin llegar a factura).
  */
 $modulo_base = basename((string) $cuenta_dir);
 $proforma_dir = __DIR__;
@@ -29,17 +29,25 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
 
     <!-- Filtros unificados (.mod-filtros definido en style.css global) -->
     <div class="mod-filtros">
-        <div class="filter-group is-busqueda">
-            <label>PDV o cliente</label>
-            <div class="input-group">
-                <input type="text" class="form-control" id="proformaBusqueda" placeholder="Buscar PDV o cliente...">
-                <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
-            </div>
-        </div>
         <div class="filter-group">
-            <label>Mercaderista</label>
+            <label>Promotor</label>
             <select class="form-control" id="proformaFiltroPromotor">
                 <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <!-- Solo los PDV con registros en este módulo (allRows), no el
+                 catálogo completo del canal — mismo criterio que Factura/
+                 Estado de Flujo. -->
+            <label>PDV</label>
+            <select class="form-control" id="proformaFiltroPdv">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Empresa</label>
+            <select class="form-control" id="proformaFiltroEmpresa">
+                <option value="">Todas</option>
             </select>
         </div>
         <div class="filter-group">
@@ -60,7 +68,7 @@ $proforma_js_v = @filemtime($proforma_dir.'/assets/proforma.js') ?: time();
                 <option value="en_negociacion">En negociación</option>
                 <option value="correccion_solicitada">Corrección solicitada</option>
                 <option value="aprobado">Aprobada</option>
-                <option value="rechazado">Rechazada</option>
+                <option value="rechazado">Cerrada</option>
             </select>
         </div>
         <div class="mod-filtros-extra">

@@ -20,6 +20,7 @@ $q = $mysqli->query("
         c.empresa, c.contacto, c.pdv,
         c.hora, c.tecnico,
         c.fecha_registro   AS contacto_fecha_registro,
+        c.fecha_agendamiento, c.estado_agenda,
         p.id               AS proforma_id,
         p.estado_proforma,
         p.foto_factura,

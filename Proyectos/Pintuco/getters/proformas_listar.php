@@ -31,8 +31,13 @@ $id_agendamiento = isset($_GET['id_agendamiento'])  ? (int)$_GET['id_agendamient
 // foto_factura y fase_actual agregadas en producción vía ALTER TABLE
 // (confirmado 2026-07-03) — ya se seleccionan como columnas reales.
 // monto_total_factura/plazo_meses/estado_pago: factura pagada a plazos
-// (2026-07-07), los escribe la app — acá solo se leen. estado_pago es de
-// UN SOLO DUEÑO (la app): nunca escribirlo desde la web.
+// (2026-07-07), los escribe la app — acá solo se leen. Único caso donde la
+// web SÍ escribe estado_pago: la acción 'cerrar_plan_pago' de
+// update_proforma.php, que lo pasa a 'cerrado' (contrato confirmado con
+// Android 2026-07-16, mismo valor que usa el propio cierre de la app —
+// ver NOTA 2 en ese archivo). Fuera de ese caso puntual, sigue siendo la
+// app la que decide el resto de los valores (pendiente/en_proceso/
+// completado).
 //
 // ══════════════════════════════════════════════════════════════════════
 // CONTRATO DE "Monto Facturado" — CONFIRMADO con el agente Android y con el
@@ -66,12 +71,15 @@ $id_agendamiento = isset($_GET['id_agendamiento'])  ? (int)$_GET['id_agendamient
 // esta consulta del lado web.
 // motivo_cierre/motivo_cierre_pago (2026-07-14): al revés que lo de
 // arriba — estas SÍ son de la web (ver update_proforma.php, acciones
-// 'rechazar' y 'cerrar_plan_pago'). Son columnas propias, nunca pisan
-// estado_pago ni ningún campo de la app. No hay columna de fecha
-// aparte para el cierre del plan de pago: esa fila (la de foto_factura)
-// nunca pasa por 'guardar'/'rechazar' desde la web, así que
-// fecha_auditoria queda libre ahí y se reusa para "cuándo se cerró el
-// plan de pago" sin riesgo de choque.
+// 'rechazar' y 'cerrar_plan_pago'). Son columnas propias, solo
+// informativas para el detalle de la web; el móvil las tiene como campo
+// LOCAL (no las sincroniza) y el motivo tampoco se pisa en
+// observaciones_auditoria del lado web — eso quedó a cargo del móvil en
+// su propio flujo de cierre. No hay columna de fecha aparte para el
+// cierre del plan de pago: esa fila (la de foto_factura) nunca pasa por
+// 'guardar'/'rechazar' desde la web, así que fecha_auditoria queda libre
+// ahí y se reusa para "cuándo se cerró el plan de pago" sin riesgo de
+// choque.
 // fecha_factura TODAVÍA NO se selecciona: pendiente ALTER TABLE
 // (ver memoria del proyecto) — agregarla acá en cuanto exista en BD.
 $selectBase = "SELECT

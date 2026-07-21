@@ -96,6 +96,11 @@
 .ef-card-empresa { font-size: 12.5px; font-weight: 700; color: #1f2d3d; }
 .ef-card-pdv     { font-size: 11px; color: #5b6577; margin-top: 1px; }
 .ef-card-nota    { font-size: 10.5px; color: #8a5a00; font-style: italic; margin-top: 3px; }
+.ef-card-nota.is-alerta { color: #b3261e; }
+/* Plan de pago cerrado (estado_pago='cerrado') — visible ya en la tarjeta
+   chica del kanban, no solo al abrir el detalle (hallazgo del consejo
+   2026-07-16: antes un plan sano y uno truncado se veían idénticos). */
+.ef-card.is-plan-cerrado { border-color: #f3c6c2; }
 .ef-card-footer  {
     display: flex;
     align-items: center;
@@ -155,7 +160,14 @@
     max-width: 420px;
     box-shadow: 0 12px 40px rgba(31,45,61,.25);
     overflow: hidden;
+    border-top: 3px solid transparent;
 }
+/* Acento de cierre — fase 5 (facturado) se lee como logro, no como una
+   fila más de datos; rechazada/cerrada (fase 4 terminal) se lee como
+   cierre negativo. Hallazgo del consejo 2026-07-16: la card no
+   distinguía visualmente un cierre de un estado "en curso". */
+.ef-detalle-card.is-exito   { border-top-color: #1e7a45; }
+.ef-detalle-card.is-cerrada { border-top-color: #b3261e; }
 .ef-detalle-header {
     display: flex;
     align-items: flex-start;
@@ -171,7 +183,9 @@
     border: none;
     font-size: 20px;
     line-height: 1;
-    color: #aab3c2;
+    /* #aab3c2 original quedaba ~2.1:1 contra blanco, bajo el mínimo
+       WCAG AA de componentes UI (3:1) — hallazgo del consejo 2026-07-16. */
+    color: #78839a;
     cursor: pointer;
     padding: 0;
 }
@@ -188,10 +202,37 @@
     font-weight: 700;
     letter-spacing: .04em;
     text-transform: uppercase;
-    color: #aab3c2;
+    /* #aab3c2 original quedaba ~2.1:1 contra blanco, bajo el mínimo WCAG
+       AA de texto normal (4.5:1) — hallazgo del consejo 2026-07-16. */
+    color: #5b6577;
     margin-bottom: 2px;
 }
 .ef-detalle-linea { font-size: 12.5px; color: #33415c; line-height: 1.4; }
+/* Bloque "Monto" en fase 5 — mismo formato de 2 columnas que ya usa el
+   panel de Facturas (.ef-fin-resumen en factura.css) para Cotización
+   Inicial / Monto Facturado, pedido explícito del usuario 2026-07-16 para
+   que ambos se vean iguales. */
+.ef-detalle-monto-titulo {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #5b6577;
+}
+.ef-detalle-monto-box {
+    display: flex;
+    align-items: center;
+    background: #f7f8fa;
+    border-radius: 9px;
+    padding: 10px 14px;
+    margin-top: -2px;
+}
+.ef-detalle-monto-item  { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.ef-detalle-monto-sep   { width: 1px; height: 30px; background: #e3e8ee; margin: 0 14px; flex-shrink: 0; }
+.ef-detalle-monto-label { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #8a93a3; }
+.ef-detalle-monto-valor { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 800; color: #1f2d3d; }
+.ef-detalle-monto-valor.is-verde { color: #1e7a45; }
+.ef-detalle-estado-pago.is-completo { color: #1e7a45; font-weight: 700; }
 .ef-detalle-motivo {
     font-size: 12px;
     color: #33415c;
@@ -246,5 +287,8 @@
 .ef-detalle-badge.is-vencida      { background: #fbeaea; color: #b3261e; }
 .ef-detalle-badge.is-cancelada    { background: #fbeaea; color: #b3261e; }
 .ef-detalle-badge.is-negociacion  { background: #fdf0d5; color: #8a5a00; }
-.ef-detalle-badge.is-correccion   { background: #fdf0d5; color: #8a5a00; }
+/* Tono propio, distinto de "En negociación" — son estados de urgencia muy
+   distinta (flujo normal vs. requiere acción) y compartían el mismo color
+   ámbar, indistinguibles a simple vista — hallazgo del consejo 2026-07-16. */
+.ef-detalle-badge.is-correccion   { background: #fde4c8; color: #a34d00; }
 .ef-detalle-badge.is-rechazado    { background: #fbeaea; color: #b3261e; }

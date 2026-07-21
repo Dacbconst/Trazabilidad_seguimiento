@@ -127,7 +127,7 @@
 
     var ESTADO_LABEL = {
         pendiente: 'Pendiente técnico',
-        confirmado: 'Agendado',
+        confirmado: 'Técnico confirmado',
         reagendada: 'Reagendada',
         vencida: 'Vencida',
         cancelada: 'Cancelada',
@@ -391,6 +391,7 @@
 
     function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
         var select = document.getElementById(selectId);
+        var valorPrevio = select.value;
         var vistos = {};
         var valores = [];
         rows.forEach(function (r) {
@@ -405,6 +406,12 @@
             opt.textContent = v;
             select.appendChild(opt);
         });
+        // Antes se perdía en silencio: al cambiar Promotor, cargarOpcionesTecnico
+        // repuebla este mismo select y el Técnico ya elegido se reseteaba a
+        // "Todos" aunque siguiera siendo válido para el nuevo promotor
+        // (hallazgo del consejo 2026-07-16). Mismo patrón que ya usaba
+        // poblarSelectDistinct en factura.js.
+        if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
     }
 
     // Sin promotor elegido: todos los técnicos que han tenido agendamiento.
@@ -423,22 +430,20 @@
             });
     }
 
-    // Mismo catálogo de locales que usa el modal "Crear visita"
-    // (get_pdvs.php / lvi_rutero) — así el filtro de PDV ofrece TODO el
-    // canal, no solo los PDV que ya tienen algún agendamiento cargado.
-    function cargarOpcionesPdv() {
-        return fetch(GETTERS_BASE + 'get_pdvs.php')
-            .then(function (r) { return r.json(); })
-            .then(function (json) {
-                // get_pdvs.php es DISTINCT sobre (pos_id, pos_name, city): un
-                // mismo nombre de local puede repetirse con otro pos_id/city
-                // (sucursales homónimas). El filtro solo puede pegarle a
-                // get_agenda.php por nombre (columna "pdv" es texto, no id),
-                // así que se dedupea por pos_name para no listar el mismo
-                // texto dos veces.
-                poblarSelectDistinct('agendaFiltroPdv', json.data || [], 'pos_name', 'Todos');
-            });
-    }
+    // Antes este filtro usaba el mismo catálogo que "Crear visita"
+    // (get_pdvs.php / lvi_rutero) — pero ese catálogo viene limitado a
+    // subchannel LIKE 'COMERCIAL KYWI S.A.' (ver get_pdvs.php), así que
+    // cualquier PDV de otro subchannel/empresa nunca aparecía como opción
+    // aunque sí tuviera agendamientos reales, y quedaba imposible de
+    // filtrar (hallazgo del consejo 2026-07-16, confirmado por el usuario:
+    // el filtro debe mostrar solo PDV que YA tengan agendamiento — mismo
+    // criterio ya aplicado a Promotor/Empresa acá y a los 3 filtros de
+    // Proforma/Factura/Estado de Flujo). Reemplazado: se puebla junto con
+    // Promotor/Empresa desde cargarOpcionesBase() (universo real de
+    // insert_proyectos_contacto), no desde el catálogo externo. Ese
+    // catálogo (get_pdvs.php) se sigue usando tal cual en "Crear visita"
+    // (agenda-crear.js), donde sí hace falta ofrecer PDV sin agendamiento
+    // previo — no se tocó ese flujo.
 
     // Para que agenda-crear.js pueda recargar el calendario después de
     // guardar una visita nueva, sin que ese archivo conozca nada de cómo
@@ -722,6 +727,20 @@
         var badge = document.getElementById('agendaEditBadge');
         document.getElementById('agendaEditBadgeTexto').textContent = ESTADO_LABEL[estado];
         badge.className = 'agenda-edit-badge is-' + estado;
+
+        // Motivo de una reagendación YA guardada (solo lectura) — se
+        // guardaba desde 2026-07-14 pero nunca se volvía a mostrar en
+        // ningún lado, ni siquiera acá al reabrir la misma visita
+        // (reportado 2026-07-16). Distinto del textarea de más abajo, que
+        // arranca vacío a propósito porque es para el motivo de una
+        // reagendación nueva, no para repetir el de una anterior.
+        var motivoPrevioWrap = document.getElementById('agendaEditMotivoPrevioWrap');
+        if (estado === 'reagendada' && props.motivo_reagendacion) {
+            document.getElementById('agendaEditMotivoPrevioTexto').textContent = props.motivo_reagendacion;
+            motivoPrevioWrap.style.display = '';
+        } else {
+            motivoPrevioWrap.style.display = 'none';
+        }
 
         var registro = formatFechaHoraRegistro(props.fecha_registro);
         document.getElementById('agendaEditRegistro').textContent = registro ? ('Registrado: ' + registro) : '';
@@ -1176,12 +1195,12 @@
 
         construirOpcionesHora();
 
-        // Universo completo (Promotor/Empresa) y catálogo de locales (PDV) se
-        // piden una sola vez; Técnico se recalcula acá para el estado inicial
-        // (sin promotor => todos) y de nuevo cada vez que cambie Promotor.
-        cargarOpcionesPdv();
+        // Universo completo (Promotor/PDV/Empresa) se pide una sola vez;
+        // Técnico se recalcula acá para el estado inicial (sin promotor =>
+        // todos) y de nuevo cada vez que cambie Promotor.
         cargarOpcionesBase().then(function (base) {
             poblarSelectDistinct('agendaFiltroPromotor', base, 'usuario', 'Todos');
+            poblarSelectDistinct('agendaFiltroPdv', base, 'pdv', 'Todos');
             poblarSelectDistinct('agendaFiltroEmpresa', base, 'empresa', 'Todas');
         });
         cargarOpcionesTecnico('');

@@ -513,6 +513,13 @@
     background: #fbeaea;
     color: #a32a23;
 }
+.proforma-auditoria-cerrada-motivo {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    text-align: left;
+    color: #8a1f18;
+}
 
 .proforma-badge {
     display: inline-block;

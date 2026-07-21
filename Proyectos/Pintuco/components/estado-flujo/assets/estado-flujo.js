@@ -90,11 +90,17 @@
 
     function renderTarjetaKanban(p) {
         var dias = diasDesde(refFechaFase(p));
-        return '<div class="ef-card" data-agendamiento-id="' + esc(p.agendamiento_id) + '">'
+        // Hallazgo del consejo 2026-07-16: la mini-card de "Vista rápida" ya
+        // avisa de un plan de pago cerrado, pero la tarjeta chica del kanban
+        // (lo único que se ve sin hacer clic) no tenía ninguna señal — un
+        // plan sano y uno truncado se veían idénticos hasta abrir el detalle.
+        var planCerrado = p.estado_pago === 'cerrado';
+        return '<div class="ef-card' + (planCerrado ? ' is-plan-cerrado' : '') + '" data-agendamiento-id="' + esc(p.agendamiento_id) + '">'
             + '<div class="ef-card-empresa">' + esc(p.empresa || '—') + '</div>'
             + '<div class="ef-card-pdv">' + esc(p.pdv || p.codigo_pdv || '') + '</div>'
             + (p.no_requiere_visita === 'SI' && !(p.hora && p.tecnico)
                 ? '<div class="ef-card-nota">No requirió visita</div>' : '')
+            + (planCerrado ? '<div class="ef-card-nota is-alerta">Plan de pago cerrado</div>' : '')
             + '<div class="ef-card-footer">'
             +   '<span class="ef-card-promotor"><i class="glyphicon glyphicon-user"></i> ' + esc(p.usuario || '(sin asignar)') + '</span>'
             +   '<span class="ef-dias-pill ' + clsDias(dias) + '">' + fmtDias(dias) + '</span>'
@@ -169,7 +175,7 @@
     }
 
     function badgeAuditoria(p) {
-        if (p.estado_proforma === 'rechazado') return '<span class="ef-detalle-badge is-rechazado">Rechazada</span>';
+        if (p.estado_proforma === 'rechazado') return '<span class="ef-detalle-badge is-rechazado">Cerrada</span>';
         if (p.estado_proforma === 'correccion_solicitada') return '<span class="ef-detalle-badge is-correccion">⚠ Corrección solicitada</span>';
         return '<span class="ef-detalle-badge is-negociacion">En negociación</span>';
     }
@@ -183,7 +189,20 @@
         document.getElementById('efDetalleSub').textContent =
             (p.pdv || p.codigo_pdv || '—') + ' · Fase ' + f + ' · ' + meta.label;
 
-        var filas = [badgeEstadoAgenda(p)];
+        var cardEl = document.getElementById('efDetalleCard');
+        cardEl.classList.remove('is-exito', 'is-cerrada');
+        if (f === 5) cardEl.classList.add('is-exito');
+        else if (p.estado_proforma === 'rechazado') cardEl.classList.add('is-cerrada');
+
+        // El badge de estado_agenda describe la VISITA TÉCNICA de fase 2 —
+        // una vez pasada esa fase es un dato histórico, no el estado del
+        // proceso actual (hallazgo del consejo 2026-07-16: se veía
+        // "Completada" en fase 4/Negociación como si el proceso ya hubiera
+        // terminado). Se muestra siempre en fase 1-2 (ahí sí es el dato
+        // principal) y, en fases posteriores, solo si quedó una anomalía
+        // que sigue siendo relevante de notar (cancelada/vencida).
+        var estadoAgendaAnomalo = p.estado_agenda === 'cancelada' || p.estado_agenda === 'vencida';
+        var filas = (f <= 2 || estadoAgendaAnomalo) ? [badgeEstadoAgenda(p)] : [];
 
         if (f === 2) {
             filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Visita</span>'
@@ -195,17 +214,14 @@
             filas.push('<div class="ef-detalle-linea">No requirió visita técnica — esperando que suba la foto de la proforma.</div>');
         }
 
-        if (f === 4 || f === 5) {
-            var rondas = infoRondas(p.agendamiento_id);
-            if (rondas) {
-                var texto = (rondas.numero > 1 ? rondas.numero + 'ª ronda de cotización: ' : 'Cotización: ')
-                    + fmtMonto(rondas.actual.monto_validado)
-                    + (rondas.anterior ? ' (antes ' + fmtMonto(rondas.anterior.monto_validado) + ')' : '');
+        if (f === 4) {
+            var rondas4 = infoRondas(p.agendamiento_id);
+            if (rondas4) {
+                var texto = (rondas4.numero > 1 ? rondas4.numero + 'ª ronda de cotización: ' : 'Cotización: ')
+                    + fmtMonto(rondas4.actual.monto_validado)
+                    + (rondas4.anterior ? ' (antes ' + fmtMonto(rondas4.anterior.monto_validado) + ')' : '');
                 filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Monto</span>' + esc(texto) + '</div>');
             }
-        }
-
-        if (f === 4) {
             filas.push(badgeAuditoria(p));
             if (p.estado_proforma === 'rechazado' && p.motivo_cierre) {
                 filas.push('<div class="ef-detalle-motivo"><strong>Motivo:</strong> ' + esc(p.motivo_cierre) + '</div>');
@@ -214,21 +230,41 @@
 
         if (f === 5) {
             var plazoMeses = parseInt(p.plazo_meses, 10) || 0;
+            var rondas5 = infoRondas(p.agendamiento_id);
+            // Mismo formato "2 columnas" que ya usa el panel de Facturas
+            // (Cotización Inicial / Monto Facturado) — pedido explícito del
+            // usuario 2026-07-16 para que se vea igual acá.
+            filas.push(
+                '<div class="ef-detalle-monto-titulo">Monto</div>'
+                + '<div class="ef-detalle-monto-box">'
+                +   '<div class="ef-detalle-monto-item"><span class="ef-detalle-monto-label">Cotización</span><div class="ef-detalle-monto-valor">' + fmtMonto(rondas5 ? rondas5.actual.monto_validado : 0) + '</div></div>'
+                +   '<div class="ef-detalle-monto-sep"></div>'
+                +   '<div class="ef-detalle-monto-item"><span class="ef-detalle-monto-label">Facturado</span><div class="ef-detalle-monto-valor is-verde">' + fmtMonto(p.monto_total_factura) + '</div></div>'
+                + '</div>'
+            );
             if (plazoMeses > 0) {
-                var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado' }[p.estado_pago] || 'Pendiente';
+                var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado', cerrado: 'Cerrado' }[p.estado_pago] || 'Pendiente';
+                // El plan puede cerrarse desde la web (motivo_cierre_pago
+                // propio) o desde el propio flujo "Cierre Factura" del
+                // móvil (estado_pago='cerrado', sin motivo — ese campo es
+                // local del móvil, no sincroniza) — contrato Android
+                // confirmado 2026-07-16, ver update_proforma.php. Antes acá
+                // solo se detectaba el cierre si venía motivo_cierre_pago,
+                // así que un cierre hecho desde el celular no se mostraba.
+                var planCerrado = !!p.motivo_cierre_pago || p.estado_pago === 'cerrado';
                 filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Plan de pago</span>'
-                    + plazoMeses + ' meses · ' + esc(estadoPagoLabel) + '</div>');
-                if (p.motivo_cierre_pago) {
-                    filas.push('<div class="ef-detalle-motivo is-cierre"><strong>Plan cerrado:</strong> ' + esc(p.motivo_cierre_pago) + '</div>');
+                    + plazoMeses + ' meses · <span class="ef-detalle-estado-pago' + (p.estado_pago === 'completado' ? ' is-completo' : '') + '">' + esc(estadoPagoLabel) + '</span></div>');
+                if (planCerrado) {
+                    filas.push('<div class="ef-detalle-motivo is-cierre"><strong>Plan cerrado' + (p.motivo_cierre_pago ? ':' : '') + '</strong>' + (p.motivo_cierre_pago ? ' ' + esc(p.motivo_cierre_pago) : ' (desde la app)') + '</div>');
                 }
-            } else {
-                filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Facturado</span>' + fmtMonto(p.monto_total_factura) + '</div>');
             }
         }
 
         document.getElementById('efDetalleBody').innerHTML = filas.join('');
 
+        var VER_MAS_LABEL = { 1: 'Ver agendamiento', 2: 'Ver agendamiento', 3: 'Ver proforma', 4: 'Ver proforma', 5: 'Ver factura' };
         var btnVerMas = document.getElementById('efDetalleBtnVerMas');
+        btnVerMas.textContent = (VER_MAS_LABEL[f] || 'Ver más') + ' »';
         btnVerMas.dataset.target = (f <= 2) ? '#sec-agendamientos' : (f <= 4 ? '#sec-proforma' : '#sec-factura');
         btnVerMas.style.display = '';
 
@@ -251,6 +287,78 @@
         return !valor || (p.empresa || '') === valor;
     }
 
+    // Selector de Periodo con meses reales (mismo mecanismo que
+    // poblarSelectorPeriodo en factura.js, pedido explícito del usuario:
+    // a este módulo le faltaba el filtro de Periodo que Factura ya tiene).
+    // Clave = "YYYY-MM" (o "todos" para sin filtro).
+    var NOMBRES_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    function claveMes(fechaStr) {
+        var f = soloFecha(fechaStr);
+        if (!f || f === '0000-00-00') return null;
+        var partes = f.split('-'); // "YYYY-MM-DD"
+        if (partes.length < 2) return null;
+        return partes[0] + '-' + partes[1]; // "YYYY-MM"
+    }
+
+    function claveMesActual() {
+        var hoy = new Date();
+        return hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+    }
+
+    function etiquetaMes(clave) {
+        var partes = clave.split('-');
+        var nombre = NOMBRES_MES[parseInt(partes[1], 10) - 1];
+        return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + partes[0];
+    }
+
+    // Arma las opciones a partir de los meses que realmente tienen datos
+    // (fecha_agendamiento, con contacto_fecha_registro de respaldo — mismo
+    // criterio que refFechaFase) + el mes actual (siempre presente).
+    // Respeta el mes ya elegido al refrescar.
+    function poblarSelectorPeriodo() {
+        var select = document.getElementById('efFiltroPeriodo');
+        var valorPrevio = select.value;
+        var actual = claveMesActual();
+
+        var claves = {};
+        claves[actual] = true;
+        pipeline.forEach(function (p) {
+            var fechaAgendaValida = soloFecha(p.fecha_agendamiento);
+            var refCruda = (fechaAgendaValida && fechaAgendaValida !== '0000-00-00')
+                ? p.fecha_agendamiento
+                : p.contacto_fecha_registro;
+            var clave = claveMes(refCruda);
+            if (clave) claves[clave] = true;
+        });
+
+        select.innerHTML = '<option value="todos">Todos</option>';
+        Object.keys(claves).sort().reverse().forEach(function (clave) {
+            var opt = document.createElement('option');
+            opt.value = clave;
+            opt.textContent = etiquetaMes(clave);
+            select.appendChild(opt);
+        });
+
+        var opciones = Array.prototype.map.call(select.options, function (o) { return o.value; });
+        select.value = opciones.indexOf(valorPrevio) !== -1 ? valorPrevio : actual;
+    }
+
+    // Mismo criterio de normalización que refFechaFase/poblarSelectorPeriodo:
+    // fecha_agendamiento en blanco llega como '0000-00-00...' (truthy en JS),
+    // así que se valida antes de usarla como referencia.
+    function coincidePeriodo(p) {
+        var sel = document.getElementById('efFiltroPeriodo');
+        var clave = sel ? sel.value : 'todos';
+        if (!clave || clave === 'todos') return true;
+        var fechaAgendaValida = soloFecha(p.fecha_agendamiento);
+        var refCruda = (fechaAgendaValida && fechaAgendaValida !== '0000-00-00')
+            ? p.fecha_agendamiento
+            : p.contacto_fecha_registro;
+        return claveMes(refCruda) === clave;
+    }
+
     function pipelineFiltrado() {
         var prom = document.getElementById('efFiltroPromotor').value;
         var pdv  = document.getElementById('efFiltroPdv').value;
@@ -258,17 +366,21 @@
         return pipeline.filter(function (p) {
             if (prom && (p.usuario || '') !== prom) return false;
             if (!matchPdv(p, pdv) || !matchEmpresa(p, emp)) return false;
+            if (!coincidePeriodo(p)) return false;
             return true;
         });
     }
 
     // ── Filtros: Promotor / PDV / Empresa ──────────────────────────────
-    // Promotor y Empresa salen de allRows (todo lo ya cargado); PDV usa el
-    // mismo catálogo de locales que Agendamientos (get_pdvs.php). Los 3
-    // usan el combobox con buscador compartido con Agendamientos
+    // Los 3 salen de allRows — solo lo que YA existe registrado en este
+    // módulo, nunca el catálogo completo del canal (ese catálogo,
+    // get_promotores.php/get_pdvs.php, es solo para "Crear visita" en
+    // Agendamientos, donde sí hace falta ofrecer promotores/PDV sin
+    // registro previo) — pedido explícito del usuario (2026-07-16: "aca
+    // nomas es con lo existente en los tres modulos"). Los 3 usan el
+    // combobox con buscador compartido con Agendamientos
     // (habilitarComboBuscador en agenda-crear.js, ver
-    // window.AgendaHabilitarComboBuscador) — pedido explícito del usuario
-    // (2026-07-16).
+    // window.AgendaHabilitarComboBuscador).
     function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
         var select = document.getElementById(selectId);
         var valorPrevio = select.value;
@@ -289,14 +401,6 @@
         if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
     }
 
-    function cargarOpcionesPdv() {
-        fetch(GETTERS_BASE + 'get_pdvs.php')
-            .then(function (r) { return r.json(); })
-            .then(function (json) {
-                poblarSelectDistinct('efFiltroPdv', json.data || [], 'pos_name', 'Todos');
-            });
-    }
-
     // ── Carga de datos ────────────────────────────────────────────────
     function cargar() {
         document.getElementById('efKanban').innerHTML = '<div class="ef-vacio">Cargando...</div>';
@@ -306,7 +410,9 @@
             .then(function (json) {
                 allRows = json.data || [];
                 pipeline = ultimosCiclos(allRows);
+                poblarSelectorPeriodo();
                 poblarSelectDistinct('efFiltroPromotor', allRows, 'usuario', 'Todos');
+                poblarSelectDistinct('efFiltroPdv', allRows, 'pdv', 'Todos');
                 poblarSelectDistinct('efFiltroEmpresa', allRows, 'empresa', 'Todas');
                 construirEsqueletoKanban();
                 renderKanban(pipelineFiltrado());
@@ -320,11 +426,11 @@
     document.getElementById('efFiltroPromotor').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efFiltroPdv').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efFiltroEmpresa').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
+    document.getElementById('efFiltroPeriodo').addEventListener('change', function () { renderKanban(pipelineFiltrado()); });
     document.getElementById('efActualizar').addEventListener('click', cargar);
     ['efFiltroPromotor', 'efFiltroPdv', 'efFiltroEmpresa'].forEach(function (id) {
         window.AgendaHabilitarComboBuscador(id);
     });
-    cargarOpcionesPdv();
 
     // Delegado sobre el contenedor (las tarjetas se repintan enteras en
     // cada renderKanban, un listener por tarjeta se perdería en cada refresh).

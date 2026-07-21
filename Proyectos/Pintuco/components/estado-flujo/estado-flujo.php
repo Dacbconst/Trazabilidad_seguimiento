@@ -40,6 +40,12 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
                 <option value="">Todas</option>
             </select>
         </div>
+        <div class="filter-group">
+            <label>Periodo</label>
+            <!-- Mismo mecanismo que Factura (poblarSelectorPeriodo): se
+                 llena en JS con los meses/año que realmente tienen datos. -->
+            <select class="form-control" id="efFiltroPeriodo"></select>
+        </div>
         <div class="mod-filtros-extra">
             <button type="button" class="btn btn-mod-actualizar" id="efActualizar">
                 <i class="glyphicon glyphicon-refresh"></i> Actualizar
@@ -55,7 +61,7 @@ $ef_js_v     = @filemtime($ef_dir . '/assets/estado-flujo.js') ?: time();
          pasando" con ese agendamiento sin salir del kanban — ver
          abrirDetalle() en estado-flujo.js. -->
     <div class="ef-detalle-overlay" id="efDetalleOverlay">
-        <div class="ef-detalle-card">
+        <div class="ef-detalle-card" id="efDetalleCard">
             <div class="ef-detalle-header">
                 <div>
                     <div class="ef-detalle-titulo" id="efDetalleTitulo"></div>

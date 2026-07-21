@@ -24,6 +24,16 @@
                     </span>
                 </div>
 
+                <!-- Motivo de una reagendación YA guardada (solo lectura) —
+                     distinto del textarea de abajo (#agendaEditMotivoWrap),
+                     que es para escribir el motivo de una reagendación nueva
+                     que se está haciendo ahora mismo. Antes el dato se
+                     guardaba pero no se volvía a mostrar en ningún lado. -->
+                <div class="agenda-edit-motivo-previo" id="agendaEditMotivoPrevioWrap" style="display:none">
+                    <span class="agenda-edit-motivo-previo-label">Motivo de la reagendación</span>
+                    <span class="agenda-edit-motivo-previo-texto" id="agendaEditMotivoPrevioTexto"></span>
+                </div>
+
                 <div class="agenda-edit-alert" id="agendaEditAlerta" style="display:none">
                     <i class="glyphicon glyphicon-warning-sign"></i>
                     <span id="agendaEditAlertaTexto"></span>

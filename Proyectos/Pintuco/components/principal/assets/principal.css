@@ -98,7 +98,7 @@
 .dash-kpi.is-loading.is-violeta .dash-kpi-valor,
 .dash-kpi.is-loading.is-rojo .dash-kpi-valor { color: oklch(0.85 0.008 260); }
 
-/* La tarjeta "Agendamientos estancados" es un <button> real (accesible por teclado)
+/* La tarjeta "Visitas vencidas" es un <button> real (accesible por teclado)
    pero debe verse IGUAL que las demás tarjetas — reset de apariencia nativa. */
 button.dash-kpi {
     font: inherit;
@@ -121,9 +121,9 @@ button.dash-kpi {
 .dash-kpi.is-loading .dash-kpi-ver-detalle { visibility: hidden; }
 
 /* ---------------------------------------------------
-   Modal: detalle de Agendamientos estancados
+   Modal: detalle de Visitas vencidas
 ----------------------------------------------------- */
-.dash-estancados-overlay {
+.dash-vencidas-overlay {
     display: none;
     position: fixed;
     inset: 0;
@@ -133,9 +133,9 @@ button.dash-kpi {
     z-index: 1000;
     padding: 20px;
 }
-.dash-estancados-overlay.is-abierto { display: flex; }
+.dash-vencidas-overlay.is-abierto { display: flex; }
 
-.dash-estancados-card {
+.dash-vencidas-card {
     background: #fff;
     border-radius: 12px;
     width: 100%;
@@ -147,16 +147,16 @@ button.dash-kpi {
     box-shadow: 0 20px 60px rgba(20, 24, 34, .35);
 }
 
-.dash-estancados-header {
+.dash-vencidas-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     padding: 20px 24px 14px;
     border-bottom: 1px solid var(--dash-line);
 }
-.dash-estancados-titulo { font-size: 16px; font-weight: 800; color: var(--dash-ink); }
-.dash-estancados-sub { font-size: 12.5px; color: var(--dash-ink-faint); margin-top: 4px; }
-.dash-estancados-close {
+.dash-vencidas-titulo { font-size: 16px; font-weight: 800; color: var(--dash-ink); }
+.dash-vencidas-sub { font-size: 12.5px; color: var(--dash-ink-faint); margin-top: 4px; }
+.dash-vencidas-close {
     background: none;
     border: none;
     font-size: 20px;
@@ -165,9 +165,9 @@ button.dash-kpi {
     cursor: pointer;
     padding: 2px 4px;
 }
-.dash-estancados-close:hover { color: var(--dash-ink); }
+.dash-vencidas-close:hover { color: var(--dash-ink); }
 
-.dash-estancados-nota {
+.dash-vencidas-nota {
     padding: 12px 24px;
     font-size: 11.5px;
     color: var(--dash-ink-faint);
@@ -175,10 +175,10 @@ button.dash-kpi {
     border-bottom: 1px solid var(--dash-line);
 }
 
-.dash-estancados-body { padding: 0; overflow-y: auto; }
+.dash-vencidas-body { padding: 0; overflow-y: auto; }
 
-.dash-estancados-tabla { width: 100%; border-collapse: collapse; }
-.dash-estancados-tabla th {
+.dash-vencidas-tabla { width: 100%; border-collapse: collapse; }
+.dash-vencidas-tabla th {
     position: sticky;
     top: 0;
     background: #fff;
@@ -191,17 +191,17 @@ button.dash-kpi {
     padding: 10px 24px;
     border-bottom: 1px solid var(--dash-line);
 }
-.dash-estancados-tabla td {
+.dash-vencidas-tabla td {
     padding: 12px 24px;
     font-size: 12.5px;
     color: var(--dash-ink-soft);
     border-bottom: 1px solid oklch(0.95 0.005 260);
     vertical-align: top;
 }
-.dash-estancados-tabla tr:last-child td { border-bottom: none; }
-.dash-est-empresa { font-weight: 700; color: var(--dash-ink); }
-.dash-est-contacto { font-size: 11.5px; color: var(--dash-ink-faint); margin-top: 2px; }
-.dash-est-dias {
+.dash-vencidas-tabla tr:last-child td { border-bottom: none; }
+.dash-venc-empresa { font-weight: 700; color: var(--dash-ink); }
+.dash-venc-contacto { font-size: 11.5px; color: var(--dash-ink-faint); margin-top: 2px; }
+.dash-venc-dias {
     display: inline-block;
     font-family: 'IBM Plex Mono', monospace;
     font-weight: 700;
@@ -212,12 +212,16 @@ button.dash-kpi {
     white-space: nowrap;
 }
 
-/* ── Paneles lado a lado ── */
+/* ── Paneles: embudo arriba (ancho completo), promotores + PDV abajo ── */
 .dash-paneles {
     display: grid;
-    grid-template-columns: 1.4fr 1fr;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "funnel funnel" "promo pdv";
     gap: 14px;
 }
+.dash-panel-funnel { grid-area: funnel; }
+.dash-panel-promo  { grid-area: promo; }
+.dash-panel-pdv     { grid-area: pdv; }
 .dash-panel {
     background: #fff;
     border: 1px solid var(--dash-border);
@@ -384,7 +388,7 @@ button.dash-kpi {
     .dash-kpis { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 900px) {
-    .dash-paneles { grid-template-columns: 1fr; }
+    .dash-paneles { grid-template-columns: 1fr; grid-template-areas: "funnel" "promo" "pdv"; }
     .dash-funnel-fila { grid-template-columns: 120px 1fr 28px 44px; gap: 8px; }
     .dash-funnel-etiqueta { font-size: 11px; }
 }

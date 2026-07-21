@@ -51,11 +51,11 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
         <div class="dash-kpi is-loading is-azul">
             <div class="dash-kpi-head">
                 <span class="dash-kpi-icono">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"></path><circle cx="12" cy="9.5" r="2.4" stroke="currentColor" stroke-width="2.2"></circle></svg>
                 </span>
-                <span class="dash-kpi-label">Agendamientos en seguimiento</span>
+                <span class="dash-kpi-label">Puntos de venta</span>
             </div>
-            <span class="dash-kpi-valor" id="kpiTotal">—</span>
+            <span class="dash-kpi-valor" id="kpiPdvs">—</span>
         </div>
 
         <div class="dash-kpi is-loading is-verde">
@@ -79,42 +79,42 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
         </div>
 
         <!-- Clickeable: abre el detalle de cuáles son (ver principal.js
-             abrirModalEstancados) — antes el número no llevaba a ningún
-             lado, pedido explícito del usuario. -->
-        <button type="button" class="dash-kpi is-loading is-rojo is-clickable" id="kpiEstancadosCard">
+             abrirModalVencidas). -->
+        <button type="button" class="dash-kpi is-loading is-rojo is-clickable" id="kpiVencidasCard">
             <div class="dash-kpi-head">
                 <span class="dash-kpi-icono">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2.2"></rect><path d="M3 9h18M8 2v4M16 2v4M9.5 14.5l5 5M14.5 14.5l-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
                 </span>
-                <span class="dash-kpi-label">Agendamientos estancados</span>
+                <span class="dash-kpi-label">Visitas vencidas</span>
             </div>
-            <span class="dash-kpi-valor" id="kpiEstancados">—</span>
+            <span class="dash-kpi-valor" id="kpiVencidas">—</span>
             <span class="dash-kpi-ver-detalle">Ver detalle →</span>
         </button>
     </div>
 
-    <!-- Modal: detalle de Agendamientos estancados (fase < 5 y más de 7
-         días sin avance) — ver abrirModalEstancados en principal.js. -->
-    <div class="dash-estancados-overlay" id="dashEstancadosOverlay">
-        <div class="dash-estancados-card">
-            <div class="dash-estancados-header">
+    <!-- Modal: detalle de Visitas vencidas (fecha_agendamiento ya pasó y no
+         está cancelada/completada — mismo contrato de estado_agenda que usa
+         Agendamientos) — ver abrirModalVencidas en principal.js. -->
+    <div class="dash-vencidas-overlay" id="dashVencidasOverlay">
+        <div class="dash-vencidas-card">
+            <div class="dash-vencidas-header">
                 <div>
-                    <div class="dash-estancados-titulo">Agendamientos estancados</div>
-                    <div class="dash-estancados-sub" id="dashEstancadosCount"></div>
+                    <div class="dash-vencidas-titulo">Visitas vencidas</div>
+                    <div class="dash-vencidas-sub" id="dashVencidasCount"></div>
                 </div>
-                <button type="button" class="dash-estancados-close" id="dashEstancadosClose" aria-label="Cerrar">&times;</button>
+                <button type="button" class="dash-vencidas-close" id="dashVencidasClose" aria-label="Cerrar">&times;</button>
             </div>
-            <div class="dash-estancados-nota">
-                Fase menor a 5 (Facturado) y más de 7 días sin avance en su fase actual — mismos filtros de Promotor/Período que el resto del dashboard.
+            <div class="dash-vencidas-nota">
+                Fecha agendada ya pasada y sin reagendar, cancelar ni completar — mismos filtros de Promotor/Período que el resto del dashboard.
             </div>
-            <div class="dash-estancados-body" id="dashEstancadosBody"></div>
+            <div class="dash-vencidas-body" id="dashVencidasBody"></div>
         </div>
     </div>
 
-    <!-- Paneles: Embudo + Top promotores -->
+    <!-- Paneles: Embudo + Top promotores + Top PDV -->
     <div class="dash-paneles">
 
-        <div class="dash-panel">
+        <div class="dash-panel dash-panel-funnel">
             <div class="dash-panel-header">
                 <span class="dash-panel-titulo">Embudo por fases</span>
                 <span class="dash-panel-total" id="dashFunnelTotal">—</span>
@@ -128,9 +128,16 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
             </div>
         </div>
 
-        <div class="dash-panel">
+        <div class="dash-panel dash-panel-promo">
             <div class="dash-panel-titulo">Top promotores</div>
             <div id="dashPromotores">
+                <div class="dash-cargando">Cargando...</div>
+            </div>
+        </div>
+
+        <div class="dash-panel dash-panel-pdv">
+            <div class="dash-panel-titulo">Top PDV</div>
+            <div id="dashTopPdv">
                 <div class="dash-cargando">Cargando...</div>
             </div>
         </div>

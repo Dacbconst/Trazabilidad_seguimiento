@@ -39,19 +39,29 @@
  * La decisión final (fase 5) la toma el promotor al subir foto_factura desde
  * el celular. La web NO tiene botón de "aprobar"/"finalizar".
  *
- * ══════════════════════════════════════════════════════════════════════
- * NOTA PARA EL EQUIPO MÓVIL/ANDROID (2026-07-14) — contrato compartido:
- * ══════════════════════════════════════════════════════════════════════
- * Se agregó la posibilidad de cerrar definitivamente una ronda de
- * negociación que se queda en pura cotización y nunca llega a factura
- * (cliente no continuó, se fue con la competencia, etc.).
+ * Guardas de carrera (2026-07-16, hallazgo del consejo de revisión): 'rechazar',
+ * 'guardar' y 'cerrar_plan_pago' condicionan su UPDATE al estado esperado y
+ * revisan affected_rows — si otra sesión (otro analista, u otro flujo de la
+ * app móvil) ya cambió el registro entre que se abrió el panel y que se
+ * confirmó la acción, el UPDATE no aplica y se devuelve
+ * {success:false, stale:true, message:'...'} en vez de pisar en silencio un
+ * cierre/avance ajeno. El frontend usa 'stale' para recargar en vez de solo
+ * reintentar contra un estado que ya sabe que es viejo.
  *
- * PENDIENTE DE SCHEMA: falta agregar en insert_proforma la columna
- *   motivo_cierre VARCHAR(500) NULL DEFAULT NULL
- * (el usuario la agrega manualmente — mediador de cambios de esquema
- * compartidos; no correr ALTER TABLE sin coordinar con él).
+ * ══════════════════════════════════════════════════════════════════════
+ * NOTA PARA EL EQUIPO MÓVIL/ANDROID (2026-07-16) — contrato compartido,
+ * confirmado con lo que YA hace la app (Cierre Proforma / Cierre Factura):
+ * ══════════════════════════════════════════════════════════════════════
+ * El móvil tiene sus propios flujos de cierre. Del lado de la web, el
+ * único campo que de verdad sincroniza en cada uno es el de estado —
+ * motivo_cierre/motivo_cierre_pago son columnas propias de la web,
+ * informativas solamente (el móvil las tiene como campo LOCAL, no las
+ * sincroniza, y del lado web tampoco se escribe el motivo en
+ * observaciones_auditoria — eso quedó a cargo del móvil, corregido en su
+ * propio flujo).
  *
- * Lo que escribe la web al cerrar (acción 'rechazar' de este archivo):
+ * Cierre Proforma (acción 'rechazar' de este archivo) — ronda de
+ * negociación que se queda en pura cotización y nunca llega a factura:
  *   UPDATE insert_proforma
  *   SET estado_proforma = 'rechazado', motivo_cierre = '<motivo>',
  *       fecha_auditoria = NOW()
@@ -68,22 +78,25 @@
  *    mostrarla como cerrada (motivo_cierre trae la razón, si se muestra).
  *    No confundir con 'correccion_solicitada' (esa SÍ es reversible, solo
  *    pide reenviar la foto).
- *  - ESCRITURA (si el promotor también puede cerrar desde la app): mismos
- *    3 campos de arriba, motivo_cierre obligatorio en su formulario.
  *  - Ambos lados leen/escriben la misma tabla en tiempo real — no hace
  *    falta ningún mecanismo de sync/notificación aparte.
  *
- * NOTA 2 (2026-07-14) — cierre de plan de pago a plazos:
+ * NOTA 2 (2026-07-16) — cierre de plan de pago a plazos (Cierre Factura):
  * Acción 'cerrar_plan_pago': para cuando el cliente deja de pagar cuotas y
- * el plan nunca se va a completar. Columna nueva, SOLO de la web:
- *   motivo_cierre_pago VARCHAR(500) NULL
- * (la fecha de cierre reusa fecha_auditoria — esa fila, la que trae
- * foto_factura, nunca pasa por 'guardar'/'rechazar', así que ese campo
- * queda libre ahí; no hace falta una columna de fecha aparte).
- * IMPORTANTE: esta acción NUNCA toca estado_pago/monto_total_factura/
- * plazo_meses — esos siguen siendo de UN SOLO DUEÑO (la app). Si el móvil
- * lee motivo_cierre_pago con valor, es solo informativo (la web decidió
- * cerrar el caso); no implica que deban cambiar su propio estado_pago.
+ * el plan nunca se va a completar.
+ *   UPDATE insert_proforma
+ *   SET estado_pago = 'cerrado', motivo_cierre_pago = '<motivo>',
+ *       fecha_auditoria = NOW()
+ *   WHERE id = <id de la fila "factura">
+ * - motivo_cierre_pago: columna propia de la web (el móvil la tiene local,
+ *   no sincroniza — mismo caso que motivo_cierre arriba).
+ * - estado_pago: CAMBIO DE CRITERIO respecto a la nota anterior — hasta
+ *   ahora esta acción nunca la tocaba porque se consideraba de un solo
+ *   dueño (la app). Confirmado 2026-07-16 con el equipo Android: la app
+ *   YA usa 'cerrado' como su propio valor para este mismo caso (plan
+ *   truncado), así que la web escribe el mismo valor en vez de inventar
+ *   un canal paralelo — evita que un lado muestre "cerrado" y el otro
+ *   siga mostrando 'pendiente'/'en_proceso' para la misma fila.
  * ══════════════════════════════════════════════════════════════════════
  */
 error_reporting(0);
@@ -115,13 +128,23 @@ if ($id <= 0 || !in_array($accion, ['rechazar_calidad', 'cancelar_correccion', '
 // ── 1. 'rechazar_calidad': la foto no sirve, se pide reenvío. Reversible —
 //      NO se borra nada, solo se marca el estado; ver 'cancelar_correccion'.
 if ($accion === 'rechazar_calidad') {
+    // Guarda de carrera (2026-07-16, mismo motivo que 'rechazar'/'guardar'
+    // más abajo): el botón "Rechazar / Pedir nueva foto" del frontend ya
+    // se oculta si el proceso está cerrado, pero ese es solo control de UI
+    // — sin este WHERE, una pantalla desactualizada podía reabrir a
+    // 'correccion_solicitada' un ciclo que ya estaba 'rechazado' (cerrado).
     $sql = $mysqli->prepare(
-        "UPDATE insert_proforma SET estado_proforma = 'correccion_solicitada' WHERE id = ?"
+        "UPDATE insert_proforma SET estado_proforma = 'correccion_solicitada' WHERE id = ? AND estado_proforma <> 'rechazado'"
     );
     if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
     $sql->bind_param('i', $id);
     $ok = $sql->execute();
+    $afectadas = $ok ? $sql->affected_rows : 0;
     $sql->close();
+    if ($ok && $afectadas === 0) {
+        echo json_encode(['success' => false, 'stale' => true, 'message' => 'El proceso ya está cerrado — recarga la página.']);
+        exit;
+    }
     echo json_encode(['success' => $ok, 'message' => $ok ? 'Se pidió una corrección.' : $mysqli->error]);
     exit;
 }
@@ -148,30 +171,56 @@ if ($accion === 'rechazar') {
         echo json_encode(['success' => false, 'message' => 'El motivo del cierre es obligatorio.']);
         exit;
     }
+    // monto es opcional acá (se puede cerrar sin haber llegado nunca a
+    // cotizar), pero si viene tiene que ser numérico — sin esto, un valor
+    // no numérico se trunca silenciosamente al guardar en la columna
+    // DECIMAL (error_reporting está apagado arriba, no se vería el warning).
+    if ($monto !== null && !is_numeric($monto)) {
+        echo json_encode(['success' => false, 'message' => 'El monto no es válido.']);
+        exit;
+    }
     // motivo_cierre es su propia columna (no observaciones_auditoria, que
     // ya es de 'guardar' — notas de validación, concepto distinto). Así
     // ambos quedan intactos y consultables por separado.
+    // Guarda de carrera (hallazgo del consejo 2026-07-16): antes este UPDATE
+    // no tenía condición de estado ni chequeo de affected_rows, a diferencia
+    // de 'cerrar_plan_pago' que sí lo tenía. Sin esto, un "Cerrar proceso"
+    // con la pantalla desactualizada podía revertir un registro que el
+    // móvil ya había avanzado a fase 5 (foto_factura subida) mientras el
+    // panel seguía abierto — acá no hay polling, el panel no se refresca
+    // solo. El WHERE bloquea esa reversión en vez de solo confiar en la UI.
     $sql = $mysqli->prepare(
         "UPDATE insert_proforma
          SET estado_proforma = 'rechazado', monto_validado = ?, motivo_cierre = ?,
              fecha_auditoria = NOW(), fase_actual = 4
-         WHERE id = ?"
+         WHERE id = ?
+           AND estado_proforma NOT IN ('rechazado', 'aprobado')
+           AND (foto_factura IS NULL OR foto_factura = '')"
     );
     if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
     $sql->bind_param('ssi', $monto, $motivo_cierre, $id);
     $ok = $sql->execute();
+    $afectadas = $ok ? $sql->affected_rows : 0;
     $sql->close();
-    echo json_encode(['success' => $ok, 'message' => $ok ? 'Rechazada.' : $mysqli->error]);
+    if ($ok && $afectadas === 0) {
+        echo json_encode(['success' => false, 'stale' => true, 'message' => 'El registro ya cambió de estado (cerrado o facturado) en otra sesión — recarga la página.']);
+        exit;
+    }
+    echo json_encode(['success' => $ok, 'message' => $ok ? 'Proceso cerrado.' : $mysqli->error]);
     exit;
 }
 
 // ── 2b. 'cerrar_plan_pago': plan de pago a plazos que se quedó a medias
 //        (dejó de pagar cuotas y nunca va a terminar) — 2026-07-14, pedido
-//        explícito del usuario. NO toca estado_pago/monto_total_factura/
-//        plazo_meses: esos son de UN SOLO DUEÑO (la app), ver comentario en
-//        proformas_listar.php. Esto es solo una anotación propia de la web
-//        en una columna separada — el móvil sigue viendo su estado_pago tal
-//        cual lo dejó, esto no lo pisa ni lo reemplaza.
+//        explícito del usuario. Desde 2026-07-16 SÍ toca estado_pago
+//        (pasa a 'cerrado') — confirmado con Android: la app usa el mismo
+//        valor en su propio flujo "Cierre Factura", así que la web se
+//        alinea en vez de mantener un estado paralelo. monto_total_factura/
+//        plazo_meses siguen siendo de UN SOLO DUEÑO (la app) — esos no se
+//        tocan acá. motivo_cierre_pago es columna propia de la web,
+//        informativa (el móvil la tiene local, no sincroniza); el motivo
+//        NO se escribe en observaciones_auditoria — eso quedó a cargo del
+//        móvil en su propio flujo de cierre.
 //        fecha_auditoria: se reusa (no hay columna de fecha aparte) — la
 //        fila que trae foto_factura nunca pasa por 'guardar'/'rechazar'
 //        desde la web (esas acciones solo llegan hasta Fase 4), así que
@@ -223,14 +272,17 @@ if ($accion === 'cerrar_plan_pago') {
         echo json_encode(['success' => false, 'message' => 'El plan ya está completado.']);
         exit;
     }
-    if ($fila['motivo_cierre_pago'] !== null && $fila['motivo_cierre_pago'] !== '') {
-        echo json_encode(['success' => false, 'message' => 'El plan ya fue cerrado.']);
+    // 'cerrado' puede llegar por acá (web) o por el propio flujo del móvil
+    // (Cierre Factura) — cualquiera de los dos que haya cerrado primero
+    // cuenta, no solo el que tenga motivo_cierre_pago propio de la web.
+    if ($fila['estado_pago'] === 'cerrado' || ($fila['motivo_cierre_pago'] !== null && $fila['motivo_cierre_pago'] !== '')) {
+        echo json_encode(['success' => false, 'stale' => true, 'message' => 'El plan ya fue cerrado.']);
         exit;
     }
     $sql = $mysqli->prepare(
         "UPDATE insert_proforma
-         SET motivo_cierre_pago = ?, fecha_auditoria = NOW()
-         WHERE id = ? AND (motivo_cierre_pago IS NULL OR motivo_cierre_pago = '')"
+         SET estado_pago = 'cerrado', motivo_cierre_pago = ?, fecha_auditoria = NOW()
+         WHERE id = ? AND estado_pago NOT IN ('cerrado', 'completado')"
     );
     if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
     $sql->bind_param('si', $motivo_cierre_pago, $id);
@@ -243,7 +295,7 @@ if ($accion === 'cerrar_plan_pago') {
     $afectadas = $ok ? $sql->affected_rows : 0;
     $sql->close();
     if ($ok && $afectadas === 0) {
-        echo json_encode(['success' => false, 'message' => 'El plan ya fue cerrado en otra sesión.']);
+        echo json_encode(['success' => false, 'stale' => true, 'message' => 'El plan ya fue cerrado en otra sesión.']);
         exit;
     }
     echo json_encode(['success' => $ok, 'message' => $ok ? 'Plan de pago cerrado.' : $mysqli->error]);
@@ -256,17 +308,34 @@ if ($monto === null || $monto === '') {
     echo json_encode(['success' => false, 'message' => 'El monto cotizado es obligatorio.']);
     exit;
 }
+if (!is_numeric($monto)) {
+    echo json_encode(['success' => false, 'message' => 'El monto no es válido.']);
+    exit;
+}
 
+// Guarda de carrera (hallazgo del consejo 2026-07-16), mismo motivo que en
+// 'rechazar' arriba: sin el WHERE de estado ni el chequeo de affected_rows,
+// un "Guardar cambios" con la pantalla desactualizada podía reabrir a
+// 'en_negociacion' un ciclo que ya se había cerrado (rechazado) o que el
+// móvil ya había avanzado a fase 5 mientras el panel seguía abierto sin
+// refrescarse solo.
 $sql = $mysqli->prepare(
     "UPDATE insert_proforma
      SET estado_proforma = 'en_negociacion', monto_validado = ?, observaciones_auditoria = ?,
          fecha_auditoria = NOW(), fase_actual = 4
-     WHERE id = ?"
+     WHERE id = ?
+       AND estado_proforma <> 'rechazado'
+       AND (foto_factura IS NULL OR foto_factura = '')"
 );
 if (!$sql) { echo json_encode(['success' => false, 'message' => $mysqli->error]); exit; }
 $sql->bind_param('ssi', $monto, $observaciones, $id);
 $ok = $sql->execute();
+$afectadas = $ok ? $sql->affected_rows : 0;
 $sql->close();
+if ($ok && $afectadas === 0) {
+    echo json_encode(['success' => false, 'stale' => true, 'message' => 'El registro ya cambió de estado (cerrado o facturado) en otra sesión — recarga la página.']);
+    exit;
+}
 
 // Ya NO se inserta un ciclo nuevo vacío acá (confirmado con la app móvil,
 // 2026-07-03): esa fila vacía era el origen de las "proformas fantasma" que
