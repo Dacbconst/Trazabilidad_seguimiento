@@ -147,4 +147,153 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 		</td>
 	</tr>';
 }
+
+// ---------- Historial de Acuerdos (repositorio_acuerdos) ----------
+// Mismo patrón que arriba: la carga inicial (historial.php) y el refresco
+// por AJAX (getters/listar_historial.php) comparten la misma consulta y el
+// mismo render de fila para no duplicar SQL ni HTML.
+
+function mesCorto($mes) {
+	$meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+	return isset($meses[$mes]) ? $meses[$mes] : '';
+}
+
+function periodoCorto($mesInicio, $mesFin) {
+	if ($mesInicio === $mesFin) return mesCorto($mesInicio);
+	return mesCorto($mesInicio).' - '.mesCorto($mesFin);
+}
+
+// Misma fórmula que formatLocalidad() en registrar.js — se usa solo para el
+// detalle del Acta (obtener_acuerdo_detalle) para que el documento impreso
+// desde Historial se vea igual que el que genera Registrar. La tabla/listado
+// de Historial en sí usa solo `city`, como pide el mockup del usuario.
+function formatLocalidadTexto($province, $city) {
+	$partes = array_filter([$province, $city], function ($p) { return $p !== null && $p !== ''; });
+	return $partes ? implode(' - ', $partes) : '—';
+}
+
+function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+	// -1 nunca calza con mes_inicio/mes_fin (0-11): con "Todos los meses" el
+	// lado izquierdo del OR siempre gana y el filtro de rango queda anulado,
+	// sin necesidad de armar el SQL con número variable de placeholders.
+	$mesIdx = ($mes >= 1 && $mes <= 12) ? ($mes - 1) : -1;
+
+	$sqlBase = "FROM repositorio_acuerdos a
+		JOIN repositorio_locales_dtt2 d ON d.pos_id = a.pos_id
+		WHERE a.estado <> 'borrador'
+		  AND d.pos_name LIKE ?
+		  AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))";
+
+	$stmtTotal = $mysqli->prepare("SELECT COUNT(*) AS total $sqlBase");
+	$stmtTotal->bind_param('siii', $like, $mesIdx, $mesIdx, $mesIdx);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) {
+		$pagina = $totalPaginas;
+		$offset = ($pagina - 1) * $porPagina;
+	}
+
+	$stmt = $mysqli->prepare(
+		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado,
+		        d.pos_name, d.city
+		 $sqlBase
+		 ORDER BY a.fecha_generacion DESC, a.id DESC
+		 LIMIT ? OFFSET ?"
+	);
+	$stmt->bind_param('siiiii', $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
+	$stmt->execute();
+	$acuerdos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return [
+		'acuerdos'      => $acuerdos,
+		'total'         => $total,
+		'pagina'        => $pagina,
+		'total_paginas' => $totalPaginas,
+	];
+}
+
+function renderFilaHistorial(array $a) {
+	$fecha = $a['fecha_generacion'] ? date('d/m/Y', strtotime($a['fecha_generacion'])) : '—';
+
+	return '
+	<tr data-id="'.(int) $a['id'].'">
+		<td><button type="button" class="ac-link-id hist-btn-ver" data-id="'.(int) $a['id'].'">#'.htmlspecialchars($a['documento_no']).'</button></td>
+		<td class="ac-hist-distribuidor">'.htmlspecialchars($a['pos_name']).'</td>
+		<td>'.htmlspecialchars($a['city'] ?: '—').'</td>
+		<td class="ac-text-center">'.htmlspecialchars(periodoCorto((int) $a['mes_inicio'], (int) $a['mes_fin'])).'</td>
+		<td class="ac-text-right ac-tabular">'.$fecha.'</td>
+		<td class="ac-text-right">
+			<div class="ac-row-actions">
+				<button type="button" class="ac-icon-btn hist-btn-descargar" data-id="'.(int) $a['id'].'" title="Descargar PDF">
+					<span class="material-symbols-outlined">download</span>
+				</button>
+				<button type="button" class="ac-icon-btn hist-btn-ver" data-id="'.(int) $a['id'].'" title="Ver Detalles">
+					<span class="material-symbols-outlined">visibility</span>
+				</button>
+			</div>
+		</td>
+	</tr>';
+}
+
+// Cabecera + las 4 tablas de líneas de un acuerdo puntual, para el detalle/
+// Acta imprimible que se abre desde Historial (Ver Detalles / Descargar PDF).
+function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
+	$stmt = $mysqli->prepare(
+		"SELECT a.id, a.documento_no, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion,
+		        d.pos_name, d.province, d.city
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_dtt2 d ON d.pos_id = a.pos_id
+		 WHERE a.id = ? LIMIT 1"
+	);
+	$stmt->bind_param('i', $acuerdoId);
+	$stmt->execute();
+	$cabecera = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	if (!$cabecera) return null;
+
+	$stmt = $mysqli->prepare(
+		"SELECT tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, precio_percha,
+		        valores_mensuales, valor_mensual_unico, orden
+		 FROM repositorio_acuerdo_lineas WHERE acuerdo_id = ? ORDER BY tipo, orden"
+	);
+	$stmt->bind_param('i', $acuerdoId);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$lineas = ['meta_compra' => [], 'cabecera' => [], 'ruma' => [], 'percha' => []];
+	foreach ($filas as $f) {
+		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
+		$lineas[$f['tipo']][] = [
+			'segmento'            => $f['segmento'],
+			'categoria'           => $f['categoria'],
+			'marca'               => $f['marca'],
+			'rebate_pct'          => $f['rebate_pct'] !== null ? (float) $f['rebate_pct'] : 0,
+			'cantidad_max_percha' => (int) $f['cantidad_max_percha'],
+			'precio_percha'       => $f['precio_percha'] !== null ? (float) $f['precio_percha'] : 0,
+			'valores_mensuales'   => is_array($valores) ? $valores : [],
+			'valor_mensual_unico' => $f['valor_mensual_unico'] !== null ? (float) $f['valor_mensual_unico'] : 0,
+		];
+	}
+
+	return [
+		'id'                => (int) $cabecera['id'],
+		'documento_no'      => $cabecera['documento_no'],
+		'anio'              => (int) $cabecera['anio'],
+		'mes_inicio'        => (int) $cabecera['mes_inicio'],
+		'mes_fin'           => (int) $cabecera['mes_fin'],
+		'estado'            => $cabecera['estado'],
+		'fecha_generacion'  => $cabecera['fecha_generacion'],
+		'distribuidor'      => $cabecera['pos_name'],
+		'localidad'         => formatLocalidadTexto($cabecera['province'], $cabecera['city']),
+		'lineas'            => $lineas,
+	];
+}
 ?>

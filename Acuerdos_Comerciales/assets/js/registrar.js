@@ -89,7 +89,7 @@
 	// ---------- Combobox de Distribuidor (buscador sobre repositorio_locales_dtt2.pos_name) ----------
 	function seleccionarDistribuidor(d) {
 		distribuidorSelect.value = d.pos_id;
-		distribuidorSearch.value = d.pos_name + ' (' + d.pos_id + ')';
+		distribuidorSearch.value = d.pos_name;
 		localidadEl.textContent = formatLocalidad(d);
 		cerrarPanelDistribuidor();
 	}
@@ -104,7 +104,7 @@
 			distribuidorPanel.innerHTML = '<div class="ac-combo-empty">Sin coincidencias</div>';
 		} else {
 			distribuidorPanel.innerHTML = coincidencias.map(function (d) {
-				return '<div class="ac-combo-option" data-pos-id="' + d.pos_id + '">' + d.pos_name + ' <span class="ac-combo-option-hint">(' + d.pos_id + ')</span></div>';
+				return '<div class="ac-combo-option" data-pos-id="' + d.pos_id + '">' + d.pos_name + '</div>';
 			}).join('');
 		}
 		distribuidorPanel.classList.remove('hidden');

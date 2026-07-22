@@ -557,7 +557,6 @@ body {
 }
 .ac-combo-option { padding: 10px var(--space-md); font-size: 14px; cursor: pointer; }
 .ac-combo-option:hover { background: var(--color-surface-container-high); }
-.ac-combo-option-hint { color: var(--color-on-surface-variant); font-size: 12px; }
 .ac-combo-empty { padding: 10px var(--space-md); font-size: 13px; color: var(--color-outline); }
 
 .ac-card-header-title { display: flex; align-items: center; gap: var(--space-sm); }
@@ -724,8 +723,29 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3 { z-index: 
 .ac-acuerdo-firma-titulo { text-align: center; }
 
 @media print {
-	.no-print, .ac-header, .ac-sidebar, .ac-acuerdo { display: none !important; }
+	.no-print, .ac-header, .ac-sidebar, .ac-acuerdo, .ac-historial { display: none !important; }
 	body { background: #fff; }
 	.ac-acuerdo-canvas { box-shadow: none; border: none; padding: 0; }
 	.ac-content { padding: 0; }
+}
+
+/* ---------- Historial de Acuerdos ---------- */
+.ac-historial { display: flex; flex-direction: column; gap: var(--space-lg); }
+.ac-hist-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
+.ac-hist-filtros-card { padding: var(--space-md) var(--space-lg); }
+.ac-hist-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.ac-hist-search-wrap { flex: 1 1 260px; }
+.ac-hist-mes { width: auto; min-width: 200px; }
+.ac-link-id {
+	background: none; border: none; padding: 0; cursor: pointer;
+	color: var(--color-primary); font-weight: 700; font-size: 14px;
+	font-family: var(--font-body);
+}
+.ac-link-id:hover { text-decoration: underline; }
+
+.ac-historial-preview { display: flex; flex-direction: column; }
+
+@media (max-width: 600px) {
+	.ac-hist-filtros { flex-direction: column; align-items: stretch; }
+	.ac-hist-mes { width: 100%; }
 }
