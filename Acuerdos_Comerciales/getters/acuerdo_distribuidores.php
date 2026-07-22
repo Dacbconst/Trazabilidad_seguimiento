@@ -19,6 +19,7 @@ $res = $mysqli->query(
 	"SELECT pos_id, pos_name, province, city
 	 FROM repositorio_locales_dtt2
 	 WHERE activar = 'SI'
+	   AND status = '1'
 	   AND pos_id IS NOT NULL AND pos_id <> ''
 	 ORDER BY pos_name"
 );

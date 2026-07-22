@@ -27,7 +27,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 				<div class="ac-combo" id="ac-distribuidor-combo">
 					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar distribuidor..." autocomplete="off">
 					<input type="hidden" id="ac-distribuidor" value="">
-					<div class="ac-combo-panel hidden" id="ac-distribuidor-panel"></div>
 				</div>
 			</div>
 			<div class="ac-field">
@@ -155,61 +154,90 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 
 	<!-- Footer -->
 	<div class="ac-acuerdo-footer">
-		<button type="button" class="ac-btn-outline" id="ac-generar-acta">
+		<button type="button" class="ac-btn-primary ac-btn-inline" id="ac-generar-acta">
 			<span class="material-symbols-outlined">description</span> Generar Acta
 		</button>
-		<button type="button" class="ac-btn-outline" id="ac-guardar-borrador">Guardar Borrador</button>
-		<button type="button" class="ac-btn-primary ac-btn-inline" id="ac-finalizar-enviar">Finalizar y Enviar Acuerdo</button>
 	</div>
 </div>
 
-<!-- Preview / Acta imprimible -->
-<div class="ac-acuerdo-preview hidden" id="ac-preview-page">
-	<div class="ac-acuerdo-preview-bar no-print">
-		<button type="button" class="ac-btn-outline" id="ac-back-to-form">
-			<span class="material-symbols-outlined">arrow_back</span> Volver al Formulario
-		</button>
-		<button type="button" class="ac-btn-primary ac-btn-inline" onclick="window.print()">
-			<span class="material-symbols-outlined">print</span> Imprimir
-		</button>
-	</div>
-	<div class="ac-acuerdo-canvas" id="ac-acuerdo-canvas">
-		<header class="ac-acuerdo-canvas-header">
-			<div class="ac-acuerdo-canvas-doc">
-				<span class="ac-field-label">Documento No:</span>
-				<span class="ac-acuerdo-canvas-doc-no" id="ac-preview-documento-no">—</span>
+<!-- Modal: Vista previa del Acta generada -->
+<div class="ac-modal-overlay ac-acta-modal-overlay" id="ac-acta-modal-overlay">
+	<div class="ac-modal ac-acta-modal">
+		<div class="ac-acta-modal-bar no-print">
+			<button type="button" class="ac-btn-primary ac-btn-inline" onclick="window.print()">
+				<span class="material-symbols-outlined">print</span> Imprimir
+			</button>
+			<button type="button" class="ac-modal-close" id="ac-acta-modal-close" aria-label="Cerrar">
+				<span class="material-symbols-outlined">close</span>
+			</button>
+		</div>
+		<div class="ac-acuerdo-canvas" id="ac-acuerdo-canvas">
+			<header class="ac-acuerdo-canvas-header">
+				<div class="ac-acuerdo-canvas-doc">
+					<span class="ac-field-label">Documento No:</span>
+					<span class="ac-acuerdo-canvas-doc-no" id="ac-preview-documento-no">—</span>
+				</div>
+				<h1>Acuerdo de Desarrollo de Negocios Canal Directo</h1>
+			</header>
+			<section class="ac-acuerdo-canvas-meta">
+				<div><span class="ac-field-label">Estimado(a)</span><strong id="ac-preview-distribuidor">—</strong></div>
+				<div><span class="ac-field-label">Localidad</span><strong id="ac-preview-localidad">—</strong></div>
+				<div><span class="ac-field-label">Fecha</span><strong id="ac-preview-fecha">—</strong></div>
+			</section>
+			<p class="ac-acuerdo-canvas-intro">
+				JABONERÍA WILSON S.A. y <span id="ac-preview-dist-text">—</span> celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.
+			</p>
+			<div class="ac-acuerdo-canvas-periodo">
+				<span class="ac-field-label">Periodo del acuerdo</span>
+				<strong id="ac-preview-periodo">—</strong>
 			</div>
-			<h1>Acuerdo de Desarrollo de Negocios Canal Directo</h1>
-		</header>
-		<section class="ac-acuerdo-canvas-meta">
-			<div><span class="ac-field-label">Estimado(a)</span><strong id="ac-preview-distribuidor">—</strong></div>
-			<div><span class="ac-field-label">Localidad</span><strong id="ac-preview-localidad">—</strong></div>
-			<div><span class="ac-field-label">Fecha</span><strong id="ac-preview-fecha">—</strong></div>
-		</section>
-		<p class="ac-acuerdo-canvas-intro">
-			JABONERÍA WILSON S.A. y <span id="ac-preview-dist-text">—</span> celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.
-		</p>
-		<p><span class="ac-field-label">Periodo del acuerdo:</span> <strong id="ac-preview-periodo">—</strong></p>
-		<section id="ac-preview-metas-section"></section>
-		<section id="ac-preview-visibility-sections"></section>
-		<section class="ac-acuerdo-canvas-condiciones">
-			<h2>Consideraciones Generales</h2>
-			<p>Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>
-			<p>La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito.</p>
-		</section>
-		<section class="ac-acuerdo-canvas-firmas">
-			<div>
-				<div class="ac-acuerdo-firma-linea"></div>
-				<strong>Nombre: ________________________________________</strong>
-				<span class="ac-field-label">Ejecutivo Comercial</span>
-			</div>
-			<div>
-				<p class="ac-acuerdo-firma-titulo">Jabonería Wilson<br><strong>ACEPTACIÓN POR PARTE DEL CLIENTE</strong></p>
-				<p class="ac-field-hint">El CLIENTE declara que ha suscrito este Acuerdo a su entera satisfacción, por lo que nada tiene que reclamar sobre el contenido del mismo.</p>
-				<div class="ac-acuerdo-firma-linea"></div>
-				<span class="ac-field-label">Firma del Cliente</span>
-			</div>
-		</section>
+			<section id="ac-preview-metas-section"></section>
+			<section class="ac-acta-condiciones">
+				<h3>Condiciones</h3>
+				<ul>
+					<li><strong>a)</strong> Cumplir con la meta del período en dólares netos al 100%.</li>
+					<li><strong>b)</strong> Para liquidación del rebate se debe considerar:
+						<ul>
+							<li>Cumplir con el 100% de la cuota total del período.</li>
+							<li>Compra mínima del 80% de la meta asignada en todas las categorías. No se reconocerá el pago del rebate de la categoría con cumplimientos por debajo del 80%.</li>
+						</ul>
+					</li>
+					<li><strong>c)</strong> Al final de cada mes no se deben mantener saldos vencidos de cartera.</li>
+					<li><strong>d)</strong> Solo se cancelará hasta el 110% de cumplimiento total y por categoría.</li>
+				</ul>
+			</section>
+			<section id="ac-preview-visibility-sections"></section>
+			<section class="ac-acuerdo-canvas-generales">
+				<h2>Consideraciones Generales</h2>
+				<p>Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>
+				<p>La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito. El plazo para emitir la nota de crédito es hasta 2 meses luego de finalizar el periodo del acuerdo.</p>
+				<p>Como constancia del presente convenio, firman de común acuerdo las partes.</p>
+			</section>
+			<section class="ac-acuerdo-canvas-firmas">
+				<div class="ac-acuerdo-canvas-firmas-wilson">
+					<div class="ac-acuerdo-firma-bloque">
+						<div class="ac-acuerdo-firma-linea"></div>
+						<strong>Nombre: ________________________________________</strong>
+						<span class="ac-field-label">Ejecutivo Comercial</span>
+					</div>
+					<div class="ac-acuerdo-firma-bloque">
+						<div class="ac-acuerdo-firma-linea"></div>
+						<strong>Nombre: ________________________________________</strong>
+						<span class="ac-field-label">Jefe Comercial</span>
+					</div>
+				</div>
+				<div class="ac-acuerdo-canvas-firma-cliente">
+					<p class="ac-acuerdo-firma-titulo">Jabonería Wilson<br><strong>ACEPTACIÓN DEL PRESENTE CONVENIO POR PARTE DEL CLIENTE</strong></p>
+					<p class="ac-field-hint">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
+					<div class="ac-acuerdo-firma-linea"></div>
+					<span class="ac-field-label">Firma del Cliente</span>
+					<div class="ac-acuerdo-canvas-razon">
+						<span class="ac-field-label">Razón Social:</span>
+						<strong>__________________________</strong>
+					</div>
+				</div>
+			</section>
+		</div>
 	</div>
 </div>
 

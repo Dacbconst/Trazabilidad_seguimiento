@@ -14,8 +14,16 @@ Comerciales (Acta de Compromiso) con distribuidores/PDV del canal directo.
   del proyecto. Toda la integridad referencial (que un `acuerdo_id` exista, que
   un `pos_id` sea real, etc.) se debe validar **en el código del backend antes
   de cada INSERT/UPDATE**, nunca asumir que la base la va a rechazar.
-- Front-end de referencia (mockup): `code.html` — Tailwind + vanilla JS, formato
-  "Acuerdo Pdv" para Distribuidor. Design system en `DESIGN.md`.
+- Hubo un mockup visual de referencia ("Acuerdo Pdv" en Tailwind + vanilla JS,
+  llamado `code.html`/`DESIGN.md` en conversaciones previas) — **no existe como
+  archivo en este repositorio**, fue solo material de referencia visual, y sus
+  Segmento/Categoría/Marca (`Cuidado del Hogar`, `Lavavajillas`, etc.) eran
+  **datos de ejemplo inventados, no datos reales**. La implementación real
+  (`components/registrar/registrar.php`) nunca usó esos valores — siempre
+  consulta `repositorio_productos` en vivo (ver sección de spinners más abajo).
+  Si algún dropdown muestra valores "raros" tipo `SPAGHETTI #5` o `CABELLO DE
+  ANGEL` como Segmento, es la data real de `repositorio_productos`, no un
+  resabio del mockup.
 
 ## Tablas ya creadas en la base (prefijo `repositorio_` obligatorio en todo nombre nuevo)
 
@@ -172,6 +180,17 @@ mockup `code.html` por choque con las reglas de este documento:
   columna en `repositorio_acuerdo_lineas` para guardarlo** y la mecánica de
   spinners de este documento tampoco lo contempla. Se dejó como campo de
   UI solamente (referencial para el vendedor), no se envía al backend.
+- **Sector (Meta de Compras)**: se agregó un 4to spinner encadenado
+  Segmento→Categoría→Marca→**Sector** (`repositorio_productos.sector`, ej.
+  `CREMA`/`BARRA`/`LIQUIDO` para distinguir "Crema Lavavajillas LAVA" de
+  "Barra Lavavajillas LAVA") **solo en la tabla de Meta de Compras**, pedido
+  explícito del usuario — Cabeceras/Rumas/Perchas no lo tienen y no deben
+  tocarse. Igual que Participación de Perchas, **no hay columna en
+  `repositorio_acuerdo_lineas` para Sector**, así que tampoco se envía al
+  backend (`getters/guardar_acuerdo.php`) — es solo para que el vendedor arme
+  el nombre completo del producto al llenar el Acta. Si la combinación
+  Segmento+Categoría+Marca solo tiene un Sector posible en la base, se
+  autocompleta solo (no tiene sentido obligar a elegir entre una opción).
 - **`documento_no`**: se genera como `ADN-{anio}-{secuencia de 4 dígitos}`,
   calculado como `COUNT(*)+1` de acuerdos de ese año, con reintento si choca
   con el `UNIQUE` (nadie definió el algoritmo exacto, esto es una decisión
@@ -184,6 +203,18 @@ mockup `code.html` por choque con las reglas de este documento:
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
+- [ ] **Portafolio por distribuidor**: los spinners de Segmento/Categoría/
+      Marca/Sector hoy muestran TODO el catálogo Wilson (`fabricante =
+      'JABONERIA WILSON'`) sin importar qué `pos_id` se eligió — un PDV
+      puntual (ej. "AKI RIOBAMBA CENTRO") podría ver segmentos que ese local
+      específico nunca vende. Existe una tabla pensada exactamente para esto
+      — `repositorio_portafolio_prioritario` (`codigo_pdv`, `categoria`,
+      `subcategoria`, `marca`, `sku`) y su variante `lvi_portafolio_prioritario`
+      — pero **ambas están vacías (0 filas)** a la fecha (2026-07-23). No se
+      puede filtrar por distribuidor hasta que alguien las llene. Mientras
+      tanto, mostrar el catálogo completo es la opción segura (filtrar contra
+      una tabla vacía mostraría cero opciones, peor problema). Preguntar al
+      cliente quién/con qué frecuencia se llenaría esa tabla antes de usarla.
 - [ ] Nombre exacto de la columna de rebate que se va a agregar a
       `repositorio_productos`.
 - [ ] Si la cuota del Acta se conecta o no a un archivo/proceso de BI (Trade

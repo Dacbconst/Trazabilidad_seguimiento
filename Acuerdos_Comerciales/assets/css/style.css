@@ -544,20 +544,41 @@ body {
 	min-height: 20px;
 }
 
-/* Combobox de Distribuidor (input de búsqueda + panel de resultados) */
+/* Combobox genérico (Distribuidor + Segmento/Categoría/Marca en las 4 tablas).
+   El panel es UN SOLO elemento compartido, posicionado por JS con
+   position:fixed (ver registrar.js) — por eso aquí NO se define top/left/
+   position: el navegador siempre respeta el estilo inline por encima de
+   cualquier regla de esta hoja para esas propiedades. Fixed además evita que
+   cualquier ancestro con overflow distinto de "visible" (tablas con scroll,
+   cards) lo recorte, sin importar en qué celda de qué tabla esté el input. */
 .ac-combo { position: relative; }
 .ac-combo-input { width: 100%; }
 .ac-combo-panel {
-	position: absolute; top: calc(100% + 4px); left: 0; right: 0;
 	max-height: 280px; overflow-y: auto;
 	background: var(--color-surface-container-lowest);
 	border: 1px solid var(--color-outline-variant); border-radius: var(--radius-lg);
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
-	z-index: 70;
+	z-index: 200;
 }
-.ac-combo-option { padding: 10px var(--space-md); font-size: 14px; cursor: pointer; }
+.ac-combo-option {
+	padding: 10px var(--space-md); font-size: 14px; cursor: pointer;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .ac-combo-option:hover { background: var(--color-surface-container-high); }
 .ac-combo-empty { padding: 10px var(--space-md); font-size: 13px; color: var(--color-outline); }
+
+/* Celdas de Segmento/Categoría/Marca dentro de las 4 tablas: el texto elegido
+   NUNCA debe ensanchar la columna (ya fijamos su ancho exacto en
+   .ac-sticky-col/-2/-3) — si el valor es largo, se trunca con "…" en vez de
+   crecer el campo o desordenar la tabla. */
+.ac-combo-cell { width: 100%; }
+.ac-combo-cell .ac-combo-input,
+.ac-input-readonly,
+#ac-distribuidor-search {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 
 .ac-card-header-title { display: flex; align-items: center; gap: var(--space-sm); }
 .ac-acuerdo-section-title { display: flex; align-items: center; gap: var(--space-sm); margin-top: var(--space-md); }
@@ -636,6 +657,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3 { z-index: 
 }
 .ac-sticky-col .ac-mini-select, .ac-sticky-col-2 .ac-mini-select, .ac-sticky-col-3 .ac-mini-select { min-width: 0; }
 .ac-table-acuerdo input.ac-mini-input[type="number"] { min-width: 90px; text-align: right; }
+/* Meses de Rumas: de solo lectura, el valor se tipea en la mini tabla lateral */
+.ac-mini-input[readonly] { background: var(--color-surface-container-low); color: var(--color-on-surface-variant); cursor: default; }
 .ac-col-highlight { background: var(--color-surface-container-low); }
 .ac-totales-row { background: var(--color-primary); color: var(--color-on-primary); font-weight: 700; }
 .ac-totales-row td { border-color: var(--color-primary); }
@@ -699,32 +722,101 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3 { z-index: 
 .ac-link-btn { background: none; border: none; color: var(--color-primary); font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
 .ac-link-btn:hover { text-decoration: underline; }
 
-/* Preview / Acta imprimible */
+/* Preview / Acta imprimible.
+   .ac-acuerdo-canvas y .ac-acuerdo-preview-bar también los usa
+   historial.php (vista de página completa, sin modal) — se conserva su
+   estilo base y la variante modal solo anula lo que no aplica ahí dentro. */
 .ac-acuerdo-preview-bar { display: flex; justify-content: space-between; margin-bottom: var(--space-lg); }
+.ac-acta-modal-overlay { z-index: 110; }
+.ac-modal.ac-acta-modal { max-width: 900px; }
+.ac-acta-modal-bar {
+	display: flex; justify-content: flex-end; align-items: center; gap: var(--space-md);
+	padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--color-outline-variant);
+	position: sticky; top: 0; background: var(--color-surface-container-lowest); z-index: 5;
+}
+/* font-size:12.5px + line-height:1.3 como base compacta (en vez de heredar
+   16px/1.5 del body) para que el acta completa quepa en una sola hoja A4 —
+   todo lo demás dentro del canvas ya trae su propio tamaño explícito (tablas
+   11px, hints 11px, subtítulos 14px), así que este base solo afecta textos
+   "sueltos" como los párrafos y los renglones de firma. El gap entre
+   secciones y los paddings/alturas de abajo están recortados al mínimo
+   legible por el mismo motivo — el pedido concreto fue "una sola hoja A4",
+   así que se prioriza densidad sobre aire entre bloques. */
 .ac-acuerdo-canvas {
 	max-width: 900px; margin: 0 auto;
 	background: #fff; border: 1px solid var(--color-outline-variant);
-	padding: 40px; display: flex; flex-direction: column; gap: var(--space-lg);
+	padding: 28px; display: flex; flex-direction: column; gap: 10px;
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+	font-size: 12.5px; line-height: 1.3;
 }
-.ac-acuerdo-canvas-header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-sm); border-bottom: 2px solid var(--color-on-surface); padding-bottom: var(--space-md); }
+.ac-acta-modal .ac-acuerdo-canvas { border: none; box-shadow: none; }
+.ac-acuerdo-canvas h1, .ac-acuerdo-canvas h2, .ac-acuerdo-canvas h3 { margin: 0; }
+.ac-acuerdo-canvas-header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; border-bottom: 2px solid var(--color-on-surface); padding-bottom: 6px; }
 .ac-acuerdo-canvas-doc { align-self: flex-end; text-align: right; }
-.ac-acuerdo-canvas-doc-no { display: block; font-size: 20px; font-weight: 700; }
-.ac-acuerdo-canvas-header h1 { font-size: 26px; text-transform: uppercase; margin: 0; }
-.ac-acuerdo-canvas-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); border-top: 1px solid var(--color-outline); border-bottom: 1px solid var(--color-outline); padding: var(--space-md) 0; }
-.ac-acuerdo-canvas-meta div { display: flex; flex-direction: column; gap: 4px; }
-.ac-acuerdo-canvas-intro { font-size: 13px; font-style: italic; }
-.ac-acuerdo-canvas-subtitle { font-size: 15px; text-transform: uppercase; margin: var(--space-md) 0 var(--space-sm); }
-.ac-table-print { width: 100%; font-size: 11px; }
-.ac-table-print th, .ac-table-print td { padding: 4px 6px; }
+.ac-acuerdo-canvas-doc-no { display: block; font-size: 18px; font-weight: 700; }
+.ac-acuerdo-canvas-header h1 { font-size: 22px; text-transform: uppercase; }
+.ac-acuerdo-canvas-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); border-top: 1px solid var(--color-outline); border-bottom: 1px solid var(--color-outline); padding: 4px 0; }
+.ac-acuerdo-canvas-meta div { display: flex; flex-direction: column; gap: 2px; }
+.ac-acuerdo-canvas-intro { font-size: 12px; font-style: italic; margin: 0; }
+.ac-acuerdo-canvas-periodo { display: flex; align-items: center; gap: var(--space-sm); }
+.ac-acuerdo-canvas-subtitle,
+.ac-acuerdo-canvas-generales h2 { font-size: 14px; text-transform: uppercase; margin: 6px 0 3px; }
+.ac-acuerdo-canvas-hint { font-size: 11px; font-style: italic; color: var(--color-on-surface-variant); margin: 0 0 3px; }
+/* table-layout:fixed obliga al navegador a respetar los % del <colgroup>
+   generado en JS en vez de repartir el ancho parejo entre columnas según su
+   contenido (lo que dejaba columnas de fecha/monto larguísimas y vacías, y
+   a veces forzaba el wrap de la columna de Categoría/Marca a 2-3 líneas). */
+.ac-table-print { width: 100%; font-size: 11px; table-layout: fixed; }
+.ac-table-print th, .ac-table-print td { padding: 2px 6px; overflow-wrap: break-word; }
+
 .ac-acuerdo-canvas-condiciones p { font-size: 11px; margin: 4px 0; }
-.ac-acuerdo-canvas-firmas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); margin-top: var(--space-xl); }
-.ac-acuerdo-firma-linea { height: 48px; border-bottom: 1px solid var(--color-on-surface); }
-.ac-acuerdo-firma-titulo { text-align: center; }
+
+/* Condiciones del acta generada (texto legal fijo, distinto de
+   .ac-acuerdo-canvas-condiciones que usa historial.php para "Consideraciones
+   Generales" — nombres separados a propósito para no heredar estilos ahí. */
+.ac-acta-condiciones {
+	background: var(--color-surface-container-low);
+	border: 1px solid var(--color-outline-variant);
+	border-radius: var(--radius-lg);
+	padding: 6px var(--space-md);
+}
+.ac-acta-condiciones h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 3px; }
+.ac-acta-condiciones ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+.ac-acta-condiciones ul ul { margin-top: 3px; gap: 1px; }
+
+.ac-acuerdo-canvas-generales p { font-size: 11px; margin: 2px 0; }
+
+/* Rumas: tabla + leyenda de valor por marca, siempre lado a lado (grid de 2
+   columnas fijas en vez de flex-wrap: con flex-wrap, la tabla podía empujar
+   a la leyenda a una fila de abajo si el contenido era ancho; con grid la
+   leyenda nunca "cae" — solo se angosta). */
+.ac-acuerdo-canvas-rumas-wrap { display: grid; grid-template-columns: 1fr 200px; gap: var(--space-md); align-items: start; }
+.ac-acuerdo-canvas-rumas-wrap table { min-width: 0; }
+.ac-acuerdo-canvas-legend {
+	min-width: 0;
+	border: 1px solid var(--color-outline-variant); border-radius: var(--radius);
+	padding: 6px; background: var(--color-surface-container-lowest);
+}
+.ac-acuerdo-canvas-legend-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; border-bottom: 1px solid var(--color-outline-variant); }
+.ac-acuerdo-canvas-legend-row:last-child { border-bottom: none; }
+
+.ac-acuerdo-canvas-firmas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); margin-top: 6px; }
+.ac-acuerdo-canvas-firmas-wilson { display: flex; flex-direction: column; gap: 14px; }
+.ac-acuerdo-firma-bloque { display: flex; flex-direction: column; gap: 3px; }
+.ac-acuerdo-firma-linea { height: 24px; border-bottom: 1px solid var(--color-on-surface); }
+.ac-acuerdo-canvas-firma-cliente { border-left: 1px solid var(--color-outline-variant); padding-left: var(--space-lg); display: flex; flex-direction: column; gap: 3px; text-align: center; }
+.ac-acuerdo-firma-titulo { text-align: center; margin: 0; font-size: 11px; }
+.ac-acuerdo-canvas-razon { margin-top: 6px; }
+
+/* Márgenes por defecto del navegador para impresión (~1in) restan espacio
+   vertical útil; con 8mm el acta compacta cabe en una sola hoja A4. */
+@page { size: A4; margin: 8mm; }
 
 @media print {
 	.no-print, .ac-header, .ac-sidebar, .ac-acuerdo, .ac-historial { display: none !important; }
 	body { background: #fff; }
+	.ac-acta-modal-overlay { position: static; background: none; padding: 0; display: block !important; }
+	.ac-modal.ac-acta-modal { max-width: none; max-height: none; overflow: visible; box-shadow: none; }
 	.ac-acuerdo-canvas { box-shadow: none; border: none; padding: 0; }
 	.ac-content { padding: 0; }
 }
