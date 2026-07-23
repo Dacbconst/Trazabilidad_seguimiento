@@ -119,6 +119,7 @@ foreach (($lineas['percha'] ?? []) as $orden => $fila) {
 	$valores = is_array($fila['valores'] ?? null) ? $fila['valores'] : [];
 	$filasNormalizadas['percha'][] = [
 		'marca' => $marca,
+		'participacion' => trim($fila['participacion'] ?? ''),
 		'cantidad_max_percha' => $cantidadMaxPercha,
 		'precio_percha' => round((float) ($fila['precio_percha'] ?? 40), 2),
 		'valores_mensuales' => normalizarValores($valores, $cantidadMeses, $mesInicio),
@@ -196,13 +197,13 @@ try {
 
 	$stmtLinea = $mysqli->prepare(
 		'INSERT INTO repositorio_acuerdo_lineas
-		 (acuerdo_id, tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, precio_percha, valores_mensuales, valor_mensual_unico, orden)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+		 (acuerdo_id, tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha, valores_mensuales, valor_mensual_unico, orden)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 	);
 
 	// Tipos: acuerdo_id(i) tipo(s) segmento(s) categoria(s) marca(s) rebate_pct(d)
-	// cantidad_max_percha(i) precio_percha(d) valores_mensuales(s) valor_mensual_unico(d) orden(i)
-	$tiposBind = 'issssdidsdi';
+	// cantidad_max_percha(i) participacion_pct(s) precio_percha(d) valores_mensuales(s) valor_mensual_unico(d) orden(i)
+	$tiposBind = 'issssdisdsdi';
 
 	foreach (['meta_compra', 'cabecera'] as $tipo) {
 		foreach ($filasNormalizadas[$tipo] as $fila) {
@@ -212,12 +213,13 @@ try {
 			$valoresJson = json_encode($fila['valores_mensuales'], JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT);
 			$rebate = $fila['rebate_pct'];
 			$cantidadMaxPercha = null;
+			$participacionPct = null;
 			$precioPercha = null;
 			$valorMensualUnico = null;
 			$stmtLinea->bind_param(
 				$tiposBind,
 				$acuerdoId, $tipo, $fila['segmento'], $fila['categoria'], $fila['marca'],
-				$rebate, $cantidadMaxPercha, $precioPercha, $valoresJson, $valorMensualUnico, $fila['orden']
+				$rebate, $cantidadMaxPercha, $participacionPct, $precioPercha, $valoresJson, $valorMensualUnico, $fila['orden']
 			);
 			$stmtLinea->execute();
 		}
@@ -227,12 +229,13 @@ try {
 	foreach ($filasNormalizadas['ruma'] as $fila) {
 		$rebate = null;
 		$cantidadMaxPercha = null;
+		$participacionPct = null;
 		$precioPercha = null;
 		$valoresJson = null;
 		$stmtLinea->bind_param(
 			$tiposBind,
 			$acuerdoId, $tipo, $fila['segmento'], $fila['categoria'], $fila['marca'],
-			$rebate, $cantidadMaxPercha, $precioPercha, $valoresJson, $fila['valor_mensual_unico'], $fila['orden']
+			$rebate, $cantidadMaxPercha, $participacionPct, $precioPercha, $valoresJson, $fila['valor_mensual_unico'], $fila['orden']
 		);
 		$stmtLinea->execute();
 	}
@@ -243,11 +246,12 @@ try {
 		$categoria = null;
 		$rebate = null;
 		$valorMensualUnico = null;
+		$participacionPct = $fila['participacion'] !== '' ? $fila['participacion'] : null;
 		$valoresJson = json_encode($fila['valores_mensuales'], JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT);
 		$stmtLinea->bind_param(
 			$tiposBind,
 			$acuerdoId, $tipo, $segmento, $categoria, $fila['marca'],
-			$rebate, $fila['cantidad_max_percha'], $fila['precio_percha'], $valoresJson, $valorMensualUnico, $fila['orden']
+			$rebate, $fila['cantidad_max_percha'], $participacionPct, $precioPercha, $valoresJson, $valorMensualUnico, $fila['orden']
 		);
 		$stmtLinea->execute();
 	}

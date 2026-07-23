@@ -259,7 +259,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	if (!$cabecera) return null;
 
 	$stmt = $mysqli->prepare(
-		"SELECT tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, precio_percha,
+		"SELECT tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha,
 		        valores_mensuales, valor_mensual_unico, orden
 		 FROM repositorio_acuerdo_lineas WHERE acuerdo_id = ? ORDER BY tipo, orden"
 	);
@@ -277,6 +277,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 			'marca'               => $f['marca'],
 			'rebate_pct'          => $f['rebate_pct'] !== null ? (float) $f['rebate_pct'] : 0,
 			'cantidad_max_percha' => (int) $f['cantidad_max_percha'],
+			'participacion'       => $f['participacion_pct'] ?? '',
 			'precio_percha'       => $f['precio_percha'] !== null ? (float) $f['precio_percha'] : 0,
 			'valores_mensuales'   => is_array($valores) ? $valores : [],
 			'valor_mensual_unico' => $f['valor_mensual_unico'] !== null ? (float) $f['valor_mensual_unico'] : 0,

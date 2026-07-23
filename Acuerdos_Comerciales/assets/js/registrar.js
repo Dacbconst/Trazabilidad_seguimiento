@@ -1,6 +1,5 @@
 (function () {
 	var allMonthsShort = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-	var allMonthsFull = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
 	// Catálogo (Segmento -> Categoría -> [Marcas]) y Distribuidores se cargan
 	// en vivo desde la base (ver getters/acuerdo_catalogo.php y
@@ -216,6 +215,17 @@
 		if (comboActivo && !comboPanel.contains(e.target)) comboCerrar();
 	}, true);
 
+	// Seleccionar todo el texto al enfocar cualquier campo de monto en
+	// dólares (Meta de Compras, Cabeceras, Perchas, leyenda de Rumas), para
+	// que tipear un valor nuevo lo reemplace de una — no hace falta borrar
+	// el "0" o el valor anterior a mano. Un solo listener delegado (en vez
+	// de uno por celda) porque las filas se crean y destruyen dinámicamente.
+	document.addEventListener('focusin', function (e) {
+		if (e.target.matches && e.target.matches('.month-input, .v-val, .ac-ruma-legend-input')) {
+			e.target.select();
+		}
+	});
+
 	// ---------- Distribuidor (repositorio_locales_dtt2.pos_name) ----------
 	inicializarCombo(distribuidorSearch, distribuidorSelect, function () {
 		return distribuidores.map(function (d) { return { value: d.pos_id, label: d.pos_name }; });
@@ -297,7 +307,7 @@
 		var count = months.length;
 
 		purchaseHead.innerHTML =
-			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Categoría</th><th class="ac-sticky-col ac-sticky-col-3">Marca</th><th>Sector</th>' +
+			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Categoría</th><th class="ac-sticky-col ac-sticky-col-3">Marca</th><th class="ac-sticky-col ac-sticky-col-4">Sector</th>' +
 			months.map(function (m) { return '<th class="ac-text-right">' + m + ' ($)</th>'; }).join('') +
 			'<th class="ac-text-right ac-col-highlight">Total Período</th><th class="ac-text-right ac-col-highlight">Rebate %</th><th class="ac-text-right ac-col-highlight">Valor Estimado</th><th></th></tr>';
 
@@ -470,9 +480,9 @@
 			'<td class="ac-sticky-col">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
 			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
 			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('marca', 'Marca...', true) + '</td>' +
-			'<td>' + comboCellHtml('sector', 'Sector...', true) + '</td>';
+			'<td class="ac-sticky-col ac-sticky-col-4">' + comboCellHtml('sector', 'Sector...', true) + '</td>';
 		activeMonthsIndices.forEach(function () {
-			html += '<td class="ac-text-right"><input type="number" step="0.01" class="ac-input ac-mini-input month-input" value="0"></td>';
+			html += '<td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input month-input" value="0"></div></td>';
 		});
 		html +=
 			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell">$0.00</td>' +
@@ -527,7 +537,7 @@
 			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
 			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
 		activeMonthsIndices.forEach(function () {
-			html += '<td><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></td>';
+			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
 		});
 		html += '<td class="ac-tabular v-tot">$0.00</td><td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
 		tr.innerHTML = html;
@@ -550,7 +560,7 @@
 			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
 			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
 		activeMonthsIndices.forEach(function () {
-			html += '<td><input type="number" step="0.01" class="ac-input ac-mini-input v-val-repetido" value="0" readonly tabindex="-1"></td>';
+			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val-repetido" value="0" readonly tabindex="-1"></div></td>';
 		});
 		html += '<td class="ac-tabular v-tot">$0.00</td><td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
 		tr.innerHTML = html;
@@ -597,7 +607,7 @@
 		});
 
 		rumasLegendBody.innerHTML = marcas.map(function (m) {
-			return '<tr><td>' + escapeHtml(m) + '</td><td class="ac-text-right"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-ruma-legend-input" data-marca="' + escapeHtml(m) + '" value="' + valores[m] + '"></td></tr>';
+			return '<tr><td>' + escapeHtml(m) + '</td><td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-ruma-legend-input" data-marca="' + escapeHtml(m) + '" value="' + valores[m] + '"></div></td></tr>';
 		}).join('');
 
 		Array.prototype.forEach.call(rumasLegendBody.querySelectorAll('.ac-ruma-legend-input'), function (input) {
@@ -622,7 +632,7 @@
 			'<td><input type="text" class="ac-input ac-mini-input v-participacion" value="50%"></td>' +
 			'<td><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
 		activeMonthsIndices.forEach(function () {
-			html += '<td><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></td>';
+			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
 		});
 		html += '<td class="ac-tabular v-tot">$0.00</td><td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
 		tr.innerHTML = html;
@@ -681,6 +691,7 @@
 		var percha = Array.prototype.map.call(perchasBody.querySelectorAll('tr'), function (r) {
 			return {
 				marca: r.querySelector('.marca-select').value,
+				participacion: r.querySelector('.v-participacion').value,
 				cantidad_max_percha: parseInt(r.querySelector('.v-cantidad').value, 10) || 0,
 				precio_percha: 40,
 				valores: Array.prototype.map.call(r.querySelectorAll('.v-val'), function (i) { return parseFloat(i.value) || 0; })
@@ -730,152 +741,29 @@
 		guardarAcuerdo('generado', mostrarPreview);
 	});
 
-	// ---------- Preview / Acta (mini ventana modal) ----------
+	// ---------- Preview / Acta ----------
+	// El iframe carga el PDF real (Dompdf, mismo endpoint que "Descargar") —
+	// el preview y el PDF descargado son literalmente el mismo archivo, no
+	// dos maquetas que mantener sincronizadas.
 	var actaModalOverlay = document.getElementById('ac-acta-modal-overlay');
-
-	// Ancho de columnas fijo vía <colgroup> (en % del ancho de la tabla) en
-	// vez de dejar que el navegador reparta el espacio solo (table-layout:
-	// auto) — con pocas filas de datos eso repartía el ancho parejo entre
-	// columnas sin importar su contenido real, dejando columnas de fecha/
-	// monto larguísimas y vacías, y a veces forzaba el wrap de la columna de
-	// Categoría/Marca a 2-3 líneas (fila más alta = más riesgo de pasar a una
-	// segunda hoja). anchosAntes/anchosDespues son arrays de % para las
-	// columnas fijas antes/después del bloque de meses; el % restante se
-	// reparte en partes iguales entre los N meses activos.
-	function colgroupHtml(anchosAntes, anchoMesesTotal, anchosDespues) {
-		var anchoMes = activeMonthsIndices.length ? (anchoMesesTotal / activeMonthsIndices.length) : 0;
-		var cols = anchosAntes.map(function (w) { return '<col style="width:' + w + '%">'; }).join('');
-		cols += activeMonthsIndices.map(function () { return '<col style="width:' + anchoMes.toFixed(2) + '%">'; }).join('');
-		cols += anchosDespues.map(function (w) { return '<col style="width:' + w + '%">'; }).join('');
-		return '<colgroup>' + cols + '</colgroup>';
-	}
-
-	function construirTablaVisibilidad(body, cols, valSel, anchosCols) {
-		var colspanVacio = cols.length + activeMonthsIndices.length + 1;
-		var filas = Array.prototype.map.call(body.querySelectorAll('tr'), function (r) {
-			if (!r.querySelector('.marca-select') || !r.querySelector('.marca-select').value) return '';
-			var celdas = cols.map(function (c) { return '<td>' + (r.querySelector(c.sel).value || '—') + '</td>'; }).join('');
-			var meses = Array.prototype.map.call(r.querySelectorAll(valSel), function (i) {
-				return '<td class="ac-text-right ac-tabular">' + formatCurr(parseFloat(i.value) || 0) + '</td>';
-			}).join('');
-			var tot = r.querySelector('.v-tot') ? r.querySelector('.v-tot').textContent : '';
-			return '<tr>' + celdas + meses + '<td class="ac-text-right ac-tabular">' + tot + '</td></tr>';
-		}).join('');
-		var headMeses = activeMonthsIndices.map(function (i) { return '<th class="ac-text-right">' + allMonthsShort[i] + '</th>'; }).join('');
-		return '<table class="ac-table ac-table-bordered ac-table-print">' +
-			colgroupHtml(anchosCols, 100 - anchosCols.reduce(function (a, b) { return a + b; }, 0) - 18, [18]) +
-			'<thead><tr>' +
-			cols.map(function (c) { return '<th>' + c.label + '</th>'; }).join('') + headMeses + '<th class="ac-text-right">Pago Total</th></tr></thead><tbody>' +
-			(filas || '<tr><td colspan="' + colspanVacio + '" class="ac-table-empty">Sin datos</td></tr>') + '</tbody></table>';
-	}
-
-	function construirLeyendaRumas() {
-		var rows = Array.prototype.slice.call(rumasBody.querySelectorAll('tr'));
-		var brands = {};
-		rows.forEach(function (r) {
-			var m = r.querySelector('.marca-select').value;
-			if (!m) return;
-			var repetidos = r.querySelectorAll('.v-val-repetido');
-			brands[m] = repetidos.length ? (parseFloat(repetidos[0].value) || 0) : 0;
-		});
-		var entries = Object.keys(brands);
-		if (!entries.length) return '';
-		return '<div class="ac-acuerdo-canvas-legend"><span class="ac-field-label">Valor Ruma x Marca x Mes</span>' +
-			entries.map(function (b) { return '<div class="ac-acuerdo-canvas-legend-row"><span>' + b + '</span><strong>' + formatCurr(brands[b]) + '</strong></div>'; }).join('') +
-			'</div>';
-	}
+	var actaPdfFrame = document.getElementById('ac-acta-pdf-frame');
+	var actaDescargarBtn = document.getElementById('ac-acta-descargar-pdf');
 
 	function mostrarPreview() {
-		var d = distribuidorSeleccionado();
-
-		document.getElementById('ac-preview-documento-no').textContent = documentoNo || '—';
-		document.getElementById('ac-preview-distribuidor').textContent = d ? d.pos_name : '—';
-		document.getElementById('ac-preview-dist-text').textContent = d ? d.pos_name : '—';
-		document.getElementById('ac-preview-localidad').textContent = formatLocalidad(d);
-		document.getElementById('ac-preview-fecha').textContent = new Date().toLocaleDateString();
-		document.getElementById('ac-preview-periodo').textContent = activeMonthsIndices.map(function (i) { return allMonthsFull[i]; }).join(' ');
-
-		// El PDF del acta no muestra Segmento/Categoría/Marca/Sector como
-		// columnas separadas de Meta de Compras (a diferencia del formulario
-		// interactivo, que sí las necesita para la cascada de selección) — se
-		// concatenan en una sola columna "Categoría" (Sector + Categoría +
-		// Marca) para que coincida con el acta en papel (ej. "Crema
-		// Lavavajillas LAVA").
-		var monthSums = new Array(activeMonthsIndices.length).fill(0);
-		var grandTotal = 0, grandEst = 0;
-		var filasMeta = Array.prototype.map.call(purchaseBody.querySelectorAll('tr'), function (r) {
-			var s = r.querySelector('.seg-select').value, c = r.querySelector('.cat-select').value, m = r.querySelector('.marca-select').value;
-			if (!s || !c || !m) return '';
-			var sector = r.querySelector('.sector-select') ? r.querySelector('.sector-select').value : '';
-			var categoriaTexto = [sector, c, m].filter(Boolean).join(' ');
-			var meses = Array.prototype.map.call(r.querySelectorAll('.month-input'), function (i) { return parseFloat(i.value) || 0; });
-			meses.forEach(function (v, idx) { monthSums[idx] += v; });
-			var total = parseFloat(r.querySelector('.total-cell').textContent.replace(/[$,]/g, '')) || 0;
-			var est = parseFloat(r.querySelector('.est-cell').textContent.replace(/[$,]/g, '')) || 0;
-			var rebatePct = parseFloat(r.querySelector('.ac-rebate-input').value) || 0;
-			grandTotal += total; grandEst += est;
-			return '<tr><td>' + categoriaTexto + '</td>' +
-				meses.map(function (v) { return '<td class="ac-text-right ac-tabular">' + formatCurr(v) + '</td>'; }).join('') +
-				'<td class="ac-text-right ac-tabular">' + formatCurr(total) + '</td>' +
-				'<td class="ac-text-center">' + rebatePct.toFixed(1) + '%</td>' +
-				'<td class="ac-text-right ac-tabular">' + formatCurr(est) + '</td></tr>';
-		}).join('');
-
-		var headMesesMeta = activeMonthsIndices.map(function (i) { return '<th class="ac-text-right">' + allMonthsShort[i] + '</th>'; }).join('');
-		var colspanMetaVacio = 1 + activeMonthsIndices.length + 3;
-
-		var metasHtml = '<h2 class="ac-acuerdo-canvas-subtitle">1. Meta de Compras en Dólares</h2>' +
-			'<p class="ac-acuerdo-canvas-hint">Dólares comprados por categoría sin considerar bonificación/descuentos.</p>' +
-			'<table class="ac-table ac-table-bordered ac-table-print">' +
-			colgroupHtml([26], 34, [16, 8, 16]) +
-			'<thead>' +
-			'<tr><th rowspan="2">Categoría</th>' +
-			'<th colspan="' + activeMonthsIndices.length + '">Meta en Dólares</th>' +
-			'<th rowspan="2">Total Período</th><th rowspan="2">Rebate</th><th rowspan="2">Estimado a Ganar</th></tr>' +
-			'<tr>' + headMesesMeta + '</tr>' +
-			'</thead><tbody>' +
-			(filasMeta || '<tr><td colspan="' + colspanMetaVacio + '" class="ac-table-empty">Sin datos</td></tr>') +
-			'</tbody><tfoot><tr class="ac-totales-row"><td>Total</td>' +
-			monthSums.map(function (s) { return '<td class="ac-text-right ac-tabular">' + formatCurr(s) + '</td>'; }).join('') +
-			'<td class="ac-text-right ac-tabular">' + formatCurr(grandTotal) + '</td>' +
-			'<td class="ac-text-center">—</td>' +
-			'<td class="ac-text-right ac-tabular">' + formatCurr(grandEst) + '</td></tr></tfoot></table>';
-		document.getElementById('ac-preview-metas-section').innerHTML = metasHtml;
-
-		// 3.a/3.b: el PDF tampoco muestra Segmento/Categoría como columnas
-		// (a diferencia del formulario) — solo Marca. Los párrafos legales de
-		// cada una son texto fijo del acta (igual en papel), no vienen del
-		// formulario.
-		var visHtml = '';
-		visHtml += '<h2 class="ac-acuerdo-canvas-subtitle">3.a. Extravisibilidad: Cabeceras</h2>' +
-			'<p class="ac-acuerdo-canvas-hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro. Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados. En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.</p>' +
-			construirTablaVisibilidad(cabecerasBody, [
-				{ sel: '.marca-select', label: 'Marca' }
-			], '.v-val', [20]);
-
-		visHtml += '<h2 class="ac-acuerdo-canvas-subtitle">3.b. Espacio: Rumas</h2>' +
-			'<p class="ac-acuerdo-canvas-hint">Se cancelará el valor acordado si, durante todo el período del acuerdo, las categorías mantienen el espacio acordado. La participación se considerará por número de caras/display. En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada. El espacio debe estar demarcado con preciadores, polipasacalle, cenefas y cualquier otro elemento de visibilidad.</p>' +
-			'<div class="ac-acuerdo-canvas-rumas-wrap">' +
-			construirTablaVisibilidad(rumasBody, [
-				{ sel: '.marca-select', label: 'Marca' }
-			], '.v-val-repetido', [20]) +
-			construirLeyendaRumas() +
-			'</div>';
-
-		visHtml += '<h2 class="ac-acuerdo-canvas-subtitle">3.c. Espacio: Perchas</h2>' +
-			construirTablaVisibilidad(perchasBody, [
-				{ sel: '.marca-select', label: 'Marca' }, { sel: '.v-participacion', label: '% Participación' }, { sel: '.v-cantidad', label: 'Cantidad' }
-			], '.v-val', [16, 14, 12]);
-		document.getElementById('ac-preview-visibility-sections').innerHTML = visHtml;
-
+		// &t= evita que el navegador reuse un PDF viejo cacheado con la misma URL ?id=X.
+		var url = 'getters/generar_acta_pdf.php?id=' + acuerdoId + '&t=' + Date.now();
+		actaPdfFrame.src = url;
+		actaDescargarBtn.href = url;
 		actaModalOverlay.classList.add('ac-modal-open');
 	}
 
-	document.getElementById('ac-acta-modal-close').addEventListener('click', function () {
+	function cerrarModalActa() {
 		actaModalOverlay.classList.remove('ac-modal-open');
-	});
+		actaPdfFrame.src = '';
+	}
+	document.getElementById('ac-acta-modal-close').addEventListener('click', cerrarModalActa);
 	actaModalOverlay.addEventListener('click', function (e) {
-		if (e.target === actaModalOverlay) actaModalOverlay.classList.remove('ac-modal-open');
+		if (e.target === actaModalOverlay) cerrarModalActa();
 	});
 
 	// "Agregar Fila" en Meta de Compras agrega también una fila nueva en
