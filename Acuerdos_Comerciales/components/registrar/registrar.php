@@ -149,7 +149,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 				<tbody id="ac-perchas-body"></tbody>
 			</table>
 		</div>
-		<p class="ac-field-hint ac-acuerdo-percha-hint">"% de peso" es referencial para el vendedor, no se guarda en el Acuerdo — el máximo de perchas por marca es 5.</p>
+		<p class="ac-field-hint ac-acuerdo-percha-hint">El máximo de perchas por marca es 5.</p>
 	</section>
 
 	<!-- Footer -->

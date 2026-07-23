@@ -201,6 +201,22 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	$perchaRows = ''; $mesesHeadPercha = implode('', array_map(function ($m) use ($mesesCorto, $anchoMesPerchaPct) {
 		return '<th class="num" style="'.ancho_style($anchoMesPerchaPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
+	// Mismo encabezado de 3 filas (rowspan/colspan) que la tabla de Perchas del
+	// formulario interactivo — columna "eliminar fila" del form excluida (no
+	// aplica a un documento impreso).
+	$perchaHeadRow1 = '<tr>'
+		.'<th rowspan="3" style="'.ancho_style(18).'">Marca Perchas</th>'
+		.'<th style="'.ancho_style(14).'">Participación</th>'
+		.'<th style="'.ancho_style(10).'">Cantidad</th>'
+		.'<th colspan="'.($cantidadMeses + 1).'">Pago Mensual</th>'
+		.'</tr>';
+	$perchaHeadRow2 = '<tr><th colspan="'.($cantidadMeses + 2).'">Pago x Mes x Percha ($)</th></tr>';
+	$perchaHeadRow3 = '<tr>'
+		.'<th style="'.ancho_style(14).'">% de Peso</th>'
+		.'<th style="'.ancho_style(10).'">Max Percha</th>'
+		.$mesesHeadPercha
+		.'<th style="'.ancho_style(20).'">Pago Total</th>'
+		.'</tr>';
 	foreach ($detalle['lineas']['percha'] as $linea) {
 		if ($linea['marca'] === '') continue;
 		$valores = valores_por_mes($linea, $mesesActivos);
@@ -310,7 +326,7 @@ td, th { padding: '.px(2.5, $escala).' '.px(6, $escala).'; word-wrap: break-word
 </tr></table>
 
 <table class="meta-tabla" style="margin-top:'.px(6, $escala).';">
-	<thead><tr><th style="'.ancho_style(18).'">Marca</th><th style="'.ancho_style(14).'">% Participación</th><th style="'.ancho_style(10).'">Cantidad</th>'.$mesesHeadPercha.'<th style="'.ancho_style(20).'">Pago Total</th></tr></thead>
+	<thead>'.$perchaHeadRow1.$perchaHeadRow2.$perchaHeadRow3.'</thead>
 	<tbody>'.$perchaRows.'</tbody>
 </table>
 
