@@ -83,17 +83,19 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 	</section>
 </div>
 
-<!-- Detalle / Acta imprimible de un acuerdo del historial -->
+<!-- Detalle de un acuerdo del historial: mismo PDF real que genera Registrar
+     (getters/generar_acta_pdf.php), no una segunda maqueta HTML a mantener
+     sincronizada. -->
 <div class="ac-historial-preview hidden" id="ac-historial-preview">
 	<div class="ac-acuerdo-preview-bar no-print">
 		<button type="button" class="ac-btn-outline" id="hist-volver-lista">
 			<span class="material-symbols-outlined">arrow_back</span> Volver al Historial
 		</button>
-		<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-imprimir">
-			<span class="material-symbols-outlined">print</span> Imprimir / Descargar PDF
-		</button>
+		<a class="ac-btn-primary ac-btn-inline" id="hist-descargar-pdf" target="_blank">
+			<span class="material-symbols-outlined">download</span> Descargar / Imprimir PDF
+		</a>
 	</div>
-	<div class="ac-acuerdo-canvas" id="hist-canvas"></div>
+	<iframe id="hist-pdf-frame" class="ac-acta-pdf-frame" title="Vista previa del Acta"></iframe>
 </div>
 
 <script src="assets/js/historial.js?v=<?= $js_v ?>"></script>

@@ -46,7 +46,7 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 			<div class="ac-alert-error">Usuario o contraseña incorrectos.</div>
 			<?php endif; ?>
 
-			<form method="post" action="getters/process_login.php">
+			<form method="post" action="getters/procesar_acceso.php">
 				<div class="ac-field">
 					<label class="ac-field-label" for="usuario">Usuario</label>
 					<div class="ac-input-wrap">

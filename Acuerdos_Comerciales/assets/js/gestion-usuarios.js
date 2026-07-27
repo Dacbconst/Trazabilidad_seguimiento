@@ -145,7 +145,7 @@
 
 		Array.prototype.forEach.call(tbody.querySelectorAll('.ac-btn-editar'), function (btn) {
 			btn.addEventListener('click', function () {
-				abrirModalRol(btn.dataset.id, btn.dataset.usuario, btn.dataset.rol);
+				abrirModalRol(btn.dataset.id, btn.dataset.usuario, btn.dataset.rol, btn.dataset.supervisor);
 			});
 		});
 	}
@@ -202,10 +202,11 @@
 	});
 
 	// ---------- Modal "Editar Perfil": única responsabilidad, cambiar el rol ----------
-	function abrirModalRol(id, usuario, rol) {
+	function abrirModalRol(id, usuario, rol, supervisor) {
 		document.getElementById('rl-id').value = id;
 		document.getElementById('rl-usuario-label').textContent = usuario;
 		document.getElementById('rl-rol').value = rol;
+		document.getElementById('rl-supervisor').value = supervisor || '';
 		rlMsg.textContent = '';
 		rlMsg.className = 'ac-form-msg';
 		modalRol.classList.add('ac-modal-open');
@@ -220,7 +221,11 @@
 		fetch('getters/actualizar_usuario.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: new URLSearchParams({ id: document.getElementById('rl-id').value, rol: document.getElementById('rl-rol').value })
+			body: new URLSearchParams({
+				id: document.getElementById('rl-id').value,
+				rol: document.getElementById('rl-rol').value,
+				supervisor: document.getElementById('rl-supervisor').value
+			})
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {

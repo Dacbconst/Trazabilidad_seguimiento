@@ -11,17 +11,35 @@ if (!login_check() || !rolPermitido(['admin', 'desarrollador', 'superdesarrollad
 $anioActual = (int) date('Y');
 $anios      = range($anioActual - 1, $anioActual + 2);
 
+// Canal del usuario logueado: se deriva EN VIVO de su `supervisor` contra
+// repositorio_locales_supervisores_cliente, nunca se guarda (ver
+// canalDeSupervisor() en functions.php). null (sin supervisor asignado) se
+// trata como 'directo' por defecto — no bloquea el formulario.
+$canalUsuario = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
+
 $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 ?>
 <div class="ac-acuerdo">
-	<div class="ac-users-header">
-		<h1 class="ac-page-title">Registrar Acuerdo PDV</h1>
-		<p class="ac-page-subtitle">Gestión de acuerdos de desarrollo de negocios para el canal directo.</p>
+	<div class="ac-users-header ac-acuerdo-header">
+		<div>
+			<h1 class="ac-page-title">Registrar Acuerdo PDV</h1>
+			<p class="ac-page-subtitle">Gestión de acuerdos de desarrollo de negocios para el canal <?= $canalUsuario === 'distribuidor' ? 'distribuidor' : 'directo' ?>.</p>
+		</div>
+		<span class="ac-badge ac-badge-canal-<?= $canalUsuario ?>" id="ac-canal-badge"><?= $canalUsuario === 'distribuidor' ? 'Distribuidor' : 'Canal Directo' ?></span>
 	</div>
+
+	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>';</script>
 
 	<!-- Filtros -->
 	<section class="ac-card ac-acuerdo-filtros-card">
 		<div class="ac-acuerdo-filtros">
+			<div class="ac-field <?= $canalUsuario === 'distribuidor' ? '' : 'hidden' ?>" id="ac-empresa-field">
+				<label class="ac-field-label" for="ac-empresa-search">Empresa Distribuidora</label>
+				<div class="ac-combo" id="ac-empresa-combo">
+					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir empresa..." autocomplete="off">
+					<input type="hidden" id="ac-empresa" value="">
+				</div>
+			</div>
 			<div class="ac-field">
 				<label class="ac-field-label" for="ac-distribuidor-search">Distribuidor</label>
 				<div class="ac-combo" id="ac-distribuidor-combo">

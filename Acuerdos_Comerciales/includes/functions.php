@@ -19,9 +19,21 @@ function iniciar_sesion() {
 // la contraseña se compara tal cual está guardada en la tabla.
 function login($usuario, $password, $mysqli) {
 	$stmt = $mysqli->prepare(
-		"SELECT id, usuario, rol FROM repositorio_usuarios_acuerdos
+		"SELECT id, usuario, rol, supervisor FROM repositorio_usuarios_acuerdos
 		 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
 	);
+	// Si todavía no se corrió el ALTER que agrega `supervisor` (ver
+	// getters/alter_usuarios_supervisor.sql), prepare() devuelve false acá
+	// (columna inexistente) — sin este fallback, el siguiente bind_param()
+	// explota con un fatal error de PHP. Mientras la columna no exista, el
+	// login sigue funcionando igual, solo que `$_SESSION['supervisor']` queda
+	// null (canalDeSupervisor() ya maneja ese caso como 'directo' por defecto).
+	if (!$stmt) {
+		$stmt = $mysqli->prepare(
+			"SELECT id, usuario, rol FROM repositorio_usuarios_acuerdos
+			 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
+		);
+	}
 	$stmt->bind_param('ss', $usuario, $password);
 	$stmt->execute();
 	$row = $stmt->get_result()->fetch_assoc();
@@ -32,9 +44,10 @@ function login($usuario, $password, $mysqli) {
 	}
 
 	session_regenerate_id();
-	$_SESSION['user_id']  = $row['id'];
-	$_SESSION['username'] = $row['usuario'];
-	$_SESSION['rol']      = $row['rol'];
+	$_SESSION['user_id']    = $row['id'];
+	$_SESSION['username']   = $row['usuario'];
+	$_SESSION['rol']        = $row['rol'];
+	$_SESSION['supervisor'] = $row['supervisor'] ?? null;
 	return true;
 }
 
@@ -56,6 +69,57 @@ function rolEtiqueta($rol) {
 		'superdesarrollador' => 'Superdesarrollador',
 	];
 	return isset($etiquetas[$rol]) ? $etiquetas[$rol] : $rol;
+}
+
+// ---------- Canal (Directo / Distribuidor) vía supervisor ----------
+// repositorio_locales_supervisores_cliente es un maestro externo de Alicorp
+// (NO se modifica su esquema, solo se consulta) con una columna `canal` que
+// solo puede ser DISTRIBUIDOR/COBERTURA/MAYORISTA/AUTOSERVICIO, y una columna
+// `supervisor` que ES la lista real de personas que usan la plataforma
+// (confirmado por el cliente en llamada, 2026-07-26). El canal de un usuario
+// de Acuerdos_Comerciales NUNCA se guarda: se deriva en vivo mirando qué
+// canal(es) tienen los clientes de SU supervisor, cada vez que hace falta.
+
+function listar_supervisores_disponibles($mysqli) {
+	$supervisores = [];
+	$res = $mysqli->query(
+		"SELECT DISTINCT supervisor FROM repositorio_locales_supervisores_cliente
+		 WHERE supervisor IS NOT NULL AND supervisor <> '' ORDER BY supervisor"
+	);
+	// $res puede venir en false si la tabla no existe/no es accesible — no
+	// asumir que siempre hay resultado (esto fue justamente lo que rompió el
+	// login el 2026-07-26: un nombre de tabla mal escrito hizo que las
+	// consultas a este maestro fallaran silenciosamente en cascada).
+	if (!$res) return $supervisores;
+	while ($row = $res->fetch_assoc()) {
+		$supervisores[] = $row['supervisor'];
+	}
+	return $supervisores;
+}
+
+// Ningún supervisor real mezcla DISTRIBUIDOR con COBERTURA/MAYORISTA (ver
+// investigación de datos) — por eso alcanza con mirar si DISTRIBUIDOR está
+// presente. Caso borde sin resolver: un supervisor exclusivamente MAYORISTA
+// (no existe hoy en la data) caería como 'directo' por este orden de checks.
+//
+// Esta función se llama SIN CONDICIÓN en cada carga de Registrar (el tab por
+// defecto tras el login) — por eso nunca debe poder tirar un fatal error acá,
+// pase lo que pase con la tabla externa: devuelve null (-> 'directo' por
+// defecto donde se usa) en vez de romper el login para todo el mundo.
+function canalDeSupervisor($mysqli, $supervisor) {
+	if (!$supervisor) return null;
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT canal FROM repositorio_locales_supervisores_cliente WHERE supervisor = ?"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('s', $supervisor);
+	$stmt->execute();
+	$canales = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'canal');
+	$stmt->close();
+
+	if (in_array('DISTRIBUIDOR', $canales, true)) return 'distribuidor';
+	if ($canales) return 'directo';
+	return null;
 }
 
 // ---------- Gestión de Usuarios (repositorio_usuarios_acuerdos) ----------
@@ -83,9 +147,17 @@ function listar_usuarios_acuerdos($mysqli, $busqueda = '', $pagina = 1, $porPagi
 	}
 
 	$stmt = $mysqli->prepare(
-		"SELECT id, usuario, rol, status, created_at FROM repositorio_usuarios_acuerdos
+		"SELECT id, usuario, rol, supervisor, status, created_at FROM repositorio_usuarios_acuerdos
 		 WHERE usuario LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
 	);
+	// Mismo fallback que login() — si `supervisor` todavía no existe en la
+	// base, no reventar Gestión de Usuarios con un fatal error.
+	if (!$stmt) {
+		$stmt = $mysqli->prepare(
+			"SELECT id, usuario, rol, NULL AS supervisor, status, created_at FROM repositorio_usuarios_acuerdos
+			 WHERE usuario LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+		);
+	}
 	$stmt->bind_param('sii', $like, $porPagina, $offset);
 	$stmt->execute();
 	$usuarios = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -118,6 +190,7 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 	$claseFila   = $u['status'] === 'inactivo' ? 'ac-row-inactivo' : '';
 	$usuarioAttr = htmlspecialchars($u['usuario'], ENT_QUOTES);
 	$rolAttr     = htmlspecialchars($u['rol'], ENT_QUOTES);
+	$supervisorAttr = htmlspecialchars($u['supervisor'] ?? '', ENT_QUOTES);
 
 	return '
 	<tr data-id="'.(int) $u['id'].'" class="'.$claseFila.'">
@@ -128,6 +201,7 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 			</div>
 		</td>
 		<td><span class="ac-badge '.$rolClase.'">'.htmlspecialchars($rolLabel).'</span></td>
+		<td>'.htmlspecialchars($u['supervisor'] ?: '—').'</td>
 		<td class="ac-mono">'.htmlspecialchars($fecha).'</td>
 		<td>
 			<label class="ac-switch">
@@ -140,7 +214,7 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 				<button type="button" class="ac-icon-btn ac-btn-clave" data-id="'.(int) $u['id'].'" data-usuario="'.$usuarioAttr.'" title="Modificar Clave">
 					<span class="material-symbols-outlined">key</span>
 				</button>
-				<button type="button" class="ac-icon-btn ac-btn-editar" data-id="'.(int) $u['id'].'" data-usuario="'.$usuarioAttr.'" data-rol="'.$rolAttr.'" title="Editar Perfil">
+				<button type="button" class="ac-icon-btn ac-btn-editar" data-id="'.(int) $u['id'].'" data-usuario="'.$usuarioAttr.'" data-rol="'.$rolAttr.'" data-supervisor="'.$supervisorAttr.'" title="Editar Perfil">
 					<span class="material-symbols-outlined">edit</span>
 				</button>
 			</div>
@@ -163,15 +237,6 @@ function periodoCorto($mesInicio, $mesFin) {
 	return mesCorto($mesInicio).' - '.mesCorto($mesFin);
 }
 
-// Misma fórmula que formatLocalidad() en registrar.js — se usa solo para el
-// detalle del Acta (obtener_acuerdo_detalle) para que el documento impreso
-// desde Historial se vea igual que el que genera Registrar. La tabla/listado
-// de Historial en sí usa solo `city`, como pide el mockup del usuario.
-function formatLocalidadTexto($province, $city) {
-	$partes = array_filter([$province, $city], function ($p) { return $p !== null && $p !== ''; });
-	return $partes ? implode(' - ', $partes) : '—';
-}
-
 function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 1, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
@@ -181,13 +246,24 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	// sin necesidad de armar el SQL con número variable de placeholders.
 	$mesIdx = ($mes >= 1 && $mes <= 12) ? ($mes - 1) : -1;
 
+	// repositorio_locales_supervisores_cliente puede tener varias filas con el
+	// mismo pos_id (~1,116 duplicados detectados) — GROUP BY a.id evita que un
+	// mismo Acuerdo aparezca repetido en el listado por culpa de eso.
 	$sqlBase = "FROM repositorio_acuerdos a
-		JOIN repositorio_locales_dtt2 d ON d.pos_id = a.pos_id
+		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		WHERE a.estado <> 'borrador'
 		  AND d.pos_name LIKE ?
 		  AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))";
 
-	$stmtTotal = $mysqli->prepare("SELECT COUNT(*) AS total $sqlBase");
+	// Este componente se renderiza SIEMPRE (visible u oculto) en cada login de
+	// desarrollador/superdesarrollador, sea cual sea la pestaña activa (ver
+	// index.php: incluye el PHP de todas las secciones visibles, no solo la
+	// activa) — por eso, igual que canalDeSupervisor(), esta función nunca
+	// debe poder tirar un fatal error si el JOIN externo falla por lo que sea.
+	$stmtTotal = $mysqli->prepare("SELECT COUNT(DISTINCT a.id) AS total $sqlBase");
+	if (!$stmtTotal) {
+		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	}
 	$stmtTotal->bind_param('siii', $like, $mesIdx, $mesIdx, $mesIdx);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
@@ -201,11 +277,15 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado,
-		        d.pos_name, d.city
+		        d.pos_name, d.cedi
 		 $sqlBase
+		 GROUP BY a.id
 		 ORDER BY a.fecha_generacion DESC, a.id DESC
 		 LIMIT ? OFFSET ?"
 	);
+	if (!$stmt) {
+		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	}
 	$stmt->bind_param('siiiii', $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
 	$stmt->execute();
 	$acuerdos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -226,7 +306,7 @@ function renderFilaHistorial(array $a) {
 	<tr data-id="'.(int) $a['id'].'">
 		<td><button type="button" class="ac-link-id hist-btn-ver" data-id="'.(int) $a['id'].'">#'.htmlspecialchars($a['documento_no']).'</button></td>
 		<td class="ac-hist-distribuidor">'.htmlspecialchars($a['pos_name']).'</td>
-		<td>'.htmlspecialchars($a['city'] ?: '—').'</td>
+		<td>'.htmlspecialchars($a['cedi'] ?: '—').'</td>
 		<td class="ac-text-center">'.htmlspecialchars(periodoCorto((int) $a['mes_inicio'], (int) $a['mes_fin'])).'</td>
 		<td class="ac-text-right ac-tabular">'.$fecha.'</td>
 		<td class="ac-text-right">
@@ -245,13 +325,17 @@ function renderFilaHistorial(array $a) {
 // Cabecera + las 4 tablas de líneas de un acuerdo puntual, para el detalle/
 // Acta imprimible que se abre desde Historial (Ver Detalles / Descargar PDF).
 function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
+	// LIMIT 1 alcanza aunque repositorio_locales_supervisores_cliente tenga
+	// pos_id duplicados (~1,116 detectados) — cualquiera de las filas
+	// duplicadas tiene el mismo pos_name/cedi para ese pos_id.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion,
-		        d.pos_name, d.province, d.city
+		        d.pos_name, d.cedi
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_dtt2 d ON d.pos_id = a.pos_id
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.id = ? LIMIT 1"
 	);
+	if (!$stmt) return null;
 	$stmt->bind_param('i', $acuerdoId);
 	$stmt->execute();
 	$cabecera = $stmt->get_result()->fetch_assoc();
@@ -293,7 +377,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'estado'            => $cabecera['estado'],
 		'fecha_generacion'  => $cabecera['fecha_generacion'],
 		'distribuidor'      => $cabecera['pos_name'],
-		'localidad'         => formatLocalidadTexto($cabecera['province'], $cabecera['city']),
+		'localidad'         => $cabecera['cedi'] ?: '—',
 		'lineas'            => $lineas,
 	];
 }

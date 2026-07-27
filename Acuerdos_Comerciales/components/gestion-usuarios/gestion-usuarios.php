@@ -14,6 +14,7 @@ $busqueda  = trim($_GET['q'] ?? '');
 $pagina    = (int) ($_GET['pg'] ?? 1);
 $resultado = listar_usuarios_acuerdos($mysqli, $busqueda, $pagina);
 $usuarios  = $resultado['usuarios'];
+$supervisores = listar_supervisores_disponibles($mysqli);
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 ?>
@@ -60,6 +61,17 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 					</select>
 				</div>
 
+				<div class="ac-field">
+					<label class="ac-field-label" for="nu-supervisor">Supervisor (Canal Directo/Distribuidor)</label>
+					<select class="ac-select" id="nu-supervisor" name="supervisor">
+						<option value="">Sin asignar</option>
+						<?php foreach ($supervisores as $s): ?>
+							<option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
+						<?php endforeach; ?>
+					</select>
+					<p class="ac-field-hint">Define qué canal (Directo/Distribuidor) y qué clientes va a ver este usuario en Registrar Acuerdo PDV.</p>
+				</div>
+
 				<p class="ac-form-msg" id="nu-msg"></p>
 
 				<button class="ac-btn-primary" type="submit" id="nu-submit">
@@ -85,6 +97,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 						<tr>
 							<th>Usuario</th>
 							<th>Rol</th>
+							<th>Supervisor</th>
 							<th>Fecha de Creación</th>
 							<th>Estado</th>
 							<th class="ac-text-right">Acciones</th>
@@ -96,7 +109,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 								<?= renderFilaUsuario($u, $_SESSION['user_id']) ?>
 							<?php endforeach; ?>
 						<?php else: ?>
-							<tr><td colspan="5" class="ac-table-empty">No se encontraron usuarios.</td></tr>
+							<tr><td colspan="6" class="ac-table-empty">No se encontraron usuarios.</td></tr>
 						<?php endif; ?>
 					</tbody>
 				</table>
@@ -160,6 +173,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 					<option value="admin">Administrador</option>
 					<option value="desarrollador">Desarrollador</option>
 					<option value="superdesarrollador">Superdesarrollador</option>
+				</select>
+			</div>
+
+			<div class="ac-field">
+				<label class="ac-field-label" for="rl-supervisor">Supervisor (Canal Directo/Distribuidor)</label>
+				<select class="ac-select" id="rl-supervisor" name="supervisor">
+					<option value="">Sin asignar</option>
+					<?php foreach ($supervisores as $s): ?>
+						<option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
+					<?php endforeach; ?>
 				</select>
 			</div>
 

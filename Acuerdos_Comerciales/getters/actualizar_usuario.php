@@ -31,6 +31,13 @@ if (isset($_POST['rol'])) {
 	$valores[] = $_POST['rol'];
 }
 
+if (isset($_POST['supervisor'])) {
+	$supervisor = trim($_POST['supervisor']);
+	$campos[]  = 'supervisor = ?';
+	$tipos    .= 's';
+	$valores[] = $supervisor !== '' ? $supervisor : null;
+}
+
 if (isset($_POST['status'])) {
 	if ($id === (int) ($_SESSION['user_id'] ?? -1) && $_POST['status'] === 'inactivo') {
 		echo json_encode(['ok' => false, 'message' => 'No puedes desactivar tu propia cuenta.']);
@@ -66,6 +73,12 @@ $tipos    .= 'i';
 $valores[] = $id;
 
 $stmt = $mysqli->prepare($sql);
+if (!$stmt) {
+	// Probablemente falta correr getters/alter_usuarios_supervisor.sql (columna
+	// "supervisor" todavía no existe) — evita un fatal error por prepare()=false.
+	echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar el usuario (revisar si falta la columna "supervisor" en la base).']);
+	exit;
+}
 $stmt->bind_param($tipos, ...$valores);
 
 if (!$stmt->execute()) {

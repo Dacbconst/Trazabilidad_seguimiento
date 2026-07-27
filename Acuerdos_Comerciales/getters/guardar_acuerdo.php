@@ -53,13 +53,21 @@ if (!in_array($estado, $estadosPermitidosDesdeForm, true)) {
 }
 
 // pos_id debe existir en el maestro real — no hay FK, se valida en código.
-$stmt = $mysqli->prepare('SELECT pos_id FROM repositorio_locales_dtt2 WHERE pos_id = ? LIMIT 1');
-$stmt->bind_param('s', $posId);
+// Además debe pertenecer al `supervisor` de la sesión: nadie puede guardar un
+// Acuerdo para un cliente que no es suyo, aunque conozca su pos_id.
+$supervisorSesion = $_SESSION['supervisor'] ?? null;
+$stmt = $mysqli->prepare(
+	'SELECT pos_id FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? AND supervisor = ? LIMIT 1'
+);
+if (!$stmt) {
+	responder(false, 'No se pudo validar el Distribuidor (maestro de locales no disponible). Avisar al equipo técnico.');
+}
+$stmt->bind_param('ss', $posId, $supervisorSesion);
 $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 if (!$existePos) {
-	responder(false, 'El Distribuidor seleccionado no existe en el maestro de locales.');
+	responder(false, 'El Distribuidor seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
 }
 
 $cantidadMeses = $mesFin - $mesInicio + 1;

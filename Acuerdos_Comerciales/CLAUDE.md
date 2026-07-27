@@ -100,22 +100,73 @@ desde su módulo).
 | `usuario` | VARCHAR(100) UNIQUE | |
 | `contrasena` | VARCHAR(100) | **Texto plano, sin hash** — decisión explícita del cliente porque hoy los crean manualmente desde Heidi. ⚠️ Si en algún momento esto se conecta a un login web público, avisar para migrar a hash (bcrypt/argon2) antes de exponerlo. |
 | `rol` | ENUM | `admin` / `desarrollador` / `superdesarrollador` |
+| `supervisor` | VARCHAR(100) NULL | Agregado 2026-07-26. Vincula el login con un valor real de `repositorio_locales_supervisores_cliente.supervisor` — de ahí se deriva el canal (ver sección "Canal Directo vs Distribuidor" más abajo). Nullable: no todos los roles necesitan uno (ej. cuentas puramente administrativas). |
 | `status` | ENUM | `activo` / `inactivo` — así se maneja el "borrado", nunca DELETE físico |
 | `created_at`, `updated_at` | DATETIME | Automáticos |
 
 ## Maestros externos de Alicorp (NO se duplican, se consultan directo)
 
-### `repositorio_locales_dtt2`
-Maestro real de PDV/local. **Ojo: el nombre real de la tabla es
-`repositorio_locales_dtt2`, NO `repositorio_localesddt2`** (error de tipeo
-detectado y corregido al implementar el formulario de Registrar Acuerdo PDV).
-Columnas relevantes: `pos_id` (llave UNIQUE, un "Distribuidor" del formulario =
-un `pos_id`, relación 1:1 confirmada), `pos_name` (= Razón Social /
-"Estimado(a)" del Acta), `channel`, `subchannel`, `format`, `zone`, `region`,
-`province`, `city` (= Localidad del Acta), `sales_executive`, `activar`
-(`SI`/`NO` — el spinner de Distribuidor filtra `WHERE activar = 'SI'`).
-1348 filas totales. Existe también `repositorio_locales_dtt` (sin el `2`,
-estructura ligeramente distinta) — no usar esa, es otra tabla.
+### `repositorio_locales_dtt2` — DEPRECADA, ya no se usa (2026-07-26)
+Maestro viejo de PDV/local, usado por el formulario de Registrar Acuerdo PDV
+hasta el 2026-07-26. El cliente indicó que esta tabla "no sirve del todo":
+solo incluye clientes visitados por mercarista y no tiene segmentación de
+distribuidor. **Reemplazada por completo por `repositorio_locales_supervisores_cliente`**
+(ver abajo) en `getters/acuerdo_distribuidores.php`, `getters/guardar_acuerdo.php`
+y los JOIN de Historial (`includes/functions.php`). Se deja esta entrada solo
+como referencia histórica — no usar en código nuevo. `pos_id` de esta tabla
+tenía formato `ALI0xxxx`, **incompatible** con el formato `EPV.../EPVD...` de
+la tabla nueva (no había datos reales todavía cuando se migró, así que no
+hizo falta compatibilizar ambos formatos).
+
+### `repositorio_locales_supervisores_cliente`
+Maestro real de clientes/PDV de Alicorp, **reemplaza a `repositorio_locales_dtt2`**
+como fuente para Registrar Acuerdo PDV (todo el formulario, no solo un
+dropdown) desde 2026-07-26 — confirmado por el cliente en llamada: incluye
+clientes CON y SIN mercarista (dtt2 solo tenía los primeros), ~41,640 filas
+totales (`recursos/repositorio_locales_supervisores_cliente.xlsx` tiene el
+export completo usado para investigar esto).
+
+Columnas relevantes:
+- `canal` — ENUM-like (texto): `DISTRIBUIDOR` / `COBERTURA` / `MAYORISTA` /
+  `AUTOSERVICIO`. **`COBERTURA` = "Canal Directo"** (así le dice el cliente,
+  aunque en la base diga "cobertura" — confirmado dos veces en llamada).
+- `supervisor` — el nombre de la persona real que va a usar la plataforma
+  (confirmado explícitamente por el cliente: "esta columna son los que van a
+  usar"). Es el campo que se guarda en `repositorio_usuarios_acuerdos.supervisor`
+  al crear un usuario. ~33 valores distintos hoy. Ningún supervisor mezcla
+  canal DISTRIBUIDOR con COBERTURA/MAYORISTA (verificado con los datos
+  reales) — sí hay supervisores de COBERTURA que también tienen algunas
+  filas MAYORISTA.
+- `tipo_distribuidor` — nombre de la empresa distribuidora (ej. "ASERTIA
+  COMERCIAL SA"). Solo tiene valor cuando `canal = 'DISTRIBUIDOR'` (siempre
+  null en los demás canales). Un supervisor de canal Distribuidor puede
+  manejar varias empresas distintas (ej. Juan Cordovilla maneja 5) — por eso
+  el formulario pide elegir la empresa antes que el cliente cuando el canal
+  es Distribuidor (campo "Empresa Distribuidora", solo visible en ese caso).
+- `pos_id` (formato `EPV12345`/`EPVD12345`, **no es UNIQUE** — hay ~1,116
+  `pos_id` duplicados, hay que agrupar/limitar en las consultas), `pos_name`
+  (= Razón Social / "Estimado(a)" del Acta), `cedi` (= Localidad del Acta —
+  esta tabla NO tiene `province`/`city` como la vieja, solo `cedi`, que es
+  más bien una zona/centro de distribución que una ciudad exacta), `asesor`
+  (para canal Distribuidor = nombre de la empresa distribuidora, igual que
+  `tipo_distribuidor`; para Cobertura/Mayorista = nombre de la persona
+  vendedora), `codigo_asesor`, `tipo_cliente` (segmento de venta: A/B/C/D/AA/
+  AAA/PLUS/MAYORISTA, no relacionado con canal).
+
+**Canal Directo vs Distribuidor — cómo se deriva (nunca se guarda):**
+El canal de un usuario de Acuerdos_Comerciales se calcula EN VIVO, nunca se
+persiste, mirando qué `canal(es)` tienen los clientes de su `supervisor`:
+```sql
+SELECT DISTINCT canal FROM repositorio_locales_supervisores_cliente WHERE supervisor = ?
+```
+Si aparece `DISTRIBUIDOR` → canal Distribuidor. Si no, y aparece algo → canal
+Directo. Implementado en `canalDeSupervisor()` (`includes/functions.php`),
+consumido por `components/registrar/registrar.php` (badge de solo lectura
+`#ac-canal-badge`, variable `CANAL_USUARIO` impresa para el JS) y por
+`getters/acuerdo_distribuidores.php` (filtra los clientes que ve cada
+usuario — nunca la base entera, cada quien ve solo su propia cartera).
+Caso borde sin resolver: un supervisor exclusivamente MAYORISTA (no existe
+hoy en la data) caería clasificado como "Directo" por este orden de checks.
 
 ### `repositorio_productos`
 Maestro real de producto/marca, **compartido entre TODOS los proyectos/marcas
@@ -135,8 +186,11 @@ por fila en la tabla Meta de Compras (no autocompletado) — ver componente
 
 ## Reglas de negocio confirmadas
 
-1. **El "Distribuidor" del dropdown = 1 `pos_id` exacto** de `repositorio_localesddt2`
-   (confirmado con ejemplo real: "Tia - Centro" → `ALI01A0008` "TIA PORTOVIEJO II").
+1. **El "Distribuidor" del dropdown = 1 `pos_id` exacto** de
+   `repositorio_locales_supervisores_cliente` (desde 2026-07-26; antes era
+   `repositorio_locales_dtt2`, ver esa sección). Además, cada usuario solo ve
+   los clientes de SU `supervisor` (nunca la base entera) — si el canal es
+   Distribuidor, primero elige la empresa distribuidora, después el cliente.
 2. **El acuerdo (meta/cuota) se llena en el formulario primero.** Después de
    firmado, se sube venta real y visibilidad real para comparar contra esa meta.
    *(Pendiente de confirmar con Mishell/Jorge si la cuota también se conecta a
@@ -154,8 +208,8 @@ por fila en la tabla Meta de Compras (no autocompletado) — ver componente
 7. **Cascada de dropdowns:** al elegir Segmento aparecen las Categorías de ese
    segmento; al elegir Categoría aparecen las Marcas de esa categoría.
 8. **`razon_social` y `localidad` nunca se guardan** — siempre se derivan de
-   `repositorio_localesddt2.pos_name` / `province`/`city` vía el `pos_id` del
-   acuerdo, en el momento de generar el PDF.
+   `repositorio_locales_supervisores_cliente.pos_name` / `cedi` vía el
+   `pos_id` del acuerdo, en el momento de generar el PDF.
 9. **La firma es 100% física, nunca digital.** El sistema solo imprime líneas
    en blanco; no captura imagen de firma ni texto de firma en ningún campo.
 
@@ -195,11 +249,20 @@ mockup `code.html` por choque con las reglas de este documento:
   calculado como `COUNT(*)+1` de acuerdos de ese año, con reintento si choca
   con el `UNIQUE` (nadie definió el algoritmo exacto, esto es una decisión
   razonable pero no confirmada con el cliente).
-- **Generación real del PDF (`pdf_documento` LONGBLOB)**: NO implementada
-  todavía. "Generar Acta" hoy solo arma una vista previa en HTML imprimible
-  (`window.print()`), igual que hacía `code.html`. Falta decidir con qué
-  librería se genera el PDF en servidor para guardarlo en la base (no hay
-  ninguna instalada en el proyecto todavía).
+- **Generación real del PDF**: implementada (2026-07-24, esta nota estaba
+  desactualizada) con **Dompdf** (`composer.json`/`vendor/`). "Generar Acta"
+  llama a `getters/generar_acta_pdf.php`, que arma el HTML vía
+  `includes/acta_pdf.php` (`generar_acta_html()`) y lo renderiza a PDF real —
+  el modal de preview en `registrar.php` (`#ac-acta-modal-overlay`, iframe)
+  carga ese MISMO endpoint, así que preview y descarga son el mismo archivo,
+  no dos maquetas a mantener sincronizadas. `generar_acta_pdf.php` prueba
+  primero a escala 1.0 y si Dompdf reporta más de 1 página va reduciendo
+  fuentes/espaciados hasta que entra en una sola hoja A4 (nunca reduce más de
+  lo necesario). **Ojo**: el PDF todavía NO se guarda en `pdf_documento`
+  (LONGBLOB) — se regenera al vuelo cada vez que se pide, no hay copia
+  persistida en la base. Si se necesita guardar el PDF generado (para
+  Historial/auditoría sin depender de que los datos no cambien), falta
+  implementar ese guardado.
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 

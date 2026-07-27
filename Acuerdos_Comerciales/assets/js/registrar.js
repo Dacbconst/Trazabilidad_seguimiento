@@ -5,7 +5,13 @@
 	// en vivo desde la base (ver getters/acuerdo_catalogo.php y
 	// getters/acuerdo_distribuidores.php) — nunca hardcodeados aquí.
 	var catalogo = { segmentos: {}, marcasPercha: [], sectores: {} };
-	var distribuidores = [];
+	// canal/empresas/clientes vienen de getters/acuerdo_distribuidores.php,
+	// filtrados por el `supervisor` del usuario logueado — ver CANAL_USUARIO
+	// (impreso por registrar.php desde la sesión) y canalDeSupervisor() en
+	// functions.php. `empresas` solo tiene datos si canal==='distribuidor'
+	// (agrupado por tipo_distribuidor); `clientes` es la lista plana para
+	// Directo/Mayorista.
+	var catalogoDistribuidor = { canal: 'directo', empresas: {}, clientes: [] };
 
 	var selectedStart = 0;
 	var selectedEnd = 2;
@@ -18,6 +24,8 @@
 	};
 
 	// ---------- Selectores ----------
+	var empresaSelect       = document.getElementById('ac-empresa');
+	var empresaSearch       = document.getElementById('ac-empresa-search');
 	var distribuidorSelect = document.getElementById('ac-distribuidor');
 	var distribuidorSearch = document.getElementById('ac-distribuidor-search');
 	var localidadEl        = document.getElementById('ac-localidad');
@@ -46,6 +54,9 @@
 	}
 
 	// ---------- Carga inicial ----------
+	// El badge de Canal (#ac-canal-badge) ya lo arma registrar.php del lado del
+	// servidor, a partir de CANAL_USUARIO (sesión -> canalDeSupervisor()) — acá
+	// solo se usa CANAL_USUARIO para la cascada Empresa->Cliente más abajo.
 	function cargarDatosIniciales() {
 		Promise.all([
 			fetch('getters/acuerdo_catalogo.php').then(function (r) { return r.json(); }),
@@ -60,7 +71,9 @@
 				catalogo.sectores = catRes.sectores || {};
 			}
 			if (distRes.ok) {
-				distribuidores = distRes.distribuidores;
+				catalogoDistribuidor.canal = distRes.canal;
+				catalogoDistribuidor.empresas = distRes.empresas || {};
+				catalogoDistribuidor.clientes = distRes.clientes || [];
 			}
 
 			buildMonthGrid();
@@ -72,17 +85,30 @@
 		});
 	}
 
-	// Localidad nunca se guarda (regla de negocio): siempre se deriva de
-	// province + " - " + city del distribuidor elegido, en el momento de
-	// mostrarla — nunca de un valor tipeado por el usuario.
+	// Localidad nunca se guarda (regla de negocio): siempre se deriva del
+	// `cedi` del cliente elegido, en el momento de mostrarla — nunca de un
+	// valor tipeado por el usuario. repositorio_locales_supervisores_cliente
+	// no tiene province/city como el maestro viejo, solo `cedi`.
 	function formatLocalidad(d) {
-		if (!d) return '—';
-		var partes = [d.province, d.city].filter(function (p) { return p; });
-		return partes.length ? partes.join(' - ') : '—';
+		return (d && d.cedi) ? d.cedi : '—';
+	}
+
+	// Junta los clientes disponibles sin importar si vienen agrupados por
+	// empresa (canal Distribuidor) o en lista plana (Directo/Mayorista) — para
+	// poder buscar por pos_id sin duplicar la lógica de "¿qué fuente uso?".
+	function todosLosClientesDisponibles() {
+		if (catalogoDistribuidor.canal === 'distribuidor') {
+			var todos = [];
+			Object.keys(catalogoDistribuidor.empresas).forEach(function (emp) {
+				todos = todos.concat(catalogoDistribuidor.empresas[emp]);
+			});
+			return todos;
+		}
+		return catalogoDistribuidor.clientes;
 	}
 
 	function distribuidorSeleccionado() {
-		return distribuidores.filter(function (x) { return x.pos_id === distribuidorSelect.value; })[0];
+		return todosLosClientesDisponibles().filter(function (x) { return x.pos_id === distribuidorSelect.value; })[0];
 	}
 
 	// Sector (ej: CREMA/BARRA/LIQUIDO) depende de la combinación exacta
@@ -101,7 +127,7 @@
 	// mismo tipo de bug que ya arreglamos antes para el picker de meses).
 	//
 	// Quita espacios/acentos para que "super alianza" encuentre "SUPERALIANZA"
-	// (el pos_name real en repositorio_locales_dtt2 no siempre trae espacios
+	// (el pos_name real de los maestros externos no siempre trae espacios
 	// entre palabras) — sin esto la búsqueda exigía coincidir carácter a
 	// carácter incluyendo espacios.
 	function normalizarBusqueda(str) {
@@ -226,11 +252,39 @@
 		}
 	});
 
-	// ---------- Distribuidor (repositorio_locales_dtt2.pos_name) ----------
+	// ---------- Empresa Distribuidora (solo canal Distribuidor) ----------
+	// Un supervisor de canal Distribuidor puede manejar varias empresas
+	// distribuidoras (tipo_distribuidor) — hay que elegir la empresa antes de
+	// poder ver sus clientes, igual que Categoría depende de haber elegido
+	// Segmento en las tablas del Acta. El campo #ac-empresa-field ya viene
+	// oculto por PHP (registrar.php) cuando el canal no es Distribuidor.
+	if (CANAL_USUARIO === 'distribuidor') distribuidorSearch.disabled = true;
+
+	function limpiarClienteElegido() {
+		distribuidorSelect.value = '';
+		distribuidorSearch.value = '';
+		localidadEl.textContent = '—';
+	}
+
+	inicializarCombo(empresaSearch, empresaSelect, function () {
+		return Object.keys(catalogoDistribuidor.empresas).map(function (e) { return { value: e, label: e }; });
+	}, function () {
+		distribuidorSearch.disabled = false;
+		limpiarClienteElegido();
+	});
+	empresaSearch.addEventListener('input', function () {
+		distribuidorSearch.disabled = true;
+		limpiarClienteElegido();
+	});
+
+	// ---------- Distribuidor / Cliente (repositorio_locales_supervisores_cliente.pos_name) ----------
 	inicializarCombo(distribuidorSearch, distribuidorSelect, function () {
-		return distribuidores.map(function (d) { return { value: d.pos_id, label: d.pos_name }; });
+		if (catalogoDistribuidor.canal === 'distribuidor') {
+			return (catalogoDistribuidor.empresas[empresaSelect.value] || []).map(function (d) { return { value: d.pos_id, label: d.pos_name }; });
+		}
+		return catalogoDistribuidor.clientes.map(function (d) { return { value: d.pos_id, label: d.pos_name }; });
 	}, function (posId) {
-		var d = distribuidores.filter(function (x) { return x.pos_id === posId; })[0];
+		var d = todosLosClientesDisponibles().filter(function (x) { return x.pos_id === posId; })[0];
 		localidadEl.textContent = formatLocalidad(d);
 	});
 	distribuidorSearch.addEventListener('input', function () { localidadEl.textContent = '—'; });
