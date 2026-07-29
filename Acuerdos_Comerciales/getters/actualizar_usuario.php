@@ -33,6 +33,13 @@ if (isset($_POST['rol'])) {
 
 if (isset($_POST['supervisor'])) {
 	$supervisor = trim($_POST['supervisor']);
+	if ($supervisor !== '') {
+		$tomadoPor = supervisores_asignados_activos($mysqli, $id)[$supervisor] ?? null;
+		if ($tomadoPor) {
+			echo json_encode(['ok' => false, 'message' => 'Ese supervisor ya está asignado al usuario "'.$tomadoPor.'".']);
+			exit;
+		}
+	}
 	$campos[]  = 'supervisor = ?';
 	$tipos    .= 's';
 	$valores[] = $supervisor !== '' ? $supervisor : null;

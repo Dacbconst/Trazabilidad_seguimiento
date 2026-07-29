@@ -97,6 +97,32 @@ function listar_supervisores_disponibles($mysqli) {
 	return $supervisores;
 }
 
+// Un supervisor = la persona real que usa la cuenta, así que no tiene sentido
+// que dos logins compartan el mismo supervisor (ver canalDeSupervisor()) —
+// esto arma el mapa [supervisor => usuario] de quién ya lo tiene, para que
+// gestion-usuarios.php pueda ocultarlo del combo "Nuevo Usuario" y
+// crear_usuario.php/actualizar_usuario.php lo puedan rechazar si igual llega
+// por API directa. Solo cuenta usuarios 'activo': si se desactiva una cuenta,
+// su supervisor queda libre para reasignar. $excluirId permite que, al editar
+// un usuario, su propio supervisor actual no cuente como "ya tomado por otro".
+function supervisores_asignados_activos($mysqli, $excluirId = 0) {
+	$asignados = [];
+	$stmt = $mysqli->prepare(
+		"SELECT usuario, supervisor FROM repositorio_usuarios_acuerdos
+		 WHERE supervisor IS NOT NULL AND supervisor <> '' AND status = 'activo' AND id <> ?"
+	);
+	if (!$stmt) return $asignados;
+	$stmt->bind_param('i', $excluirId);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	foreach ($filas as $f) {
+		$asignados[$f['supervisor']] = $f['usuario'];
+	}
+	return $asignados;
+}
+
 // Ningún supervisor real mezcla DISTRIBUIDOR con COBERTURA/MAYORISTA (ver
 // investigación de datos) — por eso alcanza con mirar si DISTRIBUIDOR está
 // presente. Caso borde sin resolver: un supervisor exclusivamente MAYORISTA

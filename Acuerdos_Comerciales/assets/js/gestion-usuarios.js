@@ -15,7 +15,59 @@
 	var formRol         = document.getElementById('form-rol');
 	var rlMsg           = document.getElementById('rl-msg');
 	var rlSubmit        = document.getElementById('rl-submit');
+	var nuUsuario       = document.getElementById('nu-usuario');
+	var nuSupervisor    = document.getElementById('nu-supervisor');
+	var rlSupervisor    = document.getElementById('rl-supervisor');
 	var buscarTimeout   = null;
+
+	// ---------- Supervisor: 1 supervisor = 1 cuenta (ver functions.php) ----------
+	// Autocompletar Nombre de Usuario con el supervisor elegido (el admin
+	// puede editarlo después si quiere un usuario distinto); y mantener los
+	// combos de supervisor sincronizados con quién ya lo tiene asignado.
+	nuSupervisor.addEventListener('change', function () {
+		nuUsuario.value = nuSupervisor.value || '';
+	});
+
+	function refrescarSupervisores() {
+		fetch('getters/supervisores_disponibles.php')
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (!data.ok) return;
+				pintarSupervisoresNuevo(data.supervisores);
+				pintarSupervisoresEditar(data.supervisores);
+			});
+	}
+
+	function pintarSupervisoresNuevo(supervisores) {
+		var valorPrevio = nuSupervisor.value;
+		var html = '<option value="">Sin asignar</option>';
+		supervisores.forEach(function (s) {
+			if (s.tomado_por) return; // ya tiene cuenta, no se puede repetir
+			html += '<option value="' + escapeAttr(s.nombre) + '">' + escapeHtml(s.nombre) + '</option>';
+		});
+		nuSupervisor.innerHTML = html;
+		nuSupervisor.value = valorPrevio; // si seguía disponible, se conserva; si no, vuelve a "Sin asignar"
+	}
+
+	function pintarSupervisoresEditar(supervisores) {
+		var html = '<option value="">Sin asignar</option>';
+		supervisores.forEach(function (s) {
+			var tomadoAttr = s.tomado_por ? ' data-tomado-por="' + escapeAttr(s.tomado_por) + '"' : '';
+			var etiqueta   = s.tomado_por ? s.nombre + ' (usado por ' + s.tomado_por + ')' : s.nombre;
+			html += '<option value="' + escapeAttr(s.nombre) + '"' + tomadoAttr + '>' + escapeHtml(etiqueta) + '</option>';
+		});
+		rlSupervisor.innerHTML = html;
+	}
+
+	function escapeHtml(texto) {
+		var div = document.createElement('div');
+		div.textContent = texto;
+		return div.innerHTML;
+	}
+
+	function escapeAttr(texto) {
+		return escapeHtml(texto).replace(/"/g, '&quot;');
+	}
 
 	function claveValida(valor) {
 		return valor.length >= 4;
@@ -101,6 +153,7 @@
 					formNuevo.reset();
 					buscarInput.value = '';
 					cargarUsuarios(1);
+					refrescarSupervisores();
 				}
 			})
 			.catch(function () {
@@ -129,6 +182,7 @@
 							return;
 						}
 						fila.classList.toggle('ac-row-inactivo', !input.checked);
+						refrescarSupervisores(); // desactivar/reactivar libera u ocupa su supervisor
 					})
 					.catch(function () {
 						input.checked = !input.checked;
@@ -206,7 +260,15 @@
 		document.getElementById('rl-id').value = id;
 		document.getElementById('rl-usuario-label').textContent = usuario;
 		document.getElementById('rl-rol').value = rol;
-		document.getElementById('rl-supervisor').value = supervisor || '';
+
+		// El supervisor actual de ESTE usuario debe seguir seleccionable aunque
+		// figure como "tomado" (es el suyo); los tomados por otros se deshabilitan.
+		Array.prototype.forEach.call(rlSupervisor.options, function (opt) {
+			var tomadoPor = opt.dataset.tomadoPor;
+			opt.disabled = !!(tomadoPor && tomadoPor !== usuario);
+		});
+		rlSupervisor.value = supervisor || '';
+
 		rlMsg.textContent = '';
 		rlMsg.className = 'ac-form-msg';
 		modalRol.classList.add('ac-modal-open');
@@ -233,6 +295,7 @@
 				mostrarMensaje(rlMsg, data.message, data.ok);
 				if (data.ok) {
 					cargarUsuarios(parseInt(paginacionEl.dataset.pagina, 10) || 1);
+					refrescarSupervisores();
 					setTimeout(function () { modalRol.classList.remove('ac-modal-open'); }, 600);
 				}
 			})

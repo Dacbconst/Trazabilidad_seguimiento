@@ -14,7 +14,8 @@ $busqueda  = trim($_GET['q'] ?? '');
 $pagina    = (int) ($_GET['pg'] ?? 1);
 $resultado = listar_usuarios_acuerdos($mysqli, $busqueda, $pagina);
 $usuarios  = $resultado['usuarios'];
-$supervisores = listar_supervisores_disponibles($mysqli);
+$supervisores          = listar_supervisores_disponibles($mysqli);
+$supervisoresAsignados = supervisores_asignados_activos($mysqli);
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 ?>
@@ -66,10 +67,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 					<select class="ac-select" id="nu-supervisor" name="supervisor">
 						<option value="">Sin asignar</option>
 						<?php foreach ($supervisores as $s): ?>
+							<?php if (isset($supervisoresAsignados[$s])) continue; // ya tiene cuenta, no se puede repetir ?>
 							<option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
 						<?php endforeach; ?>
 					</select>
-					<p class="ac-field-hint">Define qué canal (Directo/Distribuidor) y qué clientes va a ver este usuario en Registrar Acuerdo PDV.</p>
+					<p class="ac-field-hint">Defina el usuario.</p>
 				</div>
 
 				<p class="ac-form-msg" id="nu-msg"></p>
@@ -181,9 +183,13 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 				<select class="ac-select" id="rl-supervisor" name="supervisor">
 					<option value="">Sin asignar</option>
 					<?php foreach ($supervisores as $s): ?>
-						<option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
+						<?php $tomadoPor = $supervisoresAsignados[$s] ?? null; ?>
+						<option value="<?= htmlspecialchars($s) ?>"<?= $tomadoPor ? ' data-tomado-por="'.htmlspecialchars($tomadoPor).'"' : '' ?>>
+							<?= htmlspecialchars($s) ?><?= $tomadoPor ? ' (usado por '.htmlspecialchars($tomadoPor).')' : '' ?>
+						</option>
 					<?php endforeach; ?>
 				</select>
+				<p class="ac-field-hint">Los supervisores ya asignados a otro usuario aparecen deshabilitados.</p>
 			</div>
 
 			<p class="ac-form-msg" id="rl-msg"></p>

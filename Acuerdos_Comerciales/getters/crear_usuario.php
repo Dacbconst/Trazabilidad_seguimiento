@@ -29,6 +29,13 @@ if (!in_array($rol, $rolesValidos, true)) {
 	echo json_encode(['ok' => false, 'message' => 'Rol inválido.']);
 	exit;
 }
+if ($supervisor !== null) {
+	$tomadoPor = supervisores_asignados_activos($mysqli)[$supervisor] ?? null;
+	if ($tomadoPor) {
+		echo json_encode(['ok' => false, 'message' => 'Ese supervisor ya está asignado al usuario "'.$tomadoPor.'".']);
+		exit;
+	}
+}
 
 $stmt = $mysqli->prepare(
 	"INSERT INTO repositorio_usuarios_acuerdos (usuario, contrasena, rol, supervisor, status) VALUES (?, ?, ?, ?, 'activo')"
