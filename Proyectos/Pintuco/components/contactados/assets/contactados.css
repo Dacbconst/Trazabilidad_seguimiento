@@ -140,6 +140,7 @@
 .ctc-estado-badge.is-facturado   { background: #eaf5ee; color: #1e7a45; border-color: #c9e6d3; }
 .ctc-estado-badge.is-negociando  { background: #fdf0d5; color: #8a5a00; border-color: #f0ddb3; }
 .ctc-estado-badge.is-agendado    { background: #eaf3fb; color: #1d4e89; border-color: #c7d9f0; }
+.ctc-estado-badge.is-no-requiere { background: #f1eafd; color: #5b3aa0; border-color: #ddd0f5; }
 .ctc-estado-badge.is-sin-agendar { background: #f0f2f5; color: #5b6577; border-color: #d8dee6; }
 .ctc-estado-badge.is-cancelado   { background: #fbeaea; color: #b3261e; border-color: #f3cfcf; }
 

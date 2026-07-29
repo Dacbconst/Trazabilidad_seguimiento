@@ -25,6 +25,8 @@ $q = $mysqli->query("
         p.estado_proforma,
         p.foto_factura,
         p.monto_validado,
+        p.monto_total_factura,
+        p.plazo_meses,
         p.fecha_registro   AS proforma_fecha_registro
     FROM insert_proyectos_contacto c
     LEFT JOIN insert_proforma p ON p.id_agendamiento = c.id
@@ -42,7 +44,8 @@ if ($q) {
 // estado-flujo.js — cada "Guardar" cierra la ronda vigente con su monto y
 // abre una ronda nueva vacía esperando la próxima foto, así que ambos casi
 // nunca coinciden en la misma fila de insert_proforma.
-$q = $mysqli->query("SELECT id_agendamiento, usuario, monto_pago FROM insert_pago_factura");
+// id_proforma agrupa por ciclo de factura; fecha_pago/fecha_registro son la fecha real del pago (no la del agendamiento).
+$q = $mysqli->query("SELECT id_proforma, id_agendamiento, usuario, monto_pago, fecha_pago, fecha_registro FROM insert_pago_factura");
 $pagos = [];
 if ($q) {
     while ($r = $q->fetch_assoc()) { $pagos[] = $r; }

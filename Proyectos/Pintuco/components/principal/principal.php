@@ -34,9 +34,6 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
             <label>Período</label>
             <select class="form-control" id="dashFiltroPeriodo">
                 <option value="">Cualquier fecha</option>
-                <option value="mes_actual">Este mes</option>
-                <option value="mes_anterior">Mes anterior</option>
-                <option value="ultimos_3">Últimos 3 meses</option>
             </select>
         </div>
         <div class="mod-filtros-extra">

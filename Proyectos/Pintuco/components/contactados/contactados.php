@@ -41,6 +41,7 @@ $contactados_js_v = @filemtime($contactados_dir.'/assets/contactados.js') ?: tim
                 <option value="is-facturado">Facturado</option>
                 <option value="is-negociando">Negociando</option>
                 <option value="is-agendado">Agendado</option>
+                <option value="is-no-requiere">No requirió visita</option>
                 <option value="is-sin-agendar">Sin agendar</option>
                 <option value="is-cancelado">Cancelado</option>
             </select>

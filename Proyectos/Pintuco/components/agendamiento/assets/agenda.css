@@ -1237,6 +1237,7 @@
     gap: 16px 14px;
     grid-template-areas:
         "direccion direccion"
+        "contacto contacto"
         "empresa correo"
         "celular convencional";
 }
@@ -1245,12 +1246,14 @@
         "empresa empresa"
         "correo celular"
         "direccion direccion"
+        "contacto contacto"
         "convencional convencional";
 }
 .agenda-edit-campo-v2[data-area="empresa"] { grid-area: empresa; }
 .agenda-edit-campo-v2[data-area="correo"] { grid-area: correo; }
 .agenda-edit-campo-v2[data-area="celular"] { grid-area: celular; }
 .agenda-edit-campo-v2[data-area="direccion"] { grid-area: direccion; }
+.agenda-edit-campo-v2[data-area="contacto"] { grid-area: contacto; }
 .agenda-edit-campo-v2[data-area="convencional"] { grid-area: convencional; }
 
 .agenda-edit-campo-v2 {
@@ -1302,6 +1305,8 @@
 }
 .agenda-edit-card.is-editando .agenda-edit-campo-v2-valor { display: none; }
 .agenda-edit-card.is-editando .agenda-edit-campo-v2-input { display: block; }
+/* Contacto no tiene <input>, así que su valor no debe ocultarse en modo edición. */
+.agenda-edit-card.is-editando .agenda-edit-campo-v2--solo-lectura .agenda-edit-campo-v2-valor { display: block; }
 
 .agenda-edit-agendar-titulo {
     display: flex;

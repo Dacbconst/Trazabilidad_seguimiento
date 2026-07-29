@@ -131,19 +131,97 @@
         });
     }
 
-    // Mismo criterio de "Período" que proforma.js (Cualquier fecha/Este mes/
-    // Mes anterior/Últimos 3 meses) para no introducir un comportamiento
-    // distinto al resto de la app.
+    // Ciclos reales por agendamiento, ascendente por proforma_id (mismo patrón que factura.js).
+    function agruparCiclosPorAgendamiento(registros) {
+        var mapa = {};
+        registros.forEach(function (r) {
+            if (!r.proforma_id) return;
+            var key = r.agendamiento_id;
+            if (!mapa[key]) mapa[key] = [];
+            mapa[key].push(r);
+        });
+        Object.keys(mapa).forEach(function (k) {
+            mapa[k].sort(function (a, b) { return (parseInt(a.proforma_id, 10) || 0) - (parseInt(b.proforma_id, 10) || 0); });
+        });
+        return mapa;
+    }
+
+    // Respaldo si la fila con foto_factura no trae plazo_meses (mismo criterio que factura.js).
+    function plazoMesesDe(factura, ciclos) {
+        var propio = parseInt(factura.plazo_meses, 10);
+        if (!isNaN(propio) && propio > 0) return propio;
+        return ciclos.reduce(function (max, c) {
+            var v = parseInt(c.plazo_meses, 10);
+            return (!isNaN(v) && v > max) ? v : max;
+        }, 0);
+    }
+
+    function agruparPagosPorProforma(pagos) {
+        var mapa = {};
+        pagos.forEach(function (pg) {
+            var key = pg.id_proforma;
+            if (!mapa[key]) mapa[key] = [];
+            mapa[key].push(pg);
+        });
+        return mapa;
+    }
+
+    // Centavos enteros para sumar sin arrastrar error de coma flotante.
+    function centavosDe(v) {
+        var n = parseFloat(v);
+        return isNaN(n) ? 0 : Math.round(n * 100);
+    }
+
+    var MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    // "YYYY-MM" de una fecha — clave de agrupación para el filtro de Período.
+    function claveMes(fechaStr) {
+        if (!fechaStr) return null;
+        var f = String(fechaStr).split(' ')[0];
+        if (!f || f === '0000-00-00') return null;
+        var partes = f.split('-');
+        if (partes.length < 2) return null;
+        return partes[0] + '-' + partes[1];
+    }
+
+    // Período = mes calendario exacto del registro, no relativo a hoy.
     function pasaPeriodo(fechaRef, periodoClave) {
         if (!periodoClave) return true;
         if (!fechaRef) return false;
-        var hoy = new Date(), desde;
-        if (periodoClave === 'mes_actual')   desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        if (periodoClave === 'mes_anterior') desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-        if (periodoClave === 'ultimos_3')    desde = new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
-        if (!desde) return true;
-        var ref = new Date(String(fechaRef).split(' ')[0] + 'T00:00:00');
-        return ref >= desde;
+        return claveMes(fechaRef) === periodoClave;
+    }
+
+    // Solo lista meses que realmente tienen algún registro.
+    function construirOpcionesPeriodo() {
+        var select = document.getElementById('dashFiltroPeriodo');
+        var valorPrevio = select.value;
+        var claves = {};
+        construirAgendamientos(registrosCrudos).forEach(function (a) {
+            var k = claveMes(a.fechaRef);
+            if (k) claves[k] = true;
+        });
+        pagosCrudos.forEach(function (pg) {
+            var k = claveMes(pg.fecha_pago || pg.fecha_registro);
+            if (k) claves[k] = true;
+        });
+        registrosCrudos.forEach(function (r) {
+            if (!r.foto_factura) return;
+            var k = claveMes(r.proforma_fecha_registro);
+            if (k) claves[k] = true;
+        });
+        var ordenadas = Object.keys(claves).sort().reverse(); // más reciente primero
+
+        select.innerHTML = '<option value="">Cualquier fecha</option>';
+        ordenadas.forEach(function (k) {
+            var partes = k.split('-');
+            var mes = MESES_ES[parseInt(partes[1], 10) - 1];
+            var opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = mes + ' ' + partes[0];
+            select.appendChild(opt);
+        });
+        if (valorPrevio === '' || claves[valorPrevio]) select.value = valorPrevio;
     }
 
     function construirOpcionesPromotor() {
@@ -268,41 +346,69 @@
         var promotorSel  = document.getElementById('dashFiltroPromotor').value;
         var periodoClave = document.getElementById('dashFiltroPeriodo').value;
 
-        var agendamientos = construirAgendamientos(registrosCrudos).filter(function (a) {
+        var todosAgendamientos = construirAgendamientos(registrosCrudos);
+
+        var agendamientos = todosAgendamientos.filter(function (a) {
             if (promotorSel && a.usuario !== promotorSel) return false;
             return pasaPeriodo(a.fechaRef, periodoClave);
         });
         agendamientosVista = agendamientos; // para el modal de "Visitas vencidas"
 
-        var idsPermitidos = {};
-        agendamientos.forEach(function (a) { idsPermitidos[a.agendamiento_id] = true; });
-
         var totalAgendamientos = agendamientos.length;
         var pdvsDistintos = new Set(agendamientos.map(function (a) { return a.pdv; }).filter(Boolean)).size;
         var conteoFase = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        var montoNeg = 0;
+        var montoNegCentavos = 0;
         var vencidas = 0;
         agendamientos.forEach(function (a) {
             conteoFase[a.fase]++;
-            montoNeg += a.montoNegociado;
+            montoNegCentavos += centavosDe(a.montoNegociado);
             if (a.vencida) vencidas++;
         });
+        var montoNeg = montoNegCentavos / 100;
         var fase5 = conteoFase[5];
         var convPct = totalAgendamientos > 0 ? Math.round((fase5 / totalAgendamientos) * 1000) / 10 : 0;
 
-        // Pagos reales (insert_pago_factura) de los agendamientos que pasan
-        // el filtro actual — el monto facturado no vive en insert_proforma
-        // (ver comentario en construirAgendamientos / estado-flujo.js).
-        var pagosFiltrados = pagosCrudos.filter(function (pg) { return idsPermitidos[pg.id_agendamiento]; });
-        var montoFact = 0;
+        // "Monto Facturado" híbrido: Pago Directo lee monto_total_factura, a plazos suma insert_pago_factura (mismo contrato que factura.js).
+        var ciclosPorAgendamiento = agruparCiclosPorAgendamiento(registrosCrudos);
+        var pagosPorProforma      = agruparPagosPorProforma(pagosCrudos);
+
+        var montoFactCentavos = 0;
+        var facturadoPorUsuarioCentavos = {};
+        var facturadoPorPdvCentavos = {};
+        function sumarFacturado(usuario, pdv, monto) {
+            var c = centavosDe(monto);
+            montoFactCentavos += c;
+            var u = usuario || '(sin asignar)';
+            facturadoPorUsuarioCentavos[u] = (facturadoPorUsuarioCentavos[u] || 0) + c;
+            var pdvKey = pdv || '(sin PDV)';
+            facturadoPorPdvCentavos[pdvKey] = (facturadoPorPdvCentavos[pdvKey] || 0) + c;
+        }
+
+        Object.keys(ciclosPorAgendamiento).forEach(function (agId) {
+            var ciclos = ciclosPorAgendamiento[agId];
+            ciclos.filter(function (c) { return !!c.foto_factura; }).forEach(function (factura) {
+                if (promotorSel && factura.usuario !== promotorSel) return;
+                if (plazoMesesDe(factura, ciclos) <= 0) {
+                    if (periodoClave && claveMes(factura.proforma_fecha_registro) !== periodoClave) return;
+                    sumarFacturado(factura.usuario, factura.pdv, factura.monto_total_factura);
+                } else {
+                    var pagos = pagosPorProforma[factura.proforma_id] || [];
+                    pagos.forEach(function (pg) {
+                        if (periodoClave && claveMes(pg.fecha_pago || pg.fecha_registro) !== periodoClave) return;
+                        sumarFacturado(factura.usuario, factura.pdv, pg.monto_pago);
+                    });
+                }
+            });
+        });
+
+        var montoFact = montoFactCentavos / 100;
         var facturadoPorUsuario = {};
-        var facturadoPorAgendamiento = {};
-        pagosFiltrados.forEach(function (pg) {
-            var monto = parseFloat(pg.monto_pago) || 0;
-            montoFact += monto;
-            var u = pg.usuario || '(sin asignar)';
-            facturadoPorUsuario[u] = (facturadoPorUsuario[u] || 0) + monto;
-            facturadoPorAgendamiento[pg.id_agendamiento] = (facturadoPorAgendamiento[pg.id_agendamiento] || 0) + monto;
+        Object.keys(facturadoPorUsuarioCentavos).forEach(function (u) {
+            facturadoPorUsuario[u] = facturadoPorUsuarioCentavos[u] / 100;
+        });
+        var facturadoPorPdv = {};
+        Object.keys(facturadoPorPdvCentavos).forEach(function (k) {
+            facturadoPorPdv[k] = facturadoPorPdvCentavos[k] / 100;
         });
 
         renderKpis({
@@ -322,8 +428,10 @@
             if (!promMap[u]) promMap[u] = { usuario: u, total: 0, monto_facturado: 0 };
             promMap[u].total++;
         });
+        // Crea la entrada si hace falta: puede facturar sin tener agendamientos en el filtro.
         Object.keys(facturadoPorUsuario).forEach(function (u) {
-            if (promMap[u]) promMap[u].monto_facturado = facturadoPorUsuario[u];
+            if (!promMap[u]) promMap[u] = { usuario: u, total: 0, monto_facturado: 0 };
+            promMap[u].monto_facturado = facturadoPorUsuario[u];
         });
         var promotores = Object.values(promMap)
             .sort(function (a, b) { return b.monto_facturado - a.monto_facturado; })
@@ -335,7 +443,10 @@
             var key = a.pdv || '(sin PDV)';
             if (!pdvMap[key]) pdvMap[key] = { pdv: key, total: 0, monto_facturado: 0 };
             pdvMap[key].total++;
-            pdvMap[key].monto_facturado += facturadoPorAgendamiento[a.agendamiento_id] || 0;
+        });
+        Object.keys(facturadoPorPdv).forEach(function (key) {
+            if (!pdvMap[key]) pdvMap[key] = { pdv: key, total: 0, monto_facturado: 0 };
+            pdvMap[key].monto_facturado = facturadoPorPdv[key];
         });
         var topPdvs = Object.values(pdvMap)
             .sort(function (a, b) { return b.monto_facturado - a.monto_facturado; })
@@ -403,6 +514,7 @@
                 registrosCrudos = d.registros || [];
                 pagosCrudos      = d.pagos || [];
                 construirOpcionesPromotor();
+                construirOpcionesPeriodo();
                 renderizar();
             })
             .catch(function () {

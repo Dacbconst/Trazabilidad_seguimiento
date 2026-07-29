@@ -782,8 +782,13 @@
         document.getElementById('agendaEditDireccionTexto').textContent = props.direccion || '—';
         document.getElementById('agendaEditDireccion').value = props.direccion || '';
 
-        document.getElementById('agendaEditCelularTexto').textContent = props.telefono || '—';
-        document.getElementById('agendaEditCelular').value = props.telefono || '';
+        // Contacto: solo lectura, viene tal cual de la BD (nunca se guarda desde acá).
+        document.getElementById('agendaEditContactoTexto').textContent = props.contacto || '—';
+
+        // Registros viejos traen "celular / convencional" pegados en telefono.
+        var soloCelular = (props.telefono || '').split('/')[0].trim();
+        document.getElementById('agendaEditCelularTexto').textContent = soloCelular || '—';
+        document.getElementById('agendaEditCelular').value = soloCelular;
         document.getElementById('agendaEditConvencionalTexto').textContent = props.telefono_convencional || 'No registrado';
         document.getElementById('agendaEditConvencional').value = props.telefono_convencional || '';
 

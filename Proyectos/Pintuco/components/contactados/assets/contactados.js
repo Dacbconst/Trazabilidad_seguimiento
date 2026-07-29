@@ -63,7 +63,7 @@
         // agendamiento" (mismo criterio que ya usa proforma.js/factura.js
         // en su timeline de auditoría), con su propia etiqueta.
         if (r.no_requiere_visita === 'SI')
-                              return { label: 'No requirió visita', cls: 'is-agendado', vencido: vencido };
+                              return { label: 'No requirió visita', cls: 'is-no-requiere', vencido: vencido };
         return { label: 'Sin agendar', cls: 'is-sin-agendar', vencido: vencido };
     }
 

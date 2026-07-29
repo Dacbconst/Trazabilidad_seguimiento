@@ -109,6 +109,14 @@
                         <span class="agenda-edit-campo-v2-valor" id="agendaEditDireccionTexto">—</span>
                         <input type="text" class="agenda-edit-campo-v2-input" id="agendaEditDireccion" placeholder="Se completa al confirmar el pin">
                     </div>
+                    <!-- Contacto: solo lectura, igual que Promotor/Local. -->
+                    <div class="agenda-edit-campo-v2 agenda-edit-campo-v2--solo-lectura" data-area="contacto" data-campo="contacto">
+                        <div class="agenda-edit-campo-v2-header">
+                            <i class="glyphicon glyphicon-user"></i>
+                            <span>Contacto</span>
+                        </div>
+                        <span class="agenda-edit-campo-v2-valor" id="agendaEditContactoTexto">—</span>
+                    </div>
                     <div class="agenda-edit-campo-v2" data-area="convencional" data-campo="convencional">
                         <div class="agenda-edit-campo-v2-header">
                             <i class="glyphicon glyphicon-phone"></i>
