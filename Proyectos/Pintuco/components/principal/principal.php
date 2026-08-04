@@ -102,7 +102,7 @@ $principal_js_v   = @filemtime($principal_dir . '/assets/principal.js') ?: time(
                 <button type="button" class="dash-vencidas-close" id="dashVencidasClose" aria-label="Cerrar">&times;</button>
             </div>
             <div class="dash-vencidas-nota">
-                Fecha agendada ya pasada y sin reagendar, cancelar ni completar — mismos filtros de Promotor/Período que el resto del dashboard.
+                Fecha agendada ya pasada y sin reagendar, cancelar ni completar
             </div>
             <div class="dash-vencidas-body" id="dashVencidasBody"></div>
         </div>

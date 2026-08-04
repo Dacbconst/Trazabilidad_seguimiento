@@ -7,6 +7,13 @@
     var allRows  = [];  // todos los ciclos, de todos los agendamientos
     var pipeline = [];  // 1 fila por agendamiento = su último ciclo
     var detalleAbierto = null;  // fila de la mini card actualmente abierta (para "Ver más")
+    var pagosPorProforma = {}; // { id_proforma: suma de monto_pago } — para "Facturado" a plazos
+
+    // Facturado real: Pago Directo lee monto_total_factura, a plazos suma insert_pago_factura (mismo contrato que factura.js).
+    function montoFacturadoDe(p) {
+        if ((parseInt(p.plazo_meses, 10) || 0) <= 0) return parseFloat(p.monto_total_factura) || 0;
+        return pagosPorProforma[p.id] || 0;
+    }
 
     // ── Helpers ──────────────────────────────────────────────────────
     function esc(s) {
@@ -239,7 +246,7 @@
                 + '<div class="ef-detalle-monto-box">'
                 +   '<div class="ef-detalle-monto-item"><span class="ef-detalle-monto-label">Cotización</span><div class="ef-detalle-monto-valor">' + fmtMonto(rondas5 ? rondas5.actual.monto_validado : 0) + '</div></div>'
                 +   '<div class="ef-detalle-monto-sep"></div>'
-                +   '<div class="ef-detalle-monto-item"><span class="ef-detalle-monto-label">Facturado</span><div class="ef-detalle-monto-valor is-verde">' + fmtMonto(p.monto_total_factura) + '</div></div>'
+                +   '<div class="ef-detalle-monto-item"><span class="ef-detalle-monto-label">Facturado</span><div class="ef-detalle-monto-valor is-verde">' + fmtMonto(montoFacturadoDe(p)) + '</div></div>'
                 + '</div>'
             );
             if (plazoMeses > 0) {
@@ -405,10 +412,17 @@
     function cargar() {
         document.getElementById('efKanban').innerHTML = '<div class="ef-vacio">Cargando...</div>';
 
-        return fetch(GETTERS_BASE + 'proformas_listar.php')
-            .then(function (r) { return r.json(); })
-            .then(function (json) {
-                allRows = json.data || [];
+        return Promise.all([
+            fetch(GETTERS_BASE + 'proformas_listar.php').then(function (r) { return r.json(); }),
+            fetch(GETTERS_BASE + 'get_pagos_factura.php').then(function (r) { return r.json(); })
+        ])
+            .then(function (resultados) {
+                allRows = resultados[0].data || [];
+                pagosPorProforma = {};
+                (resultados[1].data || []).forEach(function (pg) {
+                    var key = pg.id_proforma;
+                    pagosPorProforma[key] = (pagosPorProforma[key] || 0) + (parseFloat(pg.monto_pago) || 0);
+                });
                 pipeline = ultimosCiclos(allRows);
                 poblarSelectorPeriodo();
                 poblarSelectDistinct('efFiltroPromotor', allRows, 'usuario', 'Todos');
