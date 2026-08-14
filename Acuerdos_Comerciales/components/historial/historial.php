@@ -11,7 +11,7 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 $busqueda  = trim($_GET['q'] ?? '');
 $mes       = (int) ($_GET['mes'] ?? 0);
 $pagina    = (int) ($_GET['pg'] ?? 1);
-$resultado = listar_historial_acuerdos($mysqli, $busqueda, $mes, $pagina);
+$resultado = listar_historial_acuerdos($mysqli, $busqueda, $mes, $pagina, $_SESSION['user_id'] ?? null);
 $acuerdos  = $resultado['acuerdos'];
 
 $mesesLargos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];

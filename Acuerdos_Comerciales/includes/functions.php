@@ -263,7 +263,12 @@ function periodoCorto($mesInicio, $mesFin) {
 	return mesCorto($mesInicio).' - '.mesCorto($mesFin);
 }
 
-function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 1, $porPagina = 10) {
+// $usuarioId filtra a "solo los acuerdos que ESTE usuario creó"
+// (repositorio_acuerdos.creado_por, guardado por guardar_acuerdo.php al
+// insertar). Antes se inferÃ­a indirectamente vÃ­a supervisor/territorio; ahora
+// es el dato real, así que sigue siendo correcto aunque un supervisor cambie
+// de territorio o dos usuarios lo compartan.
+function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 1, $usuarioId = null, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
@@ -272,12 +277,22 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	// sin necesidad de armar el SQL con número variable de placeholders.
 	$mesIdx = ($mes >= 1 && $mes <= 12) ? ($mes - 1) : -1;
 
-	// repositorio_locales_supervisores_cliente puede tener varias filas con el
-	// mismo pos_id (~1,116 duplicados detectados) — GROUP BY a.id evita que un
-	// mismo Acuerdo aparezca repetido en el listado por culpa de eso.
+	// Sin user_id (no debería pasar si ya hizo login, pero por las dudas) no
+	// hay forma de saber qué acuerdos "son suyos" — vacío, no mostrar los de
+	// todo el mundo.
+	if (!$usuarioId) {
+		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	}
+
+	// El JOIN es solo para mostrar pos_name/cedi — repositorio_locales_
+	// supervisores_cliente puede tener varias filas con el mismo pos_id bajo
+	// distintos supervisores (~1,116 duplicados detectados), por eso el
+	// GROUP BY a.id de abajo, para que un mismo Acuerdo no se duplique en el
+	// listado por esas filas repetidas.
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		WHERE a.estado <> 'borrador'
+		  AND a.creado_por = ?
 		  AND d.pos_name LIKE ?
 		  AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))";
 
@@ -290,7 +305,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	if (!$stmtTotal) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmtTotal->bind_param('siii', $like, $mesIdx, $mesIdx, $mesIdx);
+	$stmtTotal->bind_param('isiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -312,7 +327,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	if (!$stmt) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmt->bind_param('siiiii', $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
+	$stmt->bind_param('ssiiiii', $supervisor, $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
 	$stmt->execute();
 	$acuerdos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();

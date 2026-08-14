@@ -264,6 +264,7 @@
 		distribuidorSelect.value = '';
 		distribuidorSearch.value = '';
 		localidadEl.textContent = '—';
+		actualizarBloqueoPorDistribuidor();
 	}
 
 	inicializarCombo(empresaSearch, empresaSelect, function () {
@@ -277,6 +278,23 @@
 		limpiarClienteElegido();
 	});
 
+	// El primer campo de cada tabla (Segmento en Meta/Cabeceras/Rumas, Marca en
+	// Perchas) queda deshabilitado hasta elegir Distribuidor — no tiene sentido
+	// armar líneas de producto antes de saber para quién es el acuerdo. Los
+	// siguientes campos de cada cascada (Categoría/Marca/Sector) ya se rigen
+	// solos una vez que Segmento tiene valor, así que no hace falta tocarlos.
+	function actualizarBloqueoPorDistribuidor() {
+		var habilitado = !!distribuidorSelect.value;
+		Array.prototype.forEach.call(document.querySelectorAll('#ac-purchase-body .seg-input, #ac-cabeceras-body .seg-input, #ac-rumas-body .seg-input'), function (input) {
+			input.disabled = !habilitado;
+			input.placeholder = habilitado ? 'Segmento...' : 'Elige un Distribuidor primero';
+		});
+		Array.prototype.forEach.call(document.querySelectorAll('#ac-perchas-body .marca-input'), function (input) {
+			input.disabled = !habilitado;
+			input.placeholder = habilitado ? 'Marca...' : 'Elige un Distribuidor primero';
+		});
+	}
+
 	// ---------- Distribuidor / Cliente (repositorio_locales_supervisores_cliente.pos_name) ----------
 	inicializarCombo(distribuidorSearch, distribuidorSelect, function () {
 		if (catalogoDistribuidor.canal === 'distribuidor') {
@@ -286,8 +304,12 @@
 	}, function (posId) {
 		var d = todosLosClientesDisponibles().filter(function (x) { return x.pos_id === posId; })[0];
 		localidadEl.textContent = formatLocalidad(d);
+		actualizarBloqueoPorDistribuidor();
 	});
-	distribuidorSearch.addEventListener('input', function () { localidadEl.textContent = '—'; });
+	distribuidorSearch.addEventListener('input', function () {
+		localidadEl.textContent = '—';
+		actualizarBloqueoPorDistribuidor();
+	});
 
 	// ---------- Picker de meses ----------
 	function buildMonthGrid() {
@@ -551,6 +573,7 @@
 		var recalc = function () { updatePurchaseRow(tr); };
 		tr.querySelectorAll('.month-input, .ac-rebate-input').forEach(function (i) { i.addEventListener('input', recalc); });
 		tr.querySelector('.ac-remove-row').addEventListener('click', function () { tr.remove(); updateGrandTotals(); });
+		actualizarBloqueoPorDistribuidor();
 	}
 
 	function updatePurchaseRow(row) {
@@ -598,6 +621,7 @@
 		cabecerasBody.appendChild(tr);
 		tr._combo = bindCascadaCombo(tr);
 		attachVisListeners(tr);
+		actualizarBloqueoPorDistribuidor();
 	}
 
 	// ---------- Rumas ----------
@@ -622,6 +646,7 @@
 		tr._combo = bindCascadaCombo(tr, function () { updateRumaLegend(); });
 
 		tr.querySelector('.ac-remove-row').addEventListener('click', function () { tr.remove(); updateRumaLegend(); });
+		actualizarBloqueoPorDistribuidor();
 	}
 
 	// La leyenda es ahora la ÚNICA fuente editable: un input por Marca
@@ -698,6 +723,7 @@
 			var val = parseInt(tr.querySelector('.v-cantidad').value, 10) || 0;
 			if (val > 5) { tr.querySelector('.v-cantidad').value = 5; mostrarMensaje('El máximo de perchas por marca es 5.', false); }
 		});
+		actualizarBloqueoPorDistribuidor();
 	}
 
 	function attachVisListeners(row) {
@@ -806,7 +832,11 @@
 	function mostrarPreview() {
 		// &t= evita que el navegador reuse un PDF viejo cacheado con la misma URL ?id=X.
 		var url = 'getters/generar_acta_pdf.php?id=' + acuerdoId + '&t=' + Date.now();
-		actaPdfFrame.src = url;
+		// #toolbar=0&navpanes=0 oculta la barra/miniaturas del visor nativo del
+		// navegador (ya tenemos nuestros propios botones Descargar/Cerrar) y
+		// view=FitH ajusta la hoja al ancho del modal en vez de dejarla chica
+		// con espacio gris alrededor.
+		actaPdfFrame.src = url + '#toolbar=0&navpanes=0&view=FitH';
 		actaDescargarBtn.href = url;
 		actaModalOverlay.classList.add('ac-modal-open');
 	}

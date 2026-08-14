@@ -39,6 +39,7 @@ Cabecera del Acta. Un registro por PDV/periodo.
 | `mes_inicio`, `mes_fin` | TINYINT | 0=Ene...11=Dic. Deben ser consecutivos (`mes_fin >= mes_inicio`, hay CHECK) |
 | `fecha_generacion` | DATE | `NOW()` al presionar "Generar Acta", no lo tipea el usuario |
 | `estado` | ENUM | `borrador→generado→enviado→firmado→liquidado→anulado` |
+| `creado_por` | INT UNSIGNED NULL | Agregado 2026-08-14. FK lógica a `repositorio_usuarios_acuerdos.id`, se llena UNA sola vez al INSERT (`getters/guardar_acuerdo.php`), nunca se pisa en el UPDATE. Es la base de "Historial de Acuerdos solo muestra lo que ese usuario creó" (`listar_historial_acuerdos()` en `includes/functions.php` filtra por `a.creado_por = ?`, ya no por supervisor/territorio). Los 34 acuerdos creados antes de esta columna quedaron con `creado_por = NULL` y por lo tanto invisibles en Historial para todos — mismo problema ya documentado como "huérfanos por pos_id viejo" más abajo (solo el `id=39` se pudo rescatar con un backfill puntual porque su `pos_id` sí calzaba con el maestro nuevo). |
 | `pdf_documento` | LONGBLOB | El PDF generado se guarda DIRECTO en la base (decisión del cliente, ya evaluamos BLOB vs archivo externo, eligieron BLOB) |
 | `pdf_generado_en`, `pdf_tamano_bytes` | | |
 | `created_at`, `updated_at` | DATETIME | Automáticos, MySQL los llena solo |
@@ -266,6 +267,14 @@ mockup `code.html` por choque con las reglas de este documento:
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
+- [ ] `getters/generar_acta_pdf.php` NO valida que el `id` pedido pertenezca al
+      usuario logueado (`creado_por`) — cualquier `desarrollador`/
+      `superdesarrollador` puede ver/descargar el PDF de cualquier acuerdo por
+      `?id=`, aunque Historial ya no se lo liste. Preguntar si esto debe
+      restringirse también.
+- [ ] Si `superdesarrollador` debería ver TODOS los acuerdos en Historial (no
+      solo los propios) o seguir la misma regla de `creado_por` que todos.
+      Hoy sigue la misma regla que cualquier otro rol.
 - [ ] **Portafolio por distribuidor**: los spinners de Segmento/Categoría/
       Marca/Sector hoy muestran TODO el catálogo Wilson (`fabricante =
       'JABONERIA WILSON'`) sin importar qué `pos_id` se eligió — un PDV

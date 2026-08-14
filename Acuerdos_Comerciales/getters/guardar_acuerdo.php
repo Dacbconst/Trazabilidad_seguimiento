@@ -166,6 +166,10 @@ try {
 		$documentoNo = $actual['documento_no'];
 	} else {
 		$fechaGeneracion = $estado !== 'borrador' ? date('Y-m-d') : null;
+		// creado_por se guarda UNA sola vez, al crear — nunca se pisa en el
+		// UPDATE de arriba, así conserva quién lo hizo originalmente aunque
+		// después lo edite/regenere otro usuario con permisos.
+		$creadoPor = $_SESSION['user_id'] ?? null;
 
 		// documento_no autogenerado ADN-{anio}-{secuencia}; reintenta si choca con el UNIQUE.
 		$stmtSeq = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_acuerdos WHERE anio = ?');
@@ -179,10 +183,10 @@ try {
 		do {
 			$documentoNo = sprintf('ADN-%d-%04d', $anio, $seq);
 			$stmt = $mysqli->prepare(
-				'INSERT INTO repositorio_acuerdos (documento_no, pos_id, anio, mes_inicio, mes_fin, estado, fecha_generacion)
-				 VALUES (?, ?, ?, ?, ?, ?, ?)'
+				'INSERT INTO repositorio_acuerdos (documento_no, pos_id, anio, mes_inicio, mes_fin, estado, fecha_generacion, creado_por)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
 			);
-			$stmt->bind_param('ssiiiss', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion);
+			$stmt->bind_param('ssiiissi', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $creadoPor);
 			$insertOk = $stmt->execute();
 			if ($insertOk) {
 				$acuerdoId = $stmt->insert_id;
