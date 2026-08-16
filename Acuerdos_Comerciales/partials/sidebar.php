@@ -1,8 +1,7 @@
 <nav class="ac-sidebar" id="acSidebar">
 	<div class="ac-sidebar-brand">
 		<div class="ac-sidebar-brand-row">
-			<span class="material-symbols-outlined ac-sidebar-brand-icon">corporate_fare</span>
-			<h2 class="ac-sidebar-brand-text">Gestión Comercial</h2>
+			<h2 class="ac-sidebar-brand-text">Acuerdos Comerciales</h2>
 			<button type="button" id="sidebarToggle" class="ac-sidebar-toggle" title="Mostrar/ocultar menú">
 				<span class="material-symbols-outlined">chevron_left</span>
 			</button>

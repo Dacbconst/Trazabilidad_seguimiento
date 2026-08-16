@@ -18,6 +18,7 @@ foreach ($secciones as $seccion) {
 $secciones = $secciones_visibles;
 
 $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
+$toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -26,17 +27,21 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Acuerdos Comerciales</title>
+	<link rel="icon" href="assets/img/favicon.ico" sizes="any">
+	<link rel="icon" type="image/png" href="assets/img/favicon-32x32.png">
+	<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= $style_v ?>">
+	<script src="assets/js/toast.js?v=<?= $toast_js_v ?>"></script>
 </head>
 <body>
 
 	<header class="ac-header">
 		<div class="ac-header-inner">
-			<div class="ac-brand">Acuerdos Comerciales</div>
+			<div class="ac-brand"><img src="assets/img/logo_alicorp.png" alt="Alicorp" class="ac-brand-logo"></div>
 			<div class="ac-header-user">
 				<div class="ac-header-user-info">
 					<span class="nombre"><?= htmlspecialchars($_SESSION['username']) ?></span>

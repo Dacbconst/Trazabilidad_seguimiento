@@ -5,15 +5,12 @@
 	var paginacionInfo  = document.getElementById('paginacion-info');
 	var paginacionBtns  = document.getElementById('paginacion-btns');
 	var formNuevo       = document.getElementById('form-nuevo-usuario');
-	var nuMsg           = document.getElementById('nu-msg');
 	var nuSubmit        = document.getElementById('nu-submit');
 	var modalClave      = document.getElementById('modal-clave');
 	var formClave       = document.getElementById('form-clave');
-	var clMsg           = document.getElementById('cl-msg');
 	var clSubmit        = document.getElementById('cl-submit');
 	var modalRol        = document.getElementById('modal-rol');
 	var formRol         = document.getElementById('form-rol');
-	var rlMsg           = document.getElementById('rl-msg');
 	var rlSubmit        = document.getElementById('rl-submit');
 	var nuUsuario       = document.getElementById('nu-usuario');
 	var nuSupervisor    = document.getElementById('nu-supervisor');
@@ -84,9 +81,8 @@
 		});
 	}
 
-	function mostrarMensaje(el, texto, ok) {
-		el.textContent = texto;
-		el.className = 'ac-form-msg ' + (ok ? 'ac-form-msg-success' : 'ac-form-msg-error');
+	function mostrarMensaje(texto, ok) {
+		mostrarToast(texto, ok ? 'success' : 'error');
 	}
 
 	function cargarUsuarios(pagina) {
@@ -135,7 +131,7 @@
 
 		var password = document.getElementById('nu-password').value;
 		if (!claveValida(password)) {
-			mostrarMensaje(nuMsg, 'La clave debe tener al menos 4 caracteres.', false);
+			mostrarMensaje('La clave debe tener al menos 4 caracteres.', false);
 			return;
 		}
 
@@ -148,7 +144,7 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				nuSubmit.disabled = false;
-				mostrarMensaje(nuMsg, data.message, data.ok);
+				mostrarMensaje(data.message, data.ok);
 				if (data.ok) {
 					formNuevo.reset();
 					buscarInput.value = '';
@@ -158,7 +154,7 @@
 			})
 			.catch(function () {
 				nuSubmit.disabled = false;
-				mostrarMensaje(nuMsg, 'Error de conexión. Intenta nuevamente.', false);
+				mostrarMensaje('Error de conexión. Intenta nuevamente.', false);
 			});
 	});
 
@@ -178,7 +174,7 @@
 					.then(function (data) {
 						if (!data.ok) {
 							input.checked = !input.checked;
-							alert(data.message);
+							mostrarToast(data.message, 'error');
 							return;
 						}
 						fila.classList.toggle('ac-row-inactivo', !input.checked);
@@ -186,7 +182,7 @@
 					})
 					.catch(function () {
 						input.checked = !input.checked;
-						alert('Error de conexión. Intenta nuevamente.');
+						mostrarToast('Error de conexión. Intenta nuevamente.', 'error');
 					});
 			});
 		});
@@ -218,8 +214,6 @@
 		document.getElementById('cl-id').value = id;
 		document.getElementById('cl-usuario-label').textContent = usuario;
 		document.getElementById('cl-password').value = '';
-		clMsg.textContent = '';
-		clMsg.className = 'ac-form-msg';
 		modalClave.classList.add('ac-modal-open');
 		setTimeout(function () { document.getElementById('cl-password').focus(); }, 50);
 	}
@@ -231,7 +225,7 @@
 
 		var password = document.getElementById('cl-password').value;
 		if (!claveValida(password)) {
-			mostrarMensaje(clMsg, 'La clave debe tener al menos 4 caracteres.', false);
+			mostrarMensaje('La clave debe tener al menos 4 caracteres.', false);
 			return;
 		}
 
@@ -244,14 +238,14 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				clSubmit.disabled = false;
-				mostrarMensaje(clMsg, data.message, data.ok);
+				mostrarMensaje(data.message, data.ok);
 				if (data.ok) {
 					setTimeout(function () { modalClave.classList.remove('ac-modal-open'); }, 600);
 				}
 			})
 			.catch(function () {
 				clSubmit.disabled = false;
-				mostrarMensaje(clMsg, 'Error de conexión. Intenta nuevamente.', false);
+				mostrarMensaje('Error de conexión. Intenta nuevamente.', false);
 			});
 	});
 
@@ -269,8 +263,6 @@
 		});
 		rlSupervisor.value = supervisor || '';
 
-		rlMsg.textContent = '';
-		rlMsg.className = 'ac-form-msg';
 		modalRol.classList.add('ac-modal-open');
 	}
 
@@ -292,7 +284,7 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				rlSubmit.disabled = false;
-				mostrarMensaje(rlMsg, data.message, data.ok);
+				mostrarMensaje(data.message, data.ok);
 				if (data.ok) {
 					cargarUsuarios(parseInt(paginacionEl.dataset.pagina, 10) || 1);
 					refrescarSupervisores();
@@ -301,7 +293,7 @@
 			})
 			.catch(function () {
 				rlSubmit.disabled = false;
-				mostrarMensaje(rlMsg, 'Error de conexión. Intenta nuevamente.', false);
+				mostrarMensaje('Error de conexión. Intenta nuevamente.', false);
 			});
 	});
 

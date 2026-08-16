@@ -74,8 +74,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 					<p class="ac-field-hint">Defina el usuario.</p>
 				</div>
 
-				<p class="ac-form-msg" id="nu-msg"></p>
-
 				<button class="ac-btn-primary" type="submit" id="nu-submit">
 					<span class="material-symbols-outlined">add</span>
 					Crear Usuario
@@ -149,8 +147,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 				</div>
 			</div>
 
-			<p class="ac-form-msg" id="cl-msg"></p>
-
 			<button class="ac-btn-primary" type="submit" id="cl-submit">Cambiar Clave</button>
 		</form>
 	</div>
@@ -191,8 +187,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 				</select>
 				<p class="ac-field-hint">Los supervisores ya asignados a otro usuario aparecen deshabilitados.</p>
 			</div>
-
-			<p class="ac-form-msg" id="rl-msg"></p>
 
 			<button class="ac-btn-primary" type="submit" id="rl-submit">Guardar Cambios</button>
 		</form>

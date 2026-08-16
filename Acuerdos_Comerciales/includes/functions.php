@@ -327,7 +327,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	if (!$stmt) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmt->bind_param('ssiiiii', $supervisor, $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
+	$stmt->bind_param('isiiiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
 	$stmt->execute();
 	$acuerdos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -370,7 +370,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	// pos_id duplicados (~1,116 detectados) — cualquiera de las filas
 	// duplicadas tiene el mismo pos_name/cedi para ese pos_id.
 	$stmt = $mysqli->prepare(
-		"SELECT a.id, a.documento_no, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion,
+		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por,
 		        d.pos_name, d.cedi
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
@@ -412,14 +412,39 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	return [
 		'id'                => (int) $cabecera['id'],
 		'documento_no'      => $cabecera['documento_no'],
+		'pos_id'            => $cabecera['pos_id'],
 		'anio'              => (int) $cabecera['anio'],
 		'mes_inicio'        => (int) $cabecera['mes_inicio'],
 		'mes_fin'           => (int) $cabecera['mes_fin'],
 		'estado'            => $cabecera['estado'],
 		'fecha_generacion'  => $cabecera['fecha_generacion'],
+		'creado_por'        => $cabecera['creado_por'] !== null ? (int) $cabecera['creado_por'] : null,
 		'distribuidor'      => $cabecera['pos_name'],
 		'localidad'         => $cabecera['cedi'] ?: '—',
 		'lineas'            => $lineas,
 	];
+}
+
+// Borradores propios del usuario logueado (estado='borrador' AND creado_por),
+// para la lista "Mis Borradores" de Registrar Acuerdo PDV — mismo criterio de
+// scoping por creador que listar_historial_acuerdos(), nunca los de otro
+// usuario aunque comparta supervisor/territorio.
+function listar_borradores_usuario($mysqli, $usuarioId) {
+	if (!$usuarioId) return [];
+	$stmt = $mysqli->prepare(
+		"SELECT a.id, a.documento_no, a.anio, a.mes_inicio, a.mes_fin, a.updated_at,
+		        d.pos_name, d.cedi
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 WHERE a.estado = 'borrador' AND a.creado_por = ?
+		 GROUP BY a.id
+		 ORDER BY a.updated_at DESC"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('i', $usuarioId);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	return $filas;
 }
 ?>

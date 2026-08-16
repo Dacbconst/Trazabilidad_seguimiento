@@ -35,7 +35,6 @@
 	var pickerTrigger       = document.getElementById('ac-month-picker-trigger');
 	var pickerPopover       = document.getElementById('ac-month-picker-popover');
 	var monthGrid           = document.getElementById('ac-month-grid');
-	var formMsg             = document.getElementById('ac-form-msg');
 
 	var purchaseHead = document.getElementById('ac-purchase-head');
 	var purchaseBody = document.getElementById('ac-purchase-body');
@@ -49,8 +48,7 @@
 	var perchasBody = document.getElementById('ac-perchas-body');
 
 	function mostrarMensaje(texto, ok) {
-		formMsg.textContent = texto;
-		formMsg.className = 'ac-form-msg ' + (ok ? 'ac-form-msg-success' : 'ac-form-msg-error');
+		mostrarToast(texto, ok ? 'success' : 'error');
 	}
 
 	// ---------- Carga inicial ----------
@@ -378,7 +376,10 @@
 	}
 
 	// ---------- Construcción de tablas ----------
-	function syncTables() {
+	// Separado de syncTables() para que poblarTablasConLineas() (carga de un
+	// borrador) pueda reconstruir los encabezados según el período guardado
+	// sin pasar por el reset a una sola fila vacía por tabla.
+	function renderTableHeaders() {
 		var months = activeMonthsIndices.map(function (i) { return allMonthsShort[i]; });
 		var count = months.length;
 
@@ -406,7 +407,10 @@
 			'<th colspan="' + (count + 1) + '">Pago Mensual</th><th rowspan="3"></th></tr>' +
 			'<tr><th colspan="' + (count + 2) + '">Pago x Mes x Percha ($)</th></tr>' +
 			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th>Pago Total</th></tr>';
+	}
 
+	function syncTables() {
+		renderTableHeaders();
 		purchaseBody.innerHTML = '';
 		cabecerasBody.innerHTML = '';
 		rumasBody.innerHTML = '';
@@ -568,7 +572,7 @@
 		tr.innerHTML = html;
 		purchaseBody.appendChild(tr);
 
-		bindCascadaCombo(tr, null, function (seg, cat, marca) { sugerirEnOtrasTablas(seg, cat, marca); });
+		tr._combo = bindCascadaCombo(tr, null, function (seg, cat, marca) { sugerirEnOtrasTablas(seg, cat, marca); });
 
 		var recalc = function () { updatePurchaseRow(tr); };
 		tr.querySelectorAll('.month-input, .ac-rebate-input').forEach(function (i) { i.addEventListener('input', recalc); });
@@ -820,6 +824,9 @@
 	document.getElementById('ac-generar-acta').addEventListener('click', function () {
 		guardarAcuerdo('generado', mostrarPreview);
 	});
+	document.getElementById('ac-guardar-borrador').addEventListener('click', function () {
+		guardarAcuerdo('borrador');
+	});
 
 	// ---------- Preview / Acta ----------
 	// El iframe carga el PDF real (Dompdf, mismo endpoint que "Descargar") —
@@ -866,6 +873,149 @@
 	document.getElementById('ac-add-cabecera-row').addEventListener('click', addCabeceraRow);
 	document.getElementById('ac-add-ruma-row').addEventListener('click', addRumaRow);
 	document.getElementById('ac-add-percha-row').addEventListener('click', addPerchaRow);
+
+	// ---------- Mis Borradores ----------
+	// input event sintético: las filas se llenan seteando .value directo por
+	// código (no tipeando), lo que no dispara el listener 'input' que ya
+	// recalcula totales por fila (attachVisListeners/updatePurchaseRow) — así
+	// se reusa ese mismo recálculo en vez de duplicar la lógica de suma.
+	function dispararInput(el) {
+		if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+	}
+
+	function llenarValoresMensuales(inputs, valoresMensuales) {
+		Array.prototype.forEach.call(inputs, function (input, i) {
+			var mes = activeMonthsIndices[i];
+			input.value = (valoresMensuales && valoresMensuales[String(mes)]) || 0;
+		});
+	}
+
+	// Reconstruye las 4 tablas a partir de las líneas guardadas de un
+	// borrador, en vez de la fila vacía única de syncTables(). El Sector de
+	// Meta de Compras no se guarda en la base (ver CLAUDE.md) — si la
+	// combinación Segmento+Categoría+Marca solo admite un Sector, igual se
+	// autocompleta solo (misma lógica de aplicarMarca() que ya corre para
+	// carga manual).
+	function poblarTablasConLineas(lineas) {
+		renderTableHeaders();
+		purchaseBody.innerHTML = '';
+		cabecerasBody.innerHTML = '';
+		rumasBody.innerHTML = '';
+		perchasBody.innerHTML = '';
+
+		if (lineas.meta_compra && lineas.meta_compra.length) {
+			lineas.meta_compra.forEach(function (fila) {
+				addPurchaseRow();
+				var tr = purchaseBody.lastElementChild;
+				tr._combo.sugerir(fila.segmento, fila.categoria, fila.marca);
+				llenarValoresMensuales(tr.querySelectorAll('.month-input'), fila.valores_mensuales);
+				tr.querySelector('.ac-rebate-input').value = (fila.rebate_pct || 0) * 100;
+				updatePurchaseRow(tr);
+			});
+		} else {
+			addPurchaseRow();
+		}
+
+		if (lineas.cabecera && lineas.cabecera.length) {
+			lineas.cabecera.forEach(function (fila) {
+				addCabeceraRow();
+				var tr = cabecerasBody.lastElementChild;
+				tr._combo.sugerir(fila.segmento, fila.categoria, fila.marca);
+				llenarValoresMensuales(tr.querySelectorAll('.v-val'), fila.valores_mensuales);
+				dispararInput(tr.querySelector('.v-val'));
+			});
+		} else {
+			addCabeceraRow();
+		}
+
+		if (lineas.ruma && lineas.ruma.length) {
+			lineas.ruma.forEach(function (fila) {
+				addRumaRow();
+				var tr = rumasBody.lastElementChild;
+				tr._combo.sugerir(fila.segmento, fila.categoria, fila.marca);
+				Array.prototype.forEach.call(tr.querySelectorAll('.v-val-repetido'), function (rep) {
+					rep.value = fila.valor_mensual_unico || 0;
+				});
+			});
+			// La leyenda (única fuente editable de Rumas) se reconstruye UNA vez
+			// al final, después de que todas las filas ya tienen su valor real
+			// seteado — si se llamara fila por fila, updateRumaLegend() leería
+			// valores todavía en 0 de las filas que faltan procesar.
+			updateRumaLegend();
+		} else {
+			addRumaRow();
+		}
+
+		if (lineas.percha && lineas.percha.length) {
+			lineas.percha.forEach(function (fila) {
+				addPerchaRow();
+				var tr = perchasBody.lastElementChild;
+				tr._comboMarca.sugerir(fila.marca);
+				tr.querySelector('.v-participacion').value = fila.participacion || '';
+				tr.querySelector('.v-cantidad').value = fila.cantidad_max_percha || 0;
+				llenarValoresMensuales(tr.querySelectorAll('.v-val'), fila.valores_mensuales);
+				dispararInput(tr.querySelector('.v-val'));
+			});
+		} else {
+			addPerchaRow();
+		}
+
+		updateGrandTotals();
+	}
+
+	function aplicarBorrador(a) {
+		acuerdoId = a.id;
+		documentoNo = a.documento_no;
+
+		anioSelect.value = a.anio;
+		selectedStart = a.mes_inicio;
+		selectedEnd = a.mes_fin;
+		activeMonthsIndices = [];
+		for (var i = selectedStart; i <= selectedEnd; i++) activeMonthsIndices.push(i);
+		updatePickerUI();
+
+		// Canal Distribuidor: hay que fijar la Empresa del cliente guardado
+		// antes de poder setear el Distribuidor, porque el combo de
+		// Distribuidor arma sus opciones a partir de la Empresa elegida (ver
+		// catalogoDistribuidor.empresas).
+		if (catalogoDistribuidor.canal === 'distribuidor') {
+			var empresaDeCliente = null;
+			Object.keys(catalogoDistribuidor.empresas).some(function (emp) {
+				var match = catalogoDistribuidor.empresas[emp].some(function (c) { return c.pos_id === a.pos_id; });
+				if (match) { empresaDeCliente = emp; }
+				return match;
+			});
+			if (empresaDeCliente) {
+				empresaSelect.value = empresaDeCliente;
+				empresaSearch.value = empresaDeCliente;
+				distribuidorSearch.disabled = false;
+			}
+		}
+		distribuidorSelect.value = a.pos_id;
+		distribuidorSearch.value = a.distribuidor;
+		localidadEl.textContent = a.localidad || '—';
+		actualizarBloqueoPorDistribuidor();
+
+		poblarTablasConLineas(a.lineas);
+		mostrarMensaje('Borrador #' + a.documento_no + ' cargado. Podés seguir editándolo.', true);
+	}
+
+	function cargarBorrador(id) {
+		fetch('getters/obtener_borrador.php?id=' + id)
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el borrador.', false); return; }
+				aplicarBorrador(data.acuerdo);
+			})
+			.catch(function () { mostrarMensaje('Error de conexión al cargar el borrador.', false); });
+	}
+
+	// El modal "Mis Borradores" vive en Historial (components/historial.js),
+	// pero cargar un borrador en el formulario solo lo puede hacer este
+	// módulo — todo el estado de las 4 tablas y los combos vive acá adentro.
+	// historial.js cambia a la pestaña Registrar y llama a esta función
+	// expuesta (mismo patrón que "Nuevo Acuerdo" ya usa para cambiar de tab).
+	window.acRegistrarCargarBorrador = cargarBorrador;
 
 	cargarDatosIniciales();
 })();

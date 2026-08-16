@@ -24,10 +24,15 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<h1 class="ac-page-title">Historial de Acuerdos</h1>
 			<p class="ac-page-subtitle">Gestiona y descarga los acuerdos de desarrollo de negocios generados.</p>
 		</div>
-		<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-nuevo-acuerdo">
-			<span class="material-symbols-outlined">add</span>
-			Nuevo Acuerdo
-		</button>
+		<div class="ac-btn-group">
+			<button type="button" class="ac-btn-secondary" id="hist-abrir-borradores">
+				<span class="material-symbols-outlined">draft</span> Mis Borradores
+			</button>
+			<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-nuevo-acuerdo">
+				<span class="material-symbols-outlined">add</span>
+				Nuevo Acuerdo
+			</button>
+		</div>
 	</div>
 
 	<section class="ac-card ac-hist-filtros-card">
@@ -96,6 +101,29 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 		</a>
 	</div>
 	<iframe id="hist-pdf-frame" class="ac-acta-pdf-frame" title="Vista previa del Acta"></iframe>
+</div>
+
+<!-- Modal: Mis Borradores — borradores propios (creado_por = usuario de la
+     sesión, ver listar_borradores_usuario() en functions.php). "Continuar
+     editando" cambia a la pestaña Registrar y carga el borrador ahí (ver
+     window.acRegistrarCargarBorrador en registrar.js). -->
+<div class="ac-modal-overlay" id="hist-borradores-modal-overlay">
+	<div class="ac-modal ac-borradores-modal">
+		<div class="ac-modal-header">
+			<h3>Mis Borradores</h3>
+			<button type="button" class="ac-modal-close" id="hist-borradores-modal-close" aria-label="Cerrar">
+				<span class="material-symbols-outlined">close</span>
+			</button>
+		</div>
+		<div class="ac-borradores-modal-body">
+			<table class="ac-table">
+				<thead>
+					<tr><th>Documento</th><th>Distribuidor</th><th>Periodo</th><th>Actualizado</th><th></th></tr>
+				</thead>
+				<tbody id="hist-borradores-body"></tbody>
+			</table>
+		</div>
+	</div>
 </div>
 
 <script src="assets/js/historial.js?v=<?= $js_v ?>"></script>

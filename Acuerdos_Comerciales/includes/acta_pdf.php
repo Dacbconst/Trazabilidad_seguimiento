@@ -233,7 +233,12 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
-	$html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+	// Dompdf toma el <title> del HTML fuente y lo usa como metadato /Title del
+	// PDF — el visor de PDF integrado del navegador (Chrome/Edge) prioriza ese
+	// título sobre el nombre de archivo para la pestaña, así que sin esto la
+	// pestaña mostraba literalmente "generar_acta_pdf.php" (el script, no el
+	// documento).
+	$html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.h($detalle['documento_no']).'</title><style>
 @page { size: A4; margin: 2.5cm 2cm; }
 * { box-sizing: border-box; }
 p, h1, ul { margin: 0 0 '.px(3, $escala).'; }
@@ -360,5 +365,36 @@ td, th { padding: '.px(2.5, $escala).' '.px(6, $escala).'; word-wrap: break-word
 </body></html>';
 
 	return $html;
+}
+
+// Renderiza el Acta completa a bytes de PDF (Dompdf) — usado tanto por
+// guardar_acuerdo.php (guarda el snapshot en pdf_documento al generar) como
+// por getters/generar_acta_pdf.php (fallback en vivo para acuerdos viejos sin
+// snapshot todavía). El caller debe haber hecho require de vendor/autoload.php
+// antes de llamar esto (acá no se hace, para no romper la premisa de este
+// archivo de poder cargarse sin dependencias — ver comentario al inicio).
+function generar_acta_pdf_binario(array $detalle) {
+	$medirTexto = crear_medidor_texto();
+
+	$renderizar = function ($escala) use ($detalle, $medirTexto) {
+		$options = new \Dompdf\Options();
+		$options->set('isRemoteEnabled', false);
+		$dompdf = new \Dompdf\Dompdf($options);
+		$dompdf->loadHtml(generar_acta_html($detalle, $escala, $medirTexto));
+		$dompdf->setPaper('A4', 'portrait');
+		$dompdf->render();
+		return $dompdf;
+	};
+
+	// Prueba a tamaño normal (escala 1) y solo si no entra en 1 hoja va
+	// reduciendo — nunca achica más de lo necesario.
+	$escala = 1.0;
+	$dompdf = $renderizar($escala);
+	while ($dompdf->getCanvas()->get_page_count() > 1 && $escala > 0.4) {
+		$escala -= 0.08;
+		$dompdf = $renderizar($escala);
+	}
+
+	return $dompdf->output();
 }
 ?>

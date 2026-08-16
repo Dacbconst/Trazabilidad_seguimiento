@@ -67,11 +67,8 @@ body {
 	justify-content: space-between;
 	padding: 0 var(--space-lg);
 }
-.ac-brand {
-	font-weight: 700;
-	font-size: 20px;
-	color: var(--color-primary);
-}
+.ac-brand { display: flex; align-items: center; }
+.ac-brand-logo { height: 32px; width: auto; display: block; }
 
 /* ---------- Login ---------- */
 .ac-login-main {
@@ -222,7 +219,6 @@ body {
 	white-space: nowrap;
 	flex: 1;
 }
-.ac-sidebar-brand-row .material-symbols-outlined { color: var(--color-primary); }
 .ac-sidebar-toggle {
 	flex-shrink: 0;
 	display: flex;
@@ -280,7 +276,6 @@ body {
 /* ---------- Sidebar colapsado ---------- */
 .ac-sidebar.collapsed { width: 72px; }
 .ac-sidebar.collapsed .ac-sidebar-brand-row { justify-content: center; }
-.ac-sidebar.collapsed .ac-sidebar-brand-row .ac-sidebar-brand-icon,
 .ac-sidebar.collapsed .ac-sidebar-brand-row h2,
 .ac-sidebar.collapsed .ac-sidebar-version,
 .ac-sidebar.collapsed .ac-nav-label,
@@ -393,9 +388,49 @@ body {
 }
 .ac-select:focus { border-color: var(--color-primary); }
 
-.ac-form-msg { font-size: 14px; line-height: 20px; margin: 0 0 var(--space-sm); min-height: 20px; }
-.ac-form-msg-error { color: var(--color-error); }
-.ac-form-msg-success { color: #1e7d32; }
+/* Toasts — reemplazan al viejo .ac-form-msg (texto inline arriba del
+   formulario) en todo el proyecto, ver assets/js/toast.js. */
+.ac-toast-container {
+	position: fixed; top: var(--space-lg); right: var(--space-lg);
+	z-index: 1000;
+	display: flex; flex-direction: column; gap: var(--space-sm);
+	width: min(360px, calc(100vw - 2 * var(--space-lg)));
+}
+.ac-toast {
+	position: relative;
+	display: flex; align-items: center; gap: var(--space-sm);
+	background: var(--color-surface-container-lowest);
+	border-radius: var(--radius-md);
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+	padding: var(--space-sm) var(--space-md);
+	overflow: hidden;
+	animation: ac-toast-in 0.25s ease-out;
+}
+.ac-toast.ac-toast-cerrando { animation: ac-toast-out 0.2s ease-in forwards; }
+@keyframes ac-toast-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes ac-toast-out { to { transform: translateX(24px); opacity: 0; } }
+
+.ac-toast-icon {
+	flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+	display: flex; align-items: center; justify-content: center;
+	color: #fff;
+}
+.ac-toast-icon .material-symbols-outlined { font-size: 18px; }
+.ac-toast-success .ac-toast-icon { background: #2e7d32; }
+.ac-toast-error .ac-toast-icon { background: #d32f2f; }
+.ac-toast-warning .ac-toast-icon { background: #f9a825; }
+.ac-toast-info .ac-toast-icon { background: #1976d2; }
+
+.ac-toast-msg { flex: 1 1 auto; font-size: 14px; line-height: 20px; color: var(--color-on-surface); }
+.ac-toast-close { flex: 0 0 auto; background: none; border: none; cursor: pointer; color: var(--color-on-surface-variant); padding: 2px; display: flex; }
+.ac-toast-close .material-symbols-outlined { font-size: 18px; }
+
+.ac-toast-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; transform-origin: left; animation: ac-toast-shrink linear forwards; }
+.ac-toast-success .ac-toast-bar { background: #2e7d32; }
+.ac-toast-error .ac-toast-bar { background: #d32f2f; }
+.ac-toast-warning .ac-toast-bar { background: #f9a825; }
+.ac-toast-info .ac-toast-bar { background: #1976d2; }
+@keyframes ac-toast-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 .ac-search-wrap { max-width: 260px; width: 100%; }
 .ac-search-input { padding: 10px 16px 10px 40px; border-radius: var(--radius-full); font-size: 14px; }
@@ -536,6 +571,9 @@ body {
    formulario. Si no se anula aquí, el popover/panel queda cortado en el
    borde de la card en vez de sobresalir. */
 .ac-acuerdo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
+/* Agrupa varios botones/badges a un costado de un header (Registrar,
+   Historial) sin repetir el mismo flex+gap en cada uno. */
+.ac-btn-group { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
 
 /* Bandera de Canal (Directo / Distribuidor) — solo lectura, deuda técnica ver registrar.js */
 .ac-badge-canal-directo { background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed); }
@@ -772,6 +810,12 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	flex: 0 0 auto;
 }
 .ac-acta-pdf-frame { flex: 1 1 auto; width: 100%; border: none; }
+
+.ac-modal.ac-borradores-modal { max-width: 640px; width: 95vw; }
+.ac-borradores-modal-body { padding: var(--space-lg); }
+.ac-borradores-modal-body .ac-table { min-width: 0; }
+.ac-btn-continuar { background: none; border: none; padding: 0; cursor: pointer; color: var(--color-primary); font-weight: 700; font-size: 13px; font-family: var(--font-body); }
+.ac-btn-continuar:hover { text-decoration: underline; }
 
 @media print {
 	.no-print, .ac-header, .ac-sidebar, .ac-acuerdo, .ac-historial { display: none !important; }

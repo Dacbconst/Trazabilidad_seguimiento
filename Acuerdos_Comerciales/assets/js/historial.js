@@ -13,6 +13,12 @@
 	var paginacionBtns  = document.getElementById('hist-paginacion-btns');
 	var buscarTimeout   = null;
 
+	function escapeHtml(texto) {
+		var div = document.createElement('div');
+		div.textContent = texto == null ? '' : String(texto);
+		return div.innerHTML;
+	}
+
 	// ---------- Listado: búsqueda + filtro de mes + paginación ----------
 	function cargarHistorial(pagina) {
 		var q   = buscarInput.value.trim();
@@ -56,9 +62,63 @@
 	mesSelect.addEventListener('change', function () { cargarHistorial(1); });
 	buscarBtn.addEventListener('click', function () { cargarHistorial(1); });
 
-	document.getElementById('hist-nuevo-acuerdo').addEventListener('click', function () {
+	function irARegistrar() {
 		var link = document.querySelector('.ac-sidebar-nav a[href="#sec-registrar"]');
 		if (link) link.click();
+	}
+
+	document.getElementById('hist-nuevo-acuerdo').addEventListener('click', irARegistrar);
+
+	// ---------- Mis Borradores ----------
+	// El listado y el modal viven acá; cargar el borrador en el formulario lo
+	// hace registrar.js (todo el estado de las 4 tablas vive ahí adentro) —
+	// solo cambiamos a esa pestaña y le pasamos el id.
+	var borraModalOverlay = document.getElementById('hist-borradores-modal-overlay');
+	var borraBody = document.getElementById('hist-borradores-body');
+
+	function abrirModalBorradores() {
+		borraBody.innerHTML = '<tr><td colspan="5" class="ac-table-empty">Cargando...</td></tr>';
+		borraModalOverlay.classList.add('ac-modal-open');
+		fetch('getters/listar_borradores.php')
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				var borradores = (data.ok && data.borradores) ? data.borradores : [];
+				if (!borradores.length) {
+					borraBody.innerHTML = '<tr><td colspan="5" class="ac-table-empty">No tenés borradores guardados.</td></tr>';
+					return;
+				}
+				borraBody.innerHTML = borradores.map(function (b) {
+					var fecha = new Date(b.updated_at.replace(' ', 'T')).toLocaleString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+					return '<tr>' +
+						'<td>#' + escapeHtml(b.documento_no) + '</td>' +
+						'<td>' + escapeHtml(b.distribuidor) + '</td>' +
+						'<td>' + escapeHtml(b.periodo) + ' ' + b.anio + '</td>' +
+						'<td class="ac-tabular">' + fecha + '</td>' +
+						'<td class="ac-text-right"><button type="button" class="ac-btn-continuar" data-id="' + b.id + '">Continuar editando</button></td>' +
+						'</tr>';
+				}).join('');
+				Array.prototype.forEach.call(borraBody.querySelectorAll('.ac-btn-continuar'), function (btn) {
+					btn.addEventListener('click', function () {
+						var id = parseInt(btn.dataset.id, 10);
+						cerrarModalBorradores();
+						irARegistrar();
+						if (window.acRegistrarCargarBorrador) window.acRegistrarCargarBorrador(id);
+					});
+				});
+			})
+			.catch(function () {
+				borraBody.innerHTML = '<tr><td colspan="5" class="ac-table-empty">Error al cargar los borradores.</td></tr>';
+			});
+	}
+
+	function cerrarModalBorradores() {
+		borraModalOverlay.classList.remove('ac-modal-open');
+	}
+
+	document.getElementById('hist-abrir-borradores').addEventListener('click', abrirModalBorradores);
+	document.getElementById('hist-borradores-modal-close').addEventListener('click', cerrarModalBorradores);
+	borraModalOverlay.addEventListener('click', function (e) {
+		if (e.target === borraModalOverlay) cerrarModalBorradores();
 	});
 
 	// ---------- Detalle / Acta (Ver Detalles y Descargar PDF) ----------

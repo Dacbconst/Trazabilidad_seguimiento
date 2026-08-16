@@ -5,7 +5,9 @@
 // actual — el formulario siempre manda el estado completo de las 4 tablas,
 // no hay edición incremental de una sola fila desde el backend.
 require_once __DIR__.'/../includes/functions.php';
+require_once __DIR__.'/../includes/acta_pdf.php';
 require_once __DIR__.'/../db_connect.php';
+require_once __DIR__.'/../vendor/autoload.php';
 iniciar_sesion();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -274,6 +276,34 @@ try {
 } catch (Exception $e) {
 	$mysqli->rollback();
 	responder(false, 'No se pudo guardar el acuerdo: '.$e->getMessage());
+}
+
+// Snapshot del PDF: solo al generar (no en cada guardado de borrador), para
+// que Historial sirva siempre "el documento tal como se generó", aunque
+// después alguien edite las líneas del acuerdo. Si el render falla acá no se
+// aborta la respuesta — el acuerdo ya quedó guardado bien; el próximo intento
+// de verlo simplemente vuelve a caer al render en vivo de generar_acta_pdf.php.
+if ($estado === 'generado') {
+	try {
+		$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);
+		if ($detalle) {
+			$pdfBinario = generar_acta_pdf_binario($detalle);
+			$tamano     = strlen($pdfBinario);
+			$stmtPdf = $mysqli->prepare(
+				'UPDATE repositorio_acuerdos SET pdf_documento = ?, pdf_generado_en = NOW(), pdf_tamano_bytes = ? WHERE id = ?'
+			);
+			if ($stmtPdf) {
+				// 's' alcanza para el LONGBLOB: mysqli es binary-safe con
+				// bind_param, send_long_data solo hace falta para blobs que no
+				// entran en max_allowed_packet (acá son ~100-200 KB, muy lejos).
+				$stmtPdf->bind_param('sii', $pdfBinario, $tamano, $acuerdoId);
+				$stmtPdf->execute();
+				$stmtPdf->close();
+			}
+		}
+	} catch (\Throwable $e) {
+		// No hacer nada: ver comentario de arriba.
+	}
 }
 
 responder(true, 'Acuerdo guardado correctamente.', [

@@ -82,8 +82,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 		</div>
 	</section>
 
-	<p class="ac-form-msg" id="ac-form-msg"></p>
-
 	<!-- 1. Meta de Compras -->
 	<section class="ac-card ac-acuerdo-section">
 		<div class="ac-card-header ac-card-header-split">
@@ -172,6 +170,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 
 	<!-- Footer -->
 	<div class="ac-acuerdo-footer">
+		<button type="button" class="ac-btn-secondary ac-btn-inline" id="ac-guardar-borrador">
+			<span class="material-symbols-outlined">save</span> Guardar Borrador
+		</button>
 		<button type="button" class="ac-btn-primary ac-btn-inline" id="ac-generar-acta">
 			<span class="material-symbols-outlined">description</span> Generar Acta
 		</button>
