@@ -70,7 +70,7 @@ function logo_base64() {
 	return $cache;
 }
 
-if (!defined('ACTA_ANCHO_UTIL_PX')) define('ACTA_ANCHO_UTIL_PX', (210 - 40) * 96 / 25.4);
+if (!defined('ACTA_ANCHO_UTIL_PX')) define('ACTA_ANCHO_UTIL_PX', (210 - 24) * 96 / 25.4);
 
 // Mide el ancho REAL del texto con el propio motor de fuentes de Dompdf (nada
 // de un ratio de caracter "inventado" — eso fue lo que falló antes: subestimaba
@@ -239,39 +239,41 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	// pestaña mostraba literalmente "generar_acta_pdf.php" (el script, no el
 	// documento).
 	$html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.h($detalle['documento_no']).'</title><style>
-@page { size: A4; margin: 2.5cm 2cm; }
+@page { size: A4; margin: 1cm 1.2cm; }
 * { box-sizing: border-box; }
-p, h1, ul { margin: 0 0 '.px(3, $escala).'; }
-body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(10.5, $escala).'; color: #1a1b22; line-height: 1.5; }
-h1 { font-size: '.px(17, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5, $escala).'; }
+p, h1, ul { margin: 0 0 '.px(3.5, $escala).'; }
+body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(11, $escala).'; color: #000000; line-height: 1.35; }
+h1 { font-size: '.px(18, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-td, th { padding: '.px(2.5, $escala).' '.px(6, $escala).'; word-wrap: break-word; }
+td, th { padding: '.px(3.5, $escala).' '.px(7, $escala).'; word-wrap: break-word; }
 .num { text-align: right; }
 .ctr { text-align: center; }
-.vacio { text-align: center; color: #757684; padding: '.px(6, $escala).' !important; }
-.doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(10, $escala).'; }
-.doc-no strong { display: block; font-size: '.px(14, $escala).'; }
+.vacio { text-align: center; color: #000000; padding: '.px(7, $escala).' !important; }
+.doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(10.5, $escala).'; color: #000000; }
+.doc-no strong { display: block; font-size: '.px(14.5, $escala).'; }
+.meta-tabla { margin: '.px(6, $escala).' 0 '.px(5, $escala).'; }
 .meta-tabla td, .meta-tabla th { border: 1px solid #c4c5d5; }
 .meta-tabla thead th { background: #eeedf7; }
-.total-row td { font-weight: bold; border-top: 2px solid #1a1b22; }
+.total-row td { font-weight: bold; border-top: 2px solid #000000; }
 .rebate-cell { background: #fbf0cf; }
-.label { font-size: '.px(9, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #444653; }
-.hint { font-size: '.px(9.5, $escala).'; color: #444653; margin: 0 0 '.px(2, $escala).'; }
-.subtitulo { font-size: '.px(12.5, $escala).'; text-transform: uppercase; margin: '.px(6, $escala).' 0 '.px(2, $escala).'; font-weight: bold; }
-.condiciones { background: #f4f2fc; border: 1px solid #c4c5d5; border-radius: 6px; padding: '.px(5, $escala).' '.px(9, $escala).'; margin-top: '.px(3, $escala).'; }
-.condiciones h3 { font-size: '.px(10, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2, $escala).'; }
-.condiciones ul { margin: 0; padding-left: '.px(16, $escala).'; }
-.condiciones li { margin-bottom: '.px(1, $escala).'; }
-.firma-linea-firmar { border-bottom: 1px solid #1a1b22; height: '.px(34, $escala).'; }
-.legend-box { border: 1px solid #c4c5d5; border-radius: 4px; padding: '.px(4, $escala).'; }
-.legend-box th, .legend-box td { font-size: '.px(9.5, $escala).'; }
+.label { font-size: '.px(9.5, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
+.hint { font-size: '.px(10, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; }
+.subtitulo { font-size: '.px(13, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; font-weight: bold; }
+.condiciones { background: #f4f2fc; border: 1px solid #c4c5d5; border-radius: 6px; padding: '.px(6, $escala).' '.px(10, $escala).'; margin: '.px(3.5, $escala).' 0 '.px(5, $escala).'; }
+.condiciones h3 { font-size: '.px(10.5, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; }
+.condiciones ul { margin: 0; padding-left: '.px(17, $escala).'; }
+.condiciones li { margin-bottom: '.px(1.5, $escala).'; }
+.firmas-footer { margin-top: '.px(18, $escala).'; }
+.firma-linea-firmar { border-bottom: 1px solid #000000; height: '.px(28, $escala).'; margin: '.px(32, $escala).' 0; }
+.legend-box { border: 1px solid #c4c5d5; border-radius: 4px; padding: '.px(5, $escala).'; }
+.legend-box th, .legend-box td { font-size: '.px(10, $escala).'; }
 </style></head><body>
 
 <div class="doc-no"><span class="label">Documento No:</span><strong>'.h($detalle['documento_no']).'</strong></div>
 '.$logoHtml.'
 <h1>Acuerdo de Desarrollo de Negocios Canal Directo</h1>
 
-<table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(3, $escala).';"><tr>
+<table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(5, $escala).';"><tr>
 	<td style="border:none; width:34%;"><span class="label">Estimado(a)</span><br><strong>'.h($detalle['distribuidor']).'</strong></td>
 	<td style="border:none; width:33%;"><span class="label">Localidad</span><br><strong>'.h($detalle['localidad']).'</strong></td>
 	<td style="border:none; width:33%;"><span class="label">Fecha</span><br><strong>'.h($fechaTexto).'</strong></td>
@@ -316,7 +318,7 @@ td, th { padding: '.px(2.5, $escala).' '.px(6, $escala).'; word-wrap: break-word
 <p class="hint">Se cancelará el valor acordado si, durante todo el período del acuerdo, las categorías mantienen el espacio acordado. La participación se considerará por número de caras/display.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.<br>El espacio debe estar demarcado con preciadores, polipasacalle, cenefas y cualquier otro elemento de visibilidad.</p>
 <table style="border:none;"><tr>
 	<td style="border:none; width:78%; vertical-align:top; padding:0;">
-		<table class="meta-tabla">
+		<table class="meta-tabla" style="margin-top:0;">
 			<thead><tr>'.$marcaHeadRuma.$mesesHeadRuma.$totalHeadRuma.'</tr></thead>
 			<tbody>'.$rumasRows.'</tbody>
 		</table>
@@ -330,7 +332,7 @@ td, th { padding: '.px(2.5, $escala).' '.px(6, $escala).'; word-wrap: break-word
 	</td>
 </tr></table>
 
-<table class="meta-tabla" style="margin-top:'.px(6, $escala).';">
+<table class="meta-tabla">
 	<thead>'.$perchaHeadRow1.$perchaHeadRow2.$perchaHeadRow3.'</thead>
 	<tbody>'.$perchaRows.'</tbody>
 </table>
@@ -340,26 +342,30 @@ td, th { padding: '.px(2.5, $escala).' '.px(6, $escala).'; word-wrap: break-word
 <p style="margin:'.px(3, $escala).' 0;">La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito. El plazo para emitir la nota de crédito es hasta 2 meses luego de finalizar el periodo del acuerdo.</p>
 <p style="margin:'.px(3, $escala).' 0;">Como constancia del presente convenio, firman de común acuerdo las partes.</p>
 
-<table style="border:none; margin-top:'.px(30, $escala).';"><tr>
+<div class="firmas-footer">
+
+<table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:'.px(1, $escala).' 0 0; font-weight:bold;">Nombre: ________________________________________</p>
-		<p class="label" style="margin:0;">Ejecutivo Comercial</p>
+		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Ejecutivo Comercial</p>
 	</td>
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:'.px(1, $escala).' 0 0; font-weight:bold;">Nombre: ________________________________________</p>
-		<p class="label" style="margin:0;">Jefe Comercial</p>
+		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe Comercial</p>
 	</td>
 </tr></table>
 
-<div style="text-align:center; margin-top:'.px(10, $escala).';">
+<div style="text-align:center; margin-top:'.px(20, $escala).';">
 	<p style="margin:0;">Jabonería Wilson<br><strong>ACEPTACIÓN DEL PRESENTE CONVENIO POR PARTE DEL CLIENTE</strong></p>
-	<p style="font-size:'.px(10, $escala).'; color:#444653;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
-	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(14, $escala).' auto 0;"></div>
-	<p class="label" style="margin:'.px(2, $escala).' 0 0;">Firma del Cliente</p>
-	<p class="label" style="margin-top:'.px(6, $escala).';">Razón Social:</p>
+	<p style="font-size:'.px(11, $escala).'; color:#000000;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
+	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(36, $escala).' auto;"></div>
+	<p class="label" style="margin:0;">Firma del Cliente</p>
+	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social:</p>
 	<p style="font-weight:bold; margin:0;">'.h($detalle['distribuidor']).'</p>
+</div>
+
 </div>
 
 </body></html>';
