@@ -65,7 +65,6 @@ function rolPermitido(array $rolesPermitidos) {
 function rolEtiqueta($rol) {
 	$etiquetas = [
 		'desarrollador'      => 'Desarrollador',
-		'admin'              => 'Administrador',
 		'superdesarrollador' => 'Superdesarrollador',
 	];
 	return isset($etiquetas[$rol]) ? $etiquetas[$rol] : $rol;
@@ -291,7 +290,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	// listado por esas filas repetidas.
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
-		WHERE a.estado <> 'borrador'
+		WHERE a.estado NOT IN ('borrador', 'anulado')
 		  AND a.creado_por = ?
 		  AND d.pos_name LIKE ?
 		  AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))";
@@ -357,6 +356,9 @@ function renderFilaHistorial(array $a) {
 				</button>
 				<button type="button" class="ac-icon-btn hist-btn-ver" data-id="'.(int) $a['id'].'" title="Ver Detalles">
 					<span class="material-symbols-outlined">visibility</span>
+				</button>
+				<button type="button" class="ac-icon-btn ac-icon-btn-danger hist-btn-eliminar" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" title="Eliminar">
+					<span class="material-symbols-outlined">delete</span>
 				</button>
 			</div>
 		</td>

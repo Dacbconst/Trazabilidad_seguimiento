@@ -19,6 +19,21 @@
 	var acuerdoId = null;
 	var documentoNo = null;
 
+	// ---------- Cambios sin guardar ----------
+	// Cambiar de módulo en el sidebar NUNCA destruye este formulario (solo se
+	// oculta con CSS, ver index.php) — el único riesgo real de perder trabajo
+	// es que el usuario cierre la pestaña del navegador. formSucio se marca
+	// true en cualquier edición real (combos, meses, filas, montos tipeados) y
+	// se limpia al guardar con éxito (borrador o generado) o al cargar un
+	// borrador recién traído del servidor (eso no es un cambio "sin guardar").
+	var formSucio = false;
+	function marcarSucio() { formSucio = true; }
+	window.addEventListener('beforeunload', function (e) {
+		if (!formSucio) return;
+		e.preventDefault();
+		e.returnValue = '';
+	});
+
 	var formatCurr = function (val) {
 		return (isNaN(val) ? 0 : val).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 	};
@@ -50,6 +65,14 @@
 	function mostrarMensaje(texto, ok) {
 		mostrarToast(texto, ok ? 'success' : 'error');
 	}
+
+	// Un solo listener delegado cubre todos los campos tipeados (montos, rebate,
+	// participación, cantidad) sin importar que las filas se creen/destruyan
+	// dinámicamente — los combos (Distribuidor/Segmento/Categoría/Marca/Sector)
+	// no disparan 'input' nativo (comboSeleccionar asigna .value directo), así
+	// que esos marcan sucio aparte, en su propio flujo de selección.
+	var acuerdoContainer = document.querySelector('.ac-acuerdo');
+	acuerdoContainer.addEventListener('input', marcarSucio);
 
 	// ---------- Carga inicial ----------
 	// El badge de Canal (#ac-canal-badge) ya lo arma registrar.php del lado del
@@ -184,6 +207,7 @@
 		comboActivo.hidden.value = op.value;
 		comboActivo.input.value = op.label;
 		comboCerrar();
+		marcarSucio();
 		if (onSel) onSel(op.value, op.label);
 	}
 
@@ -319,6 +343,7 @@
 
 		Array.prototype.forEach.call(monthGrid.querySelectorAll('.ac-month-btn'), function (btn) {
 			btn.addEventListener('click', function () {
+				marcarSucio();
 				var index = parseInt(btn.dataset.month, 10);
 				if (selectedStart === null || (selectedStart !== null && selectedEnd !== null)) {
 					selectedStart = index;
@@ -349,6 +374,7 @@
 		}
 	});
 	document.getElementById('ac-clear-range').addEventListener('click', function () {
+		marcarSucio();
 		selectedStart = null;
 		selectedEnd = null;
 		activeMonthsIndices = [];
@@ -576,7 +602,7 @@
 
 		var recalc = function () { updatePurchaseRow(tr); };
 		tr.querySelectorAll('.month-input, .ac-rebate-input').forEach(function (i) { i.addEventListener('input', recalc); });
-		tr.querySelector('.ac-remove-row').addEventListener('click', function () { tr.remove(); updateGrandTotals(); });
+		tr.querySelector('.ac-remove-row').addEventListener('click', function () { marcarSucio(); tr.remove(); updateGrandTotals(); });
 		actualizarBloqueoPorDistribuidor();
 	}
 
@@ -649,7 +675,7 @@
 		rumasBody.appendChild(tr);
 		tr._combo = bindCascadaCombo(tr, function () { updateRumaLegend(); });
 
-		tr.querySelector('.ac-remove-row').addEventListener('click', function () { tr.remove(); updateRumaLegend(); });
+		tr.querySelector('.ac-remove-row').addEventListener('click', function () { marcarSucio(); tr.remove(); updateRumaLegend(); });
 		actualizarBloqueoPorDistribuidor();
 	}
 
@@ -736,7 +762,7 @@
 			row.querySelector('.v-tot').textContent = formatCurr(vals.reduce(function (a, b) { return a + b; }, 0));
 		};
 		row.querySelectorAll('input, select').forEach(function (i) { i.addEventListener('input', recalc); });
-		row.querySelector('.ac-remove-row').addEventListener('click', function () { row.remove(); });
+		row.querySelector('.ac-remove-row').addEventListener('click', function () { marcarSucio(); row.remove(); });
 	}
 
 	// ---------- Recolección de datos para guardar ----------
@@ -815,14 +841,21 @@
 				if (data.ok) {
 					acuerdoId = data.acuerdo_id;
 					documentoNo = data.documento_no;
+					formSucio = false;
 					if (onOk) onOk();
 				}
 			})
 			.catch(function () { mostrarMensaje('Error de conexión. Intenta nuevamente.', false); });
 	}
 
+	// "Ver y Generar Acta" ya NO guarda el acuerdo como 'generado' — guarda
+	// como 'borrador' (mismo estado silencioso de "Guardar Borrador"/"Mis
+	// Borradores", no aparece en Historial) solo para tener un id real con el
+	// que armar la previsualización del PDF. Recién se promueve a 'generado'
+	// (con el snapshot definitivo) cuando el usuario da click en "Descargar /
+	// Imprimir PDF" dentro del modal — ver actaDescargarBtn más abajo.
 	document.getElementById('ac-generar-acta').addEventListener('click', function () {
-		guardarAcuerdo('generado', mostrarPreview);
+		guardarAcuerdo('borrador', mostrarPreview);
 	});
 	document.getElementById('ac-guardar-borrador').addEventListener('click', function () {
 		guardarAcuerdo('borrador');
@@ -836,6 +869,12 @@
 	var actaPdfFrame = document.getElementById('ac-acta-pdf-frame');
 	var actaDescargarBtn = document.getElementById('ac-acta-descargar-pdf');
 
+	// pdfDescargado: si el usuario cierra la ventanita de previsualización sin
+	// haber dado click en "Descargar / Imprimir PDF", se le avisa con un toast
+	// — cerrar sin descargar es fácil de hacer sin querer y perder de vista que
+	// el Acta todavía no quedó descargada/impresa.
+	var pdfDescargado = false;
+
 	function mostrarPreview() {
 		// &t= evita que el navegador reuse un PDF viejo cacheado con la misma URL ?id=X.
 		var url = 'getters/generar_acta_pdf.php?id=' + acuerdoId + '&t=' + Date.now();
@@ -845,12 +884,30 @@
 		// con espacio gris alrededor.
 		actaPdfFrame.src = url + '#toolbar=0&navpanes=0&view=FitH';
 		actaDescargarBtn.href = url;
+		pdfDescargado = false;
 		actaModalOverlay.classList.add('ac-modal-open');
 	}
+
+	// Acá es donde realmente se "genera" el Acta: promueve el borrador silencioso
+	// a estado 'generado' (dispara el snapshot definitivo del PDF en
+	// guardar_acuerdo.php) y recién entonces abre el PDF ya guardado. Si el
+	// usuario solo mira el preview y cierra sin llegar a este click, el acuerdo
+	// queda como borrador nomás (visible en "Mis Borradores", no en Historial).
+	actaDescargarBtn.addEventListener('click', function (e) {
+		e.preventDefault();
+		guardarAcuerdo('generado', function () {
+			pdfDescargado = true;
+			var url = 'getters/generar_acta_pdf.php?id=' + acuerdoId + '&t=' + Date.now();
+			window.open(url, '_blank');
+		});
+	});
 
 	function cerrarModalActa() {
 		actaModalOverlay.classList.remove('ac-modal-open');
 		actaPdfFrame.src = '';
+		if (!pdfDescargado) {
+			mostrarToast('Cerraste la vista previa sin descargar/imprimir el PDF. El Acta no quedó descargada.', 'warning');
+		}
 	}
 	document.getElementById('ac-acta-modal-close').addEventListener('click', cerrarModalActa);
 	actaModalOverlay.addEventListener('click', function (e) {
@@ -865,14 +922,15 @@
 	// usuario necesita una fila extra en una sola tabla (ej. dos cabeceras
 	// para el mismo producto).
 	document.getElementById('ac-add-purchase-row').addEventListener('click', function () {
+		marcarSucio();
 		addPurchaseRow();
 		addCabeceraRow();
 		addRumaRow();
 		addPerchaRow();
 	});
-	document.getElementById('ac-add-cabecera-row').addEventListener('click', addCabeceraRow);
-	document.getElementById('ac-add-ruma-row').addEventListener('click', addRumaRow);
-	document.getElementById('ac-add-percha-row').addEventListener('click', addPerchaRow);
+	document.getElementById('ac-add-cabecera-row').addEventListener('click', function () { marcarSucio(); addCabeceraRow(); });
+	document.getElementById('ac-add-ruma-row').addEventListener('click', function () { marcarSucio(); addRumaRow(); });
+	document.getElementById('ac-add-percha-row').addEventListener('click', function () { marcarSucio(); addPerchaRow(); });
 
 	// ---------- Mis Borradores ----------
 	// input event sintético: las filas se llenan seteando .value directo por
@@ -997,6 +1055,9 @@
 		actualizarBloqueoPorDistribuidor();
 
 		poblarTablasConLineas(a.lineas);
+		// Cargar un borrador no es un cambio "sin guardar" propio — recién se
+		// vuelve sucio si el usuario lo edita a partir de acá.
+		formSucio = false;
 		mostrarMensaje('Borrador #' + a.documento_no + ' cargado. Podés seguir editándolo.', true);
 	}
 

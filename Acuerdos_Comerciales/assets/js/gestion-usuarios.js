@@ -297,6 +297,13 @@
 			});
 	});
 
+	// Expuesto para que index.php refresque este módulo al navegar hacia él
+	// desde el sidebar (mismo patrón que window.acHistorialRefrescar).
+	window.acUsuariosRefrescar = function () {
+		cargarUsuarios(parseInt(paginacionEl.dataset.pagina, 10) || 1);
+		refrescarSupervisores();
+	};
+
 	// Estado inicial: pintar botones de paginación y enganchar filas ya renderizadas por PHP.
 	renderPaginacionBtns(parseInt(paginacionEl.dataset.pagina, 10) || 1, parseInt(paginacionEl.dataset.totalPaginas, 10) || 1);
 	vincularEventosFila();

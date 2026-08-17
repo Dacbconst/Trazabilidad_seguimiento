@@ -11,7 +11,7 @@ require_once __DIR__.'/../vendor/autoload.php';
 iniciar_sesion();
 header('Content-Type: application/json; charset=utf-8');
 
-if (!login_check() || !rolPermitido(['admin', 'desarrollador', 'superdesarrollador'])) {
+if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 	http_response_code(403);
 	echo json_encode(['ok' => false, 'message' => 'No autorizado.']);
 	exit;

@@ -100,7 +100,7 @@ desde su módulo).
 | `id` | INT AI PK | |
 | `usuario` | VARCHAR(100) UNIQUE | |
 | `contrasena` | VARCHAR(100) | **Texto plano, sin hash** — decisión explícita del cliente porque hoy los crean manualmente desde Heidi. ⚠️ Si en algún momento esto se conecta a un login web público, avisar para migrar a hash (bcrypt/argon2) antes de exponerlo. |
-| `rol` | ENUM | `admin` / `desarrollador` / `superdesarrollador` |
+| `rol` | ENUM | `admin` / `desarrollador` / `superdesarrollador` en la base (la columna sigue permitiendo `admin` a nivel de MySQL), pero **desde 2026-08-17 la aplicación ya no ofrece ni reconoce `admin`** — no está en ningún dropdown de Gestión de Usuarios, ni en la validación de `crear_usuario.php`/`actualizar_usuario.php`, ni en ningún `rolPermitido([...])` de `secciones.php` ni de los getters. Solo quedan `desarrollador` y `superdesarrollador`. Si algún registro viejo sigue con `rol='admin'` en la base, esa cuenta no ve ningún módulo hasta que se le cambie el rol manualmente. |
 | `supervisor` | VARCHAR(100) NULL | Agregado 2026-07-26. Vincula el login con un valor real de `repositorio_locales_supervisores_cliente.supervisor` — de ahí se deriva el canal (ver sección "Canal Directo vs Distribuidor" más abajo). Nullable: no todos los roles necesitan uno (ej. cuentas puramente administrativas). **1 supervisor = 1 cuenta** (confirmado 2026-07-27): un mismo supervisor no puede quedar asignado a dos logins activos a la vez — `supervisores_asignados_activos()` (`includes/functions.php`) arma el mapa supervisor→usuario y lo aplican `crear_usuario.php`/`actualizar_usuario.php` (rechazan el duplicado) y `gestion-usuarios.php` (el combo "Nuevo Usuario" ya no lista los supervisores tomados; el de "Editar Perfil" los muestra deshabilitados salvo el del propio usuario que se edita). Desactivar una cuenta (`status='inactivo'`) libera su supervisor para reasignar. Al elegir un supervisor en "Nuevo Usuario" se autocompleta el campo Nombre de Usuario con ese mismo valor (editable). |
 | `status` | ENUM | `activo` / `inactivo` — así se maneja el "borrado", nunca DELETE físico |
 | `created_at`, `updated_at` | DATETIME | Automáticos |
@@ -250,6 +250,26 @@ mockup `code.html` por choque con las reglas de este documento:
   calculado como `COUNT(*)+1` de acuerdos de ese año, con reintento si choca
   con el `UNIQUE` (nadie definió el algoritmo exacto, esto es una decisión
   razonable pero no confirmada con el cliente).
+- **"Ver y Generar Acta" (2026-08-17)**: al hacer click, YA NO guarda el
+  acuerdo como `estado='generado'` de una — primero guarda como `'borrador'`
+  en silencio (mismo estado que "Guardar Borrador"/"Mis Borradores", no
+  aparece en Historial) solo para tener un `id` real con el que armar la
+  previsualización del PDF real. Recién se promueve a `'generado'` (con el
+  snapshot definitivo en `pdf_documento`) cuando el usuario hace click en
+  "Descargar / Imprimir PDF" dentro del modal de preview. Si cierra el modal
+  sin descargar, el acuerdo queda como borrador nomás — se le avisa con un
+  toast de advertencia, pero no se pierde nada (sigue en "Mis Borradores").
+- **Confirmaciones destructivas vs. mensajes informativos (2026-08-17)**:
+  para acciones destructivas (ej. "Eliminar" en Historial) se usa un modal de
+  **SweetAlert2** (CDN `sweetalert2@10`, ya cargado en `index.php`, mismo
+  patrón que otros proyectos de la agencia como `mantenimiento_fotografico/Unilever`)
+  — nunca `window.confirm()`. Para mensajes informativos/de validación (éxito,
+  error, advertencia sin necesitar confirmación) se sigue usando el
+  `mostrarToast()` de siempre (`assets/js/toast.js`) — no reemplazar esos por
+  SweetAlert.
+- **Eliminar (Historial)**: nunca es un `DELETE` físico — `getters/eliminar_acuerdo.php`
+  marca `estado='anulado'` (mismo patrón que `repositorio_usuarios_acuerdos.status`).
+  `listar_historial_acuerdos()` excluye `borrador` Y `anulado` del listado.
 - **Generación real del PDF**: implementada (2026-07-24, esta nota estaba
   desactualizada) con **Dompdf** (`composer.json`/`vendor/`). "Generar Acta"
   llama a `getters/generar_acta_pdf.php`, que arma el HTML vía

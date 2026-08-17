@@ -62,6 +62,18 @@
 	mesSelect.addEventListener('change', function () { cargarHistorial(1); });
 	buscarBtn.addEventListener('click', function () { cargarHistorial(1); });
 
+	// Recarga la página actual sin perder la búsqueda/filtro de mes — a
+	// diferencia de "Nuevo Acuerdo", esto no reinicia nada, solo vuelve a
+	// pedir los mismos datos por si algo cambió (ej. un Acuerdo generado
+	// desde otra pestaña/sesión).
+	function refrescarHistorial() {
+		cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
+	}
+	document.getElementById('hist-actualizar').addEventListener('click', refrescarHistorial);
+	// Expuesto para que index.php pueda refrescar este módulo automáticamente
+	// al navegar hacia él desde el sidebar (ver script inline de index.php).
+	window.acHistorialRefrescar = refrescarHistorial;
+
 	function irARegistrar() {
 		var link = document.querySelector('.ac-sidebar-nav a[href="#sec-registrar"]');
 		if (link) link.click();
@@ -135,11 +147,43 @@
 		window.scrollTo(0, 0);
 	}
 
+	// "Eliminar" nunca borra la fila físicamente (ver eliminar_acuerdo.php,
+	// marca estado='anulado'). La CONFIRMACIÓN (acción destructiva) usa el
+	// modal de SweetAlert2 — el resultado (informativo) se sigue avisando con
+	// el toast de siempre, no con otro SweetAlert.
+	function eliminarAcuerdo(id, documentoNo) {
+		Swal.fire({
+			icon: 'warning',
+			title: '¿Eliminar acuerdo?',
+			text: 'Se eliminará el acuerdo #' + documentoNo + '. Esta acción no se puede deshacer desde aquí.',
+			showCancelButton: true,
+			confirmButtonText: 'Sí, eliminar',
+			cancelButtonText: 'Cancelar',
+			confirmButtonColor: '#ba1a1a'
+		}).then(function (resultado) {
+			if (!resultado.isConfirmed) return;
+
+			fetch('getters/eliminar_acuerdo.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ id: id })
+			})
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					mostrarToast(data.message, data.ok ? 'success' : 'error');
+					if (data.ok) cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
+				})
+				.catch(function () { mostrarToast('Error de conexión. Intenta nuevamente.', 'error'); });
+		});
+	}
+
 	tbody.addEventListener('click', function (e) {
 		var verBtn = e.target.closest('.hist-btn-ver');
 		var descargarBtn2 = e.target.closest('.hist-btn-descargar');
+		var eliminarBtn = e.target.closest('.hist-btn-eliminar');
 		if (verBtn) abrirDetalle(verBtn.dataset.id);
 		else if (descargarBtn2) abrirDetalle(descargarBtn2.dataset.id);
+		else if (eliminarBtn) eliminarAcuerdo(eliminarBtn.dataset.id, eliminarBtn.dataset.doc);
 	});
 
 	document.getElementById('hist-volver-lista').addEventListener('click', function () {

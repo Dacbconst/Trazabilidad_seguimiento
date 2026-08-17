@@ -131,7 +131,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	if ($medirTexto === null) $medirTexto = crear_medidor_texto();
 
 	$logo = logo_base64();
-	$logoHtml = $logo ? '<div style="text-align:center; margin-bottom:'.px(4, $escala).';"><img src="'.$logo.'" style="height:'.px(95, $escala).'; width:auto;"></div>' : '';
+	$logoHtml = $logo ? '<div style="text-align:center; margin-bottom:'.px(5, $escala).';"><img src="'.$logo.'" style="height:'.px(120, $escala).'; width:auto;"></div>' : '';
 
 	$mesesCorto = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 	$mesesLargo = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
@@ -242,10 +242,10 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 @page { size: A4; margin: 1cm 1.2cm; }
 * { box-sizing: border-box; }
 p, h1, ul { margin: 0 0 '.px(3.5, $escala).'; }
-body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(11, $escala).'; color: #000000; line-height: 1.35; }
-h1 { font-size: '.px(18, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; }
+body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(11.5, $escala).'; color: #000000; line-height: 1.35; }
+h1 { font-size: '.px(19, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-td, th { padding: '.px(3.5, $escala).' '.px(7, $escala).'; word-wrap: break-word; }
+td, th { padding: '.px(4, $escala).' '.px(7.5, $escala).'; word-wrap: break-word; }
 .num { text-align: right; }
 .ctr { text-align: center; }
 .vacio { text-align: center; color: #000000; padding: '.px(7, $escala).' !important; }
@@ -256,9 +256,9 @@ td, th { padding: '.px(3.5, $escala).' '.px(7, $escala).'; word-wrap: break-word
 .meta-tabla thead th { background: #eeedf7; }
 .total-row td { font-weight: bold; border-top: 2px solid #000000; }
 .rebate-cell { background: #fbf0cf; }
-.label { font-size: '.px(9.5, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
-.hint { font-size: '.px(10, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; }
-.subtitulo { font-size: '.px(13, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; font-weight: bold; }
+.label { font-size: '.px(10, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
+.hint { font-size: '.px(10.5, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; }
+.subtitulo { font-size: '.px(13.5, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; font-weight: bold; }
 .condiciones { background: #f4f2fc; border: 1px solid #c4c5d5; border-radius: 6px; padding: '.px(6, $escala).' '.px(10, $escala).'; margin: '.px(3.5, $escala).' 0 '.px(5, $escala).'; }
 .condiciones h3 { font-size: '.px(10.5, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; }
 .condiciones ul { margin: 0; padding-left: '.px(17, $escala).'; }

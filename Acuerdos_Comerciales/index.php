@@ -35,6 +35,7 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= $style_v ?>">
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 	<script src="assets/js/toast.js?v=<?= $toast_js_v ?>"></script>
 </head>
 <body>
@@ -79,13 +80,30 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 			localStorage.setItem('ac_sidebar_colapsado', acSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
 
+		// Cada módulo se renderiza UNA sola vez al cargar la página (todas las
+		// secciones van incluidas de entrada, ver el foreach de arriba) — cambiar
+		// de módulo es solo mostrar/ocultar con CSS, nunca una navegación real.
+		// Eso significa que si un módulo cambia datos en el servidor (ej. creás
+		// un Acuerdo en Registrar), el HTML de Historial ya renderizado se queda
+		// desactualizado. Por eso cada módulo con datos "vivos" expone su propia
+		// función de refresco global (window.ac*Refrescar) y acá se llama sola
+		// al entrar a esa sección. "Registrar Acuerdo PDV" NO tiene hook a
+		// propósito: refrescarlo destruiría el formulario en progreso del
+		// usuario, justo lo que no debe pasar al solo cambiar de pestaña.
+		var refrescoPorSeccion = {
+			'#sec-historial':        function () { if (window.acHistorialRefrescar) window.acHistorialRefrescar(); },
+			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); }
+		};
+
 		document.querySelectorAll('.ac-sidebar-nav a[data-toggle="section"]').forEach(function (link) {
 			link.addEventListener('click', function (e) {
 				e.preventDefault();
+				var href = link.getAttribute('href');
 				document.querySelectorAll('.ac-sidebar-nav li').forEach(function (li) { li.classList.remove('active'); });
 				link.parentElement.classList.add('active');
 				document.querySelectorAll('.ac-content-panel').forEach(function (panel) { panel.classList.remove('active'); });
-				document.querySelector(link.getAttribute('href')).classList.add('active');
+				document.querySelector(href).classList.add('active');
+				if (refrescoPorSeccion[href]) refrescoPorSeccion[href]();
 			});
 		});
 	</script>

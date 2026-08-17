@@ -56,7 +56,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 				<div class="ac-field">
 					<label class="ac-field-label" for="nu-rol">Rol del Usuario</label>
 					<select class="ac-select" id="nu-rol" name="rol" required>
-						<option value="admin">Administrador</option>
 						<option value="desarrollador">Desarrollador</option>
 						<option value="superdesarrollador">Superdesarrollador</option>
 					</select>
@@ -168,7 +167,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 			<div class="ac-field">
 				<label class="ac-field-label" for="rl-rol">Rol del Usuario</label>
 				<select class="ac-select" id="rl-rol" name="rol" required>
-					<option value="admin">Administrador</option>
 					<option value="desarrollador">Desarrollador</option>
 					<option value="superdesarrollador">Superdesarrollador</option>
 				</select>

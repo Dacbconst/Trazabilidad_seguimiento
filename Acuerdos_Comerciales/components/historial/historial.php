@@ -25,6 +25,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<p class="ac-page-subtitle">Gestiona y descarga los acuerdos de desarrollo de negocios generados.</p>
 		</div>
 		<div class="ac-btn-group">
+			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-actualizar" title="Actualizar">
+				<span class="material-symbols-outlined">refresh</span> Actualizar
+			</button>
 			<button type="button" class="ac-btn-secondary" id="hist-abrir-borradores">
 				<span class="material-symbols-outlined">draft</span> Mis Borradores
 			</button>

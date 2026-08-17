@@ -15,7 +15,7 @@ $contrasena   = $_POST['contrasena'] ?? '';
 $rol          = $_POST['rol'] ?? '';
 $supervisor   = trim($_POST['supervisor'] ?? '');
 $supervisor   = $supervisor !== '' ? $supervisor : null;
-$rolesValidos = ['admin', 'desarrollador', 'superdesarrollador'];
+$rolesValidos = ['desarrollador', 'superdesarrollador'];
 
 if ($usuario === '' || strlen($usuario) > 100) {
 	echo json_encode(['ok' => false, 'message' => 'El nombre de usuario es obligatorio (máx. 100 caracteres).']);

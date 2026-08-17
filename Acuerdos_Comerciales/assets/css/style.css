@@ -67,8 +67,8 @@ body {
 	justify-content: space-between;
 	padding: 0 var(--space-lg);
 }
-.ac-brand { display: flex; align-items: center; }
-.ac-brand-logo { height: 32px; width: auto; display: block; }
+.ac-brand { display: flex; align-items: center; padding: 0 var(--space-sm); }
+.ac-brand-logo { height: 42px; width: auto; display: block; }
 
 /* ---------- Login ---------- */
 .ac-login-main {
@@ -207,7 +207,17 @@ body {
 	border-right: 1px solid var(--color-outline-variant);
 	padding: var(--space-lg) var(--space-sm);
 	transition: width 0.2s ease;
-	overflow: hidden;
+	overflow-x: hidden;
+	/* Sin esto, .ac-sidebar es un item flex normal de .ac-shell — cuando
+	   .ac-content es muy alto (ej. el formulario largo de Registrar Acuerdo
+	   PDV), .ac-shell se estira a esa altura y el sidebar entero (incluido
+	   "Cerrar Sesión" al fondo) se va con el scroll de la página en vez de
+	   quedarse a la vista. sticky lo clava debajo del header (64px) y le da
+	   su propio alto/scroll acotado al viewport. */
+	position: sticky;
+	top: 64px;
+	height: calc(100vh - 64px);
+	overflow-y: auto;
 }
 .ac-sidebar-brand { padding: 0 var(--space-md) var(--space-md); }
 .ac-sidebar-brand-row { display: flex; align-items: center; gap: var(--space-sm); }
@@ -503,6 +513,7 @@ body {
 	transition: background 0.15s;
 }
 .ac-icon-btn:hover { background: var(--color-surface-container-high); }
+.ac-icon-btn-danger:hover { color: var(--color-error); background: var(--color-error-container); }
 .ac-btn-clave { color: var(--color-primary); }
 
 .ac-pagination {

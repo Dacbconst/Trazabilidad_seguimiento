@@ -9,7 +9,7 @@ require_once __DIR__.'/../db_connect.php';
 require_once __DIR__.'/../vendor/autoload.php';
 iniciar_sesion();
 
-if (!login_check() || !rolPermitido(['admin', 'desarrollador', 'superdesarrollador'])) {
+if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 	http_response_code(403);
 	echo 'No autorizado.';
 	exit;

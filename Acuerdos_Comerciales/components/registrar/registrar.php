@@ -3,7 +3,7 @@ require_once __DIR__.'/../../includes/functions.php';
 require_once __DIR__.'/../../db_connect.php';
 iniciar_sesion();
 
-if (!login_check() || !rolPermitido(['admin', 'desarrollador', 'superdesarrollador'])) {
+if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 	echo '<div class="ac-placeholder">Acceso restringido.</div>';
 	return;
 }
@@ -174,7 +174,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			<span class="material-symbols-outlined">save</span> Guardar Borrador
 		</button>
 		<button type="button" class="ac-btn-primary ac-btn-inline" id="ac-generar-acta">
-			<span class="material-symbols-outlined">description</span> Generar Acta
+			<span class="material-symbols-outlined">visibility</span> Ver y Generar Acta
 		</button>
 	</div>
 </div>

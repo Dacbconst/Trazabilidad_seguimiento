@@ -21,7 +21,7 @@ $tipos   = '';
 $valores = [];
 
 if (isset($_POST['rol'])) {
-	$rolesValidos = ['admin', 'desarrollador', 'superdesarrollador'];
+	$rolesValidos = ['desarrollador', 'superdesarrollador'];
 	if (!in_array($_POST['rol'], $rolesValidos, true)) {
 		echo json_encode(['ok' => false, 'message' => 'Rol inválido.']);
 		exit;
