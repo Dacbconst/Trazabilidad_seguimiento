@@ -61,18 +61,18 @@ body {
 }
 .ac-header-inner {
 	width: 100%;
-	height: 64px;
+	height: 80px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 var(--space-lg);
 }
-.ac-brand { display: flex; align-items: center; padding: 0 var(--space-sm); }
-.ac-brand-logo { height: 42px; width: auto; display: block; }
+.ac-brand { display: flex; align-items: center; padding: 0 var(--space-xl); }
+.ac-brand-logo { height: 48px; width: auto; max-width: 195px; display: block; }
 
 /* ---------- Login ---------- */
 .ac-login-main {
-	min-height: calc(100vh - 64px - 56px);
+	min-height: calc(100vh - 80px - 56px);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -197,7 +197,7 @@ body {
 }
 
 /* ---------- Shell autenticado (post-login) ---------- */
-.ac-shell { display: flex; min-height: calc(100vh - 64px); }
+.ac-shell { display: flex; min-height: calc(100vh - 80px); }
 .ac-sidebar {
 	width: 280px;
 	flex-shrink: 0;
@@ -212,11 +212,11 @@ body {
 	   .ac-content es muy alto (ej. el formulario largo de Registrar Acuerdo
 	   PDV), .ac-shell se estira a esa altura y el sidebar entero (incluido
 	   "Cerrar Sesión" al fondo) se va con el scroll de la página en vez de
-	   quedarse a la vista. sticky lo clava debajo del header (64px) y le da
+	   quedarse a la vista. sticky lo clava debajo del header (80px) y le da
 	   su propio alto/scroll acotado al viewport. */
 	position: sticky;
-	top: 64px;
-	height: calc(100vh - 64px);
+	top: 80px;
+	height: calc(100vh - 80px);
 	overflow-y: auto;
 }
 .ac-sidebar-brand { padding: 0 var(--space-md) var(--space-md); }

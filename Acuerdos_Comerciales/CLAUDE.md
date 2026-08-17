@@ -287,11 +287,6 @@ mockup `code.html` por choque con las reglas de este documento:
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
-- [ ] `getters/generar_acta_pdf.php` NO valida que el `id` pedido pertenezca al
-      usuario logueado (`creado_por`) — cualquier `desarrollador`/
-      `superdesarrollador` puede ver/descargar el PDF de cualquier acuerdo por
-      `?id=`, aunque Historial ya no se lo liste. Preguntar si esto debe
-      restringirse también.
 - [ ] Si `superdesarrollador` debería ver TODOS los acuerdos en Historial (no
       solo los propios) o seguir la misma regla de `creado_por` que todos.
       Hoy sigue la misma regla que cualquier otro rol.
@@ -313,18 +308,72 @@ mockup `code.html` por choque con las reglas de este documento:
       MKT). Respuesta actual del cliente: "no estoy seguro".
 - [ ] Columna `CARTERA` (cartera vencida) mencionada en las Condiciones del
       Acta — detectada en el Excel real, todavía sin definir dónde se guarda.
-- [ ] Módulo de liquidación/seguimiento (venta real, visibilidad real,
-      cumplimiento, "Resumen de Pagos") — identificado pero **NO construido
-      aún en la base**. Se diseñó una propuesta (`cuotas_ventas_pos_producto`,
-      `visibilidad_pos_mensual`, `liquidaciones`, `staging_filas`) pero se
-      pausó antes de confirmar y crear. Retomar con el mismo nivel de detalle
-      que se usó para `repositorio_acuerdo_lineas` antes de escribir el SQL.
 - [ ] Si el presupuesto (visto en Excel real: PPTO 2026, CAJAS, Q1-Q4) se
       maneja por PDV individual o por distribuidor completo — afecta el diseño
       de la tabla de liquidación.
 - [ ] Identificación de PDV al subir Excel: confirmar si las plantillas de
       carga van a incluir `pos_id` real o solo nombre (`CEDI`/`CLIENTE`), lo
       segundo es más propenso a duplicados por variación de escritura.
+
+## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
+
+El ítem de sidebar `auditoria` (`components/auditoria/auditoria.php`, hoy
+"Próximamente") **se renombra a "Liquidación"** — nunca fue un módulo de
+auditoría/log de acciones, el nombre era solo un lugar reservado. Todavía no
+se ha hecho el rename en código (carpeta/componente siguen llamándose
+`auditoria` por ahora), pendiente de implementar.
+
+Qué hace este módulo — proceso de liquidación trimestral (pasos 3-5 del
+correo original, ver `datos/propuesta_digital_acuerdos_comerciales.md`):
+compara lo pactado en una Acta contra la venta/visibilidad real del
+trimestre, calcula el rebate realmente ganado y arma el "Resumen de Pagos"
+que hoy JW arma a mano cruzando Excels.
+
+**Decisiones confirmadas por el cliente/usuario:**
+- **Ingesta: el cliente sube un Excel cada trimestre** (mismo formato que los
+  dos ejemplos en `datos/LIQUIDACION...xlsx`, uno para Directa y otro para
+  Distribuidores — **son dos formatos de hoja distintos**, el importador
+  tiene que soportar ambos). No hay conexión en vivo al cubo BI.
+- **Relación con la Acta: por Acta, no genérica por cliente.** El Excel no
+  trae `documento_no`, viene agrupado por CEDI/CLIENTE con columnas
+  mensuales (ABRIL/MAYO/JUNIO) que calzan con `valores_mensuales` de
+  `repositorio_acuerdo_lineas`. El cruce se hace por `pos_id` + que el
+  período de la Acta (`mes_inicio`/`mes_fin`) se solape con los meses que
+  trae el Excel subido.
+- **"Resumen de Pagos": pantalla web + export a Excel**, ambos (no solo
+  reporte descargable).
+- **El "envío de preliminar al área comercial" (paso 5 del correo) NO es la
+  integración de WhatsApp** — es un paso de revisión/aprobación dentro de la
+  misma plataforma web, todavía sin desarrollar, e independiente de una
+  futura fase de notificaciones por WhatsApp.
+- **Permisos: solo `superdesarrollador` tiene este módulo activo** (mismo
+  nivel de restricción que "Gestión de Usuarios"). Motivo: solo esos deben
+  poder subir el Excel trimestral, para que no haya conflicto de dos personas
+  subiendo/reprocesando la misma liquidación. El rol `desarrollador`
+  (analistas) sigue viendo únicamente **Registrar Acuerdo PDV** e
+  **Historial de Acuerdos** — no ve Liquidación.
+- Diseño de tablas (`cuotas_ventas_pos_producto`, `visibilidad_pos_mensual`,
+  `liquidaciones`, `staging_filas` fueron nombres tentativos de una propuesta
+  anterior, no confirmados) sigue **sin definir** — retomar con el mismo
+  nivel de detalle que se usó para `repositorio_acuerdo_lineas` antes de
+  escribir el SQL.
+
+**Próximo paso acordado con el usuario, en este orden:**
+1. Rename en código (nada de esto está hecho todavía):
+   - Carpeta `components/auditoria/` → `components/liquidacion/`, y su
+     archivo `auditoria.php` → `liquidacion.php`.
+   - `includes/secciones.php`: el registro `id => 'auditoria'` pasa a
+     `id => 'liquidacion'`, `label => 'Liquidación'`, `componente` apuntando
+     a la carpeta nueva, y `roles` cambia de
+     `['desarrollador', 'superdesarrollador']` a `['superdesarrollador']`.
+   - Revisar si hay referencias sueltas a `auditoria`/`ac-auditoria-*` en JS
+     o CSS (mismo patrón de clases compartidas que ya causó un bug con
+     `.ac-acuerdo-canvas-*` entre Registrar/Historial — revisar antes de
+     dar por hecho el rename).
+2. Diseño de tablas de Liquidación (con el usuario, antes de escribir SQL).
+3. Importador de Excel (Directa y Distribuidor son dos formatos de hoja
+   distintos, ver arriba).
+4. Pantalla Resumen de Pagos (web + export Excel).
 
 ## Convenciones para código nuevo
 
