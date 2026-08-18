@@ -1,8 +1,23 @@
 (function () {
 	var vistaLista = document.getElementById('ac-liquidacion-lista');
 	var vistaPendientes = document.getElementById('ac-liquidacion-pendientes');
+	var vistaResumen = document.getElementById('ac-liquidacion-resumen');
 	var tablaBody = document.getElementById('liq-tabla-body');
 	var pendientesBody = document.getElementById('liq-pendientes-body');
+	var resumenBody = document.getElementById('liq-resumen-body');
+	var resumenSubtitulo = document.getElementById('liq-resumen-subtitulo');
+	var resumenExportar = document.getElementById('liq-resumen-exportar');
+	var resumenStats = document.getElementById('liq-resumen-stats');
+	var resumenChart = document.getElementById('liq-resumen-chart');
+	var resumenFiltroCedi = document.getElementById('liq-resumen-filtro-cedi');
+	var resumenFiltroCediLabel = document.getElementById('liq-resumen-filtro-cedi-label');
+	var resumenFiltroEstado = document.getElementById('liq-resumen-filtro-estado');
+	// Colores fijos de la serie (validados con la skill de dataviz — par
+	// categórico #2a78d6/#eb6834, ver referencia de la skill): Volumen y
+	// Visibilidad SIEMPRE con estos colores, en este orden, en todo el chart.
+	var COLOR_VOLUMEN = '#2a78d6';
+	var COLOR_VISIBILIDAD = '#eb6834';
+	var resumenDatos = []; // cache del último fetch, para filtrar en el cliente sin volver a pedir al servidor.
 
 	function escapeHtml(texto) {
 		var div = document.createElement('div');
@@ -22,6 +37,11 @@
 		return mesesCorto[mesInicio] + ' - ' + mesesCorto[mesFin];
 	}
 
+	function formatoMoneda(valor) {
+		var n = parseFloat(valor) || 0;
+		return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	}
+
 	// ---------- Listado de importaciones ----------
 	function cargarImportaciones() {
 		tablaBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Cargando...</td></tr>';
@@ -35,9 +55,10 @@
 				}
 				tablaBody.innerHTML = filas.map(function (f) {
 					var pendientes = parseInt(f.filas_pendientes, 10) || 0;
-					var accion = pendientes > 0
+					var accionPendientes = pendientes > 0
 						? '<button type="button" class="ac-link-id liq-btn-pendientes" data-id="' + f.id + '">Resolver (' + pendientes + ')</button>'
-						: '<span class="ac-field-hint">—</span>';
+						: '<span class="ac-field-hint">Sin pendientes</span>';
+					var accionResumen = '<button type="button" class="ac-link-id liq-btn-resumen" data-id="' + f.id + '">Resumen de Pagos</button>';
 					return '<tr>' +
 						'<td>' + (etiquetaCanal[f.canal] || escapeHtml(f.canal)) + '</td>' +
 						'<td>' + periodoTexto(f.mes_inicio, f.mes_fin) + ' ' + f.anio + '</td>' +
@@ -45,11 +66,14 @@
 						'<td class="ac-text-center"><span class="ac-badge ac-badge-desarrollador">' + (etiquetaEstado[f.estado] || escapeHtml(f.estado)) + '</span></td>' +
 						'<td class="ac-text-right ac-tabular">' + f.total_filas + '</td>' +
 						'<td class="ac-text-right ac-tabular">' + pendientes + '</td>' +
-						'<td class="ac-text-right">' + accion + '</td>' +
+						'<td class="ac-text-right">' + accionPendientes + '<br>' + accionResumen + '</td>' +
 						'</tr>';
 				}).join('');
 				Array.prototype.forEach.call(tablaBody.querySelectorAll('.liq-btn-pendientes'), function (btn) {
 					btn.addEventListener('click', function () { abrirPendientes(parseInt(btn.dataset.id, 10)); });
+				});
+				Array.prototype.forEach.call(tablaBody.querySelectorAll('.liq-btn-resumen'), function (btn) {
+					btn.addEventListener('click', function () { abrirResumen(parseInt(btn.dataset.id, 10)); });
 				});
 			})
 			.catch(function () {
@@ -210,6 +234,163 @@
 				}, 350);
 			});
 		});
+	}
+
+	// ---------- Resumen de Pagos ----------
+	function abrirResumen(importacionId) {
+		vistaLista.classList.add('hidden');
+		vistaResumen.classList.remove('hidden');
+		resumenBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Cargando...</td></tr>';
+		resumenExportar.href = 'getters/liquidacion_resumen_pagos_export.php?importacion_id=' + importacionId;
+		window.scrollTo(0, 0);
+
+		fetch('getters/liquidacion_resumen_pagos.php?importacion_id=' + importacionId)
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (!data.ok) { mostrarToast(data.message || 'Error al cargar el resumen.', 'error'); return; }
+				var imp = data.importacion;
+				resumenSubtitulo.textContent = (etiquetaCanal[imp.canal] || imp.canal) + ' · ' + periodoTexto(imp.mes_inicio, imp.mes_fin) + ' ' + imp.anio;
+				resumenFiltroCediLabel.textContent = imp.canal === 'distribuidor' ? 'Distribuidor' : 'CEDI';
+				resumenDatos = data.filas || [];
+				popularFiltroCedi(resumenDatos);
+				resumenFiltroCedi.value = '';
+				resumenFiltroEstado.value = '';
+				aplicarFiltrosResumen();
+			})
+			.catch(function () {
+				resumenBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Error al cargar el resumen.</td></tr>';
+			});
+	}
+
+	document.getElementById('liq-resumen-volver').addEventListener('click', function () {
+		vistaResumen.classList.add('hidden');
+		vistaLista.classList.remove('hidden');
+		cargarImportaciones();
+	});
+
+	// Opciones del filtro CEDI/Distribuidor siempre desde el set COMPLETO (no
+	// desde lo ya filtrado) — para que elegir "Revisar" en Estado no le borre
+	// opciones al combo de al lado.
+	function popularFiltroCedi(filas) {
+		var vistos = {};
+		var unicos = [];
+		filas.forEach(function (f) {
+			if (f.cedi_o_distribuidor && !vistos[f.cedi_o_distribuidor]) {
+				vistos[f.cedi_o_distribuidor] = true;
+				unicos.push(f.cedi_o_distribuidor);
+			}
+		});
+		unicos.sort();
+		resumenFiltroCedi.innerHTML = '<option value="">Todos</option>' + unicos.map(function (c) {
+			return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+		}).join('');
+	}
+
+	function aplicarFiltrosResumen() {
+		var cedi = resumenFiltroCedi.value;
+		var estado = resumenFiltroEstado.value;
+		var filtradas = resumenDatos.filter(function (f) {
+			if (cedi && f.cedi_o_distribuidor !== cedi) return false;
+			if (estado && f.estado !== estado) return false;
+			return true;
+		});
+		renderResumenStats(filtradas);
+		renderResumenChart(filtradas);
+		renderResumen(filtradas);
+	}
+
+	resumenFiltroCedi.addEventListener('change', aplicarFiltrosResumen);
+	resumenFiltroEstado.addEventListener('change', aplicarFiltrosResumen);
+
+	function renderResumenStats(filas) {
+		var totalVolumen = 0, totalVisibilidad = 0, totalGeneral = 0, revisar = 0;
+		filas.forEach(function (f) {
+			totalVolumen += parseFloat(f.volumen) || 0;
+			totalVisibilidad += parseFloat(f.visibilidad) || 0;
+			totalGeneral += parseFloat(f.total) || 0;
+			if (f.estado !== 'ok') revisar++;
+		});
+		var tiles = [
+			{ label: 'Volumen', value: formatoMoneda(totalVolumen) },
+			{ label: 'Visibilidad', value: formatoMoneda(totalVisibilidad) },
+			{ label: 'Total general', value: formatoMoneda(totalGeneral) },
+			{ label: 'Clientes', value: String(filas.length) },
+			{ label: 'Por revisar', value: String(revisar), warn: revisar > 0 },
+		];
+		resumenStats.innerHTML = tiles.map(function (t) {
+			return '<div class="ac-stat-tile' + (t.warn ? ' ac-stat-tile-warn' : '') + '">' +
+				'<p class="ac-stat-label">' + t.label + '</p>' +
+				'<p class="ac-stat-value">' + t.value + '</p>' +
+				'</div>';
+		}).join('');
+	}
+
+	// Gráfico de barras horizontales apiladas (Volumen + Visibilidad), top 10
+	// por total — SVG a mano, sin librería de gráficos (mismo criterio del
+	// proyecto de no sumar dependencias pesadas). Título/tooltip nativo (<title>
+	// SVG) en cada segmento en vez de un tooltip HTML custom: para 10 barras en
+	// una pantalla interna, es el punto justo de esfuerzo — el valor exacto
+	// también queda siempre disponible en la tabla de abajo, nunca solo en el hover.
+	function renderResumenChart(filas) {
+		if (!filas.length) {
+			resumenChart.innerHTML = '<p class="ac-field-hint">Sin datos para graficar.</p>';
+			return;
+		}
+		var top = filas.slice().sort(function (a, b) { return b.total - a.total; }).slice(0, 10);
+		var max = Math.max.apply(null, top.map(function (f) { return f.total; })) || 1;
+
+		var filaAlto = 26, filaGap = 10, labelAncho = 190, chartAncho = 380, margenDer = 90;
+		var anchoTotal = labelAncho + chartAncho + margenDer;
+		var altoTotal = top.length * (filaAlto + filaGap);
+
+		var svg = '<svg viewBox="0 0 ' + anchoTotal + ' ' + altoTotal + '" role="img" ' +
+			'aria-label="Top clientes por total, volumen y visibilidad" style="width:100%;height:auto;display:block;">';
+		top.forEach(function (f, i) {
+			var y = i * (filaAlto + filaGap);
+			var wVolumen = Math.max((f.volumen / max) * chartAncho, f.volumen > 0 ? 2 : 0);
+			var wVisibilidad = Math.max((f.visibilidad / max) * chartAncho, f.visibilidad > 0 ? 2 : 0);
+			var gapSeg = (wVolumen > 0 && wVisibilidad > 0) ? 2 : 0;
+			var nombre = f.cliente_o_nombre.length > 28 ? f.cliente_o_nombre.slice(0, 26) + '…' : f.cliente_o_nombre;
+
+			svg += '<text x="0" y="' + (y + filaAlto / 2 + 4) + '" class="ac-chart-label">' + escapeHtml(nombre) + '</text>';
+			if (wVolumen > 0) {
+				svg += '<rect class="ac-chart-bar-seg" x="' + labelAncho + '" y="' + y + '" width="' + wVolumen + '" height="' + filaAlto + '" rx="3" fill="' + COLOR_VOLUMEN + '">' +
+					'<title>' + escapeHtml(f.cliente_o_nombre) + ' — Volumen: ' + formatoMoneda(f.volumen) + '</title></rect>';
+			}
+			if (wVisibilidad > 0) {
+				svg += '<rect class="ac-chart-bar-seg" x="' + (labelAncho + wVolumen + gapSeg) + '" y="' + y + '" width="' + wVisibilidad + '" height="' + filaAlto + '" rx="3" fill="' + COLOR_VISIBILIDAD + '">' +
+					'<title>' + escapeHtml(f.cliente_o_nombre) + ' — Visibilidad: ' + formatoMoneda(f.visibilidad) + '</title></rect>';
+			}
+			svg += '<text x="' + (labelAncho + wVolumen + wVisibilidad + gapSeg + 8) + '" y="' + (y + filaAlto / 2 + 4) + '" class="ac-chart-value">' + formatoMoneda(f.total) + '</text>';
+		});
+		svg += '</svg>';
+
+		resumenChart.innerHTML =
+			'<div class="ac-chart-legend">' +
+				'<span class="ac-chart-legend-item"><span class="ac-chart-swatch" style="background:' + COLOR_VOLUMEN + ';"></span>Volumen</span>' +
+				'<span class="ac-chart-legend-item"><span class="ac-chart-swatch" style="background:' + COLOR_VISIBILIDAD + ';"></span>Visibilidad</span>' +
+			'</div>' + svg;
+	}
+
+	function renderResumen(filas) {
+		if (!filas.length) {
+			resumenBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">No hay filas con este filtro.</td></tr>';
+			return;
+		}
+		resumenBody.innerHTML = filas.map(function (f) {
+			var badge = f.estado === 'ok'
+				? '<span class="ac-badge ac-badge-ok">OK</span>'
+				: '<span class="ac-badge ac-badge-revisar">Revisar</span>';
+			return '<tr>' +
+				'<td>' + escapeHtml(f.cedi_o_distribuidor) + '</td>' +
+				'<td>' + escapeHtml(f.cliente_o_nombre) + '</td>' +
+				'<td>' + (f.documento_no ? escapeHtml(f.documento_no) : '<span class="ac-field-hint">Sin vincular</span>') + '</td>' +
+				'<td class="ac-text-right ac-tabular">' + formatoMoneda(f.volumen) + '</td>' +
+				'<td class="ac-text-right ac-tabular">' + formatoMoneda(f.visibilidad) + '</td>' +
+				'<td class="ac-text-right ac-tabular">' + formatoMoneda(f.total) + '</td>' +
+				'<td class="ac-text-center">' + badge + '</td>' +
+				'</tr>';
+		}).join('');
 	}
 
 	function resolverFila(tabla, id, posId, tr, accion) {

@@ -4,7 +4,10 @@
 	// Catálogo (Segmento -> Categoría -> [Marcas]) y Distribuidores se cargan
 	// en vivo desde la base (ver getters/acuerdo_catalogo.php y
 	// getters/acuerdo_distribuidores.php) — nunca hardcodeados aquí.
-	var catalogo = { segmentos: {}, marcasPercha: [], sectores: {} };
+	// segmentos: árbol Segmento->Categoría->Marca, usado por Cabeceras/Rumas/
+	// Perchas. segmentosSector: árbol Segmento->Sector->Categoría->Marca,
+	// SOLO para Meta de Compras (ver bindCascadaComboConSector más abajo).
+	var catalogo = { segmentos: {}, marcasPercha: [], segmentosSector: {} };
 	// canal/empresas/clientes vienen de getters/acuerdo_distribuidores.php,
 	// filtrados por el `supervisor` del usuario logueado — ver CANAL_USUARIO
 	// (impreso por registrar.php desde la sesión) y canalDeSupervisor() en
@@ -74,6 +77,19 @@
 	var acuerdoContainer = document.querySelector('.ac-acuerdo');
 	acuerdoContainer.addEventListener('input', marcarSucio);
 
+	// Montos en dólares: nunca negativos. El rebate NO se toca acá — el
+	// usuario aclaró que va a salir de un repositorio nuevo (todavía sin
+	// datos), no tiene sentido validarle un rango a mano ahora.
+	acuerdoContainer.addEventListener('input', function (e) {
+		if (e.target.matches && e.target.matches('.month-input, .v-val, .ac-ruma-legend-input') && parseFloat(e.target.value) < 0) {
+			e.target.value = 0;
+		}
+		// Participación de Perchas: texto libre (ej. "50%") pero nunca negativo.
+		if (e.target.matches && e.target.matches('.v-participacion') && e.target.value.indexOf('-') !== -1) {
+			e.target.value = e.target.value.replace(/-/g, '');
+		}
+	});
+
 	// ---------- Carga inicial ----------
 	// El badge de Canal (#ac-canal-badge) ya lo arma registrar.php del lado del
 	// servidor, a partir de CANAL_USUARIO (sesión -> canalDeSupervisor()) — acá
@@ -89,7 +105,7 @@
 			if (catRes.ok) {
 				catalogo.segmentos = catRes.segmentos;
 				catalogo.marcasPercha = catRes.marcas_percha;
-				catalogo.sectores = catRes.sectores || {};
+				catalogo.segmentosSector = catRes.segmentos_sector || {};
 			}
 			if (distRes.ok) {
 				catalogoDistribuidor.canal = distRes.canal;
@@ -132,11 +148,19 @@
 		return todosLosClientesDisponibles().filter(function (x) { return x.pos_id === distribuidorSelect.value; })[0];
 	}
 
-	// Sector (ej: CREMA/BARRA/LIQUIDO) depende de la combinación exacta
-	// Segmento+Categoría+Marca — solo se usa en Meta de Compras (ver
-	// getters/acuerdo_catalogo.php).
-	function sectoresDisponibles(segmento, categoria, marca) {
-		return catalogo.sectores[segmento + '|' + categoria + '|' + marca] || [];
+	// Solo Meta de Compras persiste Sector en la base — al restaurar un
+	// borrador no viene el Sector guardado (ver poblarTablasConLineas), así
+	// que se infiere buscando en qué Sector(es) aparece exactamente esa
+	// combinación Categoría+Marca dentro del Segmento. Si la marca vende en
+	// más de un Sector con la misma Categoría (ej. LAVA en Lavavajillas existe
+	// en Crema/Barra/Líquido), se toma el primero — limitación conocida,
+	// mismo hueco que ya existía antes (Sector nunca se pudo restaurar de un
+	// borrador porque no se guarda en repositorio_acuerdo_lineas).
+	function inferirSectorDesde(segmento, categoria, marca) {
+		var porSector = catalogo.segmentosSector[segmento] || {};
+		return Object.keys(porSector).filter(function (sec) {
+			return (porSector[sec][categoria] || []).indexOf(marca) !== -1;
+		})[0] || '';
 	}
 
 	// ---------- Sistema genérico de combobox (buscador + panel flotante) ----------
@@ -410,7 +434,7 @@
 		var count = months.length;
 
 		purchaseHead.innerHTML =
-			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Categoría</th><th class="ac-sticky-col ac-sticky-col-3">Marca</th><th class="ac-sticky-col ac-sticky-col-4">Sector</th>' +
+			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Sector</th><th class="ac-sticky-col ac-sticky-col-3">Categoría</th><th class="ac-sticky-col ac-sticky-col-4">Marca</th>' +
 			months.map(function (m) { return '<th class="ac-text-right">' + m + ' ($)</th>'; }).join('') +
 			'<th class="ac-text-right ac-col-highlight">Total Período</th><th class="ac-text-right ac-col-highlight">Rebate %</th><th class="ac-text-right ac-col-highlight">Valor Estimado</th><th></th></tr>';
 
@@ -460,51 +484,31 @@
 	}
 
 	// Encadena Segmento -> Categoría -> Marca en una fila usando el sistema
-	// genérico de combobox. onCambio (opcional) se llama después de cualquier
-	// selección — lo usa Rumas para refrescar la leyenda lateral. onMarcaElegida
-	// (opcional) se llama SOLO cuando la Marca queda con un valor real — lo usa
-	// Meta de Compras para sugerir la misma combinación en las otras 3 tablas.
-	// Devuelve un controlador con .sugerir(seg, cat, marca) para que otras
-	// filas puedan aplicarle una sugerencia sin pisar una elección ya hecha.
-	function bindCascadaCombo(tr, onCambio, onMarcaElegida) {
+	// genérico de combobox. Usado por Cabeceras y Rumas (Meta de Compras usa
+	// bindCascadaComboConSector, con un orden distinto — ver más abajo).
+	// onCambio (opcional) se llama después de cualquier selección — lo usa
+	// Rumas para refrescar la leyenda lateral. Devuelve un controlador con
+	// .sugerir(seg, cat, marca) para que otras filas puedan aplicarle una
+	// sugerencia sin pisar una elección ya hecha.
+	function bindCascadaCombo(tr, onCambio) {
 		var segInput = tr.querySelector('.seg-input'), segHidden = tr.querySelector('.seg-select');
 		var catInput = tr.querySelector('.cat-input'), catHidden = tr.querySelector('.cat-select');
 		var marcaInput = tr.querySelector('.marca-input'), marcaHidden = tr.querySelector('.marca-select');
-		// Sector solo existe en la fila de Meta de Compras (ver comboCellHtml
-		// en addPurchaseRow) — en Cabeceras/Rumas no hay estos elementos y
-		// todo lo de acá abajo queda inerte (sectorInput === null).
-		var sectorInput = tr.querySelector('.sector-input'), sectorHidden = tr.querySelector('.sector-select');
-
-		function limpiarSector() {
-			if (!sectorInput) return;
-			sectorHidden.value = ''; sectorInput.value = ''; sectorInput.disabled = true;
-		}
 
 		function aplicarSeg(value) {
 			segHidden.value = value; segInput.value = value;
 			catHidden.value = ''; catInput.value = ''; catInput.disabled = !value;
 			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = true;
-			limpiarSector();
 			if (onCambio) onCambio();
 		}
 		function aplicarCat(value) {
 			catHidden.value = value; catInput.value = value;
 			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = !value;
-			limpiarSector();
 			if (onCambio) onCambio();
 		}
 		function aplicarMarca(value) {
 			marcaHidden.value = value; marcaInput.value = value;
-			if (sectorInput) {
-				var sectores = value ? sectoresDisponibles(segHidden.value, catHidden.value, value) : [];
-				sectorHidden.value = ''; sectorInput.value = '';
-				sectorInput.disabled = !sectores.length;
-				// Si la combinación solo tiene un sector posible, se autocompleta
-				// — no tiene sentido obligar a elegir entre una sola opción.
-				if (sectores.length === 1) { sectorHidden.value = sectores[0]; sectorInput.value = sectores[0]; }
-			}
 			if (onCambio) onCambio();
-			if (value && onMarcaElegida) onMarcaElegida(segHidden.value, catHidden.value, value);
 		}
 
 		inicializarCombo(segInput, segHidden, function () {
@@ -519,21 +523,77 @@
 			return ((catalogo.segmentos[segHidden.value] || {})[catHidden.value] || []).map(function (m) { return { value: m, label: m }; });
 		}, aplicarMarca);
 
-		if (sectorInput) {
-			inicializarCombo(sectorInput, sectorHidden, function () {
-				return sectoresDisponibles(segHidden.value, catHidden.value, marcaHidden.value).map(function (s) { return { value: s, label: s }; });
-			}, function (value) {
-				sectorHidden.value = value; sectorInput.value = value;
-				if (onCambio) onCambio();
-			});
-		}
-
 		return {
 			// Solo rellena si la fila sigue vacía — nunca pisa una selección
 			// que el usuario ya hizo a mano en esa tabla.
 			sugerir: function (segmento, categoria, marca) {
 				if (segHidden.value) return;
 				aplicarSeg(segmento);
+				aplicarCat(categoria);
+				aplicarMarca(marca);
+			}
+		};
+	}
+
+	// Encadena Segmento -> Sector -> Categoría -> Marca — SOLO Meta de
+	// Compras. Este orden (a diferencia de Cabeceras/Rumas) fue pedido
+	// explícitamente por el usuario tras revisar un Acta real: el nombre
+	// impreso de cada categoría es "Sector + Categoría + Marca" (ej. "Crema
+	// Lavavajillas LAVA"), así que elegir en ese mismo orden es más intuitivo.
+	// onMarcaElegida se llama SOLO cuando la Marca queda con un valor real —
+	// lo usa Meta de Compras para sugerir Segmento/Categoría/Marca (sin
+	// Sector, esa tabla no lo tiene) en Cabeceras/Rumas/Perchas.
+	function bindCascadaComboConSector(tr, onMarcaElegida) {
+		var segInput = tr.querySelector('.seg-input'), segHidden = tr.querySelector('.seg-select');
+		var sectorInput = tr.querySelector('.sector-input'), sectorHidden = tr.querySelector('.sector-select');
+		var catInput = tr.querySelector('.cat-input'), catHidden = tr.querySelector('.cat-select');
+		var marcaInput = tr.querySelector('.marca-input'), marcaHidden = tr.querySelector('.marca-select');
+
+		function aplicarSeg(value) {
+			segHidden.value = value; segInput.value = value;
+			sectorHidden.value = ''; sectorInput.value = ''; sectorInput.disabled = !value;
+			catHidden.value = ''; catInput.value = ''; catInput.disabled = true;
+			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = true;
+		}
+		function aplicarSector(value) {
+			sectorHidden.value = value; sectorInput.value = value;
+			catHidden.value = ''; catInput.value = ''; catInput.disabled = !value;
+			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = true;
+		}
+		function aplicarCat(value) {
+			catHidden.value = value; catInput.value = value;
+			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = !value;
+		}
+		function aplicarMarca(value) {
+			marcaHidden.value = value; marcaInput.value = value;
+			if (value && onMarcaElegida) onMarcaElegida(segHidden.value, catHidden.value, value);
+		}
+
+		inicializarCombo(segInput, segHidden, function () {
+			return Object.keys(catalogo.segmentosSector).map(function (s) { return { value: s, label: s }; });
+		}, aplicarSeg);
+
+		inicializarCombo(sectorInput, sectorHidden, function () {
+			return Object.keys(catalogo.segmentosSector[segHidden.value] || {}).map(function (s) { return { value: s, label: s }; });
+		}, aplicarSector);
+
+		inicializarCombo(catInput, catHidden, function () {
+			return Object.keys((catalogo.segmentosSector[segHidden.value] || {})[sectorHidden.value] || {}).map(function (c) { return { value: c, label: c }; });
+		}, aplicarCat);
+
+		inicializarCombo(marcaInput, marcaHidden, function () {
+			return (((catalogo.segmentosSector[segHidden.value] || {})[sectorHidden.value] || {})[catHidden.value] || []).map(function (m) { return { value: m, label: m }; });
+		}, aplicarMarca);
+
+		return {
+			// sector es opcional (null al restaurar un borrador, ver
+			// inferirSectorDesde) — si no viene, se infiere antes de aplicar
+			// para que Categoría/Marca puedan seguir la cascada normal.
+			sugerir: function (segmento, sector, categoria, marca) {
+				if (segHidden.value) return;
+				if (!sector) sector = inferirSectorDesde(segmento, categoria, marca);
+				aplicarSeg(segmento);
+				if (sector) aplicarSector(sector);
 				aplicarCat(categoria);
 				aplicarMarca(marca);
 			}
@@ -584,9 +644,9 @@
 		var tr = document.createElement('tr');
 		var html =
 			'<td class="ac-sticky-col">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('marca', 'Marca...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-4">' + comboCellHtml('sector', 'Sector...', true) + '</td>';
+			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('sector', 'Sector...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-4">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
 		activeMonthsIndices.forEach(function () {
 			html += '<td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input month-input" value="0"></div></td>';
 		});
@@ -598,7 +658,7 @@
 		tr.innerHTML = html;
 		purchaseBody.appendChild(tr);
 
-		tr._combo = bindCascadaCombo(tr, null, function (seg, cat, marca) { sugerirEnOtrasTablas(seg, cat, marca); });
+		tr._combo = bindCascadaComboConSector(tr, function (seg, cat, marca) { sugerirEnOtrasTablas(seg, cat, marca); });
 
 		var recalc = function () { updatePurchaseRow(tr); };
 		tr.querySelectorAll('.month-input, .ac-rebate-input').forEach(function (i) { i.addEventListener('input', recalc); });
@@ -770,6 +830,7 @@
 		var metaCompra = Array.prototype.map.call(purchaseBody.querySelectorAll('tr'), function (r) {
 			return {
 				segmento: r.querySelector('.seg-select').value,
+				sector: r.querySelector('.sector-select').value,
 				categoria: r.querySelector('.cat-select').value,
 				marca: r.querySelector('.marca-select').value,
 				rebate_pct: (parseFloat(r.querySelector('.ac-rebate-input').value) || 0) / 100,
@@ -811,14 +872,73 @@
 		return { meta_compra: metaCompra, cabecera: cabecera, ruma: ruma, percha: percha };
 	}
 
-	function validarCabecera() {
+	// Detecta campos de spinner (Distribuidor/Empresa/Segmento/Sector/
+	// Categoría/Marca, en cualquiera de las 4 tablas) donde el usuario tipeó
+	// texto pero nunca hizo click en una opción real de la lista — el input
+	// visible muestra ese texto pero el valor real (hidden) queda vacío, y
+	// guardar_acuerdo.php descartaría esa fila en silencio sin avisar. Todos
+	// los combos comparten la estructura ".ac-combo > .ac-combo-input +
+	// input[hidden]" (ver inicializarCombo/comboCellHtml), así que un solo
+	// selector cubre Distribuidor/Empresa y las 4 tablas a la vez.
+	function encontrarSpinnersSinConfirmar() {
+		return Array.prototype.filter.call(acuerdoContainer.querySelectorAll('.ac-combo'), function (combo) {
+			var input = combo.querySelector('.ac-combo-input');
+			var hidden = combo.querySelector('input[type="hidden"]');
+			return input && hidden && !input.disabled && input.value.trim() !== '' && !hidden.value;
+		}).map(function (combo) { return combo.querySelector('.ac-combo-input'); });
+	}
+
+	function participacionesInvalidas() {
+		return Array.prototype.filter.call(perchasBody.querySelectorAll('.v-participacion'), function (input) {
+			var num = parseFloat(input.value);
+			return input.value.trim() === '' || isNaN(num) || num < 0;
+		});
+	}
+
+	// Al menos una fila real (con Segmento o Marca elegidos) en alguna de las
+	// 4 tablas — solo se exige para Generar Acta, no para Guardar Borrador
+	// (un borrador puede arrancar vacío, es lo esperable de un work-in-progress).
+	function hayAlgunaLineaReal() {
+		function algunaFilaConValor(tbody, selector) {
+			return Array.prototype.some.call(tbody.querySelectorAll('tr'), function (r) {
+				var campo = r.querySelector(selector);
+				return campo && !!campo.value;
+			});
+		}
+		return algunaFilaConValor(purchaseBody, '.seg-select')
+			|| algunaFilaConValor(cabecerasBody, '.seg-select')
+			|| algunaFilaConValor(rumasBody, '.seg-select')
+			|| algunaFilaConValor(perchasBody, '.marca-select');
+	}
+
+	function validarCabecera(estado) {
 		if (!distribuidorSelect.value) { mostrarMensaje('Selecciona un Distribuidor.', false); return false; }
 		if (selectedStart === null || selectedEnd === null) { mostrarMensaje('Selecciona el Periodo del Acuerdo.', false); return false; }
+
+		var sinConfirmar = encontrarSpinnersSinConfirmar();
+		if (sinConfirmar.length) {
+			mostrarMensaje('Hay un campo con texto escrito pero sin elegir de la lista (Distribuidor, Segmento, Sector, Categoría o Marca) — hacé click en una opción o borralo antes de guardar.', false);
+			sinConfirmar[0].focus();
+			return false;
+		}
+
+		var participacionesMal = participacionesInvalidas();
+		if (participacionesMal.length) {
+			mostrarMensaje('La Participación de Perchas debe ser un número y no puede quedar vacía ni ser negativa.', false);
+			participacionesMal[0].focus();
+			return false;
+		}
+
+		if (estado !== 'borrador' && !hayAlgunaLineaReal()) {
+			mostrarMensaje('Agrega al menos un producto en alguna tabla antes de Generar el Acta (o guardalo como borrador si todavía no está listo).', false);
+			return false;
+		}
+
 		return true;
 	}
 
 	function guardarAcuerdo(estado, onOk) {
-		if (!validarCabecera()) return;
+		if (!validarCabecera(estado)) return;
 
 		var payload = {
 			acuerdo_id: acuerdoId,
@@ -848,65 +968,146 @@
 			.catch(function () { mostrarMensaje('Error de conexión. Intenta nuevamente.', false); });
 	}
 
-	// "Ver y Generar Acta" ya NO guarda el acuerdo como 'generado' — guarda
-	// como 'borrador' (mismo estado silencioso de "Guardar Borrador"/"Mis
-	// Borradores", no aparece en Historial) solo para tener un id real con el
-	// que armar la previsualización del PDF. Recién se promueve a 'generado'
-	// (con el snapshot definitivo) cuando el usuario da click en "Descargar /
-	// Imprimir PDF" dentro del modal — ver actaDescargarBtn más abajo.
-	document.getElementById('ac-generar-acta').addEventListener('click', function () {
-		guardarAcuerdo('borrador', mostrarPreview);
-	});
+	document.getElementById('ac-generar-acta').addEventListener('click', mostrarPreview);
 	document.getElementById('ac-guardar-borrador').addEventListener('click', function () {
 		guardarAcuerdo('borrador');
 	});
 
 	// ---------- Preview / Acta ----------
-	// El iframe carga el PDF real (Dompdf, mismo endpoint que "Descargar") —
-	// el preview y el PDF descargado son literalmente el mismo archivo, no
-	// dos maquetas que mantener sincronizadas.
 	var actaModalOverlay = document.getElementById('ac-acta-modal-overlay');
 	var actaPdfFrame = document.getElementById('ac-acta-pdf-frame');
+	var actaGenerarBtn = document.getElementById('ac-acta-generar-pdf');
 	var actaDescargarBtn = document.getElementById('ac-acta-descargar-pdf');
+	var actaZoomInBtn = document.getElementById('ac-acta-zoom-in');
+	var actaZoomOutBtn = document.getElementById('ac-acta-zoom-out');
+	var actaZoomLabel = document.getElementById('ac-acta-zoom-label');
 
-	// pdfDescargado: si el usuario cierra la ventanita de previsualización sin
-	// haber dado click en "Descargar / Imprimir PDF", se le avisa con un toast
-	// — cerrar sin descargar es fácil de hacer sin querer y perder de vista que
-	// el Acta todavía no quedó descargada/impresa.
-	var pdfDescargado = false;
+	// pdfGenerado: true recién después de "Generar PDF" (el único click que de
+	// verdad guarda algo en la base) — "Previsualización" ya NO guarda nada,
+	// así que cerrar el modal sin haber generado no pierde ningún dato real,
+	// solo se avisa por si se le olvidó generar.
+	var pdfGenerado = false;
+	var previewBlobUrl = null; // URL.createObjectURL() del PDF de preview — hay que revocarla para no filtrar memoria.
+	var pdfUrlActual = '';     // lo que cargan el iframe y el zoom ahora mismo (blob de preview, o el PDF real ya generado).
+	var zoomActual = 100;
 
-	function mostrarPreview() {
-		// &t= evita que el navegador reuse un PDF viejo cacheado con la misma URL ?id=X.
-		var url = 'getters/generar_acta_pdf.php?id=' + acuerdoId + '&t=' + Date.now();
+	function actualizarZoomLabel() { actaZoomLabel.textContent = zoomActual + '%'; }
+
+	function aplicarZoom() {
+		if (!pdfUrlActual) return;
 		// #toolbar=0&navpanes=0 oculta la barra/miniaturas del visor nativo del
-		// navegador (ya tenemos nuestros propios botones Descargar/Cerrar) y
-		// view=FitH ajusta la hoja al ancho del modal en vez de dejarla chica
-		// con espacio gris alrededor.
-		actaPdfFrame.src = url + '#toolbar=0&navpanes=0&view=FitH';
+		// navegador (ya tenemos nuestros propios botones) — funciona igual
+		// pegado a una blob: URL que a una URL normal del servidor.
+		actaPdfFrame.src = pdfUrlActual + '#toolbar=0&navpanes=0&zoom=' + zoomActual;
+		actualizarZoomLabel();
+	}
+	actaZoomInBtn.addEventListener('click', function () { zoomActual = Math.min(300, zoomActual + 25); aplicarZoom(); });
+	actaZoomOutBtn.addEventListener('click', function () { zoomActual = Math.max(25, zoomActual - 25); aplicarZoom(); });
+
+	function deshabilitarDescarga() {
+		actaDescargarBtn.classList.add('ac-btn-disabled');
+		actaDescargarBtn.setAttribute('aria-disabled', 'true');
+		actaDescargarBtn.removeAttribute('href');
+		actaDescargarBtn.removeAttribute('download');
+	}
+	// download (sin target=_blank): "Descargar PDF" debe bajar el archivo
+	// directo, no abrir otra pestaña con el visor del navegador.
+	function habilitarDescarga(url, nombreArchivo) {
 		actaDescargarBtn.href = url;
-		pdfDescargado = false;
-		actaModalOverlay.classList.add('ac-modal-open');
+		actaDescargarBtn.setAttribute('download', nombreArchivo);
+		actaDescargarBtn.classList.remove('ac-btn-disabled');
+		actaDescargarBtn.removeAttribute('aria-disabled');
 	}
 
-	// Acá es donde realmente se "genera" el Acta: promueve el borrador silencioso
-	// a estado 'generado' (dispara el snapshot definitivo del PDF en
-	// guardar_acuerdo.php) y recién entonces abre el PDF ya guardado. Si el
-	// usuario solo mira el preview y cierra sin llegar a este click, el acuerdo
-	// queda como borrador nomás (visible en "Mis Borradores", no en Historial).
-	actaDescargarBtn.addEventListener('click', function (e) {
-		e.preventDefault();
+	// "Previsualización" NO guarda nada en la base (2026-08-18: antes guardaba
+	// un borrador en silencio, se sacó a pedido explícito) — arma el PDF al
+	// vuelo desde lo que hay en pantalla ahora mismo
+	// (getters/previsualizar_acta_pdf.php) y lo muestra como blob: URL. Corre
+	// las mismas validaciones que guardarAcuerdo (spinners sin confirmar,
+	// participación, Distribuidor/Periodo) pero sin exigir ninguna línea real
+	// — previsualizar algo todavía incompleto es válido.
+	function mostrarPreview() {
+		if (!validarCabecera('borrador')) return;
+
+		var payload = {
+			pos_id: distribuidorSelect.value,
+			distribuidor_nombre: distribuidorSearch.value,
+			localidad: localidadEl.textContent,
+			anio: parseInt(anioSelect.value, 10),
+			mes_inicio: selectedStart,
+			mes_fin: selectedEnd,
+			lineas: recolectarLineas()
+		};
+
+		fetch('getters/previsualizar_acta_pdf.php', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		})
+			.then(function (r) {
+				if (!r.ok) throw new Error('preview');
+				return r.blob();
+			})
+			.then(function (blob) {
+				if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+				previewBlobUrl = URL.createObjectURL(blob);
+				pdfUrlActual = previewBlobUrl;
+				zoomActual = 100;
+				pdfGenerado = false;
+				deshabilitarDescarga();
+				aplicarZoom();
+				actaModalOverlay.classList.add('ac-modal-open');
+			})
+			.catch(function () { mostrarMensaje('No se pudo armar la vista previa. Intenta nuevamente.', false); });
+	}
+
+	// Deja el formulario listo para el siguiente Acuerdo — el usuario puede
+	// estar registrando muchos PDV seguidos, no tiene sentido que arrastre los
+	// datos del anterior después de generar uno.
+	function limpiarFormularioParaNuevoAcuerdo() {
+		acuerdoId = null;
+		documentoNo = null;
+		distribuidorSelect.value = '';
+		distribuidorSearch.value = '';
+		if (CANAL_USUARIO === 'distribuidor') {
+			empresaSelect.value = '';
+			empresaSearch.value = '';
+			distribuidorSearch.disabled = true;
+		}
+		localidadEl.textContent = '—';
+		selectedStart = 0;
+		selectedEnd = 2;
+		activeMonthsIndices = [0, 1, 2];
+		updatePickerUI();
+		syncTables();
+		actualizarBloqueoPorDistribuidor();
+		formSucio = false;
+	}
+
+	// Acá es donde de verdad se "genera": crea el acuerdo directo como
+	// 'generado' (guarda el snapshot definitivo del PDF, ver
+	// guardar_acuerdo.php) — hasta este click, Previsualización no había
+	// tocado la base para nada.
+	actaGenerarBtn.addEventListener('click', function () {
 		guardarAcuerdo('generado', function () {
-			pdfDescargado = true;
+			pdfGenerado = true;
 			var url = 'getters/generar_acta_pdf.php?id=' + acuerdoId + '&t=' + Date.now();
-			window.open(url, '_blank');
+			if (previewBlobUrl) { URL.revokeObjectURL(previewBlobUrl); previewBlobUrl = null; }
+			pdfUrlActual = url;
+			habilitarDescarga(url, 'Acta_' + documentoNo + '.pdf');
+			aplicarZoom();
+			mostrarMensaje('PDF generado. Ya podés descargarlo.', true);
+			limpiarFormularioParaNuevoAcuerdo();
 		});
 	});
 
 	function cerrarModalActa() {
 		actaModalOverlay.classList.remove('ac-modal-open');
 		actaPdfFrame.src = '';
-		if (!pdfDescargado) {
-			mostrarToast('Cerraste la vista previa sin descargar/imprimir el PDF. El Acta no quedó descargada.', 'warning');
+		if (previewBlobUrl) { URL.revokeObjectURL(previewBlobUrl); previewBlobUrl = null; }
+		pdfUrlActual = '';
+		if (!pdfGenerado) {
+			mostrarToast('Cerraste la vista previa sin generar el PDF. El Acuerdo no quedó guardado.', 'warning');
 		}
 	}
 	document.getElementById('ac-acta-modal-close').addEventListener('click', cerrarModalActa);
@@ -950,10 +1151,10 @@
 
 	// Reconstruye las 4 tablas a partir de las líneas guardadas de un
 	// borrador, en vez de la fila vacía única de syncTables(). El Sector de
-	// Meta de Compras no se guarda en la base (ver CLAUDE.md) — si la
-	// combinación Segmento+Categoría+Marca solo admite un Sector, igual se
-	// autocompleta solo (misma lógica de aplicarMarca() que ya corre para
-	// carga manual).
+	// Meta de Compras se persiste desde 2026-08-18 (antes no, ver CLAUDE.md) —
+	// para Actas viejas guardadas antes de ese cambio, `fila.sector` viene
+	// null y sugerir() lo sigue infiriendo solo (fallback de compatibilidad,
+	// mismo comportamiento que ya existía).
 	function poblarTablasConLineas(lineas) {
 		renderTableHeaders();
 		purchaseBody.innerHTML = '';
@@ -965,7 +1166,7 @@
 			lineas.meta_compra.forEach(function (fila) {
 				addPurchaseRow();
 				var tr = purchaseBody.lastElementChild;
-				tr._combo.sugerir(fila.segmento, fila.categoria, fila.marca);
+				tr._combo.sugerir(fila.segmento, fila.sector || null, fila.categoria, fila.marca);
 				llenarValoresMensuales(tr.querySelectorAll('.month-input'), fila.valores_mensuales);
 				tr.querySelector('.ac-rebate-input').value = (fila.rebate_pct || 0) * 100;
 				updatePurchaseRow(tr);

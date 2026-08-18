@@ -51,34 +51,42 @@ while ($row = $res->fetch_assoc()) {
 	$marcasPercha[] = $row['marca'];
 }
 
-// Sector (ej: "CREMA"/"BARRA"/"LIQUIDO" para LAVA+LAVAVAJILLAS) — solo se usa
-// en la tabla de Meta de Compras, como columna extra tras Marca (pedido del
-// usuario para poder armar el nombre completo tipo "Crema Lavavajillas
-// LAVA"). Se guarda separado de `segmentos` (en vez de meterlo como un nivel
-// más del árbol) para no tocar la forma que ya usan Cabeceras/Rumas/Perchas.
-// Clave: "segmento|categoria|marca" -> [sectores...].
-$sectores = [];
+// Árbol Segmento -> Sector -> Categoría -> [Marcas], SOLO para Meta de
+// Compras (2026-08-18, pedido explícito del usuario tras revisar un Acta real
+// escaneada: el nombre impreso de cada categoría es literalmente "Sector +
+// Categoría + Marca", ej. "Crema Lavavajillas LAVA"). Cabeceras/Rumas/Perchas
+// siguen usando `segmentos` de arriba (Segmento->Categoría->Marca, sin
+// Sector) — no se tocó esa forma a propósito. Se comprobó con datos reales
+// que Sector depende limpio de Segmento (ej. Cuidado del Hogar: solo 5
+// sectores) y Categoría depende limpio de Segmento+Sector (1 a 4 categorías
+// cada uno) — por eso este orden de cascada no explota en ningún paso.
+$segmentosSector = [];
 $res = $mysqli->query(
-	"SELECT DISTINCT segmento, categoria, marca, sector
+	"SELECT DISTINCT segmento, sector, categoria, marca
 	 FROM repositorio_productos
 	 WHERE fabricante = '".$mysqli->real_escape_string(FABRICANTE_ACUERDOS)."'
 	   AND activar = 'SI'
 	   AND segmento IS NOT NULL AND segmento <> ''
+	   AND sector IS NOT NULL AND sector <> ''
 	   AND categoria IS NOT NULL AND categoria <> ''
 	   AND marca IS NOT NULL AND marca <> ''
-	   AND sector IS NOT NULL AND sector <> ''
-	 ORDER BY segmento, categoria, marca, sector"
+	 ORDER BY segmento, sector, categoria, marca"
 );
 while ($row = $res->fetch_assoc()) {
-	$key = $row['segmento'].'|'.$row['categoria'].'|'.$row['marca'];
-	if (!isset($sectores[$key])) $sectores[$key] = [];
-	if (!in_array($row['sector'], $sectores[$key], true)) $sectores[$key][] = $row['sector'];
+	$seg = $row['segmento'];
+	$sec = $row['sector'];
+	$cat = $row['categoria'];
+	$mar = $row['marca'];
+	if (!isset($segmentosSector[$seg])) $segmentosSector[$seg] = [];
+	if (!isset($segmentosSector[$seg][$sec])) $segmentosSector[$seg][$sec] = [];
+	if (!isset($segmentosSector[$seg][$sec][$cat])) $segmentosSector[$seg][$sec][$cat] = [];
+	if (!in_array($mar, $segmentosSector[$seg][$sec][$cat], true)) $segmentosSector[$seg][$sec][$cat][] = $mar;
 }
 
 echo json_encode([
-	'ok'            => true,
-	'segmentos'     => $segmentos,
-	'marcas_percha' => $marcasPercha,
-	'sectores'      => $sectores,
+	'ok'               => true,
+	'segmentos'        => $segmentos,
+	'marcas_percha'    => $marcasPercha,
+	'segmentos_sector' => $segmentosSector,
 ]);
 ?>

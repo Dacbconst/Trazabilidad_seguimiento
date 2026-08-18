@@ -62,6 +62,7 @@ Las 4 tablas del Acta unificadas en una sola tabla, diferenciadas por `tipo`.
 | `acuerdo_id` | INT | todos | FK lógica a `repositorio_acuerdos.id` (sin constraint) |
 | `tipo` | ENUM | todos | `meta_compra` / `cabecera` / `ruma` / `percha` |
 | `segmento` | VARCHAR(200) | meta_compra, cabecera, ruma | De `repositorio_productos.segmento` |
+| `sector` | VARCHAR(200) NULL | **solo meta_compra** | Agregado 2026-08-18. De `repositorio_productos.sector` (BARRA/CREMA/LIQUIDO/POLVO...). Antes era solo UI (se descartaba antes de mandar al backend) — se confirmó comparando contra el Excel real de JW que **Trade MKT aprueba y rastrea el rebate % justo a este nivel**, no al de `categoria` (que es más amplio: DETERGENTE/LAVAVAJILLAS/...). Actas creadas antes de este cambio quedan con `sector = NULL` — `registrar.js` sigue infiriéndolo al reabrir esas Actas viejas (mismo mecanismo de siempre, `inferirSectorDesde()`), pero ya no hace falta para Actas nuevas. |
 | `categoria` | VARCHAR(200) | meta_compra, cabecera, ruma | De `repositorio_productos.categoria` |
 | `marca` | VARCHAR(200) | todos | De `repositorio_productos.marca` |
 | `rebate_pct` | DECIMAL(6,4) | solo meta_compra | Debe salir de una columna de rebate que se va a **agregar a `repositorio_productos`** (UPDATE pendiente del cliente, no crear catálogo propio) |
@@ -235,17 +236,49 @@ mockup `code.html` por choque con las reglas de este documento:
   columna en `repositorio_acuerdo_lineas` para guardarlo** y la mecánica de
   spinners de este documento tampoco lo contempla. Se dejó como campo de
   UI solamente (referencial para el vendedor), no se envía al backend.
-- **Sector (Meta de Compras)**: se agregó un 4to spinner encadenado
-  Segmento→Categoría→Marca→**Sector** (`repositorio_productos.sector`, ej.
-  `CREMA`/`BARRA`/`LIQUIDO` para distinguir "Crema Lavavajillas LAVA" de
-  "Barra Lavavajillas LAVA") **solo en la tabla de Meta de Compras**, pedido
-  explícito del usuario — Cabeceras/Rumas/Perchas no lo tienen y no deben
-  tocarse. Igual que Participación de Perchas, **no hay columna en
-  `repositorio_acuerdo_lineas` para Sector**, así que tampoco se envía al
-  backend (`getters/guardar_acuerdo.php`) — es solo para que el vendedor arme
-  el nombre completo del producto al llenar el Acta. Si la combinación
-  Segmento+Categoría+Marca solo tiene un Sector posible en la base, se
-  autocompleta solo (no tiene sentido obligar a elegir entre una opción).
+- **Sector (Meta de Compras)**: 4to campo, **solo en la tabla de Meta de
+  Compras** (Cabeceras/Rumas/Perchas no lo tienen y no deben tocarse). Orden
+  de la cascada (cambiado 2026-08-18, pedido explícito tras revisar un Acta
+  real escaneada — ver `datos/WhatsApp Image 2026-07-23 at 11.09.16.jpeg`):
+  **Segmento → Sector → Categoría → Marca**, porque el nombre impreso de cada
+  fila en el Acta real es literalmente "Sector + Categoría + Marca" (ej.
+  "Crema Lavavajillas LAVA", "Polvo detergente GOL") — elegir en ese orden es
+  más intuitivo y sigue calzando limpio con los datos reales (para
+  `CUIDADO DEL HOGAR` hay solo 5 Sectores, y cada Sector tiene entre 1 y 4
+  Categorías). Antes el orden era Segmento→Categoría→Marca→Sector con Sector
+  al final y autocompletado solo si había una única opción; ya no es así, es
+  un paso obligatorio justo después de Segmento. Implementado en
+  `getters/acuerdo_catalogo.php` (árbol nuevo `segmentos_sector`,
+  Segmento→Sector→Categoría→[Marcas], separado del árbol `segmentos` que
+  siguen usando Cabeceras/Rumas) y `assets/js/registrar.js`
+  (`bindCascadaComboConSector`, distinta de `bindCascadaCombo` que usan
+  Cabeceras/Rumas). **Corregido 2026-08-18: Sector SÍ se persiste ahora**
+  (columna `sector` en `repositorio_acuerdo_lineas`, solo meta_compra) — se
+  confirmó comparando contra el Excel real de JW que Trade MKT aprueba y
+  rastrea el rebate justo a este nivel, así que dejarlo solo en pantalla
+  perdía información real de negocio, no solo un dato cosmético. Actas
+  creadas ANTES de este cambio quedan con `sector = NULL`; al restaurarlas
+  como borrador, `registrar.js` sigue infiriéndolo con
+  `inferirSectorDesde()` (mismo mecanismo de siempre, ahora solo como
+  fallback de compatibilidad) — si una Marca vende en más de un Sector con
+  la misma Categoría (ej. LAVA en Lavavajillas: Crema/Barra/Líquido), se
+  toma el primero, limitación que solo aplica a esas Actas viejas.
+  **Pendiente que el usuario corra en HeidiSQL** (Claude no puede, regla de
+  solo lectura):
+  ```sql
+  ALTER TABLE repositorio_acuerdo_lineas ADD COLUMN sector VARCHAR(200) NULL AFTER segmento;
+  ```
+  Nada de lo de arriba funciona en producción hasta que exista la columna —
+  `guardar_acuerdo.php` va a fallar el INSERT si se usa antes de correr esto.
+  **Hallazgo aparte, sin tocar todavía**: revisando `includes/acta_pdf.php`
+  para este cambio, el texto impreso de cada fila de Meta de Compras en el
+  PDF usa `segmento+categoria+marca` (`tabla_marca_html`/`ancho_columna_categoria`),
+  pero la nota de arriba sobre la Acta real escaneada dice que el formato
+  real impreso es `Sector+Categoría+Marca` (ej. "Crema Lavavajillas LAVA").
+  Si eso es así, el PDF hoy imprime el campo equivocado (Segmento en vez de
+  Sector) — no se tocó porque es un cambio a lo que se imprime en el
+  documento real, no algo que el usuario pidió en esta sesión. Confirmar con
+  el usuario antes de tocarlo.
 - **`documento_no`**: se genera como `ADN-{anio}-{secuencia de 4 dígitos}`,
   calculado como `COUNT(*)+1` de acuerdos de ese año, con reintento si choca
   con el `UNIQUE` (nadie definió el algoritmo exacto, esto es una decisión
@@ -270,20 +303,153 @@ mockup `code.html` por choque con las reglas de este documento:
 - **Eliminar (Historial)**: nunca es un `DELETE` físico — `getters/eliminar_acuerdo.php`
   marca `estado='anulado'` (mismo patrón que `repositorio_usuarios_acuerdos.status`).
   `listar_historial_acuerdos()` excluye `borrador` Y `anulado` del listado.
-- **Generación real del PDF**: implementada (2026-07-24, esta nota estaba
-  desactualizada) con **Dompdf** (`composer.json`/`vendor/`). "Generar Acta"
-  llama a `getters/generar_acta_pdf.php`, que arma el HTML vía
-  `includes/acta_pdf.php` (`generar_acta_html()`) y lo renderiza a PDF real —
-  el modal de preview en `registrar.php` (`#ac-acta-modal-overlay`, iframe)
-  carga ese MISMO endpoint, así que preview y descarga son el mismo archivo,
-  no dos maquetas a mantener sincronizadas. `generar_acta_pdf.php` prueba
-  primero a escala 1.0 y si Dompdf reporta más de 1 página va reduciendo
-  fuentes/espaciados hasta que entra en una sola hoja A4 (nunca reduce más de
-  lo necesario). **Ojo**: el PDF todavía NO se guarda en `pdf_documento`
-  (LONGBLOB) — se regenera al vuelo cada vez que se pide, no hay copia
-  persistida en la base. Si se necesita guardar el PDF generado (para
-  Historial/auditoría sin depender de que los datos no cambien), falta
-  implementar ese guardado.
+- **Generación real del PDF**: con **Dompdf** (`composer.json`/`vendor/`).
+  `includes/acta_pdf.php` (`generar_acta_html()`) arma el HTML y lo renderiza
+  a PDF real vía `getters/generar_acta_pdf.php`. Prueba primero a escala 1.0
+  y si Dompdf reporta más de 1 página va reduciendo fuentes/espaciados hasta
+  que entra en una sola hoja A4. El PDF SÍ se persiste en `pdf_documento`
+  (LONGBLOB) — el snapshot se genera y guarda en `guardar_acuerdo.php` en el
+  momento en que `estado` pasa a `'generado'` (no en cada borrador);
+  `generar_acta_pdf.php` sirve ese snapshot si existe, o renderiza en vivo
+  como fallback (acuerdos viejos sin snapshot) y de paso lo deja guardado.
+- **Flujo "Previsualización" / "Generar PDF" (rediseñado 2026-08-18, esta nota
+  reemplaza la versión anterior "Ver y Generar Acta"):**
+  - Botón `#ac-generar-acta` ahora dice **"Previsualización"** (antes "Ver y
+    Generar Acta"/"Generar Acta"). Al hacer click, **NO guarda nada en la
+    base** — versión anterior guardaba un borrador en silencio, se sacó a
+    pedido explícito del usuario. En vez de eso llama a
+    `getters/previsualizar_acta_pdf.php` (POST con el JSON de
+    `recolectarLineas()` + cabecera, igual que `guardar_acuerdo.php` pero sin
+    tocar la base — ni siquiera hace `require` de `db_connect.php`, arma el
+    `$detalle` directo del POST y llama al mismo `generar_acta_pdf_binario()`
+    de siempre) y muestra el PDF resultante como `blob:` URL en el iframe.
+    Igual corre las mismas validaciones de `validarCabecera()` (spinners sin
+    confirmar, participación) pero SIN exigir ninguna línea real — previsualizar
+    algo incompleto es válido.
+  - Dentro del modal hay controles de **zoom** (`#ac-acta-zoom-in/out`, 25% por
+    click, 25%-300%) que recargan el iframe con `#zoom=N` en la URL — funciona
+    igual sobre una `blob:` URL que sobre una del servidor.
+  - Dos botones separados en vez de uno: **"Generar PDF"**
+    (`#ac-acta-generar-pdf`, siempre habilitado) y **"Descargar PDF"**
+    (`#ac-acta-descargar-pdf`, arranca deshabilitado vía clase `.ac-btn-disabled`
+    — `pointer-events:none`, sin `href`). Recién al hacer click en "Generar
+    PDF" se llama a `guardar_acuerdo.php` con `estado='generado'` (creando el
+    acuerdo directo, ya que nunca existió un borrador previo — `acuerdoId` es
+    `null` en este punto) y, si sale bien, se habilita "Descargar PDF"
+    apuntando al PDF real ya persistido (`generar_acta_pdf.php?id=...`). Ahí sí
+    corre la validación de "no acuerdo vacío" (ver Validaciones más abajo),
+    porque acá `estado !== 'borrador'`.
+  - "Descargar PDF" usa el atributo `download` (no `target="_blank"`) —
+    descarga el archivo directo, no abre otra pestaña con el visor del
+    navegador. Pedido explícito del usuario.
+  - Al generar con éxito, el formulario completo se limpia
+    (`limpiarFormularioParaNuevoAcuerdo()`: Distribuidor/Empresa/Localidad,
+    periodo vuelve al default Ene-Mar, las 4 tablas vuelven a una fila vacía)
+    — el usuario puede estar registrando ~20 Acuerdos seguidos, no tiene
+    sentido que arrastre los datos del anterior.
+  - Si el usuario cierra el modal sin haber hecho click en "Generar PDF", se
+    le avisa con un toast de advertencia — pero como Previsualización ya no
+    guarda nada, no perdió ningún dato real (el formulario sigue exactamente
+    como estaba).
+- **Nombre del Ejecutivo Comercial en el PDF (2026-08-18)**: la línea
+  "Nombre: ________" bajo "Ejecutivo Comercial" ya no queda en blanco para
+  llenar a mano — imprime el nombre real de quien creó el acuerdo
+  (`repositorio_acuerdos.creado_por` → `repositorio_usuarios_acuerdos.usuario`,
+  JOIN agregado en `obtener_acuerdo_detalle()`). La **firma sigue siendo
+  física siempre** (la línea en blanco de arriba para firmar a mano no
+  cambió) — esto solo imprime el nombre de quien correspondía firmar, no
+  captura una firma. "Jefe Comercial" (columna derecha) sigue en blanco, no
+  hay ningún dato en el sistema de quién es esa persona. Acuerdos huérfanos
+  sin `creado_por` (ver más abajo) caen de nuevo a la línea en blanco de
+  siempre.
+- **Validaciones agregadas (2026-08-18)**, en `assets/js/registrar.js`
+  (`validarCabecera()`) Y repetidas en `getters/guardar_acuerdo.php` (el
+  guardado es por `fetch()`, no un submit nativo, así que nada obliga a pasar
+  por la validación del cliente):
+  - Montos en dólares (Meta de Compras, Cabeceras, Rumas, Perchas) nunca
+    negativos — se clampan a 0 mientras se tipea, y el servidor también los
+    floorea con `max(0, ...)` por si acaso.
+  - **Rebate % deliberadamente sin validar rango** — el cliente confirmó que
+    va a salir de un repositorio nuevo (columna en `repositorio_productos`,
+    todavía sin datos, ver pendiente más abajo), no tiene sentido acotarlo a
+    mano mientras se sigue tipeando manual.
+  - "Filas fantasma": si el usuario tipea texto en cualquier spinner
+    (Distribuidor/Empresa/Segmento/Sector/Categoría/Marca, en cualquiera de
+    las 4 tablas) pero nunca hace click en una opción real de la lista, el
+    guardado se bloquea con un toast — antes esa fila se descartaba en
+    silencio en `guardar_acuerdo.php` sin avisar al usuario.
+  - **Filas duplicadas SÍ se permiten a propósito** — el cliente lo pidió
+    explícitamente, no validar esto.
+  - Un acuerdo completamente vacío (ninguna fila real en ninguna de las 4
+    tablas) solo se permite guardar como `'borrador'` — Generar Acta lo
+    bloquea con un mensaje pidiendo cargar al menos un producto o guardar
+    como borrador.
+  - Participación de Perchas (`v-participacion`, texto libre tipo "50%")
+    debe tener un número real tipeado y no puede ser negativa — se le quita
+    el "-" mientras se tipea, y el guardado la rechaza si queda vacía o no
+    numérica.
+
+## Export de cuota/rebate desde Historial (2026-08-18)
+
+Cierra el pendiente de la conversación anterior: JW pidió explícitamente que
+las Actas nuevas tengan un export de la data que se recolecta, parecido a como
+la definen en su Excel — para no volver a tipear a mano lo que el ejecutivo ya
+cargó acá. Decisiones confirmadas con el usuario antes de construir:
+
+- **Alcance: bulk, no Acta por Acta** — como el Excel real de JW (muchos
+  clientes en un archivo), no un botón "exportar esta Acta" en el detalle.
+- **Ubicación: botón nuevo en Historial de Acuerdos** (`hist-exportar`),
+  junto a los filtros existentes — exporta lo que esté filtrado en pantalla
+  (mismos parámetros `q`/`mes` que ya usa `listar_historial.php`).
+
+**Implementado**: `getters/exportar_actas.php` — mismo query base que
+`listar_historial_acuerdos()` (mismo JOIN, mismo `GROUP BY a.id, l.id` para
+colapsar los ~1,116 duplicados de `pos_id` en el maestro sin perder líneas
+reales de la Acta) pero joineando `repositorio_acuerdo_lineas` **completo,
+sin filtrar por `tipo`** — las 4 tablas del Acta van en el mismo CSV.
+CSV (mismo criterio que Liquidación: sin Composer, sin librería pesada).
+
+**Corregido 2026-08-18 (mismo día, versión inicial tenía el alcance mal)**:
+la primera versión solo exportaba `meta_compra` (cuota/rebate) — el usuario
+lo objetó explícitamente: quiere la información COMPLETA que se recolecta en
+el Acta para dársela a JW, no un resumen ya interpretado de "la parte que
+resuelve el problema de retipeo". Corregido para traer las 4 tablas juntas.
+
+Una fila por (Acta × línea × mes), columnas: Documento, Estado, Canal,
+CEDI/Distribuidor, Cliente, **Tipo** (Meta de Compras/Cabecera/Ruma/Percha),
+Segmento, Categoría, Marca, Mes, Valor, Cantidad Percha, Precio Percha,
+Rebate %, Rebate $. Columnas que no aplican a un tipo quedan vacías (ej.
+Segmento/Categoría vacío en filas de Percha, Rebate vacío fuera de Meta de
+Compras) — normal en un export "ancho" con tipos distintos en una sola
+tabla, no es un error. **Ruma** (que en la Acta es un solo valor que se
+repite, `valor_mensual_unico`) se expande igual a una fila por mes,
+repitiendo el mismo valor, para que el CSV tenga siempre la misma forma
+(una fila por mes) sin casos especiales. Rebate $ calculado al vuelo
+(`valor * rebate_pct`, solo en filas Meta de Compras), nunca guardado —
+mismo criterio de "nunca totales calculados".
+
+**Limitaciones a propósito, para que no sorprendan después:**
+- **No incluye Sector** (BARRA/CREMA/LIQUIDO/POLVO DETERGENTE en el Excel
+  real) — porque **no se persiste** en `repositorio_acuerdo_lineas` (ver
+  "Registrar Acuerdo PDV — implementado" más arriba: Sector es solo UI,
+  nunca se manda al backend). Si JW necesita ese nivel de detalle en el
+  export, hay que agregar la columna a la tabla primero — no asumido, no
+  hecho todavía.
+- **Hereda el scoping por `creado_por` de Historial**: cada usuario exporta
+  solo SUS Actas, no las de todo el equipo — mismo pendiente ya documentado
+  ("Si `superdesarrollador` debería ver TODOS los acuerdos en Historial").
+  Si JW necesita un export consolidado de todos los ejecutivos junto, este
+  pendiente hay que resolverlo primero.
+- **Rebate % en 0.00 es real, no un bug** — la mayoría de Actas de prueba se
+  crearon antes de que el cliente mandara el catálogo de rebate por
+  producto (pendiente bloqueado, ver arriba), así que el campo se dejó en 0
+  al tipear. El export muestra fielmente lo que hay.
+
+**Probado**: sintaxis PHP limpia, `GET` real (solo lectura) contra
+producción con sesión logueada — devolvió un CSV real con una Acta y sus 4
+tipos de línea (Meta de Compras, Cabecera, Ruma, Percha), cada uno con el
+patrón de columnas correcto (Ruma repitiendo el mismo valor en los 3 meses,
+Percha con Segmento/Categoría vacío y Cantidad/Precio llenos).
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
@@ -488,8 +654,39 @@ valores correctos y la fila desaparece de "Pendientes" sin afectar las demás.
   **solo como desempate** cuando el nombre truncado matchea a más de un
   `pos_id` real (la ambigüedad genuina, ej. dos personas con el mismo
   prefijo de nombre).
-- **Resultado real probado con `datos/LIQUIDACION ACUERDOS COMERCIALES Q2
-  DIRECTA 2026.xlsx`: 100% de match automático** (62/62 clientes únicos).
+- **Resultado contra un MySQL local aislado con Actas de prueba armadas para
+  calzar: 100% de match automático** (62/62 clientes únicos) — ver el
+  resultado real contra producción abajo, que es muy distinto.
+- **Probado en producción real (2026-08-18)**: se subió este mismo archivo de
+  verdad (servidor local `php -S` apuntando a la base real, usuario
+  JAVIER MALDONADO, con autorización explícita del usuario — Claude no
+  ejecuta la escritura directamente, el clasificador de permisos la bloquea
+  incluso con autorización verbal, así que el usuario hizo la subida él mismo
+  desde el navegador). Resultado: **353 filas procesadas, 0% de match
+  automático** (100% a "Pendientes de Asignar"). No es un bug — las Actas que
+  existen hoy en producción (45 totales, 39 válidas) tienen `pos_id` en
+  formato viejo (`JW0764`, etc., ver "huérfanos por pos_id viejo" arriba) que
+  no calza con el maestro actual `EPV.../EPVD...`, y además son de
+  Enero-Marzo mientras este Excel de ejemplo es Abril-Junio — cero solape
+  posible. El paso 1 (Excel→pos_id) sí funciona perfecto contra datos reales
+  (confirmado con diagnóstico aparte). **Confirmado por el usuario**: es
+  esperado, recién están implementando el sistema — las Actas "reales"
+  todavía no existen para este período histórico, así que estas filas son
+  candidatas a marcarse `sin_acta` cuando haya un Excel real que sí
+  corresponda a Actas ya creadas en la plataforma.
+- **Resumen de Pagos también probado contra estos datos reales**: 71
+  clientes, Volumen $64,366.97 + Visibilidad $15,630.00 = Total $79,996.97,
+  los 71 marcados "Revisar" (correcto, nada había matcheado). El cálculo
+  funciona end-to-end contra la base real.
+- **Nota de rendimiento**: la subida real tardó ~66 segundos para 353 filas
+  (un `INSERT` por fila, ida y vuelta a Azure MySQL cada vez) — funciona pero
+  es notorio, sin barra de progreso en la UI. No es urgente, pero si el
+  volumen real de JW es mucho mayor a futuro, considerar batch insert.
+- **Los datos de esta prueba ya se borraron** (el usuario corrió el `DELETE`
+  de las 3 tablas por `importacion_id`, confirmado con `SELECT` en 0 — las 3
+  tablas de Liquidación están vacías otra vez). El pipeline completo
+  (parseo → matching → guardado → Resumen de Pagos) quedó validado
+  end-to-end contra producción real antes de borrar.
 - **Resultado real probado con `datos/LIQUIDACION DE ACUERDO COMERCIALES
   DISTRIBUIDORES Q2 2026.xlsx`: solo 19% matchea automático, 77% sin match.**
   No es un bug del matching — se confirmó caso por caso que la mayoría de
@@ -588,19 +785,39 @@ explícito del usuario ("como un sistema bancario"). Reusar `dinero_sumar()`
 para cualquier suma de plata nueva en este módulo, incluido el futuro
 Resumen de Pagos.
 
-**Índices faltantes en el maestro externo** — `repositorio_locales_supervisores_cliente`
-(~41,000 filas) no tenía NINGÚN índice más que `id` (confirmado con
-`EXPLAIN`: cualquier búsqueda por nombre era escaneo completo). Se agregaron
-`idx_pos_name`, `idx_supervisor`, `idx_tipo_distribuidor` al mismo
-`datos/liquidacion_schema.sql` — aditivo, no toca datos, pendiente que el
-usuario lo corra igual que las tablas nuevas.
+**Índices faltantes en el maestro externo — DESCARTADO (2026-08-18):**
+`repositorio_locales_supervisores_cliente` (~41,000 filas) no tiene NINGÚN
+índice más que `id` (confirmado con `EXPLAIN`: cualquier búsqueda por
+nombre es escaneo completo). Se había propuesto agregar `idx_pos_name`,
+`idx_supervisor`, `idx_tipo_distribuidor` a `datos/liquidacion_schema.sql` —
+**el usuario lo rechazó explícitamente: no se toca el esquema de tablas
+maestras externas que no son propias de este módulo, ni siquiera con un
+cambio aditivo/de bajo riesgo.** Se sacó del script. El matching de
+Liquidación sigue funcionando, solo que hace escaneo completo de esa tabla
+por cada cliente único a matchear — más lento, pero funcional. **No
+reproponer esto sin que el usuario lo pida.**
 
 **Próximo paso acordado con el usuario, en este orden:**
 1. ~~Rename en código~~ — **hecho (2026-08-17)**.
-2. ~~Diseño de tablas~~ — **hecho (2026-08-17)**, SQL listo en
-   `datos/liquidacion_schema.sql` (tablas + índices del maestro externo),
-   **todavía pendiente que el usuario lo corra en HeidiSQL** — nada de lo de
-   abajo funciona en producción hasta que exista el esquema.
+2. ~~Diseño de tablas~~ — **corrido en producción (2026-08-18), verificado
+   con `SHOW CREATE TABLE` (solo lectura)**: las 3 tablas existen, columnas y
+   ENUMs (incluido `sin_acta`) coinciden exacto con el código, 0 filas. El
+   `CREATE TABLE` original con `KEY ...` inline dio error 1064 en HeidiSQL —
+   se corrigió a mano quitando esas líneas, así que las tablas quedaron
+   **sin índices secundarios** (solo `PRIMARY KEY` de `id`). Se le pasaron al
+   usuario los `CREATE INDEX` sueltos para los 7 índices que faltan
+   (`idx_canal_periodo`, `idx_importacion`/`idx_acuerdo`/`idx_estado_match`
+   ×2) — confirmar si ya los corrió antes de asumir que existen.
+   `datos/liquidacion_schema.sql` ya quedó actualizado con el formato que
+   realmente funcionó (CREATE TABLE simple + CREATE INDEX aparte, sin
+   `COMMENT` de columna para evitar más problemas de sintaxis). Motivo del
+   índice descartado en `repositorio_locales_supervisores_cliente`: decisión
+   explícita del usuario, ver más abajo.
+   **Confirmado 2026-08-18 (re-verificado con `SHOW INDEX`, solo lectura):
+   los 7 índices secundarios ya están creados** (`idx_canal_periodo` en
+   importaciones; `idx_importacion`/`idx_acuerdo`/`idx_estado_match` en las
+   otras 2 tablas) — el esquema de Liquidación está 100% completo en
+   producción, listo para probar el importador con un Excel real.
 3. ~~Importador de Excel~~ — **hecho y probado de punta a punta (2026-08-17)**,
    contra un MySQL local aislado con el esquema exacto de
    `datos/liquidacion_schema.sql` (nunca contra producción, Claude no puede
@@ -629,7 +846,81 @@ usuario lo corra igual que las tablas nuevas.
      usuario ya lo había corrido antes de esta fecha, falta un
      `ALTER TABLE ... MODIFY estado_match ENUM(...)` para agregar el nuevo
      valor — confirmar con el usuario si ya corrió el script o todavía no.
-4. Pantalla Resumen de Pagos (web + export Excel) — pendiente.
+4. Pantalla Resumen de Pagos (web + export Excel) — **hecha (2026-08-18)**,
+   una vez que el esquema quedó confirmado en producción (ver arriba). Piezas:
+   - `liquidacion_calcular_resumen_pagos()` en `includes/liquidacion_import.php`
+     — junta `repositorio_liquidacion_cuota_categoria` (Volumen =
+     `SUM(rebate_dolares_excel)`) y `repositorio_liquidacion_visibilidad`
+     (Visibilidad = `SUM(pago_total_excel)`) agrupando por
+     `(cedi_o_distribuidor, cliente_o_nombre)` — misma clave que usa a mano
+     la hoja "RESUMEN DE PAGOS" del Excel real de JW. Total =
+     `dinero_sumar([volumen, visibilidad])` (BCMath, no `+` nativo, mismo
+     criterio que el resto del módulo). **No filtra por `estado_match`**: se
+     muestran todos los clientes de la importación, con un campo `estado`
+     (`ok`/`revisar`) según si algo de ese cliente quedó sin resolver en
+     cualquiera de las 2 tablas — nunca se ocultan filas solo porque el
+     match no esté completo. Trae también `documento_no` de la Acta
+     vinculada (si hay) para trazabilidad.
+   - `getters/liquidacion_resumen_pagos.php` (JSON, para la pantalla) y
+     `getters/liquidacion_resumen_pagos_export.php` (mismo cálculo, export
+     descargable) — ambos solo `superdesarrollador`, mismo patrón que el
+     resto de Liquidación.
+   - **Export es CSV (con BOM UTF-8), no un `.xlsx` real** — misma razón que
+     `xlsx_reader.php` es propio: sin Composer instalado en la máquina de
+     desarrollo, PhpSpreadsheet complicaría el deploy manual por FTP. Excel
+     abre un `.csv` con BOM UTF-8 directo, sin pasos extra para el usuario.
+   - UI: nueva vista `#ac-liquidacion-resumen` en `components/liquidacion/liquidacion.php`
+     (mismo patrón que "Pendientes de Asignar" — se muestra/oculta con
+     `.hidden`, no es una ruta aparte) + botón "Resumen de Pagos" agregado
+     junto al de "Resolver" en cada fila de la lista de importaciones
+     (`assets/js/liquidacion.js`, `abrirResumen()`/`renderResumen()`).
+     Badges nuevos `.ac-badge-ok`/`.ac-badge-revisar` en `style.css`.
+   - **Probado**: sintaxis PHP (`php -l`) y JS (`node --check`) limpios: la
+     función de agregación se corrió contra la base real (solo `SELECT`,
+     sin ningún INSERT/UPDATE) con una importación inexistente — sin
+     errores, devuelve array vacío como se espera. **Todavía no probado con
+     datos reales** (0 filas en las 3 tablas al momento de escribir esto) —
+     falta subir un Excel real para validar el cálculo con números
+     verdaderos antes de confiar en el total mostrado.
+   - **Corregido de paso**: el texto de la UI ("Subí el Excel trimestral...")
+     todavía decía "trimestral" a pesar de que esa asunción ya se había
+     corregido en el código — se sacó la palabra de los 2 lugares donde
+     quedaba (subtítulo de la pantalla y comentario del modal).
+   - **Mejora visual/funcional (2026-08-18)**, pedida explícitamente por el
+     usuario tras la primera versión (solo tabla): se usó la skill de
+     `dataviz` del proyecto para hacerlo bien, no a ojo.
+     - **Stat tiles** arriba de todo: Volumen, Visibilidad, Total general,
+       Clientes, Por revisar (se resaltar en ámbar si > 0).
+     - **2 filtros** (`liq-resumen-filtro-cedi`, `liq-resumen-filtro-estado`)
+       — un solo combo de CEDI/Distribuidor (la etiqueta cambia sola según
+       el canal de la importación, ya que es la misma columna
+       `cedi_o_distribuidor` con dos significados) + un combo de Estado
+       (Todos/OK/Revisar). 100% client-side sobre el array ya cargado
+       (`resumenDatos`), sin volver a pedir al servidor — filtran a la vez
+       el gráfico, los stat tiles y la tabla.
+     - **Gráfico de barras horizontales apiladas** (SVG a mano, sin librería
+       — mismo criterio que `xlsx_reader.php` de no sumar dependencias):
+       top 10 clientes por total, Volumen + Visibilidad como 2 segmentos.
+       Colores `#2a78d6`/`#eb6834` — par categórico tomado de
+       `references/palette.md` de la skill `dataviz` y validado con su
+       script (`validate_palette.js`, todos los checks PASS) antes de
+       usarlo, en vez de elegir colores a ojo. Tooltip nativo (`<title>` de
+       SVG) por segmento — se evaluó un tooltip HTML custom pero para 10
+       barras en una pantalla interna no se justificaba el esfuerzo extra;
+       el valor exacto siempre queda disponible en la tabla de abajo de
+       todas formas.
+     - **Probado**: sintaxis JS (`node --check`) y PHP (`php -l`) limpias,
+       y se hizo un `GET` real a `index.php` con sesión logueada
+       (`JAVIER MALDONADO`, con cookie ya autorizada por el usuario, acción
+       de solo lectura) contra el servidor local — renderiza sin
+       `Fatal error`/`Warning`/`Notice`, el HTML nuevo aparece completo.
+       **Falta verlo con datos reales cargados** (las tablas están vacías
+       otra vez tras el borrado) — pendiente de confirmar visualmente
+       cuando el usuario suba el próximo Excel real.
+     - **Nota**: el export a Excel (CSV) sigue exportando el dataset
+       COMPLETO de la importación, no respeta los filtros de pantalla — es
+       una simplificación a propósito (exportar "todo" es el caso más común
+       para un archivo que después se comparte), no un bug.
 
 ## Convenciones para código nuevo
 

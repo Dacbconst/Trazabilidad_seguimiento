@@ -7,6 +7,7 @@
 	var buscarInput     = document.getElementById('hist-buscar');
 	var mesSelect       = document.getElementById('hist-mes');
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
+	var exportarLink    = document.getElementById('hist-exportar');
 	var tbody           = document.getElementById('hist-tabla-body');
 	var paginacionEl    = document.getElementById('hist-paginacion');
 	var paginacionInfo  = document.getElementById('hist-paginacion-info');
@@ -24,6 +25,10 @@
 		var q   = buscarInput.value.trim();
 		var mes = mesSelect.value;
 		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes) + '&pg=' + (pagina || 1);
+
+		// El botón "Exportar cuota/rebate" siempre apunta a lo mismo que está
+		// filtrado en pantalla ahora mismo — mismos parámetros que la lista.
+		exportarLink.href = 'getters/exportar_actas.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes);
 
 		fetch(url)
 			.then(function (r) { return r.json(); })

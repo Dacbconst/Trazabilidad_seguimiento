@@ -174,20 +174,36 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			<span class="material-symbols-outlined">save</span> Guardar Borrador
 		</button>
 		<button type="button" class="ac-btn-primary ac-btn-inline" id="ac-generar-acta">
-			<span class="material-symbols-outlined">visibility</span> Ver y Generar Acta
+			<span class="material-symbols-outlined">visibility</span> Previsualización
 		</button>
 	</div>
 </div>
 
-<!-- Modal: Vista previa del Acta generada — el iframe muestra el PDF real
-     (mismo endpoint que "Descargar"), así el preview es EXACTO al PDF, no una
-     segunda maqueta HTML que hay que mantener sincronizada a mano. -->
+<!-- Modal: Previsualización del Acta. Al abrir NO se guarda nada en la base
+     (getters/previsualizar_acta_pdf.php arma el PDF al vuelo desde lo que hay
+     en pantalla) — recién "Generar PDF" guarda de verdad (estado='generado')
+     y habilita "Descargar PDF", que en ese momento pasa a apuntar al PDF real
+     persistido (getters/generar_acta_pdf.php). -->
 <div class="ac-modal-overlay ac-acta-modal-overlay" id="ac-acta-modal-overlay">
 	<div class="ac-modal ac-acta-modal">
 		<div class="ac-acta-modal-bar no-print">
-			<a class="ac-btn-primary ac-btn-inline" id="ac-acta-descargar-pdf" target="_blank">
-				<span class="material-symbols-outlined">download</span> Descargar / Imprimir PDF
-			</a>
+			<div class="ac-acta-zoom-controls">
+				<button type="button" class="ac-icon-btn" id="ac-acta-zoom-out" title="Alejar">
+					<span class="material-symbols-outlined">zoom_out</span>
+				</button>
+				<span class="ac-acta-zoom-label" id="ac-acta-zoom-label">100%</span>
+				<button type="button" class="ac-icon-btn" id="ac-acta-zoom-in" title="Acercar">
+					<span class="material-symbols-outlined">zoom_in</span>
+				</button>
+			</div>
+			<div class="ac-acta-modal-actions">
+				<button type="button" class="ac-btn-secondary ac-btn-inline" id="ac-acta-generar-pdf">
+					<span class="material-symbols-outlined">picture_as_pdf</span> Generar PDF
+				</button>
+				<a class="ac-btn-primary ac-btn-inline ac-btn-disabled" id="ac-acta-descargar-pdf" aria-disabled="true">
+					<span class="material-symbols-outlined">download</span> Descargar PDF
+				</a>
+			</div>
 			<button type="button" class="ac-modal-close" id="ac-acta-modal-close" aria-label="Cerrar">
 				<span class="material-symbols-outlined">close</span>
 			</button>

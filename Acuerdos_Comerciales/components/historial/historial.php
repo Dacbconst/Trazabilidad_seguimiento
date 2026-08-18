@@ -54,6 +54,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<span class="material-symbols-outlined">search</span>
 				Buscar
 			</button>
+			<a class="ac-btn-outline ac-btn-inline" id="hist-exportar" href="getters/exportar_actas.php" target="_blank">
+				<span class="material-symbols-outlined">download</span>
+				Exportar Actas
+			</a>
 		</div>
 	</section>
 

@@ -233,6 +233,15 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
+	// Nombre del Ejecutivo Comercial: quien generó el acuerdo (creado_por),
+	// no una línea en blanco para llenar a mano — la firma abajo sigue siendo
+	// física siempre, esto solo imprime el nombre. Si no se pudo determinar
+	// (acuerdo huérfano sin creado_por, ver CLAUDE.md) cae a la línea en
+	// blanco de siempre.
+	$nombreEjecutivoHtml = ($detalle['ejecutivo_comercial'] ?? '') !== ''
+		? 'Nombre: '.h($detalle['ejecutivo_comercial'])
+		: 'Nombre: ________________________________________';
+
 	// Dompdf toma el <title> del HTML fuente y lo usa como metadato /Title del
 	// PDF — el visor de PDF integrado del navegador (Chrome/Edge) prioriza ese
 	// título sobre el nombre de archivo para la pestaña, así que sin esto la
@@ -347,7 +356,7 @@ td, th { padding: '.px(4, $escala).' '.px(7.5, $escala).'; word-wrap: break-word
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+		<p style="margin:0; font-weight:bold;">'.$nombreEjecutivoHtml.'</p>
 		<p class="label" style="margin-top:'.px(8, $escala).';">Ejecutivo Comercial</p>
 	</td>
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
