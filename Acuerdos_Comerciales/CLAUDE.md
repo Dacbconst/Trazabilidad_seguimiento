@@ -317,26 +317,38 @@ mockup `code.html` por choque con las reglas de este documento:
 
 ## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
 
-El ítem de sidebar `auditoria` (`components/auditoria/auditoria.php`, hoy
-"Próximamente") **se renombra a "Liquidación"** — nunca fue un módulo de
-auditoría/log de acciones, el nombre era solo un lugar reservado. Todavía no
-se ha hecho el rename en código (carpeta/componente siguen llamándose
-`auditoria` por ahora), pendiente de implementar.
+El ítem de sidebar que antes era `auditoria` (hoy "Próximamente") **se
+renombró a "Liquidación"** — nunca fue un módulo de auditoría/log de
+acciones, el nombre era solo un lugar reservado. Rename en código ya hecho
+(2026-08-17): carpeta/archivo `components/liquidacion/liquidacion.php`,
+`includes/secciones.php` con `id => 'liquidacion'`, ícono `payments`, y
+`roles => ['superdesarrollador']` (ya no lo ve `desarrollador`). Sigue siendo
+un placeholder de "Próximamente" — falta todo lo demás (pasos 2-4 abajo).
 
-Qué hace este módulo — proceso de liquidación trimestral (pasos 3-5 del
-correo original, ver `datos/propuesta_digital_acuerdos_comerciales.md`):
-compara lo pactado en una Acta contra la venta/visibilidad real del
-trimestre, calcula el rebate realmente ganado y arma el "Resumen de Pagos"
-que hoy JW arma a mano cruzando Excels.
+Qué hace este módulo — proceso de liquidación periódico (pasos 3-5 del
+correo original, ver `datos/propuesta_digital_acuerdos_comerciales.md`;
+frecuencia real no confirmada, ver "Decisiones confirmadas" abajo): compara
+lo pactado en una Acta contra la venta/visibilidad real del período, calcula
+el rebate realmente ganado y arma el "Resumen de Pagos" que hoy JW arma a
+mano cruzando Excels.
 
 **Decisiones confirmadas por el cliente/usuario:**
-- **Ingesta: el cliente sube un Excel cada trimestre** (mismo formato que los
-  dos ejemplos en `datos/LIQUIDACION...xlsx`, uno para Directa y otro para
-  Distribuidores — **son dos formatos de hoja distintos**, el importador
-  tiene que soportar ambos). No hay conexión en vivo al cubo BI.
+- **Ingesta: el cliente sube un Excel cada cierto período — la frecuencia NO
+  está confirmada** (corregido 2026-08-18: esto decía "cada trimestre" antes,
+  pero ni el usuario ni el correo original —`datos/propuesta_digital_acuerdos_comerciales.md`,
+  releído a fondo, no contiene la palabra "trimestral" ni "mensual" en
+  ningún lado— confirman esa frecuencia. Los dos ejemplos en
+  `datos/LIQUIDACION...xlsx` dicen "Q2" en el nombre, pero eso puede ser solo
+  el ejemplo puntual que mandaron, no una regla fija. **El sistema no asume
+  ninguna frecuencia**: el importador lee directamente de las columnas del
+  Excel qué meses cubre esa subida en particular, ver más abajo). Mismo
+  formato de hoja para Directa y Distribuidores en cuanto a QUÉ se sube,
+  aunque **son dos formatos de columnas distintos**, el importador tiene que
+  soportar ambos. No hay conexión en vivo al cubo BI.
 - **Relación con la Acta: por Acta, no genérica por cliente.** El Excel no
   trae `documento_no`, viene agrupado por CEDI/CLIENTE con columnas
-  mensuales (ABRIL/MAYO/JUNIO) que calzan con `valores_mensuales` de
+  mensuales (el nombre exacto de mes varía según qué período se suba, ver
+  detección dinámica más abajo) que calzan con `valores_mensuales` de
   `repositorio_acuerdo_lineas`. El cruce se hace por `pos_id` + que el
   período de la Acta (`mes_inicio`/`mes_fin`) se solape con los meses que
   trae el Excel subido.
@@ -352,28 +364,272 @@ que hoy JW arma a mano cruzando Excels.
   subiendo/reprocesando la misma liquidación. El rol `desarrollador`
   (analistas) sigue viendo únicamente **Registrar Acuerdo PDV** e
   **Historial de Acuerdos** — no ve Liquidación.
-- Diseño de tablas (`cuotas_ventas_pos_producto`, `visibilidad_pos_mensual`,
-  `liquidaciones`, `staging_filas` fueron nombres tentativos de una propuesta
-  anterior, no confirmados) sigue **sin definir** — retomar con el mismo
-  nivel de detalle que se usó para `repositorio_acuerdo_lineas` antes de
-  escribir el SQL.
+- **Dos "rebate" distintos, no confundir**: `repositorio_acuerdo_lineas.rebate_pct`
+  (meta_compra) es el que se tipea a mano al armar la Acta — hoy es un
+  placeholder manual porque `repositorio_productos` todavía no tiene el
+  catálogo real de rebate (ver pendiente arriba). El rebate que de verdad
+  define el pago es el que trae el Excel que sube JW (frecuencia no
+  confirmada, ver arriba) (columna
+  `REBATE A APLICAR %`/`REBATE $` en Directa, `REBATE`/`REBATE $` en
+  Distribuidor) — ese lo calcula Trade MKT con el cubo BI, después de la
+  venta real. En teoría ambos deberían coincidir (el % pactado en la Acta es
+  el mismo que Trade MKT aprobó antes de redactarla, según el correo
+  original), pero como hoy el de la Acta es tipeado a mano, pueden
+  desincronizarse. **Decisión pendiente del usuario** (contestó "ni idea",
+  no bloqueante): si Liquidación debe avisar cuando no coinciden, o
+  simplemente mostrar lo que dice el Excel de JW sin comparar. Se puede
+  agregar después sin tocar el esquema (se calcularía al vuelo con un JOIN a
+  `repositorio_acuerdo_lineas`, nunca se guardaría duplicado).
+
+### Conversación 2026-08-18 — de dónde sale la data que JW mete en su Excel (EN CURSO, sin código todavía)
+
+Charla larga con el usuario, sin escribir código, tratando de entender bien
+el flujo completo antes de construir el "Resumen de Pagos". Queda pendiente
+seguir esta conversación en otra sesión — anotado acá para no perder el hilo.
+
+**Releído el correo completo (`datos/propuesta_digital_acuerdos_comerciales.md`)
+con el usuario, línea por línea — la propuesta real de Xplora tiene 2 partes:**
+1. Digitalización del formato AC (80%) — plantilla pre-llenada, editable
+   fecha/valores/PDV/mes/firma. **Hecho**, es la app actual.
+2. "Integración de la información en un solo archivo" — se mantiene el mismo
+   Excel que ya usa JW, con una hoja adicional (para nosotros, no para JW)
+   llamada **"Resumen de Pagos"** que "obtendrá automáticamente la
+   información proporcionada por la analista de Lucky, eliminando la
+   necesidad de utilizar buscadores o compartir el archivo". La parte de
+   "obtener automáticamente" (importar + matchear el Excel de JW) **ya está
+   hecha** (ver arriba). **La pantalla Resumen de Pagos en sí todavía NO
+   existe — es lo único grande que falta del alcance del correo.**
+   El paso 5 del proceso ("envío de preliminar al área comercial para
+   verificación") tampoco está hecho — es un paso de revisión/aprobación
+   dentro de la web, distinto del Resumen de Pagos. WhatsApp (mencionado en
+   el correo) sigue siendo fase futura separada, confirmado, no es parte de
+   este alcance.
+
+**Hallazgo importante, revisando `getters/guardar_acuerdo.php` a fondo**:
+tanto el `rebate_pct` como la `cuota` (`valores_mensuales`) de la línea
+`meta_compra` del Acta se tipean a mano en el formulario — no hay ningún
+cálculo ni catálogo detrás, es un POST directo normalizado. Esto confirma
+que **quien llena el Acta recibe esos valores de Trade MKT por fuera del
+sistema** (email, verbal, lo que sea) antes de tipearlos.
+
+**Punto que el usuario corrigió, y tenía razón**: mi primer razonamiento fue
+"como Trade MKT ya tiene el dato antes del Acta, JW no necesita que nosotros
+les demos nada de vuelta". El usuario lo objetó bien: eso significa tipear
+el mismo dato DOS VECES (una en el Acta, otra en su Excel) — exactamente lo
+que el proyecto dice que quiere reducir ("reduciendo errores operativos",
+primer correo), y además crea riesgo real de que el rebate de la Acta y el
+del Excel se desincronicen sin que nadie lo note (ya documentado como
+"decisión pendiente" arriba, en "Dos rebate distintos").
+
+**Conclusión corregida (confirmada con el usuario, pendiente de construir)**:
+una vez que un dato se tipeó en el Acta, ESE pasa a ser el dato oficial —
+JW debería poder sacarlo de nuestro sistema (cliente, categoría, cuota,
+rebate % pactado, filtrado por canal/período), no volver a reconstruirlo de
+cero en Excel. Falta definir cómo exactamente (¿botón de exportar en
+Historial? ¿parte del mismo Resumen de Pagos?) — **eso es lo que sigue
+pendiente de conversar en la próxima sesión**, junto con:
+- La frecuencia de subida del Excel de Liquidación (sigue sin confirmar con JW).
+- Si Liquidación debe avisar cuando el rebate de la Acta no coincide con el
+  del Excel de JW (decisión pendiente ya documentada arriba).
+- Cómo se construye exactamente la pantalla/export de Resumen de Pagos.
+
+### Diseño de tablas — confirmado 2026-08-17, SQL en `datos/liquidacion_schema.sql`
+
+**Todavía no corrido en la base real** — Claude no puede ejecutar
+`CREATE TABLE` (regla de solo lectura al tope de este archivo, sin
+excepciones ni "por esta vez"), el usuario lo tiene que correr él mismo en
+HeidiSQL cuando tenga acceso. El script ya se probó sin errores en un MySQL
+local aislado.
+
+Tres tablas, mismo criterio de "nunca guardar totales/comparaciones
+calculadas" que `repositorio_acuerdo_lineas`:
+- `repositorio_liquidacion_importaciones` — un registro por Excel subido (lote).
+- `repositorio_liquidacion_cuota_categoria` — una fila por cliente+categoría
+  de la hoja de cuota/venta/rebate, datos crudos tal cual vienen del Excel,
+  con `acuerdo_id` (NULL hasta resolver el match) y `estado_match`
+  (pendiente/matcheado/sin_match/sin_acta).
+- `repositorio_liquidacion_visibilidad` — mismo patrón para la hoja de
+  visibilidad (Cabecera/Isla/Percha).
+
+**Agregado 2026-08-17 — estado `sin_acta` (datos históricos sin Acta digital):**
+JW quiere subir su historial viejo de liquidaciones (de antes de que existiera
+esta plataforma) — esas filas **nunca van a tener un Acta que matchear**,
+porque el Acta correspondiente simplemente nunca se creó acá. Esto es
+distinto de `pendiente`/`sin_match` (que sí esperan resolución, solo que
+todavía no se encontró el `pos_id`/`acuerdo_id` correcto): `sin_acta` es un
+estado **final**, marcado a mano por el superdesarrollador con el botón "No
+tiene Acta (dato histórico)" en la pantalla de Pendientes de Asignar
+(`assets/js/liquidacion.js`, `resolverFila(..., 'sin_acta')` →
+`getters/liquidacion_resolver_match.php?accion=sin_acta`). Al marcarla:
+`acuerdo_id` queda NULL, `estado_match='sin_acta'`, se registra
+`matcheado_por`/`matcheado_en` igual que un match normal (para saber quién lo
+confirmó y cuándo), y `filas_pendientes` de la importación baja igual.
+`getters/liquidacion_pendientes.php` excluye `sin_acta` del listado/cola
+(`estado_match NOT IN ('matcheado', 'sin_acta')`) — una vez marcada, no
+vuelve a aparecer. Probado de punta a punta contra un MySQL local aislado
+(no contra producción, ver regla de solo lectura arriba): el UPDATE deja los
+valores correctos y la fila desaparece de "Pendientes" sin afectar las demás.
+
+**Estrategia de matching (Excel → `pos_id` → `acuerdo_id`) — implementada en
+`includes/liquidacion_import.php`, probada contra los dos Excel reales de
+`datos/` (solo lectura, sin tocar nada):**
+
+- El Excel NUNCA trae `pos_id` — solo nombre (truncado por ancho de columna)
+  + CEDI (Directa) o DISTRIBUIDOR+CODIGO+RUC (Distribuidor). **`repositorio_locales_supervisores_cliente`
+  no tiene columna `ruc` ni `codigo`** — el CODIGO/RUC del Excel de
+  Distribuidores no se puede cruzar contra nada hoy, queda como dato
+  informativo nomás.
+- **El match primario es por `pos_name` (LIKE prefijo, por el truncado),
+  NO por CEDI/supervisor.** Se probó primero filtrando por CEDI=supervisor
+  exacto y el resultado fue malo (~50% sin match) — la causa real: el
+  supervisor de un cliente cambia con el tiempo (reasignación de
+  territorio) y el Excel refleja el supervisor de cuando se hizo, no el
+  actual. El `pos_name` es mucho más estable. CEDI/DISTRIBUIDOR se usa
+  **solo como desempate** cuando el nombre truncado matchea a más de un
+  `pos_id` real (la ambigüedad genuina, ej. dos personas con el mismo
+  prefijo de nombre).
+- **Resultado real probado con `datos/LIQUIDACION ACUERDOS COMERCIALES Q2
+  DIRECTA 2026.xlsx`: 100% de match automático** (62/62 clientes únicos).
+- **Resultado real probado con `datos/LIQUIDACION DE ACUERDO COMERCIALES
+  DISTRIBUIDORES Q2 2026.xlsx`: solo 19% matchea automático, 77% sin match.**
+  No es un bug del matching — se confirmó caso por caso que la mayoría de
+  esos clientes (sub-clientes del distribuidor, ej. "ZAVAMEGACORP CIA LTDA",
+  "WILLIAN ALBERTO JARAMILLO HERRERA") **no existen en absoluto** en
+  `repositorio_locales_supervisores_cliente`, ni con nombre parcial. Lectura:
+  el maestro de Alicorp está bien poblado para clientes de canal
+  Directo/Cobertura (los visita un mercarista), pero mucho menos para los
+  sub-clientes propios de cada distribuidor. **Pendiente de decidir con el
+  usuario**: cómo resolver el volumen alto de "pendientes de asignar" que
+  esto genera para Distribuidores — opciones no evaluadas todavía: pedirle a
+  JW/al distribuidor un maestro más completo, permitir crear el `pos_id` al
+  vuelo desde la pantalla de resolución, u otra cosa.
+- Función clave: `liquidacion_matchear_fila()` en `includes/liquidacion_import.php`
+  combina los dos pasos (candidatos de `pos_id`, luego candidatos de
+  `acuerdo_id` por solape de mes_inicio/mes_fin) y devuelve `estado_match`.
+
+**Lector de Excel propio, sin librería externa** — `includes/xlsx_reader.php`.
+Se descartó PhpSpreadsheet (Composer no está instalado en la máquina de
+desarrollo, y es una dependencia pesada que complicaría el deploy manual por
+FTP, mismo problema ya documentado con la carpeta de fuentes de Dompdf). Un
+`.xlsx` es un ZIP con XML adentro — el lector usa `ZipArchive` (extensión
+`zip` de PHP, **hay que confirmar que esté habilitada en el hosting de
+producción**, no se pudo verificar desde acá) + `SimpleXML` (siempre viene
+con PHP). `xlsx_encontrar_encabezado()` ubica la fila de encabezados
+buscando las columnas requeridas por nombre (no por posición fija, porque el
+archivo es mantenido a mano y puede correrse de columna entre subidas).
+**Ojo con nombres de columna repetidos**: las hojas de cuota tienen el mismo
+bloque de meses DOS VECES (cuota pactada y venta real, distinguidas solo por
+una fila de rótulo de grupo arriba) — `xlsx_col($mapa, 'ABRIL', 0)` = cuota,
+`xlsx_col($mapa, 'ABRIL', 1)` = venta real, confirmado con datos reales.
+
+**Corregido 2026-08-17 — dos bugs reales encontrados generando plantillas de
+prueba (`datos/PLANTILLA_LIQUIDACION_DIRECTA.xlsx` / `_DISTRIBUIDOR.xlsx`,
+hechas con openpyxl para documentar el formato esperado, ver más abajo):**
+- `xlsx_mapa_hojas()` armaba mal la ruta interna cuando el `.rels` del Excel
+  usa un `Target` **absoluto al paquete** (`/xl/worksheets/sheet2.xml`, lo que
+  escribe openpyxl y algunas exportaciones de Google Sheets/LibreOffice) en
+  vez de relativo (`worksheets/sheet2.xml`, lo que escribe Excel de
+  escritorio) — quedaba buscando `xl/xl/worksheets/...` (duplicado), la hoja
+  "no se encontraba" aunque el nombre estuviera perfecto. Ambos formatos son
+  válidos según el spec de OOXML. Corregido: normaliza el Target antes de
+  concatenar.
+- `xlsx_leer_hoja()` revisaba si la celda tenía `<v>` **antes** de mirar si
+  era de tipo `inlineStr` — pero las celdas `inlineStr` nunca tienen `<v>`
+  (el texto vive en `<is><t>`), así que esa rama quedaba inalcanzable y
+  **cualquier celda de texto en ese formato volvía `null` en silencio** (no
+  error, dato faltante sin avisar). Excel de escritorio casi siempre usa
+  `sharedStrings` (por eso nunca se vio en los 2 Excel reales de `datos/`),
+  pero es una forma válida y común (openpyxl la usa por default). Corregido:
+  se revisa `inlineStr` primero, independiente de si hay `<v>`.
+
+Los dos bugs solo se manifiestan con archivos que NO vienen de Excel de
+escritorio clásico — no afectaban a los 2 Excel reales de JW (se re-probaron
+después del fix, mismos 310/516 filas de cuota y 43/53 de visibilidad que
+antes, sin cambios). Pero si JW (o Lucky, la analista) llega a editar el
+archivo con Google Sheets, LibreOffice, o cualquier otra herramienta, antes
+esto rompía con un error confuso ("no se encontró la hoja") — ahora tolera
+ambos formatos.
+
+**Plantillas de referencia — `datos/PLANTILLA_LIQUIDACION_DIRECTA.xlsx` /
+`datos/PLANTILLA_LIQUIDACION_DISTRIBUIDOR.xlsx` (2026-08-17):** generadas
+para mostrarle a JW (o dejar de referencia interna) el formato exacto que
+espera el importador — nombre de hoja exacto, columnas obligatorias mínimas,
+y una hoja "LEEME" explicando las reglas (canal se elige al subir, no se
+detecta solo; los meses se detectan por nombre y pueden ser cualquier
+cantidad consecutiva, no solo 3; el bloque de meses/CABECERA-ISLA-PERCHA
+debe repetirse 2 veces en el mismo orden). Contienen datos de cliente
+inventados (`CLIENTE EJEMPLO ...`), no reales. **Probadas de punta a punta
+contra el parser real** (`liquidacion_parsear_cuota_categoria()`/
+`liquidacion_parsear_visibilidad()`) — así se encontraron los 2 bugs de
+arriba.
+
+**Corregido 2026-08-18 — el período NUNCA se asume, se detecta del archivo.**
+La primera versión de esto tenía "ABRIL"/"MAYO"/"JUNIO" escritos a mano en el
+código (porque solo se probó con los ejemplos Q2) — un bug real: un Excel de
+otro período ni siquiera hubiera reconocido el encabezado. Se corrigió antes
+de que el usuario corriera el SQL (momento ideal, sin necesidad de migración):
+`xlsx_detectar_columnas_mes()` en `includes/xlsx_reader.php` escanea la fila
+de encabezados buscando cualquiera de los 12 nombres de mes, en el orden que
+aparecen; `liquidacion_parsear_cuota_categoria()` parte esa lista a la mitad
+(primera mitad = cuota, segunda = venta, mismo orden de meses en ambas,
+verificado) y calcula `mes_inicio`/`mes_fin` (0-11) de ahí — nunca de un
+selector que elige quien sube el archivo (el formulario de subida ya NO tiene
+selector de trimestre, ver `repositorio_liquidacion_importaciones.mes_inicio`/
+`mes_fin` en el schema). `cuota_total_excel`/`venta_total_excel` también se
+calculan sumando esas columnas detectadas (con `dinero_sumar()`), no leyendo
+una columna "TOTAL Q2"/"CUOTA Q2" fija — ese nombre también es específico de
+trimestre. Motivo del cambio: el usuario aclaró que no hay ninguna frecuencia
+de subida confirmada con el cliente (ver "Decisiones confirmadas" arriba).
+
+**Dinero: BCMath, no floats nativos** (`includes/dinero.php`, `dinero_sumar()`)
+— toda suma de montos en Liquidación (venta trimestral, pago total de
+visibilidad) usa aritmética decimal exacta, no `+`/`array_sum` de PHP. Pedido
+explícito del usuario ("como un sistema bancario"). Reusar `dinero_sumar()`
+para cualquier suma de plata nueva en este módulo, incluido el futuro
+Resumen de Pagos.
+
+**Índices faltantes en el maestro externo** — `repositorio_locales_supervisores_cliente`
+(~41,000 filas) no tenía NINGÚN índice más que `id` (confirmado con
+`EXPLAIN`: cualquier búsqueda por nombre era escaneo completo). Se agregaron
+`idx_pos_name`, `idx_supervisor`, `idx_tipo_distribuidor` al mismo
+`datos/liquidacion_schema.sql` — aditivo, no toca datos, pendiente que el
+usuario lo corra igual que las tablas nuevas.
 
 **Próximo paso acordado con el usuario, en este orden:**
-1. Rename en código (nada de esto está hecho todavía):
-   - Carpeta `components/auditoria/` → `components/liquidacion/`, y su
-     archivo `auditoria.php` → `liquidacion.php`.
-   - `includes/secciones.php`: el registro `id => 'auditoria'` pasa a
-     `id => 'liquidacion'`, `label => 'Liquidación'`, `componente` apuntando
-     a la carpeta nueva, y `roles` cambia de
-     `['desarrollador', 'superdesarrollador']` a `['superdesarrollador']`.
-   - Revisar si hay referencias sueltas a `auditoria`/`ac-auditoria-*` en JS
-     o CSS (mismo patrón de clases compartidas que ya causó un bug con
-     `.ac-acuerdo-canvas-*` entre Registrar/Historial — revisar antes de
-     dar por hecho el rename).
-2. Diseño de tablas de Liquidación (con el usuario, antes de escribir SQL).
-3. Importador de Excel (Directa y Distribuidor son dos formatos de hoja
-   distintos, ver arriba).
-4. Pantalla Resumen de Pagos (web + export Excel).
+1. ~~Rename en código~~ — **hecho (2026-08-17)**.
+2. ~~Diseño de tablas~~ — **hecho (2026-08-17)**, SQL listo en
+   `datos/liquidacion_schema.sql` (tablas + índices del maestro externo),
+   **todavía pendiente que el usuario lo corra en HeidiSQL** — nada de lo de
+   abajo funciona en producción hasta que exista el esquema.
+3. ~~Importador de Excel~~ — **hecho y probado de punta a punta (2026-08-17)**,
+   contra un MySQL local aislado con el esquema exacto de
+   `datos/liquidacion_schema.sql` (nunca contra producción, Claude no puede
+   correr `CREATE TABLE`/`INSERT` ahí). Piezas construidas:
+   - `includes/xlsx_reader.php` — lector de XLSX propio (sin PhpSpreadsheet,
+     complicaría el deploy manual por FTP) vía `ZipArchive`+`SimpleXML`.
+   - `includes/liquidacion_import.php` — parseo de las 4 hojas (2 por canal)
+     + matching (`liquidacion_matchear_fila()`).
+   - `getters/importar_liquidacion.php` — sube y procesa el Excel, inserta en
+     las 3 tablas.
+   - `getters/listar_liquidacion_importaciones.php`,
+     `getters/liquidacion_pendientes.php`, `getters/liquidacion_buscar_pos.php`,
+     `getters/liquidacion_resolver_match.php` — listado, cola de pendientes
+     (con candidatos sugeridos + búsqueda libre), y resolución manual.
+   - `components/liquidacion/liquidacion.php` + `assets/js/liquidacion.js` —
+     pantalla real (ya NO es el placeholder "Próximamente"): tabla de
+     importaciones, modal de subida, vista de "Pendientes de Asignar" con
+     botones de candidato + búsqueda. Probada visualmente end-to-end
+     (screenshots) incluyendo el flujo completo de resolver una fila a mano.
+   - **Nota**: como las tablas reales no existen todavía, esto no se puede
+     probar contra producción — apenas el usuario corra el SQL, probar ahí
+     con un Excel real antes de darlo por confirmado.
+   - **Actualizado 2026-08-17**: agregado el estado `sin_acta` para datos
+     históricos sin Acta (ver arriba) — el `datos/liquidacion_schema.sql`
+     cambió de nuevo (ENUM de `estado_match` en las 2 tablas), así que si el
+     usuario ya lo había corrido antes de esta fecha, falta un
+     `ALTER TABLE ... MODIFY estado_match ENUM(...)` para agregar el nuevo
+     valor — confirmar con el usuario si ya corrió el script o todavía no.
+4. Pantalla Resumen de Pagos (web + export Excel) — pendiente.
 
 ## Convenciones para código nuevo
 
