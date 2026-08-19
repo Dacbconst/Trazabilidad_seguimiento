@@ -7,7 +7,7 @@
 	var buscarInput     = document.getElementById('hist-buscar');
 	var mesSelect       = document.getElementById('hist-mes');
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
-	var exportarLink    = document.getElementById('hist-exportar');
+	var exportarCuotaLink = document.getElementById('hist-exportar-cuota');
 	var tbody           = document.getElementById('hist-tabla-body');
 	var paginacionEl    = document.getElementById('hist-paginacion');
 	var paginacionInfo  = document.getElementById('hist-paginacion-info');
@@ -20,15 +20,61 @@
 		return div.innerHTML;
 	}
 
+	// Confirmación (SweetAlert2, acción destructiva) + guardado real vía
+	// eliminar_acuerdo.php (nunca DELETE físico, marca estado='anulado') —
+	// compartido entre el listado de Historial y el modal "Mis Borradores".
+	// La única diferencia entre los dos usos es qué pasa con la fila después
+	// de borrar (recargar toda la lista vs. sacar solo esa fila con
+	// animación), por eso queda a cargo de onOk.
+	function confirmarYEliminarAcuerdo(id, documentoNo, onOk) {
+		Swal.fire({
+			icon: 'warning',
+			title: '¿Eliminar acuerdo?',
+			text: 'Se eliminará el acuerdo #' + documentoNo + '. Esta acción no se puede deshacer desde aquí.',
+			showCancelButton: true,
+			confirmButtonText: 'Sí, eliminar',
+			cancelButtonText: 'Cancelar',
+			confirmButtonColor: '#ba1a1a'
+		}).then(function (resultado) {
+			if (!resultado.isConfirmed) return;
+
+			fetch('getters/eliminar_acuerdo.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ id: id })
+			})
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					mostrarToast(data.message, data.ok ? 'success' : 'error');
+					if (data.ok && onOk) onOk();
+				})
+				.catch(function () { mostrarToast('Error de conexión. Intenta nuevamente.', 'error'); });
+		});
+	}
+
+	// Saca una fila de una tabla con una animación corta (fade + slide) en vez
+	// de desaparecer de golpe, y deja el placeholder de "vacío" si era la
+	// última fila que quedaba — mismo patrón para Mis Borradores.
+	function animarYQuitarFila(fila, colspanVacio, mensajeVacio) {
+		fila.classList.add('ac-fila-eliminando');
+		fila.addEventListener('transitionend', function () {
+			var tbodyDeLaFila = fila.parentElement;
+			fila.remove();
+			if (tbodyDeLaFila && !tbodyDeLaFila.querySelector('tr')) {
+				tbodyDeLaFila.innerHTML = '<tr><td colspan="' + colspanVacio + '" class="ac-table-empty">' + mensajeVacio + '</td></tr>';
+			}
+		}, { once: true });
+	}
+
 	// ---------- Listado: búsqueda + filtro de mes + paginación ----------
 	function cargarHistorial(pagina) {
 		var q   = buscarInput.value.trim();
 		var mes = mesSelect.value;
 		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes) + '&pg=' + (pagina || 1);
 
-		// El botón "Exportar cuota/rebate" siempre apunta a lo mismo que está
-		// filtrado en pantalla ahora mismo — mismos parámetros que la lista.
-		exportarLink.href = 'getters/exportar_actas.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes);
+		// El botón de export siempre apunta a lo mismo que está filtrado en
+		// pantalla ahora mismo — mismos parámetros que la lista.
+		exportarCuotaLink.href = 'getters/exportar_cuota_categoria.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes);
 
 		fetch(url)
 			.then(function (r) { return r.json(); })
@@ -111,7 +157,14 @@
 						'<td>' + escapeHtml(b.distribuidor) + '</td>' +
 						'<td>' + escapeHtml(b.periodo) + ' ' + b.anio + '</td>' +
 						'<td class="ac-tabular">' + fecha + '</td>' +
-						'<td class="ac-text-right"><button type="button" class="ac-btn-continuar" data-id="' + b.id + '">Continuar editando</button></td>' +
+						'<td class="ac-text-right">' +
+							'<div class="ac-row-actions">' +
+								'<button type="button" class="ac-btn-continuar" data-id="' + b.id + '">Continuar editando</button>' +
+								'<button type="button" class="ac-icon-btn ac-icon-btn-danger ac-btn-eliminar-borrador" data-id="' + b.id + '" data-doc="' + escapeHtml(b.documento_no) + '" title="Eliminar borrador">' +
+									'<span class="material-symbols-outlined">delete</span>' +
+								'</button>' +
+							'</div>' +
+						'</td>' +
 						'</tr>';
 				}).join('');
 				Array.prototype.forEach.call(borraBody.querySelectorAll('.ac-btn-continuar'), function (btn) {
@@ -120,6 +173,14 @@
 						cerrarModalBorradores();
 						irARegistrar();
 						if (window.acRegistrarCargarBorrador) window.acRegistrarCargarBorrador(id);
+					});
+				});
+				Array.prototype.forEach.call(borraBody.querySelectorAll('.ac-btn-eliminar-borrador'), function (btn) {
+					btn.addEventListener('click', function () {
+						var fila = btn.closest('tr');
+						confirmarYEliminarAcuerdo(btn.dataset.id, btn.dataset.doc, function () {
+							animarYQuitarFila(fila, 5, 'No tenés borradores guardados.');
+						});
 					});
 				});
 			})
@@ -152,33 +213,9 @@
 		window.scrollTo(0, 0);
 	}
 
-	// "Eliminar" nunca borra la fila físicamente (ver eliminar_acuerdo.php,
-	// marca estado='anulado'). La CONFIRMACIÓN (acción destructiva) usa el
-	// modal de SweetAlert2 — el resultado (informativo) se sigue avisando con
-	// el toast de siempre, no con otro SweetAlert.
 	function eliminarAcuerdo(id, documentoNo) {
-		Swal.fire({
-			icon: 'warning',
-			title: '¿Eliminar acuerdo?',
-			text: 'Se eliminará el acuerdo #' + documentoNo + '. Esta acción no se puede deshacer desde aquí.',
-			showCancelButton: true,
-			confirmButtonText: 'Sí, eliminar',
-			cancelButtonText: 'Cancelar',
-			confirmButtonColor: '#ba1a1a'
-		}).then(function (resultado) {
-			if (!resultado.isConfirmed) return;
-
-			fetch('getters/eliminar_acuerdo.php', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ id: id })
-			})
-				.then(function (r) { return r.json(); })
-				.then(function (data) {
-					mostrarToast(data.message, data.ok ? 'success' : 'error');
-					if (data.ok) cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
-				})
-				.catch(function () { mostrarToast('Error de conexión. Intenta nuevamente.', 'error'); });
+		confirmarYEliminarAcuerdo(id, documentoNo, function () {
+			cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
 		});
 	}
 

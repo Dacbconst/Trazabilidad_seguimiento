@@ -183,9 +183,16 @@ try {
 			$fechaGeneracion = date('Y-m-d');
 		}
 
+		// updated_at = NOW() explícito: el ON UPDATE CURRENT_TIMESTAMP de la
+		// columna solo se dispara si ALGUNA otra columna de esta fila cambia de
+		// valor — pero editar un borrador normalmente solo toca las 4 tablas
+		// (repositorio_acuerdo_lineas, aparte), así que la cabecera se vuelve a
+		// guardar con los mismos valores de siempre y MySQL nunca actualizaba
+		// la fecha. "Actualizado" en Mis Borradores debe reflejar el último
+		// guardado real, edite lo que edite.
 		$stmt = $mysqli->prepare(
 			'UPDATE repositorio_acuerdos
-			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?
+			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, updated_at = NOW()
 			 WHERE id = ?'
 		);
 		$stmt->bind_param('siiissi', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $acuerdoId);

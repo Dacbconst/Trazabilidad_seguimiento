@@ -54,9 +54,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<span class="material-symbols-outlined">search</span>
 				Buscar
 			</button>
-			<a class="ac-btn-outline ac-btn-inline" id="hist-exportar" href="getters/exportar_actas.php" target="_blank">
+			<a class="ac-btn-outline ac-btn-inline" id="hist-exportar-cuota" href="getters/exportar_cuota_categoria.php" target="_blank">
 				<span class="material-symbols-outlined">download</span>
-				Exportar Actas
+				Descargar Excel
 			</a>
 		</div>
 	</section>
@@ -123,12 +123,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			</button>
 		</div>
 		<div class="ac-borradores-modal-body">
+			<div class="ac-table-scroll">
 			<table class="ac-table">
 				<thead>
 					<tr><th>Documento</th><th>Distribuidor</th><th>Periodo</th><th>Actualizado</th><th></th></tr>
 				</thead>
 				<tbody id="hist-borradores-body"></tbody>
 			</table>
+			</div>
 		</div>
 	</div>
 </div>

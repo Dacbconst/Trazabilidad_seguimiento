@@ -52,20 +52,15 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 				<div class="ac-input ac-input-readonly" id="ac-localidad">—</div>
 			</div>
 			<div class="ac-field">
-				<label class="ac-field-label">Periodo del Acuerdo</label>
-				<div class="ac-month-picker" id="ac-month-picker">
-					<button type="button" class="ac-select ac-month-picker-trigger" id="ac-month-picker-trigger">
-						<span id="ac-selected-range-text">Seleccionar período</span>
-						<span class="material-symbols-outlined">calendar_month</span>
-					</button>
-					<div class="ac-month-picker-popover hidden" id="ac-month-picker-popover">
-						<div class="ac-month-grid" id="ac-month-grid"></div>
-						<div class="ac-month-picker-footer">
-							<span class="ac-field-hint">Seleccione inicio y fin</span>
-							<button type="button" class="ac-link-btn" id="ac-clear-range">Limpiar</button>
-						</div>
-					</div>
-				</div>
+				<label class="ac-field-label" for="ac-periodo-select">Periodo del Acuerdo</label>
+				<!-- Los meses se manejan en trimestres fijos (Q1-Q4), ya no rango
+				     libre — pedido explícito 2026-08-18, ver CLAUDE.md. -->
+				<select class="ac-select" id="ac-periodo-select">
+					<option value="0" selected>Q1 (Enero - Marzo)</option>
+					<option value="1">Q2 (Abril - Junio)</option>
+					<option value="2">Q3 (Julio - Septiembre)</option>
+					<option value="3">Q4 (Octubre - Diciembre)</option>
+				</select>
 			</div>
 			<div class="ac-field">
 				<label class="ac-field-label" for="ac-anio">Año</label>

@@ -1,5 +1,10 @@
 (function () {
 	var allMonthsShort = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+	var allMonthsLong = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+	// El periodo del acuerdo se maneja en trimestres fijos (Q1-Q4), no en rango
+	// libre — cada entrada es [mesInicio, mesFin] (0=Ene). Índice del array =
+	// value de <option> en #ac-periodo-select.
+	var TRIMESTRES = [[0, 2], [3, 5], [6, 8], [9, 11]];
 
 	// Catálogo (Segmento -> Categoría -> [Marcas]) y Distribuidores se cargan
 	// en vivo desde la base (ver getters/acuerdo_catalogo.php y
@@ -49,10 +54,7 @@
 	var localidadEl        = document.getElementById('ac-localidad');
 	var anioSelect          = document.getElementById('ac-anio');
 	var monthsDisplay       = document.getElementById('ac-months-display');
-	var rangeText           = document.getElementById('ac-selected-range-text');
-	var pickerTrigger       = document.getElementById('ac-month-picker-trigger');
-	var pickerPopover       = document.getElementById('ac-month-picker-popover');
-	var monthGrid           = document.getElementById('ac-month-grid');
+	var periodoSelect       = document.getElementById('ac-periodo-select');
 
 	var purchaseHead = document.getElementById('ac-purchase-head');
 	var purchaseBody = document.getElementById('ac-purchase-body');
@@ -113,7 +115,6 @@
 				catalogoDistribuidor.clientes = distRes.clientes || [];
 			}
 
-			buildMonthGrid();
 			updatePickerUI();
 			syncTables();
 		}).catch(function () {
@@ -357,72 +358,30 @@
 		actualizarBloqueoPorDistribuidor();
 	});
 
-	// ---------- Picker de meses ----------
-	function buildMonthGrid() {
-		var html = '';
-		allMonthsShort.forEach(function (m, idx) {
-			html += '<button type="button" class="ac-month-btn" data-month="' + idx + '">' + m + '</button>';
-		});
-		monthGrid.innerHTML = html;
+	// ---------- Periodo del Acuerdo (trimestres fijos Q1-Q4) ----------
+	periodoSelect.addEventListener('change', function () {
+		marcarSucio();
+		aplicarTrimestre(parseInt(periodoSelect.value, 10));
+	});
 
-		Array.prototype.forEach.call(monthGrid.querySelectorAll('.ac-month-btn'), function (btn) {
-			btn.addEventListener('click', function () {
-				marcarSucio();
-				var index = parseInt(btn.dataset.month, 10);
-				if (selectedStart === null || (selectedStart !== null && selectedEnd !== null)) {
-					selectedStart = index;
-					selectedEnd = null;
-				} else if (index < selectedStart) {
-					selectedEnd = selectedStart;
-					selectedStart = index;
-				} else {
-					selectedEnd = index;
-				}
-				updatePickerUI();
-				if (selectedStart !== null && selectedEnd !== null) {
-					activeMonthsIndices = [];
-					for (var i = selectedStart; i <= selectedEnd; i++) activeMonthsIndices.push(i);
-					syncTables();
-				}
-			});
-		});
+	// value: índice en TRIMESTRES (0=Q1...3=Q4). Separado del listener de
+	// arriba para poder reusarlo desde limpiarFormularioParaNuevoAcuerdo() y
+	// aplicarBorrador() sin duplicar la lógica de armar activeMonthsIndices.
+	function aplicarTrimestre(value) {
+		var t = TRIMESTRES[value];
+		selectedStart = t[0];
+		selectedEnd = t[1];
+		activeMonthsIndices = [];
+		for (var i = selectedStart; i <= selectedEnd; i++) activeMonthsIndices.push(i);
+		periodoSelect.value = String(value);
+		updatePickerUI();
+		syncTables();
 	}
 
-	pickerTrigger.addEventListener('click', function (e) {
-		e.stopPropagation();
-		pickerPopover.classList.toggle('hidden');
-	});
-	document.addEventListener('click', function (e) {
-		if (!pickerPopover.contains(e.target) && e.target !== pickerTrigger) {
-			pickerPopover.classList.add('hidden');
-		}
-	});
-	document.getElementById('ac-clear-range').addEventListener('click', function () {
-		marcarSucio();
-		selectedStart = null;
-		selectedEnd = null;
-		activeMonthsIndices = [];
-		updatePickerUI();
-	});
-
 	function updatePickerUI() {
-		Array.prototype.forEach.call(monthGrid.querySelectorAll('.ac-month-btn'), function (btn) {
-			var idx = parseInt(btn.dataset.month, 10);
-			btn.classList.remove('selected', 'in-range');
-			if (idx === selectedStart || idx === selectedEnd) btn.classList.add('selected');
-			if (selectedStart !== null && selectedEnd !== null && idx > selectedStart && idx < selectedEnd) btn.classList.add('in-range');
-		});
-
-		if (selectedStart !== null && selectedEnd !== null) {
-			rangeText.textContent = allMonthsShort[selectedStart] + ' - ' + allMonthsShort[selectedEnd];
-			monthsDisplay.textContent = activeMonthsIndices.map(function (i) { return allMonthsShort[i]; }).join(', ');
-		} else if (selectedStart !== null) {
-			rangeText.textContent = 'Desde ' + allMonthsShort[selectedStart] + '...';
-			monthsDisplay.textContent = '...';
-		} else {
-			rangeText.textContent = 'Seleccionar período';
-			monthsDisplay.textContent = 'Sin selección';
-		}
+		monthsDisplay.textContent = (selectedStart !== null && selectedEnd !== null)
+			? activeMonthsIndices.map(function (i) { return allMonthsLong[i]; }).join('-')
+			: 'Sin selección';
 	}
 
 	// ---------- Construcción de tablas ----------
@@ -995,11 +954,20 @@
 
 	function aplicarZoom() {
 		if (!pdfUrlActual) return;
+		actualizarZoomLabel();
 		// #toolbar=0&navpanes=0 oculta la barra/miniaturas del visor nativo del
 		// navegador (ya tenemos nuestros propios botones) — funciona igual
 		// pegado a una blob: URL que a una URL normal del servidor.
-		actaPdfFrame.src = pdfUrlActual + '#toolbar=0&navpanes=0&zoom=' + zoomActual;
-		actualizarZoomLabel();
+		//
+		// Reasignar iframe.src a la MISMA url solo cambiando el #fragment no
+		// dispara una recarga real — el navegador lo trata como un salto de
+		// ancla (como <a href="#x">), no como un documento nuevo, así que el
+		// visor de PDF nunca llega a leer el nuevo #zoom=. Pasar por
+		// about:blank en el medio fuerza que sí sea una carga nueva cada vez.
+		actaPdfFrame.src = 'about:blank';
+		window.setTimeout(function () {
+			actaPdfFrame.src = pdfUrlActual + '#toolbar=0&navpanes=0&zoom=' + zoomActual;
+		}, 30);
 	}
 	actaZoomInBtn.addEventListener('click', function () { zoomActual = Math.min(300, zoomActual + 25); aplicarZoom(); });
 	actaZoomOutBtn.addEventListener('click', function () { zoomActual = Math.max(25, zoomActual - 25); aplicarZoom(); });
@@ -1075,11 +1043,7 @@
 			distribuidorSearch.disabled = true;
 		}
 		localidadEl.textContent = '—';
-		selectedStart = 0;
-		selectedEnd = 2;
-		activeMonthsIndices = [0, 1, 2];
-		updatePickerUI();
-		syncTables();
+		aplicarTrimestre(0); // vuelve a Q1 por defecto (ya llama a syncTables())
 		actualizarBloqueoPorDistribuidor();
 		formSucio = false;
 	}
@@ -1231,6 +1195,16 @@
 		selectedEnd = a.mes_fin;
 		activeMonthsIndices = [];
 		for (var i = selectedStart; i <= selectedEnd; i++) activeMonthsIndices.push(i);
+		// Borradores guardados antes de pasar a trimestres fijos podrían tener
+		// un rango que no calza con ningún Q1-Q4 — en ese caso se deja el
+		// select como esté (no hay opción que marcarle) pero igual se respetan
+		// los meses reales guardados.
+		for (var q = 0; q < TRIMESTRES.length; q++) {
+			if (TRIMESTRES[q][0] === selectedStart && TRIMESTRES[q][1] === selectedEnd) {
+				periodoSelect.value = String(q);
+				break;
+			}
+		}
 		updatePickerUI();
 
 		// Canal Distribuidor: hay que fijar la Empresa del cliente guardado

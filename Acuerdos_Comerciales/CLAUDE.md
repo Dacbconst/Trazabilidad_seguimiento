@@ -199,8 +199,17 @@ por fila en la tabla Meta de Compras (no autocompletado) — ver componente
    un archivo de BI — por ahora se trata como INDEPENDIENTE del formulario.)*
 3. **Las 4 tablas del Acta (Meta de Compras, Cabeceras, Rumas, Perchas) SIEMPRE
    van en el PDF**, sin excepción — no hay Actas parciales.
-4. **El periodo del acuerdo debe ser de meses consecutivos** (Ene-Mar válido,
-   Ene-Jul no). Validado con `CHECK (mes_fin >= mes_inicio)` + lógica de app.
+4. **El periodo del acuerdo se maneja en trimestres fijos (2026-08-18, ya no
+   rango libre de meses)**: Q1 (Ene-Mar), Q2 (Abr-Jun), Q3 (Jul-Sep), Q4
+   (Oct-Dic) — un `<select>` simple (`#ac-periodo-select` en `registrar.php`,
+   Q1 seleccionado por defecto) en vez del picker de calendario de antes (se
+   eliminó todo ese código/CSS, ver `assets/js/registrar.js`:
+   `TRIMESTRES`/`aplicarTrimestre()`). "Meses Incluidos" muestra los 3 meses
+   con nombre completo separados por guion (ej. "ENERO-FEBRERO-MARZO"), no
+   abreviado. La base (`mes_inicio`/`mes_fin`, `CHECK (mes_fin >= mes_inicio)`)
+   no cambió — cualquier trimestre sigue siendo un rango de 3 meses
+   consecutivos válido, la restricción a exactamente Q1-Q4 es solo de la UI/JS,
+   no del schema.
 5. **Las columnas de mes en cada tabla del formulario crecen/decrecen según el
    rango de meses elegido** — de 1 a 12 meses, sin alterar estructura de tabla
    (por eso `valores_mensuales` es JSON, no columnas ENE/FEB/MAR fijas).
@@ -303,6 +312,48 @@ mockup `code.html` por choque con las reglas de este documento:
 - **Eliminar (Historial)**: nunca es un `DELETE` físico — `getters/eliminar_acuerdo.php`
   marca `estado='anulado'` (mismo patrón que `repositorio_usuarios_acuerdos.status`).
   `listar_historial_acuerdos()` excluye `borrador` Y `anulado` del listado.
+- **Modal "Mis Borradores" (Historial) — ancho arreglado (2026-08-19)**: se
+  veía recortado porque `.ac-modal.ac-borradores-modal` tenía `max-width:640px`
+  pero la tabla adentro exige `min-width:640px` (regla genérica `.ac-table`) —
+  ni con el padding del modal entraba. Se sacó el `min-width:0` que forzaba
+  la tabla angosta, se envolvió en `.ac-table-scroll` (mismo patrón que el
+  resto de tablas de la app, scroll horizontal como red de seguridad) y el
+  modal pasó a `max-width:820px`.
+- **Eliminar borrador desde "Mis Borradores" (2026-08-19)**: botón de
+  eliminar por fila (ícono, junto a "Continuar editando"), mismo endpoint
+  `getters/eliminar_acuerdo.php` (soft-delete, `estado='anulado'`) y misma
+  confirmación SweetAlert2 que ya usaba "Eliminar" en el listado principal de
+  Historial — se factorizó a `confirmarYEliminarAcuerdo(id, documentoNo, onOk)`
+  en `historial.js`, compartida entre los dos usos (`onOk` decide qué pasa
+  después: recargar toda la lista, o sacar solo esa fila). La fila se saca
+  con una animación corta (`animarYQuitarFila()`, clase CSS
+  `.ac-fila-eliminando`: fade + slide + flash rojo, ~280ms) en vez de
+  desaparecer de golpe; si era la última fila, vuelve el placeholder de
+  "No tenés borradores guardados."
+- **Verificado (2026-08-19) que "Continuar editando" restaura el borrador
+  completo, sin nada a medias**: se revisó toda la cadena
+  (`obtener_acuerdo_detalle()` → `getters/obtener_borrador.php` →
+  `poblarTablasConLineas()`/`aplicarBorrador()` en `registrar.js`) y se
+  confirmó con datos reales de la base que el Sector de Meta de Compras
+  (agregado 2026-08-18) sí llega completo en el JSON y se aplica con el valor
+  real guardado (`fila.sector || null`, con inferencia solo como fallback
+  para acuerdos guardados antes de que existiera esa columna — se comprobó
+  que el único borrador viejo con `sector=NULL` en la base no es ambiguo
+  para la inferencia). Cabecera (Distribuidor/Empresa/Localidad/Periodo) y
+  las 4 tablas completas restauran bien.
+- **"Actualizado" de Mis Borradores no se refrescaba al editar líneas
+  (2026-08-19)**: `repositorio_acuerdos.updated_at` tiene
+  `ON UPDATE CURRENT_TIMESTAMP`, pero eso SOLO se dispara si alguna otra
+  columna de esa fila cambia de valor — como editar un borrador normalmente
+  solo toca `repositorio_acuerdo_lineas` (tabla aparte), la cabecera se
+  reescribía con los mismos valores de siempre y MySQL nunca actualizaba la
+  fecha. `guardar_acuerdo.php` ahora fuerza `updated_at = NOW()` explícito en
+  el `UPDATE` de la cabecera, sin importar si algún otro campo cambió.
+- **Eliminar es SIEMPRE lógico, en los dos lugares (confirmado 2026-08-19)**:
+  tanto el "Eliminar" del listado de Historial como el de "Mis Borradores"
+  pasan por el mismo `getters/eliminar_acuerdo.php` — un `UPDATE ... SET
+  estado='anulado'`, nunca un `DELETE`. No hay ningún `DELETE FROM
+  repositorio_acuerdos` en todo el proyecto para acuerdos ya creados.
 - **Generación real del PDF**: con **Dompdf** (`composer.json`/`vendor/`).
   `includes/acta_pdf.php` (`generar_acta_html()`) arma el HTML y lo renderiza
   a PDF real vía `getters/generar_acta_pdf.php`. Prueba primero a escala 1.0
@@ -362,6 +413,20 @@ mockup `code.html` por choque con las reglas de este documento:
   hay ningún dato en el sistema de quién es esa persona. Acuerdos huérfanos
   sin `creado_por` (ver más abajo) caen de nuevo a la línea en blanco de
   siempre.
+- **Tamaño de letra del PDF, tercera vuelta (2026-08-19)**: desde que el
+  periodo pasó a trimestres fijos (Q1-Q4, ver Registrar Acuerdo PDV), las
+  tablas SIEMPRE tienen exactamente 3 columnas de mes — ya no hay que dejar
+  margen para el caso de 12 columnas, así que sobraba espacio en blanco.
+  Subida notoria (no otro +0.5px tímido) en `includes/acta_pdf.php`: body
+  11.5→13px, `h1` 19→22px, `.subtitulo` 13.5→16px, `.label`/`.hint`/
+  `.condiciones h3` ~10.5→11.5-12px, `td`/`th` padding 4/7.5→5/9px, tamaño
+  base de la celda Categoría (auto-ajustable a 1 línea, `fuente_una_linea()`)
+  12→13px para que combine con el resto. Todo sigue en negro (`#000000`,
+  confirmado que no quedaba nada gris) — se agregó `color:#000000` explícito
+  a `.subtitulo`/`.condiciones h3` que antes solo heredaban de `body`, por si
+  algún día se sobreescribe ese heredado sin querer. El auto-ajuste a 1 hoja
+  (`generar_acta_pdf_binario()`) sigue siendo la red de seguridad si algún
+  Acta puntual no entra a estos tamaños.
 - **Validaciones agregadas (2026-08-18)**, en `assets/js/registrar.js`
   (`validarCabecera()`) Y repetidas en `getters/guardar_acuerdo.php` (el
   guardado es por `fetch()`, no un submit nativo, así que nada obliga a pasar
@@ -389,67 +454,146 @@ mockup `code.html` por choque con las reglas de este documento:
     el "-" mientras se tipea, y el guardado la rechaza si queda vacía o no
     numérica.
 
-## Export de cuota/rebate desde Historial (2026-08-18)
+## Export CSV genérico de Historial — ELIMINADO (2026-08-18)
 
-Cierra el pendiente de la conversación anterior: JW pidió explícitamente que
-las Actas nuevas tengan un export de la data que se recolecta, parecido a como
-la definen en su Excel — para no volver a tipear a mano lo que el ejecutivo ya
-cargó acá. Decisiones confirmadas con el usuario antes de construir:
+Hubo una primera versión de export en Historial (`getters/exportar_actas.php`,
+botón "Exportar Actas") que sacaba un CSV con las 4 tablas de la Acta en
+crudo, sin fórmulas. **El usuario pidió eliminarla** una vez que quedó listo
+el export real de "Cuota/Categoría" (ver sección siguiente) — se borró el
+archivo y el botón, ya no existe. Si algo en el código o en memoria vieja
+todavía lo menciona, está desactualizado: hoy Historial solo tiene el botón
+**"Descargar Excel"** de la sección de abajo.
 
-- **Alcance: bulk, no Acta por Acta** — como el Excel real de JW (muchos
-  clientes en un archivo), no un botón "exportar esta Acta" en el detalle.
-- **Ubicación: botón nuevo en Historial de Acuerdos** (`hist-exportar`),
-  junto a los filtros existentes — exporta lo que esté filtrado en pantalla
-  (mismos parámetros `q`/`mes` que ya usa `listar_historial.php`).
+## Export de Cuota/Categoría — .xlsx real con fórmulas vivas (2026-08-18)
 
-**Implementado**: `getters/exportar_actas.php` — mismo query base que
-`listar_historial_acuerdos()` (mismo JOIN, mismo `GROUP BY a.id, l.id` para
-colapsar los ~1,116 duplicados de `pos_id` en el maestro sin perder líneas
-reales de la Acta) pero joineando `repositorio_acuerdo_lineas` **completo,
-sin filtrar por `tipo`** — las 4 tablas del Acta van en el mismo CSV.
-CSV (mismo criterio que Liquidación: sin Composer, sin librería pesada).
+**Único botón de export en Historial** (el CSV genérico "Exportar Actas" se
+eliminó, ver sección de arriba): **"Descargar Excel"** (`hist-exportar-cuota`)
+— replica la hoja "CUOTA CLIENTE - CATEGORÍA" del archivo real de JW
+(`datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA 2026.xlsx`) a
+partir de lo pactado en las Actas, con **fórmulas de Excel reales** (no
+valores ya calculados) — para que cuando JW llene la venta real mes a mes,
+todo el resto (cumplimiento, GANA/NO GANA, rebate real) se recalcule solo,
+igual que en su plantilla actual. Solo Actas **canal Directa** (Distribuidor
+tiene otro formato de columnas en el archivo real, "CUOTAS POR
+CAT-DISTRIBUIDORES" — no construido, export aparte a futuro).
 
-**Corregido 2026-08-18 (mismo día, versión inicial tenía el alcance mal)**:
-la primera versión solo exportaba `meta_compra` (cuota/rebate) — el usuario
-lo objetó explícitamente: quiere la información COMPLETA que se recolecta en
-el Acta para dársela a JW, no un resumen ya interpretado de "la parte que
-resuelve el problema de retipeo". Corregido para traer las 4 tablas juntas.
+**Piezas nuevas:**
+- `includes/xlsx_writer.php` — escritor de XLSX propio (sin librería
+  externa, mismo motivo que `xlsx_reader.php`). Soporta celdas de
+  texto/número/fórmula, negrita, formato moneda y porcentaje, múltiples
+  hojas. **Dos gotchas de OOXML reales, encontradas probando contra Excel
+  real (COM), documentadas en el archivo**:
+  1. Las fórmulas se escriben SIEMPRE en inglés con **coma** como separador
+     (`IF`, `SUM`, `VLOOKUP`, `IFERROR`, `AND` — nunca `SI`/`SUMA`/`BUSCARV`/`;`),
+     sin importar que Excel las vaya a MOSTRAR en español — el archivo en sí
+     nunca lleva texto en español en una fórmula. Por eso las fórmulas que
+     dio el usuario (en español, con `;`) se tradujeron a mano en
+     `exportar_cuota_categoria.php`.
+  2. `CONCAT()` es de Excel 2016 — necesita el prefijo interno `_xlfn.` en el
+     XML crudo (`_xlfn.CONCAT(...)`) o Excel tira `#NAME?`. Confirmado
+     probando: sin el prefijo fallaba, con el prefijo funciona y Excel lo
+     muestra como `CONCAT()` normal. `IF`/`SUM`/`SUBTOTAL`/`VLOOKUP`/`AND`/`IFERROR`
+     son de 2007 o antes, no necesitan el prefijo.
+- `getters/exportar_cuota_categoria.php` — arma las 2 hojas (`CUOTA CLIENTE
+  - CATEGORÍA` + `CUOTA TOTAL`, esta última necesaria para que el `BUSCARV`
+  de GANA TOTAL tenga adónde apuntar) y las manda con
+  `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
 
-Una fila por (Acta × línea × mes), columnas: Documento, Estado, Canal,
-CEDI/Distribuidor, Cliente, **Tipo** (Meta de Compras/Cabecera/Ruma/Percha),
-Segmento, Categoría, Marca, Mes, Valor, Cantidad Percha, Precio Percha,
-Rebate %, Rebate $. Columnas que no aplican a un tipo quedan vacías (ej.
-Segmento/Categoría vacío en filas de Percha, Rebate vacío fuera de Meta de
-Compras) — normal en un export "ancho" con tipos distintos en una sola
-tabla, no es un error. **Ruma** (que en la Acta es un solo valor que se
-repite, `valor_mensual_unico`) se expande igual a una fila por mes,
-repitiendo el mismo valor, para que el CSV tenga siempre la misma forma
-(una fila por mes) sin casos especiales. Rebate $ calculado al vuelo
-(`valor * rebate_pct`, solo en filas Meta de Compras), nunca guardado —
-mismo criterio de "nunca totales calculados".
+**Decisiones confirmadas por el usuario:**
+- **REBATE A APLICAR %**: se usa el `rebate_pct` ya guardado en la línea de
+  la Acta (congelado al momento de generarse) — nunca un valor "vivo" de un
+  catálogo externo. Motivo explícito del usuario: si el rebate cambia
+  después (ej. de 2% en abril a 4% en mayo), NO debe alterar retroactivamente
+  Actas que ya se generaron con el valor viejo — cada Acta es un acuerdo
+  cerrado. Esto ya funcionaba así (cada línea guarda su propio
+  `rebate_pct`), no hizo falta cambiar nada del guardado, solo confirmar que
+  el export lee de ahí y no de otro lado.
+- **PLAN**: investigado a fondo contra `repositorio_locales_supervisores_cliente`
+  completa (las 14 columnas, incluidas `sector`/`novedad`/`promedio_venta`
+  que no estaban documentadas acá — resultaron vacías/sin uso) — el texto
+  real que usa JW ("AUTOSERVICIO INDEPENDIENTE", etc.) no aparece en NINGUNA
+  columna, ni siquiera para el cliente exacto del ejemplo que dio el usuario
+  (`DISTRIBUIDORA SUPERALIANZA S.A.S`, que en nuestra base tiene
+  `canal=MAYORISTA`, `tipo_cliente=PLUS` — ninguno de los dos coincide).
+  Columna vacía a propósito, no se puede derivar hoy — pendiente de
+  preguntarle a JW qué es.
+- **Corregido 2026-08-18: una fila por LÍNEA de Meta de Compras, nunca
+  agrupada por Sector.** La primera versión sí agrupaba por (Cliente,
+  Sector) sumando cuota y tomando el rebate de la primera línea del grupo,
+  asumiendo que todas las marcas de un mismo Sector compartían rebate. El
+  usuario lo corrigió mostrando el Acta real escaneada
+  (`datos/WhatsApp Image 2026-07-23 at 11.09.16.jpeg`, tabla "1. META DE
+  COMPRAS"): cada línea (Sector+Categoría+Marca) es un compromiso propio,
+  con su propio rebate — aunque dos líneas compartan Sector. Se confirmó con
+  un caso real: Acta `ADN-2026-0049`, dos líneas de Sector "PASTAS" con
+  4% y 3% de rebate — la versión vieja las fusionaba en una sola fila
+  mostrando solo uno de los dos. La columna CATEGORIAS sigue mostrando el
+  Sector (así se llama en el archivo real), así que dos filas del mismo
+  cliente pueden repetir el mismo texto ahí — es esperado, no error; cada
+  una lleva su propia cuota y rebate.
+- **Meses dinámicos, no fijos Abril/Mayo/Junio**: igual que Liquidación, las
+  columnas de mes se arman según qué meses aparecen de verdad en las Actas
+  incluidas — probado con datos reales que eran Enero-Febrero-Marzo y salió
+  bien (encabezados "ENERO/FEBRERO/MARZO", no "ABRIL/MAYO/JUNIO" a la
+  fuerza).
+- **Fila TOTAL**: se leyeron las fórmulas reales de la fila 313 del archivo
+  real — todas las columnas numéricas (incluida, rareza del archivo
+  original, REBATE A APLICAR %) usan `SUBTOTAL(9, rango)`, no `SUMA` — se
+  replicó tal cual, aunque sumar porcentajes no tenga mucho sentido de
+  negocio, porque así está en la plantilla real.
+- **Botón filtra igual que "Exportar Actas"** (mismos `q`/`mes` de
+  Historial) — no se agregó un selector de canal aparte, el endpoint mismo
+  filtra `d.canal <> 'DISTRIBUIDOR'` siempre.
 
-**Limitaciones a propósito, para que no sorprendan después:**
-- **No incluye Sector** (BARRA/CREMA/LIQUIDO/POLVO DETERGENTE en el Excel
-  real) — porque **no se persiste** en `repositorio_acuerdo_lineas` (ver
-  "Registrar Acuerdo PDV — implementado" más arriba: Sector es solo UI,
-  nunca se manda al backend). Si JW necesita ese nivel de detalle en el
-  export, hay que agregar la columna a la tabla primero — no asumido, no
-  hecho todavía.
-- **Hereda el scoping por `creado_por` de Historial**: cada usuario exporta
-  solo SUS Actas, no las de todo el equipo — mismo pendiente ya documentado
-  ("Si `superdesarrollador` debería ver TODOS los acuerdos en Historial").
-  Si JW necesita un export consolidado de todos los ejecutivos junto, este
-  pendiente hay que resolverlo primero.
-- **Rebate % en 0.00 es real, no un bug** — la mayoría de Actas de prueba se
-  crearon antes de que el cliente mandara el catálogo de rebate por
-  producto (pendiente bloqueado, ver arriba), así que el campo se dejó en 0
-  al tipear. El export muestra fielmente lo que hay.
+**Colores y celda combinada (2026-08-18, pedido aparte del usuario, con
+captura del archivo real)**: `xlsx_writer.php` ahora soporta fondo/color de
+letra por celda y `combinarCeldas()` — colores tomados EXACTOS del archivo
+real vía Excel COM (`Interior.Color`/`Font.Color`, convertidos de BGR a
+RGB), no aproximados a ojo: encabezado general `#C0E6F5`/letra negra, bloque
+de meses de venta `#61CBF3`/letra roja (con título combinado en la fila 1,
+"VENTA REAL" — no "VENTA Q2 2026" fijo, porque nuestro período no siempre
+calza con un trimestre calendario), CARTERA `#FFC000`/letra negra/**sin
+negrita** (así está en el original, a diferencia de todo lo demás),
+columnas de resultado (VENTA Qx/CUMPLIMIENTO/GANA.../PRE REBATE) `#B5E6A2`,
+REBATE REAL VOL `#FFFF00`. Probado de nuevo contra producción real: mismos
+valores de color exactos, merge funciona.
 
-**Probado**: sintaxis PHP limpia, `GET` real (solo lectura) contra
-producción con sesión logueada — devolvió un CSV real con una Acta y sus 4
-tipos de línea (Meta de Compras, Cabecera, Ruma, Percha), cada uno con el
-patrón de columnas correcto (Ruma repitiendo el mismo valor en los 3 meses,
-Percha con Segmento/Categoría vacío y Cantidad/Precio llenos).
+**Corregido 2026-08-18 (mismo día, el usuario encontró 2 problemas más
+mirando el resultado):**
+- **"Qx" ahora es dinámico, no fijo "Q2"**: se calcula
+  `intdiv(primerMes, 3) + 1` sobre el primer mes real de las Actas
+  incluidas — Enero-Marzo da "Q1", Julio-Septiembre da "Q3", etc. Antes
+  el texto estaba fijo, copiado literal del archivo real, y aparecía en
+  **5 lugares distintos** (se corrigieron de a poco, el usuario encontró el
+  primero que se me había pasado): título combinado de venta, encabezado de
+  columna "VENTA Qx", encabezado de columna "TOTAL Qx" (cuota pactada), y
+  "Suma de TOTAL Qx"/"Suma de VENTA Qx" en la hoja CUOTA TOTAL. Todos usan
+  las mismas 2 variables (`$tituloCuota`, `$tituloVenta`), calculadas una
+  sola vez al principio — para evitar que quede un sexto lugar con el texto
+  fijo si se agrega algo más a esta hoja en el futuro.
+- **Ancho de columna automático ("autofit")**: `xlsx_writer.php` no ponía
+  ningún ancho de columna — un archivo generado por código no se autoajusta
+  solo como cuando lo escribe una persona a mano en Excel, así que todo
+  salía con el ancho angosto por defecto. Se agregó `xmlCols()`: calcula el
+  largo de texto más largo de cada columna (para números con formato
+  moneda/porcentaje, estima el largo ya formateado — ej. "$1,800.00", no el
+  número crudo) y arma el `<cols>` del XML con ese ancho + margen, clampeado
+  entre 8 y 45 para que ni una columna vacía quede en cero ni un nombre de
+  cliente larguísimo deje una columna gigante. Probado: CLIENTE (nombre
+  largo) quedó en ~33, CARTERA (vacía) en el mínimo 8, encabezados largos
+  como "GANA POR CATEGORÍA" se ensancharon solos — abre sin reparar.
+- **Colores en las filas de DATOS, no solo en el encabezado** — leídos
+  exactos del archivo real (varias filas, mismo valor siempre): columna
+  CLIENTE `#F2CEEF` (rosa/lavanda), y el bloque Cuota mensual + TOTAL Q2 +
+  REBATE % `#92D050` (verde) — el resto de columnas de datos van sin color
+  (blanco puro en el original). Antes solo la fila de encabezado tenía
+  color, las filas de datos salían todas blancas.
+
+**Probado de punta a punta contra producción real** (servidor local `php -S`
++ sesión real, solo lectura del lado de la base): el `.xlsx` generado abre
+sin pedir reparar, `CONCAT`/`SUM`/`IFERROR`/`IF`/`VLOOKUP`(a la hoja CUOTA
+TOTAL)/`SUBTOTAL` calculan todos correcto, formato moneda/porcentaje
+aplicado, fila TOTAL correcta.
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
@@ -474,12 +618,19 @@ Percha con Segmento/Categoría vacío y Cantidad/Precio llenos).
       MKT). Respuesta actual del cliente: "no estoy seguro".
 - [ ] Columna `CARTERA` (cartera vencida) mencionada en las Condiciones del
       Acta — detectada en el Excel real, todavía sin definir dónde se guarda.
-- [ ] Si el presupuesto (visto en Excel real: PPTO 2026, CAJAS, Q1-Q4) se
-      maneja por PDV individual o por distribuidor completo — afecta el diseño
-      de la tabla de liquidación.
-- [ ] Identificación de PDV al subir Excel: confirmar si las plantillas de
-      carga van a incluir `pos_id` real o solo nombre (`CEDI`/`CLIENTE`), lo
-      segundo es más propenso a duplicados por variación de escritura.
+- [x] ~~Si el presupuesto se maneja por PDV individual o por distribuidor
+      completo — afecta el diseño de la tabla de liquidación.~~ Resuelto al
+      diseñar el schema real de Liquidación (2026-08-17/18, ver sección
+      "Módulo Liquidación" abajo): no se guarda ningún "presupuesto" aparte —
+      `cuota_total_excel`/`venta_total_excel`/rebate se guardan tal cual
+      vienen del Excel, por cliente+categoría, sin distinguir PDV individual
+      vs. distribuidor completo como un concepto propio.
+- [x] ~~Identificación de PDV al subir Excel: pos_id real o solo nombre~~
+      Confirmado con los 2 Excel reales de JW (2026-08-17/18): el Excel
+      **nunca** trae `pos_id`, solo nombre truncado + CEDI/DISTRIBUIDOR —
+      implementado el matching por `pos_name LIKE 'prefijo%'` con desempate
+      por supervisor/tipo_distribuidor, ver "Estrategia de matching" en la
+      sección "Módulo Liquidación".
 
 ## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
 

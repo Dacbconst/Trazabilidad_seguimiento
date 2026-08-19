@@ -518,6 +518,16 @@ body {
 .ac-icon-btn-danger:hover { color: var(--color-error); background: var(--color-error-container); }
 .ac-btn-clave { color: var(--color-primary); }
 
+/* Fila que se está eliminando (Mis Borradores, etc.) — fade + slide antes de
+   sacarla del DOM (animarYQuitarFila() en historial.js), en vez de que
+   desaparezca de golpe. */
+.ac-fila-eliminando {
+	transition: opacity 0.28s ease, transform 0.28s ease, background-color 0.28s ease;
+	opacity: 0;
+	transform: translateX(-14px);
+	background-color: var(--color-error-container);
+}
+
 .ac-pagination {
 	display: flex; align-items: center; justify-content: space-between;
 	flex-wrap: wrap; gap: var(--space-sm);
@@ -794,26 +804,9 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 #ac-purchase-container, #ac-cabeceras-container, #ac-perchas-container { padding: var(--space-lg); }
 .ac-acuerdo-percha-hint { padding: 0 var(--space-lg) var(--space-lg); margin: 0; }
 
-/* Picker de meses */
-.ac-month-picker { position: relative; }
-.ac-month-picker-trigger { display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-align: left; }
-.ac-month-picker-popover {
-	position: absolute; top: calc(100% + 4px); left: 0;
-	width: 260px; background: var(--color-surface-container-lowest);
-	border: 1px solid var(--color-outline-variant); border-radius: var(--radius-lg);
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
-	padding: var(--space-md); z-index: 60;
-}
-.ac-month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm); }
-.ac-month-btn {
-	padding: 8px; border: none; border-radius: var(--radius);
-	background: transparent; font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
-	cursor: pointer; transition: background 0.15s;
-}
-.ac-month-btn:hover { background: var(--color-surface-container-high); }
-.ac-month-btn.selected { background: var(--color-primary); color: var(--color-on-primary); }
-.ac-month-btn.in-range { background: var(--color-primary-fixed, #dde1ff); color: var(--color-primary); }
-.ac-month-picker-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-outline-variant); }
+/* Picker de meses: removido (2026-08-18), el periodo ahora es un <select>
+   simple de trimestres fijos Q1-Q4 (#ac-periodo-select en registrar.php),
+   usa .ac-select como cualquier otro combo — no necesita CSS propio. */
 .ac-link-btn { background: none; border: none; color: var(--color-primary); font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
 .ac-link-btn:hover { text-decoration: underline; }
 
@@ -835,9 +828,14 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-btn-disabled { opacity: 0.5; pointer-events: none; cursor: not-allowed; }
 .ac-acta-pdf-frame { flex: 1 1 auto; width: 100%; border: none; }
 
-.ac-modal.ac-borradores-modal { max-width: 640px; width: 95vw; }
+/* Antes max-width:640px con .ac-table forzada a min-width:0 (la tabla
+   necesita min-width:640px por la regla genérica, y con el padding del modal
+   ni siquiera entraba esa base — de ahí que se viera recortada, sobre todo
+   la columna Distribuidor con nombres largos). Modal más ancho + scroll
+   horizontal propio como red de seguridad, en vez de forzar la tabla angosta. */
+.ac-modal.ac-borradores-modal { max-width: 820px; width: 95vw; }
 .ac-borradores-modal-body { padding: var(--space-lg); }
-.ac-borradores-modal-body .ac-table { min-width: 0; }
+.ac-borradores-modal-body .ac-table-scroll { overflow-x: auto; }
 .ac-btn-continuar { background: none; border: none; padding: 0; cursor: pointer; color: var(--color-primary); font-weight: 700; font-size: 13px; font-family: var(--font-body); }
 .ac-btn-continuar:hover { text-decoration: underline; }
 
