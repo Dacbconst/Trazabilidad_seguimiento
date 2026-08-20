@@ -36,14 +36,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			<div class="ac-field <?= $canalUsuario === 'distribuidor' ? '' : 'hidden' ?>" id="ac-empresa-field">
 				<label class="ac-field-label" for="ac-empresa-search">Empresa Distribuidora</label>
 				<div class="ac-combo" id="ac-empresa-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir empresa..." autocomplete="off">
+					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir empresa..." autocomplete="off" readonly>
 					<input type="hidden" id="ac-empresa" value="">
 				</div>
 			</div>
 			<div class="ac-field">
 				<label class="ac-field-label" for="ac-distribuidor-search">Distribuidor</label>
 				<div class="ac-combo" id="ac-distribuidor-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar distribuidor..." autocomplete="off">
+					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar distribuidor..." autocomplete="off" readonly>
 					<input type="hidden" id="ac-distribuidor" value="">
 				</div>
 			</div>

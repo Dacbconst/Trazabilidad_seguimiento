@@ -244,29 +244,26 @@
 	// getOpciones: función que devuelve [{value, label}] — función (no array
 	// fijo) porque en los combos encadenados (Categoría/Marca) las opciones
 	// válidas cambian según lo que se eligió antes en la fila.
+	// El input es readonly (ver comboCellHtml/registrar.php) — nunca se tipea
+	// nada ahí, siempre se elige de la lista completa que se abre con
+	// focus/click. Por eso ya no hace falta escuchar 'input' (no puede
+	// dispararse por teclado en un campo readonly) ni "seleccionar todo el
+	// texto" para que tipear reemplace — eso era para cuando sí se podía
+	// escribir a mano.
 	function inicializarCombo(input, hidden, getOpciones, onSeleccionar) {
 		function abrir() {
 			comboActivo = { input: input, hidden: hidden, getOpciones: getOpciones, onSeleccionar: onSeleccionar };
 			posicionarPanelCombo(input);
-			// Al reabrir un campo que ya tiene algo elegido, seleccionar todo el
-			// texto (para que tipear lo reemplace de una) y mostrar la lista
-			// completa (no filtrada por el valor actual) — si no, había que
-			// borrar el campo a mano antes de poder buscar de nuevo.
-			input.select();
 			comboRender('');
 		}
 		input.addEventListener('focus', abrir);
 		// El evento 'focus' NO se dispara de nuevo si el campo ya estaba
 		// enfocado (ej: elegís una opción, el campo se queda con el foco a
-		// propósito, y volvés a hacer click ahí mismo para buscar otra cosa)
+		// propósito, y volvés a hacer click ahí mismo para elegir otra cosa)
 		// — sin este listener de 'click' aparte, el panel no se reabría y se
 		// sentía "trabado" hasta hacer click en otro lado y volver.
 		input.addEventListener('click', function () {
 			if (!comboActivo || comboActivo.input !== input) abrir();
-		});
-		input.addEventListener('input', function () {
-			hidden.value = '';
-			if (comboActivo && comboActivo.input === input) comboRender(input.value);
 		});
 		// Sin esto, salir del campo con Tab (en vez de elegir una opción con
 		// el mouse) dejaba el panel abierto apuntando al campo anterior. El
@@ -320,10 +317,6 @@
 		distribuidorSearch.disabled = false;
 		limpiarClienteElegido();
 	});
-	empresaSearch.addEventListener('input', function () {
-		distribuidorSearch.disabled = true;
-		limpiarClienteElegido();
-	});
 
 	// El primer campo de cada tabla (Segmento en Meta/Cabeceras/Rumas, Marca en
 	// Perchas) queda deshabilitado hasta elegir Distribuidor — no tiene sentido
@@ -351,10 +344,6 @@
 	}, function (posId) {
 		var d = todosLosClientesDisponibles().filter(function (x) { return x.pos_id === posId; })[0];
 		localidadEl.textContent = formatLocalidad(d);
-		actualizarBloqueoPorDistribuidor();
-	});
-	distribuidorSearch.addEventListener('input', function () {
-		localidadEl.textContent = '—';
 		actualizarBloqueoPorDistribuidor();
 	});
 
@@ -435,9 +424,14 @@
 	// Celda de tabla con buscador (input visible) + valor real (input oculto,
 	// mismo nombre de clase que antes usaba el <select>, para no tocar el
 	// resto del código que lee `.seg-select`/`.cat-select`/`.marca-select`).
+	// readonly a propósito (2026-08-20, pedido explícito): estos campos son
+	// spinners, no texto libre — se elige SIEMPRE de la lista completa que se
+	// abre al hacer click, nunca tipeando. Con readonly el navegador bloquea
+	// cualquier inserción de texto (tipear, pegar) sin impedir el click/focus
+	// que abre el panel — ver inicializarCombo() más abajo.
 	function comboCellHtml(tipo, placeholder, disabled) {
 		return '<div class="ac-combo ac-combo-cell">' +
-			'<input type="text" class="ac-input ac-mini-input ac-combo-input ' + tipo + '-input" placeholder="' + placeholder + '" autocomplete="off"' + (disabled ? ' disabled' : '') + '>' +
+			'<input type="text" class="ac-input ac-mini-input ac-combo-input ' + tipo + '-input" placeholder="' + placeholder + '" autocomplete="off" readonly' + (disabled ? ' disabled' : '') + '>' +
 			'<input type="hidden" class="' + tipo + '-select" value="">' +
 			'</div>';
 	}
@@ -847,6 +841,31 @@
 		}).map(function (combo) { return combo.querySelector('.ac-combo-input'); });
 	}
 
+	// Arma una etiqueta legible ("Marca en Meta de Compras", "Distribuidor")
+	// para el toast de "campo sin confirmar" — así, si esta red de seguridad
+	// llega a dispararse (no debería, los campos son readonly desde
+	// 2026-08-20), se puede ubicar el campo exacto en vez de un mensaje
+	// genérico que obliga a revisar las 4 tablas a mano.
+	function describirCampoCombo(input) {
+		if (input === distribuidorSearch) return 'Distribuidor';
+		if (input === empresaSearch) return 'Empresa Distribuidora';
+
+		var tipoPorClase = { 'seg-input': 'Segmento', 'sector-input': 'Sector', 'cat-input': 'Categoría', 'marca-input': 'Marca' };
+		var tipo = Object.keys(tipoPorClase).filter(function (c) { return input.classList.contains(c); })[0];
+		var etiquetaTipo = tipo ? tipoPorClase[tipo] : 'Campo';
+
+		var tablaPorId = {
+			'ac-purchase-body': 'Meta de Compras',
+			'ac-cabeceras-body': 'Cabeceras',
+			'ac-rumas-body': 'Rumas',
+			'ac-perchas-body': 'Perchas'
+		};
+		var tbody = input.closest('tbody');
+		var etiquetaTabla = tbody && tablaPorId[tbody.id];
+
+		return etiquetaTabla ? (etiquetaTipo + ' en ' + etiquetaTabla) : etiquetaTipo;
+	}
+
 	function participacionesInvalidas() {
 		return Array.prototype.filter.call(perchasBody.querySelectorAll('.v-participacion'), function (input) {
 			var num = parseFloat(input.value);
@@ -876,8 +895,11 @@
 
 		var sinConfirmar = encontrarSpinnersSinConfirmar();
 		if (sinConfirmar.length) {
-			mostrarMensaje('Hay un campo con texto escrito pero sin elegir de la lista (Distribuidor, Segmento, Sector, Categoría o Marca) — hacé click en una opción o borralo antes de guardar.', false);
-			sinConfirmar[0].focus();
+			var campo = sinConfirmar[0];
+			mostrarMensaje('"' + describirCampoCombo(campo) + '" quedó con un valor que no se eligió de la lista ("' + campo.value + '") — hacé click ahí y elegí una opción antes de guardar.', false);
+			campo.focus();
+			campo.classList.add('ac-campo-resaltado');
+			setTimeout(function () { campo.classList.remove('ac-campo-resaltado'); }, 1800);
 			return false;
 		}
 
@@ -1004,6 +1026,11 @@
 			anio: parseInt(anioSelect.value, 10),
 			mes_inicio: selectedStart,
 			mes_fin: selectedEnd,
+			// Este endpoint nunca abre conexión a la base (a propósito, ver su
+			// comentario de cabecera) — el canal ya lo sabe el cliente
+			// (catalogoDistribuidor.canal, cargado al inicio), así que se manda
+			// para que la vista previa use el formato de Acta correcto.
+			es_distribuidor: catalogoDistribuidor.canal === 'distribuidor',
 			lineas: recolectarLineas()
 		};
 

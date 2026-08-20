@@ -1,0 +1,126 @@
+body {
+    margin: 0;
+    padding: 1rem;
+    background: rgb(13, 13, 13);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.content-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 50px rgba(255, 0, 0, 0.2);
+    width: 100%;
+    max-width: 1200px;
+    margin: 1rem auto;
+}
+
+        .footer-text {
+            font-size: 0.8rem;
+            color: #888;
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .sombra-select {
+            box-shadow: 0 4px 8px hsla(0, 94.40%, 51.00%, 0.20);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+
+        .btn-secondary1 {
+            background-color: rgb(233, 86, 53);
+            color: white;
+            border: none;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+
+        .imagen-previsualizacion {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .pdv_disabled {
+            /* Evita cualquier interacción del ratón */
+            pointer-events: none;
+            background-color: #e1dcdc;
+            /* Baja la opacidad para indicar visualmente que está inactivo */
+            opacity: 0.5;
+            /* Deshabilita selección de texto */
+            user-select: none;
+        }
+
+
+        @media (max-width: 768px) {
+            .content-container {
+                padding: 1rem;
+                border-radius: 10px;
+            }
+
+            h3 {
+                font-size: 1.4rem;
+            }
+
+            .btn-secondary1 {
+                margin-left: -26px;
+            }
+
+            .row.fw-bold.border-bottom.py-2>div {
+                font-size: 0.9rem;
+            }
+
+            .row.align-items-center.border-bottom.py-3>div {
+                font-size: 0.9rem;
+                padding: 0.5rem;
+            }
+
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .input-group {
+                flex-wrap: wrap;
+            }
+
+            .input-group .form-control {
+                border-radius: 5px;
+                margin-bottom: 0.5rem;
+            }
+
+            .input-group .btn {
+                width: 100%;
+                border-radius: 5px;
+            }
+
+            .col-3,
+            .col-4,
+            .col-2 {
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+
+            .col-3 {
+                order: 1;
+            }
+
+            .col-4 {
+                order: 3;
+                flex: 0 0 100%;
+                max-width: 100%;
+                margin-top: 0.5rem;
+            }
+
+            .col-2 {
+                order: 2;
+                text-align: left !important;
+                margin-top: 0.5rem;
+            }
+        }

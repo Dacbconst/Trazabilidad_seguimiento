@@ -132,6 +132,10 @@ $detalle = [
 	'distribuidor'        => $distribuidor !== '' ? $distribuidor : '—',
 	'localidad'           => $localidad !== '' ? $localidad : '—',
 	'ejecutivo_comercial' => $_SESSION['username'] ?? '',
+	// Mandado por el cliente (catalogoDistribuidor.canal, ya cargado al inicio
+	// de Registrar) — este endpoint nunca abre conexión a la base, así que no
+	// puede derivarlo solo desde pos_id como sí hace obtener_acuerdo_detalle().
+	'es_distribuidor'    => !empty($body['es_distribuidor']),
 	'lineas'              => $lineasNormalizadas,
 ];
 

@@ -427,6 +427,180 @@ mockup `code.html` por choque con las reglas de este documento:
   algún día se sobreescribe ese heredado sin querer. El auto-ajuste a 1 hoja
   (`generar_acta_pdf_binario()`) sigue siendo la red de seguridad si algún
   Acta puntual no entra a estos tamaños.
+- **Tamaño de letra, cuarta vuelta — "letra grande" de verdad (2026-08-19,
+  misma fecha, sesión larga)**: el usuario pidió texto notoriamente más
+  grande ("necesito lentes para leerlo"). Terminó en:
+  - **Celdas de tabla (`td, th`) ahora tienen su PROPIO `font-size` explícito
+    (18.5px base), en vez de heredar de `body`.** Esto es la pieza clave:
+    permite subir el texto general (párrafos/etiquetas/condiciones, que van
+    en `body`) sin que arrastre también los números/nombres de las tablas —
+    pedido explícito del usuario ("la info que está dentro de las tablas no
+    le subas el tamaño, esos ya están bien así"). Antes `td`/`th` no tenía
+    `font-size` propio, así que CUALQUIER cambio a `body` afectaba todas las
+    celdas de las 4 tablas a la vez — la causa real de que "igualar todo al
+    tamaño de subtítulo" rompiera el límite de 1 hoja (ver más abajo).
+  - Valores finales (+0.5px extra pedido dos veces más, confirmado en ambas
+    que seguía entrando en 1 hoja): `body`/`.label`/`.hint`/`.condiciones
+    h3`/párrafo de aceptación del cliente/`.subtitulo` = **21px** (todos
+    iguales — el pedido literal era "sube el tamaño a el de los
+    subtítulos"). `h1` = 28px. `.doc-no` = 15.5px/`.doc-no strong` = 22px.
+    `td`/`th` (todas las celdas de datos) = **18.5px, SIN CAMBIAR en
+    ninguna de las 3 vueltas** — a propósito, es contenido de tabla. Columna
+    Categoría de Meta de Compras (auto-ajustable, `fuente_una_linea()`) =
+    18.5px base — tampoco cambió. `.legend-box` (la cajita "Valor Ruma x
+    Marca x Mes") = 16.5px, sin cambiar — también es contenido de tabla.
+  - **Espacio extra antes del bloque de firmas (2026-08-20)**: el párrafo
+    "Como constancia del presente convenio, firman de común acuerdo las
+    partes." (justo antes de `.firmas-footer`) ahora tiene
+    `margin: 3px 0 14px` en vez de `3px 0` — el pedido fue simular "un enter
+    de más" en Word para que el bloque de firmas baje un poco y no quede
+    pegado a ese párrafo. Solo ese párrafo cambió, los otros dos de
+    "Consideraciones Generales" siguen con `margin:3px 0`. Probado con Acta
+    real (3 filas) y simulada (4 filas): sigue en 1 hoja.
+  - **Probado con la Acta real (3 líneas) y con una prueba de estrés
+    sintética (4 líneas en las 4 tablas a la vez, duplicando una línea real
+    en memoria, nunca guardada) — ambas entran en 1 sola hoja**, sin que el
+    achicado automático tuviera que intervenir.
+
+  **Dos bugs reales encontrados en el camino, ninguno de los dos era "el
+  tamaño de letra en sí" — vale la pena leerlos si esto se vuelve a tocar:**
+  1. **Un script de diagnóstico propio (probar muchas escalas dentro del
+     MISMO proceso de PHP, en un `for`) daba conteos de página FALSOS** —
+     Dompdf arrastra algo entre instancias sucesivas en el mismo proceso que
+     hace que `get_page_count()` no sea confiable ahí. Esto hizo perder
+     mucho tiempo (parecía que hasta el tamaño original de 13px ya no
+     entraba en 1 hoja, lo cual era mentira). **Lección: para verificar
+     "¿cuántas páginas da esta Acta?", SIEMPRE usar un proceso nuevo de PHP
+     por cada render** (ej. `generar_acta_pdf_binario()` llamado una vez por
+     invocación de `php.exe`, nunca un `for` de escalas/tamaños dentro del
+     mismo script/proceso).
+  2. **Usar `sed`/reemplazo global de texto para probar distintos tamaños
+     candidatos (ej. cambiar todos los `px(22, $escala)` a `px(18, $escala)`
+     y de vuelta) corrompió 4 valores que NO eran tamaño de letra pero
+     coincidían con el mismo número**: `top`/`right` de `.doc-no` (posición
+     del "Documento No"), `padding-left` de `.condiciones ul`, `margin-top`
+     de `.firmas-footer`, y `margin-top` del bloque de aceptación del
+     cliente. Cada uno se restauró a mano. **Lección: en este archivo, nunca
+     usar `sed`/`replace_all` sobre un número suelto tipo `22` — hay
+     demasiados valores de padding/margin/posición que coinciden por
+     casualidad con el mismo número que un tamaño de letra. Edits puntuales,
+     con el `old_string` completo de la línea, siempre.**
+  - **Conclusión de diseño, por si se vuelve a pedir "igualar todo al mismo
+    tamaño"**: con `td`/`th` ahora desacoplado de `body`, agrandar el texto
+    general YA NO arriesga romper el límite de 1 hoja — antes sí, porque
+    hint/condiciones (texto largo, aparece varias veces) heredaban el mismo
+    tamaño que se le subía a `body`, y esas sumaban mucha altura. La lección
+    de fondo: en un documento con tablas densas, el tamaño de las CELDAS
+    pesa mucho más en el total de altura que el tamaño de las etiquetas o
+    los párrafos sueltos — conviene mantenerlos como propiedades
+    independientes, no todas heredando de `body`.
+- **Formato de Acta para canal Distribuidor (2026-08-20)**: hasta acá el PDF
+  siempre usaba el mismo layout que Canal Directo, sin importar el canal real
+  del cliente. Se agregó un segundo formato, replicando
+  `datos/FORMATO Distribuidor.pdf` (Excel/PDF real que mandó el cliente):
+  - **Cómo se decide directo vs. distribuidor**: `es_distribuidor` es un
+    booleano nuevo en el `$detalle` que arma `generar_acta_html()`. Para
+    Actas reales (Historial, descarga, snapshot al generar) se deriva 100%
+    en vivo, SIN tocar el esquema: `obtener_acuerdo_detalle()` en
+    `functions.php` ahora trae también `d.canal` (columna que YA existía en
+    `repositorio_locales_supervisores_cliente`, solo se agregó al SELECT) y
+    compara `canal === 'DISTRIBUIDOR'` para ESE `pos_id` puntual — no el
+    canal del supervisor de la sesión (que puede cambiar con el tiempo), el
+    del cliente real guardado en el acuerdo. Para la Previsualización
+    (`getters/previsualizar_acta_pdf.php`, que a propósito nunca abre
+    conexión a la base) no se puede derivar así — el frontend
+    (`assets/js/registrar.js`) manda `es_distribuidor` en el body del POST,
+    tomado de `catalogoDistribuidor.canal` (ya cargado al entrar a
+    Registrar, mismo dato que decide la cascada Empresa→Cliente). Mismo
+    criterio permisivo que ya usa el resto de ese endpoint (no se valida
+    contra la base porque nada se persiste).
+  - **Diferencias del formato Distribuidor vs. Directo** (todo lo demás —
+    logo, encabezado Estimado/Localidad/Fecha, Condiciones, Consideraciones
+    Generales, firmas de Ejecutivo/Jefe Comercial — es idéntico):
+    - Solo se imprime la tabla 1 (Meta de Compras) — **no** se imprimen
+      3.a Extravisibilidad/Cabeceras ni 3.b Espacio en Perchas & Rumas (ni
+      sus subtítulos/hints), aunque el acuerdo tenga líneas cargadas ahí.
+    - Título de la sección 1: en Distribuidor dice
+      "1. Meta de Compras en Dólares + Home Care Jw" (todo en la misma
+      línea). En Directo (cambio pedido en la misma sesión, aplica siempre)
+      ahora dice "1. Meta de Compras en Dólares" con un `<br>` y
+      "Home Care" en la línea de abajo.
+    - En "Firma del Cliente": **corregido 2026-08-20 (ronda 3)** — en
+      Distribuidor, "Razón Social:" YA NO imprime el nombre del cliente
+      (eso es la mecánica de Directo, el usuario pidió explícitamente NO
+      copiarla acá) — ahora es una línea en blanco para llenar a mano,
+      igual que el resto de la firma, con "C.I.:" debajo también en
+      blanco (mismo estilo: etiqueta + línea subrayada en la misma fila,
+      no en líneas separadas). En Directo no cambió nada: sigue imprimiendo
+      el nombre real debajo de "Razón Social:", como siempre.
+    - Logo: se reusa el mismo `assets/img/logo_alicorp.png` de siempre — el
+      usuario pidió explícitamente NO replicar el logo viejo del PDF de
+      referencia, usar "el nuestro, como lo tenemos diseñado".
+  - Implementado con un solo `$esDistribuidor = !empty($detalle['es_distribuidor'])`
+    al inicio de `generar_acta_html()` en `includes/acta_pdf.php`, y 3
+    puntos condicionales en el HTML (título de sección 1, bloque
+    3.a+3.b completo, línea de C.I.) — nada de una plantilla separada que
+    mantener sincronizada. El auto-ajuste a 1 hoja (`generar_acta_pdf_binario()`)
+    sigue siendo el mismo para ambos formatos; con Distribuidor, al tener
+    mucho menos contenido, el PDF queda con harto espacio en blanco abajo —
+    es esperable (el PDF de referencia real también lo tiene así), el
+    sistema no "estira" contenido para llenar la hoja (decisión ya tomada
+    antes, ver más arriba).
+  - Probado (solo lectura, `SHOW`/`SELECT`) contra 5 Acuerdos reales ya
+    generados de un cliente con `canal='DISTRIBUIDOR'` real
+    (ADN-2026-0038/39/40/43/45) — renderiza bien: solo tabla 1, título con
+    "+ Home Care Jw", C.I. debajo de Razón Social, 1 sola página. También
+    se re-probó un Acta Directo real para confirmar que sigue mostrando las
+    4 tablas y el nuevo salto de línea "Home Care" sin romper el límite de
+    1 hoja.
+  - **Corregido 2026-08-20 (ronda 2, mismo día)**: el `<h1>` (título
+    principal) ahora también dice **"Canal Distribuidor"** en vez de
+    siempre "Canal Directo" — antes estaba fijo en el texto aunque el
+    formato ya fuera distinto. Al hacerlo, "Distribuidor" (más largo que
+    "Directo") empujó el título centrado hasta chocar visualmente con el
+    recuadro fijo "Documento No" de la esquina superior derecha — se
+    corrigió agregando `padding-right` al `h1` (150px base) para reservarle
+    ese espacio; probado que ni Distribuidor (título largo) ni Directo
+    (título corto) se ven mal con ese padding.
+  - **"Descargar Excel" en Historial bloqueado para Distribuidor
+    (2026-08-20)**: el export `getters/exportar_cuota_categoria.php` ya
+    filtraba `d.canal <> 'DISTRIBUIDOR'` en sus queries (solo Directa tiene
+    ese Excel construido), pero eso significaba que un usuario Distribuidor
+    (cuyos acuerdos SIEMPRE quedan excluidos por ese filtro) descargaba un
+    `.xlsx` con headers pero sin ninguna fila — parecía roto, no "no
+    disponible". Se agregó `$canalUsuario` (misma `canalDeSupervisor()` que
+    ya usa `registrar.php`) a `components/historial/historial.php`,
+    expuesto como `CANAL_USUARIO_HISTORIAL` en JS; `assets/js/historial.js`
+    ahora intercepta el click del botón y, si es `'distribuidor'`, cancela
+    la descarga y muestra un toast "próximamente disponible" en vez de
+    dejar pasar el `<a href>`. El Excel de Distribuidor en sí sigue sin
+    construirse — esto solo evita el archivo vacío/engañoso mientras tanto.
+- **Spinners: ahora son readonly de verdad, no se puede tipear nada
+  (2026-08-20, decisión final tras 2 vueltas)**: primer intento (mismo día)
+  fue solo arreglar que un segundo click en un campo ya enfocado dejaba
+  insertar texto en medio del valor elegido (`input.select()` en el `click`,
+  no solo en `focus`) — el usuario probó y confirmó que **seguía pudiendo
+  editar**, pidió bloqueo total: "no quiero que se pueda editar o escribir
+  más en esos campos que tienen spinner". Se le preguntó explícitamente
+  entre 2 opciones (bloqueo total sin poder buscar tipeando, vs. limpiar y
+  dejar buscar de nuevo al hacer click) — **eligió bloqueo total**. Implementado
+  agregando el atributo `readonly` a **todos** los inputs de combo (los 6
+  tipos: Distribuidor y Empresa en `registrar.php`; Segmento/Sector/Categoría/Marca
+  vía `comboCellHtml()` en `registrar.js`) — un input `readonly` sigue siendo
+  clickeable/enfocable (así el panel se sigue abriendo normal), pero el
+  navegador bloquea nativamente cualquier tipeo o pegado. Para cambiar un
+  valor ya elegido: click en el campo → se abre el panel con la lista
+  COMPLETA (nunca filtrada por tipeo, ya no se puede) → click en la opción
+  nueva. De paso se simplificó `inicializarCombo()` (ya no hace falta el
+  listener de `input` que limpiaba `hidden.value` al tipear, ni
+  `input.select()` en ningún lado — nada de eso puede pasar ya) y se sacaron
+  2 listeners de `input` que quedaron muertos en `empresaSearch`/
+  `distribuidorSearch` (su lógica ya la cubre el `onSeleccionar` de
+  `comboSeleccionar()`, que corre en cada selección real). La validación de
+  "campo con texto pero sin elegir de la lista" (`validarCabecera()`) queda
+  como red de seguridad — ya no debería poder dispararse nunca por esta vía,
+  pero ahora el mensaje dice el campo y la tabla exactos
+  (`describirCampoCombo()`) y lo resalta en rojo un momento, por si acaso.
 - **Validaciones agregadas (2026-08-18)**, en `assets/js/registrar.js`
   (`validarCabecera()`) Y repetidas en `getters/guardar_acuerdo.php` (el
   guardado es por `fetch()`, no un submit nativo, así que nada obliga a pasar

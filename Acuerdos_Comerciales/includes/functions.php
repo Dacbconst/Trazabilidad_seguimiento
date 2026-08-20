@@ -375,9 +375,13 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	// creado_por=NULL (huérfanos, ver CLAUDE.md) no deben tirar todo el
 	// detalle abajo — simplemente el Acta sale sin nombre de Ejecutivo
 	// Comercial (vuelve a la línea en blanco de siempre, ver acta_pdf.php).
+	// d.canal: mismo maestro externo de arriba, esta vez para saber si ESTE
+	// pos_id puntual es DISTRIBUIDOR — decide qué formato de Acta usar (ver
+	// generar_acta_html()). Se lee del cliente real, no del supervisor de la
+	// sesión que lo generó (que puede cambiar con el tiempo).
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por,
-		        d.pos_name, d.cedi, u.usuario AS ejecutivo_comercial
+		        d.pos_name, d.cedi, d.canal, u.usuario AS ejecutivo_comercial
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
@@ -429,6 +433,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'creado_por'        => $cabecera['creado_por'] !== null ? (int) $cabecera['creado_por'] : null,
 		'distribuidor'      => $cabecera['pos_name'],
 		'localidad'         => $cabecera['cedi'] ?: '—',
+		'es_distribuidor'   => ($cabecera['canal'] ?? null) === 'DISTRIBUIDOR',
 		'ejecutivo_comercial' => $cabecera['ejecutivo_comercial'] ?: '',
 		'lineas'            => $lineas,
 	];

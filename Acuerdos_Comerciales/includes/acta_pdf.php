@@ -130,6 +130,13 @@ function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anc
 function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	if ($medirTexto === null) $medirTexto = crear_medidor_texto();
 
+	// Formato Distribuidor (2026-08-20, ver datos/FORMATO Distribuidor.pdf):
+	// solo Meta de Compras (tabla 1) + Condiciones + Consideraciones Generales
+	// — sin Extravisibilidad/Cabeceras ni Perchas&Rumas — y con C.I. además de
+	// Razón Social en la firma del cliente. El resto del documento (logo,
+	// encabezado, condiciones, consideraciones) es igual al de Canal Directo.
+	$esDistribuidor = !empty($detalle['es_distribuidor']);
+
 	$logo = logo_base64();
 	$logoHtml = $logo ? '<div style="text-align:center; margin-bottom:'.px(5, $escala).';"><img src="'.$logo.'" style="height:'.px(120, $escala).'; width:auto;"></div>' : '';
 
@@ -144,7 +151,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	$categoriaTextos = array_map(function ($linea) {
 		return trim($linea['segmento'].' '.$linea['categoria'].' '.$linea['marca']);
 	}, $detalle['lineas']['meta_compra']);
-	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 13 * $escala, $medirTexto), 2);
+	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escala, $medirTexto), 2);
 	$restoPct = 100 - $categoriaPct;
 	$mesesPct    = round(34 * $restoPct / 74, 2);
 	$totalPct    = round(16 * $restoPct / 74, 2);
@@ -161,7 +168,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 		$metaGrandTotal += $total; $metaGrandEst += $est;
 
 		$categoriaTexto = $categoriaTextos[$i];
-		$fuenteCategoria = fuente_una_linea($categoriaTexto, 13 * $escala, $categoriaPct, $medirTexto);
+		$fuenteCategoria = fuente_una_linea($categoriaTexto, 18.5 * $escala, $categoriaPct, $medirTexto);
 		// Una sola línea horizontal SIEMPRE (requisito explícito, sin excepción):
 		// nowrap fuerza 1 línea y el tamaño ya viene calculado para que quepa.
 		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($categoriaTexto).'</td>';
@@ -251,36 +258,40 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 @page { size: A4; margin: 1cm 1.2cm; }
 * { box-sizing: border-box; }
 p, h1, ul { margin: 0 0 '.px(3.5, $escala).'; }
-body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(13, $escala).'; color: #000000; line-height: 1.35; }
-h1 { font-size: '.px(22, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; }
+body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(21, $escala).'; color: #000000; line-height: 1.35; }
+h1 { font-size: '.px(28, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; padding-right: '.px(150, $escala).'; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-td, th { padding: '.px(5, $escala).' '.px(9, $escala).'; word-wrap: break-word; }
+/* Las celdas de tabla fijan SU PROPIO tamaño acá (no heredan de `body`) — a
+   propósito, para que subir el texto general (párrafos/etiquetas/condiciones)
+   no arrastre también los datos de las tablas, que ya están en un tamaño que
+   funciona bien y no se quiere tocar (pedido explícito 2026-08-19). */
+td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word; font-size: '.px(18.5, $escala).'; }
 .num { text-align: right; }
 .ctr { text-align: center; }
 .vacio { text-align: center; color: #000000; padding: '.px(7, $escala).' !important; }
-.doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(12, $escala).'; color: #000000; }
-.doc-no strong { display: block; font-size: '.px(17, $escala).'; }
+.doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(15.5, $escala).'; color: #000000; }
+.doc-no strong { display: block; font-size: '.px(22, $escala).'; }
 .meta-tabla { margin: '.px(6, $escala).' 0 '.px(5, $escala).'; }
 .meta-tabla td, .meta-tabla th { border: 1px solid #c4c5d5; }
 .meta-tabla thead th { background: #eeedf7; }
 .total-row td { font-weight: bold; border-top: 2px solid #000000; }
 .rebate-cell { background: #fbf0cf; }
-.label { font-size: '.px(11.5, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
-.hint { font-size: '.px(12, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; }
-.subtitulo { font-size: '.px(16, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; font-weight: bold; color: #000000; }
+.label { font-size: '.px(21, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
+.hint { font-size: '.px(21, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; }
+.subtitulo { font-size: '.px(21, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; font-weight: bold; color: #000000; }
 .condiciones { background: #f4f2fc; border: 1px solid #c4c5d5; border-radius: 6px; padding: '.px(6, $escala).' '.px(10, $escala).'; margin: '.px(3.5, $escala).' 0 '.px(5, $escala).'; }
-.condiciones h3 { font-size: '.px(12, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; color: #000000; }
+.condiciones h3 { font-size: '.px(21, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; color: #000000; }
 .condiciones ul { margin: 0; padding-left: '.px(17, $escala).'; }
 .condiciones li { margin-bottom: '.px(1.5, $escala).'; }
 .firmas-footer { margin-top: '.px(18, $escala).'; }
 .firma-linea-firmar { border-bottom: 1px solid #000000; height: '.px(28, $escala).'; margin: '.px(32, $escala).' 0; }
 .legend-box { border: 1px solid #c4c5d5; border-radius: 4px; padding: '.px(5, $escala).'; }
-.legend-box th, .legend-box td { font-size: '.px(11.5, $escala).'; }
+.legend-box th, .legend-box td { font-size: '.px(16.5, $escala).'; }
 </style></head><body>
 
 <div class="doc-no"><span class="label">Documento No:</span><strong>'.h($detalle['documento_no']).'</strong></div>
 '.$logoHtml.'
-<h1>Acuerdo de Desarrollo de Negocios Canal Directo</h1>
+<h1>Acuerdo de Desarrollo de Negocios Canal '.($esDistribuidor ? 'Distribuidor' : 'Directo').'</h1>
 
 <table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(5, $escala).';"><tr>
 	<td style="border:none; width:34%;"><span class="label">Estimado(a)</span><br><strong>'.h($detalle['distribuidor']).'</strong></td>
@@ -291,7 +302,7 @@ td, th { padding: '.px(5, $escala).' '.px(9, $escala).'; word-wrap: break-word; 
 <p>JABONERÍA WILSON S.A. y '.h($detalle['distribuidor']).' celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.</p>
 <p><span class="label">Periodo del acuerdo</span> <strong>'.h($periodoTexto).'</strong></p>
 
-<p class="subtitulo">1. Meta de Compras en Dólares</p>
+<p class="subtitulo">1. Meta de Compras en Dólares'.($esDistribuidor ? ' + Home Care Jw' : '<br>Home Care').'</p>
 <p class="hint">Dólares comprados por categoría sin considerar bonificación/descuentos.</p>
 <table class="meta-tabla">
 	<thead><tr><th style="'.ancho_style($categoriaPct).'">Categoría</th>'.$mesesHeadHtml.'<th style="'.ancho_style($totalPct).'">Total Período</th><th style="'.ancho_style($rebatePct).'">Rebate</th><th style="'.ancho_style($estimadoPct).'">Estimado a Ganar</th></tr></thead>
@@ -316,6 +327,7 @@ td, th { padding: '.px(5, $escala).' '.px(9, $escala).'; word-wrap: break-word; 
 	</ul>
 </div>
 
+'.($esDistribuidor ? '' : '
 <p class="subtitulo">3.a. Extravisibilidad: Cabeceras</p>
 <p class="hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro.<br>Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.</p>
 <table class="meta-tabla">
@@ -345,11 +357,12 @@ td, th { padding: '.px(5, $escala).' '.px(9, $escala).'; word-wrap: break-word; 
 	<thead>'.$perchaHeadRow1.$perchaHeadRow2.$perchaHeadRow3.'</thead>
 	<tbody>'.$perchaRows.'</tbody>
 </table>
+').'
 
 <p class="subtitulo">Consideraciones Generales</p>
 <p style="margin:'.px(3, $escala).' 0;">Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>
 <p style="margin:'.px(3, $escala).' 0;">La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito. El plazo para emitir la nota de crédito es hasta 2 meses luego de finalizar el periodo del acuerdo.</p>
-<p style="margin:'.px(3, $escala).' 0;">Como constancia del presente convenio, firman de común acuerdo las partes.</p>
+<p style="margin:'.px(3, $escala).' 0 '.px(14, $escala).';">Como constancia del presente convenio, firman de común acuerdo las partes.</p>
 
 <div class="firmas-footer">
 
@@ -368,11 +381,14 @@ td, th { padding: '.px(5, $escala).' '.px(9, $escala).'; word-wrap: break-word; 
 
 <div style="text-align:center; margin-top:'.px(20, $escala).';">
 	<p style="margin:0;">Jabonería Wilson<br><strong>ACEPTACIÓN DEL PRESENTE CONVENIO POR PARTE DEL CLIENTE</strong></p>
-	<p style="font-size:'.px(12.5, $escala).'; color:#000000;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
+	<p style="font-size:'.px(21, $escala).'; color:#000000;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
 	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(36, $escala).' auto;"></div>
-	<p class="label" style="margin:0;">Firma del Cliente</p>
+	<p class="label" style="margin:0;">Firma del Cliente</p>'
+	.($esDistribuidor ? '
+	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>
+	<p class="label" style="margin-top:'.px(4, $escala).'; padding-left:'.px(40, $escala).';">C.I.: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>' : '
 	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social:</p>
-	<p style="font-weight:bold; margin:0;">'.h($detalle['distribuidor']).'</p>
+	<p style="font-weight:bold; margin:0;">'.h($detalle['distribuidor']).'</p>').'
 </div>
 
 </div>
@@ -402,7 +418,13 @@ function generar_acta_pdf_binario(array $detalle) {
 	};
 
 	// Prueba a tamaño normal (escala 1) y solo si no entra en 1 hoja va
-	// reduciendo — nunca achica más de lo necesario.
+	// reduciendo — nunca achica más de lo necesario. (Se probó también un
+	// modo "agrandar si sobra espacio" — se sacó: con Actas de contenido
+	// medio/largo el margen reservado para las firmas no alcanzaba y se
+	// pisaban con la tabla de arriba. El usuario confirmó que el
+	// aprovechamiento de espacio de este esquema original ya era bueno, solo
+	// pidió subir el tamaño de letra base — ver los valores en px() de más
+	// abajo.)
 	$escala = 1.0;
 	$dompdf = $renderizar($escala);
 	while ($dompdf->getCanvas()->get_page_count() > 1 && $escala > 0.4) {

@@ -626,6 +626,14 @@ body {
    cards) lo recorte, sin importar en qué celda de qué tabla esté el input. */
 .ac-combo { position: relative; }
 .ac-combo-input { width: 100%; }
+/* readonly (no disabled): sigue siendo clickeable para abrir el panel, solo
+   no se puede tipear/pegar texto — cursor pointer para que se note que es
+   un spinner, no un campo de texto libre trabado. */
+.ac-combo-input:read-only:not(:disabled) { cursor: pointer; background: var(--color-surface); }
+/* Resalte momentáneo cuando la validación de guardado encuentra un campo sin
+   confirmar (ver describirCampoCombo() en registrar.js) — red de seguridad,
+   no debería dispararse con los campos ya readonly. */
+.ac-campo-resaltado { outline: 2px solid var(--color-error); outline-offset: 1px; }
 .ac-combo-panel {
 	max-height: 280px; overflow-y: auto;
 	background: var(--color-surface-container-lowest);

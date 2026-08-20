@@ -14,6 +14,13 @@ $pagina    = (int) ($_GET['pg'] ?? 1);
 $resultado = listar_historial_acuerdos($mysqli, $busqueda, $mes, $pagina, $_SESSION['user_id'] ?? null);
 $acuerdos  = $resultado['acuerdos'];
 
+// "Descargar Excel" (exportar_cuota_categoria.php) solo existe para canal
+// Directo — el de Distribuidor todavía no está construido (ver CLAUDE.md).
+// Mismo cálculo que registrar.php (canalDeSupervisor()), expuesto para que
+// historial.js bloquee el click con un aviso "Próximamente" en vez de
+// descargar un .xlsx vacío/con el formato equivocado.
+$canalUsuario = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
+
 $mesesLargos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
@@ -60,6 +67,8 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			</a>
 		</div>
 	</section>
+
+	<script>var CANAL_USUARIO_HISTORIAL = '<?= $canalUsuario ?>';</script>
 
 	<section class="ac-card">
 		<div class="ac-table-scroll">

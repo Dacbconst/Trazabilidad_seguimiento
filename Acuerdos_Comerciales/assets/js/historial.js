@@ -14,6 +14,17 @@
 	var paginacionBtns  = document.getElementById('hist-paginacion-btns');
 	var buscarTimeout   = null;
 
+	// "Descargar Excel" solo existe para canal Directo (ver
+	// getters/exportar_cuota_categoria.php) — para Distribuidor todavía no
+	// está construido, así que se bloquea el click con un aviso en vez de
+	// dejar que descargue un .xlsx vacío con el formato equivocado.
+	exportarCuotaLink.addEventListener('click', function (e) {
+		if (window.CANAL_USUARIO_HISTORIAL === 'distribuidor') {
+			e.preventDefault();
+			mostrarToast('El Excel de Cuota/Categoría para Distribuidor está próximamente disponible.', 'info');
+		}
+	});
+
 	function escapeHtml(texto) {
 		var div = document.createElement('div');
 		div.textContent = texto == null ? '' : String(texto);
