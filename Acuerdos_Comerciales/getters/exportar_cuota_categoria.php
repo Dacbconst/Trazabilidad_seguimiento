@@ -295,6 +295,227 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 	$wb->formula($s1, $filaTotal, $colCumplimiento, 'IFERROR('.$cl($colVentaTotal).$filaTotal.'/'.$cl($colTotalQ2).$filaTotal.',0)', true, 'pct');
 }
 
+// ==================== Hoja "VISIBILIDAD" (2026-08-19/20) ====================
+// Replica la hoja VISIBILIDAD del archivo real de JW (mismo archivo
+// datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA 2026.xlsx) a partir de
+// las líneas cabecera/ruma/percha de la Acta — cabecera→CABECERA,
+// ruma→ISLA, percha→PERCHA (confirmado con el usuario). No toca $s1/$s2 de arriba.
+//
+// Decisiones confirmadas con el usuario:
+// - CEDI = mismo "ejecutivo" (usuario logueado que creó el Acta) que la
+//   hoja de Cuota/Categoría — no es el CEDI/zona geográfica.
+// - PLAN: investigado también contra `repositorio_locales_dtt2` (tabla
+//   deprecada) a pedido del usuario — tiene un canal "AUTOSERVICIO" pero
+//   solo para cadenas modernas (SUPERMAXI/TÍA/AKI), nada de "SUPER ALIANZA"
+//   ni "AUTOSERVICIO INDEPENDIENTE". Sigue sin poder derivarse, vacío.
+// - **Corregido 2026-08-20**: regla de "línea completa" para CANTIDAD/PAGO
+//   relajada — antes exigía que TODOS los meses tuvieran valor > 0 (una
+//   línea con un solo mes en 0 quedaba totalmente descartada); el usuario
+//   la objetó mostrando percha con datos reales, así que ahora una línea
+//   cuenta/suma si su TOTAL (suma de los meses, o el valor único en ruma)
+//   es > 0 — basta con que haya llegado data real a la línea, no que todos
+//   los meses individuales estén llenos.
+// - **Corregido 2026-08-20**: el grupo de columnas etiquetado "MARCA" (así
+//   se llama en el archivo real, no se cambia el título) ahora muestra la
+//   CATEGORÍA de la línea (cabecera/ruma sí tienen `categoria` guardada),
+//   no la marca — pedido explícito del usuario. `percha` no tiene columna
+//   `categoria` en el esquema (solo `marca`, ver guardar_acuerdo.php), así
+//   que para PERCHA se sigue mostrando `marca` a falta de otra cosa.
+// - **Corregido 2026-08-20**: PAGO CABECERA/ISLA/PERCHA vuelven a ser
+//   VALORES calculados directo en PHP (no fórmulas `SUMIF`) — la hoja
+//   auxiliar "VISIBILIDAD DETALLE" que se había agregado para sostener esas
+//   fórmulas se ELIMINÓ (el usuario la objetó: no existe nada parecido en
+//   el archivo real, no había que inventar hojas nuevas). PAGO TOTAL sigue
+//   siendo una fórmula real (`=G+H+I`, solo referencia celdas de la misma
+//   fila) porque así es como funciona en el archivo real también.
+// - VALIDACIÓN (CABECERA/ISLA/PERCHA) va vacía siempre — la llena JW a mano
+//   después de verificar en campo, no es un dato que tengamos.
+// - R/S/T (columnas sin cabecera de grupo) e IF(...)/TOTAL: fórmulas
+//   idénticas a las del archivo real, traducidas a inglés/coma (ver aviso
+//   en xlsx_writer.php) — quedan en 0 hasta que JW llene VALIDACIÓN a mano.
+// - Colores: leídos del archivo real vía Excel COM (`Interior.Color` Y
+//   `DisplayFormat.Interior.Color`, dan exactamente lo mismo, sin tabla de
+//   Excel de por medio) — encabezado `#F5E6F5`, columna Nombres `#EFCEEF`.
+//   El usuario dijo que no son los colores reales — **pendiente de
+//   confirmar con él cuáles son los correctos**, ver CLAUDE.md.
+$stmtVis = $mysqli->prepare(
+	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, l.tipo, l.marca, l.categoria,
+	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
+	 FROM repositorio_acuerdos a
+	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
+	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+	 WHERE a.estado NOT IN ('borrador', 'anulado')
+	   AND a.creado_por = ?
+	   AND d.pos_name LIKE ?
+	   AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))
+	   AND d.canal <> 'DISTRIBUIDOR'
+	 GROUP BY a.id, l.id"
+);
+$filasVis = [];
+if ($stmtVis) {
+	$stmtVis->bind_param('isiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx);
+	$stmtVis->execute();
+	$filasVis = $stmtVis->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmtVis->close();
+}
+
+$tipoColuna = ['cabecera' => 'CABECERA', 'ruma' => 'ISLA', 'percha' => 'PERCHA'];
+$porClienteVis = []; // cliente => ['ejecutivo'=>..., 'tipos'=>['CABECERA'=>['cantidad'=>,'pago'=>,'textos'=>[]], ...]]
+
+foreach ($filasVis as $f) {
+	if ($f['marca'] === '' || $f['marca'] === null) continue;
+	$colTipo = $tipoColuna[$f['tipo']];
+	$mesesActivos = range((int) $f['mes_inicio'], (int) $f['mes_fin']);
+
+	if ($f['tipo'] === 'ruma') {
+		// Ruma: un solo valor mensual aplicado a todos los meses (ver
+		// valor_mensual_unico en guardar_acuerdo.php) — el "Pago Total" de
+		// la línea es ese valor × la cantidad de meses del período (mismo
+		// cálculo que tabla_marca_html() en includes/acta_pdf.php).
+		$valorUnico = (float) $f['valor_mensual_unico'];
+		$pagoLinea = $valorUnico * count($mesesActivos);
+	} else {
+		$valores = json_decode($f['valores_mensuales'] ?? '{}', true) ?: [];
+		$pagoLinea = 0.0;
+		foreach ($mesesActivos as $m) $pagoLinea += (float) ($valores[(string) $m] ?? 0);
+	}
+	if ($pagoLinea <= 0) continue; // sin data real en la línea: no cuenta ni suma, ver nota arriba.
+
+	// "MARCA" del archivo real en realidad muestra la categoría (cabecera/
+	// ruma la tienen guardada); percha no tiene ese campo, se usa marca.
+	$textoColumna = ($f['tipo'] === 'percha') ? $f['marca'] : ($f['categoria'] !== '' && $f['categoria'] !== null ? $f['categoria'] : $f['marca']);
+
+	$cliente = $f['cliente'];
+	if (!isset($porClienteVis[$cliente])) {
+		$porClienteVis[$cliente] = [
+			'ejecutivo' => $f['ejecutivo'] ?? '',
+			'tipos' => [
+				'CABECERA' => ['cantidad' => 0, 'pago' => 0.0, 'textos' => []],
+				'ISLA'     => ['cantidad' => 0, 'pago' => 0.0, 'textos' => []],
+				'PERCHA'   => ['cantidad' => 0, 'pago' => 0.0, 'textos' => []],
+			],
+		];
+	}
+	$porClienteVis[$cliente]['tipos'][$colTipo]['cantidad']++;
+	$porClienteVis[$cliente]['tipos'][$colTipo]['pago'] += $pagoLinea;
+	$porClienteVis[$cliente]['tipos'][$colTipo]['textos'][] = $textoColumna;
+}
+ksort($porClienteVis);
+
+$s3 = $wb->agregarHoja('VISIBILIDAD');
+
+// ---------- Hoja "VISIBILIDAD": encabezados (2 filas, igual que el archivo real) ----------
+// Corregido 2026-08-20: la lectura por COM (Interior.Color/DisplayFormat)
+// daba F5E6F5/EFCEEF (rosa) — el usuario lo objetó con una captura real
+// mostrando encabezado AZUL. Se verificó contra la fuente de verdad (XML
+// crudo del .xlsx + xl/theme/theme1.xml, resolviendo el color de tema
+// "theme=4 tint=0.8" y "theme=8 tint=0.8" a mano con la fórmula de tint de
+// OOXML) — el encabezado real es theme accent1 con tint 0.8 (≈ C1E5F5,
+// básicamente el mismo azul `$bgEncabezado` de la hoja Cuota/Categoría) y
+// Nombres es theme accent5 con tint 0.8 (≈ F2CFEE, básicamente el mismo
+// rosa `$bgClienteDato` de esa misma hoja) — se reusan esas 2 variables ya
+// definidas arriba en vez de declarar valores nuevos, para que ambas hojas
+// queden con el mismo azul/rosa exactos.
+$bgEncVis = $bgEncabezado; $bgClienteVis = $bgClienteDato;
+// Columnas (sin "KP", que en el archivo real es una fórmula rota #REF! sin uso real):
+// 1 CEDI, 2 Nombres, 3 PLAN, 4-6 CANTIDAD(Cab/Isla/Percha), 7-9 PAGO(Cab/Isla/Percha),
+// 10 PAGO TOTAL, 11-13 MARCA(Cab/Isla/Percha), 14-16 VALIDACIÓN(Cab/Isla/Percha),
+// 17-19 Cab/Isla/Percha "validado" (sin cabecera de grupo), 20 TOTAL, 21 OBSERVACION.
+$vCedi = 1; $vNombres = 2; $vPlan = 3;
+$vCantCab = 4; $vCantIsla = 5; $vCantPercha = 6;
+$vPagoCab = 7; $vPagoIsla = 8; $vPagoPercha = 9; $vPagoTotal = 10;
+$vMarcaCab = 11; $vMarcaIsla = 12; $vMarcaPercha = 13;
+$vValidCab = 14; $vValidIsla = 15; $vValidPercha = 16;
+$vRCab = 17; $vRIsla = 18; $vRPercha = 19; $vTotal = 20; $vObs = 21;
+
+// Centrado (pedido explícito del usuario): los títulos de grupo combinados
+// (fila 1) y los sub-encabezados CABECERA/ISLA/PERCHA repetidos (fila 2)
+// quedaban pegados a la izquierda por default de OOXML en una celda
+// fusionada — se centran horizontal y vertical.
+$wb->celda($s3, 1, $vCantCab, 'CANTIDAD', true, null, $bgEncVis, '000000', true);
+$wb->combinarCeldas($s3, $cl($vCantCab).'1:'.$cl($vCantPercha).'1');
+$wb->celda($s3, 1, $vPagoCab, 'PAGO', true, null, $bgEncVis, '000000', true);
+$wb->combinarCeldas($s3, $cl($vPagoCab).'1:'.$cl($vPagoPercha).'1');
+$wb->celda($s3, 1, $vMarcaCab, 'MARCA', true, null, $bgEncVis, '000000', true);
+$wb->combinarCeldas($s3, $cl($vMarcaCab).'1:'.$cl($vMarcaPercha).'1');
+$wb->celda($s3, 1, $vValidCab, 'VALIDACIÓN', true, null, $bgEncVis, '000000', true);
+$wb->combinarCeldas($s3, $cl($vValidCab).'1:'.$cl($vValidPercha).'1');
+
+$filaEncVis = 2;
+foreach ([$vCedi => 'CEDI', $vNombres => 'NOMBRES', $vPlan => 'PLAN'] as $col => $texto) {
+	$wb->celda($s3, $filaEncVis, $col, $texto, true, null, $bgEncVis, '000000', true);
+}
+foreach ([$vCantCab, $vPagoCab, $vMarcaCab, $vValidCab, $vRCab] as $base) {
+	$wb->celda($s3, $filaEncVis, $base, 'CABECERA', true, null, $bgEncVis, '000000', true);
+	$wb->celda($s3, $filaEncVis, $base + 1, 'ISLA', true, null, $bgEncVis, '000000', true);
+	$wb->celda($s3, $filaEncVis, $base + 2, 'PERCHA', true, null, $bgEncVis, '000000', true);
+}
+$wb->celda($s3, $filaEncVis, $vPagoTotal, 'PAGO TOTAL', true, null, $bgEncVis, '000000', true);
+$wb->celda($s3, $filaEncVis, $vTotal, 'TOTAL', true, null, $bgEncVis, '000000', true);
+$wb->celda($s3, $filaEncVis, $vObs, 'OBSERVACION', true, null, $bgEncVis, '000000', true);
+
+// ---------- Hoja "VISIBILIDAD": filas de datos ----------
+$filaVisDatos = $filaEncVis + 1;
+$primeraFilaVis = $filaVisDatos;
+foreach ($porClienteVis as $cliente => $datosCliente) {
+	$wb->celda($s3, $filaVisDatos, $vCedi, $datosCliente['ejecutivo']);
+	$wb->celda($s3, $filaVisDatos, $vNombres, $cliente, false, null, $bgClienteVis, '000000');
+	// PLAN vacío a propósito, ver nota arriba.
+	$wb->celda($s3, $filaVisDatos, $vPlan, '');
+
+	$colCantidad = [$vCantCab, $vCantIsla, $vCantPercha];
+	$colPago = [$vPagoCab, $vPagoIsla, $vPagoPercha];
+	$colMarca = [$vMarcaCab, $vMarcaIsla, $vMarcaPercha];
+	foreach (['CABECERA', 'ISLA', 'PERCHA'] as $i => $tipoNombre) {
+		$t = $datosCliente['tipos'][$tipoNombre];
+		$wb->celda($s3, $filaVisDatos, $colCantidad[$i], $t['cantidad']);
+		// PAGO: valor calculado directo (no fórmula), ver nota arriba.
+		$wb->celda($s3, $filaVisDatos, $colPago[$i], round($t['pago'], 2), false, 'money');
+		$wb->celda($s3, $filaVisDatos, $colMarca[$i], implode(' - ', $t['textos']));
+	}
+
+	$wb->formula($s3, $filaVisDatos, $vPagoTotal,
+		$cl($vPagoCab).$filaVisDatos.'+'.$cl($vPagoIsla).$filaVisDatos.'+'.$cl($vPagoPercha).$filaVisDatos, false, 'money');
+
+	// VALIDACIÓN: vacía, la llena JW a mano.
+	foreach ([$vValidCab, $vValidIsla, $vValidPercha] as $col) $wb->celda($s3, $filaVisDatos, $col, '');
+
+	// R/S/T: IF(VALIDACIÓN="CUMPLE", PAGO, 0) — 0 hasta que JW valide.
+	$wb->formula($s3, $filaVisDatos, $vRCab, 'IF('.$cl($vValidCab).$filaVisDatos.'="CUMPLE",'.$cl($vPagoCab).$filaVisDatos.',0)', false, 'money');
+	$wb->formula($s3, $filaVisDatos, $vRIsla, 'IF('.$cl($vValidIsla).$filaVisDatos.'="CUMPLE",'.$cl($vPagoIsla).$filaVisDatos.',0)', false, 'money');
+	$wb->formula($s3, $filaVisDatos, $vRPercha, 'IF('.$cl($vValidPercha).$filaVisDatos.'="CUMPLE",'.$cl($vPagoPercha).$filaVisDatos.',0)', false, 'money');
+	$wb->formula($s3, $filaVisDatos, $vTotal, 'SUM('.$cl($vRCab).$filaVisDatos.':'.$cl($vRPercha).$filaVisDatos.')', false, 'money');
+	$wb->celda($s3, $filaVisDatos, $vObs, '');
+
+	$filaVisDatos++;
+}
+$ultimaFilaVis = $filaVisDatos - 1;
+
+// ---------- Hoja "VISIBILIDAD": fila TOTAL ----------
+// Fórmulas leídas EXACTAS del archivo real (fila 46 de
+// datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA 2026.xlsx, vía Excel
+// COM) — a propósito NO son todas iguales: CANTIDAD/PAGO usan SUM() normal
+// (no SUBTOTAL como en la otra hoja), PAGO TOTAL repite el mismo patrón
+// "=+G+H+I" de las filas de datos (no una suma de rango), MARCA/VALIDACIÓN/
+// R-S-T quedan en blanco (así está en el original, no se totalizan), y solo
+// la columna TOTAL final usa SUBTOTAL(9,...) — se replica tal cual aunque
+// la mezcla de SUM/SUBTOTAL no sea consistente, porque así está en la
+// plantilla real que usa JW.
+if ($ultimaFilaVis >= $primeraFilaVis) {
+	$filaTotalVis = $ultimaFilaVis + 1;
+	$wb->celda($s3, $filaTotalVis, $vNombres, 'TOTAL', true);
+	foreach ([$vCantCab, $vCantIsla, $vCantPercha, $vPagoCab, $vPagoIsla, $vPagoPercha] as $col) {
+		$rango = $cl($col).$primeraFilaVis.':'.$cl($col).$ultimaFilaVis;
+		$numFmt = in_array($col, [$vPagoCab, $vPagoIsla, $vPagoPercha], true) ? 'money' : null;
+		$wb->formula($s3, $filaTotalVis, $col, 'SUM('.$rango.')', true, $numFmt);
+	}
+	$wb->formula($s3, $filaTotalVis, $vPagoTotal,
+		$cl($vPagoCab).$filaTotalVis.'+'.$cl($vPagoIsla).$filaTotalVis.'+'.$cl($vPagoPercha).$filaTotalVis, true, 'money');
+	$rangoTotalVis = $cl($vTotal).$primeraFilaVis.':'.$cl($vTotal).$ultimaFilaVis;
+	$wb->formula($s3, $filaTotalVis, $vTotal, 'SUBTOTAL(9,'.$rangoTotalVis.')', true, 'money');
+}
+
 $bin = $wb->generar();
 
 $nombreArchivo = 'CuotaCategoria_Directa_'.date('Y-m-d').'.xlsx';

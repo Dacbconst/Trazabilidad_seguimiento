@@ -76,14 +76,15 @@ class XlsxWriter {
 
 	// $numFmt: null (general) / 'money' (numFmtId 44) / 'pct' (numFmtId 10) —
 	// ambos son ids builtin de Excel, no hace falta declarar numFmts custom.
-	private function estiloId($negrita, $numFmt, $bgHex, $fontColorHex) {
+	private function estiloId($negrita, $numFmt, $bgHex, $fontColorHex, $centrado = false) {
 		$numFmtId = $numFmt === 'money' ? 44 : ($numFmt === 'pct' ? 10 : 0);
-		$clave = ($negrita ? 1 : 0).'|'.$numFmtId.'|'.($bgHex ?: '').'|'.($fontColorHex ?: '');
+		$clave = ($negrita ? 1 : 0).'|'.$numFmtId.'|'.($bgHex ?: '').'|'.($fontColorHex ?: '').'|'.($centrado ? 1 : 0);
 		if (isset($this->estiloCache[$clave])) return $this->estiloCache[$clave];
 		$this->estilos[] = [
 			'fontIdx' => $this->fontIndex($negrita, $fontColorHex),
 			'fillIdx' => $this->fillIndex($bgHex),
 			'numFmtId' => $numFmtId,
+			'centrado' => $centrado,
 		];
 		$id = count($this->estilos) - 1;
 		$this->estiloCache[$clave] = $id;
@@ -91,11 +92,14 @@ class XlsxWriter {
 	}
 
 	// $bg / $fontColor: hex sin "#" (ej. "FFC000") o null para el default.
-	public function celda($hojaIdx, $fila, $col, $valor, $negrita = false, $numFmt = null, $bg = null, $fontColor = null) {
+	// $centrado: true = texto centrado horizontal (para títulos de grupo
+	// combinados tipo "CANTIDAD"/"PAGO", que por default OOXML alinea a la
+	// izquierda aunque la celda esté fusionada en un rango ancho).
+	public function celda($hojaIdx, $fila, $col, $valor, $negrita = false, $numFmt = null, $bg = null, $fontColor = null, $centrado = false) {
 		$this->hojas[$hojaIdx]['celdas'][$fila][$col] = [
 			'tipo' => is_numeric($valor) ? 'n' : 's',
 			'valor' => $valor,
-			'estilo' => $this->estiloId($negrita, $numFmt, $bg, $fontColor),
+			'estilo' => $this->estiloId($negrita, $numFmt, $bg, $fontColor, $centrado),
 		];
 	}
 
@@ -238,7 +242,13 @@ class XlsxWriter {
 		$xml = '<cellXfs count="'.count($this->estilos).'">';
 		foreach ($this->estilos as $e) {
 			$apply = ($e['numFmtId'] !== 0) ? ' applyNumberFormat="1"' : '';
-			$xml .= '<xf numFmtId="'.$e['numFmtId'].'" fontId="'.$e['fontIdx'].'" fillId="'.$e['fillIdx'].'" xfId="0" applyFont="1" applyFill="1"'.$apply.'/>';
+			$centrado = !empty($e['centrado']);
+			$applyAlign = $centrado ? ' applyAlignment="1"' : '';
+			// borderId="1" siempre (fino en los 4 lados) — todo lo que arma
+			// este escritor son tablas, no hace falta un caso "sin borde".
+			$xml .= '<xf numFmtId="'.$e['numFmtId'].'" fontId="'.$e['fontIdx'].'" fillId="'.$e['fillIdx'].'" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"'.$apply.$applyAlign.'>';
+			if ($centrado) $xml .= '<alignment horizontal="center" vertical="center"/>';
+			$xml .= '</xf>';
 		}
 		return $xml.'</cellXfs>';
 	}
@@ -295,7 +305,11 @@ class XlsxWriter {
 			'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.
 			$this->xmlFonts().
 			$this->xmlFills().
-			'<borders count="1"><border/></borders>'.
+			// borderId 0 = sin borde, 1 = fino negro en los 4 lados (mismo
+			// estilo "thin"/indexed 64 que usa el archivo real de JW en
+			// prácticamente todas sus celdas de tabla) — 2026-08-20, pedido
+			// explícito del usuario ("agrégale bordes a las tablas").
+			'<borders count="2"><border/><border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right><top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border></borders>'.
 			'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0"/></cellStyleXfs>'.
 			$this->xmlCellXfs().
 			'</styleSheet>'

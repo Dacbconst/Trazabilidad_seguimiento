@@ -595,6 +595,122 @@ sin pedir reparar, `CONCAT`/`SUM`/`IFERROR`/`IF`/`VLOOKUP`(a la hoja CUOTA
 TOTAL)/`SUBTOTAL` calculan todos correcto, formato moneda/porcentaje
 aplicado, fila TOTAL correcta.
 
+### Hoja "VISIBILIDAD" agregada al mismo export (2026-08-19/20)
+
+Mismo archivo/endpoint (`getters/exportar_cuota_categoria.php`), una hoja
+nueva `VISIBILIDAD` — **sin tocar `CUOTA CLIENTE - CATEGORÍA` ni `CUOTA
+TOTAL`**. Un renglón por CLIENTE (no por línea, a diferencia de la otra
+hoja). Mapeo tipo de línea → columna, confirmado con el usuario: `cabecera`
+→ CABECERA, `ruma` → ISLA, `percha` → PERCHA.
+
+**Estado actual (después de 2 rondas de corrección del usuario, ver abajo
+la primera versión que se descartó):**
+- **Regla de "línea con data real"**: una línea cuenta (CANTIDAD) y suma
+  (PAGO) si su **TOTAL** (suma de los meses del período, o el valor único
+  en `ruma`) es **> 0** — no hace falta que cada mes individual tenga valor,
+  basta con que haya llegado algo real a la línea en conjunto.
+- **PAGO CABECERA/ISLA/PERCHA son VALORES calculados en PHP**, no fórmulas
+  — se suma directo en el backend y se escribe el número. Solo **PAGO
+  TOTAL** es fórmula real (`=G+H+I`, references solo celdas de la misma
+  fila, igual que el archivo real).
+- El grupo de columnas titulado "MARCA" (el título no cambia, así se llama
+  en el archivo real) muestra la **CATEGORÍA** de la línea para
+  cabecera/ruma (si tienen `categoria` guardada) — `percha` no tiene ese
+  campo en el esquema, ahí se sigue mostrando `marca`.
+- Encabezados (fila 1 títulos de grupo combinados + fila 2 sub-encabezados
+  CABECERA/ISLA/PERCHA repetidos) van **centrados** horizontal y vertical —
+  se agregó soporte de `centrado` a `celda()` en `includes/xlsx_writer.php`
+  (parámetro nuevo, `<alignment horizontal="center" vertical="center"/>`
+  en el `cellXf`, por default `false` así que no afecta nada existente).
+- **Colores, corregido 2026-08-20 — bug real en la lectura por COM,
+  encontrado y resuelto.** La primera lectura (`Interior.Color` y
+  `DisplayFormat.Interior.Color` vía Excel COM, verificada 2 veces) daba
+  `#F5E6F5`/`#EFCEEF` (rosa) para el encabezado — el usuario lo objetó con
+  una captura real mostrando encabezado AZUL. Se investigó a fondo abriendo
+  el `.xlsx` como ZIP y leyendo el XML crudo (`xl/worksheets/sheet5.xml` +
+  `xl/styles.xml` + `xl/theme/theme1.xml`): el fill real es una referencia
+  a color de TEMA (`theme="4" tint="0.79998..."` para el encabezado,
+  `theme="8" tint="0.8"` para Nombres), no un RGB fijo — Excel COM
+  aparentemente resuelve mal esta combinación específica de tema+tint en
+  este archivo (no se determinó la causa exacta, pero el bug es
+  reproducible: da el mismo rosa incorrecto las 2 veces). Resolviendo el
+  tema a mano (fórmula de tint de OOXML sobre `accent1`/`accent5` del
+  `clrScheme` del archivo) da `≈C1E5F5` (azul) y `≈F2CFEE` (rosa) — **son,
+  con diferencia de redondeo, los mismos colores `$bgEncabezado` (`C0E6F5`)
+  y `$bgClienteDato` (`F2CEEF`) que ya usa la hoja Cuota/Categoría** — ahora
+  `VISIBILIDAD` reusa esas 2 variables en vez de declarar valores propios,
+  así las 2 hojas quedan con el azul/rosa exactos y no hay 2 fuentes de
+  verdad para el mismo color. **Lección para el futuro**: si hay que leer
+  colores de un archivo real de nuevo, si `Interior.Color`/`DisplayFormat`
+  da algo que no calza con lo que ve el usuario, no confiar ciegamente en
+  COM — abrir el `.xlsx` como ZIP y resolver el tema a mano es más lento
+  pero es la fuente de verdad real.
+- **PLAN**: investigado contra `repositorio_locales_supervisores_cliente` Y
+  `repositorio_locales_dtt2` (deprecada) — ninguna tiene "AUTOSERVICIO
+  INDEPENDIENTE" ni nada parecido para los clientes reales de canal
+  Directo. Sigue sin poder derivarse, vacía.
+- **Fila TOTAL** (columnas CEDI en blanco, "TOTAL" en Nombres): fórmulas
+  leídas EXACTAS de la fila 46 del archivo real vía Excel COM —
+  CANTIDAD/PAGO usan `SUM(rango)` normal (no `SUBTOTAL`), PAGO TOTAL repite
+  el patrón `=G+H+I`, MARCA/VALIDACIÓN/el bloque final Cabecera-Isla-Percha
+  quedan en blanco (no se totalizan, así está en el original), y solo la
+  columna TOTAL usa `SUBTOTAL(9,rango)` — mezcla inconsistente a propósito,
+  replicada tal cual porque así está en la plantilla real.
+- VALIDACIÓN (CABECERA/ISLA/PERCHA) siempre vacía — la llena JW a mano. El
+  bloque final `IF(VALIDACIÓN="CUMPLE",PAGO,0)` + `SUM(...)` son fórmulas
+  reales idénticas a las del archivo real, quedan en $0 hasta que JW valide.
+  OBSERVACION vacía. Columnas sin la "KP" del archivo real (columna A rota,
+  fórmula `#REF!` sin uso, se omite a propósito).
+
+**Descartado (2026-08-20, el usuario lo objetó al ver el resultado):**
+primera versión tenía una hoja auxiliar `VISIBILIDAD DETALLE` (mismo patrón
+que `CUOTA TOTAL`, para sostener fórmulas `SUMIF` en vez de valores) y una
+regla de "completa" mucho más estricta (TODOS los meses > 0, no solo el
+total) que dejaba afuera líneas con data real de sobra (ej. percha con un
+mes en 0 entre 3 — el total sí era > 0 pero la línea entera se descartaba).
+El usuario corrigió ambas cosas explícitamente: no inventar hojas que no
+están en el archivo real, y la regla debe mirar el total, no cada mes.
+
+**Probado de punta a punta contra producción real** (usuario id 8, JAVIER
+MALDONADO, solo lectura — corrida directa del getter real vía `include`
+con sesión simulada, no una copia de su lógica): 3 hojas (ya no 4), PERCHA
+sale con cantidad/pago reales para los 2 clientes de prueba (antes daba 0
+por la regla vieja), categoría se muestra en vez de marca para
+cabecera/isla, PAGO son valores no fórmulas, encabezados centrados
+confirmado con `HorizontalAlignment` vía Excel COM.
+
+**Bordes agregados a las tablas (2026-08-20, pedido del usuario — "también
+a las de las otras hojas")**: `includes/xlsx_writer.php` antes declaraba
+`<borders count="1"><border/></borders>` (un solo borde vacío, ninguna
+celda tenía borde real — `borderId` nunca se emitía en `xmlCellXfs()`).
+Se agregó un 2do borde (fino negro, los 4 lados, `indexed="64"`, mismo
+estilo "thin" que usa el archivo real de JW) y ahora **toda celda que pasa
+por `estiloId()` lo lleva siempre** (`borderId="1"` fijo en todos los `xf`,
+no es opt-in por celda) — como este escritor solo arma tablas, no hacía
+falta un caso "sin borde" por celda. **Efecto: aplica automáticamente a las
+3 hojas** (`CUOTA CLIENTE - CATEGORÍA`, `CUOTA TOTAL`, `VISIBILIDAD`) sin
+tocar `getters/exportar_cuota_categoria.php` para nada — el cambio vive
+enteramente en el escritor compartido. Probado: XML crudo del archivo
+generado confirma `borderId="1"` en las 16 combinaciones de estilo usadas,
+y Excel COM confirma `LineStyle`/`Weight` de borde fino real en celdas de
+ambas hojas (`CUOTA CLIENTE - CATEGORÍA` y `VISIBILIDAD`).
+
+---
+**Resumen para quien lea esto desde la otra sesión (2026-08-19/20, trabajo
+en paralelo)** — todo lo de arriba de esta línea sobre la hoja
+`VISIBILIDAD` y los bordes es nuevo desde la última vez que se mezclaron
+ambas sesiones por `git merge`. En una frase cada uno: (1) se agregó la
+hoja `VISIBILIDAD` completa al export de Historial; (2) se corrigió 2
+veces a pedido del usuario — se sacó una hoja auxiliar que no debía existir
+y se relajó la regla de qué línea "cuenta"; (3) el grupo "MARCA" en
+realidad muestra categoría, no marca; (4) se encontró y corrigió un bug de
+lectura de color por Excel COM (no confiar en `Interior.Color` a ciegas,
+ver nota completa arriba); (5) se agregaron bordes finos a las 3 hojas del
+export vía un cambio en `includes/xlsx_writer.php` (afecta a cualquier hoja
+nueva que se agregue después con este escritor, ya viene con borde por
+default). Si vas a seguir tocando `exportar_cuota_categoria.php` o
+`xlsx_writer.php`, leer esta sección completa antes de asumir el estado.
+
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
 - [ ] Si `superdesarrollador` debería ver TODOS los acuerdos en Historial (no
@@ -639,8 +755,10 @@ renombró a "Liquidación"** — nunca fue un módulo de auditoría/log de
 acciones, el nombre era solo un lugar reservado. Rename en código ya hecho
 (2026-08-17): carpeta/archivo `components/liquidacion/liquidacion.php`,
 `includes/secciones.php` con `id => 'liquidacion'`, ícono `payments`, y
-`roles => ['superdesarrollador']` (ya no lo ve `desarrollador`). Sigue siendo
-un placeholder de "Próximamente" — falta todo lo demás (pasos 2-4 abajo).
+`roles => ['superdesarrollador']` (ya no lo ve `desarrollador`). **Ya NO es
+placeholder** (esto quedó desactualizado en una edición anterior de este
+archivo) — los 4 pasos del roadmap de abajo están hechos, ver "Próximo paso
+acordado con el usuario" más abajo para el detalle completo de cada uno.
 
 Qué hace este módulo — proceso de liquidación periódico (pasos 3-5 del
 correo original, ver `datos/propuesta_digital_acuerdos_comerciales.md`;
@@ -698,11 +816,22 @@ mano cruzando Excels.
   agregar después sin tocar el esquema (se calcularía al vuelo con un JOIN a
   `repositorio_acuerdo_lineas`, nunca se guardaría duplicado).
 
-### Conversación 2026-08-18 — de dónde sale la data que JW mete en su Excel (EN CURSO, sin código todavía)
+### Conversación 2026-08-18 — de dónde sale la data que JW mete en su Excel (RESUELTA, ver nota abajo)
 
 Charla larga con el usuario, sin escribir código, tratando de entender bien
-el flujo completo antes de construir el "Resumen de Pagos". Queda pendiente
-seguir esta conversación en otra sesión — anotado acá para no perder el hilo.
+el flujo completo antes de construir el "Resumen de Pagos".
+
+**Nota agregada después (misma fecha, otra sesión en paralelo)**: las dos
+piezas que esta conversación dejaba pendientes de construir — el export de
+lo pactado hacia JW, y la pantalla Resumen de Pagos — **ya están hechas**.
+Se hicieron en otra sesión en paralelo (el usuario trabaja este proyecto
+desde más de una máquina) y se fusionaron por `git merge` sin que esta
+sesión lo supiera hasta que el usuario preguntó "qué cambios se han hecho".
+Ver "Export de Cuota/Categoría" (arriba, sección aparte, vive en Historial
+no en Liquidación) para el export, y "Próximo paso acordado con el usuario"
+más abajo (paso 4) para el Resumen de Pagos. El razonamiento de esta
+conversación (por qué hacía falta el export, no solo "sería lindo tenerlo")
+sigue siendo válido y queda como contexto de por qué existe esa pantalla.
 
 **Releído el correo completo (`datos/propuesta_digital_acuerdos_comerciales.md`)
 con el usuario, línea por línea — la propuesta real de Xplora tiene 2 partes:**
