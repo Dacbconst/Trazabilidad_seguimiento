@@ -327,11 +327,11 @@
 		var habilitado = !!distribuidorSelect.value;
 		Array.prototype.forEach.call(document.querySelectorAll('#ac-purchase-body .seg-input, #ac-cabeceras-body .seg-input, #ac-rumas-body .seg-input'), function (input) {
 			input.disabled = !habilitado;
-			input.placeholder = habilitado ? 'Segmento...' : 'Elige un Distribuidor primero';
+			input.placeholder = habilitado ? 'Segmento...' : 'Elige un Local primero';
 		});
 		Array.prototype.forEach.call(document.querySelectorAll('#ac-perchas-body .marca-input'), function (input) {
 			input.disabled = !habilitado;
-			input.placeholder = habilitado ? 'Marca...' : 'Elige un Distribuidor primero';
+			input.placeholder = habilitado ? 'Marca...' : 'Elige un Local primero';
 		});
 	}
 
@@ -671,9 +671,11 @@
 	// Muestra una celda por mes (igual look que Cabeceras/Perchas) pero de
 	// SOLO LECTURA — el valor se tipea UNA vez en la mini tabla "Valor Ruma x
 	// Marca x Mes" de al lado (updateRumaLegend) y desde ahí se replica a
-	// todos los meses de las filas que compartan esa misma Marca. Así el
-	// usuario nunca tipea directo en los meses, y una marca nunca contamina
-	// el valor de otra fila con una Marca distinta.
+	// todos los meses de ESA fila (nunca a otra, aunque comparta la misma
+	// Marca — cambiado 2026-08-20: antes se agrupaba y compartía valor por
+	// Marca, calcando el Acta real, pero el usuario pidió que cada fila de la
+	// tabla tenga su propio valor independiente, sin importar si la Marca se
+	// repite). Así el usuario nunca tipea directo en los meses.
 	function addRumaRow() {
 		var tr = document.createElement('tr');
 		var html =
@@ -692,56 +694,38 @@
 		actualizarBloqueoPorDistribuidor();
 	}
 
-	// La leyenda es ahora la ÚNICA fuente editable: un input por Marca
-	// distinta presente en la tabla. Al tipear ahí, se replica el valor a
-	// todas (y SOLO a) las filas de esa misma Marca — nunca a otras marcas.
-	// También se auto-sincroniza al agregar una fila nueva con una Marca que
-	// ya tenía valor en otra fila (para que no se vea "0" mientras las demás
-	// muestran el valor real).
+	// La leyenda es la ÚNICA fuente editable, un input por CADA fila de la
+	// tabla grande que ya tenga Marca elegida (2026-08-20: antes agrupaba por
+	// Marca distinta y compartía un solo valor entre filas repetidas — el
+	// usuario pidió que cada fila tenga su propio valor independiente, aunque
+	// dos filas compartan la misma Marca, ver comentario de addRumaRow). El
+	// orden de las filas de la leyenda es el mismo que el de la tabla grande,
+	// y cada input queda atado por closure a SU fila exacta (no por nombre de
+	// Marca), así que no hace falta desambiguar Marcas repetidas.
 	function updateRumaLegend() {
-		var rows = Array.prototype.slice.call(rumasBody.querySelectorAll('tr'));
-		var marcas = [];
-		rows.forEach(function (r) {
-			var m = r.querySelector('.marca-select').value;
-			if (m && marcas.indexOf(m) === -1) marcas.push(m);
+		var filasConMarca = Array.prototype.filter.call(rumasBody.querySelectorAll('tr'), function (r) {
+			return !!r.querySelector('.marca-select').value;
 		});
 
-		if (!marcas.length) {
+		if (!filasConMarca.length) {
 			rumasLegendBody.innerHTML = '<tr><td colspan="2" class="ac-table-empty">Sin datos</td></tr>';
 			return;
 		}
 
-		var valores = {};
-		marcas.forEach(function (m) {
-			var filasMarca = rows.filter(function (r) { return r.querySelector('.marca-select').value === m; });
-			var valorActual = 0;
-			filasMarca.forEach(function (r) {
-				var reps = r.querySelectorAll('.v-val-repetido');
-				var v = reps.length ? (parseFloat(reps[0].value) || 0) : 0;
-				if (v > 0) valorActual = v;
-			});
-			filasMarca.forEach(function (r) {
-				var reps = r.querySelectorAll('.v-val-repetido');
-				Array.prototype.forEach.call(reps, function (rep) { rep.value = valorActual; });
-				r.querySelector('.v-tot').textContent = formatCurr(valorActual * activeMonthsIndices.length);
-			});
-			valores[m] = valorActual;
-		});
-
-		rumasLegendBody.innerHTML = marcas.map(function (m) {
-			return '<tr><td>' + escapeHtml(m) + '</td><td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-ruma-legend-input" data-marca="' + escapeHtml(m) + '" value="' + valores[m] + '"></div></td></tr>';
+		rumasLegendBody.innerHTML = filasConMarca.map(function (fila) {
+			var marca = fila.querySelector('.marca-select').value;
+			var reps = fila.querySelectorAll('.v-val-repetido');
+			var valorActual = reps.length ? (parseFloat(reps[0].value) || 0) : 0;
+			return '<tr><td>' + escapeHtml(marca) + '</td><td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-ruma-legend-input" value="' + valorActual + '"></div></td></tr>';
 		}).join('');
 
-		Array.prototype.forEach.call(rumasLegendBody.querySelectorAll('.ac-ruma-legend-input'), function (input) {
+		Array.prototype.forEach.call(rumasLegendBody.querySelectorAll('.ac-ruma-legend-input'), function (input, i) {
+			var fila = filasConMarca[i];
 			input.addEventListener('input', function () {
-				var marca = input.dataset.marca;
 				var v = parseFloat(input.value) || 0;
-				rows.forEach(function (r) {
-					if (r.querySelector('.marca-select').value !== marca) return; // nunca tocar filas de otra Marca
-					var reps = r.querySelectorAll('.v-val-repetido');
-					Array.prototype.forEach.call(reps, function (rep) { rep.value = v; });
-					r.querySelector('.v-tot').textContent = formatCurr(v * activeMonthsIndices.length);
-				});
+				var reps = fila.querySelectorAll('.v-val-repetido');
+				Array.prototype.forEach.call(reps, function (rep) { rep.value = v; });
+				fila.querySelector('.v-tot').textContent = formatCurr(v * activeMonthsIndices.length);
 			});
 		});
 	}
@@ -847,8 +831,8 @@
 	// 2026-08-20), se puede ubicar el campo exacto en vez de un mensaje
 	// genérico que obliga a revisar las 4 tablas a mano.
 	function describirCampoCombo(input) {
-		if (input === distribuidorSearch) return 'Distribuidor';
-		if (input === empresaSearch) return 'Empresa Distribuidora';
+		if (input === distribuidorSearch) return 'Local';
+		if (input === empresaSearch) return 'Distribuidor';
 
 		var tipoPorClase = { 'seg-input': 'Segmento', 'sector-input': 'Sector', 'cat-input': 'Categoría', 'marca-input': 'Marca' };
 		var tipo = Object.keys(tipoPorClase).filter(function (c) { return input.classList.contains(c); })[0];
@@ -890,7 +874,7 @@
 	}
 
 	function validarCabecera(estado) {
-		if (!distribuidorSelect.value) { mostrarMensaje('Selecciona un Distribuidor.', false); return false; }
+		if (!distribuidorSelect.value) { mostrarMensaje('Selecciona un Local.', false); return false; }
 		if (selectedStart === null || selectedEnd === null) { mostrarMensaje('Selecciona el Periodo del Acuerdo.', false); return false; }
 
 		var sinConfirmar = encontrarSpinnersSinConfirmar();
@@ -1031,6 +1015,11 @@
 			// (catalogoDistribuidor.canal, cargado al inicio), así que se manda
 			// para que la vista previa use el formato de Acta correcto.
 			es_distribuidor: catalogoDistribuidor.canal === 'distribuidor',
+			// "Empresa Distribuidora" (campo que en la UI se muestra como
+			// "Distribuidor", ver ac-empresa-field en registrar.php) — en el
+			// Acta de canal Distribuidor va en "Estimado(a)", separado del
+			// nombre del "Local" (distribuidorSearch, arriba). Vacío en Directo.
+			empresa_distribuidora: empresaSearch.value,
 			lineas: recolectarLineas()
 		};
 

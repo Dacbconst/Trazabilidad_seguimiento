@@ -9,19 +9,17 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 }
 
 $busqueda  = trim($_GET['q'] ?? '');
-$mes       = (int) ($_GET['mes'] ?? 0);
+// Filtro de período (2026-08-20): reemplaza al selector de mes suelto — el
+// Período del Acuerdo es siempre un trimestre fijo (ver trimestreABounds()
+// en functions.php), así que filtrar por Q1-Q4 + Año calza exacto con cómo
+// se guardan los Acuerdos, en vez de un mes cualquiera dentro del rango.
+$trimestre = (int) ($_GET['trimestre'] ?? 0);
+$anio      = (int) ($_GET['anio'] ?? 0);
 $pagina    = (int) ($_GET['pg'] ?? 1);
-$resultado = listar_historial_acuerdos($mysqli, $busqueda, $mes, $pagina, $_SESSION['user_id'] ?? null);
+$usuarioId = $_SESSION['user_id'] ?? null;
+$resultado = listar_historial_acuerdos($mysqli, $busqueda, $trimestre, $anio, $pagina, $usuarioId);
 $acuerdos  = $resultado['acuerdos'];
-
-// "Descargar Excel" (exportar_cuota_categoria.php) solo existe para canal
-// Directo — el de Distribuidor todavía no está construido (ver CLAUDE.md).
-// Mismo cálculo que registrar.php (canalDeSupervisor()), expuesto para que
-// historial.js bloquee el click con un aviso "Próximamente" en vez de
-// descargar un .xlsx vacío/con el formato equivocado.
-$canalUsuario = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
-
-$mesesLargos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+$aniosDisponibles = listar_anios_disponibles($mysqli, $usuarioId);
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 ?>
@@ -35,7 +33,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-actualizar" title="Actualizar">
 				<span class="material-symbols-outlined">refresh</span> Actualizar
 			</button>
-			<button type="button" class="ac-btn-secondary" id="hist-abrir-borradores">
+			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-abrir-borradores">
 				<span class="material-symbols-outlined">draft</span> Mis Borradores
 			</button>
 			<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-nuevo-acuerdo">
@@ -51,10 +49,17 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<span class="material-symbols-outlined">search</span>
 				<input type="text" class="ac-input" id="hist-buscar" placeholder="Buscar por distribuidor..." value="<?= htmlspecialchars($busqueda) ?>">
 			</div>
-			<select class="ac-select ac-hist-mes" id="hist-mes">
-				<option value="0">Seleccionar Mes</option>
-				<?php foreach ($mesesLargos as $i => $nombre): ?>
-					<option value="<?= $i + 1 ?>" <?= $mes === $i + 1 ? 'selected' : '' ?>><?= $nombre ?></option>
+			<select class="ac-select ac-hist-periodo" id="hist-trimestre">
+				<option value="0">Todos los períodos</option>
+				<option value="1" <?= $trimestre === 1 ? 'selected' : '' ?>>Q1 (Ene-Mar)</option>
+				<option value="2" <?= $trimestre === 2 ? 'selected' : '' ?>>Q2 (Abr-Jun)</option>
+				<option value="3" <?= $trimestre === 3 ? 'selected' : '' ?>>Q3 (Jul-Sep)</option>
+				<option value="4" <?= $trimestre === 4 ? 'selected' : '' ?>>Q4 (Oct-Dic)</option>
+			</select>
+			<select class="ac-select ac-hist-anio" id="hist-anio">
+				<option value="0">Todos los años</option>
+				<?php foreach ($aniosDisponibles as $a): ?>
+					<option value="<?= $a ?>" <?= $anio === $a ? 'selected' : '' ?>><?= $a ?></option>
 				<?php endforeach; ?>
 			</select>
 			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-buscar-btn">
@@ -67,8 +72,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			</a>
 		</div>
 	</section>
-
-	<script>var CANAL_USUARIO_HISTORIAL = '<?= $canalUsuario ?>';</script>
 
 	<section class="ac-card">
 		<div class="ac-table-scroll">

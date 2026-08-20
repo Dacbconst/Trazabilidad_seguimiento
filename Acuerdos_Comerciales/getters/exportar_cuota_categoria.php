@@ -3,9 +3,11 @@
 // "CUOTA CLIENTE - CATEGORÍA" del archivo real de JW
 // (datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA 2026.xlsx) a partir de
 // lo pactado en nuestras Actas — para que JW no tenga que reconstruir a mano
-// lo que el ejecutivo ya tipeó. Solo Actas de canal Directa (la de
-// Distribuidor tiene columnas distintas en el archivo real, "CUOTAS POR
-// CAT-DISTRIBUIDORES" — no está construida, es un export aparte a futuro).
+// lo que el ejecutivo ya tipeó. Todo lo de abajo es SOLO para canal Directa
+// (d.canal <> 'DISTRIBUIDOR' en la consulta) — para canal Distribuidor este
+// archivo delega en exportar_cuota_categoria_distribuidor.php (2026-08-20,
+// ver el branch por canalDeSupervisor() más abajo), que replica la hoja
+// "CUOTAS POR CAT -DISTRIBUIDORES" del archivo real de Distribuidor.
 //
 // Decisiones confirmadas con el usuario 2026-08-18 (ver CLAUDE.md, sección
 // "Export de Cuota/Categoría" para el detalle completo):
@@ -43,13 +45,30 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 
 $usuarioId = $_SESSION['user_id'] ?? null;
 $busqueda  = trim($_GET['q'] ?? '');
-$mes       = (int) ($_GET['mes'] ?? 0);
-$mesIdx    = ($mes >= 1 && $mes <= 12) ? ($mes - 1) : -1;
+$trimestre = (int) ($_GET['trimestre'] ?? 0);
+$anio      = (int) ($_GET['anio'] ?? 0);
 $like      = '%'.$busqueda.'%';
+
+// Mismo filtro de trimestre exacto que listar_historial_acuerdos() (ver
+// functions.php, trimestreABounds()) — el Período del Acuerdo es siempre un
+// trimestre fijo, así que comparar mes_inicio/mes_fin exactos alcanza.
+$bounds          = trimestreABounds($trimestre);
+$trimestreActivo = $bounds ? 1 : 0;
+$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+$mesFinFiltro    = $bounds ? $bounds[1] : -1;
 
 if (!$usuarioId) {
 	http_response_code(403);
 	echo 'Sesión inválida.';
+	exit;
+}
+
+// Canal Distribuidor tiene su propia hoja ("CUOTAS POR CAT -DISTRIBUIDORES",
+// columnas/colores distintos del archivo real) — vive en un archivo aparte
+// para no arriesgar el código de Directa ya probado (ver 2026-08-20).
+$canalUsuarioExport = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
+if ($canalUsuarioExport === 'distribuidor') {
+	require __DIR__.'/exportar_cuota_categoria_distribuidor.php';
 	exit;
 }
 
@@ -65,7 +84,8 @@ $stmt = $mysqli->prepare(
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.creado_por = ?
 	   AND d.pos_name LIKE ?
-	   AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))
+	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+	   AND (? = 0 OR a.anio = ?)
 	   AND d.canal <> 'DISTRIBUIDOR'
 	 GROUP BY a.id, l.id"
 );
@@ -74,7 +94,7 @@ if (!$stmt) {
 	echo 'Error preparando la consulta.';
 	exit;
 }
-$stmt->bind_param('isiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx);
+$stmt->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 $stmt->execute();
 $filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
@@ -188,6 +208,36 @@ $wb->celda($s1, $filaEnc, $colGanaCategoria, 'GANA POR CATEGORÍA', true, null, 
 $wb->celda($s1, $filaEnc, $colGanaTotal, 'GANA TOTAL', true, null, $bgResultado, '000000');
 $wb->celda($s1, $filaEnc, $colPreRebate, 'PRE REBATE', true, null, $bgResultado, '000000');
 $wb->celda($s1, $filaEnc, $colRebateRealVol, 'REBATE REAL VOL', true, null, $bgRebateReal, '000000');
+
+// La fila 1 solo tenía celda en el título fusionado de VENTA (arriba) — el
+// resto de columnas del encabezado (CEDI...REBATE MAXIMO 110%, CARTERA,
+// VENTA TOTAL...REBATE REAL VOL) no tenían NINGUNA celda en fila 1, así que
+// quedaban sin pintar/sin borde ahí (bug real encontrado 2026-08-20, el
+// usuario lo vio en el Excel real: "hay celdas que quedan sin pintar").
+// XlsxWriter solo escribe `<c>` para celdas donde se llamó celda() — una
+// celda nunca escrita no tiene estilo, aunque `borderId` esté fijo para
+// TODAS las que sí se llaman. Se rellenan acá con string vacío y el MISMO
+// color de fondo/letra que su celda de fila 2 justo debajo, para que las 2
+// filas del encabezado se vean como un solo bloque continuo sin huecos.
+$wb->celda($s1, 1, $colCedi, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colCliente, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colPlan, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colCategorias, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colConcat, '', false, null, $bgEncabezado, '000000');
+foreach ($mesesCols as $i => $mi) {
+	$wb->celda($s1, 1, $colCuotaInicio + $i, '', false, null, $bgEncabezado, '000000');
+}
+$wb->celda($s1, 1, $colTotalQ2, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colRebatePct, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colRebateDolar, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colRebateMax110, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colCartera, '', false, null, $bgCartera, '000000');
+$wb->celda($s1, 1, $colVentaTotal, '', false, null, $bgResultado, '000000');
+$wb->celda($s1, 1, $colCumplimiento, '', false, null, $bgResultado, '000000');
+$wb->celda($s1, 1, $colGanaCategoria, '', false, null, $bgResultado, '000000');
+$wb->celda($s1, 1, $colGanaTotal, '', false, null, $bgResultado, '000000');
+$wb->celda($s1, 1, $colPreRebate, '', false, null, $bgResultado, '000000');
+$wb->celda($s1, 1, $colRebateRealVol, '', false, null, $bgRebateReal, '000000');
 
 // ---------- Hoja 1: filas de datos ----------
 // Colores de las filas de datos (distintos de los del encabezado) — también
@@ -348,13 +398,14 @@ $stmtVis = $mysqli->prepare(
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.creado_por = ?
 	   AND d.pos_name LIKE ?
-	   AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))
+	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+	   AND (? = 0 OR a.anio = ?)
 	   AND d.canal <> 'DISTRIBUIDOR'
 	 GROUP BY a.id, l.id"
 );
 $filasVis = [];
 if ($stmtVis) {
-	$stmtVis->bind_param('isiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx);
+	$stmtVis->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVis->execute();
 	$filasVis = $stmtVis->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmtVis->close();
@@ -454,6 +505,16 @@ foreach ([$vCantCab, $vPagoCab, $vMarcaCab, $vValidCab, $vRCab] as $base) {
 $wb->celda($s3, $filaEncVis, $vPagoTotal, 'PAGO TOTAL', true, null, $bgEncVis, '000000', true);
 $wb->celda($s3, $filaEncVis, $vTotal, 'TOTAL', true, null, $bgEncVis, '000000', true);
 $wb->celda($s3, $filaEncVis, $vObs, 'OBSERVACION', true, null, $bgEncVis, '000000', true);
+
+// Mismo bug que la hoja Cuota/Categoría (ver más arriba, 2026-08-20): las
+// columnas que NO están dentro de ninguna de las 4 fusiones de arriba
+// (CEDI/NOMBRES/PLAN, PAGO TOTAL, TOTAL, OBSERVACION, y las 3 "validado"
+// sin cabecera de grupo) no tenían NINGUNA celda en fila 1 — quedaban sin
+// pintar/sin borde. Se rellenan con string vacío y el mismo color/centrado
+// que su celda de fila 2 debajo.
+foreach ([$vCedi, $vNombres, $vPlan, $vRCab, $vRIsla, $vRPercha, $vPagoTotal, $vTotal, $vObs] as $col) {
+	$wb->celda($s3, 1, $col, '', false, null, $bgEncVis, '000000', true);
+}
 
 // ---------- Hoja "VISIBILIDAD": filas de datos ----------
 $filaVisDatos = $filaEncVis + 1;

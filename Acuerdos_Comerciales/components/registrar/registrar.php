@@ -31,19 +31,25 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>';</script>
 
 	<!-- Filtros -->
+	<!-- Renombrado en pantalla (2026-08-20), IDs/variables internas SIN
+	     cambiar para no tocar más de lo necesario: el campo "Empresa
+	     Distribuidora" (ac-empresa-*) ahora se muestra como "Distribuidor", y
+	     el campo "Distribuidor" (ac-distribuidor-*, el pos_id real) ahora se
+	     muestra como "Local". Ver también registrar.js (mismos nombres de
+	     variable, ej. distribuidorSearch sigue siendo el campo "Local"). -->
 	<section class="ac-card ac-acuerdo-filtros-card">
 		<div class="ac-acuerdo-filtros">
 			<div class="ac-field <?= $canalUsuario === 'distribuidor' ? '' : 'hidden' ?>" id="ac-empresa-field">
-				<label class="ac-field-label" for="ac-empresa-search">Empresa Distribuidora</label>
+				<label class="ac-field-label" for="ac-empresa-search">Distribuidor</label>
 				<div class="ac-combo" id="ac-empresa-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir empresa..." autocomplete="off" readonly>
+					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir distribuidor..." autocomplete="off" readonly>
 					<input type="hidden" id="ac-empresa" value="">
 				</div>
 			</div>
 			<div class="ac-field">
-				<label class="ac-field-label" for="ac-distribuidor-search">Distribuidor</label>
+				<label class="ac-field-label" for="ac-distribuidor-search">Local</label>
 				<div class="ac-combo" id="ac-distribuidor-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar distribuidor..." autocomplete="off" readonly>
+					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar local..." autocomplete="off" readonly>
 					<input type="hidden" id="ac-distribuidor" value="">
 				</div>
 			</div>

@@ -5,7 +5,8 @@
 	var descargarBtn   = document.getElementById('hist-descargar-pdf');
 
 	var buscarInput     = document.getElementById('hist-buscar');
-	var mesSelect       = document.getElementById('hist-mes');
+	var trimestreSelect = document.getElementById('hist-trimestre');
+	var anioSelect      = document.getElementById('hist-anio');
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
 	var exportarCuotaLink = document.getElementById('hist-exportar-cuota');
 	var tbody           = document.getElementById('hist-tabla-body');
@@ -13,17 +14,6 @@
 	var paginacionInfo  = document.getElementById('hist-paginacion-info');
 	var paginacionBtns  = document.getElementById('hist-paginacion-btns');
 	var buscarTimeout   = null;
-
-	// "Descargar Excel" solo existe para canal Directo (ver
-	// getters/exportar_cuota_categoria.php) — para Distribuidor todavía no
-	// está construido, así que se bloquea el click con un aviso en vez de
-	// dejar que descargue un .xlsx vacío con el formato equivocado.
-	exportarCuotaLink.addEventListener('click', function (e) {
-		if (window.CANAL_USUARIO_HISTORIAL === 'distribuidor') {
-			e.preventDefault();
-			mostrarToast('El Excel de Cuota/Categoría para Distribuidor está próximamente disponible.', 'info');
-		}
-	});
 
 	function escapeHtml(texto) {
 		var div = document.createElement('div');
@@ -77,15 +67,17 @@
 		}, { once: true });
 	}
 
-	// ---------- Listado: búsqueda + filtro de mes + paginación ----------
+	// ---------- Listado: búsqueda + filtro de período (trimestre + año) + paginación ----------
 	function cargarHistorial(pagina) {
-		var q   = buscarInput.value.trim();
-		var mes = mesSelect.value;
-		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes) + '&pg=' + (pagina || 1);
+		var q          = buscarInput.value.trim();
+		var trimestre  = trimestreSelect.value;
+		var anio       = anioSelect.value;
+		var filtrosQs  = '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
+		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + filtrosQs + '&pg=' + (pagina || 1);
 
 		// El botón de export siempre apunta a lo mismo que está filtrado en
 		// pantalla ahora mismo — mismos parámetros que la lista.
-		exportarCuotaLink.href = 'getters/exportar_cuota_categoria.php?q=' + encodeURIComponent(q) + '&mes=' + encodeURIComponent(mes);
+		exportarCuotaLink.href = 'getters/exportar_cuota_categoria.php?q=' + encodeURIComponent(q) + filtrosQs;
 
 		fetch(url)
 			.then(function (r) { return r.json(); })
@@ -121,7 +113,8 @@
 		clearTimeout(buscarTimeout);
 		buscarTimeout = setTimeout(function () { cargarHistorial(1); }, 350);
 	});
-	mesSelect.addEventListener('change', function () { cargarHistorial(1); });
+	trimestreSelect.addEventListener('change', function () { cargarHistorial(1); });
+	anioSelect.addEventListener('change', function () { cargarHistorial(1); });
 	buscarBtn.addEventListener('click', function () { cargarHistorial(1); });
 
 	// Recarga la página actual sin perder la búsqueda/filtro de mes — a

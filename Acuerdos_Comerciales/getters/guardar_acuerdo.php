@@ -39,7 +39,7 @@ $estadosPermitidosDesdeForm = ['borrador', 'generado', 'enviado'];
 
 // ---------- Validaciones de cabecera ----------
 if ($posId === '') {
-	responder(false, 'Selecciona un Distribuidor.');
+	responder(false, 'Selecciona un Local.');
 }
 if ($anio < 2020 || $anio > 2100) {
 	responder(false, 'Año inválido.');
@@ -62,14 +62,14 @@ $stmt = $mysqli->prepare(
 	'SELECT pos_id FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? AND supervisor = ? LIMIT 1'
 );
 if (!$stmt) {
-	responder(false, 'No se pudo validar el Distribuidor (maestro de locales no disponible). Avisar al equipo técnico.');
+	responder(false, 'No se pudo validar el Local (maestro de locales no disponible). Avisar al equipo técnico.');
 }
 $stmt->bind_param('ss', $posId, $supervisorSesion);
 $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 if (!$existePos) {
-	responder(false, 'El Distribuidor seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
+	responder(false, 'El Local seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
 }
 
 $cantidadMeses = $mesFin - $mesInicio + 1;

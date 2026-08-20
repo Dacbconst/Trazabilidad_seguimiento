@@ -262,19 +262,33 @@ function periodoCorto($mesInicio, $mesFin) {
 	return mesCorto($mesInicio).' - '.mesCorto($mesFin);
 }
 
+// Devuelve [mesInicio, mesFin] (0-11) del trimestre 1-4, o null si no es un
+// trimestre válido — el Período del Acuerdo es siempre un trimestre fijo
+// desde el 2026-08-18 (ver CLAUDE.md), así que filtrar por trimestre exacto
+// alcanza (ya no hace falta un filtro de rango "se solapa con").
+function trimestreABounds($trimestre) {
+	$trimestre = (int) $trimestre;
+	if ($trimestre < 1 || $trimestre > 4) return null;
+	$inicio = ($trimestre - 1) * 3;
+	return [$inicio, $inicio + 2];
+}
+
 // $usuarioId filtra a "solo los acuerdos que ESTE usuario creó"
 // (repositorio_acuerdos.creado_por, guardado por guardar_acuerdo.php al
 // insertar). Antes se inferÃ­a indirectamente vÃ­a supervisor/territorio; ahora
 // es el dato real, así que sigue siendo correcto aunque un supervisor cambie
 // de territorio o dos usuarios lo compartan.
-function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 1, $usuarioId = null, $porPagina = 10) {
+// $trimestre: 1-4, o 0/inválido = "Todos los períodos". $anio: 0 = "Todos los años".
+function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $pagina = 1, $usuarioId = null, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
-	// -1 nunca calza con mes_inicio/mes_fin (0-11): con "Todos los meses" el
-	// lado izquierdo del OR siempre gana y el filtro de rango queda anulado,
-	// sin necesidad de armar el SQL con número variable de placeholders.
-	$mesIdx = ($mes >= 1 && $mes <= 12) ? ($mes - 1) : -1;
+	$anio   = (int) $anio;
+
+	$bounds           = trimestreABounds($trimestre);
+	$trimestreActivo  = $bounds ? 1 : 0;
+	$mesInicioFiltro  = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro     = $bounds ? $bounds[1] : -1;
 
 	// Sin user_id (no debería pasar si ya hizo login, pero por las dudas) no
 	// hay forma de saber qué acuerdos "son suyos" — vacío, no mostrar los de
@@ -293,7 +307,8 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 		WHERE a.estado NOT IN ('borrador', 'anulado')
 		  AND a.creado_por = ?
 		  AND d.pos_name LIKE ?
-		  AND (? = -1 OR (a.mes_inicio <= ? AND a.mes_fin >= ?))";
+		  AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		  AND (? = 0 OR a.anio = ?)";
 
 	// Este componente se renderiza SIEMPRE (visible u oculto) en cada login de
 	// desarrollador/superdesarrollador, sea cual sea la pestaña activa (ver
@@ -304,7 +319,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	if (!$stmtTotal) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmtTotal->bind_param('isiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx);
+	$stmtTotal->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -326,7 +341,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 	if (!$stmt) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmt->bind_param('isiiiii', $usuarioId, $like, $mesIdx, $mesIdx, $mesIdx, $porPagina, $offset);
+	$stmt->bind_param('isiiiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio, $porPagina, $offset);
 	$stmt->execute();
 	$acuerdos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -337,6 +352,23 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $mes = 0, $pagina = 
 		'pagina'        => $pagina,
 		'total_paginas' => $totalPaginas,
 	];
+}
+
+// Años con al menos un Acuerdo real (no borrador/anulado) de este usuario —
+// para poblar el filtro "Año" de Historial sin inventar un rango fijo.
+function listar_anios_disponibles($mysqli, $usuarioId) {
+	if (!$usuarioId) return [];
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT anio FROM repositorio_acuerdos
+		 WHERE creado_por = ? AND estado NOT IN ('borrador', 'anulado')
+		 ORDER BY anio DESC"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('i', $usuarioId);
+	$stmt->execute();
+	$anios = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'anio');
+	$stmt->close();
+	return array_map('intval', $anios);
 }
 
 function renderFilaHistorial(array $a) {
@@ -379,9 +411,14 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	// pos_id puntual es DISTRIBUIDOR — decide qué formato de Acta usar (ver
 	// generar_acta_html()). Se lee del cliente real, no del supervisor de la
 	// sesión que lo generó (que puede cambiar con el tiempo).
+	// d.tipo_distribuidor: la "Empresa Distribuidora" del cliente (columna que
+	// YA existía en el maestro, usada también por acuerdo_distribuidores.php
+	// para la cascada Empresa->Cliente) — en el Acta de canal Distribuidor va
+	// en "Estimado(a)", separado del nombre del Local (`pos_name`), que sigue
+	// yendo en la frase "Jabonería Wilson y ..." (ver acta_pdf.php, 2026-08-20).
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por,
-		        d.pos_name, d.cedi, d.canal, u.usuario AS ejecutivo_comercial
+		        d.pos_name, d.cedi, d.canal, d.tipo_distribuidor, u.usuario AS ejecutivo_comercial
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
@@ -434,6 +471,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'distribuidor'      => $cabecera['pos_name'],
 		'localidad'         => $cabecera['cedi'] ?: '—',
 		'es_distribuidor'   => ($cabecera['canal'] ?? null) === 'DISTRIBUIDOR',
+		'empresa_distribuidora' => $cabecera['tipo_distribuidor'] ?: '',
 		'ejecutivo_comercial' => $cabecera['ejecutivo_comercial'] ?: '',
 		'lineas'            => $lineas,
 	];

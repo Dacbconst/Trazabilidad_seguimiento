@@ -69,7 +69,7 @@ Las 4 tablas del Acta unificadas en una sola tabla, diferenciadas por `tipo`.
 | `cantidad_max_percha` | SMALLINT | solo percha | Validación en app: máximo 5 |
 | `precio_percha` | DECIMAL(10,2) | solo percha | Default $40.00, informativo |
 | `valores_mensuales` | JSON | meta_compra, cabecera, percha | `{"3":700.00,"4":700.00,"5":700.00}` — valor tipeado mes por mes |
-| `valor_mensual_unico` | DECIMAL(10,2) | **solo ruma** | Un valor tipeado UNA vez (mini tabla "Valor Ruma x Marca x Mes") que se repite en TODOS los meses del periodo |
+| `valor_mensual_unico` | DECIMAL(10,2) | **solo ruma** | Un valor tipeado UNA vez (mini tabla "Valor Ruma x Marca x Mes") que se repite en TODOS los meses del periodo. Siempre fue **por línea/fila**, nunca por Marca compartida a nivel de base — la UI sí lo mostraba/editaba agrupado por Marca hasta el 2026-08-20 (ver "Registrar Acuerdo PDV" más abajo), pero eso era solo de pantalla. |
 | `orden` | SMALLINT | todos | Orden de filas agregadas por el usuario |
 
 **Patrón de captura por tipo — MUY IMPORTANTE, no confundir:**
@@ -239,8 +239,12 @@ mockup `code.html` por choque con las reglas de este documento:
   (un solo valor que se repite). La implementación real usa **un único input
   "Valor x Mes" por fila** — el "Pago Total" se calcula como
   `valor_mensual_unico * cantidad_de_meses`, tal como pide este documento.
-  La tabla lateral "Valor Ruma x Marca x Mes" del mockup se mantiene como
-  resumen de solo lectura (rollup por marca), no como campo editable aparte.
+  La tabla lateral "Valor Ruma x Marca x Mes" del mockup es la ÚNICA fuente
+  editable (los meses de la tabla grande son de solo lectura, se llenan
+  desde ahí) — **ya NO es un rollup por marca** (esa fue la versión inicial;
+  cambiado 2026-08-20, ver "Registrar Acuerdo PDV" más abajo, 1 fila de
+  leyenda por línea de la tabla grande, valor independiente aunque compartan
+  Marca).
 - **Percha "% de Peso / Participación"**: existe en el mockup pero **no hay
   columna en `repositorio_acuerdo_lineas` para guardarlo** y la mecánica de
   spinners de este documento tampoco lo contempla. Se dejó como campo de
@@ -536,6 +540,26 @@ mockup `code.html` por choque con las reglas de este documento:
     - Logo: se reusa el mismo `assets/img/logo_alicorp.png` de siempre — el
       usuario pidió explícitamente NO replicar el logo viejo del PDF de
       referencia, usar "el nuestro, como lo tenemos diseñado".
+    - **"Estimado(a)" (2026-08-20, ronda 4)**: en Distribuidor ya NO
+      muestra el nombre del Local (`pos_name`) — muestra la **Empresa
+      Distribuidora** (`repositorio_locales_supervisores_cliente.tipo_distribuidor`
+      del cliente, ej. "ASERTIA COMERCIAL SA"), que en la UI de Registrar
+      es el campo que se ve etiquetado **"Distribuidor"** (`ac-empresa-*`
+      — el campo `ac-distribuidor-*`, el pos_id real, se ve etiquetado
+      **"Local"**; ver el comentario en `components/registrar/registrar.php`
+      líneas 35-37 que explica ese swap de labels, hecho en otra sesión).
+      La frase "Jabonería Wilson y {nombre} celebran..." NO cambió — sigue
+      usando el nombre del Local (`$detalle['distribuidor']`), que es lo
+      que ya mostraba antes. En Directo, "Estimado(a)" no cambió — sigue
+      mostrando el mismo nombre que la frase de celebración (no hay Empresa
+      Distribuidora en ese canal). Implementado agregando
+      `d.tipo_distribuidor` al SELECT de `obtener_acuerdo_detalle()`
+      (mismo patrón que `d.canal`, solo lectura) → `$detalle['empresa_distribuidora']`;
+      para Previsualización (sin base) se manda desde `registrar.js`
+      (`empresaSearch.value`) en el POST. Probado contra el Acuerdo real
+      41 (Local "ACOSTA SANTAMARIA EDGAR PATRICIO", Empresa "ASERTIA
+      COMERCIAL SA") — ambos nombres distintos aparecen correctos, cada
+      uno en su lugar.
   - Implementado con un solo `$esDistribuidor = !empty($detalle['es_distribuidor'])`
     al inicio de `generar_acta_html()` en `includes/acta_pdf.php`, y 3
     puntos condicionales en el HTML (título de sección 1, bloque
@@ -562,19 +586,62 @@ mockup `code.html` por choque con las reglas de este documento:
     corrigió agregando `padding-right` al `h1` (150px base) para reservarle
     ese espacio; probado que ni Distribuidor (título largo) ni Directo
     (título corto) se ven mal con ese padding.
-  - **"Descargar Excel" en Historial bloqueado para Distribuidor
-    (2026-08-20)**: el export `getters/exportar_cuota_categoria.php` ya
-    filtraba `d.canal <> 'DISTRIBUIDOR'` en sus queries (solo Directa tiene
-    ese Excel construido), pero eso significaba que un usuario Distribuidor
-    (cuyos acuerdos SIEMPRE quedan excluidos por ese filtro) descargaba un
-    `.xlsx` con headers pero sin ninguna fila — parecía roto, no "no
-    disponible". Se agregó `$canalUsuario` (misma `canalDeSupervisor()` que
-    ya usa `registrar.php`) a `components/historial/historial.php`,
-    expuesto como `CANAL_USUARIO_HISTORIAL` en JS; `assets/js/historial.js`
-    ahora intercepta el click del botón y, si es `'distribuidor'`, cancela
-    la descarga y muestra un toast "próximamente disponible" en vez de
-    dejar pasar el `<a href>`. El Excel de Distribuidor en sí sigue sin
-    construirse — esto solo evita el archivo vacío/engañoso mientras tanto.
+  - **"Descargar Excel" en Historial ahora también funciona para
+    Distribuidor (2026-08-20)**: antes se bloqueaba el click con un toast
+    "próximamente" (canal Distribuidor no tenía Excel construido); ese
+    bloqueo se sacó de `assets/js/historial.js` y de
+    `components/historial/historial.php` (`$canalUsuario`/
+    `CANAL_USUARIO_HISTORIAL` eran solo para ese bloqueo, se eliminaron —
+    quedaban muertos sin él) porque ahora SÍ existe la hoja real, ver
+    "Export CUOTA POR CAT-DISTRIBUIDORES" más abajo.
+- **Campos "Empresa Distribuidora"/"Distribuidor" renombrados en pantalla
+  (2026-08-20)**: pedido explícito, solo texto visible — **ningún ID ni
+  nombre de variable cambió**, para no arriesgar nada tocando de más. Lo que
+  se veía **"Empresa Distribuidora"** (campo `#ac-empresa-search`, la
+  empresa/`tipo_distribuidor` que agrupa clientes, solo visible si el canal
+  del usuario es Distribuidor) ahora dice **"Distribuidor"**. Lo que se veía
+  **"Distribuidor"** (campo `#ac-distribuidor-search`, el `pos_id` real del
+  cliente/PDV — el mismo de siempre) ahora dice **"Local"**. Cambiaron
+  labels, placeholders, y todos los mensajes de validación/toast que
+  nombraban el campo (`registrar.js`: `validarCabecera()`,
+  `describirCampoCombo()`, placeholders de "Elige un ... primero" en
+  Segmento/Marca; `guardar_acuerdo.php` y `previsualizar_acta_pdf.php`: los
+  3 mensajes de error que mencionaban "Distribuidor"). **No se tocó**: el
+  badge de canal arriba del formulario (`Distribuidor`/`Canal Directo`, es
+  otro concepto — el canal completo del usuario, no este campo puntual), ni
+  la columna "Distribuidor" de Historial (mismo dato, `pos_name`, pero el
+  usuario acotó el pedido a "el módulo de registro" — si se quiere el mismo
+  cambio ahí, confirmar antes de tocarlo).
+- **Aviso "Módulo en desarrollo" en Liquidación (2026-08-20)**: SweetAlert2
+  informativo (un solo botón "Entendido", mismo estilo que la confirmación
+  de "Eliminar"). Primer intento lo disparaba directo al final de
+  `assets/js/liquidacion.js` — **bug real, salía "de la nada" en cualquier
+  módulo con el que arrancara la sesión**, porque ese script corre una sola
+  vez al cargar `index.php` sin importar qué pestaña esté activa (misma
+  arquitectura de "todo se renderiza una vez" de siempre). Corregido
+  siguiendo el mismo patrón que `window.acHistorialRefrescar`/
+  `window.acUsuariosRefrescar`: se expone `window.acLiquidacionRefrescar`,
+  `index.php` lo llama recién al hacer click en la pestaña Liquidación
+  (`refrescoPorSeccion['#sec-liquidacion']`), y el aviso solo se muestra la
+  PRIMERA vez que se entra en la sesión (`avisoDesarrolloMostrado`), no cada
+  vez que se vuelve a esa pestaña.
+- **Leyenda de Rumas: 1 fila por línea de la tabla, ya no por Marca
+  compartida (2026-08-20)**: hasta ahora, si dos filas de Rumas tenían la
+  MISMA Marca (ej. "Canuto Chico" y "Caracol Chico", ambos "DON VITTORIO"),
+  la leyenda "Valor Ruma x Marca x Mes" las fusionaba en una sola fila con un
+  único valor compartido — el usuario mostró una captura con 3 filas en la
+  tabla grande pero solo 2 en la leyenda y pidió el arreglo. Se le preguntó
+  explícitamente si quería mantener el agrupado por Marca (como el Acta real
+  que se revisó en su momento) o pasar a 1 fila por línea con valor
+  independiente — **eligió independiente por línea**. Cambiado
+  `updateRumaLegend()` (`assets/js/registrar.js`): ya no agrupa por
+  `marca-select`, itera directo las filas con Marca elegida y cada input de
+  la leyenda queda atado por closure a SU fila exacta (no por nombre de
+  Marca) — dos filas con la misma Marca ahora pueden tener valores de Ruma
+  distintos. **No hizo falta tocar el backend**: `guardar_acuerdo.php`/
+  `repositorio_acuerdo_lineas.valor_mensual_unico` siempre guardó por línea,
+  nunca agrupó por Marca a nivel de base — el agrupado visual era solo del
+  frontend.
 - **Spinners: ahora son readonly de verdad, no se puede tipear nada
   (2026-08-20, decisión final tras 2 vueltas)**: primer intento (mismo día)
   fue solo arreglar que un segundo click en un campo ya enfocado dejaba
@@ -628,6 +695,41 @@ mockup `code.html` por choque con las reglas de este documento:
     el "-" mientras se tipea, y el guardado la rechaza si queda vacía o no
     numérica.
 
+## Historial de Acuerdos — filtros por trimestre/año + botones (2026-08-20)
+
+- **Filtro de período reemplazado**: antes había un `<select>` de "Seleccionar
+  Mes" suelto (1-12) filtrando por rango (`mes_inicio <= X <= mes_fin`).
+  Como el Período del Acuerdo es siempre un trimestre fijo desde 2026-08-18
+  (Q1 Ene-Mar / Q2 Abr-Jun / Q3 Jul-Sep / Q4 Oct-Dic, ver "Registrar Acuerdo
+  PDV"), el filtro se cambió a dos selects: **"Período"** (Q1-Q4 + "Todos
+  los períodos") y **"Año"** (poblado dinámicamente con `listar_anios_disponibles()`,
+  solo años que realmente tienen Acuerdos del usuario — no un rango
+  inventado). La búsqueda de texto sigue siendo por nombre de Distribuidor
+  (`hist-buscar`, sin cambios).
+  - `trimestreABounds($trimestre)` (nueva, `includes/functions.php`) traduce
+    1-4 a `[mesInicio, mesFin]` (0-11). `listar_historial_acuerdos()` ahora
+    recibe `$trimestre, $anio` en vez de `$mes`, y compara
+    `a.mes_inicio = ? AND a.mes_fin = ?` (exacto, ya no rango) más
+    `a.anio = ?` — ambos opcionales (`0` = sin filtrar).
+  - **Mismo cambio replicado en `getters/exportar_cuota_categoria.php`**
+    (las 2 queries, Cuota/Categoría y Visibilidad) — el botón "Descargar
+    Excel" siempre exporta lo mismo que está filtrado en pantalla
+    (`assets/js/historial.js`, `cargarHistorial()` arma la URL de ambos con
+    los mismos `trimestre`/`anio`).
+  - Probado en solo lectura contra datos reales (usuario con 2 Acuerdos
+    Q1-2026): sin filtro trae 2, `trimestre=1&anio=2026` trae los 2
+    correctos, `trimestre=3` trae 0, `anio=1999` trae 0 — filtros exactos,
+    sin falsos positivos/negativos.
+- **Botones del header desalineados, corregido**: "Actualizar" era
+  `.ac-btn-outline`, "Nuevo Acuerdo" `.ac-btn-primary` (intencional, es el
+  CTA principal — mismo patrón que Liquidación), pero "Mis Borradores"
+  usaba `.ac-btn-secondary` (padding y tipografía distintos a los otros
+  dos, sin `.ac-btn-inline`) — se veía "uno más grande, otro más chico, otro
+  con otro diseño". Se cambió "Mis Borradores" a `.ac-btn-outline
+  .ac-btn-inline`, igual que "Actualizar" — ahora el grupo queda
+  outline+outline+primary, consistente con el resto de la app (Liquidación
+  usa el mismo esquema outline+primary).
+
 ## Export CSV genérico de Historial — ELIMINADO (2026-08-18)
 
 Hubo una primera versión de export en Historial (`getters/exportar_actas.php`,
@@ -647,9 +749,10 @@ eliminó, ver sección de arriba): **"Descargar Excel"** (`hist-exportar-cuota`)
 partir de lo pactado en las Actas, con **fórmulas de Excel reales** (no
 valores ya calculados) — para que cuando JW llene la venta real mes a mes,
 todo el resto (cumplimiento, GANA/NO GANA, rebate real) se recalcule solo,
-igual que en su plantilla actual. Solo Actas **canal Directa** (Distribuidor
-tiene otro formato de columnas en el archivo real, "CUOTAS POR
-CAT-DISTRIBUIDORES" — no construido, export aparte a futuro).
+igual que en su plantilla actual. Esta sección describe la parte **canal
+Directa** (`getters/exportar_cuota_categoria.php` propiamente); canal
+Distribuidor tiene su propia hoja con columnas/colores distintos — ver
+"Export CUOTA POR CAT-DISTRIBUIDORES (canal Distribuidor)" más abajo.
 
 **Piezas nuevas:**
 - `includes/xlsx_writer.php` — escritor de XLSX propio (sin librería
@@ -884,6 +987,127 @@ export vía un cambio en `includes/xlsx_writer.php` (afecta a cualquier hoja
 nueva que se agregue después con este escritor, ya viene con borde por
 default). Si vas a seguir tocando `exportar_cuota_categoria.php` o
 `xlsx_writer.php`, leer esta sección completa antes de asumir el estado.
+
+**Bug real encontrado y corregido (2026-08-20): fila 1 del encabezado
+quedaba sin pintar en columnas que no eran parte de ninguna fusión.**
+`XlsxWriter` solo escribe un `<c>` en el XML para celdas donde se llamó
+`celda()` explícitamente — el `borderId` fijo que agregaron los bordes (ver
+arriba) solo aplica a celdas que SÍ pasan por `estiloId()`, así que una
+celda nunca escrita queda sin borde ni fondo, aunque esté "adentro" de lo
+que visualmente debería ser un bloque de encabezado continuo. Antes de este
+fix, en la hoja `CUOTA CLIENTE - CATEGORÍA` la fila 1 solo tenía la celda
+del título fusionado "VENTA Qx" — las otras ~19 columnas (CEDI...REBATE
+MAXIMO 110%, CARTERA, VENTA TOTAL...REBATE REAL VOL) no tenían NINGUNA
+celda en fila 1. Mismo problema en la hoja `VISIBILIDAD`: solo las 4
+fusiones (CANTIDAD/PAGO/MARCA/VALIDACIÓN) tenían celda en fila 1, las
+columnas CEDI/NOMBRES/PLAN, PAGO TOTAL, TOTAL, OBSERVACION y las 3
+"validado" sin cabecera de grupo quedaban en blanco arriba. **Confirmado
+generando el .xlsx real** (sesión simulada contra producción, solo lectura,
+mismo patrón de prueba que el resto de este módulo) **e inspeccionando el
+XML crudo** (no a ojo) — encontré exactamente qué columnas faltaban en cada
+hoja antes de tocar nada. Arreglado agregando celdas vacías en fila 1 para
+esas columnas, con el MISMO color de fondo/letra (y centrado en
+VISIBILIDAD) que su celda de fila 2 correspondiente — no se movió ningún
+valor de fila ni se agregaron fusiones nuevas, solo se "pintaron" las
+celdas que faltaban. Reverificado después del fix: fila 1 de
+`CUOTA CLIENTE - CATEGORÍA` cubre las 22 columnas (directas + las 2 que
+quedan legítimamente sin `<c>` propio por estar DENTRO de la fusión de
+VENTA, eso sí es comportamiento normal de OOXML), y fila 1 de `VISIBILIDAD`
+cubre las 21 columnas completas. La hoja `CUOTA TOTAL` (auxiliar, sin
+fusiones, encabezado en fila 3 con filas 1-2 vacías a propósito) no tenía
+este problema, no se tocó.
+
+## Export CUOTA POR CAT-DISTRIBUIDORES (canal Distribuidor) (2026-08-20)
+
+Equivalente del export de Cuota/Categoría (sección de arriba) pero para
+canal Distribuidor — replica la hoja **"CUOTAS POR CAT -DISTRIBUIDORES"**
+del archivo real de JW
+(`datos/LIQUIDACION DE ACUERDO COMERCIALES DISTRIBUIDORES Q2 2026.xlsx`).
+Antes esto estaba bloqueado en Historial con un toast "próximamente" —
+ahora está construido y el bloqueo se sacó (ver "Historial de Acuerdos" más
+arriba).
+
+**Piezas nuevas:**
+- `getters/exportar_cuota_categoria_distribuidor.php` — archivo APARTE
+  (no metido dentro de `exportar_cuota_categoria.php`) para no arriesgar el
+  código de Directa ya probado. `getters/exportar_cuota_categoria.php` lo
+  incluye (`require` + `exit`) cuando `canalDeSupervisor($mysqli,
+  $_SESSION['supervisor'])` del usuario logueado da `'distribuidor'` —
+  branch agregado justo después de validar `$usuarioId`, antes de armar la
+  query de Directa. Reusa `$mysqli`, `$usuarioId`, `$like`,
+  `$trimestreActivo`/`$mesInicioFiltro`/`$mesFinFiltro`/`$anio` ya
+  calculados por el archivo padre (mismo filtro de trimestre/año exacto que
+  Historial, no un filtro de mes suelto).
+- Genera un `.xlsx` de 2 hojas: `CUOTAS POR CAT -DISTRIBUIDORES` (datos) +
+  `CUOTA TOTAL` (auxiliar, para el `VLOOKUP` de GANA TOTAL — mismo patrón
+  que la de Directa, pero acá el `VLOOKUP` matchea por NOMBRE, no por
+  CEDI/ejecutivo).
+
+**Mapeo de columnas contra datos reales — confirmado leyendo el archivo real
+vía Excel COM (colores/fórmulas/merges exactos) y cruzando fila por fila
+contra la base (2026-08-20), no adivinado:**
+- **DISTRIBUIDOR** = `repositorio_locales_supervisores_cliente.tipo_distribuidor`
+  (el mismo campo que ya se manda como `empresa_distribuidora` al PDF/vista
+  previa — ver "Registrar Acuerdo PDV", `obtener_acuerdo_detalle()`).
+- **CIUDAD** = `repositorio_locales_supervisores_cliente.cedi` (confirmado:
+  valores reales como SANTO DOMINGO/RIOBAMBA/GUAYAQUIL calzan con los `cedi`
+  reales de esa tabla para `canal='DISTRIBUIDOR'`).
+- **NOMBRE** = `d.pos_name` (el "Local" de la Acta — mismo campo que CLIENTE
+  en la hoja de Directa).
+- **CATEGORIA** = `l.sector` de la línea `meta_compra` (mismo campo que
+  CATEGORIAS en Directa, misma regla de "una fila por línea real, sin
+  agrupar" ya establecida ahí).
+- **CODIGO / RUC: NO se incluyen (decisión explícita del usuario,
+  2026-08-20).** El archivo real de JW sí tiene esas 2 columnas (confirmado
+  leyendo D2/E2 vía Excel COM: celdas propias, no fusionadas, texto exacto
+  "CODIGO"/"RUC") — pero como no hay ninguna fuente real de esos datos en la
+  base (`repositorio_locales_supervisores_cliente` no tiene columnas `ruc`
+  ni `codigo`), el usuario prefirió no mostrarlas en vez de mostrar 2
+  columnas siempre vacías. Si se pide agregarlas después, hay que definir
+  primero de dónde saldría el dato real (no reintroducir columnas vacías sin
+  preguntar).
+- Sin columna CARTERA (no existe en el archivo real de Distribuidor) y sin
+  fila TOTAL al final (el archivo real tampoco la tiene — confirmado,
+  `UsedRange` termina justo en la última fila de datos).
+
+**Diferencias de color/estructura contra la hoja de Directa (a propósito,
+así está en el archivo real, no es inconsistencia):**
+- Encabezado gris `#747474`/letra blanca para el bloque
+  DISTRIBUIDOR...REBATE MAXIMO 110%, negro `#000000`/letra blanca para el
+  bloque VENTA...NOVEDADES (Directa usa azul/celeste ahí). Columna NOMBRE en
+  rosa `#F2CEEF` (mismo color que CLIENTE en Directa, sí coincide).
+- El bloque CUOTA (meses+total+rebate%+rebate$+rebate max) va **sin** color
+  de fondo en las filas de datos (blanco) — Directa sí pinta ese bloque de
+  verde. Confirmado en el archivo real, no es un fondo "perdido".
+- El merge de fila 1 del bloque VENTA (`VENTA Qx`) cubre los meses **y** la
+  columna TOTAL VENTA junta (a diferencia de Directa, donde el merge de
+  `VENTA Qx` NO incluye su columna de total).
+- Mismo bug de "fila 1 sin pintar" ya encontrado y corregido en la hoja de
+  Directa (ver sección de arriba) — se aplicó el fix desde el primer commit
+  de este archivo nuevo, no hubo que corregirlo después. Verificado
+  generando el `.xlsx` real e inspeccionando el XML crudo: fila 1 cubre
+  todas las columnas salvo las que son continuación de un merge (eso sí es
+  normal en OOXML).
+- CUMPLIMIENTO usa `IFERROR(...,0)` acá (el archivo real usa `=R/K` sin
+  envoltorio) — decisión propia, mismo criterio ya aplicado en Directa: el
+  valor mostrado es idéntico cuando la cuota no es 0, solo evita `#DIV/0!`
+  si una Acta quedara con cuota en 0.
+
+**Probado end-to-end contra datos reales** (sesión simulada, solo lectura,
+usuario real con Acta canal Distribuidor real — `creado_por=2`,
+`ABUNDACORP S A`/`ASERTIA COMERCIAL SA`): generé el `.xlsx`, lo desempaqueté
+e inspeccioné el XML crudo — 5 filas de datos (una por línea de Meta de
+Compras real), fórmulas y rangos dinámicos correctos (`SUM`, `VLOOKUP`,
+`SUMIF` con rangos que crecen/achican según cuántas filas haya, igual que en
+Directa), sin celdas de encabezado sin pintar. También reverifiqué que el
+branch por canal no rompió el flujo de Directa (usuario canal directo
+probado aparte, sigue generando sus 3 hojas normales).
+
+**Fuera de alcance de este cambio** (no se tocó, pedido explícito era solo
+"CUOTA POR CAT-DISTRIBUIDORES"): las hojas `VISIBILIDAD (2)` y
+`PRESUPUESTO UTILIZADO` que también existen en el archivo real de
+Distribuidor — si se piden después, son export aparte, mismo patrón de
+investigar contra el archivo real antes de construir.
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 

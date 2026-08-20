@@ -407,5 +407,31 @@
 			.catch(function () { mostrarToast('Error de conexión al resolver.', 'error'); });
 	}
 
+	// Aviso de "en desarrollo" (2026-08-20, pedido explícito) — mismo estilo
+	// de ventanita SweetAlert2 que ya usa la confirmación de "Eliminar" en
+	// Historial/Mis Borradores, acá como alerta informativa (un solo botón,
+	// sin cancelar). Este script corre UNA sola vez al cargar index.php (como
+	// todos los módulos, ver arquitectura de secciones en CLAUDE.md), pase lo
+	// que pase esté o no activa la pestaña Liquidación — por eso NO se
+	// dispara acá directo (salía "de la nada" en cualquier otro módulo con el
+	// que arrancara la sesión). Se expone para que index.php lo llame recién
+	// al entrar de verdad a esta sección (mismo patrón que
+	// window.acHistorialRefrescar/window.acUsuariosRefrescar), y una sola vez
+	// por sesión (avisoDesarrolloMostrado), no cada vez que se vuelve a
+	// hacer click en la pestaña.
+	var avisoDesarrolloMostrado = false;
+	window.acLiquidacionRefrescar = function () {
+		if (!avisoDesarrolloMostrado) {
+			avisoDesarrolloMostrado = true;
+			Swal.fire({
+				icon: 'info',
+				title: 'Módulo en desarrollo',
+				text: 'Liquidación todavía está en construcción — algunas partes pueden cambiar o no funcionar del todo todavía.',
+				confirmButtonText: 'Entendido'
+			});
+		}
+		cargarImportaciones();
+	};
+
 	cargarImportaciones();
 })();

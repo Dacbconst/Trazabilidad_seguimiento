@@ -861,7 +861,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-hist-filtros-card { padding: var(--space-md) var(--space-lg); }
 .ac-hist-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
 .ac-hist-search-wrap { flex: 1 1 260px; }
-.ac-hist-mes { width: auto; min-width: 200px; }
+.ac-hist-periodo { width: auto; min-width: 170px; }
+.ac-hist-anio { width: auto; min-width: 130px; }
 .ac-link-id {
 	background: none; border: none; padding: 0; cursor: pointer;
 	color: var(--color-primary); font-weight: 700; font-size: 14px;
@@ -878,7 +879,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 
 @media (max-width: 600px) {
 	.ac-hist-filtros { flex-direction: column; align-items: stretch; }
-	.ac-hist-mes { width: 100%; }
+	.ac-hist-periodo, .ac-hist-anio { width: 100%; }
 }
 
 /* ---------- Resumen de Pagos (Liquidación): stat tiles, filtros, gráfico ---------- */

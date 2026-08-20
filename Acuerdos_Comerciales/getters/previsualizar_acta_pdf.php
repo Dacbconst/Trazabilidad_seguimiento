@@ -45,7 +45,7 @@ $lineas       = is_array($body['lineas'] ?? null) ? $body['lineas'] : [];
 
 if ($posId === '' || $mesInicio < 0 || $mesInicio > 11 || $mesFin < $mesInicio || $mesFin > 11) {
 	http_response_code(400);
-	echo 'Faltan datos para armar la vista previa (Distribuidor/Periodo).';
+	echo 'Faltan datos para armar la vista previa (Local/Periodo).';
 	exit;
 }
 
@@ -136,6 +136,9 @@ $detalle = [
 	// de Registrar) — este endpoint nunca abre conexión a la base, así que no
 	// puede derivarlo solo desde pos_id como sí hace obtener_acuerdo_detalle().
 	'es_distribuidor'    => !empty($body['es_distribuidor']),
+	// "Empresa Distribuidora" (campo "Distribuidor" en la UI, ver
+	// acta_pdf.php) — mismo motivo, no se puede leer de la base acá.
+	'empresa_distribuidora' => trim($body['empresa_distribuidora'] ?? ''),
 	'lineas'              => $lineasNormalizadas,
 ];
 

@@ -92,7 +92,8 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 		// usuario, justo lo que no debe pasar al solo cambiar de pestaña.
 		var refrescoPorSeccion = {
 			'#sec-historial':        function () { if (window.acHistorialRefrescar) window.acHistorialRefrescar(); },
-			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); }
+			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); },
+			'#sec-liquidacion':      function () { if (window.acLiquidacionRefrescar) window.acLiquidacionRefrescar(); }
 		};
 
 		document.querySelectorAll('.ac-sidebar-nav a[data-toggle="section"]').forEach(function (link) {

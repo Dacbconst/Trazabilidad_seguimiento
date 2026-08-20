@@ -294,7 +294,7 @@ td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word;
 <h1>Acuerdo de Desarrollo de Negocios Canal '.($esDistribuidor ? 'Distribuidor' : 'Directo').'</h1>
 
 <table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(5, $escala).';"><tr>
-	<td style="border:none; width:34%;"><span class="label">Estimado(a)</span><br><strong>'.h($detalle['distribuidor']).'</strong></td>
+	<td style="border:none; width:34%;"><span class="label">Estimado(a)</span><br><strong>'.h($esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor']).'</strong></td>
 	<td style="border:none; width:33%;"><span class="label">Localidad</span><br><strong>'.h($detalle['localidad']).'</strong></td>
 	<td style="border:none; width:33%;"><span class="label">Fecha</span><br><strong>'.h($fechaTexto).'</strong></td>
 </tr></table>
