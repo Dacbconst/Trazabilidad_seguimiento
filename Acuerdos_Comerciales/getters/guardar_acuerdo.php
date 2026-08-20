@@ -75,11 +75,14 @@ if (!$existePos) {
 $cantidadMeses = $mesFin - $mesInicio + 1;
 
 // ---------- Validación y normalización de las 4 tablas ----------
+// max(0, ...): el cliente ya clampa montos negativos al tipear, esto es
+// defensa adicional del lado del servidor (el guardado es por fetch(), no un
+// submit nativo, así que nada obliga a pasar por esa validación de JS).
 function normalizarValores(array $valores, $cantidadMeses, $mesInicio) {
 	$out = [];
 	for ($i = 0; $i < $cantidadMeses; $i++) {
 		$mes = $mesInicio + $i;
-		$out[(string) $mes] = round((float) ($valores[$i] ?? 0), 2);
+		$out[(string) $mes] = round(max(0, (float) ($valores[$i] ?? 0)), 2);
 	}
 	return $out;
 }
@@ -94,8 +97,14 @@ foreach (['meta_compra', 'cabecera'] as $tipo) {
 		if ($segmento === '' || $categoria === '' || $marca === '') continue; // fila incompleta, se ignora
 		$valores = is_array($fila['valores'] ?? null) ? $fila['valores'] : [];
 		$rebate = $tipo === 'meta_compra' ? max(0, (float) ($fila['rebate_pct'] ?? 0)) : null;
+		// Sector: solo Meta de Compras (2026-08-18, ver CLAUDE.md) — es el
+		// nivel al que Trade MKT aprueba y rastrea el rebate de verdad
+		// (BARRA/CREMA/LIQUIDO/POLVO), confirmado comparando contra el Excel
+		// real de JW. Cabecera/Ruma/Percha no lo tienen, igual que Segmento.
+		$sector = $tipo === 'meta_compra' ? (trim($fila['sector'] ?? '') ?: null) : null;
 		$filasNormalizadas[$tipo][] = [
 			'segmento' => $segmento,
+			'sector' => $sector,
 			'categoria' => $categoria,
 			'marca' => $marca,
 			'rebate_pct' => $rebate,
@@ -114,7 +123,7 @@ foreach (($lineas['ruma'] ?? []) as $orden => $fila) {
 		'segmento' => $segmento,
 		'categoria' => $categoria,
 		'marca' => $marca,
-		'valor_mensual_unico' => round((float) ($fila['valor_mensual_unico'] ?? 0), 2),
+		'valor_mensual_unico' => round(max(0, (float) ($fila['valor_mensual_unico'] ?? 0)), 2),
 		'orden' => $orden,
 	];
 }
@@ -126,15 +135,33 @@ foreach (($lineas['percha'] ?? []) as $orden => $fila) {
 	if ($cantidadMaxPercha < 0 || $cantidadMaxPercha > 5) {
 		responder(false, 'La cantidad máxima de perchas por marca no puede superar 5.');
 	}
+	// Participación es texto libre en la UI (ej. "50%") pero igual debe ser un
+	// número real y no negativo — mismo criterio que ya se valida en el
+	// cliente (registrar.js), repetido acá porque el guardado es por fetch(),
+	// no un submit nativo que fuerce pasar por esa validación.
+	$participacion = trim($fila['participacion'] ?? '');
+	$participacionNum = str_replace('%', '', $participacion);
+	if ($participacion === '' || !is_numeric($participacionNum) || (float) $participacionNum < 0) {
+		responder(false, 'La Participación de Perchas debe ser un número y no puede quedar vacía ni ser negativa.');
+	}
 	$valores = is_array($fila['valores'] ?? null) ? $fila['valores'] : [];
 	$filasNormalizadas['percha'][] = [
 		'marca' => $marca,
-		'participacion' => trim($fila['participacion'] ?? ''),
+		'participacion' => $participacion,
 		'cantidad_max_percha' => $cantidadMaxPercha,
 		'precio_percha' => round((float) ($fila['precio_percha'] ?? 40), 2),
 		'valores_mensuales' => normalizarValores($valores, $cantidadMeses, $mesInicio),
 		'orden' => $orden,
 	];
+}
+
+// Un acuerdo completamente vacío solo se permite como borrador (work-in-
+// progress) — mismo criterio que ya valida registrar.js del lado del
+// cliente, repetido acá por si acaso.
+if ($estado !== 'borrador'
+	&& !$filasNormalizadas['meta_compra'] && !$filasNormalizadas['cabecera']
+	&& !$filasNormalizadas['ruma'] && !$filasNormalizadas['percha']) {
+	responder(false, 'Agrega al menos un producto en alguna tabla antes de generar el Acta (o guárdalo como borrador si todavía no está listo).');
 }
 
 // ---------- Transacción ----------
@@ -156,9 +183,16 @@ try {
 			$fechaGeneracion = date('Y-m-d');
 		}
 
+		// updated_at = NOW() explícito: el ON UPDATE CURRENT_TIMESTAMP de la
+		// columna solo se dispara si ALGUNA otra columna de esta fila cambia de
+		// valor — pero editar un borrador normalmente solo toca las 4 tablas
+		// (repositorio_acuerdo_lineas, aparte), así que la cabecera se vuelve a
+		// guardar con los mismos valores de siempre y MySQL nunca actualizaba
+		// la fecha. "Actualizado" en Mis Borradores debe reflejar el último
+		// guardado real, edite lo que edite.
 		$stmt = $mysqli->prepare(
 			'UPDATE repositorio_acuerdos
-			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?
+			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, updated_at = NOW()
 			 WHERE id = ?'
 		);
 		$stmt->bind_param('siiissi', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $acuerdoId);
@@ -211,13 +245,13 @@ try {
 
 	$stmtLinea = $mysqli->prepare(
 		'INSERT INTO repositorio_acuerdo_lineas
-		 (acuerdo_id, tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha, valores_mensuales, valor_mensual_unico, orden)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+		 (acuerdo_id, tipo, segmento, sector, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha, valores_mensuales, valor_mensual_unico, orden)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 	);
 
-	// Tipos: acuerdo_id(i) tipo(s) segmento(s) categoria(s) marca(s) rebate_pct(d)
+	// Tipos: acuerdo_id(i) tipo(s) segmento(s) sector(s) categoria(s) marca(s) rebate_pct(d)
 	// cantidad_max_percha(i) participacion_pct(s) precio_percha(d) valores_mensuales(s) valor_mensual_unico(d) orden(i)
-	$tiposBind = 'issssdisdsdi';
+	$tiposBind = 'isssssdisdsdi';
 
 	foreach (['meta_compra', 'cabecera'] as $tipo) {
 		foreach ($filasNormalizadas[$tipo] as $fila) {
@@ -226,13 +260,14 @@ try {
 			// en un ARRAY JSON en vez del objeto {"0":...} que espera el esquema.
 			$valoresJson = json_encode($fila['valores_mensuales'], JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT);
 			$rebate = $fila['rebate_pct'];
+			$sector = $fila['sector'];
 			$cantidadMaxPercha = null;
 			$participacionPct = null;
 			$precioPercha = null;
 			$valorMensualUnico = null;
 			$stmtLinea->bind_param(
 				$tiposBind,
-				$acuerdoId, $tipo, $fila['segmento'], $fila['categoria'], $fila['marca'],
+				$acuerdoId, $tipo, $fila['segmento'], $sector, $fila['categoria'], $fila['marca'],
 				$rebate, $cantidadMaxPercha, $participacionPct, $precioPercha, $valoresJson, $valorMensualUnico, $fila['orden']
 			);
 			$stmtLinea->execute();
@@ -242,13 +277,14 @@ try {
 	$tipo = 'ruma';
 	foreach ($filasNormalizadas['ruma'] as $fila) {
 		$rebate = null;
+		$sector = null;
 		$cantidadMaxPercha = null;
 		$participacionPct = null;
 		$precioPercha = null;
 		$valoresJson = null;
 		$stmtLinea->bind_param(
 			$tiposBind,
-			$acuerdoId, $tipo, $fila['segmento'], $fila['categoria'], $fila['marca'],
+			$acuerdoId, $tipo, $fila['segmento'], $sector, $fila['categoria'], $fila['marca'],
 			$rebate, $cantidadMaxPercha, $participacionPct, $precioPercha, $valoresJson, $fila['valor_mensual_unico'], $fila['orden']
 		);
 		$stmtLinea->execute();
@@ -257,6 +293,7 @@ try {
 	$tipo = 'percha';
 	foreach ($filasNormalizadas['percha'] as $fila) {
 		$segmento = null;
+		$sector = null;
 		$categoria = null;
 		$rebate = null;
 		$valorMensualUnico = null;
@@ -264,7 +301,7 @@ try {
 		$valoresJson = json_encode($fila['valores_mensuales'], JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT);
 		$stmtLinea->bind_param(
 			$tiposBind,
-			$acuerdoId, $tipo, $segmento, $categoria, $fila['marca'],
+			$acuerdoId, $tipo, $segmento, $sector, $categoria, $fila['marca'],
 			$rebate, $fila['cantidad_max_percha'], $participacionPct, $precioPercha, $valoresJson, $valorMensualUnico, $fila['orden']
 		);
 		$stmtLinea->execute();

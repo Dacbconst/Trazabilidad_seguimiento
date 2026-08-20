@@ -17,7 +17,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 	<div class="ac-users-header ac-hist-header">
 		<div>
 			<h1 class="ac-page-title">Liquidación</h1>
-			<p class="ac-page-subtitle">Subí el Excel trimestral de JW para calcular el rebate y la visibilidad reales contra las Actas.</p>
+			<p class="ac-page-subtitle">Subí el Excel de JW para calcular el rebate y la visibilidad reales contra las Actas.</p>
 		</div>
 		<div class="ac-btn-group">
 			<button type="button" class="ac-btn-outline ac-btn-inline" id="liq-actualizar" title="Actualizar">
@@ -80,7 +80,66 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 	</section>
 </div>
 
-<!-- Modal: Subir Excel trimestral. -->
+<!-- Vista de Resumen de Pagos de una importación puntual. -->
+<div class="ac-historial-preview hidden" id="ac-liquidacion-resumen">
+	<div class="ac-acuerdo-preview-bar no-print">
+		<button type="button" class="ac-btn-outline" id="liq-resumen-volver">
+			<span class="material-symbols-outlined">arrow_back</span> Volver a Liquidación
+		</button>
+		<a class="ac-btn-primary ac-btn-inline" id="liq-resumen-exportar" href="#" target="_blank">
+			<span class="material-symbols-outlined">download</span> Exportar a Excel
+		</a>
+	</div>
+	<section class="ac-card">
+		<div class="ac-card-header">
+			<h3>Resumen de Pagos</h3>
+			<p class="ac-field-hint" id="liq-resumen-subtitulo"></p>
+		</div>
+
+		<div class="ac-resumen-stats" id="liq-resumen-stats"></div>
+
+		<div class="ac-resumen-filtros">
+			<div class="ac-field ac-field-inline">
+				<label class="ac-field-label" for="liq-resumen-filtro-cedi" id="liq-resumen-filtro-cedi-label">CEDI / Distribuidor</label>
+				<select class="ac-select" id="liq-resumen-filtro-cedi">
+					<option value="">Todos</option>
+				</select>
+			</div>
+			<div class="ac-field ac-field-inline">
+				<label class="ac-field-label" for="liq-resumen-filtro-estado">Estado</label>
+				<select class="ac-select" id="liq-resumen-filtro-estado">
+					<option value="">Todos</option>
+					<option value="ok">OK</option>
+					<option value="revisar">Revisar</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="ac-resumen-chart-wrap">
+			<p class="ac-resumen-chart-title">Top 10 clientes por total</p>
+			<div id="liq-resumen-chart"></div>
+		</div>
+
+		<div class="ac-table-scroll">
+			<table class="ac-table" id="liq-resumen-tabla">
+				<thead>
+					<tr>
+						<th>CEDI / Distribuidor</th>
+						<th>Cliente</th>
+						<th>Acta</th>
+						<th class="ac-text-right">Volumen</th>
+						<th class="ac-text-right">Visibilidad</th>
+						<th class="ac-text-right">Total</th>
+						<th class="ac-text-center">Estado</th>
+					</tr>
+				</thead>
+				<tbody id="liq-resumen-body"></tbody>
+			</table>
+		</div>
+	</section>
+</div>
+
+<!-- Modal: Subir Excel de Liquidación. -->
 <div class="ac-modal-overlay" id="liq-subir-modal-overlay">
 	<div class="ac-modal">
 		<div class="ac-modal-header">

@@ -244,4 +244,98 @@ function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $cliente
 	}
 	return ['acuerdo_id' => $acuerdoIds[0], 'estado_match' => 'matcheado'];
 }
+
+// ---------- Resumen de Pagos: junta rebate real + visibilidad por cliente ----------
+// Agrupa por (cedi_o_distribuidor, cliente_o_nombre) — misma clave que usa a
+// mano la hoja "RESUMEN DE PAGOS" del Excel real de JW (Volumen + Visibilidad
+// = Total). NO filtra por estado_match: se muestran todos los clientes de la
+// importación, con un indicador `estado` ('ok'/'revisar') según si algo de
+// ese cliente quedó sin resolver en cualquiera de las 2 tablas — nunca se
+// ocultan filas solo porque el match no esté completo todavía.
+// SUM() de MySQL sobre columnas DECIMAL ya es aritmética exacta (a diferencia
+// de sumar floats en PHP) — dinero_sumar() solo hace falta acá para el paso
+// final (volumen + visibilidad), que sí se combina en PHP.
+function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
+	$porCliente = [];
+
+	$stmt = $mysqli->prepare(
+		"SELECT cedi_o_distribuidor, cliente_o_nombre,
+		        SUM(rebate_dolares_excel) AS volumen,
+		        MAX(acuerdo_id) AS acuerdo_id,
+		        SUM(estado_match <> 'matcheado') AS sin_resolver
+		 FROM repositorio_liquidacion_cuota_categoria
+		 WHERE importacion_id = ?
+		 GROUP BY cedi_o_distribuidor, cliente_o_nombre"
+	);
+	$stmt->bind_param('i', $importacionId);
+	$stmt->execute();
+	foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
+		$clave = $fila['cedi_o_distribuidor'].'|'.$fila['cliente_o_nombre'];
+		$porCliente[$clave] = [
+			'cedi_o_distribuidor' => $fila['cedi_o_distribuidor'],
+			'cliente_o_nombre'    => $fila['cliente_o_nombre'],
+			'volumen'             => (float) $fila['volumen'],
+			'visibilidad'         => 0.0,
+			'acuerdo_id'          => $fila['acuerdo_id'] !== null ? (int) $fila['acuerdo_id'] : null,
+			'sin_resolver'        => (int) $fila['sin_resolver'],
+		];
+	}
+	$stmt->close();
+
+	$stmt = $mysqli->prepare(
+		"SELECT cedi_o_distribuidor, cliente_o_nombre,
+		        SUM(pago_total_excel) AS visibilidad,
+		        MAX(acuerdo_id) AS acuerdo_id,
+		        SUM(estado_match <> 'matcheado') AS sin_resolver
+		 FROM repositorio_liquidacion_visibilidad
+		 WHERE importacion_id = ?
+		 GROUP BY cedi_o_distribuidor, cliente_o_nombre"
+	);
+	$stmt->bind_param('i', $importacionId);
+	$stmt->execute();
+	foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
+		$clave = $fila['cedi_o_distribuidor'].'|'.$fila['cliente_o_nombre'];
+		if (!isset($porCliente[$clave])) {
+			$porCliente[$clave] = [
+				'cedi_o_distribuidor' => $fila['cedi_o_distribuidor'],
+				'cliente_o_nombre'    => $fila['cliente_o_nombre'],
+				'volumen'             => 0.0,
+				'visibilidad'         => 0.0,
+				'acuerdo_id'          => null,
+				'sin_resolver'        => 0,
+			];
+		}
+		$porCliente[$clave]['visibilidad'] = (float) $fila['visibilidad'];
+		if ($porCliente[$clave]['acuerdo_id'] === null && $fila['acuerdo_id'] !== null) {
+			$porCliente[$clave]['acuerdo_id'] = (int) $fila['acuerdo_id'];
+		}
+		$porCliente[$clave]['sin_resolver'] += (int) $fila['sin_resolver'];
+	}
+	$stmt->close();
+
+	// documento_no de la Acta vinculada, para trazabilidad — una sola consulta
+	// con IN() en vez de una por cliente.
+	$acuerdoIds = array_values(array_unique(array_filter(array_column($porCliente, 'acuerdo_id'))));
+	$documentos = [];
+	if ($acuerdoIds) {
+		$placeholders = implode(',', array_fill(0, count($acuerdoIds), '?'));
+		$stmt = $mysqli->prepare("SELECT id, documento_no FROM repositorio_acuerdos WHERE id IN ($placeholders)");
+		$stmt->bind_param(str_repeat('i', count($acuerdoIds)), ...$acuerdoIds);
+		$stmt->execute();
+		foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
+			$documentos[(int) $fila['id']] = $fila['documento_no'];
+		}
+		$stmt->close();
+	}
+
+	$resultado = [];
+	foreach ($porCliente as $fila) {
+		$fila['total'] = dinero_sumar([$fila['volumen'], $fila['visibilidad']]);
+		$fila['documento_no'] = $fila['acuerdo_id'] !== null ? ($documentos[$fila['acuerdo_id']] ?? null) : null;
+		$fila['estado'] = $fila['sin_resolver'] > 0 ? 'revisar' : 'ok';
+		$resultado[] = $fila;
+	}
+	usort($resultado, function ($a, $b) { return strcmp($a['cliente_o_nombre'], $b['cliente_o_nombre']); });
+	return $resultado;
+}
 ?>

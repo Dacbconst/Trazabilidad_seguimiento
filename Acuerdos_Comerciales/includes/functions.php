@@ -371,11 +371,16 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	// LIMIT 1 alcanza aunque repositorio_locales_supervisores_cliente tenga
 	// pos_id duplicados (~1,116 detectados) — cualquiera de las filas
 	// duplicadas tiene el mismo pos_name/cedi para ese pos_id.
+	// LEFT JOIN (no JOIN normal) a usuarios_acuerdos: acuerdos viejos con
+	// creado_por=NULL (huérfanos, ver CLAUDE.md) no deben tirar todo el
+	// detalle abajo — simplemente el Acta sale sin nombre de Ejecutivo
+	// Comercial (vuelve a la línea en blanco de siempre, ver acta_pdf.php).
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por,
-		        d.pos_name, d.cedi
+		        d.pos_name, d.cedi, u.usuario AS ejecutivo_comercial
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 		 WHERE a.id = ? LIMIT 1"
 	);
 	if (!$stmt) return null;
@@ -386,7 +391,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	if (!$cabecera) return null;
 
 	$stmt = $mysqli->prepare(
-		"SELECT tipo, segmento, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha,
+		"SELECT tipo, segmento, sector, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha,
 		        valores_mensuales, valor_mensual_unico, orden
 		 FROM repositorio_acuerdo_lineas WHERE acuerdo_id = ? ORDER BY tipo, orden"
 	);
@@ -400,6 +405,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
 		$lineas[$f['tipo']][] = [
 			'segmento'            => $f['segmento'],
+			'sector'              => $f['sector'],
 			'categoria'           => $f['categoria'],
 			'marca'               => $f['marca'],
 			'rebate_pct'          => $f['rebate_pct'] !== null ? (float) $f['rebate_pct'] : 0,
@@ -423,6 +429,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'creado_por'        => $cabecera['creado_por'] !== null ? (int) $cabecera['creado_por'] : null,
 		'distribuidor'      => $cabecera['pos_name'],
 		'localidad'         => $cabecera['cedi'] ?: '—',
+		'ejecutivo_comercial' => $cabecera['ejecutivo_comercial'] ?: '',
 		'lineas'            => $lineas,
 	];
 }
