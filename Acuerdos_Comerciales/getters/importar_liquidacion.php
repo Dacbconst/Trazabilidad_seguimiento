@@ -88,10 +88,10 @@ try {
 	// vez de una por fila evita repetir la misma consulta a la base decenas
 	// de veces para el mismo cliente.
 	$cacheMatch = [];
-	$matchearConCache = function ($cedi, $cliente) use ($mysqli, $canal, $mesInicio, $mesFin, &$cacheMatch) {
+	$matchearConCache = function ($cedi, $cliente) use ($mysqli, $canal, $mesInicio, $mesFin, $anio, &$cacheMatch) {
 		$clave = $cedi.'|'.$cliente;
 		if (!isset($cacheMatch[$clave])) {
-			$cacheMatch[$clave] = liquidacion_matchear_fila($mysqli, $canal, $cedi, $cliente, $mesInicio, $mesFin);
+			$cacheMatch[$clave] = liquidacion_matchear_fila($mysqli, $canal, $cedi, $cliente, $mesInicio, $mesFin, $anio);
 		}
 		return $cacheMatch[$clave];
 	};

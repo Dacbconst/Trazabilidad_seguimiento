@@ -279,7 +279,9 @@ function trimestreABounds($trimestre) {
 // es el dato real, así que sigue siendo correcto aunque un supervisor cambie
 // de territorio o dos usuarios lo compartan.
 // $trimestre: 1-4, o 0/inválido = "Todos los períodos". $anio: 0 = "Todos los años".
-function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $pagina = 1, $usuarioId = null, $porPagina = 10) {
+// $filtroFirma: 'todos' (default) | 'firmadas' | 'pendientes' — activado
+// desde los stat tiles de arriba de la tabla (2026-08-21), no un <select>.
+function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $filtroFirma = 'todos', $pagina = 1, $usuarioId = null, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
@@ -302,13 +304,24 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	// distintos supervisores (~1,116 duplicados detectados), por eso el
 	// GROUP BY a.id de abajo, para que un mismo Acuerdo no se duplique en el
 	// listado por esas filas repetidas.
+	// Condición de firma directo en el texto del SQL (no placeholder): si
+	// `acta_firmada_archivo` todavía no existiera, esto rompería prepare()
+	// igual que el resto de columnas nuevas de esta función — mismo
+	// fallback de abajo ya cubre ese caso (cae a la query sin firma en
+	// absoluto, que ignora este filtro; aceptable porque esa columna ya
+	// está corrida en producción, ver CLAUDE.md).
+	$condicionFirma = '';
+	if ($filtroFirma === 'firmadas') $condicionFirma = ' AND a.acta_firmada_archivo IS NOT NULL';
+	elseif ($filtroFirma === 'pendientes') $condicionFirma = ' AND a.acta_firmada_archivo IS NULL';
+
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		WHERE a.estado NOT IN ('borrador', 'anulado')
 		  AND a.creado_por = ?
 		  AND d.pos_name LIKE ?
 		  AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
-		  AND (? = 0 OR a.anio = ?)";
+		  AND (? = 0 OR a.anio = ?)
+		  $condicionFirma";
 
 	// Este componente se renderiza SIEMPRE (visible u oculto) en cada login de
 	// desarrollador/superdesarrollador, sea cual sea la pestaña activa (ver
@@ -330,14 +343,30 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		$offset = ($pagina - 1) * $porPagina;
 	}
 
+	// (a.acta_firmada_archivo IS NOT NULL): si todavía no se corrió el ALTER
+	// que agrega esa columna (ver CLAUDE.md, "Subir Acta firmada"), prepare()
+	// da false acá — mismo fallback que ya usa login() para `supervisor`, sin
+	// esto Historial entero se rompería mientras el usuario corre el SQL.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado,
+		        (a.acta_firmada_archivo IS NOT NULL) AS tiene_firma, a.acta_firmada_mime,
 		        d.pos_name, d.cedi
 		 $sqlBase
 		 GROUP BY a.id
 		 ORDER BY a.fecha_generacion DESC, a.id DESC
 		 LIMIT ? OFFSET ?"
 	);
+	if (!$stmt) {
+		$stmt = $mysqli->prepare(
+			"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado,
+			        0 AS tiene_firma, NULL AS acta_firmada_mime,
+			        d.pos_name, d.cedi
+			 $sqlBase
+			 GROUP BY a.id
+			 ORDER BY a.fecha_generacion DESC, a.id DESC
+			 LIMIT ? OFFSET ?"
+		);
+	}
 	if (!$stmt) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
@@ -351,6 +380,50 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		'total'         => $total,
 		'pagina'        => $pagina,
 		'total_paginas' => $totalPaginas,
+	];
+}
+
+// Stat tiles de arriba de la tabla de Historial (2026-08-21) — respetan
+// búsqueda/trimestre/año (el mismo alcance que ya filtra la tabla), pero NO
+// el filtro de firma (esos 3 números son justo lo que decide ese filtro).
+// 'pendiente_mas_antigua' es la fecha_generacion más vieja entre las
+// pendientes, para el "más antigua: DD/MM" del tile.
+function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId) {
+	$vacio = ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'pendiente_mas_antigua' => null];
+	if (!$usuarioId) return $vacio;
+
+	$like = '%'.$busqueda.'%';
+	$anio = (int) $anio;
+	$bounds          = trimestreABounds($trimestre);
+	$trimestreActivo = $bounds ? 1 : 0;
+	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
+
+	$stmt = $mysqli->prepare(
+		"SELECT COUNT(DISTINCT a.id) AS total,
+		        COUNT(DISTINCT CASE WHEN a.acta_firmada_archivo IS NOT NULL THEN a.id END) AS firmadas,
+		        MIN(CASE WHEN a.acta_firmada_archivo IS NULL THEN a.fecha_generacion END) AS pendiente_mas_antigua
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 WHERE a.estado NOT IN ('borrador', 'anulado')
+		   AND a.creado_por = ?
+		   AND d.pos_name LIKE ?
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)"
+	);
+	if (!$stmt) return $vacio; // acta_firmada_archivo todavía no existe, ver CLAUDE.md.
+	$stmt->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+
+	$total    = (int) $fila['total'];
+	$firmadas = (int) $fila['firmadas'];
+	return [
+		'total'                 => $total,
+		'firmadas'              => $firmadas,
+		'pendientes'            => $total - $firmadas,
+		'pendiente_mas_antigua' => $fila['pendiente_mas_antigua'],
 	];
 }
 
@@ -374,15 +447,29 @@ function listar_anios_disponibles($mysqli, $usuarioId) {
 function renderFilaHistorial(array $a) {
 	$fecha = $a['fecha_generacion'] ? date('d/m/Y', strtotime($a['fecha_generacion'])) : '—';
 
+	// Firma subida (2026-08-21): reusa `acta_firmada_archivo` (antes `firmas`,
+	// JSON sin usar — ver CLAUDE.md) para saber si ya volvió el Acta firmada a
+	// mano. Un solo botón por fila que cambia de ícono/acción según el
+	// estado: subir si falta, ver el archivo si ya está.
+	$tieneFirma = !empty($a['tiene_firma']);
+	$firmaBadge = $tieneFirma
+		? '<span class="ac-badge ac-badge-ok">Firmada</span>'
+		: '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
+	$firmaBtn = $tieneFirma
+		? '<button type="button" class="ac-icon-btn ac-icon-btn-success hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'" title="Ver Acta Firmada"><span class="material-symbols-outlined">task_alt</span></button>'
+		: '<button type="button" class="ac-icon-btn hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0" title="Subir Acta Firmada"><span class="material-symbols-outlined">upload_file</span></button>';
+
 	return '
 	<tr data-id="'.(int) $a['id'].'">
 		<td><button type="button" class="ac-link-id hist-btn-ver" data-id="'.(int) $a['id'].'">#'.htmlspecialchars($a['documento_no']).'</button></td>
 		<td class="ac-hist-distribuidor">'.htmlspecialchars($a['pos_name']).'</td>
 		<td>'.htmlspecialchars($a['cedi'] ?: '—').'</td>
 		<td class="ac-text-center">'.htmlspecialchars(periodoCorto((int) $a['mes_inicio'], (int) $a['mes_fin'])).'</td>
+		<td class="ac-text-center">'.$firmaBadge.'</td>
 		<td class="ac-text-right ac-tabular">'.$fecha.'</td>
 		<td class="ac-text-right">
 			<div class="ac-row-actions">
+				'.$firmaBtn.'
 				<button type="button" class="ac-icon-btn hist-btn-descargar" data-id="'.(int) $a['id'].'" title="Descargar PDF">
 					<span class="material-symbols-outlined">download</span>
 				</button>

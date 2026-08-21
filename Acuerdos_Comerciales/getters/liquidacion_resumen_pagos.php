@@ -1,7 +1,10 @@
 <?php
-// Datos del "Resumen de Pagos" de una importación puntual (rebate real +
-// visibilidad, juntos por cliente) — ver liquidacion_calcular_resumen_pagos()
-// en includes/liquidacion_import.php para la lógica real.
+// Resumen de Pagos, UNIFICADO por canal (2026-08-20, antes atado a una sola
+// importación — ver CLAUDE.md "Resumen de Pagos unificado por canal" y
+// liquidacion_resumen_pagos_unificado() en includes/liquidacion_import.php
+// para el porqué y la lógica real). Junta todas las importaciones
+// completadas de un canal (opcionalmente filtradas por trimestre/año) sin
+// sumar montos entre trimestres distintos — cada fila trae su propio período.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -14,23 +17,20 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-$importacionId = (int) ($_GET['importacion_id'] ?? 0);
-if ($importacionId <= 0) {
-	echo json_encode(['ok' => false, 'message' => 'Importación inválida.']);
+$canal = $_GET['canal'] ?? '';
+if (!in_array($canal, ['directa', 'distribuidor'], true)) {
+	echo json_encode(['ok' => false, 'message' => 'Canal inválido.']);
 	exit;
 }
+$trimestre = (int) ($_GET['trimestre'] ?? 0);
+$anio = (int) ($_GET['anio'] ?? 0);
 
-$stmt = $mysqli->prepare('SELECT canal, anio, mes_inicio, mes_fin, nombre_archivo FROM repositorio_liquidacion_importaciones WHERE id = ?');
-$stmt->bind_param('i', $importacionId);
-$stmt->execute();
-$importacion = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-if (!$importacion) {
-	echo json_encode(['ok' => false, 'message' => 'Importación no encontrada.']);
-	exit;
-}
+$resultado = liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio);
 
-$filas = liquidacion_calcular_resumen_pagos($mysqli, $importacionId);
-
-echo json_encode(['ok' => true, 'importacion' => $importacion, 'filas' => $filas]);
+echo json_encode([
+	'ok' => true,
+	'canal' => $canal,
+	'importaciones' => $resultado['importaciones'],
+	'filas' => $resultado['filas'],
+]);
 ?>

@@ -730,6 +730,194 @@ mockup `code.html` por choque con las reglas de este documento:
   outline+outline+primary, consistente con el resto de la app (Liquidación
   usa el mismo esquema outline+primary).
 
+## Subir Acta Firmada — Historial (2026-08-21)
+
+Faltaba una forma de subir la foto/PDF del Acta ya firmada a mano (el papel
+vuelve firmado y alguien lo escanea/fotografía) — decisión de diseño
+explícita: **vive en Historial, no es un módulo nuevo**. Razón (lente UX,
+"respetar el propósito de cada módulo"): Historial ya es por definición "el
+ciclo de vida de un Acuerdo ya generado" (Ver Detalles/Descargar
+PDF/Eliminar) — "firmado y subido" es el siguiente estado natural de esa
+misma historia, no un dominio de datos distinto (a diferencia de
+Liquidación, que sí compara contra una fuente externa — venta real — y por
+eso merece módulo propio).
+
+**Schema — reusa una columna que YA existía sin usar**: `repositorio_acuerdos.firmas`
+(JSON, nunca referenciada en ningún código) se renombró y retipeó a
+`acta_firmada_archivo` (LONGBLOB), + 3 columnas de auditoría nuevas. El
+`estado` ya tenía `'firmado'`/`'liquidado'` en su ENUM desde el diseño
+original de la tabla pero tampoco se usaban — ahora `'firmado'` sí se
+conecta: se setea automáticamente al subir (decisión explícita del usuario).
+
+```sql
+ALTER TABLE repositorio_acuerdos
+  CHANGE COLUMN firmas acta_firmada_archivo LONGBLOB NULL,
+  ADD COLUMN acta_firmada_mime VARCHAR(100) NULL AFTER acta_firmada_archivo,
+  ADD COLUMN acta_firmada_subido_en DATETIME NULL AFTER acta_firmada_mime,
+  ADD COLUMN acta_firmada_subido_por INT UNSIGNED NULL AFTER acta_firmada_subido_en;
+```
+**Ya corrida en producción (2026-08-21), confirmado con `DESCRIBE`.**
+
+**Piezas nuevas:**
+- `getters/subir_acta_firmada.php` — POST `multipart/form-data` (`id`,
+  `archivo`). Mismo criterio de propiedad que `eliminar_acuerdo.php`
+  (`creado_por` = usuario de sesión). Bloquea si el acuerdo está en
+  `borrador`/`anulado`. Valida el mime REAL del archivo con `finfo`
+  (`FILEINFO_MIME_TYPE`, no la extensión ni el `Content-Type` que manda el
+  navegador — ambos se falsean fácil): solo `image/jpeg`, `image/png`,
+  `image/webp`, `application/pdf`. Límite propio de 15MB (aparte de
+  `upload_max_filesize`/`post_max_size` del servidor, que aplican antes).
+  Reemplaza cualquier subida anterior (no hay versionado/historial de
+  archivos) y pasa `estado='firmado'`.
+- `getters/descargar_acta_firmada.php` — GET `?id=`, mismo chequeo de
+  propiedad, sirve el archivo con `Content-Disposition: inline` (se abre en
+  el navegador, no fuerza descarga) y el nombre `Acta_Firmada_{documento_no}.{ext}`
+  (extensión derivada del mime guardado).
+- `listar_historial_acuerdos()` ahora trae `(a.acta_firmada_archivo IS NOT NULL) AS tiene_firma`
+  — con el MISMO fallback de `prepare()` que ya usa `login()` para la
+  columna `supervisor` (si todavía no se corrió el `ALTER`, cae a
+  `0 AS tiene_firma` en vez de romper todo Historial).
+- `renderFilaHistorial()`: nueva columna "Firma" con badge
+  (`.ac-badge-ok`/`.ac-badge-revisar`, mismas clases que ya usa el Resumen
+  de Pagos de Liquidación, ningún CSS nuevo) + un solo botón por fila que
+  cambia de ícono/acción según el estado (`upload_file` si falta, `task_alt`
+  si ya está — clic abre el archivo en pestaña nueva).
+- `accept="image/jpeg,image/png,image/webp,application/pdf"` en el
+  `<input type="file">`, sin `capture` (se dejó elegir cámara O galería O
+  archivo, en vez de forzar cámara — más flexible para subir un PDF
+  escaneado desde desktop también).
+
+**Rediseño UX (2026-08-21, mismo día, pedido explícito): modal de 2 paneles
+lado a lado, no subida directa de un solo click.** El primer intento subía
+apenas se elegía el archivo — el usuario pidió poder COMPARAR visualmente el
+Acta generada contra la firmada antes de guardar, con un botón explícito de
+confirmación:
+- **Panel izquierdo** ("Acta Generada"): siempre el mismo iframe de
+  `getters/generar_acta_pdf.php?id=` que ya usa "Ver Detalles" — referencia
+  fija, no cambia según lo que se esté subiendo.
+- **Panel derecho** ("Acta Firmada"): si el acuerdo YA tenía firma subida,
+  arranca mostrándola (`descargar_acta_firmada.php?id=` en un iframe — sirve
+  tanto imagen como PDF sin distinguir tipo de antemano); si no, arranca con
+  un estado vacío ("Selecciona una foto o PDF..."). Al elegir un archivo
+  nuevo, se previsualiza LOCAL antes de subir nada
+  (`URL.createObjectURL(archivo)` — `<img>` para imágenes, `<iframe>` para
+  PDF, según `archivo.type`) — el usuario ve exactamente lo que está por
+  guardar, sin gastar una subida real solo para mirar.
+- **Un solo modal sirve para "ver la firma ya subida" y "subir/reemplazar"**
+  — mismo componente, cambia el estado inicial del panel derecho según
+  `tiene_firma`. El botón "Subir Acta Firmada" en la fila abre este modal
+  siempre (ya no dispara el file picker directo).
+- **"Guardar Acta Firmada"**: deshabilitado hasta elegir un archivo nuevo (si
+  solo se está viendo la firma existente, sin elegir reemplazo, no hay nada
+  que guardar). Al hacer click, la petición real recién se manda ahí — antes
+  todo es 100% local/sin red.
+- **Evita duplicados al guardar (pedido explícito)**: guard `firmaGuardando`
+  + ambos botones (`Elegir`/`Guardar`) deshabilitados mientras la petición
+  está en vuelo, con texto "Guardando..." — un doble click no dispara una
+  segunda subida. Se re-habilitan solo si la respuesta es error; si es éxito,
+  el modal se cierra y no hace falta.
+- Nuevas clases CSS `.ac-firma-modal*`/`.ac-firma-panel*`/`.ac-firma-preview*`
+  en `style.css`, sección aparte después de Historial — reusa
+  `.ac-modal-overlay`/`.ac-modal-open` de siempre (mismo mecanismo que el
+  modal de Mis Borradores), fondo `#525659` en los paneles de preview (gris
+  neutro tipo visor de PDF, no blanco — para que fotos/PDFs con fondo blanco
+  se distingan del borde del panel). Responsive: en pantallas angostas los 2
+  paneles se apilan verticalmente en vez de lado a lado.
+
+**Probado por el usuario end-to-end (2026-08-21): subida real desde el
+navegador, servidor local `localhost:8899` — funcionó.** Acuerdo real 41
+(ADN-2026-0038) quedó con `estado='firmado'`, `acta_firmada_mime='image/jpeg'`,
+confirmado releyendo con `listar_historial_acuerdos()` (solo lectura).
+
+**2 ajustes visuales de la misma vuelta (2026-08-21):**
+- **Vista previa de una foto YA subida salía mal** (pegada arriba, sin
+  centrar/ajustar, con espacio gris muerto abajo) — porque el panel derecho
+  siempre usaba `<iframe src="descargar_acta_firmada.php?...">` para "ya
+  subida", sin importar si era imagen o PDF. Un `<iframe>` mostrando una
+  imagen usa el renderizado nativo del navegador (tamaño natural, sin
+  centrar) — muy distinto del PDF, donde el visor nativo SÍ centra/ajusta
+  solo. Corregido: ahora se distingue por el mime real guardado
+  (`acta_firmada_mime`, agregado al SELECT de `listar_historial_acuerdos()`
+  y pasado como `data-mime` en el botón) — imagen usa `<img>` (mismo
+  `object-fit:contain` que ya usaba la vista previa LOCAL del archivo recién
+  elegido, así ambos casos se ven igual de bien), PDF sigue usando
+  `<iframe>`.
+- **Ícono "Ver Acta Firmada" (`task_alt`) ahora es verde persistente, no
+  gris** (pedido explícito: "no lo dejes gris, ponlo verde") — nueva clase
+  `.ac-icon-btn-success` en `style.css` (color `#1e5c26`, mismo verde que
+  `.ac-badge-ok`, para que el ícono y el badge "Firmada" se lean como la
+  misma señal), aplicada solo cuando `tiene_firma` es true.
+
+### Stat tiles = también filtro (2026-08-21, misma vuelta)
+
+3 tiles arriba de la tabla de Historial (pedido con captura de referencia):
+"Acuerdos Generados" (total, neutral), "Firmadas" (verde, cuenta + % +
+barra) y "Pendientes de Firma" (ámbar, cuenta + fecha de la más antigua
+pendiente + barra). **Los 3 son clickeables y funcionan como filtro** —
+click en "Firmadas" o "Pendientes de Firma" filtra la tabla a ese
+subconjunto; click de nuevo en el que ya está activo vuelve a "todos"
+(toggle, nunca queda un estado sin salida). Colores: se reusan los mismos
+verde/ámbar que ya usan `.ac-badge-ok`/`.ac-badge-revisar` (no se inventó
+paleta nueva — mismo criterio que la skill `dataviz` del proyecto: colores
+de estado son señal reservada, se reusan, no se generan por serie).
+
+- `obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId)`
+  (nueva, `functions.php`) — cuenta total/firmadas/pendientes + fecha más
+  antigua pendiente, con el MISMO alcance de búsqueda/trimestre/año que ya
+  filtra la tabla, pero **sin** el filtro de firma (esos números son
+  justamente lo que ese filtro decide, no tendría sentido que el propio
+  filtro los redujera).
+- `listar_historial_acuerdos()` ganó un parámetro más, `$filtroFirma`
+  ('todos'/'firmadas'/'pendientes') — condición armada directo en el SQL
+  (no placeholder, ya que es NULL/NOT NULL) y agregada a `$sqlBase`.
+- `getters/listar_historial.php` ahora también devuelve `stats` en el JSON
+  (mismo request que ya trae las filas — no hay una segunda petición aparte
+  para los tiles) y acepta `?firma=`.
+- El export "Descargar Excel" **no** hereda este filtro a propósito — es de
+  Cuota/Categoría, un concepto de negocio distinto de si el papel ya volvió
+  firmado o no.
+- **Probado (solo lectura) contra datos reales**: `obtener_stats_historial()`
+  da `total=2, firmadas=1, pendientes=1, pendiente_mas_antigua=2026-08-19` —
+  coincide exacto con la captura de referencia del usuario (2/1 50%/1 más
+  antigua 19/08). `listar_historial_acuerdos()` con cada valor de
+  `$filtroFirma` devuelve exactamente la fila esperada en cada caso.
+- **Rediseño visual (2026-08-21, mismo día)**: la primera versión usaba el
+  fondo lavanda uniforme de `.ac-stat-tile` (el de Liquidación) para las 3 —
+  el usuario mostró la captura real y las 3 se veían idénticas/planas. Se
+  rediseñaron: base blanca (`--color-surface-container-lowest`) + borde fino
+  para las 3, un ícono de acento (`description`/`task_alt`/`schedule`) en
+  círculo — el color de estado (verde/ámbar) vive en el ícono, el número/%
+  y la barra, no en todo el fondo de la tarjeta (evita que "disponible" y
+  "elegida" se confundan). Al estar ACTIVA (filtro aplicado) recién ahí se
+  agrega borde de 2px + fondo tintado suave (`#f2fbf6`/`#fffaf0`), para que
+  el estado seleccionado se note claramente contra las otras 2.
+- **Simplificado más (2026-08-21, mismo día, pedido explícito)**: se quitó
+  el `%` de "Firmadas" y el "más antigua: DD/MM" de "Pendientes de Firma" —
+  ahora cada tile es solo ícono + label + número + barra, nada de texto
+  secundario. `obtener_stats_historial()` sigue devolviendo
+  `pendiente_mas_antigua` (no se tocó el backend/SQL, sigue siendo dato
+  válido si se necesita después) — solo se dejó de RENDERIZARLO. Clases CSS
+  que quedaron sin uso (`.ac-stat-value-row`, `.ac-stat-sub`) se borraron de
+  `style.css`.
+- **Bug real encontrado 2026-08-21 (mismo día) — el fondo blanco nunca se
+  vio, aunque el CSS estaba bien escrito**: los botones tenían las 2 clases
+  `ac-stat-tile ac-hist-stat` juntas — `.ac-stat-tile` (Liquidación, fondo
+  lavanda `var(--color-surface-container)`) está declarada en `style.css`
+  DESPUÉS de `.ac-hist-stat` (fondo blanco), y con la misma especificidad
+  (una sola clase cada una) gana la que aparece último en el archivo — el
+  lavanda de `.ac-stat-tile` pisaba silenciosamente el blanco. Corregido
+  sacando `ac-stat-tile` del HTML (`components/historial/historial.php`):
+  `.ac-hist-stat` ya traía su propio `background`/`border`/`border-radius`/
+  `padding` completos, no dependía de esa clase compartida para nada.
+  **Lección**: nunca asumir que una clase "extra" en un elemento es inerte
+  solo porque el elemento ya tiene sus propios estilos — el orden en el
+  archivo CSS decide cuál gana si hay props en conflicto entre 2 clases de
+  igual especificidad.
+
+**Pendiente (fuera de alcance de esta vuelta, "luego hablamos")**: integrar
+esto con la app Android propia de Jabonería Wilson — ver sección de memoria
+del proyecto, "Pendiente: subir Acta firmada".
+
 ## Export CSV genérico de Historial — ELIMINADO (2026-08-18)
 
 Hubo una primera versión de export en Historial (`getters/exportar_actas.php`,
@@ -753,6 +941,23 @@ igual que en su plantilla actual. Esta sección describe la parte **canal
 Directa** (`getters/exportar_cuota_categoria.php` propiamente); canal
 Distribuidor tiene su propia hoja con columnas/colores distintos — ver
 "Export CUOTA POR CAT-DISTRIBUIDORES (canal Distribuidor)" más abajo.
+
+**Nombre de la hoja VISIBILIDAD, corregido 2026-08-20**: la hoja 3 se creaba
+como `'VISIBILIDAD'` (sin espacio) — pero `includes/liquidacion_import.php`
+busca esa hoja al reimportar por el nombre EXACTO `'VISIBILIDAD '` **con un
+espacio al final**, porque así está escrito literalmente en el archivo real
+de JW (confirmado abriendo `datos/LIQUIDACION ACUERDOS COMERCIALES Q2
+DIRECTA 2026.xlsx` real vía Excel COM — no es un typo del importador, es el
+nombre real). Sin el espacio, alguien que quisiera re-subir directo nuestro
+propio export (sin pasarlo primero por el Excel maestro de JW) se
+encontraba con "No se encontró la hoja VISIBILIDAD ". Se agregó el espacio
+al `agregarHoja()` de la hoja 3. **Probado el round-trip completo**:
+generé el .xlsx real (sesión simulada), y se lo pasé directo a
+`liquidacion_parsear_cuota_categoria()`/`liquidacion_parsear_visibilidad()`
+— ambas hojas se leen sin error. Mismo nombre exacto ya lo tenía bien el
+export de Distribuidor (`'VISIBILIDAD (2)'`, agregado por otra sesión, ver
+"Export CUOTA POR CAT-DISTRIBUIDORES" más abajo) — coincide exacto con lo
+que busca el importador para ese canal, no hizo falta tocarlo.
 
 **Piezas nuevas:**
 - `includes/xlsx_writer.php` — escritor de XLSX propio (sin librería
@@ -1297,8 +1502,12 @@ con el usuario, línea por línea — la propuesta real de Xplora tiene 2 partes
    información proporcionada por la analista de Lucky, eliminando la
    necesidad de utilizar buscadores o compartir el archivo". La parte de
    "obtener automáticamente" (importar + matchear el Excel de JW) **ya está
-   hecha** (ver arriba). **La pantalla Resumen de Pagos en sí todavía NO
-   existe — es lo único grande que falta del alcance del correo.**
+   hecha** (ver arriba). ~~La pantalla Resumen de Pagos en sí todavía NO
+   existe — es lo único grande que falta del alcance del correo.~~
+   **Desactualizado — la pantalla Resumen de Pagos se construyó el
+   2026-08-18 y se rearmó para ser unificada por canal el 2026-08-20** (ver
+   sección "Resumen de Pagos UNIFICADO por canal" más abajo para el estado
+   real actual). Lo que sí sigue sin hacer del alcance del correo:
    El paso 5 del proceso ("envío de preliminar al área comercial para
    verificación") tampoco está hecho — es un paso de revisión/aprobación
    dentro de la web, distinto del Resumen de Pagos. WhatsApp (mencionado en
@@ -1370,12 +1579,82 @@ vuelve a aparecer. Probado de punta a punta contra un MySQL local aislado
 (no contra producción, ver regla de solo lectura arriba): el UPDATE deja los
 valores correctos y la fila desaparece de "Pendientes" sin afectar las demás.
 
+**Match por Año agregado (2026-08-20)**: `liquidacion_candidatos_acuerdo_id()`
+antes solo filtraba por `mes_inicio`/`mes_fin` (0-11, sin año) — un mismo
+cliente con Acta del mismo trimestre en dos años distintos (ej. Q1 2025 y Q1
+2026) daba 2 candidatos y cualquiera de los dos caía a `pendiente`, aunque el
+**Año ya se elige en el formulario de "Subir Excel"** (`liq-anio`) y se
+guarda en `repositorio_liquidacion_importaciones.anio` — simplemente no se
+estaba usando para descartar candidatos. Ahora `liquidacion_candidatos_acuerdo_id($mysqli,
+$posId, $mesInicio, $mesFin, $anio)` y `liquidacion_matchear_fila(...,
+$anio)` reciben ese Año y filtran también `repositorio_acuerdos.anio = ?`.
+Actualizados los 2 puntos que llaman a estas funciones:
+`getters/importar_liquidacion.php` (match automático al subir, ya tenía
+`$anio` del `$_POST`) y `getters/liquidacion_resolver_match.php` (match
+manual desde "Pendientes de Asignar" — ahí no se leía `anio` de
+`repositorio_liquidacion_importaciones` para nada, se agregó a la consulta
+existente de `mes_inicio`/`mes_fin`). Probado contra un Acta real
+(`id=57`, `pos_id=EPVD12244`, `anio=2026`, Q1): con año correcto matchea
+(`acuerdo_id=57`), con año incorrecto (`2025`) da `sin_match` — antes del fix
+ambos casos daban el mismo resultado porque el año no se miraba.
+
+**Resolución de ambigüedad de ACTA (no de cliente) — agregado 2026-08-20:**
+Caso real: el nombre del Excel resuelve a UN SOLO `pos_id` (cliente sin
+ambigüedad), pero ese cliente tiene 2+ Actas cuyo período+año se solapan
+(ej. dos Actas generadas para el mismo lugar en el mismo trimestre — pasa de
+verdad, no es hipotético: **verificado contra producción real, 5 casos**
+de `pos_id` con Actas duplicadas en el mismo período+año, uno con hasta 13
+Actas para el mismo lugar). Antes de este cambio, `liquidacion_pendientes.php`
+solo recalculaba candidatos de CLIENTE — en este caso el cliente se veía
+"resuelto" (1 solo candidato), pero la fila seguía en `pendiente` porque el
+segundo paso del match (cliente→Acta) era el que estaba trabado, y recién al
+intentar confirmarla salía un error fijo ("revisar en Historial") sin ninguna
+forma de resolverlo desde la pantalla.
+- `getters/liquidacion_pendientes.php`: cuando el pos_id resuelve a 1 solo,
+  ahora también recalcula `liquidacion_candidatos_acuerdo_id()` — si da 2+,
+  trae esas Actas (`documento_no`, `fecha_generacion`, `estado`,
+  `created_at`) como `actas_candidatas` en la respuesta.
+- `getters/liquidacion_resolver_match.php`: acepta `$_POST['acuerdo_id']`
+  opcional — si el cliente ya resolvió a 1 pos_id pero hay 2+ Actas
+  candidatas, y el `acuerdo_id` que llega **está entre los candidatos
+  legítimos recalculados en el momento** (nunca se confía en el id tal cual
+  venga del POST, siempre se valida contra la lista real), se guarda directo
+  sin volver a chocar con el error.
+- `assets/js/liquidacion.js`: `renderPendientes()` ahora muestra, para este
+  caso, un selector con cada Acta candidata (documento_no + fecha + estado,
+  ej. "#ADN-2026-0002 (22/07/2026 · generado)") en vez del selector de
+  cliente (que ya no aplica, el cliente no es la ambigüedad) — clic ahí llama
+  `resolverFila(..., 'matchear', acuerdoId)`, que ahora acepta un 6to
+  parámetro opcional y lo manda como `acuerdo_id` en el POST.
+- **No hizo falta ningún cambio de esquema** — verificado con `DESCRIBE`
+  contra la base real que las 3 tablas de `datos/liquidacion_schema.sql`
+  (`repositorio_liquidacion_importaciones`,
+  `repositorio_liquidacion_cuota_categoria`,
+  `repositorio_liquidacion_visibilidad`) están creadas EXACTO como el script,
+  y que `repositorio_acuerdos` ya tiene `documento_no`/`fecha_generacion`/
+  `estado`/`created_at` — todo lo necesario para distinguir Actas candidatas
+  ya existía, la lista de candidatas se calcula al vuelo (mismo patrón que
+  ya usa la de candidatos de cliente), no se guarda nada nuevo.
+- Probado contra el caso real más simple de los 5 encontrados (`pos_id
+  JW0764`, 2 Actas: `ADN-2026-0001`/`ADN-2026-0002`, ambas Q1 2026): la
+  consulta de candidatas devuelve exactamente esas 2 con su info
+  distinguible, y la validación acepta un id de la lista real y rechaza uno
+  ajeno. Nota aparte (no relacionada a este fix, ya documentada más abajo):
+  `JW0764` es un `pos_id` viejo, huérfano del maestro actual — no se pudo
+  probar el camino completo nombre→pos_id para este caso puntual, solo el
+  paso pos_id→Acta (que es el que cambió).
+
 **Estrategia de matching (Excel → `pos_id` → `acuerdo_id`) — implementada en
 `includes/liquidacion_import.php`, probada contra los dos Excel reales de
 `datos/` (solo lectura, sin tocar nada):**
 
 - El Excel NUNCA trae `pos_id` — solo nombre (truncado por ancho de columna)
-  + CEDI (Directa) o DISTRIBUIDOR+CODIGO+RUC (Distribuidor). **`repositorio_locales_supervisores_cliente`
+  + CEDI (Directa) o DISTRIBUIDOR+CODIGO+RUC (Distribuidor, si el Excel que
+  suben las trae — el export propio del sistema para Distribuidor ya NO
+  genera esas 2 columnas, ver "Export CUOTA POR CAT-DISTRIBUIDORES" más
+  abajo; el importador las sigue leyendo de forma tolerante por si el
+  archivo que sube JW es su propio maestro con esas columnas, simplemente
+  quedan `null` si no están). **`repositorio_locales_supervisores_cliente`
   no tiene columna `ruc` ni `codigo`** — el CODIGO/RUC del Excel de
   Distribuidores no se puede cruzar contra nada hoy, queda como dato
   informativo nomás.
@@ -1632,17 +1911,127 @@ reproponer esto sin que el usuario lo pida.**
        (Todos/OK/Revisar). 100% client-side sobre el array ya cargado
        (`resumenDatos`), sin volver a pedir al servidor — filtran a la vez
        el gráfico, los stat tiles y la tabla.
-     - **Gráfico de barras horizontales apiladas** (SVG a mano, sin librería
-       — mismo criterio que `xlsx_reader.php` de no sumar dependencias):
-       top 10 clientes por total, Volumen + Visibilidad como 2 segmentos.
-       Colores `#2a78d6`/`#eb6834` — par categórico tomado de
-       `references/palette.md` de la skill `dataviz` y validado con su
-       script (`validate_palette.js`, todos los checks PASS) antes de
-       usarlo, en vez de elegir colores a ojo. Tooltip nativo (`<title>` de
-       SVG) por segmento — se evaluó un tooltip HTML custom pero para 10
-       barras en una pantalla interna no se justificaba el esfuerzo extra;
-       el valor exacto siempre queda disponible en la tabla de abajo de
-       todas formas.
+     - **Gráfico de barras horizontales apiladas**: top clientes por total,
+       Volumen + Visibilidad como 2 segmentos. Colores `#2a78d6`/`#eb6834`
+       — par categórico tomado de `references/palette.md` de la skill
+       `dataviz` y validado con su script (`validate_palette.js`, todos los
+       checks PASS) antes de usarlo, en vez de elegir colores a ojo.
+       Tooltip nativo (`title`) por segmento — se evaluó un tooltip HTML
+       custom pero para 10 barras en una pantalla interna no se justificaba
+       el esfuerzo extra; el valor exacto siempre queda disponible en la
+       tabla de abajo de todas formas.
+       - **Reescrito de SVG a mano → HTML/CSS puro (2026-08-20), dos rondas
+         de corrección tras feedback visual real del usuario:**
+         1. La versión en SVG medía el nombre del cliente por CANTIDAD DE
+            CARACTERES para decidir si truncar, pero el ancho real en
+            píxeles de cada letra varía — un nombre que "por caracteres"
+            parecía entrar terminaba invadiendo el área de la barra, y
+            como la barra se dibujaba DESPUÉS en el XML del SVG, lo tapaba
+            a la mitad de una palabra, sin ningún "…" que avisara. Se
+            reescribió a filas HTML/CSS (`.ac-chart-row` con `<span
+            class="ac-chart-row-label">`) — el nombre vive en su propia
+            columna flex, estructuralmente no puede compartir espacio con
+            la barra, y el navegador trunca con `text-overflow:ellipsis`
+            real (nunca a mitad de palabra), con el nombre completo en el
+            atributo `title`.
+         2. El `.ac-chart-track` tenía un fondo gris + `border-radius`
+            propio (look de "medidor"/barra de progreso con un track que
+            marca el 100%) — el usuario lo objetó de nuevo mostrando el
+            resultado: una barra corta con ese fondo gris detrás parece
+            "le falta llenar algo", pero esto es un RANKING de magnitud
+            entre clientes (cada barra ya es el 100% de su propio valor;
+            solo se ve más corta que otra porque hay una más grande en la
+            lista), no una barra de progreso con capacidad fija. Se sacó el
+            fondo/caja del `.ac-chart-track` — la barra ahora crece libre
+            sobre el fondo de la tarjeta, con el redondeado (`border-radius`)
+            aplicado solo al `:last-child` de `.ac-chart-seg` (la punta,
+            nunca toda una caja). Columna de nombre ensanchada de 180px a
+            220px de paso (nombres reales de JW rondan 25-33 caracteres).
+       - **Confirmado con el usuario (2026-08-20): la MISMA barra puede
+         representar 2 trimestres distintos de un mismo cliente** (ver
+         "Resumen de Pagos unificado por canal" más abajo) — la etiqueta
+         de cada fila del gráfico ahora es `cliente (período año)`, no solo
+         el nombre del cliente, para no confundir dos barras del mismo
+         cliente en trimestres diferentes.
+
+**Resumen de Pagos UNIFICADO por canal (2026-08-20) — cambio de
+arquitectura, no un ajuste chico:**
+
+Hasta acá, "Resumen de Pagos" estaba atado a UNA importación puntual — cada
+Excel trimestral que subía JW quedaba en su propia pantalla aislada
+(`liq-btn-resumen` mandaba a `abrirResumen(importacionId)`, que pedía
+`getters/liquidacion_resumen_pagos.php?importacion_id=X`). El usuario lo
+marcó explícitamente como un gap real: esperaba que cada trimestre que
+subiera se fuera sumando a una sola vista de seguimiento, no tener un
+Resumen aislado por cada Excel que hay que ir a buscar a mano.
+
+**Decisión de negocio, confirmada con el usuario tras preguntarle
+explícitamente** (el riesgo real: los pagos se liquidan por trimestre, no
+de forma acumulada — sumar montos de trimestres distintos en un solo
+número podría mostrar algo que no corresponde a lo que hay que pagar
+AHORA; el usuario además avisó que puede pasar que un Excel mezcle pagos
+nuevos y viejos, así que no hay que asumir que cada importación es
+"limpiamente" un solo trimestre): **nunca se suman montos de trimestres
+distintos en un solo número.** Un mismo cliente que aparece en 2 trimestres
+da 2 filas separadas, cada una con su propio período visible, nunca 1 fila
+con el total de ambos sumado. Si en algún momento se pide también un total
+acumulado de por vida, es un cálculo APARTE que se arma sobre esta misma
+lista — no algo que este cambio deba decidir por sí solo.
+
+**Piezas:**
+- `liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio)`
+  en `includes/liquidacion_import.php` (nueva) — junta TODAS las
+  importaciones `estado='completado'` de un canal (opcionalmente filtradas
+  por trimestre/año, `0`=todos) y llama a
+  `liquidacion_calcular_resumen_pagos()` (sin cambios) por cada una,
+  etiquetando cada fila resultante con su propio
+  `importacion_id`/`anio`/`mes_inicio`/`mes_fin`/`nombre_archivo`. Filtro
+  por **solape, no igualdad exacta** de meses (`mes_inicio <= ? AND
+  mes_fin >= ?`) — a diferencia de las Actas (siempre trimestre fijo), una
+  importación de Liquidación puede cubrir cualquier rango de meses (se
+  detecta del propio Excel, sin frecuencia confirmada con JW), así que un
+  filtro "Q1" tiene que encontrar también, por ejemplo, una importación que
+  cubra solo Febrero.
+- `getters/liquidacion_resumen_pagos.php` y
+  `getters/liquidacion_resumen_pagos_export.php` (CSV) reescritos para
+  recibir `canal` (+ `trimestre`/`anio` opcionales) en vez de
+  `importacion_id`, ambos delegando en la función de arriba — cero
+  duplicación de la lógica de agregación entre pantalla y export.
+- `assets/js/liquidacion.js`: `abrirResumen(canal, trimestre, anio)` (firma
+  cambiada, antes `abrirResumen(importacionId)`) + `cargarResumen()` nueva
+  (hace el `fetch`, la llaman tanto `abrirResumen()` como los listeners de
+  los nuevos selects de período). El botón "Resumen de Pagos" de cada fila
+  del listado de importaciones sigue funcionando igual para el usuario
+  (abre el resumen pre-filtrado al período de ESA fila) — `trimestreDeRango()`
+  nueva mapea `mes_inicio`/`mes_fin` a un índice de trimestre SOLO si calza
+  EXACTO con uno; si la importación cubre un rango raro, abre sin filtro
+  (todos los períodos) en vez de adivinar mal.
+- `components/liquidacion/liquidacion.php`: 2 selects nuevos en
+  `.ac-resumen-filtros` (`liq-resumen-filtro-trimestre`,
+  `liq-resumen-filtro-anio`, mismo patrón visual que Historial) — a
+  diferencia de CEDI/Estado (filtran en el cliente sobre lo ya cargado),
+  estos SÍ piden datos de nuevo al servidor porque cambian qué
+  importaciones se incluyen. Columna nueva **Período** en la tabla de
+  resultados (`liq-resumen-tabla`) entre Cliente y Acta — necesaria porque
+  ahora un mismo cliente puede aparecer más de una vez (una fila por
+  trimestre), la columna es lo que evita la ambigüedad.
+- Subtítulo de la pantalla (`liq-resumen-subtitulo`) ahora arma su propio
+  texto en JS a partir de los filtros activos y `data.importaciones.length`
+  (ej. "Directa · Q1 2026 · 1 importación" o "Directa · Todos los períodos
+  · 3 importaciones") — antes venía directo de la única importación
+  cargada (`data.importacion`, que ya no existe en la respuesta).
+- **Probado end-to-end contra datos reales** (sesión simulada, solo
+  lectura): render del componente sin errores, `GET` real a
+  `liquidacion_resumen_pagos.php?canal=directa&trimestre=0&anio=0` — trae
+  la única importación real que hay hoy (`id=3`, Q1 2026, 2 clientes),
+  cada fila con su período. Filtros probados uno por uno: `trimestre=1&anio=2026`
+  matchea igual (es la que hay), `trimestre=2&anio=2026` y `anio=2025` dan
+  0 filas correctamente (no hay datos ahí), `canal=distribuidor` da 0 filas
+  (no hay importaciones de ese canal todavía). Export CSV probado igual,
+  trae la columna Período nueva. **No se pudo probar el caso real de "2
+  trimestres del mismo cliente sin sumarse"** porque solo hay 1 importación
+  cargada en producción hoy — validar visualmente en cuanto se suba un
+  segundo Excel de un período distinto.
      - **Probado**: sintaxis JS (`node --check`) y PHP (`php -l`) limpias,
        y se hizo un `GET` real a `index.php` con sesión logueada
        (`JAVIER MALDONADO`, con cookie ya autorizada por el usuario, acción

@@ -98,7 +98,34 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 
 		<div class="ac-resumen-stats" id="liq-resumen-stats"></div>
 
+		<!-- Filtro de Período (2026-08-20): antes esta pantalla mostraba UNA
+		     sola importación (un solo Excel subido) — ahora junta TODAS las
+		     importaciones completadas del canal, así que hace falta un
+		     filtro de período para poder acotar (o ver todo junto). A
+		     diferencia de CEDI/Estado (que filtran en el cliente sobre lo ya
+		     cargado), Trimestre/Año SÍ piden datos de nuevo al servidor,
+		     porque cambian QUÉ importaciones se incluyen, no solo qué filas
+		     se muestran de las ya cargadas. -->
 		<div class="ac-resumen-filtros">
+			<div class="ac-field ac-field-inline">
+				<label class="ac-field-label" for="liq-resumen-filtro-trimestre">Período</label>
+				<select class="ac-select" id="liq-resumen-filtro-trimestre">
+					<option value="0">Todos los períodos</option>
+					<option value="1">Q1 (Ene-Mar)</option>
+					<option value="2">Q2 (Abr-Jun)</option>
+					<option value="3">Q3 (Jul-Sep)</option>
+					<option value="4">Q4 (Oct-Dic)</option>
+				</select>
+			</div>
+			<div class="ac-field ac-field-inline">
+				<label class="ac-field-label" for="liq-resumen-filtro-anio">Año</label>
+				<select class="ac-select" id="liq-resumen-filtro-anio">
+					<option value="0">Todos</option>
+					<?php foreach ($anios as $a): ?>
+						<option value="<?= $a ?>"><?= $a ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
 			<div class="ac-field ac-field-inline">
 				<label class="ac-field-label" for="liq-resumen-filtro-cedi" id="liq-resumen-filtro-cedi-label">CEDI / Distribuidor</label>
 				<select class="ac-select" id="liq-resumen-filtro-cedi">
@@ -116,7 +143,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 		</div>
 
 		<div class="ac-resumen-chart-wrap">
-			<p class="ac-resumen-chart-title">Top 10 clientes por total</p>
+			<p class="ac-resumen-chart-title">Top 10 (cliente × período) por total</p>
 			<div id="liq-resumen-chart"></div>
 		</div>
 
@@ -126,6 +153,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 					<tr>
 						<th>CEDI / Distribuidor</th>
 						<th>Cliente</th>
+						<th>Período</th>
 						<th>Acta</th>
 						<th class="ac-text-right">Volumen</th>
 						<th class="ac-text-right">Visibilidad</th>

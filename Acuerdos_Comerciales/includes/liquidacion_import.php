@@ -213,16 +213,22 @@ function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $cli
 // puede no calzar 1 a 1 con el mes_inicio/mes_fin de la Acta (una Acta puede
 // cubrir un rango distinto) — mismo criterio de solape que ya
 // usa listar_historial_acuerdos(). $mesInicio/$mesFin en 0-11 (0=Enero).
-// Si hay más de un acuerdo_id posible para ese pos_id+período, también se
+// $anio filtra también por repositorio_acuerdos.anio (2026-08-20, decisión
+// del usuario) — antes solo se filtraba por mes_inicio/mes_fin, así que un
+// mismo cliente con Acta del mismo trimestre en dos años distintos (ej. Q1
+// 2025 y Q1 2026) daba 2 candidatos y cualquiera de los dos caía a
+// "pendiente" aunque el Año ya se elige en el formulario de subida — ahora
+// se usa ese dato para no pedir resolución manual de algo que ya se sabe.
+// Si hay más de un acuerdo_id posible para ese pos_id+período+año, también se
 // considera "sin match único" — no hay forma de saber cuál corresponde.
-function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin) {
+function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin, $anio) {
 	$stmt = $mysqli->prepare(
 		"SELECT id FROM repositorio_acuerdos
 		 WHERE pos_id = ? AND estado NOT IN ('borrador', 'anulado')
-		   AND mes_inicio <= ? AND mes_fin >= ?"
+		   AND mes_inicio <= ? AND mes_fin >= ? AND anio = ?"
 	);
 	if (!$stmt) return [];
-	$stmt->bind_param('sii', $posId, $mesFin, $mesInicio);
+	$stmt->bind_param('siii', $posId, $mesFin, $mesInicio, $anio);
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -233,12 +239,12 @@ function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin)
 // Devuelve ['acuerdo_id' => int, 'estado_match' => 'matcheado'] si hay
 // exactamente un candidato en cada paso, o ['acuerdo_id' => null,
 // 'estado_match' => 'sin_match'|'pendiente'] si no.
-function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $clienteONombre, $mesInicio, $mesFin) {
+function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $clienteONombre, $mesInicio, $mesFin, $anio) {
 	$posIds = liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $clienteONombre);
 	if (count($posIds) !== 1) {
 		return ['acuerdo_id' => null, 'estado_match' => count($posIds) === 0 ? 'sin_match' : 'pendiente'];
 	}
-	$acuerdoIds = liquidacion_candidatos_acuerdo_id($mysqli, $posIds[0], $mesInicio, $mesFin);
+	$acuerdoIds = liquidacion_candidatos_acuerdo_id($mysqli, $posIds[0], $mesInicio, $mesFin, $anio);
 	if (count($acuerdoIds) !== 1) {
 		return ['acuerdo_id' => null, 'estado_match' => count($acuerdoIds) === 0 ? 'sin_match' : 'pendiente'];
 	}
@@ -337,5 +343,65 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	}
 	usort($resultado, function ($a, $b) { return strcmp($a['cliente_o_nombre'], $b['cliente_o_nombre']); });
 	return $resultado;
+}
+
+// ---------- Resumen de Pagos UNIFICADO por canal (2026-08-20) ----------
+// Antes el Resumen de Pagos estaba atado a una sola importación — cada
+// Excel trimestral que subía JW quedaba en su propia pantalla aislada, sin
+// ninguna forma de ver "todo lo que llevamos" sin ir importación por
+// importación (el usuario lo marcó explícitamente como un gap real, ver
+// CLAUDE.md "Resumen de Pagos unificado por canal"). El usuario confirmó
+// que no sabía cuál era la mejor forma de sumar montos entre trimestres
+// (puede pasar que suban un Excel que mezcle pagos nuevos y viejos) — la
+// decisión tomada, más segura dado eso: NUNCA sumar montos de trimestres
+// distintos en un solo número. Esta función junta TODAS las importaciones
+// completadas de un canal (opcionalmente filtradas por trimestre/año) en
+// una sola lista, pero cada fila queda etiquetada con SU PROPIO período
+// (`importacion_id`/`anio`/`mes_inicio`/`mes_fin`/`nombre_archivo`) — un
+// mismo cliente que aparece en 2 trimestres da 2 filas separadas, nunca 1
+// fila con el total de los dos sumado. Si en algún momento se quiere
+// también un total acumulado de por vida, es un cálculo APARTE que se
+// arma sobre esta misma lista (sumar por cliente ignorando período), no
+// algo que esta función deba decidir por sí sola.
+// $trimestre: 0 = todos, 1-4 = Q1-Q4 (mismo mapeo que trimestreABounds()
+// en functions.php, que ya tiene que estar cargado por el archivo que
+// llama a esta función). $anio: 0 = todos.
+function liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio) {
+	$bounds = trimestreABounds($trimestre);
+	$trimestreActivo = $bounds ? 1 : 0;
+	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro = $bounds ? $bounds[1] : -1;
+
+	// Solape, no igualdad exacta: a diferencia de las Actas (siempre
+	// trimestre fijo), las importaciones de Liquidación pueden cubrir
+	// cualquier rango de meses (se detecta del propio Excel, no hay
+	// frecuencia fija confirmada con JW, ver liquidacion_parsear_cuota_categoria())
+	// — un filtro "Q1" tiene que encontrar también una importación que
+	// cubra, por ejemplo, solo Febrero.
+	$stmt = $mysqli->prepare(
+		"SELECT id, anio, mes_inicio, mes_fin, nombre_archivo FROM repositorio_liquidacion_importaciones
+		 WHERE canal = ? AND estado = 'completado'
+		   AND (? = 0 OR (mes_inicio <= ? AND mes_fin >= ?))
+		   AND (? = 0 OR anio = ?)
+		 ORDER BY anio DESC, mes_inicio DESC"
+	);
+	if (!$stmt) return ['importaciones' => [], 'filas' => []];
+	$stmt->bind_param('siiiii', $canal, $trimestreActivo, $mesFinFiltro, $mesInicioFiltro, $anio, $anio);
+	$stmt->execute();
+	$importaciones = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$filas = [];
+	foreach ($importaciones as $imp) {
+		foreach (liquidacion_calcular_resumen_pagos($mysqli, (int) $imp['id']) as $f) {
+			$f['importacion_id'] = (int) $imp['id'];
+			$f['anio'] = (int) $imp['anio'];
+			$f['mes_inicio'] = (int) $imp['mes_inicio'];
+			$f['mes_fin'] = (int) $imp['mes_fin'];
+			$f['nombre_archivo'] = $imp['nombre_archivo'];
+			$filas[] = $f;
+		}
+	}
+	return ['importaciones' => $importaciones, 'filas' => $filas];
 }
 ?>

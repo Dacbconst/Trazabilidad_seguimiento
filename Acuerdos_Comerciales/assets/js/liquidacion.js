@@ -12,6 +12,9 @@
 	var resumenFiltroCedi = document.getElementById('liq-resumen-filtro-cedi');
 	var resumenFiltroCediLabel = document.getElementById('liq-resumen-filtro-cedi-label');
 	var resumenFiltroEstado = document.getElementById('liq-resumen-filtro-estado');
+	var resumenFiltroTrimestre = document.getElementById('liq-resumen-filtro-trimestre');
+	var resumenFiltroAnio = document.getElementById('liq-resumen-filtro-anio');
+	var resumenCanalActual = 'directa'; // fijo mientras la pantalla de Resumen está abierta, ver abrirResumen().
 	// Colores fijos de la serie (validados con la skill de dataviz — par
 	// categórico #2a78d6/#eb6834, ver referencia de la skill): Volumen y
 	// Visibilidad SIEMPRE con estos colores, en este orden, en todo el chart.
@@ -37,6 +40,20 @@
 		return mesesCorto[mesInicio] + ' - ' + mesesCorto[mesFin];
 	}
 
+	// Para el botón "Resumen de Pagos" de una fila puntual del listado de
+	// importaciones: solo mapea a un trimestre si el rango de esa
+	// importación calza EXACTO con uno (Ene-Mar, etc.) — si cubre un rango
+	// raro (ej. un solo mes, o Feb-Abr), abre el Resumen sin filtro de
+	// período (0 = todos) en vez de adivinar mal a cuál trimestre pertenece.
+	var TRIMESTRES_LIQ = [[0, 2], [3, 5], [6, 8], [9, 11]];
+	function trimestreDeRango(mesInicio, mesFin) {
+		mesInicio = parseInt(mesInicio, 10); mesFin = parseInt(mesFin, 10);
+		for (var i = 0; i < TRIMESTRES_LIQ.length; i++) {
+			if (mesInicio === TRIMESTRES_LIQ[i][0] && mesFin === TRIMESTRES_LIQ[i][1]) return i + 1;
+		}
+		return 0;
+	}
+
 	function formatoMoneda(valor) {
 		var n = parseFloat(valor) || 0;
 		return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,7 +75,17 @@
 					var accionPendientes = pendientes > 0
 						? '<button type="button" class="ac-link-id liq-btn-pendientes" data-id="' + f.id + '">Resolver (' + pendientes + ')</button>'
 						: '<span class="ac-field-hint">Sin pendientes</span>';
-					var accionResumen = '<button type="button" class="ac-link-id liq-btn-resumen" data-id="' + f.id + '">Resumen de Pagos</button>';
+					// El Resumen de Pagos ya no es por importación (ver
+					// liquidacion_resumen_pagos_unificado() en
+					// includes/liquidacion_import.php) — este botón abre la
+					// vista unificada del canal de esta fila, pre-filtrada al
+					// período de esta importación (si calza con un trimestre
+					// exacto) para que el flujo de "click en esta fila para
+					// ver su resumen" siga funcionando igual que antes; desde
+					// ahí se puede ampliar el filtro a "Todos los períodos".
+					var trimestreFila = trimestreDeRango(f.mes_inicio, f.mes_fin);
+					var accionResumen = '<button type="button" class="ac-link-id liq-btn-resumen" ' +
+						'data-canal="' + escapeHtml(f.canal) + '" data-trimestre="' + trimestreFila + '" data-anio="' + f.anio + '">Resumen de Pagos</button>';
 					return '<tr>' +
 						'<td>' + (etiquetaCanal[f.canal] || escapeHtml(f.canal)) + '</td>' +
 						'<td>' + periodoTexto(f.mes_inicio, f.mes_fin) + ' ' + f.anio + '</td>' +
@@ -73,7 +100,9 @@
 					btn.addEventListener('click', function () { abrirPendientes(parseInt(btn.dataset.id, 10)); });
 				});
 				Array.prototype.forEach.call(tablaBody.querySelectorAll('.liq-btn-resumen'), function (btn) {
-					btn.addEventListener('click', function () { abrirResumen(parseInt(btn.dataset.id, 10)); });
+					btn.addEventListener('click', function () {
+						abrirResumen(btn.dataset.canal, parseInt(btn.dataset.trimestre, 10), parseInt(btn.dataset.anio, 10));
+					});
 				});
 			})
 			.catch(function () {
@@ -152,12 +181,44 @@
 		cargarImportaciones();
 	});
 
+	// Formatea una fecha 'YYYY-MM-DD' (fecha_generacion) para mostrar en la
+	// lista de Actas candidatas — sin hora, es solo para distinguir cuál es cuál.
+	function formatoFechaCorta(fecha) {
+		if (!fecha) return 'sin fecha';
+		var partes = fecha.split('-');
+		return partes.length === 3 ? partes[2] + '/' + partes[1] + '/' + partes[0] : fecha;
+	}
+
 	function renderPendientes(filas) {
 		if (!filas.length) {
 			pendientesBody.innerHTML = '<tr><td colspan="5" class="ac-table-empty">No quedan filas pendientes — todo se resolvió.</td></tr>';
 			return;
 		}
 		pendientesBody.innerHTML = filas.map(function (f) {
+			// Ambigüedad de ACTA (2026-08-20): el cliente ya resolvió a un solo
+			// pos_id, pero ese cliente tiene 2+ Actas cuyo período+año se
+			// solapan (ej. dos Actas generadas para el mismo lugar en el mismo
+			// trimestre) — acá NO se muestra el selector de cliente (ya está
+			// resuelto), se muestra directo cuál Acta es, para no confundir
+			// mostrando los dos pasos de match a la vez.
+			if (f.actas_candidatas && f.actas_candidatas.length) {
+				var actasHtml = f.actas_candidatas.map(function (a) {
+					return '<button type="button" class="ac-btn-outline ac-btn-inline liq-btn-acta" style="margin:2px; display:block; text-align:left;" ' +
+						'data-tabla="' + f.tabla + '" data-id="' + f.id + '" data-pos-id="' + escapeHtml(f.pos_id_resuelto) + '" data-acuerdo-id="' + a.id + '">' +
+						'#' + escapeHtml(a.documento_no) + ' <span class="ac-field-hint">(' + formatoFechaCorta(a.fecha_generacion) + ' · ' + escapeHtml(a.estado) + ')</span></button>';
+				}).join('');
+				return '<tr data-fila-tabla="' + f.tabla + '" data-fila-id="' + f.id + '">' +
+					'<td>' + (f.tabla === 'cuota_categoria' ? 'Cuota/Venta' : 'Visibilidad') + '</td>' +
+					'<td>' + escapeHtml(f.cedi_o_distribuidor) + '</td>' +
+					'<td>' + escapeHtml(f.cliente_o_nombre) + '</td>' +
+					'<td>Cliente OK, Acta ambigua (' + f.actas_candidatas.length + ' posibles)</td>' +
+					'<td>' +
+						'<p class="ac-field-hint">Hay más de un Acta para este cliente en el mismo período — elegí cuál es:</p>' +
+						'<div class="liq-candidatos">' + actasHtml + '</div>' +
+					'</td>' +
+					'</tr>';
+			}
+
 			var candidatosHtml = '';
 			if (f.candidatos && f.candidatos.length) {
 				candidatosHtml = f.candidatos.map(function (c) {
@@ -190,6 +251,12 @@
 				'</td>' +
 				'</tr>';
 		}).join('');
+
+		Array.prototype.forEach.call(pendientesBody.querySelectorAll('.liq-btn-acta'), function (btn) {
+			btn.addEventListener('click', function () {
+				resolverFila(btn.dataset.tabla, btn.dataset.id, btn.dataset.posId, btn.closest('tr'), 'matchear', btn.dataset.acuerdoId);
+			});
+		});
 
 		Array.prototype.forEach.call(pendientesBody.querySelectorAll('.liq-btn-candidato'), function (btn) {
 			btn.addEventListener('click', function () {
@@ -237,20 +304,43 @@
 	}
 
 	// ---------- Resumen de Pagos ----------
-	function abrirResumen(importacionId) {
+	// Unificado por canal (2026-08-20): antes esta pantalla mostraba UNA
+	// sola importación (un Excel puntual); ahora junta TODAS las
+	// importaciones completadas de un canal — Trimestre/Año filtran del
+	// lado del servidor (cambian QUÉ importaciones se incluyen), CEDI/Estado
+	// siguen filtrando del lado del cliente sobre lo ya cargado (no cambian
+	// eso). Cada fila trae su propio período — nunca se suman montos de
+	// trimestres distintos en un solo número (decisión del usuario).
+	function abrirResumen(canal, trimestre, anio) {
 		vistaLista.classList.add('hidden');
 		vistaResumen.classList.remove('hidden');
-		resumenBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Cargando...</td></tr>';
-		resumenExportar.href = 'getters/liquidacion_resumen_pagos_export.php?importacion_id=' + importacionId;
 		window.scrollTo(0, 0);
+		resumenCanalActual = canal;
+		resumenFiltroCediLabel.textContent = canal === 'distribuidor' ? 'Distribuidor' : 'CEDI';
+		resumenFiltroTrimestre.value = String(trimestre || 0);
+		resumenFiltroAnio.value = String(anio || 0);
+		cargarResumen();
+	}
 
-		fetch('getters/liquidacion_resumen_pagos.php?importacion_id=' + importacionId)
+	function cargarResumen() {
+		var canal = resumenCanalActual;
+		var trimestre = resumenFiltroTrimestre.value;
+		var anio = resumenFiltroAnio.value;
+		var qs = 'canal=' + encodeURIComponent(canal) + '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
+
+		resumenBody.innerHTML = '<tr><td colspan="8" class="ac-table-empty">Cargando...</td></tr>';
+		resumenExportar.href = 'getters/liquidacion_resumen_pagos_export.php?' + qs;
+
+		fetch('getters/liquidacion_resumen_pagos.php?' + qs)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarToast(data.message || 'Error al cargar el resumen.', 'error'); return; }
-				var imp = data.importacion;
-				resumenSubtitulo.textContent = (etiquetaCanal[imp.canal] || imp.canal) + ' · ' + periodoTexto(imp.mes_inicio, imp.mes_fin) + ' ' + imp.anio;
-				resumenFiltroCediLabel.textContent = imp.canal === 'distribuidor' ? 'Distribuidor' : 'CEDI';
+				var cantidadImportaciones = (data.importaciones || []).length;
+				var etiquetaPeriodo = trimestre === '0'
+					? 'Todos los períodos'
+					: ('Q' + trimestre + (anio !== '0' ? ' ' + anio : ''));
+				resumenSubtitulo.textContent = (etiquetaCanal[canal] || canal) + ' · ' + etiquetaPeriodo +
+					' · ' + cantidadImportaciones + (cantidadImportaciones === 1 ? ' importación' : ' importaciones');
 				resumenDatos = data.filas || [];
 				popularFiltroCedi(resumenDatos);
 				resumenFiltroCedi.value = '';
@@ -258,9 +348,12 @@
 				aplicarFiltrosResumen();
 			})
 			.catch(function () {
-				resumenBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Error al cargar el resumen.</td></tr>';
+				resumenBody.innerHTML = '<tr><td colspan="8" class="ac-table-empty">Error al cargar el resumen.</td></tr>';
 			});
 	}
+
+	resumenFiltroTrimestre.addEventListener('change', cargarResumen);
+	resumenFiltroAnio.addEventListener('change', cargarResumen);
 
 	document.getElementById('liq-resumen-volver').addEventListener('click', function () {
 		vistaResumen.classList.add('hidden');
@@ -326,11 +419,20 @@
 	}
 
 	// Gráfico de barras horizontales apiladas (Volumen + Visibilidad), top 10
-	// por total — SVG a mano, sin librería de gráficos (mismo criterio del
-	// proyecto de no sumar dependencias pesadas). Título/tooltip nativo (<title>
-	// SVG) en cada segmento en vez de un tooltip HTML custom: para 10 barras en
-	// una pantalla interna, es el punto justo de esfuerzo — el valor exacto
-	// también queda siempre disponible en la tabla de abajo, nunca solo en el hover.
+	// por total — HTML/CSS en vez de SVG a mano (2026-08-20, corregido: la
+	// versión en SVG media el nombre por CANTIDAD DE CARACTERES para decidir
+	// si truncar, pero el ancho real en píxeles de cada letra varía — un
+	// nombre largo que "por caracteres" parecía entrar terminaba invadiendo
+	// el área de la barra, y como la barra se dibuja DESPUÉS en el XML del
+	// SVG, la tapaba a la mitad ("DISTRIBUIDORA SUPERALIANZA." cortado a la
+	// mitad de una palabra, sin ningún "…"). El label ahora es un <span> con
+	// `text-overflow:ellipsis` real del navegador — nunca se puede tapar con
+	// otro elemento porque no comparten espacio, y el nombre completo queda
+	// en el atributo `title` (tooltip nativo) además de en la fila de la
+	// tabla de abajo. Título/tooltip nativo (`title`) en cada segmento en vez
+	// de un tooltip HTML custom: para 10 barras en una pantalla interna, es
+	// el punto justo de esfuerzo — el valor exacto también queda siempre
+	// disponible en la tabla de abajo, nunca solo en el hover.
 	function renderResumenChart(filas) {
 		if (!filas.length) {
 			resumenChart.innerHTML = '<p class="ac-field-hint">Sin datos para graficar.</p>';
@@ -339,42 +441,41 @@
 		var top = filas.slice().sort(function (a, b) { return b.total - a.total; }).slice(0, 10);
 		var max = Math.max.apply(null, top.map(function (f) { return f.total; })) || 1;
 
-		var filaAlto = 26, filaGap = 10, labelAncho = 190, chartAncho = 380, margenDer = 90;
-		var anchoTotal = labelAncho + chartAncho + margenDer;
-		var altoTotal = top.length * (filaAlto + filaGap);
-
-		var svg = '<svg viewBox="0 0 ' + anchoTotal + ' ' + altoTotal + '" role="img" ' +
-			'aria-label="Top clientes por total, volumen y visibilidad" style="width:100%;height:auto;display:block;">';
-		top.forEach(function (f, i) {
-			var y = i * (filaAlto + filaGap);
-			var wVolumen = Math.max((f.volumen / max) * chartAncho, f.volumen > 0 ? 2 : 0);
-			var wVisibilidad = Math.max((f.visibilidad / max) * chartAncho, f.visibilidad > 0 ? 2 : 0);
-			var gapSeg = (wVolumen > 0 && wVisibilidad > 0) ? 2 : 0;
-			var nombre = f.cliente_o_nombre.length > 28 ? f.cliente_o_nombre.slice(0, 26) + '…' : f.cliente_o_nombre;
-
-			svg += '<text x="0" y="' + (y + filaAlto / 2 + 4) + '" class="ac-chart-label">' + escapeHtml(nombre) + '</text>';
-			if (wVolumen > 0) {
-				svg += '<rect class="ac-chart-bar-seg" x="' + labelAncho + '" y="' + y + '" width="' + wVolumen + '" height="' + filaAlto + '" rx="3" fill="' + COLOR_VOLUMEN + '">' +
-					'<title>' + escapeHtml(f.cliente_o_nombre) + ' — Volumen: ' + formatoMoneda(f.volumen) + '</title></rect>';
+		var filasHtml = top.map(function (f) {
+			// Cliente + período en la etiqueta (2026-08-20): el Resumen ahora
+			// junta varios trimestres — el mismo cliente puede aparecer 2
+			// veces (una por período), así que el nombre solo ya no alcanza
+			// para distinguir las barras.
+			var etiqueta = f.cliente_o_nombre + ' (' + periodoTexto(f.mes_inicio, f.mes_fin) + ' ' + f.anio + ')';
+			var pctVolumen = Math.max((f.volumen / max) * 100, f.volumen > 0 ? 1 : 0);
+			var pctVisibilidad = Math.max((f.visibilidad / max) * 100, f.visibilidad > 0 ? 1 : 0);
+			var segsHtml = '';
+			if (pctVolumen > 0) {
+				segsHtml += '<div class="ac-chart-seg" style="width:' + pctVolumen + '%; background:' + COLOR_VOLUMEN + ';" ' +
+					'title="' + escapeHtml(etiqueta) + ' — Volumen: ' + formatoMoneda(f.volumen) + '"></div>';
 			}
-			if (wVisibilidad > 0) {
-				svg += '<rect class="ac-chart-bar-seg" x="' + (labelAncho + wVolumen + gapSeg) + '" y="' + y + '" width="' + wVisibilidad + '" height="' + filaAlto + '" rx="3" fill="' + COLOR_VISIBILIDAD + '">' +
-					'<title>' + escapeHtml(f.cliente_o_nombre) + ' — Visibilidad: ' + formatoMoneda(f.visibilidad) + '</title></rect>';
+			if (pctVisibilidad > 0) {
+				segsHtml += '<div class="ac-chart-seg" style="width:' + pctVisibilidad + '%; background:' + COLOR_VISIBILIDAD + ';" ' +
+					'title="' + escapeHtml(etiqueta) + ' — Visibilidad: ' + formatoMoneda(f.visibilidad) + '"></div>';
 			}
-			svg += '<text x="' + (labelAncho + wVolumen + wVisibilidad + gapSeg + 8) + '" y="' + (y + filaAlto / 2 + 4) + '" class="ac-chart-value">' + formatoMoneda(f.total) + '</text>';
-		});
-		svg += '</svg>';
+			return '<div class="ac-chart-row">' +
+				'<span class="ac-chart-row-label" title="' + escapeHtml(etiqueta) + '">' + escapeHtml(etiqueta) + '</span>' +
+				'<div class="ac-chart-track">' + segsHtml + '</div>' +
+				'<span class="ac-chart-row-value">' + formatoMoneda(f.total) + '</span>' +
+				'</div>';
+		}).join('');
 
 		resumenChart.innerHTML =
 			'<div class="ac-chart-legend">' +
 				'<span class="ac-chart-legend-item"><span class="ac-chart-swatch" style="background:' + COLOR_VOLUMEN + ';"></span>Volumen</span>' +
 				'<span class="ac-chart-legend-item"><span class="ac-chart-swatch" style="background:' + COLOR_VISIBILIDAD + ';"></span>Visibilidad</span>' +
-			'</div>' + svg;
+			'</div>' +
+			'<div class="ac-chart-rows" role="img" aria-label="Top clientes por total, volumen y visibilidad">' + filasHtml + '</div>';
 	}
 
 	function renderResumen(filas) {
 		if (!filas.length) {
-			resumenBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">No hay filas con este filtro.</td></tr>';
+			resumenBody.innerHTML = '<tr><td colspan="8" class="ac-table-empty">No hay filas con este filtro.</td></tr>';
 			return;
 		}
 		resumenBody.innerHTML = filas.map(function (f) {
@@ -384,6 +485,7 @@
 			return '<tr>' +
 				'<td>' + escapeHtml(f.cedi_o_distribuidor) + '</td>' +
 				'<td>' + escapeHtml(f.cliente_o_nombre) + '</td>' +
+				'<td>' + periodoTexto(f.mes_inicio, f.mes_fin) + ' ' + f.anio + '</td>' +
 				'<td>' + (f.documento_no ? escapeHtml(f.documento_no) : '<span class="ac-field-hint">Sin vincular</span>') + '</td>' +
 				'<td class="ac-text-right ac-tabular">' + formatoMoneda(f.volumen) + '</td>' +
 				'<td class="ac-text-right ac-tabular">' + formatoMoneda(f.visibilidad) + '</td>' +
@@ -393,11 +495,16 @@
 		}).join('');
 	}
 
-	function resolverFila(tabla, id, posId, tr, accion) {
+	function resolverFila(tabla, id, posId, tr, accion, acuerdoId) {
+		var params = { tabla: tabla, id: id, pos_id: posId, accion: accion };
+		// acuerdoId: solo cuando el cliente ya está resuelto (1 pos_id) pero
+		// hay 2+ Actas candidatas para el mismo período+año (ver renderPendientes
+		// y liquidacion_resolver_match.php) — quién eligió cuál Acta es.
+		if (acuerdoId) params.acuerdo_id = acuerdoId;
 		fetch('getters/liquidacion_resolver_match.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: new URLSearchParams({ tabla: tabla, id: id, pos_id: posId, accion: accion }),
+			body: new URLSearchParams(params),
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {

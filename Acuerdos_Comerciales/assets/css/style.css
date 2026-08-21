@@ -516,6 +516,11 @@ body {
 }
 .ac-icon-btn:hover { background: var(--color-surface-container-high); }
 .ac-icon-btn-danger:hover { color: var(--color-error); background: var(--color-error-container); }
+/* Verde persistente (no solo al hover) — usado en "Ver Acta Firmada" cuando
+   ya hay un archivo subido, mismo verde que .ac-badge-ok para que el ícono
+   y el badge de estado se lean como la misma señal. */
+.ac-icon-btn-success { color: #1e5c26; }
+.ac-icon-btn-success:hover { background: #d7f2db; }
 .ac-btn-clave { color: var(--color-primary); }
 
 /* Fila que se está eliminando (Mis Borradores, etc.) — fade + slide antes de
@@ -882,6 +887,110 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-hist-periodo, .ac-hist-anio { width: 100%; }
 }
 
+/* ---------- Historial: stat tiles = también filtro (2026-08-21, rediseñadas) ----------
+   Base blanca + borde fino para las 3 (no un fondo lavanda uniforme, que las
+   hacía verse idénticas) — el color de estado vive en el ícono, el número/%
+   y la barra, no en todo el fondo de la tarjeta. Al estar activa (filtro
+   aplicado) recién ahí se agrega un fondo tintado suave, para que "elegida"
+   se lea distinto de "disponible". */
+.ac-hist-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin: var(--space-md) 0; }
+.ac-hist-stat {
+	width: 100%; display: flex; align-items: flex-start; gap: var(--space-md);
+	text-align: left; cursor: pointer; font-family: var(--font-body);
+	background: var(--color-surface-container-lowest);
+	border: 1px solid var(--color-outline-variant);
+	border-radius: var(--radius-lg);
+	padding: var(--space-lg);
+	transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s, background 0.15s;
+}
+.ac-hist-stat:hover { border-color: var(--color-primary); box-shadow: 0 2px 10px rgba(26, 27, 34, 0.08); }
+.ac-hist-stat:active { transform: scale(0.99); }
+
+.ac-hist-stat-icon {
+	flex: 0 0 auto; width: 44px; height: 44px; border-radius: var(--radius-full);
+	display: flex; align-items: center; justify-content: center;
+	background: var(--color-surface-container-high); color: var(--color-on-surface-variant);
+}
+.ac-hist-stat-icon .material-symbols-outlined { font-size: 22px; }
+.ac-hist-stat-ok .ac-hist-stat-icon { background: #d7f2db; color: #1e9e5a; }
+.ac-hist-stat-warn .ac-hist-stat-icon { background: #fff2cc; color: #d98c1f; }
+
+.ac-hist-stat-body { flex: 1 1 auto; min-width: 0; }
+.ac-stat-label { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-on-surface-variant); }
+.ac-stat-value { display: block; margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; color: var(--color-on-surface); font-variant-numeric: tabular-nums; }
+
+.ac-stat-bar { display: block; margin-top: var(--space-sm); height: 5px; border-radius: var(--radius-full); background: var(--color-surface-container-high); overflow: hidden; }
+.ac-stat-bar-fill { display: block; height: 100%; border-radius: var(--radius-full); transition: width 0.2s; }
+.ac-stat-bar-fill-ok { background: #1e9e5a; }
+.ac-stat-bar-fill-warn { background: #e8a33d; }
+
+.ac-hist-stat-activo { border-width: 2px; padding: calc(var(--space-lg) - 1px); box-shadow: 0 2px 10px rgba(26, 27, 34, 0.08); }
+.ac-hist-stat-ok.ac-hist-stat-activo { border-color: #1e9e5a; background: #f2fbf6; }
+.ac-hist-stat-warn.ac-hist-stat-activo { border-color: #e8a33d; background: #fffaf0; }
+
+@media (max-width: 700px) {
+	.ac-hist-stats { grid-template-columns: 1fr; }
+}
+
+/* ---------- Modal "Subir Acta Firmada": 2 paneles lado a lado (2026-08-21) ---------- */
+.ac-firma-modal-overlay { z-index: 110; }
+.ac-modal.ac-firma-modal {
+	max-width: 1200px; width: 95vw; height: 90vh; max-height: 90vh;
+	display: flex; flex-direction: column;
+}
+.ac-firma-modal-bar {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: var(--space-md) var(--space-lg);
+	border-bottom: 1px solid var(--color-outline-variant);
+	flex: 0 0 auto;
+}
+.ac-firma-modal-title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; }
+.ac-firma-modal-body {
+	flex: 1 1 auto; min-height: 0;
+	display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+	background: var(--color-outline-variant);
+	overflow: hidden;
+}
+.ac-firma-panel { display: flex; flex-direction: column; min-height: 0; background: var(--color-surface-container-lowest); }
+.ac-firma-panel-label {
+	margin: 0; padding: var(--space-sm) var(--space-md);
+	font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+	color: var(--color-on-surface-variant);
+	background: var(--color-surface-container-low);
+	border-bottom: 1px solid var(--color-outline-variant);
+	flex: 0 0 auto;
+}
+.ac-firma-panel-frame { flex: 1 1 auto; width: 100%; border: none; background: #525659; }
+.ac-firma-preview-area {
+	flex: 1 1 auto; min-height: 0; overflow: auto;
+	display: flex; align-items: center; justify-content: center;
+	background: #525659;
+}
+.ac-firma-preview-area img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ac-firma-preview-area iframe { width: 100%; height: 100%; border: none; }
+.ac-firma-preview-vacio {
+	display: flex; flex-direction: column; align-items: center; gap: var(--space-sm);
+	color: #dcdcdc; text-align: center; padding: var(--space-xl);
+}
+.ac-firma-preview-vacio .material-symbols-outlined { font-size: 48px; }
+.ac-firma-modal-footer {
+	display: flex; align-items: center; gap: var(--space-md);
+	padding: var(--space-md) var(--space-lg);
+	border-top: 1px solid var(--color-outline-variant);
+	flex: 0 0 auto;
+}
+.ac-firma-modal-hint { margin: 0; font-size: 13px; color: var(--color-on-surface-variant); }
+.ac-firma-modal-botones { display: flex; gap: var(--space-sm); margin-left: auto; }
+
+@media (max-width: 760px) {
+	.ac-modal.ac-firma-modal { height: 94vh; max-height: 94vh; }
+	.ac-firma-modal-body { grid-template-columns: 1fr; overflow-y: auto; }
+	.ac-firma-panel { min-height: 45vh; }
+	.ac-firma-modal-footer { flex-wrap: wrap; }
+	.ac-firma-modal-botones { width: 100%; }
+	.ac-firma-modal-botones .ac-btn-outline, .ac-firma-modal-botones .ac-btn-primary { flex: 1 1 auto; justify-content: center; }
+}
+
 /* ---------- Resumen de Pagos (Liquidación): stat tiles, filtros, gráfico ---------- */
 .ac-resumen-stats {
 	display: grid;
@@ -908,10 +1017,42 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 
 .ac-resumen-chart-wrap { margin-bottom: var(--space-lg); }
 .ac-resumen-chart-title { font-size: 13px; font-weight: 700; color: var(--color-on-surface-variant); margin: 0 0 var(--space-sm); }
-.ac-chart-legend { display: flex; gap: var(--space-md); margin-bottom: var(--space-sm); }
+.ac-chart-legend { display: flex; gap: var(--space-md); margin-bottom: var(--space-md); }
 .ac-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-on-surface-variant); }
 .ac-chart-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-.ac-chart-label { font-size: 12px; fill: var(--color-on-surface-variant); }
-.ac-chart-value { font-size: 12px; font-weight: 700; fill: var(--color-on-surface); font-variant-numeric: tabular-nums; }
-.ac-chart-bar-seg { transition: opacity 0.1s; }
-.ac-chart-bar-seg:hover { opacity: 0.8; }
+
+/* Filas del "Top clientes" en Resumen de Pagos — HTML/CSS en vez de SVG a
+   mano (2026-08-20): la etiqueta del cliente vive en su propia columna
+   flex, nunca comparte espacio con la barra, así que un nombre largo se
+   trunca con "…" real del navegador (nunca queda tapado a la mitad por la
+   barra) y el nombre completo siempre está en el `title` (tooltip nativo).
+   Corregido (misma sesión): el track NO lleva fondo/caja — esto es un
+   ranking de magnitud entre clientes (bar chart normal, barra crece desde
+   una base y listo), no un medidor de "% usado de una capacidad fija"; un
+   fondo gris detrás de cada barra corta hacía parecer que faltaba llenar
+   algo, cuando en realidad esa barra ya es el 100% de su propio valor —
+   la única razón de que no llegue al borde derecho es que hay una barra
+   más grande en la lista (el ancho es relativo al máximo del grupo, no a
+   una capacidad). Columna de nombre ensanchada (180px → 220px) — los
+   nombres reales de JW rondan 25-33 caracteres y quedaban recortados de
+   más incluso con el "…" funcionando bien. */
+.ac-chart-rows { display: flex; flex-direction: column; gap: 10px; }
+.ac-chart-row { display: flex; align-items: center; gap: var(--space-sm); }
+.ac-chart-row-label {
+	flex: 0 0 220px; max-width: 220px;
+	font-size: 12px; color: var(--color-on-surface-variant);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ac-chart-track { flex: 1 1 auto; min-width: 40px; height: 20px; display: flex; gap: 2px; }
+.ac-chart-seg { height: 100%; transition: opacity 0.1s; }
+.ac-chart-seg:hover { opacity: 0.8; }
+.ac-chart-seg:last-child { border-radius: 0 4px 4px 0; }
+.ac-chart-row-value {
+	flex: 0 0 90px; text-align: right;
+	font-size: 12px; font-weight: 700; color: var(--color-on-surface);
+	font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+	.ac-chart-row-label { flex-basis: 130px; max-width: 130px; }
+	.ac-chart-row-value { flex-basis: 70px; }
+}

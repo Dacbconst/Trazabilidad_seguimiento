@@ -454,7 +454,12 @@ foreach ($filasVis as $f) {
 }
 ksort($porClienteVis);
 
-$s3 = $wb->agregarHoja('VISIBILIDAD');
+// Espacio final a propósito: así está escrito literalmente el nombre de esta
+// hoja en el archivo real de JW (confirmado abriendo el archivo real vía
+// Excel COM, 2026-08-20) — includes/liquidacion_import.php busca la hoja por
+// ese nombre EXACTO al reimportar, así que si no coincide (ej. sin el
+// espacio) el archivo generado acá no se puede volver a subir directo.
+$s3 = $wb->agregarHoja('VISIBILIDAD ');
 
 // ---------- Hoja "VISIBILIDAD": encabezados (2 filas, igual que el archivo real) ----------
 // Corregido 2026-08-20: la lectura por COM (Interior.Color/DisplayFormat)

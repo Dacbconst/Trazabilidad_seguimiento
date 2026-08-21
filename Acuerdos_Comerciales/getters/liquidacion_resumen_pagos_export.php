@@ -1,11 +1,12 @@
 <?php
 // Export a Excel (CSV con BOM UTF-8, Excel lo abre directo) del Resumen de
-// Pagos de una importación — misma data y mismo cálculo que
-// liquidacion_resumen_pagos.php, ver liquidacion_calcular_resumen_pagos() en
-// includes/liquidacion_import.php. Se usa CSV en vez de un .xlsx real por la
-// misma razón que includes/xlsx_reader.php es propio: sin Composer instalado
-// en la máquina de desarrollo, y una dependencia pesada complicaría el
-// deploy manual por FTP (ver CLAUDE.md).
+// Pagos UNIFICADO por canal (2026-08-20, antes exportaba una sola
+// importación — mismo cambio que liquidacion_resumen_pagos.php, ver
+// liquidacion_resumen_pagos_unificado() en includes/liquidacion_import.php).
+// Se usa CSV en vez de un .xlsx real por la misma razón que
+// includes/xlsx_reader.php es propio: sin Composer instalado en la máquina
+// de desarrollo, y una dependencia pesada complicaría el deploy manual por
+// FTP (ver CLAUDE.md).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -17,31 +18,36 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-$importacionId = (int) ($_GET['importacion_id'] ?? 0);
-$stmt = $mysqli->prepare('SELECT canal, anio, mes_inicio, mes_fin FROM repositorio_liquidacion_importaciones WHERE id = ?');
-$stmt->bind_param('i', $importacionId);
-$stmt->execute();
-$importacion = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-if (!$importacion) {
-	http_response_code(404);
-	echo 'Importación no encontrada.';
+$canal = $_GET['canal'] ?? '';
+if (!in_array($canal, ['directa', 'distribuidor'], true)) {
+	http_response_code(400);
+	echo 'Canal inválido.';
 	exit;
 }
+$trimestre = (int) ($_GET['trimestre'] ?? 0);
+$anio = (int) ($_GET['anio'] ?? 0);
 
-$filas = liquidacion_calcular_resumen_pagos($mysqli, $importacionId);
+$resultado = liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio);
+$filas = $resultado['filas'];
 
-$nombreArchivo = 'ResumenDePagos_'.$importacion['canal'].'_'.$importacion['anio'].'_'.($importacion['mes_inicio'] + 1).'-'.($importacion['mes_fin'] + 1).'.csv';
+$mesesCorto = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+function liq_periodo_texto($mesesCorto, $mesInicio, $mesFin, $anio) {
+	$rango = $mesInicio === $mesFin ? $mesesCorto[$mesInicio] : $mesesCorto[$mesInicio].'-'.$mesesCorto[$mesFin];
+	return $rango.' '.$anio;
+}
+
+$nombreArchivo = 'ResumenDePagos_'.$canal.($anio ? '_'.$anio : '').'.csv';
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="'.$nombreArchivo.'"');
 
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF");
-fputcsv($out, ['CEDI / Distribuidor', 'Cliente', 'Acta', 'Volumen', 'Visibilidad', 'Total', 'Estado'], ';');
+fputcsv($out, ['CEDI / Distribuidor', 'Cliente', 'Período', 'Acta', 'Volumen', 'Visibilidad', 'Total', 'Estado'], ';');
 foreach ($filas as $f) {
 	fputcsv($out, [
 		$f['cedi_o_distribuidor'],
 		$f['cliente_o_nombre'],
+		liq_periodo_texto($mesesCorto, $f['mes_inicio'], $f['mes_fin'], $f['anio']),
 		$f['documento_no'] ?? 'Sin vincular',
 		number_format($f['volumen'], 2, '.', ''),
 		number_format($f['visibilidad'], 2, '.', ''),

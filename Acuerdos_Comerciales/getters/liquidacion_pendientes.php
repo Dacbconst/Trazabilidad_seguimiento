@@ -4,6 +4,18 @@
 // Asignar". Para las que tienen candidatos ambiguos (más de un pos_id
 // posible), se resuelve el pos_name de cada candidato para mostrarlo — el
 // superdesarrollador elige a mano cuál es.
+//
+// Agregado 2026-08-20 — ambigüedad de ACTA (no de cliente): puede pasar que
+// el nombre resuelva a UN SOLO pos_id (cliente sin ambigüedad) pero ese
+// cliente tenga 2+ Actas que se solapan con el período+año de esta
+// importación (ver liquidacion_candidatos_acuerdo_id() en
+// includes/liquidacion_import.php) — antes de esto, esa fila quedaba
+// mostrando "1 candidato" (se veía resuelta) pero en realidad estaba
+// trabada en el segundo paso del match, y recién al intentar confirmarla
+// salía un error sin ninguna forma de elegir cuál Acta es desde acá. Ahora,
+// cuando el pos_id resuelve a 1 solo, se recalculan también las Actas
+// candidatas y se devuelven (documento_no/fecha/estado) para que el
+// frontend pueda mostrar un selector de Acta en vez de un callejón sin salida.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -71,6 +83,29 @@ foreach ($pendientes as &$fila) {
 		$stmt->close();
 	}
 	$fila['candidatos'] = $candidatos;
+
+	// Cliente sin ambigüedad (1 solo pos_id) — recalcular si el segundo paso
+	// del match (pos_id -> Acta) también está resuelto, o si es ahí donde
+	// está trabada la fila (ver nota arriba).
+	$fila['pos_id_resuelto'] = null;
+	$fila['actas_candidatas'] = [];
+	if (count($posIds) === 1) {
+		$fila['pos_id_resuelto'] = $posIds[0];
+		$acuerdoIds = liquidacion_candidatos_acuerdo_id(
+			$mysqli, $posIds[0], (int) $importacion['mes_inicio'], (int) $importacion['mes_fin'], (int) $importacion['anio']
+		);
+		if (count($acuerdoIds) > 1) {
+			$placeholdersA = implode(',', array_fill(0, count($acuerdoIds), '?'));
+			$stmtA = $mysqli->prepare(
+				"SELECT id, documento_no, fecha_generacion, estado, created_at
+				 FROM repositorio_acuerdos WHERE id IN ($placeholdersA) ORDER BY created_at DESC"
+			);
+			$stmtA->bind_param(str_repeat('i', count($acuerdoIds)), ...$acuerdoIds);
+			$stmtA->execute();
+			$fila['actas_candidatas'] = $stmtA->get_result()->fetch_all(MYSQLI_ASSOC);
+			$stmtA->close();
+		}
+	}
 }
 
 echo json_encode(['ok' => true, 'canal' => $canal, 'pendientes' => $pendientes]);

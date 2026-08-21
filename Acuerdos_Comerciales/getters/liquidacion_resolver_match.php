@@ -3,13 +3,24 @@
 //   - accion=matchear (default): recibe el pos_id que el superdesarrollador
 //     eligió (de los candidatos sugeridos o de una búsqueda libre) y busca
 //     el acuerdo_id correspondiente (mismo criterio de solape de
-//     mes_inicio/mes_fin que el match automático, ver
+//     mes_inicio/mes_fin+año que el match automático, ver
 //     liquidacion_candidatos_acuerdo_id() en includes/liquidacion_import.php).
 //   - accion=sin_acta: marca la fila como "confirmado que no tiene Acta en
 //     el sistema" — para datos históricos de antes de que existiera esta
 //     plataforma (JW va a subir liquidaciones viejas que nunca van a poder
 //     vincularse a una Acta digital, porque esa Acta nunca se creó acá).
 //     Es un estado FINAL, no un "sin_match" que sigue esperando resolución.
+//
+// Agregado 2026-08-20 — ambigüedad de ACTA (mismo cliente, 2+ Actas cuyo
+// período+año se solapan, ej. dos Actas generadas para el mismo lugar en el
+// mismo trimestre): antes esto era un callejón sin salida (error fijo "revisar
+// en Historial", sin forma de resolverlo desde acá). Ahora, si viene
+// $_POST['acuerdo_id'], y ESE id está entre los candidatos legítimos
+// recalculados para ese pos_id+período+año (nunca se confía en el id tal
+// cual venga del cliente, siempre se valida contra la lista real), se guarda
+// directo sin volver a chocar con la ambigüedad — es lo que arma
+// getters/liquidacion_pendientes.php cuando detecta este caso y
+// assets/js/liquidacion.js cuando el usuario hace click en la Acta correcta.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -27,10 +38,11 @@ function responder($ok, $message, $extra = []) {
 	exit;
 }
 
-$tabla  = $_POST['tabla'] ?? '';
-$id     = (int) ($_POST['id'] ?? 0);
-$accion = $_POST['accion'] ?? 'matchear';
-$posId  = trim($_POST['pos_id'] ?? '');
+$tabla      = $_POST['tabla'] ?? '';
+$id         = (int) ($_POST['id'] ?? 0);
+$accion     = $_POST['accion'] ?? 'matchear';
+$posId      = trim($_POST['pos_id'] ?? '');
+$acuerdoIdElegido = (int) ($_POST['acuerdo_id'] ?? 0);
 
 $tablasPermitidas = [
 	'cuota_categoria' => 'repositorio_liquidacion_cuota_categoria',
@@ -65,7 +77,7 @@ $acuerdoId = null;
 if ($accion === 'sin_acta') {
 	$estadoNuevo = 'sin_acta';
 } else {
-	$stmt = $mysqli->prepare('SELECT mes_inicio, mes_fin FROM repositorio_liquidacion_importaciones WHERE id = ? LIMIT 1');
+	$stmt = $mysqli->prepare('SELECT mes_inicio, mes_fin, anio FROM repositorio_liquidacion_importaciones WHERE id = ? LIMIT 1');
 	$stmt->bind_param('i', $fila['importacion_id']);
 	$stmt->execute();
 	$importacion = $stmt->get_result()->fetch_assoc();
@@ -74,14 +86,20 @@ if ($accion === 'sin_acta') {
 		responder(false, 'No se encontró la importación de esta fila.');
 	}
 
-	$acuerdoIds = liquidacion_candidatos_acuerdo_id($mysqli, $posId, (int) $importacion['mes_inicio'], (int) $importacion['mes_fin']);
+	$acuerdoIds = liquidacion_candidatos_acuerdo_id($mysqli, $posId, (int) $importacion['mes_inicio'], (int) $importacion['mes_fin'], (int) $importacion['anio']);
 	if (count($acuerdoIds) === 0) {
 		responder(false, 'Ese pos_id no tiene ningún Acta generada para el período de esta importación — no se puede vincular. Si es un dato histórico, usá "No tiene Acta" en vez de buscar un pos_id.');
 	}
-	if (count($acuerdoIds) > 1) {
-		responder(false, 'Ese pos_id tiene más de una Acta para el período — no se puede resolver automáticamente, revisar en Historial.');
+	if (count($acuerdoIds) === 1) {
+		$acuerdoId = $acuerdoIds[0];
+	} elseif ($acuerdoIdElegido > 0 && in_array($acuerdoIdElegido, $acuerdoIds, true)) {
+		// El cliente eligió a mano cuál Acta es (ver liquidacion_pendientes.php,
+		// que arma esta lista de candidatos) — se valida contra los candidatos
+		// reales de nuevo acá, nunca se confía en el id tal cual venga del POST.
+		$acuerdoId = $acuerdoIdElegido;
+	} else {
+		responder(false, 'Ese cliente tiene más de una Acta para el período — elegí cuál es de la lista.', ['acuerdo_ids_candidatos' => $acuerdoIds]);
 	}
-	$acuerdoId = $acuerdoIds[0];
 	$estadoNuevo = 'matcheado';
 }
 

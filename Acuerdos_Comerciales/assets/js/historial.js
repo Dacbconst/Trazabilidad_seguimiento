@@ -67,16 +67,57 @@
 		}, { once: true });
 	}
 
-	// ---------- Listado: búsqueda + filtro de período (trimestre + año) + paginación ----------
+	// ---------- Stat tiles = también filtro de firma (2026-08-21) ----------
+	// "todos" | "firmadas" | "pendientes" — click en un tile ya activo vuelve
+	// a "todos" (toggle), no queda un estado sin salida.
+	var firmaFiltroActual = 'todos';
+	var statTiles = {
+		firmadas:   document.getElementById('hist-stat-firmadas'),
+		pendientes: document.getElementById('hist-stat-pendientes')
+	};
+
+	// Solo alimentan el ancho de las barras — el % y "más antigua" ya no se
+	// muestran como texto (pedido explícito: dejar solo el número).
+	function renderStats(stats) {
+		var pctFirmadas = stats.total > 0 ? Math.round(stats.firmadas / stats.total * 100) : 0;
+		var pctPendientes = stats.total > 0 ? Math.round(stats.pendientes / stats.total * 100) : 0;
+		document.getElementById('hist-stat-total-valor').textContent = stats.total;
+		document.getElementById('hist-stat-firmadas-valor').textContent = stats.firmadas;
+		document.getElementById('hist-stat-firmadas-bar').style.width = pctFirmadas + '%';
+		document.getElementById('hist-stat-pendientes-valor').textContent = stats.pendientes;
+		document.getElementById('hist-stat-pendientes-bar').style.width = pctPendientes + '%';
+	}
+
+	function actualizarTilesActivos() {
+		statTiles.firmadas.classList.toggle('ac-hist-stat-activo', firmaFiltroActual === 'firmadas');
+		statTiles.pendientes.classList.toggle('ac-hist-stat-activo', firmaFiltroActual === 'pendientes');
+	}
+
+	Object.keys(statTiles).forEach(function (clave) {
+		statTiles[clave].addEventListener('click', function () {
+			firmaFiltroActual = (firmaFiltroActual === statTiles[clave].dataset.filtro) ? 'todos' : statTiles[clave].dataset.filtro;
+			actualizarTilesActivos();
+			cargarHistorial(1);
+		});
+	});
+	document.getElementById('hist-stat-total').addEventListener('click', function () {
+		firmaFiltroActual = 'todos';
+		actualizarTilesActivos();
+		cargarHistorial(1);
+	});
+
+	// ---------- Listado: búsqueda + filtro de período (trimestre + año + firma) + paginación ----------
 	function cargarHistorial(pagina) {
 		var q          = buscarInput.value.trim();
 		var trimestre  = trimestreSelect.value;
 		var anio       = anioSelect.value;
 		var filtrosQs  = '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
-		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + filtrosQs + '&pg=' + (pagina || 1);
+		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + filtrosQs +
+			'&firma=' + encodeURIComponent(firmaFiltroActual) + '&pg=' + (pagina || 1);
 
 		// El botón de export siempre apunta a lo mismo que está filtrado en
-		// pantalla ahora mismo — mismos parámetros que la lista.
+		// pantalla ahora mismo — mismos parámetros que la lista, salvo firma
+		// (el Excel es de Cuota/Categoría, no distingue si ya está firmada).
 		exportarCuotaLink.href = 'getters/exportar_cuota_categoria.php?q=' + encodeURIComponent(q) + filtrosQs;
 
 		fetch(url)
@@ -88,6 +129,7 @@
 				paginacionEl.dataset.totalPaginas = data.total_paginas;
 				paginacionInfo.innerHTML = 'Mostrando <strong>' + data.mostrando + '</strong> de <strong>' + data.total + '</strong> acuerdos';
 				renderPaginacionBtns(data.pagina, data.total_paginas);
+				if (data.stats) renderStats(data.stats);
 			});
 	}
 
@@ -223,13 +265,153 @@
 		});
 	}
 
+	// ---------- Subir/ver Acta firmada (2026-08-21) ----------
+	// Modal con 2 paneles lado a lado: el Acta generada (izquierda, siempre
+	// de referencia) y el Acta firmada (derecha) — un solo componente sirve
+	// tanto para "ver la firma ya subida" como para "elegir una nueva y
+	// guardarla", solo cambia el estado inicial del panel derecho.
+	var firmaModalOverlay  = document.getElementById('hist-firma-modal-overlay');
+	var firmaModalTitle    = document.getElementById('hist-firma-modal-title');
+	var firmaOriginalFrame = document.getElementById('hist-firma-original-frame');
+	var firmaPreviewArea   = document.getElementById('hist-firma-preview-area');
+	var firmaModalHint     = document.getElementById('hist-firma-modal-hint');
+	var firmaElegirBtn     = document.getElementById('hist-firma-elegir-btn');
+	var firmaGuardarBtn    = document.getElementById('hist-firma-guardar-btn');
+	var firmaFileInput     = document.getElementById('hist-firma-file-input');
+
+	var firmaAcuerdoIdActual = null;
+	var firmaArchivoElegido  = null;
+	var firmaObjectUrl       = null;
+	var firmaGuardando       = false; // guarda contra doble click/doble submit al guardar.
+
+	var HTML_BOTON_GUARDAR = '<span class="material-symbols-outlined">save</span> Guardar Acta Firmada';
+
+	function firmaPreviewVacia(mensaje) {
+		firmaPreviewArea.innerHTML = '<div class="ac-firma-preview-vacio">' +
+			'<span class="material-symbols-outlined">add_a_photo</span>' +
+			'<p>' + escapeHtml(mensaje) + '</p></div>';
+	}
+
+	function mostrarPreviewArchivoElegido(archivo) {
+		if (firmaObjectUrl) URL.revokeObjectURL(firmaObjectUrl);
+		firmaObjectUrl = URL.createObjectURL(archivo);
+		if (archivo.type === 'application/pdf') {
+			firmaPreviewArea.innerHTML = '<iframe title="Vista previa del archivo elegido"></iframe>';
+			firmaPreviewArea.querySelector('iframe').src = firmaObjectUrl;
+		} else {
+			firmaPreviewArea.innerHTML = '<img alt="Vista previa del archivo elegido">';
+			firmaPreviewArea.querySelector('img').src = firmaObjectUrl;
+		}
+	}
+
+	// Foto → <img> (se ajusta/centra con object-fit igual que la vista previa
+	// local); PDF → <iframe> (el visor nativo del navegador ya centra y
+	// ajusta la página solo). Antes esto siempre usaba <iframe> para lo ya
+	// subido — para una imagen, el navegador la muestra a tamaño natural
+	// pegada arriba, sin centrar ni ajustar, corregido acá (2026-08-21).
+	function mostrarFirmaYaSubida(id, mime) {
+		var url = 'getters/descargar_acta_firmada.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+		if (mime && mime.indexOf('image/') === 0) {
+			firmaPreviewArea.innerHTML = '<img alt="Acta firmada ya subida">';
+			firmaPreviewArea.querySelector('img').src = url;
+		} else {
+			firmaPreviewArea.innerHTML = '<iframe title="Acta firmada ya subida"></iframe>';
+			firmaPreviewArea.querySelector('iframe').src = url;
+		}
+	}
+
+	function abrirModalFirma(id, documentoNo, tieneFirma, mime) {
+		firmaAcuerdoIdActual = id;
+		firmaArchivoElegido = null;
+		firmaGuardando = false;
+		firmaModalTitle.textContent = 'Acta Firmada — #' + documentoNo;
+		firmaOriginalFrame.src = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+		firmaElegirBtn.disabled = false;
+		firmaGuardarBtn.disabled = true;
+		firmaGuardarBtn.innerHTML = HTML_BOTON_GUARDAR;
+
+		if (tieneFirma) {
+			mostrarFirmaYaSubida(id, mime);
+			firmaModalHint.textContent = 'Ya hay un archivo subido. Elige uno nuevo para reemplazarlo.';
+		} else {
+			firmaPreviewVacia('Selecciona una foto o PDF del Acta firmada para compararla acá');
+			firmaModalHint.textContent = 'Sin archivo subido todavía.';
+		}
+		firmaModalOverlay.classList.add('ac-modal-open');
+	}
+
+	function cerrarModalFirma() {
+		firmaModalOverlay.classList.remove('ac-modal-open');
+		firmaOriginalFrame.src = '';
+		if (firmaObjectUrl) { URL.revokeObjectURL(firmaObjectUrl); firmaObjectUrl = null; }
+		firmaPreviewArea.innerHTML = '';
+		firmaArchivoElegido = null;
+		firmaAcuerdoIdActual = null;
+	}
+
+	firmaElegirBtn.addEventListener('click', function () {
+		firmaFileInput.value = '';
+		firmaFileInput.click();
+	});
+
+	firmaFileInput.addEventListener('change', function () {
+		var archivo = firmaFileInput.files[0];
+		if (!archivo) return;
+		firmaArchivoElegido = archivo;
+		mostrarPreviewArchivoElegido(archivo);
+		firmaGuardarBtn.disabled = false;
+		firmaModalHint.textContent = archivo.name;
+	});
+
+	firmaGuardarBtn.addEventListener('click', function () {
+		if (firmaGuardando || !firmaArchivoElegido || !firmaAcuerdoIdActual) return;
+		firmaGuardando = true;
+		firmaGuardarBtn.disabled = true;
+		firmaElegirBtn.disabled = true;
+		firmaGuardarBtn.innerHTML = '<span class="material-symbols-outlined">progress_activity</span> Guardando...';
+
+		var formData = new FormData();
+		formData.append('id', firmaAcuerdoIdActual);
+		formData.append('archivo', firmaArchivoElegido);
+
+		function restaurarBotones() {
+			firmaGuardando = false;
+			firmaElegirBtn.disabled = false;
+			firmaGuardarBtn.disabled = false;
+			firmaGuardarBtn.innerHTML = HTML_BOTON_GUARDAR;
+		}
+
+		fetch('getters/subir_acta_firmada.php', { method: 'POST', body: formData })
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				mostrarToast(data.message, data.ok ? 'success' : 'error');
+				if (data.ok) {
+					cerrarModalFirma();
+					cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
+				} else {
+					restaurarBotones();
+				}
+			})
+			.catch(function () {
+				mostrarToast('Error de conexión. Intenta nuevamente.', 'error');
+				restaurarBotones();
+			});
+	});
+
+	document.getElementById('hist-firma-modal-close').addEventListener('click', cerrarModalFirma);
+	firmaModalOverlay.addEventListener('click', function (e) {
+		if (e.target === firmaModalOverlay) cerrarModalFirma();
+	});
+
 	tbody.addEventListener('click', function (e) {
 		var verBtn = e.target.closest('.hist-btn-ver');
 		var descargarBtn2 = e.target.closest('.hist-btn-descargar');
 		var eliminarBtn = e.target.closest('.hist-btn-eliminar');
+		var firmaBtn = e.target.closest('.hist-btn-firma');
 		if (verBtn) abrirDetalle(verBtn.dataset.id);
 		else if (descargarBtn2) abrirDetalle(descargarBtn2.dataset.id);
 		else if (eliminarBtn) eliminarAcuerdo(eliminarBtn.dataset.id, eliminarBtn.dataset.doc);
+		else if (firmaBtn) abrirModalFirma(firmaBtn.dataset.id, firmaBtn.dataset.doc, firmaBtn.dataset.tieneFirma === '1', firmaBtn.dataset.mime);
 	});
 
 	document.getElementById('hist-volver-lista').addEventListener('click', function () {
