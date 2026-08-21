@@ -244,6 +244,168 @@ if ($ultimaFilaD2 >= $primeraFilaD2) {
 	}
 }
 
+// ==================== Hoja "VISIBILIDAD (2)" (2026-08-20) ====================
+// Replica la hoja VISIBILIDAD (2) del archivo real de Distribuidor
+// (datos/LIQUIDACION DE ACUERDO COMERCIALES DISTRIBUIDORES Q2 2026.xlsx).
+// Layout/colores/fórmulas leídos EXACTOS vía XML crudo + resolución manual
+// de color de tema (mismo método que Directa — ver CLAUDE.md "Colores,
+// corregido 2026-08-20" para por qué no se confía en Excel COM a ciegas).
+//
+// Decisiones confirmadas con el usuario (2026-08-20):
+// - Mapeo de línea → columna, mismo criterio que Directa: `cabecera` →
+//   CABECERA, `ruma` → ISLA, `percha` → PERCHA. Un renglón por cliente.
+// - CANTIDAD: mismo criterio que Directa — cuenta una línea si su total
+//   (suma de meses, o el valor único en `ruma`) es > 0.
+// - **PAGO = CANTIDAD × 6, FÓRMULA real** (no valores sumados de la Acta
+//   como en Directa) — verificado contra 15+ filas reales del archivo de
+//   Distribuidor, el patrón es ×6 sin excepción para las 3 columnas
+//   (cabecera/isla/percha). El usuario confirmó explícitamente: acá el
+//   número de PAGO no es un monto pactado por línea como en Directa, así
+//   que se replica la fórmula tal cual está en el archivo real en vez de
+//   sumar `valores_mensuales`.
+// - Sin grupo MARCA/CATEGORÍA (el archivo real de Distribuidor no lo tiene
+//   en esta hoja, a diferencia de Directa).
+// - El archivo real tiene 2 bugs de plantilla que NO se replican: (1) la
+//   fila 2 dice "CANTIDAD" arriba del grupo VALIDACIÓN (debería decir
+//   VALIDACIÓN, la fila 1 sí lo dice bien — se usa el nombre correcto acá);
+//   (2) una columna "total" dentro de ese mismo grupo hace `SUM()` sobre
+//   texto CUMPLE/NO CUMPLE (siempre da 0, no aporta nada) — se omite. Ídem
+//   3 columnas finales (Cabecera/Isla/Percha) sin encabezado de grupo ni
+//   datos en ninguna fila de ejemplo — columnas muertas, se omiten (mismo
+//   criterio que la "KP" de Directa).
+// - Colores de encabezado: 2 zonas, igual que la hoja de Cuota de este
+//   mismo archivo — gris `#747474`/letra blanca (identidad + CANTIDAD +
+//   PAGO) y negro `#000000`/letra blanca (VALIDACIÓN + bloque final +
+//   OBSERVACIONES). Columna NOMBRE en datos: rosa `#F2CEEF` (mismo que
+//   CLIENTE en Directa y NOMBRE en la hoja de Cuota de Distribuidor).
+$stmtVisD = $mysqli->prepare(
+	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.tipo, l.marca,
+	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
+	 FROM repositorio_acuerdos a
+	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
+	 WHERE a.estado NOT IN ('borrador', 'anulado')
+	   AND a.creado_por = ?
+	   AND d.pos_name LIKE ?
+	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+	   AND (? = 0 OR a.anio = ?)
+	   AND d.canal = 'DISTRIBUIDOR'
+	 GROUP BY a.id, l.id"
+);
+$filasVisD = [];
+if ($stmtVisD) {
+	$stmtVisD->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmtVisD->execute();
+	$filasVisD = $stmtVisD->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmtVisD->close();
+}
+
+$tipoColunaD = ['cabecera' => 'CABECERA', 'ruma' => 'ISLA', 'percha' => 'PERCHA'];
+$porClienteVisD = []; // cliente => ['distribuidor'=>,'ciudad'=>,'tipos'=>['CABECERA'=>['cantidad'=>], ...]]
+
+foreach ($filasVisD as $f) {
+	if ($f['marca'] === '' || $f['marca'] === null) continue;
+	$colTipoD = $tipoColunaD[$f['tipo']];
+	$mesesActivosD = range((int) $f['mes_inicio'], (int) $f['mes_fin']);
+
+	if ($f['tipo'] === 'ruma') {
+		$totalLineaD = (float) $f['valor_mensual_unico'];
+	} else {
+		$valoresD = json_decode($f['valores_mensuales'] ?? '{}', true) ?: [];
+		$totalLineaD = 0.0;
+		foreach ($mesesActivosD as $m) $totalLineaD += (float) ($valoresD[(string) $m] ?? 0);
+	}
+	if ($totalLineaD <= 0) continue;
+
+	$clienteD = $f['cliente'];
+	if (!isset($porClienteVisD[$clienteD])) {
+		$porClienteVisD[$clienteD] = [
+			'distribuidor' => $f['distribuidor'] ?? '',
+			'ciudad'       => $f['ciudad'] ?? '',
+			'tipos' => [
+				'CABECERA' => ['cantidad' => 0],
+				'ISLA'     => ['cantidad' => 0],
+				'PERCHA'   => ['cantidad' => 0],
+			],
+		];
+	}
+	$porClienteVisD[$clienteD]['tipos'][$colTipoD]['cantidad']++;
+}
+ksort($porClienteVisD);
+
+$sVisD = $wbD->agregarHoja('VISIBILIDAD (2)');
+
+// Columnas: 1 DISTRIBUIDOR, 2 CIUDAD, 3 NOMBRE, 4-7 CANTIDAD(Cab/Isla/Percha/Total),
+// 8-11 PAGO(Cab/Isla/Percha/Total), 12-14 VALIDACIÓN(Cab/Isla/Percha),
+// 15-18 PAGO CAJAS = validado(Cab/Isla/Percha/Total), 19 OBSERVACIONES.
+$vdDistribuidor = 1; $vdCiudad = 2; $vdNombre = 3;
+$vdCantCab = 4; $vdCantIsla = 5; $vdCantPercha = 6; $vdCantTotal = 7;
+$vdPagoCab = 8; $vdPagoIsla = 9; $vdPagoPercha = 10; $vdPagoTotal = 11;
+$vdValidCab = 12; $vdValidIsla = 13; $vdValidPercha = 14;
+$vdFinCab = 15; $vdFinIsla = 16; $vdFinPercha = 17; $vdFinTotal = 18; $vdObs = 19;
+
+$wbD->celda($sVisD, 1, $vdCantCab, 'CANTIDAD', true, null, $bgEncD, $fontEncD, true);
+$wbD->combinarCeldas($sVisD, XlsxWriter::colLetra($vdCantCab).'1:'.XlsxWriter::colLetra($vdCantTotal).'1');
+$wbD->celda($sVisD, 1, $vdPagoCab, 'PAGO', true, null, $bgEncD, $fontEncD, true);
+$wbD->combinarCeldas($sVisD, XlsxWriter::colLetra($vdPagoCab).'1:'.XlsxWriter::colLetra($vdPagoTotal).'1');
+$wbD->celda($sVisD, 1, $vdValidCab, 'VALIDACIÓN', true, null, $bgVentaD, $fontVentaD, true);
+$wbD->combinarCeldas($sVisD, XlsxWriter::colLetra($vdValidCab).'1:'.XlsxWriter::colLetra($vdValidPercha).'1');
+$wbD->celda($sVisD, 1, $vdFinCab, 'PAGO (CAJAS)', true, null, $bgVentaD, $fontVentaD, true);
+$wbD->combinarCeldas($sVisD, XlsxWriter::colLetra($vdFinCab).'1:'.XlsxWriter::colLetra($vdFinTotal).'1');
+// Fila 1 sin fusionar (mismo bug ya conocido de esta plantilla, ver hoja de Cuota): pintar igual.
+foreach ([$vdDistribuidor, $vdCiudad, $vdNombre] as $c) $wbD->celda($sVisD, 1, $c, '', false, null, $bgEncD, $fontEncD);
+$wbD->celda($sVisD, 1, $vdObs, '', false, null, $bgVentaD, $fontVentaD);
+
+$filaEncVisD = 2;
+foreach ([$vdDistribuidor => 'DISTRIBUIDOR', $vdCiudad => 'CIUDAD', $vdNombre => 'NOMBRE'] as $col => $texto) {
+	$wbD->celda($sVisD, $filaEncVisD, $col, $texto, true, null, $bgEncD, $fontEncD, true);
+}
+foreach ([$vdCantCab, $vdPagoCab] as $base) {
+	$wbD->celda($sVisD, $filaEncVisD, $base, 'CABECERA', true, null, $bgEncD, $fontEncD, true);
+	$wbD->celda($sVisD, $filaEncVisD, $base + 1, 'ISLA', true, null, $bgEncD, $fontEncD, true);
+	$wbD->celda($sVisD, $filaEncVisD, $base + 2, 'PERCHA', true, null, $bgEncD, $fontEncD, true);
+	$wbD->celda($sVisD, $filaEncVisD, $base + 3, 'TOTAL', true, null, $bgEncD, $fontEncD, true);
+}
+foreach ([$vdValidCab, $vdFinCab] as $base) {
+	$wbD->celda($sVisD, $filaEncVisD, $base, 'CABECERA', true, null, $bgVentaD, $fontVentaD, true);
+	$wbD->celda($sVisD, $filaEncVisD, $base + 1, 'ISLA', true, null, $bgVentaD, $fontVentaD, true);
+	$wbD->celda($sVisD, $filaEncVisD, $base + 2, 'PERCHA', true, null, $bgVentaD, $fontVentaD, true);
+}
+$wbD->celda($sVisD, $filaEncVisD, $vdFinTotal, 'TOTAL', true, null, $bgVentaD, $fontVentaD, true);
+$wbD->celda($sVisD, $filaEncVisD, $vdObs, 'OBSERVACIONES', true, null, $bgVentaD, $fontVentaD, true);
+
+$filaVisDatosD = $filaEncVisD + 1;
+foreach ($porClienteVisD as $clienteD => $datosClienteD) {
+	$wbD->celda($sVisD, $filaVisDatosD, $vdDistribuidor, $datosClienteD['distribuidor']);
+	$wbD->celda($sVisD, $filaVisDatosD, $vdCiudad, $datosClienteD['ciudad']);
+	$wbD->celda($sVisD, $filaVisDatosD, $vdNombre, $clienteD, false, null, $bgClienteD, '000000');
+
+	$colCantD = [$vdCantCab, $vdCantIsla, $vdCantPercha];
+	foreach (['CABECERA', 'ISLA', 'PERCHA'] as $i => $tipoNombreD) {
+		$wbD->celda($sVisD, $filaVisDatosD, $colCantD[$i], $datosClienteD['tipos'][$tipoNombreD]['cantidad']);
+	}
+	$wbD->formula($sVisD, $filaVisDatosD, $vdCantTotal,
+		XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD);
+
+	// PAGO = CANTIDAD * 6, fórmula real (ver nota arriba, confirmado con el usuario).
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoCab, XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'*6', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoIsla, XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'*6', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoPercha, XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD.'*6', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoTotal,
+		XlsxWriter::colLetra($vdPagoCab).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdPagoIsla).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdPagoPercha).$filaVisDatosD, false, 'money');
+
+	// VALIDACIÓN vacía, la llena JW a mano.
+	foreach ([$vdValidCab, $vdValidIsla, $vdValidPercha] as $col) $wbD->celda($sVisD, $filaVisDatosD, $col, '');
+
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinCab, 'IF('.XlsxWriter::colLetra($vdValidCab).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoCab).$filaVisDatosD.',0)', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinIsla, 'IF('.XlsxWriter::colLetra($vdValidIsla).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoIsla).$filaVisDatosD.',0)', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinPercha, 'IF('.XlsxWriter::colLetra($vdValidPercha).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoPercha).$filaVisDatosD.',0)', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinTotal, 'SUM('.XlsxWriter::colLetra($vdFinCab).$filaVisDatosD.':'.XlsxWriter::colLetra($vdFinPercha).$filaVisDatosD.')', false, 'money');
+	$wbD->celda($sVisD, $filaVisDatosD, $vdObs, '');
+
+	$filaVisDatosD++;
+}
+
 $binD = $wbD->generar();
 $nombreArchivoD = 'CuotaCategoria_Distribuidor_'.date('Y-m-d').'.xlsx';
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

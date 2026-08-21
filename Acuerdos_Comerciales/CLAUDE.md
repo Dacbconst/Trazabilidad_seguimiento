@@ -1103,11 +1103,67 @@ Directa), sin celdas de encabezado sin pintar. También reverifiqué que el
 branch por canal no rompió el flujo de Directa (usuario canal directo
 probado aparte, sigue generando sus 3 hojas normales).
 
-**Fuera de alcance de este cambio** (no se tocó, pedido explícito era solo
-"CUOTA POR CAT-DISTRIBUIDORES"): las hojas `VISIBILIDAD (2)` y
-`PRESUPUESTO UTILIZADO` que también existen en el archivo real de
-Distribuidor — si se piden después, son export aparte, mismo patrón de
-investigar contra el archivo real antes de construir.
+**Fuera de alcance del cambio de arriba** (pedido explícito era solo "CUOTA
+POR CAT-DISTRIBUIDORES"): la hoja `PRESUPUESTO UTILIZADO` que también
+existe en el archivo real de Distribuidor — si se pide después, mismo
+patrón de investigar contra el archivo real antes de construir.
+
+### Hoja "VISIBILIDAD (2)" agregada al mismo archivo (2026-08-20)
+
+Mismo `getters/exportar_cuota_categoria_distribuidor.php`, hoja nueva
+`VISIBILIDAD (2)` (así se llama en el archivo real) — sin tocar `CUOTAS POR
+CAT -DISTRIBUIDORES` ni `CUOTA TOTAL`. Mismo mapeo de línea → columna que
+la hoja de Visibilidad de Directa (`cabecera`→CABECERA, `ruma`→ISLA,
+`percha`→PERCHA), un renglón por cliente, misma regla de "cuenta si el
+total de la línea es > 0".
+
+**Diferencia importante con Directa — PAGO es fórmula `CANTIDAD × 6`, no
+suma de lo pactado en la Acta.** Se investigó fila por fila contra el
+archivo real (15+ filas de datos reales, `xl/worksheets/sheetN.xml` crudo)
+y el patrón es ×6 sin excepción para las 3 columnas — a diferencia de
+Directa (donde el monto pactado varía por cliente/línea, $240/$360/$450...,
+y por eso ahí se suma lo real de la Acta). El usuario confirmó
+explícitamente que acá el número de PAGO **no representa un monto pactado
+por línea como en Directa** — es otra cosa (no se profundizó en qué
+exactamente, no hizo falta para implementarlo) — y pidió replicar la
+fórmula del archivo real tal cual, no inventar una equivalencia con los
+`valores_mensuales` de la Acta. `PAGO_x = CANTIDAD_x * 6` (fórmula real en
+la celda), `PAGO TOTAL = suma de los 3`.
+
+**2 bugs de la plantilla real, no replicados** (mismo criterio que ya se
+aplicó con la "KP" de Directa — no copiar errores obvios del archivo
+original):
+- La fila 2 (fila de sub-encabezados) dice "CANTIDAD" arriba del grupo que
+  en realidad es VALIDACIÓN (la fila 1, el título de grupo fusionado, sí
+  dice "VALIDACIÓN" correctamente — confirmado con los datos reales de esas
+  celdas, son texto CUMPLE/NO CUMPLE, no números). Acá se usa "VALIDACIÓN"
+  en las dos filas, sin el error de copia.
+- Una columna "total" dentro de ese mismo grupo hace `SUM()` sobre celdas
+  de texto (CUMPLE/NO CUMPLE) — Excel ignora texto en `SUM`, así que esa
+  columna siempre da 0 y no aporta nada. Se omite.
+- Además, 3 columnas finales (Cabecera/Isla/Percha, sin encabezado de
+  grupo) están completamente vacías en todas las filas de ejemplo del
+  archivo real — columnas muertas, se omiten.
+
+**Sin grupo MARCA/CATEGORÍA** — el archivo real de Distribuidor no lo tiene
+en esta hoja (a diferencia de Directa).
+
+**Colores**: mismas 2 zonas que ya usa la hoja `CUOTAS POR CAT
+-DISTRIBUIDORES` de este archivo — gris `#747474`/letra blanca (identidad +
+CANTIDAD + PAGO) y negro `#000000`/letra blanca (VALIDACIÓN + bloque final
++ OBSERVACIONES). Resueltos por el mismo método confiable de XML crudo +
+tema (no Excel COM a ciegas, ver la sección de Directa para el porqué) —
+confirmado que este archivo usa el mismo `theme1.xml` (`accent`/`lt2` con
+los mismos valores) que el de Directa, así que el gris `747474` calculado a
+mano coincide exacto con el que ya usaba la hoja de Cuota.
+
+**Probado de punta a punta contra datos reales** (usuario id 2, ADRIAN
+VASQUEZ, canal distribuidor confirmado con `canalDeSupervisor()`, solo
+lectura — corrida directa del getter real vía `include` con sesión
+simulada): cliente real "ABUNDACORP S A" con 5 cabecera + 5 isla + 5 percha
+completas → `CANTIDAD` 5/5/5/TOTAL 15 (fórmula `=D3+E3+F3`), `PAGO`
+$30/$30/$30 (fórmula `=D3*6`, confirma el ×6), `PAGO TOTAL` $90. Abre sin
+pedir reparar, 3 hojas presentes.
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
