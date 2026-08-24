@@ -582,6 +582,84 @@ if ($ultimaFilaVis >= $primeraFilaVis) {
 	$wb->formula($s3, $filaTotalVis, $vTotal, 'SUBTOTAL(9,'.$rangoTotalVis.')', true, 'money');
 }
 
+// ==================== Hoja "RESUMEN DE PAGOS" (2026-08-23) ====================
+// Confirmado releyendo el correo original de alcance (Khristelle,
+// 9-jul-2026): "incorporando una hoja adicional... denominada 'Resumen de
+// Pagos'. Esta hoja obtendrá automáticamente la información... eliminando
+// la necesidad de... compartir el archivo de Resumen de Pagos" — es decir,
+// **una hoja MÁS dentro de este mismo Excel**, no una pantalla aparte de la
+// plataforma (así lo interpretamos mal al principio, ver CLAUDE.md sección
+// "⚠️ REPLANTEO 2026-08-23" en Módulo Liquidación para el detalle completo
+// de esa corrección). El archivo real de JW YA tiene una hoja con este
+// nombre (columnas CEDI/CLIENTE/VOLUMEN/VISIBILIDAD/TOTAL, confirmado
+// leyéndola) pero es una tabla dinámica pegada como valores, con
+// subtotales sueltos por CEDI intercalados (rangos de SUM no contiguos,
+// ej. "SUM(C4:C24,C26:C31,...)") — no se replica esa parte a propósito
+// (mismo criterio que otros artefactos de plantilla ya descartados, ver
+// KP/CANTIDAD-mal-etiquetado más arriba): acá va **un renglón por cliente,
+// sin subtotales intercalados, con fórmulas reales**, mismo patrón que
+// "CUOTA TOTAL".
+$sResumen = $wb->agregarHoja('RESUMEN DE PAGOS');
+$rCedi = 1; $rCliente = 2; $rVolumen = 3; $rVisibilidad = 4; $rTotalPago = 5;
+$wb->celda($sResumen, 1, $rCedi, 'CEDI', true, null, $bgEncabezado, '000000');
+$wb->celda($sResumen, 1, $rCliente, 'CLIENTE', true, null, $bgEncabezado, '000000');
+$wb->celda($sResumen, 1, $rVolumen, 'VOLUMEN', true, null, $bgEncabezado, '000000');
+$wb->celda($sResumen, 1, $rVisibilidad, 'VISIBILIDAD', true, null, $bgEncabezado, '000000');
+$wb->celda($sResumen, 1, $rTotalPago, 'TOTAL', true, null, $bgEncabezado, '000000');
+
+// Unión de clientes vistos en Cuota (meta_compra) y en Visibilidad
+// (cabecera/ruma/percha) — un cliente puede tener solo uno de los dos.
+$clientesResumen = [];
+foreach ($clientesVistos as $cli => $cv) $clientesResumen[$cli] = $cv['ejecutivo'];
+foreach ($porClienteVis as $cli => $dv) {
+	if (!isset($clientesResumen[$cli])) $clientesResumen[$cli] = $dv['ejecutivo'];
+}
+ksort($clientesResumen);
+
+$filaResumen = 2;
+$primeraFilaResumen = $filaResumen;
+foreach ($clientesResumen as $cliente => $ejecutivo) {
+	$wb->celda($sResumen, $filaResumen, $rCedi, $ejecutivo);
+	$wb->celda($sResumen, $filaResumen, $rCliente, $cliente);
+	$refCliente = $cl($rCliente).$filaResumen;
+	if ($ultimaFilaDatos >= $primeraFilaDatos) {
+		$rangoClienteCuota = "'CUOTA CLIENTE - CATEGORÍA'!\$".$cl($colCliente).'$'.$primeraFilaDatos.':$'.$cl($colCliente).'$'.$ultimaFilaDatos;
+		$rangoRebateRealVol = "'CUOTA CLIENTE - CATEGORÍA'!\$".$cl($colRebateRealVol).'$'.$primeraFilaDatos.':$'.$cl($colRebateRealVol).'$'.$ultimaFilaDatos;
+		$wb->formula($sResumen, $filaResumen, $rVolumen, 'SUMIF('.$rangoClienteCuota.','.$refCliente.','.$rangoRebateRealVol.')', false, 'money');
+	} else {
+		$wb->celda($sResumen, $filaResumen, $rVolumen, 0, false, 'money');
+	}
+	if ($ultimaFilaVis >= $primeraFilaVis) {
+		// OJO: la hoja se creó como 'VISIBILIDAD ' CON espacio final (igual
+		// que el archivo real de JW, ver agregarHoja() más arriba) — sin el
+		// espacio acá, la referencia queda rota y el IFERROR de abajo lo
+		// disfraza de "$0 legítimo" en vez de mostrar el error. Encontrado
+		// probando: verificado contra el XML crudo, no solo mirando el
+		// resultado en pantalla (que con IFERROR se ve bien igual).
+		$rangoVisLookup = "'VISIBILIDAD '!\$".$cl($vNombres).'$'.$primeraFilaVis.':$'.$cl($vTotal).'$'.$ultimaFilaVis;
+		$offsetVisTotal = $vTotal - $vNombres + 1;
+		// IFERROR por si el cliente no tiene fila en Visibilidad (solo Meta
+		// de Compras) — el archivo real usa VLOOKUP sin envolver y ahí se
+		// ve #N/A en esos casos, se corrige acá igual que ya se hizo con
+		// CUMPLIMIENTO en otras hojas de este mismo export.
+		$wb->formula($sResumen, $filaResumen, $rVisibilidad,
+			'IFERROR(VLOOKUP('.$refCliente.','.$rangoVisLookup.','.$offsetVisTotal.',FALSE),0)', false, 'money');
+	} else {
+		$wb->celda($sResumen, $filaResumen, $rVisibilidad, 0, false, 'money');
+	}
+	$wb->formula($sResumen, $filaResumen, $rTotalPago,
+		$cl($rVolumen).$filaResumen.'+'.$cl($rVisibilidad).$filaResumen, false, 'money');
+	$filaResumen++;
+}
+$ultimaFilaResumen = $filaResumen - 1;
+if ($ultimaFilaResumen >= $primeraFilaResumen) {
+	$wb->celda($sResumen, $filaResumen, $rCliente, 'TOTAL', true);
+	foreach ([$rVolumen, $rVisibilidad, $rTotalPago] as $col) {
+		$rango = $cl($col).$primeraFilaResumen.':'.$cl($col).$ultimaFilaResumen;
+		$wb->formula($sResumen, $filaResumen, $col, 'SUM('.$rango.')', true, 'money');
+	}
+}
+
 $bin = $wb->generar();
 
 $nombreArchivo = 'CuotaCategoria_Directa_'.date('Y-m-d').'.xlsx';

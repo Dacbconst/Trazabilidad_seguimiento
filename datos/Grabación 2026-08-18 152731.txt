@@ -1,0 +1,101 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+Quieras comentar, obviamente aquí también hay dudas por parte del desarrollador, entonces vamos a ir despejando todas las dudas ya para obviamente él pueda seguir al siguiente paso y ya obviamente dejar como check la parte de la llenada de la información del acuerdo y cómo sale el acuerdo como el PDF que en este caso es la hojita que ustedes nos compartieron en su momento. Entonces Diego, ahora sí, proyecta y nos vas igual explicando, por favor. ¿Cómo se ve desde cero el ingreso de la plataforma? Bueno, en este caso el ingreso del tema de los acuerdos, ellos lo van a iniciar con su mismo usuario y contraseña que ellos tienen para el tema de la aplicación de PEP, si mal no recuerdos. 
+
+Entonces vamos a manejar esa misma puente de información, no sé si ahí en tal caso tú quieras hacerle algún cambio o algo, pero momentáneamente lo estamos manejando de esa misma manera. Esto es un tema de prueba pues, ¿no? Con la base de PEP que son los usuarios y las contraseñas que eso lo maneja Scarlett. Y ahora sí, continuemos. 
+
+Pero ahí están cuatro meses, enero, febrero, marzo, abril. Solo es trimestral el acuerdo. Ah, ok, ya. 
+
+Lo que pasa es que nosotros lo dejamos igual abierto para que ellos, o sea, si en tal caso mañana o pasado van a extender el tema de cuántos meses van en el acuerdo comercial, lo pueden hacer. Pero si solo seleccionan ellos tres meses, tres meses, o te lo dejo ya por default, que solo sea tres meses. Ajá, y sería bueno que sí, fuera bueno que fuera enero, febrero, marzo, y se quede ahí, abril, mayo, junio, así que no sea desde febrero a abril. 
+
+Ok, o sea que ellos no puedan modificar los meses si no se dan los trimestres correspondientes. Sí, ajá. Ok, dale, entonces ese punto ahí ya se lo va a llevar Diego para que pueda hacer la modificación. 
+
+Ahora sí, continuemos. Ya, y una consulta ahí. Tal vez usted le puede agregar más categorías ahí. 
+
+Sí, arribita, ¿dónde? Ajá, correcto. Ahí tú vas agregando todas las que tú necesites. Si solo es una puntual, una. 
+
+Si son cinco, las vas agregando y las vas detallando. Ya, en el caso de Lava, le puede poner para ver cómo sale. Creo que no sé si tienen ahí cargado todo el repositorio, o sí. 
+
+Ah, ya, Lava ya sí está. Igual, este es un repositorio, este, Michelle, por si acaso. Igual, si hay algún cambio, porque obviamente segmento no es canuto rayado, ya, ahí eso es, es food, ya. 
+
+Entonces, obviamente, ajá, eso es food. Entonces, ahí nada más esto es un repositorio. Claro, ahorita está como siendo muestra para ver el manejo de cómo sería el uso de la herramienta, pues no. 
+
+Lo que sí, teníamos consulta con Diego, que igual yo le dije que dejemos un repositorio donde tú me puedas compartir por segmento, por categoría y por marca cuál es el rebate, que ya por default, si él selecciona pastas, le aparezca que el rebate para pastas es del 10%, o si él selecciona ya Lava, le sale que el rebate para Lava es del 5%, ya, para que ya te aparezca fijo el valor aquí y no tengan que modificarlo el equipo. O no sé si manejan diferentes descuentos, que no creo, de diferentes porcentajes de rebate. No, solo es una ahorita que también tenemos actualizado. 
+
+Ya, entonces, eso más adelantito nos puedas compartir, me puedes compartir, así sea por marca, entonces ya, para que por default ya les aparezca y les aparezca lo del cálculo ya por default realizado ahí. Ya. Que nos puedas compartir. 
+
+Ajá, entonces, ya, continúa Diego. Diego, no tienes ese, discúlpame, Diego, no tienes el que descargamos en antes, como para que igual le muestres ahí como más grande en Zoom. Descargamos uno en antes, creo, sí, para que igual le puedas mostrar, porque manejamos la misma estructura, tal cual con el archivo que ustedes nos compartieron. 
+
+Sí, porque debería tener dos, ¿no es cierto? Este es de distribuidores o los dos va a ser para la directa y distribuidores. ¿Cuál es la diferencia para el de mayoristas? Bueno, para el de distribuidores en este caso, el nombre y el nombre del cliente. Lo que pasa es que en distribuidores, a ver, déjenme ver, porque ahí hay una, como una liñita que dice que el pago solo será en cajas. 
+
+Vuelta en la directa es que se le pagará por nota de crédito. Ah, ok, ya, entonces, nos puedes igual ayudar compartiendo el formato. Este, Diego, ahí, ¿cómo sería? Supongamos, tendrían que seleccionar el canal para que le aparezca, como dice Michelle, la diferencia en la línea del tema de cómo va a ser el pago. 
+
+Sí, porque, por ejemplo, en el canal directo a ellos sí se les reconoce la visibilidad, así no cumplan el volumen, o sea, la meta en dólares. Y en el distribuidores a ellos no se les reconoce la visibilidad, sino cumplen la meta en cajas. Y además, ahí también, el uno se maneja en cajas y el otro en dólares. 
+
+Ah, ok, o sea, Michelle, ahí sí me puedes compartir como un modelo para que igual internamente ya se trabaje como que en la estructura y en una segunda sesión pudiéramos ya revisar cómo se ve en el caso de que sea un distribuidor. Ya, ya, porque aquí estamos viendo, ajá, estamos viendo aquí tal cual como nos compartieron el de directo, que es el modelo que ya está cargado y ya está creado, que es justo como te estaba mostrando ahorita, Diego. Entonces, aquí nos surgía la duda de, bájate un poquito, Diego, en la parte donde tienes la participación de la percha, yo dejé igual el campo ahí abierto para que ustedes puedan colocar, en este caso, cuánto es la participación que supongo que negocian con la marca, o sea, con la marca para el punto de venta en base al share, supongo yo. 
+
+Sí, ajá, eso es a base de lo que indica el Jorge, la participación sería una actualización, deberíamos mejor, pero deberíamos mejor dejarle que salga automático. Ajá, ok, entonces, asimismo, como me vas a compartir lo del rebate, me puedes ayudar también compartiendo por marca, en este caso, para poderle cargar y que ahí sea un repositorio, que ahí si ya mañana o pasado lo cambian, ya automáticamente a ellos les aparezca por default la participación. Sí, ajá, y si hay algún cambio, después les podemos decir a ustedes para que nos cambien. 
+
+O sea, sí, porque son repositorios, ahí nada más nos pasa como que me pasas nuevamente, Gaby, este es el nuevo repositorio, porfa, ayúdame cargando, entonces yo lo reviso con sistemas y lo cargamos para que automáticamente salga los siguientes acuerdos. Ya, listo. Ajá, entonces hasta ahí el acuerdo, está bien, de hecho, ya cuando terminemos la sesión, te voy a pasar igual un formato, uno de estos ejemplos, para que igual eches un ojito y me digas si efectivamente está todo bien o hay algo que agregar. 
+
+Ya, listo. Como uno de estos ejemplos que ahorita acabamos de hacer para que me pase Diego y obviamente yo te lo comparto y ahí tú me puedas dar, tú me puedes ya dar si en el caso está todo bien o en el caso hay que ajustar o mejorar alguna cosa, ¿no? Ya, listo. Ya, y continuaste Diego, creo que ahí está en el segundo módulo, te muestra el listado de todos los acuerdos por ciudad, por localidad, ya que se han estado generando, en este caso tú vas a tener acceso a esta información para que tú igual puedas revisar y descargarte el tema del acuerdo, puedas checarlo, puedas ver si en tal caso está bien por parte de la persona que llenó el acuerdo comercial, entonces tú puedas obviamente tener igual el control de todos esos acuerdos que se están generando de forma automática, ¿no? Ya, ya hay otra consulta, ¿no hay la opción de poner ahí para que el desarrollador o el jefe de agencia vuelva a cargar el acuerdo comercial firmado? No, una segunda, no, eso es una segunda fase Diego, porque tú estás, obviamente hasta el primer módulo se descarga el pdf, que eso se puede compartir por correo o por whatsapp, lo que menciona Michelle es que de alguna forma el asesor pueda cargar, ingreso al punto de venta y me permita cargar ese mismo documento firmado ya por las personas o por las partes en este caso que están participando en ese acuerdo, o sea que te permita cargar un documento que ya sea el respaldo firmado de ese acuerdo, que sería como cerrar la parte del acuerdo. 
+
+Claro, el mismo asesor tiene que cargarlo, pues no, entonces el mismo asesor después de que pueda, después de que tenga el listado de todos los acuerdos que haya generado, tenga un apartado donde le permita cargar individualmente cada uno de los documentos, en ambas, para que igual Michelle pueda ver el acuerdo tal cual y el documento ya firmado, tenga ambas constancias de que se generó el documento y la firma del documento, para constancia de que se cerró el ciclo ahí, y aparte el asesor también tiene que tener el apartado donde tiene que subir él obviamente el acta firmado. No, ahí solo cada usuario tiene que ver sus propias actas, solo Michelle es la única usuaria que va a tener el acceso para toda la información, correcto, verdad Michelle? Sí, correcto, es así. Sí, Michelle es la única que va a tener el acceso total global de toda la información, pero cada asesor solo va a poder ver de sus clientes y de lo que ha generado. 
+
+Ajá, sí Michelle, ahí Diego tiene una consulta porque, ábrete el archivo de Excel, tienes ahí abierto el archivo de Excel Diego, ya nosotros tenemos, ajá, nosotros obviamente en su momento también nos compartimos los archivos de Excel, es ese ya, entonces esta información hasta lo último que yo pude conversar con Liz Baca, él me decía que esta información la alimenta, en este caso la analiza y las ventas la realiza, en este caso me decía que había una parte donde tú actualizabas un tema de ventas. Sí, esta es la visibilidad que nos pasan ustedes, es al lado, que dice cuota total. Cuota total.
+
+A la otra pestañita, cuota total, cuota cliente, esa, ya, ahora, sácame aquí una duda, aquí solo, aquí que me está mostrando, ese valor de 6.000 es el acuerdo tomado por, o sea, lo que acordaron para el mes de abril, o esto es la venta en Zelling o en Zellout? La venta de Zelling puede despegarse a la izquierda, ya, ahí lo que dice abril, mayo, junio, ahí están las cuotas. No, las cuotas. Ah, las cuotas, ok.
+
+Entonces, estas son las cuotas que deben estar en el acuerdo comercial, ajá, entonces ahí están los porcentajes de rebate y el cálculo de rebate y más al lado está la venta, entonces esa venta es la que yo cargo desde nuestros CUBs. Ok, entonces, aquí lo que hay que generar, Diego, es un archivo plano como este, donde ella tenga todas estas columnas y ella obviamente tenga los meses en los cuales y los valores que se han acordado, con toda esta información que se llena automáticamente con el acuerdo comercial. Y la estructura, dejarle, en este caso, Michelle, los campos para que ella pueda completar la información de venta. 
+
+O sea, que ella se descargue el Excel y ya, por default, tenga todos estos campos que ella va a comparar en algún momento con algún acuerdo y van a ser los mismos. Eso solo es una descarga maestra de la información de los acuerdos comerciales. No sé si hasta ahí tengas una consulta, Diego. 
+
+No, claro. Por default, sí, se va a cargar como, ajá, se va a cargar como un repositorio donde, por default, ya vas a tener los fijos y se te va a descargar automáticamente con toda la información que el equipo ha cargado en el tema de los contratos. Entonces, estos son cálculos. 
+
+Este archivo Excel puede quedar así, ya formulado, para que, lo único que tengo que hacer, Michelle, es completar el tema de las ventas, que justo es en los cuadros azules. Y cartera también le voy a llenar. Ya, cartera también lo llena Michelle. 
+
+Y esto de la venta acudos en la sumatoria de los tres meses, cumplimiento, eso ya son, eso ya está formulado. Ajá, eso está formulado. Entonces, hay que ella tenga ese archivo donde ella pueda descargárselo, ya, donde le aparezcan todos los acuerdos hasta el corte que ella pueda tener, ya, y ella pueda ir completando la información de ventas, pero ya este archivo le tiene que salir a ella por default, con los campos de los acuerdos ya llenos. 
+
+Sí, ese de visibilidad igual depende del acuerdo como haya firmado. Yo le paso actualizado a Scarlett, para que ella vaya haciéndome el seguimiento. Y ya, pues, lo único que hago es ver si es que cumple o no cumple. 
+
+Pero eso es, o sea, me pasa a Scarlett. Y entonces, eso, Diego, hay que revisarlo con Scarlett, mañana que ella está aquí en office, porque hoy está haciendo teletrabajo. Entonces, para revisar, pero por el momento podemos ir avanzando con la otra visa, que es lo que ya ahorita hemos terminado de revisar con Michelle, ya, y en tal caso, si tenemos alguna consulta, ya poder dejar despejado tanto esta parte de la cuota del cliente y los cambios que Michelle mencionó en la plataforma cuando se llena la información. 
+
+Entonces, Michelle, nos vas a compartir solo un formato directo, para que Diego pueda trabajar en la estructura del acuerdo. Yo, en breve, te compartiría un ejemplo de cómo sale el acuerdo de directo. De distribuidores, les debo compartir.
+
+De distribuidores, tú nos vas a compartir de directa. Yo te paso ahorita un ejemplo para que lo puedas revisar y me des ahí algún punto. Y de ahí, tendríamos ya una siguiente sesión la otra semana, en base a las fechas que Diego me pueda dar estos cambios, pues, ¿no? Y poder revisar el archivo de Excel, el primero que revisamos y ya después, obviamente, avanzar con lo que te comparto Scarlett, ¿no? Que eso también va alineado a los acuerdos. 
+
+¿Ya? No sé si hasta ahí estemos bien. Sí, hasta ahí está bien. Solo que, en el caso de la directa, es como que ellos, ¿cómo sería? Ellos, en el caso de visibilidad, ellos hacen la cuenta, pero igual yo le paso a la Scarlett. 
+
+Ajá, sí. No, no hay problema, porque yo le paso a la Scarlett actualizado. Sí, igual cuando ya lleguemos al tema de la visibilidad, ver cómo se pudiera igual automatizar en temas de cruces de información, pues, ¿no? Lo más viable, lo que estamos buscando aquí es que, o sea, ya aquí nos estamos ahorrando full tiempo, supongo yo. 
+
+Sí, de hecho sí, para la redacción del acuerdo comercial ya es bastante tiempo. Ajá, entonces, ya ahí vamos avanzando con el siguiente paso y ver en qué parte pudiéramos automatizar entre los cruces que tú dices que le compartes con info a Scarlett y, obviamente, la información que Scarlett tiene que completar, ¿no? Ver ahí cómo pudiéramos avanzar y reducir lo más posible en temas de horas, ¿ya? Ya, y una cosa, Gabriela, ahí por ejemplo, verá, ¿qué tan factible sería como que nosotros le pasamos un archivo de las cuotas que se va a manejar en el trimestre y ahí se llene para que el desarrollador no esté llenando o el jefe de agencia? ¿Son cuotas fijas por cliente? En trimestrales sí, de acuerdo al trimestre que estamos, sí van fijas. Después en otro trimestre se va cambiando. 
+
+Diego, ahí, cuéntame, ¿qué tan viable es lo que está indicando Michelle? Michelle, ya salga por default. Ya, mira, en tal caso, Michelle, si tú tienes un formato como es lo que tengas, así tengas de dos clientes, como un ejemplo, para que igual Diego pueda ir revisando la estructura y obviamente eso sería cargar un repositorio de la misma forma como se está cargando el tema repositorio de rebate. Entonces él pueda estructurar una plantilla donde se pueda ahí ya cargar el tema de todos los meses, las cuotas ya pactadas con cada uno de los clientes directos, que es lo que nos mencionas. 
+
+Ahora, tengo ahí una consulta adicional. Esas cuotas no quieres que las pueda editar el asesor o si las puede editar en cualquier momento, porque les pueden aparecer ya por default lleno todo, o sea lleno esos campos, pero si en tal caso hay algún nuevo ajuste o algo, en este caso el asesor puede editar algún valor dentro del acuerdo antes de imprimirlo. No, ellos no podrían hacer eso. 
+
+Fijo, fijo, fijo. Ok, entonces con la info que nos pasaría Michelle, Diego, ellos no deberían mover absolutamente nada. ¿Me hablas solo en cuotas de ventas o me hablas también que nos va a pasar como que las cuotas de negociaciones de espacios adicionales o solo las cuotas de ventas en dólares? Solo de las cuotas, de ahí de las visibilidades. 
+
+Eso sí es, ellos tienen que llenar. Sí, porque como que ellos hacen la negociación en la directa, algo así es. Ok, dale, dale. 
+
+Entonces nosotros te dejaríamos la información de arriba fija ya para cuando seleccionen el cliente, en base a lo que tú nos compartas, ellos ya tendrían la información ahí colocada ya sin que los puedan editar. Entonces solo igual ayúdame compartiendo como un pequeño ejemplo de cómo tú estarías compartiendo la información para yo de igual revisarlo con sistemas y que ellos me puedan generar una plantilla. Entonces yo poder compartirte la plantilla y que más bien tú nos envíes esa información ya con una plantilla hecha fija o en tal caso, Diego, como ella va a ser la usuaria de esta plataforma, ella tenga algún apartado donde ella pueda cargar esa información. 
+
+Donde ella tenga una plantilla para que Michelle agregue los clientes que tengas que agregar y lo único que vas es cargar el repositorio y ya no necesitas que alguien de desarrollo de acá esté echándole ahí la mano para cargar este tema de repositorio. Y más bien tú puedas usar y hacer los cambios necesarios, pues no? Claro, ya es eso. Sí, correcto. 
+
+Entonces igual pásame como un ejemplo para que Diego pueda trabajar como en una plantilla, una estructura y luego estaríamos revisándolo en una segunda sesión para ver cómo sería. Ya, ya le paso. Lo que pasa que como las cuotas yo no las hago. 
+
+Voy a ver si me pasa en los otros chicos. Dale, dale Michelle, no te preocupes. Igual si tienes un ejemplo ahí plano, no importa. 
+
+O sea, el tema es para igual generar una plantilla y poderte facilitar esa parte de ahí, pues no? Porque es más o menos es así como la como el Excel que tienen. Ah, como en la parte de las columnas verdes. Ajá, así, así hacen, así van llenando. 
+
+Ese es. Ya, entonces Diego, pudiéramos trabajar con ese solo de las columnas abril, mayo, junio. Pero en este caso, ahora solo se activan los clientes, o sea, hasta el cierre de junio y de ahí empieza el siguiente con una nueva base. 
+
+Entonces ustedes estarían cargando cada cada cuotas. Sí. Ok, en una parte hay que dejarle Diego para que ella pueda cargar como para el cubo, no son todas esas cuotas que implica enero, febrero y marzo para el Q2. 
+
+Los siguientes meses y así los cuatro, los cuatro, los cuatro cubos. Ya, pues Michelle, de ahí si nosotros tenemos alguna duda, yo te estaré pasando algún mensajito y de igual te estaré compartiendo los archivos que te dije, pues no? Sí, sí, por favor, para irle leyendo. Ajá, para que le eches ahí una ojeada. 
+
+Ya, dale. Entonces hay cualquier cosa estamos hablando ya. Ya, listo. 
+
+Gracias, Michelle. Gracias, Diego.
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)

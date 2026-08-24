@@ -1222,6 +1222,70 @@ cubre las 21 columnas completas. La hoja `CUOTA TOTAL` (auxiliar, sin
 fusiones, encabezado en fila 3 con filas 1-2 vacías a propósito) no tenía
 este problema, no se tocó.
 
+### Hoja "RESUMEN DE PAGOS" agregada al mismo export (2026-08-23)
+
+Cuarta hoja de `getters/exportar_cuota_categoria.php` (además de `CUOTA
+CLIENTE - CATEGORÍA`, `CUOTA TOTAL`, `VISIBILIDAD `) — confirmada releyendo
+el correo original de alcance, ver "⚠️ REPLANTEO 2026-08-23" en "Módulo
+Liquidación" para el razonamiento completo. Un renglón por CLIENTE (unión
+de los clientes vistos en Cuota y en Visibilidad — un cliente puede tener
+solo uno de los dos), columnas **CEDI / CLIENTE / VOLUMEN / VISIBILIDAD /
+TOTAL**, mismo nombre y orden que la hoja real de JW.
+
+**A propósito NO replica la hoja real tal cual** — el archivo real de JW
+(`datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA 2026.xlsx`) tiene esta
+misma hoja pero como una tabla dinámica pegada como VALORES (no fórmulas),
+con subtotales por CEDI intercalados entre las filas de datos (rangos de
+`SUM` no contiguos tipo `SUM(C4:C24,C26:C31,C33:C47,C50:C69)`, confirmado
+leyendo el XML crudo) — mismo criterio que otros artefactos de plantilla ya
+descartados en este export (KP, el grupo mal etiquetado de Distribuidor):
+acá se armó limpio, un renglón por cliente sin subtotales intercalados, con
+fórmulas reales, mismo patrón que ya usa `CUOTA TOTAL`.
+
+**Fórmulas:**
+- `VOLUMEN` = `SUMIF('CUOTA CLIENTE - CATEGORÍA'!col_cliente, cliente,
+  col_REBATE_REAL_VOL)` — se eligió `REBATE REAL VOL` (el monto ya
+  capeado al 110% y filtrado por cumplimiento) y no `REBATE $` (el monto
+  bruto sin verificar), porque "Volumen" tiene que representar lo
+  realmente ganado, no un techo teórico.
+- `VISIBILIDAD` = `IFERROR(VLOOKUP(cliente, 'VISIBILIDAD '!rango, offset a
+  la columna TOTAL final, FALSE), 0)` — el `IFERROR` es necesario (un
+  cliente puede no tener fila en Visibilidad si solo tiene Meta de
+  Compras) — el archivo real usa `VLOOKUP` sin envolver y ahí se ve
+  `#N/A` en esos casos.
+- `TOTAL` = `VOLUMEN + VISIBILIDAD`.
+- Fila final `TOTAL`: `SUM()` de cada columna sobre el rango completo
+  (rango simple y contiguo, a diferencia de los subtotales intercalados
+  del archivo real).
+
+**Bug real encontrado probando (no a simple vista)**: la fórmula de
+`VISIBILIDAD` al principio quedó referenciando la hoja como `'VISIBILIDAD'`
+(sin el espacio final) cuando la hoja se creó como `'VISIBILIDAD '` (CON
+espacio, ver sección de arriba) — la referencia rota debería dar `#REF!`,
+pero el `IFERROR` que envuelve la fórmula **la disfrazaba como un "$0
+legítimo"**, indistinguible a simple vista de un resultado correcto (en los
+datos de prueba, el $0 esperado también era 0 por otra razón —
+`VALIDACIÓN` vacía — así que mirar el resultado en pantalla no alcanzaba
+para notar el bug). Encontrado leyendo el XML crudo de la celda
+(`<f>IFERROR(VLOOKUP(B2,'VISIBILIDAD'!...` sin el `&apos; &apos;` del
+espacio) y corregido. **Lección**: cuando una fórmula está envuelta en
+`IFERROR`, no alcanza con mirar que el resultado "se vea razonable" — hay
+que verificar la fórmula cruda (XML o `.Formula` de COM), porque
+`IFERROR` esconde justo el tipo de bug que se busca encontrar.
+
+**Probado de punta a punta contra producción real** (usuario id 8, JAVIER
+MALDONADO, solo lectura, corrida directa del getter real): 4 hojas, abre
+sin pedir reparar, fórmula de `VOLUMEN` (`SUMIF`) y de `VISIBILIDAD`
+(`VLOOKUP` ya con la referencia corregida) verificadas contra el XML crudo.
+Los valores salieron en $0 para los 2 clientes de prueba — **es lo
+esperado**, no un bug: es un archivo recién descargado, sin venta ni
+validación llenada todavía por JW, así que `REBATE REAL VOL` (depende de
+`GANA`, que depende de `CUMPLIMIENTO`, que depende de venta) y el bloque
+final de `VISIBILIDAD` (depende de `VALIDACIÓN`, vacía) dan 0 en ambos
+casos hasta que JW complete el archivo. **Falta confirmar visualmente con
+números reales de venta/validación ya cargados** — no se pudo simular
+llenar esos campos desde una prueba de solo lectura.
+
 ## Export CUOTA POR CAT-DISTRIBUIDORES (canal Distribuidor) (2026-08-20)
 
 Equivalente del export de Cuota/Categoría (sección de arriba) pero para
@@ -1372,9 +1436,27 @@ pedir reparar, 3 hojas presentes.
 
 ## Pendientes / decisiones abiertas (no asumir, preguntar antes de implementar)
 
+- [ ] **⚠️ GRANDE, LEER PRIMERO**: si el mecanismo de subida+matching del
+      módulo Liquidación (todo lo que no sea el caso `sin_acta` histórico)
+      realmente hace falta, o si el ciclo trimestral normal se resuelve
+      100% con "Descargar Excel" sin que JW suba nada de vuelta — ver
+      sección "⚠️ REPLANTEO 2026-08-23" dentro de "Módulo Liquidación" más
+      abajo para el análisis completo. Pendiente confirmar con JW.
+- [ ] (Del mismo replanteo) repositorio de REBATE por segmento/categoría/marca
+      y repositorio de PARTICIPACIÓN de percha, ambos para autocompletar y
+      bloquear esos campos en el Acta — pedido real de Michelle en la
+      reunión del 2026-08-18, no construido.
+- [ ] (Ídem) repositorio de CUOTAS trimestrales que Michelle subiría para
+      que Meta de Compras salga ya lleno/bloqueado al elegir cliente en
+      Registrar Acuerdo PDV — pieza grande, no construida.
+- [ ] (Ídem) revisar si el formato `'money'` de "VISIBILIDAD (2)"
+      (Distribuidor) es correcto — la reunión confirma que Distribuidor se
+      paga en CAJAS, no en dólares.
 - [ ] Si `superdesarrollador` debería ver TODOS los acuerdos en Historial (no
       solo los propios) o seguir la misma regla de `creado_por` que todos.
-      Hoy sigue la misma regla que cualquier otro rol.
+      Hoy sigue la misma regla que cualquier otro rol. **Nota:** la reunión
+      del 2026-08-18 sí lo confirma (Michelle ve todo, cada asesor solo lo
+      suyo) — falta implementarlo si `superdesarrollador` = Michelle.
 - [ ] **Portafolio por distribuidor**: los spinners de Segmento/Categoría/
       Marca/Sector hoy muestran TODO el catálogo Wilson (`fabricante =
       'JABONERIA WILSON'`) sin importar qué `pos_id` se eligió — un PDV
@@ -1425,6 +1507,106 @@ frecuencia real no confirmada, ver "Decisiones confirmadas" abajo): compara
 lo pactado en una Acta contra la venta/visibilidad real del período, calcula
 el rebate realmente ganado y arma el "Resumen de Pagos" que hoy JW arma a
 mano cruzando Excels.
+
+### ⚠️ REPLANTEO 2026-08-23 — el mecanismo de subida (import + matching) puede
+### NO ser lo que el cliente pidió — pendiente de confirmar con JW antes de
+### seguir invirtiendo acá. LEER ANTES DE TOCAR ESTE MÓDULO.
+
+Conversación larga con el usuario, disparada por escuchar
+`datos/Grabación 2026-08-18 152731.txt` (transcripción de una reunión real
+con Michelle/Gabriela de JW, 2026-08-18 — vale la pena releerla completa si
+se va a seguir trabajando este módulo, tiene mucho más detalle del que cabe
+acá). Conclusión, con el propio usuario confirmando que la idea de "ellos
+suben el Excel completado y nosotros lo matcheamos automático" **salió de
+esta conversación (usuario + Claude), no de un pedido explícito de JW**:
+
+- **El correo original dice "una hoja adicional para uso del desarrollador
+  denominada Resumen de Pagos"** — "desarrollador" en este sistema es el
+  ROL del asesor/vendedor (`desarrollador`/`superdesarrollador` en
+  `repositorio_usuarios_acuerdos`), no un programador. Leído así, el pedido
+  original es: una hoja MÁS, para que la vea el asesor, **dentro del mismo
+  archivo Excel** — no una pantalla nueva en la plataforma que reciba un
+  Excel de vuelta.
+- **La transcripción de la reunión confirma exactamente esto** (líneas
+  49-57 del archivo): Gabriela pide un "archivo plano... que se llena
+  automáticamente con el acuerdo comercial", con los campos de cuota ya
+  puestos y fórmulas, dejando SOLO venta/cartera para que Michelle
+  complete. Eso es exactamente el export **"Descargar Excel"** que ya
+  existe (`getters/exportar_cuota_categoria.php`), y que YA tiene todas las
+  fórmulas de cumplimiento/GANA/REBATE REAL VOL calculadas — es decir, una
+  vez que Michelle llena venta+cartera en ESE MISMO archivo, el "Resumen de
+  Pagos" ya sale solo, sin que nada vuelva a la plataforma.
+- **La transcripción NUNCA menciona que ese archivo completado se suba de
+  vuelta a la plataforma.** Después de llenarlo, Michelle dice "se lo paso
+  a Scarlett" (otra persona de JW, para su propio seguimiento) — no "lo
+  subo al sistema".
+- **Conclusión de diseño (pendiente de confirmar con JW, no asumir como
+  definitiva todavía)**: el ciclo trimestral normal se resolvería
+  100% con "Descargar Excel" tal como está — sin subir nada de vuelta. El
+  módulo de Liquidación (`importar_liquidacion.php`, matching por
+  `pos_name`, "Pendientes de Asignar", `estado_match`, y el Resumen de
+  Pagos UNIFICADO que se armó dentro de este módulo) **seguiría siendo
+  válido solo para UN caso distinto y puntual: el histórico viejo (Actas
+  que nunca existieron digitalmente, `estado_match='sin_acta'`)** — eso sí
+  lo confirmó el usuario directamente en esta conversación (no la
+  reunión), como una necesidad real de JW.
+- **Por qué "cada Acta nueva → copiar/pegar a mano" no sería tan grave en
+  la práctica**: las Actas de un trimestre se negocian por el trimestre
+  completo (una Acta Q1 armada en febrero dejaría enero sin cubrir, no
+  tendría sentido de negocio) — así que lo esperable es que las Actas de
+  un período salgan casi todas de entrada, cerca del inicio del trimestre,
+  no goteando durante los 3 meses. Si en la práctica sí gotean y esto se
+  vuelve un problema real, la solución liviana sería un filtro "solo lo
+  agregado después de tal fecha" en el export — no reconstruir el
+  mecanismo de subida.
+- **Actualizado el mismo día, mismo hilo**: se releyó el correo original
+  UNA VEZ MÁS con lupa, específicamente la frase de "Resumen de Pagos", y
+  confirma la lectura de arriba sin ambigüedad: *"incorporando una hoja
+  adicional... eliminando la necesidad de... **compartir el archivo** de
+  Resumen de Pagos, ya que la información estará disponible dentro de la
+  misma herramienta"* — o sea, hoy JW comparte un archivo aparte de Resumen
+  de Pagos entre personas, y la mejora es meterlo como una hoja más DENTRO
+  del mismo Excel de Cuota/Visibilidad, no una pantalla de la plataforma.
+  **Con esto, ya no queda tan abierto — se construyó la hoja "RESUMEN DE
+  PAGOS" en el export (ver sección propia más abajo).** Sigue pendiente
+  confirmar con JW que esta lectura es correcta, pero ya no es una decisión
+  a ciegas — está fundamentada en el texto del correo.
+- **Pendiente real, igual conviene confirmar**: preguntarle directo a
+  Michelle/Gabriela algo como *"el Excel que arman con las ventas, ¿nos lo
+  suben de vuelta a la plataforma, o se queda todo de su lado (con nosotros
+  dándoles la hoja de Resumen ya calculada en el mismo archivo, como ya lo
+  armamos)?"* — para confirmar, no para decidir si se construye o no (eso
+  ya se hizo).
+- **Otros hallazgos de la misma reunión, relevantes para el resto del
+  sistema (no solo Liquidación), documentados también en
+  `datos/Grabación 2026-08-18 152731.txt`**:
+  - JW quiere un **repositorio de REBATE por segmento/categoría/marca** que
+    autocomplete y BLOQUEE ese campo en el Acta (hoy `rebate_pct` se tipea
+    a mano y es editable) — repositorio que Gabriela/Michelle subirían
+    ellos mismos, sin depender de un desarrollador cada vez.
+  - Mismo patrón para **PARTICIPACIÓN de percha** (repositorio, autocompletar).
+  - **Repositorio de CUOTAS trimestrales** — la idea más grande, no
+    construida: Michelle sube, cada trimestre, un archivo con las cuotas
+    ya pactadas por cliente (Meta de Compras), y al elegir el cliente en
+    Registrar Acuerdo PDV esos campos salen **ya llenos y bloqueados**
+    ("Fijo, fijo, fijo... ellos no deberían mover absolutamente nada") —
+    solo para cuota de venta, NO para Visibilidad (eso sigue siendo del
+    asesor). Self-service: ella sube el repositorio, no necesita que
+    desarrollo se lo cargue a mano cada vez.
+  - **Distribuidor se paga en CAJAS, no en dólares** ("el uno se maneja en
+    cajas y el otro en dólares") y su visibilidad NO se reconoce si no
+    cumplen la meta en cajas (a diferencia de Directo, que sí la reconoce
+    aunque no cumplan el volumen en dólares) — esto pone en duda si el
+    formato `'money'` ($) que se le puso a la hoja "VISIBILIDAD (2)" de
+    Distribuidor (ver sección más abajo, "PAGO = CANTIDAD × 6") es
+    conceptualmente correcto, o si debería mostrarse como número de cajas
+    sin signo de dólar. **No corregido todavía, queda como duda abierta.**
+  - Confirma que en Historial, cada asesor ve solo sus propias Actas y
+    Michelle (única superusuaria) ve todo — responde algo que seguía
+    listado como "pendiente" más abajo en este archivo.
+  - La función de "subir Acta firmada" (ya construida, ver más abajo) fue
+    pedida exactamente así en esta misma reunión — sin cambios necesarios,
+    solo queda como validación de que se construyó bien.
 
 **Decisiones confirmadas por el cliente/usuario:**
 - **Ingesta: el cliente sube un Excel cada cierto período — la frecuencia NO
