@@ -93,7 +93,8 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 		var refrescoPorSeccion = {
 			'#sec-historial':        function () { if (window.acHistorialRefrescar) window.acHistorialRefrescar(); },
 			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); },
-			'#sec-liquidacion':      function () { if (window.acLiquidacionRefrescar) window.acLiquidacionRefrescar(); }
+			'#sec-liquidacion':      function () { if (window.acLiquidacionRefrescar) window.acLiquidacionRefrescar(); },
+			'#sec-repositorios':     function () { if (window.acRepositoriosRefrescar) window.acRepositoriosRefrescar(); }
 		};
 
 		document.querySelectorAll('.ac-sidebar-nav a[data-toggle="section"]').forEach(function (link) {

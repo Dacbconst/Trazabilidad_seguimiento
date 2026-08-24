@@ -4,6 +4,49 @@ Contexto de negocio y técnico para trabajar en este proyecto. Cliente: Jaboner�
 Wilson S.A. (empresa de Alicorp). Sistema para digitalizar el proceso de Acuerdos
 Comerciales (Acta de Compromiso) con distribuidores/PDV del canal directo.
 
+## Protección contra fuerza bruta en el login (2026-08-24)
+
+Encontrada en una revisión de seguridad a pedido del usuario: el login no
+tenía ningún límite de intentos — vulnerable a fuerza bruta directa contra
+`getters/procesar_acceso.php`. Corregido:
+
+```sql
+ALTER TABLE repositorio_usuarios_acuerdos
+  ADD COLUMN intentos_fallidos INT UNSIGNED NOT NULL DEFAULT 0,
+  ADD COLUMN bloqueado_hasta DATETIME NULL;
+```
+
+**Ya corrida en producción, confirmar con `DESCRIBE`** antes de asumir que
+está activa (al momento de escribir esto el usuario todavía no la había
+corrido).
+
+- `login()` (`includes/functions.php`) ahora devuelve `true` (ok), `false`
+  (usuario/contraseña incorrectos) o el string `'bloqueado'` — 5 intentos
+  fallidos SEGUIDOS bloquean la cuenta 15 minutos
+  (`DATE_ADD(NOW(), INTERVAL 15 MINUTE)`). Un login exitoso resetea el
+  contador a 0. Mismo patrón de fallback que ya usaba esta función para la
+  columna `supervisor` (probar `prepare()`, si falla por columna
+  inexistente cae al login de siempre SIN bloqueo) — no rompe el acceso
+  mientras el usuario corre el `ALTER`.
+- `getters/procesar_acceso.php` distingue el resultado y redirige a
+  `login.php?error=bloqueado` (mensaje específico) vs `?error=1` (mensaje
+  genérico de siempre).
+- **Tradeoff de diseño, a propósito**: el mensaje de "cuenta bloqueada" es
+  distinto del genérico de "usuario o contraseña incorrectos" — esto
+  técnicamente permite a alguien confirmar que un `usuario` existe (5
+  intentos fallidos + mensaje de bloqueo = el usuario existe; con un
+  usuario inexistente nunca se llega a ese mensaje). Se aceptó ese riesgo
+  menor de enumeración a cambio de que el usuario real sepa POR QUÉ no
+  puede entrar con la contraseña correcta (mejor UX) — para una app interna
+  de un puñado de usuarios, se consideró proporcional.
+- **No se pudo probar en vivo**: a diferencia del resto de funciones de
+  este proyecto, `login()` con la protección nueva ESCRIBE en la base
+  incluso con una contraseña incorrecta (incrementa `intentos_fallidos`) —
+  ni siquiera un intento de prueba deliberadamente fallido se puede
+  ejecutar bajo la regla de solo lectura. Validado solo por revisión de
+  código + `php -l`, pendiente de que el usuario lo pruebe él mismo
+  (servidor local disponible si lo pide).
+
 ## Stack y entorno
 
 - Base de datos: MySQL/MariaDB, administrada vía HeidiSQL, alojada en hosting
@@ -39,6 +82,7 @@ Cabecera del Acta. Un registro por PDV/periodo.
 | `mes_inicio`, `mes_fin` | TINYINT | 0=Ene...11=Dic. Deben ser consecutivos (`mes_fin >= mes_inicio`, hay CHECK) |
 | `fecha_generacion` | DATE | `NOW()` al presionar "Generar Acta", no lo tipea el usuario |
 | `estado` | ENUM | `borrador→generado→enviado→firmado→liquidado→anulado` |
+| `sin_visibilidad` | TINYINT(1) NOT NULL DEFAULT 0 | Agregado 2026-08-24, **pendiente que el usuario corra el `ALTER TABLE`** (ver SQL y detalle completo en "Formato de Acta 'sin visibilidad'..." más abajo). Refleja el switch "Visibilidad y Espacios" de Registrar — 1 = el usuario lo desactivó, el Acta sale sin las tablas 2.a/2.b (Cabeceras/Rumas&Perchas, numeración 2026-08-24, antes 3.a/3.b). Aplica IGUAL a Directo y Distribuidor (ver "Distribuidor con/sin visibilidad" más abajo — desde esa sesión ya NO está atado a `es_distribuidor`). |
 | `creado_por` | INT UNSIGNED NULL | Agregado 2026-08-14. FK lógica a `repositorio_usuarios_acuerdos.id`, se llena UNA sola vez al INSERT (`getters/guardar_acuerdo.php`), nunca se pisa en el UPDATE. Es la base de "Historial de Acuerdos solo muestra lo que ese usuario creó" (`listar_historial_acuerdos()` en `includes/functions.php` filtra por `a.creado_por = ?`, ya no por supervisor/territorio). Los 34 acuerdos creados antes de esta columna quedaron con `creado_por = NULL` y por lo tanto invisibles en Historial para todos — mismo problema ya documentado como "huérfanos por pos_id viejo" más abajo (solo el `id=39` se pudo rescatar con un backfill puntual porque su `pos_id` sí calzaba con el maestro nuevo). |
 | `pdf_documento` | LONGBLOB | El PDF generado se guarda DIRECTO en la base (decisión del cliente, ya evaluamos BLOB vs archivo externo, eligieron BLOB) |
 | `pdf_generado_en`, `pdf_tamano_bytes` | | |
@@ -234,6 +278,39 @@ para Perchas), `getters/acuerdo_distribuidores.php` (pos_id activos),
 en una transacción). Decisiones tomadas al implementar, que se alejan del
 mockup `code.html` por choque con las reglas de este documento:
 
+- **Regla: solo un Acta activa por Local+Período (2026-08-23)** — pedido
+  explícito del usuario para que dos analistas no puedan generar la misma
+  Acta al mismo tiempo. En `getters/guardar_acuerdo.php`, justo después de
+  validar que el `pos_id` pertenece al supervisor de la sesión, si
+  `$estado !== 'borrador'` se chequea si YA existe otro `repositorio_acuerdos`
+  con el mismo `pos_id`+`anio`+`mes_inicio`+`mes_fin` y `estado NOT IN
+  ('borrador', 'anulado')` (excluyendo el propio `id` si se está editando/
+  regenerando el mismo acuerdo) — si existe, se corta con
+  `responder(false, '{pos_name} ya tiene un Acta generada para este
+  trimestre.', ['duplicado' => true])`. **Los borradores quedan exentos a
+  propósito** — dos analistas pueden seguir armando cada uno su propio
+  borrador para el mismo Local en paralelo, recién se bloquea cuando alguno
+  de los dos intenta generarla de verdad ("el primero que llega, gana",
+  pedido literal del usuario). Del lado del frontend
+  (`assets/js/registrar.js`, `guardarAcuerdo()`), si `data.duplicado` es
+  `true` se muestra un `Swal.fire()` (mismo componente que la confirmación
+  de "Eliminar", pero sin `showCancelButton` — es solo informativo, un
+  botón "Entendido") en vez del toast genérico de error. **Nota de
+  honestidad sobre el alcance real de esta protección**: es un chequeo a
+  nivel de aplicación (un `SELECT` antes del `INSERT`/`UPDATE`), no una
+  restricción a nivel de base de datos (`UNIQUE INDEX`) — cubre bien el
+  caso real que pidió el usuario (dos analistas que llegan en momentos
+  distintos, uno después del otro), pero no es 100% airtight contra dos
+  peticiones verdaderamente simultáneas al mismo milisegundo exacto (un
+  `UNIQUE INDEX` filtrado por estado sería la única forma de cerrar eso del
+  todo, y MySQL no soporta índices únicos parciales/condicionales
+  directamente) — dado el volumen real de uso de este sistema (un puñado de
+  analistas, no alta concurrencia), este nivel de protección es proporcional
+  al riesgo real. **Probado (solo lectura) contra datos reales**: acuerdo
+  real 41 (`EPVD15130`, Q1 2026, ya `firmado`) — pedir crear uno nuevo para
+  el mismo Local+Q1 2026 detecta el duplicado correcto; editar ese MISMO
+  acuerdo (pasando su propio `id`) no lo detecta como duplicado de sí
+  mismo; el mismo Local en Q2 2026 tampoco detecta nada (período distinto).
 - **Rumas**: el mockup (`code.html`) tiene un input por mes igual que
   Cabeceras/Perchas, lo cual contradice la regla de `valor_mensual_unico`
   (un solo valor que se repite). La implementación real usa **un único input
@@ -694,6 +771,267 @@ mockup `code.html` por choque con las reglas de este documento:
     debe tener un número real tipeado y no puede ser negativa — se le quita
     el "-" mientras se tipea, y el guardado la rechaza si queda vacía o no
     numérica.
+
+## Formato de Acta "sin visibilidad" para canal Directo + switch "Visibilidad y Espacios" (2026-08-24)
+
+**Corrección de diseño, no solo una feature nueva**: hasta esta sesión, el
+Acta sin las tablas 3.a (Cabeceras) y 3.b (Rumas & Perchas) solo existía
+como parte del "Formato Distribuidor" (ver sección de arriba, 2026-08-20) —
+una sola bandera (`es_distribuidor`, derivada del canal real del cliente)
+controlaba a la vez "ocultar esas 2 tablas" Y "título/Estimado(a)/C.I./Razón
+Social estilo Distribuidor". El usuario aclaró que eso estaba mal
+etiquetado: ese PDF nunca fue realmente "de Distribuidor" — es un segundo
+formato de **Canal Directo**, elegible por el propio analista con un
+switch en el formulario, no derivado del canal. En total la idea a futuro
+son 4 PDF (Directo con/sin visibilidad, Distribuidor con/sin visibilidad) —
+**esta sesión solo construye los 2 de Directo**; Canal Distribuidor
+queda deliberadamente sin tocar (sigue ocultando esas 2 tablas siempre,
+exactamente como antes de este cambio) hasta que se retome en otra sesión.
+
+- **Se separó en 2 banderas independientes** (`includes/acta_pdf.php`,
+  `generar_acta_html()`): `$esDistribuidor` (sin cambios, sigue viniendo del
+  canal real — controla el H1 "Canal Distribuidor"/"Canal Directo", el
+  swap de "Estimado(a)" a Empresa Distribuidora, el título "+ Home Care Jw"
+  de la sección 1, y el bloque C.I./Razón Social en blanco de la firma —
+  **nada de esto se tocó**) y `$sinVisibilidad` (nueva, de
+  `$detalle['sin_visibilidad']`) — solo controla si se imprimen las tablas
+  3.a/3.b. La condición que las oculta pasó de `$esDistribuidor` a
+  `$ocultarVisibilidad = $esDistribuidor || $sinVisibilidad` — así un Acta
+  de canal Distribuidor las sigue ocultando siempre (por el `||`), tenga o
+  no activado el switch nuevo (ese canal todavía no usa el switch de
+  verdad, ver arriba). Para canal Directo con el switch desactivado, el
+  resultado es el layout que antes solo existía bajo "Distribuidor" —
+  mismas 2 tablas ocultas — pero con título/Estimado(a)/firma 100% de
+  Directo (sin C.I., con Razón Social real), porque `$esDistribuidor` sigue
+  en `false`. Verificado con un script aislado (`generar_acta_html()`
+  directo, sin PDF ni base) comparando los 3 casos (Directo con
+  visibilidad / Directo sin visibilidad / Distribuidor real) — el único que
+  cambió de comportamiento es "Directo sin visibilidad", que antes no
+  existía como combinación posible.
+
+- **Nueva columna, pendiente que el usuario corra el `ALTER TABLE`** (Claude
+  no puede, regla de solo lectura):
+  ```sql
+  ALTER TABLE repositorio_acuerdos ADD COLUMN sin_visibilidad TINYINT(1) NOT NULL DEFAULT 0 AFTER estado;
+  ```
+  Nada de este flujo funciona en producción hasta que exista la columna —
+  `guardar_acuerdo.php` va a fallar el INSERT/UPDATE si se usa antes de
+  correr esto (mismo patrón que la columna `sector` de 2026-08-18).
+  `obtener_acuerdo_detalle()` (`includes/functions.php`) ahora trae
+  `a.sin_visibilidad` en el SELECT y lo devuelve como
+  `$detalle['sin_visibilidad']` (bool). `previsualizar_acta_pdf.php` (que a
+  propósito nunca abre conexión a la base) lo recibe del POST del cliente,
+  mismo patrón que ya usaba para `es_distribuidor`.
+
+- **Switch "Visibilidad y Espacios"** (`components/registrar/registrar.php`,
+  junto al título "3. Visibilidad y Espacios"): reusa el mismo componente
+  `.ac-switch`/`.ac-slider` que ya existe para el estado activo/inactivo de
+  Gestión de Usuarios (`includes/functions.php`), no un componente nuevo.
+  Activado por defecto (mismo comportamiento de siempre, sin cambios para
+  quien no lo toque). Al desactivarlo (`assets/js/registrar.js`,
+  `visibilidadToggle` change listener):
+  - Se le agrega la clase `ac-zona-bloqueada` a `#ac-visibilidad-zona` (el
+    `<div>` nuevo que envuelve las 3 secciones 3.a/3.b/3.c) —
+    `opacity:0.5; pointer-events:none` (mismo look que un `.ac-switch`
+    deshabilitado en el resto de la app), cubre también filas agregadas
+    dinámicamente después sin tener que reaplicar nada por fila.
+  - `resetearZonaVisibilidad()` limpia las 3 tablas a una sola fila vacía
+    cada una (mismo estado inicial que `syncTables()`) — para no dejar
+    datos ya tipeados "atrapados" detrás del bloqueo visual.
+  - El payload de `guardarAcuerdo()` y de `mostrarPreview()` ahora manda
+    `sin_visibilidad: !visibilidadActiva`.
+  - `guardar_acuerdo.php` además fuerza del lado del servidor: si
+    `sin_visibilidad` viene true, `$filasNormalizadas['cabecera']`/`ruma`/
+    `percha` se vacían antes de guardar, sin importar qué haya mandado el
+    cliente — defensa adicional (mismo criterio que `normalizarValores()`),
+    por si algún estado stale del navegador manda datos igual.
+  - `limpiarFormularioParaNuevoAcuerdo()` (después de Generar PDF, el
+    usuario sigue con el próximo Acuerdo) resetea el switch a activado.
+  - `aplicarBorrador()` (Continuar Editando desde Mis Borradores) restaura
+    `visibilidadActiva` desde `a.sin_visibilidad` y aplica la clase visual
+    — no llama a `resetearZonaVisibilidad()` ahí porque
+    `poblarTablasConLineas()` ya reconstruye esas 3 tablas desde
+    `a.lineas`, que van a venir vacías si se guardó con el switch apagado
+    (por el forzado del lado del servidor de arriba).
+
+- **Probado**: sintaxis PHP (`php -l`) de los 5 archivos tocados, sintaxis
+  JS (`node --check`) de `registrar.js`, y `generar_acta_html()` con datos
+  sintéticos (sin base, sin PDF) confirmando los 3 escenarios (Directo con
+  visibilidad = igual que antes; Directo sin visibilidad = nueva
+  combinación, título/Estimado/firma de Directo sin las 2 tablas; canal
+  Distribuidor real = idéntico a antes de este cambio). **No probado en
+  navegador real** (el switch, el bloqueo visual, ni el guardado real
+  contra la base — falta correr el `ALTER TABLE` primero).
+  **⚠️ Superado más abajo** ("Distribuidor con/sin visibilidad + renumeración
+  2.a/2.b"): en esa sesión posterior, canal Distribuidor DEJÓ de ser
+  "idéntico a antes" — ver esa sección para el estado real y vigente.
+
+## Distribuidor con/sin visibilidad + renumeración 2.a/2.b (2026-08-24, misma sesión, continuación)
+
+Con los 2 PDF de Directo ya funcionando (sección de arriba), el usuario
+pasó los 2 Excel reales que usa el cliente para Distribuidor
+(`datos/FORMATO DTS CON VISIBILIDAD (1).xlsx` y
+`datos/FORMATO DTS SIN VISIBILIDAD (1).xlsx`, más
+`datos/24-08-2026 10.16.txt`, transcripción de una llamada con
+Michelle/Gabriela que confirma el concepto del switch/"ojito"). Leídos
+completos vía Excel COM (no hay lector de xlsx en PHP acá, se abrió con
+`New-Object -ComObject Excel.Application` en PowerShell) y comparados
+celda por celda contra ambos formatos.
+
+**Verificado con números reales (alta confianza, no es solo una corazonada
+de lectura del Excel) — aplicado sin preguntar:**
+- **Distribuidor mide Meta de Compras y Visibilidad en CAJAS, no en
+  Dólares.** Confirma una duda que quedó abierta en la memoria del
+  2026-08-23 ("REPLANTEO... duda abierta sobre el formato $"). Nueva función
+  `numero($v)` en `includes/acta_pdf.php` (mismo `number_format` que
+  `moneda()`, sin el signo `$`) y una variable `$fmt = $esDistribuidor ?
+  'numero' : 'moneda'` calculada una vez al principio de
+  `generar_acta_html()`, usada en TODAS las celdas de valor de las 4 tablas
+  (Meta de Compras, Cabeceras, Rumas + su leyenda, Perchas) — antes esas
+  celdas llamaban a `moneda()` directo. `tabla_marca_html()` (Cabeceras/
+  Rumas) ahora recibe `$fmt` como parámetro nuevo (default `'moneda'`, no
+  rompe nada si algún caller no lo pasa).
+- **"Estimado a Ganar" tiene una FÓRMULA distinta para Distribuidor, no solo
+  otro nombre de columna**: `Total × Rebate%` (ej. 124.37×1.5%=1.87,
+  499.11×2.5%=12.48 — verificado contra 4 filas reales de ambos Excel).
+  Directo sigue con `Total × (1 + Rebate%)`, sin cambios — esa fórmula
+  representa el valor total del trato (compra + bono), mientras que para
+  Distribuidor representa solo las cajas de bono ganadas, un concepto más
+  angosto. Encabezado de columna también cambia: "Cajas Estimadas a Ganar"
+  (Distribuidor) vs "Estimado a Ganar" (Directo).
+- **El pago a Distribuidor se reconoce "a través de producto"**, no de nota
+  de crédito (párrafo de Consideraciones Generales) — aparece igual,
+  palabra por palabra, en AMBOS Excel (con y sin visibilidad), así que no es
+  un detalle de una sola versión. "El plazo para entregar el producto" en
+  vez de "emitir la nota de crédito".
+- Condición (a): "Cumplir con la meta del período en **cajas** netas al
+  100%" (Directo sigue en "dólares netos").
+- Título de sección 1: `'1. Meta de Compras en Cajas'` (Distribuidor,
+  reemplaza por completo el `' + Home Care Jw'` que tenía antes — ese
+  Excel real no menciona "Home Care" en ningún lado) vs
+  `'1. Meta de Compras en Dólares<br>Home Care'` (Directo, sin cambios).
+  Hint también cambia a "Cajas compradas por categoría sin considerar cajas
+  a título gratuito por bonificación/descuentos." (tomado de la versión SIN
+  del Excel, más completa/consistente que la versión CON, que por algún
+  motivo se quedó con el hint viejo en Dólares pese al título en Cajas —
+  se corrigió esa inconsistencia del Excel del cliente, no se replicó tal
+  cual).
+
+**Se le preguntó al usuario explícitamente antes de tocar esto** (vía
+`AskUserQuestion`), porque el Excel real también trae 3 diferencias de
+formato frente al Acta de Distribuidor que YA estaba en producción (con
+Actas reales generadas y aceptadas) — no se quiso asumir sobre un
+documento ya en uso real sin confirmar. El usuario eligió aplicar los 3
+cambios (**"aplicar todo el Excel"**) y además pidió extender la
+renumeración al formulario y a Directo también:
+
+- **H1**: `'Acuerdo Comercial Canal Distribuidores'` (Distribuidor,
+  reemplaza `'Acuerdo de Desarrollo de Negocios Canal Distribuidor'`).
+  Directo no cambió.
+- **Firma izquierda**: `'Desarrollador de Mercado'` (Distribuidor, en vez de
+  `'Ejecutivo Comercial'`) — el nombre de quien generó el acuerdo
+  (`creado_por`) sigue imprimiéndose igual arriba de esta etiqueta, solo
+  cambió el texto de la etiqueta.
+- **Renumeración completa 3→2, pedida explícitamente para TODO el
+  proyecto** ("cambiale eso a 2 a 2b... y en acuerdo directo cambiale
+  también a 2 a 2b así" — no solo Distribuidor): tanto Directo como
+  Distribuidor ahora imprimen `2. Visibilidad` (encabezado nuevo, no
+  existía impreso antes, solo el `.subtitulo` genérico) seguido de
+  `2.a. Extravisibilidad: Cabeceras` y `2.b. Espacio en Perchas & Rumas`
+  (antes `3.a`/`3.b`, sin encabezado `3.`/`2.` propio). El formulario de
+  Registrar (`components/registrar/registrar.php`) se renumeró igual, texto
+  únicamente — título de sección "2. Visibilidad y Espacios" (antes "3."),
+  tarjetas "2.a. Extravisibilidad: Cabeceras" / "2.b. Espacio: Rumas" /
+  "2.c. Espacio: Perchas" (antes 3.a/3.b/3.c). Ningún id/variable interna
+  cambió (mismo patrón que el rename "Distribuidor"→"Local" de 2026-08-20)
+  — el formulario sigue teniendo 3 tarjetas separadas (Cabeceras/Rumas/
+  Perchas) aunque el PDF combine Rumas+Perchas bajo un solo "2.b." impreso,
+  eso ya era así antes y no se tocó.
+
+**Encontrado pero NO aplicado a propósito** (ruido, no se confirmó, no vale
+la pena arriesgar un documento real por algo ambiguo): la hoja "SIN
+VISIBILIDAD" del Excel tiene una TERCERA firma ("Asesor Comercial
+(distribuidor)") que no aparece en la hoja "CON VISIBILIDAD" (que solo
+tiene 2, igual que Directo) — inconsistente entre las dos versiones del
+mismo Excel, probablemente un artefacto de plantilla y no un pedido real.
+Se dejaron las 2 firmas de siempre (izquierda/derecha) para ambos casos de
+Distribuidor. Si en algún momento se confirma que la tercera firma es
+real, agregarla es un cambio chico y aislado en el bloque `.firmas-footer`.
+
+**Desacoplado del canal, ahora el switch controla la visibilidad de las
+tablas 2.a/2.b para AMBOS canales por igual** — antes (sección de arriba)
+`$ocultarVisibilidad = $esDistribuidor || $sinVisibilidad` forzaba
+Distribuidor a ocultar esas tablas siempre; ahora es
+`$ocultarVisibilidad = $sinVisibilidad`, sin el `||`. Esto habilita de
+verdad "Distribuidor CON visibilidad" (antes imposible de generar). Para
+no cambiarle el comportamiento a nadie que ya usaba Distribuidor sin saber
+que existía este switch, **el switch arranca DESACTIVADO por defecto
+cuando el canal del usuario es Distribuidor** (`registrar.js`,
+`cargarDatosIniciales()`, una vez que se conoce `catalogoDistribuidor.canal`)
+— preserva el comportamiento histórico (esas tablas siempre ocultas) para
+quien no toque el switch. Directo sigue arrancando activado, sin cambios.
+Un borrador ya guardado (Directo o Distribuidor) sigue restaurando su
+propio valor real (`aplicarBorrador()`), no este default.
+
+- **Probado**: sintaxis PHP/JS de los archivos tocados, y `generar_acta_html()`
+  con datos sintéticos confirmando las 4 combinaciones completas (Directo
+  con/sin visibilidad, Distribuidor con/sin visibilidad) — título, unidades
+  (`$` vs sin signo), fórmula de Estimado/Cajas a Ganar, C.I., firma
+  "Desarrollador de Mercado", pago "a través de producto", condición en
+  cajas, y que Cabeceras/Rumas/Perchas de Distribuidor también salen sin
+  signo `$`. **No probado en navegador real** — mismo pendiente que la
+  sección de arriba, falta el `ALTER TABLE` de `sin_visibilidad`.
+
+### Zona de firmas de Distribuidor + sin visibilidad: 3 firmas con "Obligatorio" (2026-08-24)
+
+El usuario mostró una captura del formato físico real y la zona de firmas
+del PDF no calzaba. **Confirmado con el usuario, alcance exacto (no
+asumido):**
+- Aplica **SOLO cuando `es_distribuidor=true` Y `sin_visibilidad=true`** —
+  Distribuidor CON visibilidad y Directo (con o sin visibilidad) siguen
+  con las 2 firmas de siempre (Ejecutivo/Desarrollador + Jefe Comercial,
+  sin "Obligatorio"), sin cambios.
+- La firma izquierda **mantiene el nombre real autocompletado** de quién
+  generó el Acta (`$nombreEjecutivoHtml`, ya existía) — la captura del
+  usuario solo definía el layout/etiquetas nuevas, no pedía sacar ese
+  autocompletado.
+
+**Implementado en `includes/acta_pdf.php`** (bloque `firmas-footer`,
+condicional `$esDistribuidor && $sinVisibilidad`): pasa de 2 a 3 firmas —
+1. **Desarrollador de Mercado** (nombre autocompletado, como antes).
+2. **Asesor Comercial (distribuidor)** — reemplaza a "Jefe Comercial" en
+   esta posición; línea en blanco, no hay de dónde autocompletarla.
+3. **Jefe Comercial** — se mueve a una fila nueva, centrada, debajo de las
+   otras 2 (antes estaba a la derecha de la primera); línea en blanco.
+
+Cada una lleva la etiqueta `.label` **"Obligatorio"** arriba de su línea de
+firma (no existía antes en ningún formato) — así lo exige el formato
+físico real, confirmado con la captura del usuario.
+
+**Probado**: `php -l` limpio; `generar_acta_html()` con datos sintéticos
+para los 3 casos relevantes (Distribuidor+sin visibilidad, Distribuidor+con
+visibilidad, Directo+sin visibilidad) — solo el primero trae "Obligatorio"
+(3 veces) y "Asesor Comercial (distribuidor)"; los otros 2 quedan
+byte-idénticos al layout de 2 firmas de siempre, sin regresión. Además se
+generó el PDF real (`generar_acta_pdf_binario()`) para el caso
+Distribuidor+sin visibilidad y se leyó visualmente — entra en 1 sola
+página, layout correcto, nombre autocompletado presente.
+
+## Historial: columna "Periodo" con formato "Qx (mes-mes)" (2026-08-23)
+
+`periodoCorto($mesInicio, $mesFin)` (`includes/functions.php`) ahora
+antepone el trimestre cuando el rango calza EXACTO con uno (`Q1
+(Ene-Mar)`, mismo texto literal que ya usa el `<select>` de "Período" del
+filtro) — pedido explícito para que la tabla y el filtro se lean igual.
+Un Acuerdo viejo con rango irregular (de antes de que el período se
+volviera trimestre fijo) cae al formato anterior (`Ene - Feb`), nunca
+inventa un "Qx" que no le corresponde. Afecta 2 lugares que ya comparten
+esta función: la columna "Periodo" de Historial y la columna "Periodo" del
+modal "Mis Borradores" (`getters/listar_borradores.php`) — mismo cambio en
+ambos, sin tocar nada aparte. Probado con los 4 trimestres (`Q1
+(Ene-Mar)`...`Q4 (Oct-Dic)`) y 2 casos legacy (mes único, rango
+irregular) — todos dan el formato esperado; reconfirmado contra filas
+reales de Historial.
 
 ## Historial de Acuerdos — filtros por trimestre/año + botones (2026-08-20)
 
@@ -1286,6 +1624,47 @@ casos hasta que JW complete el archivo. **Falta confirmar visualmente con
 números reales de venta/validación ya cargados** — no se pudo simular
 llenar esos campos desde una prueba de solo lectura.
 
+### Hoja "RESUMEN DE PAGOS" también en el export de Distribuidor (2026-08-23/después)
+
+Mismo concepto que la hoja de Directa (ver arriba) — pedido explícito del
+usuario para paridad entre los dos exports ("ponlo para directo y
+distribuidor"), aunque **el archivo real de Distribuidor NO tiene una hoja
+con ese nombre exacto** (tiene "PRESUPUESTO UTILIZADO" en su lugar, que es
+otra cosa — confirmado leyendo `xl/workbook.xml` del archivo real vía
+`ZipArchive`, no adivinado; sigue fuera de alcance, no se construyó). Se le
+preguntó explícitamente al usuario cuál de las dos quería antes de tocar
+nada, para no invertir tiempo en la equivocada.
+
+- 4ta hoja de `getters/exportar_cuota_categoria_distribuidor.php`. Encabezados
+  **DISTRIBUIDOR / NOMBRE** (no CEDI/CLIENTE como en Directa) — así se
+  llaman esas mismas columnas en el resto de este archivo (hojas de Cuota y
+  Visibilidad de Distribuidor), para quedar consistente puertas adentro de
+  este workbook, ya que no hay un renglón real que copiar.
+- **VOLUMEN** = `SUMIF` contra `REBATE REAL VOL` de `CUOTAS POR
+  CAT -DISTRIBUIDORES` (mismo criterio que Directa: lo realmente ganado,
+  con el 110% ya capeado, no un techo teórico bruto).
+- **VISIBILIDAD** = `IFERROR(VLOOKUP(...), 0)` contra la columna final de
+  `VISIBILIDAD (2)` — **ojo**: en Distribuidor esa columna final se llama
+  `vdFinTotal` ("PAGO (CAJAS) TOTAL", ya filtrado por
+  `VALIDACIÓN="CUMPLE"`), NO `REBATE REAL VOL` — son conceptos análogos
+  pero de hojas/nombres distintos entre los dos exports, no confundir si se
+  vuelve a tocar.
+- Reusa los mismos colores del resto del workbook de Distribuidor
+  (`$bgEncD`/`$fontEncD`, gris/blanco) para el encabezado — no los azules
+  de Directa, esta hoja no corresponde a ningún renglón real que copiar en
+  colores.
+- **Probado de punta a punta contra datos reales** (usuario id 2, ADRIAN
+  VASQUEZ, canal distribuidor, solo lectura vía `include` con sesión
+  simulada — mismo patrón de prueba de siempre): inspeccionado el XML crudo
+  de la hoja generada, fórmulas exactas:
+  `SUMIF('CUOTAS POR CAT -DISTRIBUIDORES'!$C$3:$C$7,B2,'CUOTAS POR CAT
+  -DISTRIBUIDORES'!$U$3:$U$7)` para VOLUMEN,
+  `IFERROR(VLOOKUP(B2,'VISIBILIDAD (2)'!$C$3:$R$3,16,FALSE),0)` para
+  VISIBILIDAD (offset 16 = columna R menos columna C más 1, confirmado
+  matemáticamente correcto), `C2+D2` para TOTAL, fila `TOTAL` final con
+  `SUM()` sobre el rango de datos — sin errores, 4 hojas presentes en el
+  `.xlsx` generado.
+
 ## Export CUOTA POR CAT-DISTRIBUIDORES (canal Distribuidor) (2026-08-20)
 
 Equivalente del export de Cuota/Categoría (sección de arriba) pero para
@@ -1442,10 +1821,14 @@ pedir reparar, 3 hojas presentes.
       100% con "Descargar Excel" sin que JW suba nada de vuelta — ver
       sección "⚠️ REPLANTEO 2026-08-23" dentro de "Módulo Liquidación" más
       abajo para el análisis completo. Pendiente confirmar con JW.
-- [ ] (Del mismo replanteo) repositorio de REBATE por segmento/categoría/marca
-      y repositorio de PARTICIPACIÓN de percha, ambos para autocompletar y
-      bloquear esos campos en el Acta — pedido real de Michelle en la
-      reunión del 2026-08-18, no construido.
+- [x]/[ ] (Del mismo replanteo) repositorio de REBATE por
+      segmento/sector/categoría/marca y repositorio de PARTICIPACIÓN de
+      percha — **el CRUD del repositorio en sí ya se construyó 2026-08-24**
+      (módulo "Repositorios", ver esa sección más abajo), pero **falta la
+      parte que de verdad pidió Michelle**: que estos valores autocompleten
+      y BLOQUEEN los campos `rebate_pct`/`participacion` en Registrar
+      Acuerdo PDV — hoy siguen siendo tipeados a mano y editables ahí, el
+      repositorio nuevo todavía no está conectado a ese formulario.
 - [ ] (Ídem) repositorio de CUOTAS trimestrales que Michelle subiría para
       que Meta de Compras salga ya lleno/bloqueado al elegir cliente en
       Registrar Acuerdo PDV — pieza grande, no construida.
@@ -1488,6 +1871,168 @@ pedir reparar, 3 hojas presentes.
       implementado el matching por `pos_name LIKE 'prefijo%'` con desempate
       por supervisor/tipo_distribuidor, ver "Estrategia de matching" en la
       sección "Módulo Liquidación".
+
+## Módulo Repositorios (2026-08-24)
+
+Dos catálogos self-service (**Rebate** por Segmento/Sector/Categoría/Marca,
+**Participación de Percha** por Marca) que Michelle/Gabriela (JW) suben
+ellas mismas — pedido real de la reunión del 2026-08-18, ver
+`feedback_ask_the_council_schema` y "Pendientes" arriba ("repositorio de
+REBATE...", "repositorio de PARTICIPACIÓN de percha..."). **Objetivo final
+(NO construido todavía)**: que estos valores autocompleten y BLOQUEEN esos
+campos en Registrar Acuerdo PDV (hoy `rebate_pct`/`participacion` se tipean
+a mano y son editables) — esta sesión solo construyó el CRUD del
+repositorio en sí, la integración con Registrar queda para después.
+
+Sidebar nuevo (`includes/secciones.php`, ícono `inventory_2`), restringido
+a `superdesarrollador` — mismo criterio que Liquidación/Gestión de
+Usuarios (Registrar necesitaría eventualmente solo LEER estos catálogos
+para autocompletar, no subir archivos).
+
+**Empezó como mockup (Claude Design canvas) y se migró a código real en la
+misma sesión** a pedido explícito del usuario ("ya no me hagas mockups,
+trabaja directamente en nuestro proyecto") — el mockup sirvió para acordar
+el layout (2 tabs, tabla+filtros+paginación, flujo de subida) antes de
+escribir nada real; no quedó ningún artefacto de ese mockup en el código.
+
+- **Pendiente que el usuario corra `datos/repositorios_schema.sql`**
+  (Claude no puede, regla de solo lectura) — crea
+  `repositorio_rebate_producto` (segmento/sector/categoria/marca NOT NULL +
+  `rebate_pct` DECIMAL(6,4), UNIQUE en las 4 columnas de producto) y
+  `repositorio_participacion_percha` (marca NOT NULL UNIQUE +
+  `participacion_pct` DECIMAL(5,2)) — ambas con `actualizado_por` (FK
+  lógica a `repositorio_usuarios_acuerdos.id`) y `updated_at`. **Nada de
+  este módulo funciona en producción hasta correr ese SQL** — verificado
+  (solo lectura, `SHOW COLUMNS`) que hoy ninguna de las 2 tablas existe
+  todavía; `listar_repositorio_rebate()`/`listar_repositorio_participacion()`
+  (`includes/functions.php`) ya devuelven `[]` sin fatal error en ese caso
+  (mismo fallback que `listar_usuarios_acuerdos()` para la columna
+  `supervisor`), probado contra la base real.
+- **"Última Modificación" (quién y cuándo) se guarda pero NO se muestra en
+  las tablas visuales** — pedido explícito del usuario ("no quiero que
+  salga en las tablas visuales"). Sí sale en el export CSV
+  (`getters/repositorio_exportar.php`, columnas "Actualizado por"/"Última
+  Modificación") — un archivo descargado no es lo que el usuario llamó
+  "tabla visual".
+- **Sin lector de xlsx nuevo**: se reusó `includes/xlsx_reader.php` (ya
+  existía para Liquidación) agregando un solo helper,
+  `xlsx_primera_hoja()` — a diferencia de Liquidación (nombre de hoja fijo,
+  conocido de antemano porque es siempre el mismo formato de JW), acá el
+  archivo self-service puede traer cualquier nombre de pestaña, así que se
+  lee la primera hoja y las columnas se buscan por NOMBRE
+  (`includes/repositorio_import.php`, `repositorio_parsear_rebate()`/
+  `repositorio_parsear_participacion()`), tolerando variantes como
+  "REBATE %"/"REBATE" (mismo criterio que ya usa
+  `liquidacion_import.php` para columnas con nombre inconsistente).
+  Probado con 2 Excel reales generados vía Excel COM (PowerShell): detecta
+  bien la hoja sin importar su nombre, salta filas vacías, y normaliza
+  rebate/participación sin importar si el usuario tipeó la celda como
+  fracción (0.025) o como número entero de % (2.5) — un valor >1 se asume
+  ya en unidades de %, ambos casos dieron el mismo resultado final en la
+  prueba.
+- **Subida en 2 pasos, ninguno de los dos "valida" visualmente la tabla**
+  (pedido explícito: "no le pongas validaciones dentro de las tablas") —
+  las celdas de la previsualización son inputs simples editables, sin
+  bordes rojos ni mensajes de error por campo:
+  1. `getters/repositorio_previsualizar_excel.php` — SOLO parsea el Excel
+     subido, nunca toca la base (mismo espíritu que
+     `previsualizar_acta_pdf.php`). Devuelve las filas leídas.
+  2. El usuario corrige lo que haga falta directo en los inputs de la
+     previsualización (`assets/js/repositorios.js`, tabla con
+     `.ac-preview-input`) y recién al click en "Guardar" se llama a
+     `getters/repositorio_guardar.php`, que sí escribe — UPSERT (`INSERT
+     ... ON DUPLICATE KEY UPDATE`) sobre la clave única de cada tabla: un
+     producto/marca que ya existe se actualiza, uno nuevo se agrega, y
+     **nunca se borra el resto del repositorio** al subir un archivo
+     (aunque sea parcial). Filas con campos vacíos se omiten en el guardado
+     (no rompen la transacción) y se informa cuántas se omitieron.
+  El mismo endpoint `repositorio_guardar.php` también se usa para la
+  edición inline de una fila ya guardada (ícono "editar" en la tabla
+  principal — convierte la fila en inputs in-place, mismo componente
+  visual que la previsualización, sin modal aparte).
+- **Eliminar es DELETE físico real**, a diferencia de `repositorio_acuerdos`
+  (soft-delete) — es un catálogo de referencia, no un documento de negocio;
+  borrar una fila no afecta Actas ya generadas (el rebate/participación se
+  copia al valor tipeado en el momento de generar el Acta, nunca queda
+  enlazado en vivo al repositorio — eso es justo lo que falta construir
+  para el objetivo final de arriba).
+- **Búsqueda/paginación**: mismo patrón que
+  `listar_historial_acuerdos()`/`listar_usuarios_acuerdos()` (LIKE +
+  LIMIT/OFFSET, 10 por página). Export (`repositorio_exportar.php`)
+  respeta la búsqueda activa, trae "todo" en una sola pasada (sin paginar
+  la descarga).
+- **Export CSV o .xlsx real** (2026-08-24, `?formato=csv|xlsx`): el `.xlsx`
+  reusa `includes/xlsx_writer.php` (mismo escritor propio sin librería
+  externa que ya usa "Descargar Excel" de Historial), sin fórmulas, solo
+  celdas con formato `'pct'` — ojo con la unidad: `rebate_pct` ya se guarda
+  como fracción (0.025) así que se pasa directo, pero
+  `participacion_pct` se guarda como entero (55.00) así que hay que
+  dividir /100 antes de pasarlo con formato `'pct'` (ese formato espera
+  fracción, no entero). Probado generando el archivo real vía CLI y
+  abriéndolo con Excel COM: abre sin pedir reparar. El botón **"Exportar"
+  elige el formato SIN modal ni dropdown** — pedido explícito ("no quiero
+  otra ventanita, usa animaciones") — se transforma in-place en 2 opciones
+  (CSV/Excel) con una animación CSS pura (`grid-template-columns`
+  `0fr`→`1fr` para el ancho, sin medir nada por JS, ver `.ac-repo-exportar`
+  en `style.css`), se cierra solo al elegir una opción o al hacer click
+  afuera (mismo patrón que el panel de combos de `registrar.js`).
+- **Probado**: sintaxis PHP/JS de todos los archivos nuevos, `SHOW
+  COLUMNS`/consultas reales contra la base (confirmando que el fallback sin
+  tablas no rompe), y el parser de Excel con 2 archivos `.xlsx` reales.
+  **No probado en navegador** (falta correr el SQL antes de que haya algo
+  real que ver) ni el flujo completo de guardado end-to-end (requiere las
+  tablas creadas).
+
+### Blindaje "el sistema se defiende solo" (2026-08-24, misma sesión)
+
+Pedido explícito del usuario: no quiere quedar "detrás" del sistema
+resolviendo a mano por qué algo falló — subir un archivo, que se caiga o
+genere duplicados sin que quede claro por qué. Agregado sin tocar el
+esquema ni sumar dependencias:
+
+- **Normalización de texto** (`repositorio_normalizar_texto()` en
+  `includes/repositorio_import.php`, nueva): mayúsculas + espacios de sobra
+  colapsados, aplicada a Segmento/Sector/Categoría/Marca en el parser Y de
+  nuevo en `repositorio_guardar.php` (defensa doble, cubre también la
+  edición inline). Sin esto, "Lavavajillas" y "LAVAVAJILLAS " —mismo
+  producto, tipeado distinto— generaban 2 filas separadas en vez de
+  actualizar una sola, porque la clave única de la tabla es exacta. Mismo
+  criterio de mayúsculas que ya usa `repositorio_productos` real.
+- **Rango sano en Rebate/Participación**: `repositorio_guardar.php` ahora
+  rechaza (omite + informa el motivo, con el valor recibido) cualquier
+  rebate fuera de 0%-100% o participación fuera de 0%-100% — antes se
+  guardaba cualquier número tal cual, sin aviso. Importante porque este
+  catálogo va a autocompletar Actas reales más adelante (ver objetivo
+  pendiente arriba) — un número sin sentido acá se propagaría en silencio.
+- **Duplicado DENTRO del mismo archivo** (mismo producto/marca aparece 2+
+  veces en la misma subida): se detecta comparando la clave normalizada de
+  cada fila contra las ya vistas en esa misma pasada — **sí se guarda**
+  (gana el último valor, mismo comportamiento que un upsert normal), pero
+  se avisa cuál fila quedó pisada y por cuál, para que no sea sorpresa.
+- **Reporte de 2 listas separadas en la respuesta de `repositorio_guardar.php`**:
+  `errores` (NO se guardaron — campo vacío, rango inválido, o error real de
+  MySQL vía `$stmt->error`, capturado porque `mysqli_report(MYSQLI_REPORT_OFF)`
+  en `db_connect.php` hace que `execute()` devuelva bool en vez de tirar
+  excepción, así una fila mala no aborta el resto) y `avisos` (SÍ se
+  guardaron, pero conviene revisar — hoy solo el caso de duplicado en el
+  mismo archivo). El modal de subida (`assets/js/repositorios.js`,
+  `mostrarErroresPreview()`) se queda abierto mostrando ambas listas en vez
+  de cerrarse solo si hay algo para revisar — reusa `.ac-alert-error` (ya
+  existía en la app), no un componente nuevo.
+- **Mensajes de subida específicos por causa**
+  (`repositorio_previsualizar_excel.php`): antes un solo "falló la subida"
+  genérico para cualquier motivo; ahora mapea los códigos reales de
+  `$_FILES['archivo']['error']` (archivo muy grande, subida cortada,
+  extensión de PHP bloqueándolo, etc.) a un mensaje puntual, más una
+  validación de que la extensión del archivo sea `.xlsx` antes de intentar
+  leerlo.
+- **Probado sin tocar la base** (la lógica de validación no depende de las
+  tablas — se probó replicando el mismo chequeo en un script aislado): un
+  Excel real con la misma clave tipeada como `"  lava  "` y `"LAVA"`
+  normalizó a una sola clave y avisó el duplicado; rebates de -500% y 250%
+  se rechazaron con el motivo exacto. **El flujo completo contra la base
+  real sigue sin probar** (falta el `CREATE TABLE`, mismo pendiente que
+  arriba).
 
 ## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
 

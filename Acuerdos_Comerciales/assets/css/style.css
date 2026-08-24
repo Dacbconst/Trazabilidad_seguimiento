@@ -674,6 +674,13 @@ body {
 .ac-acuerdo-section-title { display: flex; align-items: center; gap: var(--space-sm); margin-top: var(--space-md); }
 .ac-acuerdo-section-title h2 { font-size: 20px; line-height: 28px; font-weight: 600; margin: 0; }
 .ac-acuerdo-section-title .material-symbols-outlined { color: var(--color-primary); }
+.ac-acuerdo-section-title-split { justify-content: space-between; }
+/* Switch "Visibilidad y Espacios" (2026-08-24): mismo look que el switch
+   deshabilitado de Gestión de Usuarios (.ac-switch input:disabled), para que
+   "bloqueada" se lea igual en toda la app. pointer-events:none en vez de
+   deshabilitar cada input suelto — más simple, y cubre filas que se agregan
+   dinámicamente sin tener que volver a aplicarlo. */
+#ac-visibilidad-zona.ac-zona-bloqueada { opacity: 0.5; pointer-events: none; }
 
 .ac-btn-secondary {
 	display: flex; align-items: center; gap: var(--space-xs);
@@ -1056,3 +1063,102 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-chart-row-label { flex-basis: 130px; max-width: 130px; }
 	.ac-chart-row-value { flex-basis: 70px; }
 }
+
+/* ---------- Repositorios (2026-08-24) ---------- */
+.ac-repo { display: flex; flex-direction: column; gap: var(--space-lg); }
+.ac-repo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
+
+.ac-repo-tabs { display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); }
+.ac-repo-tab {
+	display: flex; align-items: center; gap: var(--space-sm);
+	padding: var(--space-sm) var(--space-lg);
+	background: none; border: none; border-bottom: 2px solid transparent;
+	color: var(--color-on-surface-variant);
+	font-family: var(--font-body); font-size: 14px; font-weight: 600;
+	cursor: pointer; margin-bottom: -1px;
+}
+.ac-repo-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.ac-repo-tab-count {
+	background: var(--color-surface-container-high); color: var(--color-on-surface-variant);
+	font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: var(--radius-full);
+}
+.ac-repo-tab.active .ac-repo-tab-count { background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed); }
+
+.ac-repo-filtros { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); flex-wrap: wrap; border-bottom: 1px solid var(--color-outline-variant); }
+.ac-repo-filtros .ac-input-wrap { flex: 1 1 260px; min-width: 220px; }
+.ac-repo-actions { display: flex; align-items: center; gap: var(--space-sm); margin-left: auto; }
+
+/* "Exportar" morfa in-place a CSV/Excel (2026-08-24) — sin modal, sin
+   dropdown flotante: el botón se encoge y las 2 opciones crecen en su
+   lugar, animado con CSS puro (grid-template-columns 0fr->1fr para el
+   ancho, sin medir nada por JS). */
+.ac-repo-exportar { position: relative; display: inline-flex; align-items: center; }
+.ac-repo-exportar-btn {
+	overflow: hidden; white-space: nowrap; max-width: 200px;
+	transition: max-width 0.25s ease, opacity 0.18s ease, padding 0.25s ease, margin 0.25s ease, transform 0.2s ease;
+}
+.ac-repo-exportar.ac-repo-exportar-abierto .ac-repo-exportar-btn {
+	max-width: 0; opacity: 0; padding-left: 0; padding-right: 0; margin: 0;
+	pointer-events: none; transform: scale(0.85);
+}
+.ac-repo-exportar-opciones-outer {
+	display: grid;
+	grid-template-columns: 0fr;
+	transition: grid-template-columns 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ac-repo-exportar.ac-repo-exportar-abierto .ac-repo-exportar-opciones-outer { grid-template-columns: 1fr; }
+.ac-repo-exportar-opciones { min-width: 0; overflow: hidden; display: flex; gap: var(--space-xs); }
+.ac-repo-exportar-opcion {
+	display: flex; align-items: center; gap: 6px; white-space: nowrap;
+	padding: 11px var(--space-md);
+	border: 1px solid var(--color-primary); border-radius: var(--radius);
+	color: var(--color-primary); background: var(--color-surface-container-lowest);
+	font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;
+	opacity: 0; transform: translateY(-4px) scale(0.9);
+	transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ac-repo-exportar.ac-repo-exportar-abierto .ac-repo-exportar-opcion { opacity: 1; transform: translateY(0) scale(1); }
+.ac-repo-exportar.ac-repo-exportar-abierto .ac-repo-exportar-opcion:last-child { transition-delay: 0.05s; }
+.ac-repo-exportar-opcion:hover { background: rgba(0, 40, 142, 0.05); }
+.ac-repo-badge { display: inline-flex; padding: 3px 10px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; background: #fbf0cf; color: #7a5b00; }
+
+/* Modal "Subir Archivo": paso 1 (elegir) vs paso 2 (previsualización editable) */
+.ac-repo-subir-modal { max-width: 480px; width: 95vw; }
+.ac-repo-subir-modal.ac-repo-subir-modal-ancho { max-width: 720px; }
+.ac-dropzone {
+	border: 1.5px dashed var(--color-outline-variant); border-radius: var(--radius-lg);
+	background: var(--color-surface-container-low);
+	padding: var(--space-xl) var(--space-lg);
+	display: flex; flex-direction: column; align-items: center; gap: var(--space-sm);
+	text-align: center; cursor: pointer;
+}
+.ac-dropzone:hover, .ac-dropzone.ac-dropzone-hover { background: var(--color-surface-container-high); border-color: var(--color-primary); }
+.ac-dropzone .material-symbols-outlined { font-size: 40px; color: var(--color-primary); }
+.ac-dropzone-title { font-size: 14px; font-weight: 600; margin: 0; }
+.ac-dropzone-sub { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; }
+
+.ac-archivo-chip { display: flex; align-items: center; gap: var(--space-sm); background: var(--color-surface-container-low); border-radius: var(--radius); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); }
+.ac-archivo-chip .material-symbols-outlined { color: var(--color-primary); }
+.ac-archivo-chip-nombre { font-size: 13px; font-weight: 600; }
+.ac-archivo-chip-detalle { font-size: 12px; color: var(--color-on-surface-variant); }
+
+/* Sin resaltado de error a propósito (pedido explícito 2026-08-24): las
+   celdas de la previsualización son inputs simples editables, sin bordes
+   rojos ni mensajes de validación por campo. */
+.ac-preview-table-scroll { border: 1px solid var(--color-outline-variant); border-radius: var(--radius); }
+.ac-preview-table th, .ac-preview-table td { padding: var(--space-xs) var(--space-sm); }
+.ac-preview-input {
+	width: 100%; min-width: 90px; padding: 8px 10px;
+	font-family: var(--font-body); font-size: 13px;
+	border: 1px solid var(--color-outline-variant); border-radius: var(--radius-sm);
+	background: var(--color-surface-container-lowest); color: var(--color-on-surface); outline: none;
+}
+.ac-preview-input:focus { border-color: var(--color-primary); }
+
+/* Resumen de errores post-guardado (2026-08-24) — no es validación DENTRO de
+   la tabla (eso el usuario lo pidió explícitamente afuera): es el resultado
+   real después de intentar guardar, en una caja aparte arriba de la tabla. */
+#repo-preview-errores { font-size: 13px; margin-bottom: var(--space-md); }
+#repo-preview-errores p { margin: 0 0 var(--space-xs); font-weight: 700; }
+#repo-preview-errores ul { margin: 0; padding-left: var(--space-lg); }
+#repo-preview-errores li { margin-bottom: 2px; }

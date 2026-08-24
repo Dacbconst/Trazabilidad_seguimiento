@@ -9,6 +9,7 @@ if (login_check()) {
 }
 
 $error = isset($_GET['error']);
+$bloqueado = ($_GET['error'] ?? '') === 'bloqueado';
 
 // Cache-busting: mismo criterio que usa Proyectos/style.css.
 $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
@@ -45,7 +46,9 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 				<p class="ac-login-subtitle">Panel de Gestión Comercial</p>
 			</div>
 
-			<?php if ($error): ?>
+			<?php if ($bloqueado): ?>
+			<div class="ac-alert-error">Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en unos minutos.</div>
+			<?php elseif ($error): ?>
 			<div class="ac-alert-error">Usuario o contraseña incorrectos.</div>
 			<?php endif; ?>
 

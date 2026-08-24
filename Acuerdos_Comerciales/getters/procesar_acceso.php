@@ -11,11 +11,20 @@ iniciar_sesion();
 $usuario  = $_POST['usuario']  ?? '';
 $password = $_POST['password'] ?? '';
 
-if ($usuario === '' || $password === '' || !login($usuario, $password, $mysqli)) {
+if ($usuario === '' || $password === '') {
 	header('Location: ../login.php?error=1');
 	exit;
 }
 
-header('Location: ../index.php');
+$resultado = login($usuario, $password, $mysqli);
+
+if ($resultado === true) {
+	header('Location: ../index.php');
+	exit;
+}
+
+// 'bloqueado' (demasiados intentos fallidos, ver login() en functions.php)
+// se distingue del error genérico para mostrar un mensaje específico.
+header('Location: ../login.php?error='.($resultado === 'bloqueado' ? 'bloqueado' : '1'));
 exit;
 ?>

@@ -375,6 +375,7 @@ $wbD->celda($sVisD, $filaEncVisD, $vdFinTotal, 'TOTAL', true, null, $bgVentaD, $
 $wbD->celda($sVisD, $filaEncVisD, $vdObs, 'OBSERVACIONES', true, null, $bgVentaD, $fontVentaD, true);
 
 $filaVisDatosD = $filaEncVisD + 1;
+$primeraFilaVisD = $filaVisDatosD;
 foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 	$wbD->celda($sVisD, $filaVisDatosD, $vdDistribuidor, $datosClienteD['distribuidor']);
 	$wbD->celda($sVisD, $filaVisDatosD, $vdCiudad, $datosClienteD['ciudad']);
@@ -404,6 +405,75 @@ foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 	$wbD->celda($sVisD, $filaVisDatosD, $vdObs, '');
 
 	$filaVisDatosD++;
+}
+$ultimaFilaVisD = $filaVisDatosD - 1;
+
+// ==================== Hoja "RESUMEN DE PAGOS" (2026-08-23) ====================
+// Mismo concepto que la de Directa (ver exportar_cuota_categoria.php,
+// misma fecha, y CLAUDE.md "⚠️ REPLANTEO 2026-08-23" para el porqué) — el
+// archivo real de Distribuidor NO tiene una hoja con este nombre exacto
+// (tiene "PRESUPUESTO UTILIZADO", que es otra cosa, fuera de alcance de
+// esta vuelta), pero el usuario pidió el mismo concepto para paridad entre
+// los dos exports: un renglón por cliente, con fórmulas reales, mismo
+// propósito (que el asesor tenga el resumen de pago en el mismo Excel, sin
+// depender de que JW suba nada de vuelta).
+// Encabezados DISTRIBUIDOR/NOMBRE (no CEDI/CLIENTE como en Directa) — así
+// se llaman esas mismas columnas en el resto de este archivo (hojas de
+// Cuota y Visibilidad de Distribuidor), para quedar consistente puertas
+// adentro de este workbook. VOLUMEN sale de REBATE REAL VOL (hoja de
+// Cuota, mismo criterio que Directa: lo realmente ganado, no un techo
+// teórico). VISIBILIDAD sale del total final de "VISIBILIDAD (2)"
+// (columna PAGO CAJAS TOTAL, ya filtrado por VALIDACIÓN="CUMPLE" — mismo
+// criterio que la columna TOTAL de Visibilidad en Directa).
+$sResumenD = $wbD->agregarHoja('RESUMEN DE PAGOS');
+$rdDistribuidor = 1; $rdNombre = 2; $rdVolumen = 3; $rdVisibilidad = 4; $rdTotalPago = 5;
+$wbD->celda($sResumenD, 1, $rdDistribuidor, 'DISTRIBUIDOR', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sResumenD, 1, $rdNombre, 'NOMBRE', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sResumenD, 1, $rdVolumen, 'VOLUMEN', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sResumenD, 1, $rdVisibilidad, 'VISIBILIDAD', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sResumenD, 1, $rdTotalPago, 'TOTAL', true, null, $bgEncD, $fontEncD);
+
+// Unión de clientes vistos en Cuota (meta_compra) y en Visibilidad
+// (cabecera/ruma/percha) — un cliente puede tener solo uno de los dos.
+$clientesResumenD = [];
+foreach ($clientesVistosD as $cli => $cv) $clientesResumenD[$cli] = $cv['distribuidor'];
+foreach ($porClienteVisD as $cli => $dv) {
+	if (!isset($clientesResumenD[$cli])) $clientesResumenD[$cli] = $dv['distribuidor'];
+}
+ksort($clientesResumenD);
+
+$filaResumenD = 2;
+$primeraFilaResumenD = $filaResumenD;
+foreach ($clientesResumenD as $clienteD => $distribuidorD) {
+	$wbD->celda($sResumenD, $filaResumenD, $rdDistribuidor, $distribuidorD);
+	$wbD->celda($sResumenD, $filaResumenD, $rdNombre, $clienteD);
+	$refClienteD = XlsxWriter::colLetra($rdNombre).$filaResumenD;
+	if ($ultimaFilaDatosD >= $primeraFilaDatosD) {
+		$rangoClienteCuotaD = "'CUOTAS POR CAT -DISTRIBUIDORES'!\$".XlsxWriter::colLetra($colNombre).'$'.$primeraFilaDatosD.':$'.XlsxWriter::colLetra($colNombre).'$'.$ultimaFilaDatosD;
+		$rangoRebateRealVolD = "'CUOTAS POR CAT -DISTRIBUIDORES'!\$".XlsxWriter::colLetra($colRebateRealVol).'$'.$primeraFilaDatosD.':$'.XlsxWriter::colLetra($colRebateRealVol).'$'.$ultimaFilaDatosD;
+		$wbD->formula($sResumenD, $filaResumenD, $rdVolumen, 'SUMIF('.$rangoClienteCuotaD.','.$refClienteD.','.$rangoRebateRealVolD.')', false, 'money');
+	} else {
+		$wbD->celda($sResumenD, $filaResumenD, $rdVolumen, 0, false, 'money');
+	}
+	if ($ultimaFilaVisD >= $primeraFilaVisD) {
+		$rangoVisLookupD = "'VISIBILIDAD (2)'!\$".XlsxWriter::colLetra($vdNombre).'$'.$primeraFilaVisD.':$'.XlsxWriter::colLetra($vdFinTotal).'$'.$ultimaFilaVisD;
+		$offsetVisTotalD = $vdFinTotal - $vdNombre + 1;
+		$wbD->formula($sResumenD, $filaResumenD, $rdVisibilidad,
+			'IFERROR(VLOOKUP('.$refClienteD.','.$rangoVisLookupD.','.$offsetVisTotalD.',FALSE),0)', false, 'money');
+	} else {
+		$wbD->celda($sResumenD, $filaResumenD, $rdVisibilidad, 0, false, 'money');
+	}
+	$wbD->formula($sResumenD, $filaResumenD, $rdTotalPago,
+		XlsxWriter::colLetra($rdVolumen).$filaResumenD.'+'.XlsxWriter::colLetra($rdVisibilidad).$filaResumenD, false, 'money');
+	$filaResumenD++;
+}
+$ultimaFilaResumenD = $filaResumenD - 1;
+if ($ultimaFilaResumenD >= $primeraFilaResumenD) {
+	$wbD->celda($sResumenD, $filaResumenD, $rdNombre, 'TOTAL', true);
+	foreach ([$rdVolumen, $rdVisibilidad, $rdTotalPago] as $col) {
+		$rango = XlsxWriter::colLetra($col).$primeraFilaResumenD.':'.XlsxWriter::colLetra($col).$ultimaFilaResumenD;
+		$wbD->formula($sResumenD, $filaResumenD, $col, 'SUM('.$rango.')', true, 'money');
+	}
 }
 
 $binD = $wbD->generar();

@@ -17,17 +17,79 @@ function iniciar_sesion() {
 // Decisión explícita: login simple, sin password_hash/password_verify.
 // El prepared statement solo protege la consulta contra inyección SQL,
 // la contraseña se compara tal cual está guardada en la tabla.
+//
+// Devuelve TRUE (login ok), FALSE (usuario/contraseña incorrectos), o el
+// string 'bloqueado' (demasiados intentos fallidos seguidos, cuenta
+// bloqueada temporalmente) — procesar_acceso.php distingue los 3 casos
+// para mostrar el mensaje correcto en login.php.
+//
+// Fuerza bruta (2026-08-24, pedido explícito tras revisión de seguridad):
+// 5 intentos fallidos seguidos bloquean la cuenta 15 minutos
+// (`intentos_fallidos`/`bloqueado_hasta`, columnas nuevas — ver CLAUDE.md).
+// Si todavía no se corrió ese ALTER, cae al login de siempre SIN bloqueo
+// (mismo criterio de fallback que ya usaba esta función para `supervisor`)
+// — nunca se rompe el acceso mientras el usuario corre el SQL.
 function login($usuario, $password, $mysqli) {
+	$stmt = $mysqli->prepare(
+		"SELECT id, usuario, rol, supervisor, contrasena, intentos_fallidos, bloqueado_hasta
+		 FROM repositorio_usuarios_acuerdos WHERE usuario = ? AND status = 'activo' LIMIT 1"
+	);
+	if ($stmt) {
+		$stmt->bind_param('s', $usuario);
+		$stmt->execute();
+		$row = $stmt->get_result()->fetch_assoc();
+		$stmt->close();
+
+		if (!$row) {
+			return false;
+		}
+
+		if ($row['bloqueado_hasta'] !== null && strtotime($row['bloqueado_hasta']) > time()) {
+			return 'bloqueado';
+		}
+
+		if ($row['contrasena'] !== $password) {
+			$intentos = (int) $row['intentos_fallidos'] + 1;
+			if ($intentos >= 5) {
+				$stmtUpd = $mysqli->prepare(
+					'UPDATE repositorio_usuarios_acuerdos SET intentos_fallidos = 0, bloqueado_hasta = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE id = ?'
+				);
+				$stmtUpd->bind_param('i', $row['id']);
+				$stmtUpd->execute();
+				$stmtUpd->close();
+				return 'bloqueado';
+			}
+			$stmtUpd = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET intentos_fallidos = ? WHERE id = ?');
+			$stmtUpd->bind_param('ii', $intentos, $row['id']);
+			$stmtUpd->execute();
+			$stmtUpd->close();
+			return false;
+		}
+
+		// Contraseña correcta: si venía con intentos fallidos previos, se
+		// resetea el contador — un login exitoso limpia la pizarra.
+		if ((int) $row['intentos_fallidos'] > 0) {
+			$stmtReset = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?');
+			$stmtReset->bind_param('i', $row['id']);
+			$stmtReset->execute();
+			$stmtReset->close();
+		}
+
+		session_regenerate_id();
+		$_SESSION['user_id']    = $row['id'];
+		$_SESSION['username']   = $row['usuario'];
+		$_SESSION['rol']        = $row['rol'];
+		$_SESSION['supervisor'] = $row['supervisor'] ?? null;
+		return true;
+	}
+
+	// ---------- Fallback: columnas de fuerza bruta todavía no existen ----------
+	// Mismo login de siempre, sin bloqueo — y dentro de este fallback, el
+	// fallback ORIGINAL para `supervisor` (por si tampoco existe esa).
 	$stmt = $mysqli->prepare(
 		"SELECT id, usuario, rol, supervisor FROM repositorio_usuarios_acuerdos
 		 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
 	);
-	// Si todavía no se corrió el ALTER que agrega `supervisor` (ver
-	// getters/alter_usuarios_supervisor.sql), prepare() devuelve false acá
-	// (columna inexistente) — sin este fallback, el siguiente bind_param()
-	// explota con un fatal error de PHP. Mientras la columna no exista, el
-	// login sigue funcionando igual, solo que `$_SESSION['supervisor']` queda
-	// null (canalDeSupervisor() ya maneja ese caso como 'directo' por defecto).
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
 			"SELECT id, usuario, rol FROM repositorio_usuarios_acuerdos
@@ -257,7 +319,18 @@ function mesCorto($mes) {
 	return isset($meses[$mes]) ? $meses[$mes] : '';
 }
 
+// "Q1 (Ene-Mar)" para períodos que son un trimestre exacto (mismo texto que
+// ya usa el filtro de Historial, ver historial.php) — 2026-08-23, pedido
+// explícito para que la columna "Periodo" de la tabla combine con el
+// filtro. Un Acuerdo viejo con un rango que no calza con ningún trimestre
+// (de antes de que el período se volviera fijo, ver CLAUDE.md) cae al
+// formato anterior sin "Qx", nunca inventa un trimestre que no le
+// corresponde.
 function periodoCorto($mesInicio, $mesFin) {
+	if ($mesInicio % 3 === 0 && $mesFin === $mesInicio + 2) {
+		$trimestre = intdiv($mesInicio, 3) + 1;
+		return 'Q'.$trimestre.' ('.mesCorto($mesInicio).'-'.mesCorto($mesFin).')';
+	}
 	if ($mesInicio === $mesFin) return mesCorto($mesInicio);
 	return mesCorto($mesInicio).' - '.mesCorto($mesFin);
 }
@@ -504,7 +577,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	// en "Estimado(a)", separado del nombre del Local (`pos_name`), que sigue
 	// yendo en la frase "Jabonería Wilson y ..." (ver acta_pdf.php, 2026-08-20).
 	$stmt = $mysqli->prepare(
-		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por,
+		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por, a.sin_visibilidad,
 		        d.pos_name, d.cedi, d.canal, d.tipo_distribuidor, u.usuario AS ejecutivo_comercial
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
@@ -558,6 +631,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'distribuidor'      => $cabecera['pos_name'],
 		'localidad'         => $cabecera['cedi'] ?: '—',
 		'es_distribuidor'   => ($cabecera['canal'] ?? null) === 'DISTRIBUIDOR',
+		'sin_visibilidad'   => !empty($cabecera['sin_visibilidad']),
 		'empresa_distribuidora' => $cabecera['tipo_distribuidor'] ?: '',
 		'ejecutivo_comercial' => $cabecera['ejecutivo_comercial'] ?: '',
 		'lineas'            => $lineas,
@@ -585,5 +659,79 @@ function listar_borradores_usuario($mysqli, $usuarioId) {
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 	return $filas;
+}
+
+// ---------- Módulo Repositorios (2026-08-24) ----------
+// Dos catálogos self-service (Rebate, Participación de Percha) que autocompletan
+// y bloquean esos campos en el Acta — ver CLAUDE.md "Módulo Repositorios".
+// Mismo patrón de paginación/búsqueda que listar_historial_acuerdos()/
+// listar_usuarios_acuerdos(). $stmt puede venir null si todavía no se corrió
+// datos/repositorios_schema.sql — se devuelve vacío en vez de un fatal error,
+// mismo criterio que el fallback de listar_usuarios_acuerdos() para `supervisor`.
+function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+
+	$stmtTotal = $mysqli->prepare(
+		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto
+		 WHERE segmento LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?"
+	);
+	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmtTotal->bind_param('ssss', $like, $like, $like, $like);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
+
+	$stmt = $mysqli->prepare(
+		"SELECT r.id, r.segmento, r.sector, r.categoria, r.marca, r.rebate_pct, r.updated_at, u.usuario AS actualizado_por_usuario
+		 FROM repositorio_rebate_producto r
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = r.actualizado_por
+		 WHERE r.segmento LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?
+		 ORDER BY r.segmento, r.sector, r.categoria, r.marca
+		 LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmt->bind_param('ssssii', $like, $like, $like, $like, $porPagina, $offset);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
+}
+
+function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+
+	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_participacion_percha WHERE marca LIKE ?');
+	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmtTotal->bind_param('s', $like);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
+
+	$stmt = $mysqli->prepare(
+		"SELECT p.id, p.marca, p.participacion_pct, p.updated_at, u.usuario AS actualizado_por_usuario
+		 FROM repositorio_participacion_percha p
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = p.actualizado_por
+		 WHERE p.marca LIKE ?
+		 ORDER BY p.marca
+		 LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmt->bind_param('sii', $like, $porPagina, $offset);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 ?>

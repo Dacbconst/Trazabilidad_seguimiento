@@ -33,6 +33,7 @@ $anio       = (int) ($body['anio'] ?? 0);
 $mesInicio  = (int) ($body['mes_inicio'] ?? -1);
 $mesFin     = (int) ($body['mes_fin'] ?? -1);
 $estado     = $body['estado'] ?? 'borrador';
+$sinVisibilidad = !empty($body['sin_visibilidad']);
 $lineas     = is_array($body['lineas'] ?? null) ? $body['lineas'] : [];
 
 $estadosPermitidosDesdeForm = ['borrador', 'generado', 'enviado'];
@@ -70,6 +71,35 @@ $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 if (!$existePos) {
 	responder(false, 'El Local seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
+}
+
+// Regla de negocio (2026-08-23): solo puede haber UN Acta activa (no
+// borrador, no anulada) por Local+Período — evita que dos analistas
+// generen la misma Acta al mismo tiempo. "El primero que llega, gana": el
+// segundo que intente guardar/generar (cualquier $estado distinto de
+// 'borrador') para el mismo Local+Período se bloquea acá con un mensaje
+// específico (`duplicado: true`) para que el frontend lo muestre con
+// SweetAlert2, no el toast genérico de error. Los borradores quedan
+// exentos a propósito — se puede seguir armando uno en paralelo, recién
+// se bloquea al intentar generarlo de verdad.
+if ($estado !== 'borrador') {
+	$stmtDup = $mysqli->prepare(
+		"SELECT d.pos_name FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 WHERE a.pos_id = ? AND a.anio = ? AND a.mes_inicio = ? AND a.mes_fin = ?
+		   AND a.estado NOT IN ('borrador', 'anulado')
+		   AND a.id <> ?
+		 LIMIT 1"
+	);
+	if ($stmtDup) {
+		$stmtDup->bind_param('siiii', $posId, $anio, $mesInicio, $mesFin, $acuerdoId);
+		$stmtDup->execute();
+		$filaDup = $stmtDup->get_result()->fetch_assoc();
+		$stmtDup->close();
+		if ($filaDup) {
+			responder(false, $filaDup['pos_name'].' ya tiene un Acta generada para este trimestre.', ['duplicado' => true]);
+		}
+	}
 }
 
 $cantidadMeses = $mesFin - $mesInicio + 1;
@@ -155,6 +185,17 @@ foreach (($lineas['percha'] ?? []) as $orden => $fila) {
 	];
 }
 
+// Switch "Visibilidad y Espacios" (2026-08-24): si el usuario lo desactivó en
+// el formulario, la zona queda bloqueada en pantalla y no debería mandar
+// nada — esto es defensa adicional del lado del servidor (mismo motivo que
+// normalizarValores() de arriba), por si llega algo igual por un estado
+// stale del cliente.
+if ($sinVisibilidad) {
+	$filasNormalizadas['cabecera'] = [];
+	$filasNormalizadas['ruma'] = [];
+	$filasNormalizadas['percha'] = [];
+}
+
 // Un acuerdo completamente vacío solo se permite como borrador (work-in-
 // progress) — mismo criterio que ya valida registrar.js del lado del
 // cliente, repetido acá por si acaso.
@@ -192,10 +233,11 @@ try {
 		// guardado real, edite lo que edite.
 		$stmt = $mysqli->prepare(
 			'UPDATE repositorio_acuerdos
-			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, updated_at = NOW()
+			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, sin_visibilidad = ?, updated_at = NOW()
 			 WHERE id = ?'
 		);
-		$stmt->bind_param('siiissi', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $acuerdoId);
+		$sinVisibilidadInt = (int) $sinVisibilidad;
+		$stmt->bind_param('siiissii', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $sinVisibilidadInt, $acuerdoId);
 		$stmt->execute();
 		$stmt->close();
 
@@ -219,10 +261,11 @@ try {
 		do {
 			$documentoNo = sprintf('ADN-%d-%04d', $anio, $seq);
 			$stmt = $mysqli->prepare(
-				'INSERT INTO repositorio_acuerdos (documento_no, pos_id, anio, mes_inicio, mes_fin, estado, fecha_generacion, creado_por)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+				'INSERT INTO repositorio_acuerdos (documento_no, pos_id, anio, mes_inicio, mes_fin, estado, fecha_generacion, creado_por, sin_visibilidad)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
 			);
-			$stmt->bind_param('ssiiissi', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $creadoPor);
+			$sinVisibilidadInt = (int) $sinVisibilidad;
+			$stmt->bind_param('ssiiissii', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $creadoPor, $sinVisibilidadInt);
 			$insertOk = $stmt->execute();
 			if ($insertOk) {
 				$acuerdoId = $stmt->insert_id;

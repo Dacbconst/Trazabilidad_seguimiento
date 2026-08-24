@@ -68,6 +68,22 @@ function xlsx_mapa_hojas(ZipArchive $zip) {
 	return $mapa;
 }
 
+// Nombre de la primera hoja del archivo, en el orden real de las pestañas
+// (los `array` de PHP preservan orden de inserción, y xlsx_mapa_hojas()
+// inserta en el mismo orden que <sheets><sheet> del workbook.xml) — para
+// lectores que no conocen un nombre de hoja fijo de antemano (a diferencia
+// de Liquidación, que sí conoce el nombre exacto que usa JW), ver
+// includes/repositorio_import.php.
+function xlsx_primera_hoja($rutaArchivo) {
+	if (!xlsx_disponible()) return null;
+	$zip = new ZipArchive();
+	if ($zip->open($rutaArchivo) !== true) return null;
+	$mapa = xlsx_mapa_hojas($zip);
+	$zip->close();
+	$nombres = array_keys($mapa);
+	return $nombres ? $nombres[0] : null;
+}
+
 // Convierte "AB" (letras de columna Excel) -> índice 0-based.
 function xlsx_col_a_indice($letras) {
 	$letras = preg_replace('/[0-9]/', '', $letras);

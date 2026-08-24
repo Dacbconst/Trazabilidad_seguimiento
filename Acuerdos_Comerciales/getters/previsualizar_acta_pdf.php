@@ -136,6 +136,10 @@ $detalle = [
 	// de Registrar) — este endpoint nunca abre conexión a la base, así que no
 	// puede derivarlo solo desde pos_id como sí hace obtener_acuerdo_detalle().
 	'es_distribuidor'    => !empty($body['es_distribuidor']),
+	// Switch "Visibilidad y Espacios" de Registrar — mismo motivo que
+	// es_distribuidor arriba, este endpoint nunca abre conexión a la base así
+	// que no puede leer sin_visibilidad de repositorio_acuerdos.
+	'sin_visibilidad'    => !empty($body['sin_visibilidad']),
 	// "Empresa Distribuidora" (campo "Distribuidor" en la UI, ver
 	// acta_pdf.php) — mismo motivo, no se puede leer de la base acá.
 	'empresa_distribuidora' => trim($body['empresa_distribuidora'] ?? ''),

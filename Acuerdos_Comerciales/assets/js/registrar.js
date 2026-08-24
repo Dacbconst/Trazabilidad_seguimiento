@@ -27,6 +27,13 @@
 	var acuerdoId = null;
 	var documentoNo = null;
 
+	// ---------- Switch "Visibilidad y Espacios" (2026-08-24) ----------
+	// Activado por defecto (mismo comportamiento de siempre, sin cambios). Al
+	// desactivarlo, el Acta sale en el formato "sin visibilidad" (sin
+	// Cabeceras ni Rumas&Perchas, ver includes/acta_pdf.php $sinVisibilidad) —
+	// independiente del canal del usuario, ver ese archivo para el porqué.
+	var visibilidadActiva = true;
+
 	// ---------- Cambios sin guardar ----------
 	// Cambiar de módulo en el sidebar NUNCA destruye este formulario (solo se
 	// oculta con CSS, ver index.php) — el único riesgo real de perder trabajo
@@ -66,6 +73,9 @@
 	var rumasLegendBody = document.getElementById('ac-rumas-legend-body');
 	var perchasHead = document.getElementById('ac-perchas-head');
 	var perchasBody = document.getElementById('ac-perchas-body');
+	var visibilidadToggle = document.getElementById('ac-visibilidad-toggle');
+	var visibilidadZona = document.getElementById('ac-visibilidad-zona');
+	var visibilidadIcon = document.getElementById('ac-visibilidad-icon');
 
 	function mostrarMensaje(texto, ok) {
 		mostrarToast(texto, ok ? 'success' : 'error');
@@ -114,6 +124,18 @@
 				catalogoDistribuidor.empresas = distRes.empresas || {};
 				catalogoDistribuidor.clientes = distRes.clientes || [];
 			}
+
+			// Distribuidor: el switch arranca DESACTIVADO por defecto (preserva
+			// el comportamiento histórico — hasta 2026-08-24 esas 2 tablas
+			// SIEMPRE se ocultaban en el Acta de Distribuidor, sin excepción,
+			// ver includes/acta_pdf.php). Directo sigue arrancando activado,
+			// sin cambios. Solo aplica a un Acuerdo NUEVO — un borrador ya
+			// guardado restaura su propio valor real en aplicarBorrador().
+			if (catalogoDistribuidor.canal === 'distribuidor') {
+				visibilidadActiva = false;
+				visibilidadToggle.checked = false;
+			}
+			aplicarBloqueoVisibilidad();
 
 			updatePickerUI();
 			syncTables();
@@ -762,6 +784,38 @@
 		row.querySelector('.ac-remove-row').addEventListener('click', function () { marcarSucio(); row.remove(); });
 	}
 
+	// Vuelve las 3 tablas de "Visibilidad y Espacios" a una sola fila vacía
+	// cada una (mismo estado inicial que syncTables()) — se llama al
+	// desactivar el switch, para no dejar datos cargados "atrapados" detrás
+	// del bloqueo visual (que ya de por sí no se van a mandar, ver
+	// guardar_acuerdo.php $sinVisibilidad, pero es más honesto no dejarlos ahí).
+	function resetearZonaVisibilidad() {
+		cabecerasBody.innerHTML = '';
+		rumasBody.innerHTML = '';
+		perchasBody.innerHTML = '';
+		addCabeceraRow();
+		addRumaRow();
+		addPerchaRow();
+		updateRumaLegend();
+	}
+
+	// El ícono del título ("visibility"/"visibility_off", mismo glifo con y sin
+	// tachar de Material Symbols — la fuente que ya usa toda la app, no hace
+	// falta traer un ícono aparte) refuerza el estado del switch a simple
+	// vista (heurística de Nielsen "reconocimiento en vez de recuerdo": un
+	// switch solo no dice qué activa sin leerlo).
+	function aplicarBloqueoVisibilidad() {
+		visibilidadZona.classList.toggle('ac-zona-bloqueada', !visibilidadActiva);
+		visibilidadIcon.textContent = visibilidadActiva ? 'visibility' : 'visibility_off';
+	}
+
+	visibilidadToggle.addEventListener('change', function () {
+		marcarSucio();
+		visibilidadActiva = visibilidadToggle.checked;
+		if (!visibilidadActiva) resetearZonaVisibilidad();
+		aplicarBloqueoVisibilidad();
+	});
+
 	// ---------- Recolección de datos para guardar ----------
 	function recolectarLineas() {
 		var metaCompra = Array.prototype.map.call(purchaseBody.querySelectorAll('tr'), function (r) {
@@ -912,6 +966,7 @@
 			mes_inicio: selectedStart,
 			mes_fin: selectedEnd,
 			estado: estado,
+			sin_visibilidad: !visibilidadActiva,
 			lineas: recolectarLineas()
 		};
 
@@ -922,6 +977,19 @@
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
+				// "Ya tiene un Acta generada para este trimestre" (regla de un
+				// Acta por Local+Período) usa SweetAlert2, no el toast genérico
+				// de error — mismo estilo que la confirmación de Eliminar, pero
+				// solo informativo (un botón, sin acción que confirmar).
+				if (data.duplicado) {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Acta ya generada',
+						text: data.message,
+						confirmButtonText: 'Entendido'
+					});
+					return;
+				}
 				mostrarMensaje(data.message, data.ok);
 				if (data.ok) {
 					acuerdoId = data.acuerdo_id;
@@ -1020,6 +1088,9 @@
 			// Acta de canal Distribuidor va en "Estimado(a)", separado del
 			// nombre del "Local" (distribuidorSearch, arriba). Vacío en Directo.
 			empresa_distribuidora: empresaSearch.value,
+			// Switch "Visibilidad y Espacios" — independiente del canal, ver
+			// includes/acta_pdf.php $sinVisibilidad.
+			sin_visibilidad: !visibilidadActiva,
 			lineas: recolectarLineas()
 		};
 
@@ -1061,6 +1132,9 @@
 		localidadEl.textContent = '—';
 		aplicarTrimestre(0); // vuelve a Q1 por defecto (ya llama a syncTables())
 		actualizarBloqueoPorDistribuidor();
+		visibilidadActiva = true;
+		visibilidadToggle.checked = true;
+		aplicarBloqueoVisibilidad();
 		formSucio = false;
 	}
 
@@ -1244,6 +1318,15 @@
 		distribuidorSearch.value = a.distribuidor;
 		localidadEl.textContent = a.localidad || '—';
 		actualizarBloqueoPorDistribuidor();
+
+		// Switch "Visibilidad y Espacios": no se llama a resetearZonaVisibilidad()
+		// acá aunque esté desactivado — poblarTablasConLineas() de abajo ya
+		// reconstruye esas 3 tablas desde a.lineas (que van a venir vacías si
+		// se guardó con el switch apagado, ver guardar_acuerdo.php), así que
+		// solo hace falta aplicar la clase visual de bloqueo.
+		visibilidadActiva = !a.sin_visibilidad;
+		visibilidadToggle.checked = visibilidadActiva;
+		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(a.lineas);
 		// Cargar un borrador no es un cambio "sin guardar" propio — recién se

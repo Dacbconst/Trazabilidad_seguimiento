@@ -6,6 +6,10 @@
 
 function h($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); }
 function moneda($v) { return '$' . number_format((float) $v, 2); }
+// Distribuidor mide todo en cajas, no dólares (confirmado 2026-08-24 contra
+// los Excel reales "FORMATO DTS CON/SIN VISIBILIDAD" — ver generar_acta_html,
+// $fmt) — mismo formato numérico que moneda() pero sin el signo "$".
+function numero($v) { return number_format((float) $v, 2); }
 
 function valores_por_mes(array $linea, array $mesesActivos) {
 	return array_map(function ($m) use ($linea) {
@@ -23,16 +27,17 @@ function valores_por_mes(array $linea, array $mesesActivos) {
 // de fuente_una_linea()/ancho_columna_categoria() siga siendo en px.
 function ancho_style($pct) { return 'width:'.round($pct, 2).'%'; }
 
-// Tablas de 3.a/3.b: solo Marca (sin Segmento/Categoría, igual que el preview del navegador).
-function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct) {
+// Tablas de 2.a/2.b: solo Marca (sin Segmento/Categoría, igual que el preview del navegador).
+// $fmt: 'moneda' (Directo) o 'numero' (Distribuidor, sin signo "$" — ver generar_acta_html).
+function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct, $fmt = 'moneda') {
 	$rows = '';
 	foreach ($lineas as $linea) {
 		if ($linea['marca'] === '' || $linea['marca'] === null) continue;
 		$valores = $valorFn($linea, $mesesActivos);
 		$total = array_sum($valores);
 		$rows .= '<tr><td>'.h($linea['marca']).'</td>';
-		foreach ($valores as $v) $rows .= '<td class="num">'.moneda($v).'</td>';
-		$rows .= '<td class="num">'.moneda($total).'</td></tr>';
+		foreach ($valores as $v) $rows .= '<td class="num">'.$fmt($v).'</td>';
+		$rows .= '<td class="num">'.$fmt($total).'</td></tr>';
 	}
 	if ($rows === '') {
 		$colspanVacio = 1 + count($mesesActivos) + 1;
@@ -130,12 +135,29 @@ function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anc
 function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	if ($medirTexto === null) $medirTexto = crear_medidor_texto();
 
-	// Formato Distribuidor (2026-08-20, ver datos/FORMATO Distribuidor.pdf):
-	// solo Meta de Compras (tabla 1) + Condiciones + Consideraciones Generales
-	// — sin Extravisibilidad/Cabeceras ni Perchas&Rumas — y con C.I. además de
-	// Razón Social en la firma del cliente. El resto del documento (logo,
-	// encabezado, condiciones, consideraciones) es igual al de Canal Directo.
+	// Formato Distribuidor (2026-08-20, ver datos/FORMATO Distribuidor.pdf;
+	// ampliado 2026-08-24 con datos/FORMATO DTS CON/SIN VISIBILIDAD.xlsx —
+	// ver CLAUDE.md sección "Distribuidor con/sin visibilidad" para el
+	// detalle completo verificado contra esos Excel reales): título "Acuerdo
+	// Comercial Canal Distribuidores", C.I. además de Razón Social en blanco
+	// en la firma del cliente, firma izquierda "Desarrollador de Mercado" (no
+	// "Ejecutivo Comercial"), y Meta de Compras + Visibilidad medidos en
+	// CAJAS (no Dólares, ver $fmt más abajo) con una fórmula de "Estimado a
+	// Ganar" distinta (Total × Rebate%, no Total × (1+Rebate%) como Directo).
 	$esDistribuidor = !empty($detalle['es_distribuidor']);
+
+	// "Sin visibilidad" (2026-08-24): eje INDEPENDIENTE del canal — el switch
+	// "Visibilidad y Espacios" de Registrar (registrar.php/registrar.js) deja
+	// bloqueada esa zona del formulario y esto oculta las mismas 2 tablas
+	// (2.a Cabeceras, 2.b Rumas&Perchas). Aplica IGUAL para Directo y
+	// Distribuidor — ambos canales arman su combinación con/sin visibilidad
+	// a partir del mismo switch, nada de esto queda atado al canal.
+	$sinVisibilidad = !empty($detalle['sin_visibilidad']);
+	$ocultarVisibilidad = $sinVisibilidad;
+
+	// Distribuidor mide Meta de Compras y Visibilidad en CAJAS, no en
+	// Dólares — mismo formato numérico salvo el signo "$" (ver numero()).
+	$fmt = $esDistribuidor ? 'numero' : 'moneda';
 
 	$logo = logo_base64();
 	$logoHtml = $logo ? '<div style="text-align:center; margin-bottom:'.px(5, $escala).';"><img src="'.$logo.'" style="height:'.px(120, $escala).'; width:auto;"></div>' : '';
@@ -164,7 +186,12 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 		foreach ($valores as $j => $v) $metaSums[$j] += $v;
 		$total  = array_sum($valores);
 		$rebate = (float) $linea['rebate_pct'];
-		$est    = $total * (1 + $rebate);
+		// Distribuidor: "Cajas Estimadas a Ganar" = solo el bono (Total ×
+		// Rebate%) — Directo: "Estimado a Ganar" = valor total del trato
+		// incluyendo el bono (Total × (1+Rebate%)). Verificado contra 4 filas
+		// reales del Excel "FORMATO DTS ... VISIBILIDAD" (ej. 124.37×1.5%=
+		// 1.87 ✓) — no es solo un cambio de palabra, es una fórmula distinta.
+		$est    = $esDistribuidor ? ($total * $rebate) : ($total * (1 + $rebate));
 		$metaGrandTotal += $total; $metaGrandEst += $est;
 
 		$categoriaTexto = $categoriaTextos[$i];
@@ -172,10 +199,10 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 		// Una sola línea horizontal SIEMPRE (requisito explícito, sin excepción):
 		// nowrap fuerza 1 línea y el tamaño ya viene calculado para que quepa.
 		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($categoriaTexto).'</td>';
-		foreach ($valores as $v) $metaRows .= '<td class="num">'.moneda($v).'</td>';
-		$metaRows .= '<td class="num">'.moneda($total).'</td>';
+		foreach ($valores as $v) $metaRows .= '<td class="num">'.$fmt($v).'</td>';
+		$metaRows .= '<td class="num">'.$fmt($total).'</td>';
 		$metaRows .= '<td class="ctr rebate-cell">'.number_format($rebate * 100, 1).'%</td>';
-		$metaRows .= '<td class="num">'.moneda($est).'</td></tr>';
+		$metaRows .= '<td class="num">'.$fmt($est).'</td></tr>';
 	}
 	if ($metaRows === '') {
 		$colspanMeta = 1 + $cantidadMeses + 3;
@@ -187,21 +214,21 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	}, $mesesActivos));
 
 	$cabecerasValorFn = function ($linea, $mesesActivos) { return valores_por_mes($linea, $mesesActivos); };
-	list($cabecerasRows, $marcaHeadCab, $mesesHeadCab, $totalHeadCab) = tabla_marca_html($detalle['lineas']['cabecera'], $mesesActivos, $mesesCorto, $cabecerasValorFn, 20, 62, 18);
+	list($cabecerasRows, $marcaHeadCab, $mesesHeadCab, $totalHeadCab) = tabla_marca_html($detalle['lineas']['cabecera'], $mesesActivos, $mesesCorto, $cabecerasValorFn, 20, 62, 18, $fmt);
 
 	$rumaValorFn = function ($linea, $mesesActivos) { return array_fill(0, count($mesesActivos), (float) $linea['valor_mensual_unico']); };
-	list($rumasRows, $marcaHeadRuma, $mesesHeadRuma, $totalHeadRuma) = tabla_marca_html($detalle['lineas']['ruma'], $mesesActivos, $mesesCorto, $rumaValorFn, 20, 62, 18);
+	list($rumasRows, $marcaHeadRuma, $mesesHeadRuma, $totalHeadRuma) = tabla_marca_html($detalle['lineas']['ruma'], $mesesActivos, $mesesCorto, $rumaValorFn, 20, 62, 18, $fmt);
 
 	$rumaLegendRows = '';
 	$marcasVistas = [];
 	foreach ($detalle['lineas']['ruma'] as $linea) {
 		if ($linea['marca'] === '' || isset($marcasVistas[$linea['marca']])) continue;
 		$marcasVistas[$linea['marca']] = true;
-		$rumaLegendRows .= '<tr><td>'.h($linea['marca']).'</td><td class="num">'.moneda($linea['valor_mensual_unico']).'</td></tr>';
+		$rumaLegendRows .= '<tr><td>'.h($linea['marca']).'</td><td class="num">'.$fmt($linea['valor_mensual_unico']).'</td></tr>';
 	}
 	if ($rumaLegendRows === '') $rumaLegendRows = '<tr><td colspan="2" class="vacio">Sin datos</td></tr>';
 
-	// Sin subtítulo propio a propósito: va bajo el título combinado "3.b.
+	// Sin subtítulo propio a propósito: va bajo el título combinado "2.b.
 	// Espacio en Perchas & Rumas" (el usuario pidió sacar el título "3.c",
 	// no la tabla).
 	$anchoMesPerchaPct = $cantidadMeses > 0 ? 38 / $cantidadMeses : 0;
@@ -229,8 +256,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 		$valores = valores_por_mes($linea, $mesesActivos);
 		$total = array_sum($valores);
 		$perchaRows .= '<tr><td>'.h($linea['marca']).'</td><td class="ctr">'.h($linea['participacion'] !== '' ? $linea['participacion'] : '—').'</td><td class="ctr">'.(int) $linea['cantidad_max_percha'].'</td>';
-		foreach ($valores as $v) $perchaRows .= '<td class="num">'.moneda($v).'</td>';
-		$perchaRows .= '<td class="num">'.moneda($total).'</td></tr>';
+		foreach ($valores as $v) $perchaRows .= '<td class="num">'.$fmt($v).'</td>';
+		$perchaRows .= '<td class="num">'.$fmt($total).'</td></tr>';
 	}
 	if ($perchaRows === '') {
 		$colspanPercha = 3 + $cantidadMeses + 1;
@@ -291,7 +318,7 @@ td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word;
 
 <div class="doc-no"><span class="label">Documento No:</span><strong>'.h($detalle['documento_no']).'</strong></div>
 '.$logoHtml.'
-<h1>Acuerdo de Desarrollo de Negocios Canal '.($esDistribuidor ? 'Distribuidor' : 'Directo').'</h1>
+<h1>'.($esDistribuidor ? 'Acuerdo Comercial Canal Distribuidores' : 'Acuerdo de Desarrollo de Negocios Canal Directo').'</h1>
 
 <table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(5, $escala).';"><tr>
 	<td style="border:none; width:34%;"><span class="label">Estimado(a)</span><br><strong>'.h($esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor']).'</strong></td>
@@ -302,20 +329,20 @@ td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word;
 <p>JABONERÍA WILSON S.A. y '.h($detalle['distribuidor']).' celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.</p>
 <p><span class="label">Periodo del acuerdo</span> <strong>'.h($periodoTexto).'</strong></p>
 
-<p class="subtitulo">1. Meta de Compras en Dólares'.($esDistribuidor ? ' + Home Care Jw' : '<br>Home Care').'</p>
-<p class="hint">Dólares comprados por categoría sin considerar bonificación/descuentos.</p>
+<p class="subtitulo">'.($esDistribuidor ? '1. Meta de Compras en Cajas' : '1. Meta de Compras en Dólares<br>Home Care').'</p>
+<p class="hint">'.($esDistribuidor ? 'Cajas compradas por categoría sin considerar cajas a título gratuito por bonificación/descuentos.' : 'Dólares comprados por categoría sin considerar bonificación/descuentos.').'</p>
 <table class="meta-tabla">
-	<thead><tr><th style="'.ancho_style($categoriaPct).'">Categoría</th>'.$mesesHeadHtml.'<th style="'.ancho_style($totalPct).'">Total Período</th><th style="'.ancho_style($rebatePct).'">Rebate</th><th style="'.ancho_style($estimadoPct).'">Estimado a Ganar</th></tr></thead>
+	<thead><tr><th style="'.ancho_style($categoriaPct).'">Categoría</th>'.$mesesHeadHtml.'<th style="'.ancho_style($totalPct).'">Total Período</th><th style="'.ancho_style($rebatePct).'">Rebate</th><th style="'.ancho_style($estimadoPct).'">'.($esDistribuidor ? 'Cajas Estimadas a Ganar' : 'Estimado a Ganar').'</th></tr></thead>
 	<tbody>'.$metaRows.'</tbody>
 	<tfoot><tr class="total-row"><td>Total</td>';
-	foreach ($metaSums as $s) $html .= '<td class="num">'.moneda($s).'</td>';
-	$html .= '<td class="num">'.moneda($metaGrandTotal).'</td><td class="ctr">—</td><td class="num">'.moneda($metaGrandEst).'</td></tr></tfoot>
+	foreach ($metaSums as $s) $html .= '<td class="num">'.$fmt($s).'</td>';
+	$html .= '<td class="num">'.$fmt($metaGrandTotal).'</td><td class="ctr">—</td><td class="num">'.$fmt($metaGrandEst).'</td></tr></tfoot>
 </table>
 
 <div class="condiciones">
 	<h3>Condiciones</h3>
 	<ul>
-		<li><strong>a)</strong> Cumplir con la meta del período en dólares netos al 100%.</li>
+		<li><strong>a)</strong> Cumplir con la meta del período en '.($esDistribuidor ? 'cajas netas' : 'dólares netos').' al 100%.</li>
 		<li><strong>b)</strong> Para liquidación del rebate se debe considerar:
 			<ul>
 				<li>Cumplir con el 100% de la cuota total del período.</li>
@@ -327,15 +354,16 @@ td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word;
 	</ul>
 </div>
 
-'.($esDistribuidor ? '' : '
-<p class="subtitulo">3.a. Extravisibilidad: Cabeceras</p>
+'.($ocultarVisibilidad ? '' : '
+<p class="subtitulo">2. Visibilidad</p>
+<p class="subtitulo">2.a. Extravisibilidad: Cabeceras</p>
 <p class="hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro.<br>Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.</p>
 <table class="meta-tabla">
 	<thead><tr>'.$marcaHeadCab.$mesesHeadCab.$totalHeadCab.'</tr></thead>
 	<tbody>'.$cabecerasRows.'</tbody>
 </table>
 
-<p class="subtitulo">3.b. Espacio en Perchas &amp; Rumas</p>
+<p class="subtitulo">2.b. Espacio en Perchas &amp; Rumas</p>
 <p class="hint">Se cancelará el valor acordado si, durante todo el período del acuerdo, las categorías mantienen el espacio acordado. La participación se considerará por número de caras/display.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.<br>El espacio debe estar demarcado con preciadores, polipasacalle, cenefas y cualquier otro elemento de visibilidad.</p>
 <table style="border:none;"><tr>
 	<td style="border:none; width:78%; vertical-align:top; padding:0;">
@@ -361,23 +389,53 @@ td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word;
 
 <p class="subtitulo">Consideraciones Generales</p>
 <p style="margin:'.px(3, $escala).' 0;">Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>
-<p style="margin:'.px(3, $escala).' 0;">La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito. El plazo para emitir la nota de crédito es hasta 2 meses luego de finalizar el periodo del acuerdo.</p>
+<p style="margin:'.px(3, $escala).' 0;">'.($esDistribuidor
+		? 'La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de producto. El plazo para entregar el producto es hasta 2 meses luego de finalizar el periodo del acuerdo.'
+		: 'La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito. El plazo para emitir la nota de crédito es hasta 2 meses luego de finalizar el periodo del acuerdo.').'</p>
 <p style="margin:'.px(3, $escala).' 0 '.px(14, $escala).';">Como constancia del presente convenio, firman de común acuerdo las partes.</p>
 
 <div class="firmas-footer">
-
+'.($esDistribuidor && $sinVisibilidad ? '
+<!-- Layout de 3 firmas (Distribuidor + sin visibilidad únicamente,
+     confirmado con el usuario 2026-08-24 contra una captura real del
+     formato físico) — Distribuidor CON visibilidad y Directo siguen con
+     las 2 firmas de siempre, más abajo. Cada línea lleva "OBLIGATORIO"
+     arriba (así lo exige el formato físico). La izquierda mantiene el
+     nombre real autocompletado de quién generó el Acta (ya existía,
+     confirmado que se mantiene); las otras 2 quedan en blanco para llenar
+     a mano, no hay de dónde autocompletarlas. -->
+<table style="border:none;"><tr>
+	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
+		<p class="label" style="margin:0;">Obligatorio</p>
+		<div class="firma-linea-firmar"></div>
+		<p style="margin:0; font-weight:bold;">'.$nombreEjecutivoHtml.'</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Desarrollador de Mercado</p>
+	</td>
+	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
+		<p class="label" style="margin:0;">Obligatorio</p>
+		<div class="firma-linea-firmar"></div>
+		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial (distribuidor)</p>
+	</td>
+</tr></table>
+<div style="text-align:center; margin-top:'.px(14, $escala).';">
+	<p class="label" style="margin:0;">Obligatorio</p>
+	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(32, $escala).' auto;"></div>
+	<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+	<p class="label" style="margin-top:'.px(8, $escala).';">Jefe Comercial</p>
+</div>' : '
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>
 		<p style="margin:0; font-weight:bold;">'.$nombreEjecutivoHtml.'</p>
-		<p class="label" style="margin-top:'.px(8, $escala).';">Ejecutivo Comercial</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">'.($esDistribuidor ? 'Desarrollador de Mercado' : 'Ejecutivo Comercial').'</p>
 	</td>
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
 		<div class="firma-linea-firmar"></div>
 		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
 		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe Comercial</p>
 	</td>
-</tr></table>
+</tr></table>').'
 
 <div style="text-align:center; margin-top:'.px(20, $escala).';">
 	<p style="margin:0;">Jabonería Wilson<br><strong>ACEPTACIÓN DEL PRESENTE CONVENIO POR PARTE DEL CLIENTE</strong></p>

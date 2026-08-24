@@ -103,71 +103,90 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 		</div>
 	</section>
 
-	<!-- 3. Visibilidad y Espacios -->
-	<div class="ac-acuerdo-section-title">
-		<span class="material-symbols-outlined">visibility</span>
-		<h2>3. Visibilidad y Espacios</h2>
+	<!-- 2. Visibilidad y Espacios -->
+	<!-- Numeración 2./2.a/2.b/2.c (2026-08-24, antes 3./3.a/3.b/3.c): alineada
+	     con includes/acta_pdf.php y con los Excel reales del cliente
+	     ("FORMATO DTS CON/SIN VISIBILIDAD.xlsx", que numeran "1. Meta de
+	     Compras" seguido directo de "2. Visibilidad") — para que el número
+	     que ve el analista acá sea el mismo que sale impreso en el Acta.
+	     Switch "Visibilidad y Espacios": al desactivarlo bloquea visualmente
+	     (y limpia) las 3 tablas de abajo — con eso, el Acta sale en el
+	     formato "sin visibilidad" (sin Cabeceras ni Rumas&Perchas, ver
+	     includes/acta_pdf.php $sinVisibilidad); activado (default) es el
+	     formato de siempre. Reusa el mismo componente .ac-switch/.ac-slider
+	     de Gestión de Usuarios (ver includes/functions.php). -->
+	<div class="ac-acuerdo-section-title ac-acuerdo-section-title-split">
+		<div class="ac-card-header-title">
+			<span class="material-symbols-outlined" id="ac-visibilidad-icon">visibility</span>
+			<h2>2. Visibilidad y Espacios</h2>
+		</div>
+		<label class="ac-switch" title="Activar o desactivar Visibilidad y Espacios">
+			<input type="checkbox" id="ac-visibilidad-toggle" checked>
+			<span class="ac-slider"></span>
+		</label>
 	</div>
 
-	<!-- 3.a Cabeceras -->
-	<section class="ac-card ac-acuerdo-section">
-		<div class="ac-card-header ac-card-header-split">
-			<h3>3.a. Extravisibilidad: Cabeceras</h3>
-			<button type="button" class="ac-btn-secondary" id="ac-add-cabecera-row">
-				<span class="material-symbols-outlined">add</span> Agregar Fila
-			</button>
-		</div>
-		<div class="ac-table-scroll" id="ac-cabeceras-container">
-			<table class="ac-table ac-table-acuerdo ac-table-bordered" id="ac-cabeceras-table">
-				<thead id="ac-cabeceras-head"></thead>
-				<tbody id="ac-cabeceras-body"></tbody>
-			</table>
-		</div>
-	</section>
-
-	<!-- 3.b Rumas -->
-	<section class="ac-card ac-acuerdo-section">
-		<div class="ac-card-header ac-card-header-split">
-			<h3>3.b. Espacio: Rumas</h3>
-			<button type="button" class="ac-btn-secondary" id="ac-add-ruma-row">
-				<span class="material-symbols-outlined">add</span> Agregar Fila
-			</button>
-		</div>
-		<div class="ac-acuerdo-rumas-layout">
-			<div class="ac-table-scroll" id="ac-rumas-container">
-				<table class="ac-table ac-table-acuerdo ac-table-bordered" id="ac-rumas-table">
-					<thead id="ac-rumas-head"></thead>
-					<tbody id="ac-rumas-body"></tbody>
+	<div id="ac-visibilidad-zona">
+		<!-- 2.a Cabeceras -->
+		<section class="ac-card ac-acuerdo-section">
+			<div class="ac-card-header ac-card-header-split">
+				<h3>2.a. Extravisibilidad: Cabeceras</h3>
+				<button type="button" class="ac-btn-secondary" id="ac-add-cabecera-row">
+					<span class="material-symbols-outlined">add</span> Agregar Fila
+				</button>
+			</div>
+			<div class="ac-table-scroll" id="ac-cabeceras-container">
+				<table class="ac-table ac-table-acuerdo ac-table-bordered" id="ac-cabeceras-table">
+					<thead id="ac-cabeceras-head"></thead>
+					<tbody id="ac-cabeceras-body"></tbody>
 				</table>
 			</div>
-			<div class="ac-acuerdo-rumas-legend">
-				<table class="ac-table ac-table-bordered">
-					<thead>
-						<tr><th colspan="2">Valor Ruma x Marca x Mes</th></tr>
-						<tr><th>Marca</th><th class="ac-text-right">Valor x Mes</th></tr>
-					</thead>
-					<tbody id="ac-rumas-legend-body"></tbody>
+		</section>
+
+		<!-- 2.b Rumas -->
+		<section class="ac-card ac-acuerdo-section">
+			<div class="ac-card-header ac-card-header-split">
+				<h3>2.b. Espacio: Rumas</h3>
+				<button type="button" class="ac-btn-secondary" id="ac-add-ruma-row">
+					<span class="material-symbols-outlined">add</span> Agregar Fila
+				</button>
+			</div>
+			<div class="ac-acuerdo-rumas-layout">
+				<div class="ac-table-scroll" id="ac-rumas-container">
+					<table class="ac-table ac-table-acuerdo ac-table-bordered" id="ac-rumas-table">
+						<thead id="ac-rumas-head"></thead>
+						<tbody id="ac-rumas-body"></tbody>
+					</table>
+				</div>
+				<div class="ac-acuerdo-rumas-legend">
+					<table class="ac-table ac-table-bordered">
+						<thead>
+							<tr><th colspan="2">Valor Ruma x Marca x Mes</th></tr>
+							<tr><th>Marca</th><th class="ac-text-right">Valor x Mes</th></tr>
+						</thead>
+						<tbody id="ac-rumas-legend-body"></tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		<!-- 2.c Perchas -->
+		<section class="ac-card ac-acuerdo-section">
+			<div class="ac-card-header ac-card-header-split">
+				<h3>2.c. Espacio: Perchas</h3>
+				<button type="button" class="ac-btn-secondary" id="ac-add-percha-row">
+					<span class="material-symbols-outlined">add</span> Agregar Fila
+				</button>
+			</div>
+			<div class="ac-table-scroll" id="ac-perchas-container">
+				<table class="ac-table ac-table-acuerdo ac-table-bordered" id="ac-perchas-table">
+					<thead id="ac-perchas-head"></thead>
+					<tbody id="ac-perchas-body"></tbody>
 				</table>
 			</div>
-		</div>
-	</section>
-
-	<!-- 3.c Perchas -->
-	<section class="ac-card ac-acuerdo-section">
-		<div class="ac-card-header ac-card-header-split">
-			<h3>3.c. Espacio: Perchas</h3>
-			<button type="button" class="ac-btn-secondary" id="ac-add-percha-row">
-				<span class="material-symbols-outlined">add</span> Agregar Fila
-			</button>
-		</div>
-		<div class="ac-table-scroll" id="ac-perchas-container">
-			<table class="ac-table ac-table-acuerdo ac-table-bordered" id="ac-perchas-table">
-				<thead id="ac-perchas-head"></thead>
-				<tbody id="ac-perchas-body"></tbody>
-			</table>
-		</div>
-		<p class="ac-field-hint ac-acuerdo-percha-hint">El máximo de perchas por marca es 5.</p>
-	</section>
+			<p class="ac-field-hint ac-acuerdo-percha-hint">El máximo de perchas por marca es 5.</p>
+		</section>
+	</div>
 
 	<!-- Footer -->
 	<div class="ac-acuerdo-footer">
