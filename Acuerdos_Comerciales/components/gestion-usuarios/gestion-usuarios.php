@@ -55,7 +55,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 
 				<div class="ac-field">
 					<label class="ac-field-label" for="nu-rol">Rol del Usuario</label>
-					<select class="ac-select" id="nu-rol" name="rol" required>
+					<select class="ac-select ac-select-bonito-auto" id="nu-rol" name="rol" required>
 						<option value="desarrollador">Desarrollador</option>
 						<option value="superdesarrollador">Superdesarrollador</option>
 					</select>
@@ -63,7 +63,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 
 				<div class="ac-field">
 					<label class="ac-field-label" for="nu-supervisor">Supervisor (Canal Directo/Distribuidor)</label>
-					<select class="ac-select" id="nu-supervisor" name="supervisor">
+					<select class="ac-select ac-select-bonito-auto" id="nu-supervisor" name="supervisor">
 						<option value="">Sin asignar</option>
 						<?php foreach ($supervisores as $s): ?>
 							<?php if (isset($supervisoresAsignados[$s])) continue; // ya tiene cuenta, no se puede repetir ?>
@@ -166,7 +166,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 
 			<div class="ac-field">
 				<label class="ac-field-label" for="rl-rol">Rol del Usuario</label>
-				<select class="ac-select" id="rl-rol" name="rol" required>
+				<select class="ac-select ac-select-bonito-auto" id="rl-rol" name="rol" required>
 					<option value="desarrollador">Desarrollador</option>
 					<option value="superdesarrollador">Superdesarrollador</option>
 				</select>
@@ -174,7 +174,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 
 			<div class="ac-field">
 				<label class="ac-field-label" for="rl-supervisor">Supervisor (Canal Directo/Distribuidor)</label>
-				<select class="ac-select" id="rl-supervisor" name="supervisor">
+				<select class="ac-select ac-select-bonito-auto" id="rl-supervisor" name="supervisor">
 					<option value="">Sin asignar</option>
 					<?php foreach ($supervisores as $s): ?>
 						<?php $tomadoPor = $supervisoresAsignados[$s] ?? null; ?>

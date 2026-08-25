@@ -88,14 +88,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<span class="material-symbols-outlined">search</span>
 				<input type="text" class="ac-input" id="hist-buscar" placeholder="Buscar por distribuidor..." value="<?= htmlspecialchars($busqueda) ?>">
 			</div>
-			<select class="ac-select ac-hist-periodo" id="hist-trimestre">
+			<select class="ac-select ac-hist-periodo ac-select-bonito-auto" id="hist-trimestre">
 				<option value="0">Todos los períodos</option>
 				<option value="1" <?= $trimestre === 1 ? 'selected' : '' ?>>Q1 (Ene-Mar)</option>
 				<option value="2" <?= $trimestre === 2 ? 'selected' : '' ?>>Q2 (Abr-Jun)</option>
 				<option value="3" <?= $trimestre === 3 ? 'selected' : '' ?>>Q3 (Jul-Sep)</option>
 				<option value="4" <?= $trimestre === 4 ? 'selected' : '' ?>>Q4 (Oct-Dic)</option>
 			</select>
-			<select class="ac-select ac-hist-anio" id="hist-anio">
+			<select class="ac-select ac-hist-anio ac-select-bonito-auto" id="hist-anio">
 				<option value="0">Todos los años</option>
 				<?php foreach ($aniosDisponibles as $a): ?>
 					<option value="<?= $a ?>" <?= $anio === $a ? 'selected' : '' ?>><?= $a ?></option>
@@ -165,6 +165,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<div class="ac-firma-panel">
 				<p class="ac-firma-panel-label">Acta Generada</p>
 				<iframe id="hist-firma-original-frame" class="ac-firma-panel-frame" title="Acta generada"></iframe>
+				<button type="button" class="ac-icon-btn ac-firma-panel-ampliar" id="hist-firma-ampliar-original" title="Ampliar">
+					<span class="material-symbols-outlined">open_in_full</span>
+				</button>
 			</div>
 			<div class="ac-firma-panel">
 				<p class="ac-firma-panel-label">Acta Firmada</p>
@@ -174,6 +177,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 						<p>Selecciona una foto o PDF del Acta firmada para compararla acá</p>
 					</div>
 				</div>
+				<button type="button" class="ac-icon-btn ac-firma-panel-ampliar hidden" id="hist-firma-ampliar-firmada" title="Ampliar">
+					<span class="material-symbols-outlined">open_in_full</span>
+				</button>
 			</div>
 		</div>
 		<div class="ac-firma-modal-footer no-print">

@@ -61,7 +61,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 				<label class="ac-field-label" for="ac-periodo-select">Periodo del Acuerdo</label>
 				<!-- Los meses se manejan en trimestres fijos (Q1-Q4), ya no rango
 				     libre — pedido explícito 2026-08-18, ver CLAUDE.md. -->
-				<select class="ac-select" id="ac-periodo-select">
+				<select class="ac-select ac-select-bonito-auto" id="ac-periodo-select">
 					<option value="0" selected>Q1 (Enero - Marzo)</option>
 					<option value="1">Q2 (Abril - Junio)</option>
 					<option value="2">Q3 (Julio - Septiembre)</option>
@@ -70,7 +70,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			</div>
 			<div class="ac-field">
 				<label class="ac-field-label" for="ac-anio">Año</label>
-				<select class="ac-select" id="ac-anio">
+				<select class="ac-select ac-select-bonito-auto" id="ac-anio">
 					<?php foreach ($anios as $a): ?>
 						<option value="<?= $a ?>" <?= $a === $anioActual ? 'selected' : '' ?>><?= $a ?></option>
 					<?php endforeach; ?>

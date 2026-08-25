@@ -10,6 +10,8 @@
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
 	var exportarCuotaLink = document.getElementById('hist-exportar-cuota');
 	var tbody           = document.getElementById('hist-tabla-body');
+	var tablaCard       = tbody.closest('.ac-card');
+	var actualizarBtn   = document.getElementById('hist-actualizar');
 	var paginacionEl    = document.getElementById('hist-paginacion');
 	var paginacionInfo  = document.getElementById('hist-paginacion-info');
 	var paginacionBtns  = document.getElementById('hist-paginacion-btns');
@@ -120,6 +122,14 @@
 		// (el Excel es de Cuota/Categoría, no distingue si ya está firmada).
 		exportarCuotaLink.href = 'getters/exportar_cuota_categoria.php?q=' + encodeURIComponent(q) + filtrosQs;
 
+		// Feedback de carga (2026-08-25, pedido explícito — "le doy
+		// Actualizar y no pasa nada"): ícono de Actualizar gira + overlay
+		// sobre la card de la tabla mientras el fetch está en curso, sin
+		// importar qué lo haya disparado (Actualizar, buscar, cambiar
+		// período/año, paginar) — antes no había NINGUNA señal visible.
+		acBotonCargando(actualizarBtn, true);
+		acMostrarCargando(tablaCard);
+
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -130,6 +140,13 @@
 				paginacionInfo.innerHTML = 'Mostrando <strong>' + data.mostrando + '</strong> de <strong>' + data.total + '</strong> acuerdos';
 				renderPaginacionBtns(data.pagina, data.total_paginas);
 				if (data.stats) renderStats(data.stats);
+			})
+			.catch(function () {
+				mostrarToast('Error de conexión al cargar el historial.', 'error');
+			})
+			.finally(function () {
+				acBotonCargando(actualizarBtn, false);
+				acOcultarCargando(tablaCard);
 			});
 	}
 
@@ -252,7 +269,16 @@
 	function abrirDetalle(id) {
 		// &t= evita que el navegador reuse un PDF viejo cacheado con la misma URL ?id=X.
 		var url = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
-		pdfFrame.src = url;
+		// #toolbar=0&navpanes=0&zoom=page-width (2026-08-25, reportado con
+		// captura real: el Acta se veía chiquita, perdida en medio de un
+		// área gris grande) — sin esto el visor nativo de PDF arranca en su
+		// zoom "automático" (que en un iframe angosto en mobile termina
+		// alejado, con el toolbar nativo de Chrome ocupando espacio de
+		// arriba, redundante con el botón "Descargar / Imprimir PDF" que ya
+		// está en la barra de esta misma pantalla). "page-width" fuerza que
+		// la página ocupe todo el ancho disponible del iframe — el usuario
+		// igual puede seguir haciendo pinch-zoom nativo para acercar más.
+		pdfFrame.src = url + '#toolbar=0&navpanes=0&zoom=page-width';
 		descargarBtn.href = url;
 		vistaLista.classList.add('hidden');
 		vistaPreview.classList.remove('hidden');
@@ -278,6 +304,8 @@
 	var firmaElegirBtn     = document.getElementById('hist-firma-elegir-btn');
 	var firmaGuardarBtn    = document.getElementById('hist-firma-guardar-btn');
 	var firmaFileInput     = document.getElementById('hist-firma-file-input');
+	var firmaAmpliarOriginalBtn = document.getElementById('hist-firma-ampliar-original');
+	var firmaAmpliarFirmadaBtn  = document.getElementById('hist-firma-ampliar-firmada');
 
 	var firmaAcuerdoIdActual = null;
 	var firmaArchivoElegido  = null;
@@ -290,6 +318,7 @@
 		firmaPreviewArea.innerHTML = '<div class="ac-firma-preview-vacio">' +
 			'<span class="material-symbols-outlined">add_a_photo</span>' +
 			'<p>' + escapeHtml(mensaje) + '</p></div>';
+		firmaAmpliarFirmadaBtn.classList.add('hidden');
 	}
 
 	function mostrarPreviewArchivoElegido(archivo) {
@@ -302,6 +331,7 @@
 			firmaPreviewArea.innerHTML = '<img alt="Vista previa del archivo elegido">';
 			firmaPreviewArea.querySelector('img').src = firmaObjectUrl;
 		}
+		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 	}
 
 	// Foto → <img> (se ajusta/centra con object-fit igual que la vista previa
@@ -318,7 +348,24 @@
 			firmaPreviewArea.innerHTML = '<iframe title="Acta firmada ya subida"></iframe>';
 			firmaPreviewArea.querySelector('iframe').src = url;
 		}
+		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 	}
+
+	// Botones "Ampliar" (2026-08-25, pedido explícito): el panel de Acta
+	// Generada siempre es un PDF — "ampliar" ahí abre el PDF real en una
+	// pestaña nueva (el visor nativo ya trae su propio zoom/pinch). El panel
+	// de Acta Firmada puede ser foto o PDF — foto abre el lightbox global
+	// (zoom con los dedos, sin reinventar nada, ver assets/js/lightbox.js);
+	// PDF también va a pestaña nueva, mismo criterio que el otro panel.
+	firmaAmpliarOriginalBtn.addEventListener('click', function () {
+		if (firmaOriginalFrame.src) window.open(firmaOriginalFrame.src, '_blank');
+	});
+	firmaAmpliarFirmadaBtn.addEventListener('click', function () {
+		var img = firmaPreviewArea.querySelector('img');
+		if (img && img.src) { window.acAbrirLightbox(img.src); return; }
+		var iframe = firmaPreviewArea.querySelector('iframe');
+		if (iframe && iframe.src) window.open(iframe.src, '_blank');
+	});
 
 	function abrirModalFirma(id, documentoNo, tieneFirma, mime) {
 		firmaAcuerdoIdActual = id;

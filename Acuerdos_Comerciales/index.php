@@ -19,6 +19,9 @@ $secciones = $secciones_visibles;
 
 $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
+$select_bonito_js_v = @filemtime(__DIR__.'/assets/js/select-bonito.js') ?: time();
+$cargando_js_v = @filemtime(__DIR__.'/assets/js/cargando.js') ?: time();
+$lightbox_js_v = @filemtime(__DIR__.'/assets/js/lightbox.js') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -37,6 +40,9 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= $style_v ?>">
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 	<script src="assets/js/toast.js?v=<?= $toast_js_v ?>"></script>
+	<script src="assets/js/cargando.js?v=<?= $cargando_js_v ?>"></script>
+	<script src="assets/js/select-bonito.js?v=<?= $select_bonito_js_v ?>" defer></script>
+	<script src="assets/js/lightbox.js?v=<?= $lightbox_js_v ?>" defer></script>
 </head>
 <body>
 
@@ -71,6 +77,20 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 			</div>
 			<?php endforeach; ?>
 		</main>
+	</div>
+
+	<!-- Lightbox de imágenes, reusable a nivel proyecto (2026-08-25): un solo
+	     overlay global, cualquier módulo lo abre llamando
+	     window.acAbrirLightbox(srcDeLaImagen) — ver assets/js/lightbox.js.
+	     No hace zoom "a mano": el viewport de la app nunca deshabilita el
+	     pinch-zoom nativo (sin user-scalable=no/maximum-scale), así que el
+	     zoom real lo hace el propio navegador sobre esta imagen a pantalla
+	     completa. -->
+	<div class="ac-lightbox-overlay" id="acLightboxOverlay">
+		<button type="button" class="ac-lightbox-close" id="acLightboxClose" aria-label="Cerrar">
+			<span class="material-symbols-outlined">close</span>
+		</button>
+		<img id="acLightboxImg" alt="Imagen ampliada">
 	</div>
 
 	<script>

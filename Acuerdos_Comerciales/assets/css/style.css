@@ -66,6 +66,15 @@ body {
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 var(--space-lg);
+	/* Red de seguridad (2026-08-25): justify-content:space-between separa
+	   los 2 grupos SOLO si sobra espacio — si el contenido real llega a
+	   pesar más que el ancho disponible en algún instante (ej. un reflow a
+	   mitad de un cambio de fuente en una conexión lenta), flexbox no evita
+	   que se superpongan, solo los reparte. overflow:hidden acá no arregla
+	   la causa (el min-width:0 + flex-shrink de abajo ya la arregla en el
+	   caso estable), pero garantiza que un estado transitorio se vea
+	   recortado en vez de con texto superpuesto ilegible. */
+	overflow: hidden;
 }
 .ac-header-brand-group { display: flex; align-items: center; }
 .ac-brand { display: flex; align-items: center; padding: 0 var(--space-xl); }
@@ -393,13 +402,51 @@ body {
    padding grande de .ac-brand (pensado para desktop sin ese botón) sobra;
    y el nombre+rol completo puede no entrar junto al avatar en un celular
    chico — se oculta el rol primero (el nombre solo ya identifica a quién
-   está logueado). */
+   está logueado). Bug real encontrado en vivo (2026-08-25): sin
+   min-width:0 en toda la cadena .ac-header-user->.ac-header-user-info, el
+   nombre ("JAVIER MALDONADO") no se encogía ni truncaba — se pegaba
+   directo contra el logo (sin espacio) y encima se partía en 2 líneas.
+   .ac-header-brand-group con flex-shrink:0 para que la marca/hamburguesa
+   nunca se compriman — si algo cede espacio, que sea el nombre (con "…"),
+   no el logo. */
 @media (max-width: 900px) {
-	.ac-header-inner { padding: 0 var(--space-md); }
+	.ac-header-inner { padding: 0 var(--space-md); gap: var(--space-md); }
 	.ac-brand { padding: 0; }
+	.ac-header-brand-group { flex-shrink: 0; }
+	.ac-header-user { min-width: 0; flex-shrink: 1; }
+	.ac-header-user-info { min-width: 0; }
+	.ac-header-user-info .nombre, .ac-header-user-info .rol {
+		white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+	}
 }
+/* 3ra vuelta (2026-08-25, pedido explícito): en vez de truncar el nombre
+   con "…" (perdés info real — no ves el apellido completo), bajo 480px
+   (donde el rol ya se oculta) el nombre pasa a envolver en 2 líneas. Con
+   el rol oculto sobra alto de sobra dentro de la fila de 80px del header
+   (2 líneas de 14px ≈ 34-40px), así que no hace falta agrandar
+   .ac-header-inner (su altura fija de 80px la asume TODO el resto del
+   layout — .ac-sidebar usa top:80px/height:calc(100vh - 80px), tocarla acá
+   rompería eso). */
 @media (max-width: 480px) {
 	.ac-header-user-info .rol { display: none; }
+	.ac-header-user-info .nombre {
+		max-width: 130px;
+		white-space: normal;
+		overflow: visible;
+		text-overflow: clip;
+		overflow-wrap: break-word;
+		text-align: right;
+		line-height: 1.25;
+	}
+}
+/* 2da vuelta (2026-08-25): a 320-380px el gap entre el logo y el nombre
+   quedaba en el mínimo técnico (8px, el "gap" de .ac-header-inner) — sin
+   overlap real (confirmado midiendo con getBoundingClientRect en el sitio
+   real, no solo mirando), pero visualmente se lee apretado/pegado. Achicar
+   el logo (nunca se encogía, flex-shrink:0) en este rango deja aire de
+   verdad en vez de pelear por el mínimo posible. */
+@media (max-width: 380px) {
+	.ac-brand-logo { height: 34px; }
 }
 
 /* .ac-content es flex:1 dentro de .ac-shell — sin overflow-x:hidden, un ítem
@@ -443,6 +490,11 @@ body {
 	border: 1px solid var(--color-outline-variant);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
+	/* position:relative para poder anclar .ac-cargando-overlay (ver más
+	   abajo) dentro de cualquier card sin tener que acordarse de agregarlo
+	   card por card — no cambia el layout de nada, solo establece el
+	   contexto de posicionamiento. */
+	position: relative;
 }
 .ac-card-header {
 	display: flex;
@@ -517,6 +569,26 @@ body {
 .ac-toast-warning .ac-toast-bar { background: #f9a825; }
 .ac-toast-info .ac-toast-bar { background: #1976d2; }
 @keyframes ac-toast-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---------- Feedback de carga, reusable a nivel proyecto (2026-08-25) ----------
+   El usuario reportó "le doy Actualizar y no pasa nada" en Historial — el
+   fetch() de verdad tarda (más en 3G/4G), pero no había NINGUNA señal
+   visible de que algo estaba pasando. assets/js/cargando.js expone
+   acBotonCargando(btn, true/false) (ícono con .ac-spin + botón
+   deshabilitado mientras carga) y acMostrarCargando(contenedor)/
+   acOcultarCargando(contenedor) (overlay semitransparente con spinner
+   centrado, ancla sobre cualquier .ac-card gracias al position:relative de
+   arriba) — pensado para reusarse en cualquier fetch() de cualquier
+   módulo, no solo Historial. */
+@keyframes ac-spin { to { transform: rotate(360deg); } }
+.ac-spin { animation: ac-spin 0.8s linear infinite; display: inline-flex; }
+.ac-cargando-overlay {
+	position: absolute; inset: 0;
+	background: rgba(255, 255, 255, 0.72);
+	display: flex; align-items: center; justify-content: center;
+	z-index: 10;
+}
+.ac-cargando-overlay .material-symbols-outlined { font-size: 32px; color: var(--color-primary); }
 
 .ac-search-wrap { max-width: 260px; width: 100%; }
 .ac-search-input { padding: 10px 16px 10px 40px; border-radius: var(--radius-full); font-size: 14px; }
@@ -772,7 +844,48 @@ body {
 	white-space: normal; overflow-wrap: break-word; word-break: break-word; line-height: 1.3;
 }
 .ac-combo-option:hover { background: var(--color-surface-container-high); }
+.ac-combo-option-activa { background: var(--color-surface-container-high); font-weight: 700; color: var(--color-primary); }
 .ac-combo-empty { padding: 10px var(--space-md); font-size: 13px; color: var(--color-outline); }
+
+/* ---------- "Select bonito": reemplazo del <select> nativo (2026-08-25) ----------
+   El dropdown ABIERTO de un <select> nativo es UI del sistema operativo
+   (Android/iOS) — no se puede restylear con CSS, así que un select con
+   pocas opciones cortas termina viéndose enorme/desproporcionado en
+   mobile (reportado con captura real). assets/js/select-bonito.js
+   reemplaza la INTERACCIÓN (no el dato: el <select> real sigue existiendo,
+   oculto, como única fuente de verdad — su .value cambia y dispara
+   'change' real, así que todo el código que ya escucha 'change' sobre el
+   select sigue funcionando sin tocarlo) por un trigger + panel con el
+   mismo look que el combobox de Registrar (reusa .ac-combo-panel/
+   .ac-combo-option de arriba, cero CSS nuevo para el panel en sí). */
+.ac-select-bonito { position: relative; }
+.ac-select-bonito select { display: none; }
+/* Bug real encontrado en vivo con el barrido de anchos (2026-08-25): el
+   wrapper hereda TODAS las clases del <select> original (select-bonito.js),
+   incluida ".ac-select" — necesaria para que herede layout como
+   "grid-area" en los filtros de Historial, pero ".ac-select" TAMBIÉN trae
+   padding/borde/fondo visuales (pensados para un select real). Con eso el
+   wrapper terminaba siendo una caja completa (padding 12px/16px + borde)
+   ENVOLVIENDO al trigger, que adentro vuelve a tener su propia caja — el
+   trigger quedaba angosto por el padding duplicado del wrapper, en vez de
+   ocupar el ancho completo que el grid ya le había asignado (confirmado:
+   el label del select terminaba con 19-65px de ancho real en vez de los
+   ~140px esperados). Esta regla desarma el visual del wrapper (que solo
+   debe aportar layout) dejando el look real del select únicamente en
+   `.ac-select-bonito-trigger`. */
+.ac-select-bonito.ac-select { padding: 0; border: none; background: none; }
+.ac-select-bonito-trigger {
+	display: flex; align-items: center; justify-content: space-between;
+	width: 100%; text-align: left; cursor: pointer;
+	font-family: var(--font-body);
+}
+.ac-select-bonito-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-select-bonito-chevron {
+	flex-shrink: 0; margin-left: var(--space-sm); font-size: 20px;
+	color: var(--color-on-surface-variant); transition: transform 0.15s;
+}
+.ac-select-bonito-trigger-abierto .ac-select-bonito-chevron { transform: rotate(180deg); }
+.ac-select-bonito-trigger-abierto { border-color: var(--color-primary); }
 
 /* Celdas de Segmento/Categoría/Marca dentro de las 4 tablas: el texto elegido
    NUNCA debe ensanchar la columna (ya fijamos su ancho exacto en
@@ -1139,8 +1252,12 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
       visible, a lo ancho, en vez de un ícono más entre 4 del mismo tamaño. */
 @media (max-width: 700px) {
 	.ac-hist-header .ac-btn-group { width: 100%; }
-	#hist-actualizar, #hist-abrir-borradores { flex: 0 0 auto; }
-	#hist-actualizar .ac-btn-text, #hist-abrir-borradores .ac-btn-text { display: none; }
+	/* 2da vuelta (2026-08-25): el usuario pidió que se mantengan en la misma
+	   fila PERO con su nombre visible, mitad y mitad — no ícono pelado. */
+	#hist-actualizar, #hist-abrir-borradores { flex: 1 1 0; min-width: 0; justify-content: center; }
+	#hist-actualizar .ac-btn-text, #hist-abrir-borradores .ac-btn-text {
+		display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
 	#hist-nuevo-acuerdo { flex-basis: 100%; justify-content: center; }
 
 	/* min-width:0 en los 3 items del grid: mismo patrón de bug que ya se
@@ -1243,7 +1360,44 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	background: var(--color-outline-variant);
 	overflow: hidden;
 }
-.ac-firma-panel { display: flex; flex-direction: column; min-height: 0; background: var(--color-surface-container-lowest); }
+.ac-firma-panel { display: flex; flex-direction: column; min-height: 0; background: var(--color-surface-container-lowest); position: relative; }
+/* Botón "Ampliar" (2026-08-25, pedido explícito): las 2 previsualizaciones
+   del modal de Firma son chicas por diseño (van lado a lado) — hace falta
+   una forma de verlas grandes de verdad, con zoom, sobre todo en celular.
+   Ver .ac-lightbox-* más abajo y assets/js/lightbox.js. */
+.ac-firma-panel-ampliar {
+	position: absolute; top: var(--space-sm); right: var(--space-sm);
+	width: 32px; height: 32px;
+	background: rgba(26, 27, 34, 0.55); color: #fff;
+	z-index: 5;
+}
+.ac-firma-panel-ampliar:hover { background: rgba(26, 27, 34, 0.75); }
+
+/* ---------- Lightbox de imágenes, reusable a nivel proyecto (2026-08-25) ----------
+   Overlay único global (vive en index.php) — no reinventa el pinch-zoom:
+   el viewport de la app nunca tuvo user-scalable=no/maximum-scale, así que
+   alcanza con mostrar la imagen grande y dejar que el zoom nativo del
+   navegador haga el resto. */
+.ac-lightbox-overlay {
+	display: none;
+	position: fixed; inset: 0;
+	background: rgba(0, 0, 0, 0.92);
+	z-index: 300;
+	align-items: center; justify-content: center;
+	padding: var(--space-lg);
+	overflow: auto;
+}
+.ac-lightbox-overlay.ac-lightbox-open { display: flex; }
+.ac-lightbox-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ac-lightbox-close {
+	position: fixed; top: var(--space-md); right: var(--space-md);
+	width: 44px; height: 44px;
+	display: flex; align-items: center; justify-content: center;
+	border: none; border-radius: var(--radius-full);
+	background: rgba(255, 255, 255, 0.15); color: #fff; cursor: pointer;
+	z-index: 301;
+}
+.ac-lightbox-close:hover { background: rgba(255, 255, 255, 0.3); }
 .ac-firma-panel-label {
 	margin: 0; padding: var(--space-sm) var(--space-md);
 	font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
@@ -1382,7 +1536,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 
 .ac-repo-filtros { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); flex-wrap: wrap; border-bottom: 1px solid var(--color-outline-variant); }
 .ac-repo-filtros .ac-input-wrap { flex: 1 1 260px; min-width: 220px; }
-.ac-repo-actions { display: flex; align-items: center; gap: var(--space-sm); margin-left: auto; }
+.ac-repo-actions { display: flex; align-items: center; gap: var(--space-sm); margin-left: auto; flex-wrap: wrap; }
 
 /* "Exportar" morfa in-place a CSV/Excel (2026-08-24) — sin modal, sin
    dropdown flotante: el botón se encoge y las 2 opciones crecen en su

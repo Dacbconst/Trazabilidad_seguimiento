@@ -60,8 +60,15 @@
 	}
 
 	// ---------- Listado de importaciones ----------
+	var liqActualizarBtn = document.getElementById('liq-actualizar');
+	var liqTablaCard = tablaBody.closest('.ac-card');
 	function cargarImportaciones() {
 		tablaBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Cargando...</td></tr>';
+		// Mismo feedback de carga reusable que Historial (2026-08-25, ver
+		// assets/js/cargando.js) — el texto "Cargando..." de la fila de
+		// arriba ya estaba, pero el ícono de Actualizar se quedaba quieto.
+		acBotonCargando(liqActualizarBtn, true);
+		acMostrarCargando(liqTablaCard);
 		fetch('getters/listar_liquidacion_importaciones.php')
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -107,6 +114,10 @@
 			})
 			.catch(function () {
 				tablaBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Error al cargar las importaciones.</td></tr>';
+			})
+			.finally(function () {
+				acBotonCargando(liqActualizarBtn, false);
+				acOcultarCargando(liqTablaCard);
 			});
 	}
 

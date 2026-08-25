@@ -4,6 +4,38 @@ Contexto de negocio y técnico para trabajar en este proyecto. Cliente: Jaboner�
 Wilson S.A. (empresa de Alicorp). Sistema para digitalizar el proceso de Acuerdos
 Comerciales (Acta de Compromiso) con distribuidores/PDV del canal directo.
 
+## Entorno de desarrollo en vivo — Claude puede loguearse ahí (2026-08-25)
+
+El usuario confirmó explícitamente que Claude puede entrar de verdad al
+entorno de desarrollo para probar en vivo (con Playwright u otra
+herramienta), no solo con mirrors locales:
+
+- **URL**: `https://webecuador-desarrollo.azurewebsites.net/App/XploraEcuador/Acuerdos_Comerciales/`
+- **No es producción** — el usuario lo confirmó explícito ("estamos en
+  desarrollo... aún no está lanzada la página, podés meterte").
+- **Credenciales de prueba**: usuario `JAVIER MALDONADO`, contraseña `1234`
+  (rol `superdesarrollador`, ve las 5 secciones del sidebar).
+- Sigue aplicando la regla de solo lectura del inicio de este archivo:
+  Claude puede loguearse y NAVEGAR (nunca escribir/modificar datos reales
+  desde ahí — no subir Actas, no guardar usuarios, no eliminar nada).
+- **Dato de infraestructura confirmado usándolo**: los cambios a
+  `assets/css/*.css` se reflejan ahí casi al instante, pero los cambios a
+  archivos `.php` (`index.php`, `components/*.php`, etc.) tardan más en
+  aparecer (probablemente opcache de PHP, no confirmado). Si un cambio de
+  CSS se ve reflejado pero uno de PHP no, esperar un rato — no asumir que
+  el archivo local está mal.
+- Usado ya para: encontrar el bug real del buscador de Historial
+  (`.ac-hist-search-wrap`, ver "Responsive / mobile" más abajo), medir con
+  precisión (`getBoundingClientRect`) el espaciado real del header en vez
+  de solo mirar capturas, y correr un barrido sistemático (Playwright,
+  login real, 25 combinaciones de pantalla×ancho) que encontró la causa
+  compartida del bug de "select bonito" en las 5 pantallas a la vez — ver
+  el detalle completo en "Responsive / mobile" más abajo. **Preferir este
+  entorno sobre mirrors locales cuando haya dudas reales** — los mirrors
+  sirven para iterar rápido, pero ya se demostró que pueden no reproducir
+  bugs reales (fuentes/imágenes reales, timing real, componentes
+  compartidos entre pantallas).
+
 ## Protección contra fuerza bruta en el login (2026-08-24)
 
 Encontrada en una revisión de seguridad a pedido del usuario: el login no
@@ -2358,6 +2390,192 @@ fila". Ambos corregidos, mismo breakpoint `@media (max-width: 600px)`:
   hasta 320px (el ancho de pantalla más chico común) — las 3 tiles quedan
   parejas y dentro de una sola fila en todos los anchos probados.
 
+### Header global: nombre de usuario pegado al logo (2026-08-25, mismo día)
+
+El usuario mandó una captura más: "alicorp" y "JAVIER MALDONADO" sin nada
+de espacio entre sí, y el nombre partido en 2 líneas. Mismo patrón de bug
+que ya se repitió varias veces esta sesión: sin `min-width:0` en toda la
+cadena `.ac-header-user` → `.ac-header-user-info`, el nombre no podía
+encogerse/truncarse — se pegaba directo contra el logo en vez de ceder
+espacio. Corregido en el `@media (max-width: 900px)` del header
+(`style.css`, cerca de `.ac-header-menu-btn`): `.ac-header-brand-group`
+(logo+hamburguesa) con `flex-shrink:0` (nunca se comprime, es la marca),
+`.ac-header-user`/`.ac-header-user-info` con `min-width:0`, y
+`.nombre`/`.rol` con `white-space:nowrap; overflow:hidden;
+text-overflow:ellipsis`. Bajo 480px el nombre además se limita a
+`max-width:110px` (además de ocultar el rol, que ya se ocultaba de antes).
+Probado en 375/414/600px.
+
+### Select nativo: reemplazo por "select bonito" reusable (2026-08-25, mismo día)
+
+El usuario mandó una captura del `<select>` de Período ABIERTO en su
+celular — un dropdown enorme, desproporcionado. **Esto no es un bug de
+CSS**: el dropdown ABIERTO de un `<select>` es UI del sistema operativo en
+mobile (Android/iOS) — la página no puede restylearlo de ninguna forma, es
+una limitación real de la plataforma web. La única solución real es
+reemplazar la interacción por un componente propio.
+
+Nuevo `assets/js/select-bonito.js` (autocontenido, sin dependencias,
+reusable en cualquier módulo — agregar la clase `ac-select-bonito-auto` al
+`<select>` alcanza, se auto-mejora solo al cargar la página):
+- Envuelve el `<select>` en un `div.ac-select-bonito` que hereda las MISMAS
+  clases que ya tenía el select (importante: así cualquier CSS de layout
+  que ya apuntaba a esas clases — `grid-area`, `flex-basis`, `width`, lo
+  que sea — sigue aplicando sobre el elemento que ahora es el item real del
+  contenedor, no sobre el `<select>` que queda oculto adentro).
+- El trigger visible es un `<button>` con las mismas clases `.ac-select`
+  (se ve IDÉNTICO a un select normal, cerrado) + label del valor actual +
+  chevron que rota al abrir.
+- El panel de opciones reusa `.ac-combo-panel`/`.ac-combo-option` — el
+  MISMO componente visual que ya usa el combobox de Distribuidor/Segmento/
+  Categoría/Marca en Registrar, cero CSS nuevo para el panel en sí. Mismo
+  clamp de viewport que `posicionarPanelCombo()` de `registrar.js` (no se
+  sale del borde derecho en pantallas angostas).
+- El `<select>` original queda oculto (`display:none`) pero sigue siendo
+  la ÚNICA fuente de verdad — clickear una opción hace
+  `select.selectedIndex = i` + dispara un evento `'change'` REAL
+  (`bubbles:true`), así que **todo el código existente que ya escucha
+  `'change'` sobre esos selects (historial.js, liquidacion.js,
+  registrar.js) sigue funcionando sin tocar una sola línea de JS de
+  negocio**.
+- **Caso encontrado y cubierto**: algunos módulos (ej.
+  `popularFiltroCedi()` en `liquidacion.js`) reasignan `select.value = ...`
+  por código directo, sin pasar por `'change'` — eso dejaría el label del
+  trigger desactualizado. Se intercepta el setter de `.value` de CADA
+  select puntual (`Object.defineProperty` sobre la instancia, NUNCA sobre
+  `HTMLSelectElement.prototype` — no afecta a ningún otro select de la
+  página) para que cualquier `select.value = x` futuro, de cualquier
+  módulo, re-sincronice el label solo. Probado explícitamente con
+  Playwright: `FormData(form)` sigue leyendo el valor real del select
+  oculto sin problema (confirmado antes de tocar el form de subida de
+  Liquidación, que si se rompe implicaría escribir mal en la base).
+- **Aplicado a**: Historial (`#hist-trimestre`, `#hist-anio`), Liquidación
+  (los 4 filtros de Resumen de Pagos + Canal/Año del modal de subida),
+  Registrar (`#ac-periodo-select`, `#ac-anio`), Gestión de Usuarios (Rol/
+  Supervisor en ambos formularios). Repositorios no tiene ningún
+  `<select>` nativo (revisado, no hacía falta tocar nada ahí). Reusable
+  para cualquier `<select>` nuevo que se agregue a futuro — solo hace
+  falta la clase `ac-select-bonito-auto`.
+- Verificado interactivo con Playwright (no solo screenshot): abrir,
+  clickear una opción, confirmar que `select.value` cambia y el evento
+  `change` dispara con el valor correcto — y visualmente en mobile y
+  desktop, ambos sin diferencia respecto a un select nativo cerrado.
+
+### 3 pedidos más sobre Historial + un bug real de header encontrado a fondo (2026-08-25, mismo día)
+
+**1. Feedback de carga, reusable a nivel proyecto** — "le doy Actualizar y
+no pasa nada, no hay mensaje al usuario." Nuevos `assets/js/cargando.js`
+(`acBotonCargando(btn, true/false)` — ícono gira con `.ac-spin` + botón
+deshabilitado; `acMostrarCargando(contenedor)`/`acOcultarCargando(...)` —
+overlay semitransparente con spinner centrado, ancla sobre cualquier
+`.ac-card` gracias a que `.ac-card` ahora tiene `position:relative` de
+base) + `@keyframes ac-spin` en `style.css`. Conectado en Historial
+(`cargarHistorial()`) y Liquidación (`cargarImportaciones()`) — mismo
+patrón exacto de "Actualizar" sin feedback en las dos. Reusable en
+cualquier `fetch()` futuro de cualquier módulo.
+
+**2. Lightbox de imágenes, reusable a nivel proyecto** — pedido explícito
+para poder ver bien (con zoom) las fotos del Acta firmada en el modal de
+Historial. Overlay único global (`#acLightboxOverlay` en `index.php`,
+`assets/js/lightbox.js`, `window.acAbrirLightbox(src)`). **No reinventa el
+pinch-zoom**: el `<meta viewport>` de la app nunca tuvo
+`user-scalable=no`/`maximum-scale`, así que alcanza con mostrar la imagen
+grande — el zoom real lo hace el navegador solo. Botón "Ampliar"
+(`.ac-firma-panel-ampliar`, esquina de cada panel) en los 2 lados del
+modal de Firma: el panel "Acta Generada" siempre es PDF → abre en pestaña
+nueva (visor nativo, ya trae su propio zoom); el panel "Acta Firmada"
+puede ser foto o PDF → foto abre el lightbox, PDF también va a pestaña
+nueva. Botón oculto por defecto, se muestra recién cuando hay contenido
+real que ampliar (no en el estado "vacío" antes de elegir/tener firma).
+
+**3. Acta chica en el preview de Historial** — el simple, confirmado:
+faltaba el fragmento `#toolbar=0&navpanes=0&zoom=page-width` en
+`pdfFrame.src` (`historial.js`, `abrirDetalle()`) — sin eso el visor
+nativo arrancaba en su zoom "automático" (chico, con el toolbar nativo de
+Chrome ocupando espacio arriba, redundante con el botón "Descargar /
+Imprimir PDF" que ya está en esta misma pantalla). `page-width` fuerza que
+la página ocupe todo el ancho del iframe.
+
+**Bug real de header investigado a fondo** — el usuario avisó que había
+estado probando con el zoom del NAVEGADOR en 75% ("ahorita lo puse en
+100 y se dañó varias partes") — dato clave, porque cambia el ancho
+efectivo de CSS que se está probando. Se investigó en vivo (mismo entorno
+de desarrollo, credenciales ya guardadas) con un barrido real de anchos
+(320-900px) usando `getBoundingClientRect()` en vez de solo mirar
+screenshots:
+- El `min-width:0`/`flex-shrink` del fix anterior SÍ funciona — no hay
+  overlap real de las CAJAS en ningún ancho (confirmado con mediciones
+  precisas, no solo visual).
+- Pero a 320-380px el gap entre el logo y el nombre quedaba en el mínimo
+  técnico (8px) — sin overlap real, pero se LEE apretado/pegado en una
+  pantalla chica de verdad (el reporte del usuario con captura real lo
+  confirma, aunque las mediciones digan que no hay overlap — la molestia
+  visual es real aunque no sea técnicamente un bug de overlap).
+  Corregido de raíz: el logo (antes `flex-shrink:0` fijo siempre) ahora se
+  achica a 34px de alto bajo 380px, el tope del nombre baja a 70px, y el
+  gap general del header sube de 8px a 16px (`var(--space-md)`) en todo
+  el rango ≤900px — barrido completo 320-900px confirmado con gap ≥16px
+  en TODOS los anchos, sin ningún punto ajustado.
+- **Red de seguridad agregada de todos modos**: `.ac-header-inner` ganó
+  `overflow:hidden` — si algún estado transitorio real (ej. un reflow a
+  mitad de un cambio de fuente en una conexión lenta) llegara a producir
+  una superposición momentánea, que se vea recortado en vez de con texto
+  ilegible superpuesto.
+- **Lección**: si el usuario reporta algo "roto" y las mediciones de caja
+  dicen que no hay overlap técnico, no descartar el reporte — puede ser
+  real igual (gap visualmente insuficiente, no necesariamente overlap) o
+  estar afectado por el zoom del navegador con el que está probando. Este
+  entorno de desarrollo (ver [[reference-acuerdos-comerciales]]) sigue
+  siendo la única forma confiable de verificar esto — los mirrors locales
+  con imágenes reales (logo/avatar) ya coincidieron con las mediciones en
+  vivo esta vez, así que también sirven para iterar rápido sin gastar el
+  login real en cada ajuste.
+
+### 4ta vuelta: nombre a 2 líneas + barrido sistemático en las 5 pantallas (2026-08-25, mismo día)
+
+El usuario pidió 2 cosas más, la 2da mucho más importante que la 1ra:
+1. **Nombre del header a 2 líneas** en vez de truncar con "…" (bajo 480px,
+   donde el rol ya se oculta y sobra alto en la fila de 80px para 2 líneas
+   de nombre). `max-width:130px` (ajustado tras probar 90px, que partía
+   "MALDONADO" a la mitad con `word-break` — 130px alcanza para que el
+   nombre se parta en la palabra, "JAVIER" / "MALDONADO", nunca a mitad de
+   una palabra).
+2. **"Dejá de parchear módulo por módulo, englobá todo el repositorio"** —
+   pedido explícito de auditar TODA la app de una, no reaccionar bug por
+   bug. Se armó un script de barrido (Playwright, login real en el entorno
+   de desarrollo) que recorre las 5 pantallas × 5 anchos (320/360/375/390/
+   412px = 25 combinaciones) buscando overflow real de caja y selects
+   "bonito" desalineados — filtrando a propósito los truncados con "…" que
+   son intencionales (`.ac-btn-text`/`.ac-stat-label`/
+   `.ac-select-bonito-label`), que no son bugs. **Encontró 2 bugs reales**:
+   - **La causa real del "Tod…" reportado con captura**: el wrapper de
+     "select bonito" (`assets/js/select-bonito.js`) hereda TODAS las
+     clases del `<select>` original para conservar layout (ej. `grid-area`
+     en los filtros de Historial) — pero eso incluye `.ac-select`, que
+     también trae padding/borde VISUALES (pensados para un select real).
+     El wrapper terminaba siendo una caja completa envolviendo al trigger
+     (que adentro tiene su propia caja) — el trigger quedaba angosto por
+     el padding duplicado, no por el grid. Confirmado con datos: el label
+     tenía 19-65px de ancho real en vez de los ~140px que el grid ya le
+     había asignado. **Corregido con una sola regla**:
+     `.ac-select-bonito.ac-select { padding: 0; border: none; background:
+     none; }` en `style.css` — desarma el visual del wrapper, deja el
+     look real del select únicamente en `.ac-select-bonito-trigger`. Como
+     el wrapper es el MISMO componente en las 5 pantallas, este único fix
+     arregló Historial/Liquidación/Registrar/Gestión de Usuarios de una
+     sola vez — exactamente el "englobar todo el repositorio" pedido, en
+     vez de 4 fixes puntuales.
+   - **Repositorios, 320px**: `.ac-repo-actions` (botones Exportar+Subir
+     Archivo) desbordaba 10px — le faltaba `flex-wrap:wrap` (ya lo tenía
+     el contenedor padre `.ac-repo-filtros`, pero no este grupo interno).
+   - **Confirmado con un 2do barrido tras desplegar**: 0 hallazgos en las
+     25 combinaciones — limpio en las 5 pantallas.
+   - **Lección**: cuando un bug de layout se repite en varios lugares
+     (esta vez, todos los usos de `ac-select-bonito-auto`), buscar la
+     causa COMPARTIDA (el componente/wrapper común) en vez de parchear
+     cada instancia por separado — un fix ahí escala solo a todos los
+     usos futuros también.
+
 ## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
 
 El ítem de sidebar que antes era `auditoria` (hoy "Próximamente") **se
@@ -2380,6 +2598,14 @@ mano cruzando Excels.
 ### ⚠️ REPLANTEO 2026-08-23 — el mecanismo de subida (import + matching) puede
 ### NO ser lo que el cliente pidió — pendiente de confirmar con JW antes de
 ### seguir invirtiendo acá. LEER ANTES DE TOCAR ESTE MÓDULO.
+
+**Actualización 2026-08-25**: el módulo se OCULTÓ TEMPORALMENTE del sidebar
+(pedido explícito del usuario, directamente ligado a esta misma duda sin
+resolver) — ver `includes/secciones.php`, la entrada `liquidacion` está
+comentada, no borrada. Código, datos y tablas de la base siguen intactos,
+esto solo lo saca de la navegación (nadie lo ve, ningún rol) hasta que se
+confirme con JW qué hace falta de verdad. Para reactivarlo: descomentar esa
+línea.
 
 Conversación larga con el usuario, disparada por escuchar
 `datos/Grabación 2026-08-18 152731.txt` (transcripción de una reunión real

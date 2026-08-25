@@ -109,7 +109,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 		<div class="ac-resumen-filtros">
 			<div class="ac-field ac-field-inline">
 				<label class="ac-field-label" for="liq-resumen-filtro-trimestre">Período</label>
-				<select class="ac-select" id="liq-resumen-filtro-trimestre">
+				<select class="ac-select ac-select-bonito-auto" id="liq-resumen-filtro-trimestre">
 					<option value="0">Todos los períodos</option>
 					<option value="1">Q1 (Ene-Mar)</option>
 					<option value="2">Q2 (Abr-Jun)</option>
@@ -119,7 +119,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 			</div>
 			<div class="ac-field ac-field-inline">
 				<label class="ac-field-label" for="liq-resumen-filtro-anio">Año</label>
-				<select class="ac-select" id="liq-resumen-filtro-anio">
+				<select class="ac-select ac-select-bonito-auto" id="liq-resumen-filtro-anio">
 					<option value="0">Todos</option>
 					<?php foreach ($anios as $a): ?>
 						<option value="<?= $a ?>"><?= $a ?></option>
@@ -128,13 +128,13 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 			</div>
 			<div class="ac-field ac-field-inline">
 				<label class="ac-field-label" for="liq-resumen-filtro-cedi" id="liq-resumen-filtro-cedi-label">CEDI / Distribuidor</label>
-				<select class="ac-select" id="liq-resumen-filtro-cedi">
+				<select class="ac-select ac-select-bonito-auto" id="liq-resumen-filtro-cedi">
 					<option value="">Todos</option>
 				</select>
 			</div>
 			<div class="ac-field ac-field-inline">
 				<label class="ac-field-label" for="liq-resumen-filtro-estado">Estado</label>
-				<select class="ac-select" id="liq-resumen-filtro-estado">
+				<select class="ac-select ac-select-bonito-auto" id="liq-resumen-filtro-estado">
 					<option value="">Todos</option>
 					<option value="ok">OK</option>
 					<option value="revisar">Revisar</option>
@@ -179,14 +179,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 		<form id="liq-form-subir" class="ac-form" style="padding:0 var(--space-lg) var(--space-lg);">
 			<div class="ac-field">
 				<label class="ac-field-label" for="liq-canal">Canal</label>
-				<select class="ac-select" id="liq-canal" name="canal" required>
+				<select class="ac-select ac-select-bonito-auto" id="liq-canal" name="canal" required>
 					<option value="directa">Directa</option>
 					<option value="distribuidor">Distribuidor</option>
 				</select>
 			</div>
 			<div class="ac-field">
 				<label class="ac-field-label" for="liq-anio">Año</label>
-				<select class="ac-select" id="liq-anio" name="anio" required>
+				<select class="ac-select ac-select-bonito-auto" id="liq-anio" name="anio" required>
 					<?php foreach ($anios as $a): ?>
 						<option value="<?= $a ?>" <?= $a === $anioActual ? 'selected' : '' ?>><?= $a ?></option>
 					<?php endforeach; ?>
