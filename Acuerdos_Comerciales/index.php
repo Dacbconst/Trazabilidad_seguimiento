@@ -22,6 +22,7 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 $select_bonito_js_v = @filemtime(__DIR__.'/assets/js/select-bonito.js') ?: time();
 $cargando_js_v = @filemtime(__DIR__.'/assets/js/cargando.js') ?: time();
 $lightbox_js_v = @filemtime(__DIR__.'/assets/js/lightbox.js') ?: time();
+$alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -43,6 +44,7 @@ $lightbox_js_v = @filemtime(__DIR__.'/assets/js/lightbox.js') ?: time();
 	<script src="assets/js/cargando.js?v=<?= $cargando_js_v ?>"></script>
 	<script src="assets/js/select-bonito.js?v=<?= $select_bonito_js_v ?>" defer></script>
 	<script src="assets/js/lightbox.js?v=<?= $lightbox_js_v ?>" defer></script>
+	<script src="assets/js/alertas-firma.js?v=<?= $alertas_firma_js_v ?>" defer></script>
 </head>
 <body>
 
@@ -55,6 +57,18 @@ $lightbox_js_v = @filemtime(__DIR__.'/assets/js/lightbox.js') ?: time();
 				<div class="ac-brand"><img src="assets/img/logo_alicorp.png" alt="Alicorp" class="ac-brand-logo"></div>
 			</div>
 			<div class="ac-header-user">
+				<div class="ac-alertas-wrap">
+					<button type="button" id="acAlertasBtn" class="ac-alertas-btn" aria-label="Alertas de firma" aria-expanded="false">
+						<span class="material-symbols-outlined">notifications</span>
+						<span class="ac-alertas-badge" id="acAlertasBadge" hidden>0</span>
+					</button>
+					<div class="ac-alertas-panel" id="acAlertasPanel" hidden>
+						<div class="ac-alertas-panel-header">Alertas de firma</div>
+						<div class="ac-alertas-panel-body" id="acAlertasBody">
+							<p class="ac-alertas-vacio">Cargando...</p>
+						</div>
+					</div>
+				</div>
 				<div class="ac-header-user-info">
 					<span class="nombre"><?= htmlspecialchars($_SESSION['username']) ?></span>
 					<span class="rol"><?= htmlspecialchars(strtoupper(rolEtiqueta($_SESSION['rol']))) ?></span>

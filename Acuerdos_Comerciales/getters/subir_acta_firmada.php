@@ -31,8 +31,10 @@ if ($acuerdoId <= 0) {
 
 // Mismo criterio de propiedad que eliminar_acuerdo.php/generar_acta_pdf.php:
 // nadie sube la firma de un acuerdo ajeno adivinando el id. No se permite
-// subir sobre un borrador (todavía no es un Acta real) ni uno anulado.
-$stmt = $mysqli->prepare("SELECT creado_por, estado FROM repositorio_acuerdos WHERE id = ? LIMIT 1");
+// subir sobre un borrador (todavía no es un Acta real), uno anulado, ni uno
+// vencido (plazo de 20 días para firmar ya cumplido, ver
+// barrer_actas_vencidas() en includes/functions.php).
+$stmt = $mysqli->prepare("SELECT creado_por, estado, fecha_generacion FROM repositorio_acuerdos WHERE id = ? LIMIT 1");
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();
 $fila = $stmt->get_result()->fetch_assoc();
@@ -41,8 +43,21 @@ $stmt->close();
 if (!$fila || (int) $fila['creado_por'] !== (int) $usuarioId) {
 	responder(false, 'Acuerdo no encontrado.');
 }
-if (in_array($fila['estado'], ['borrador', 'anulado'], true)) {
-	responder(false, 'No se puede subir la firma de un acuerdo en borrador o anulado.');
+if (in_array($fila['estado'], ['borrador', 'anulado', 'vencido'], true)) {
+	responder(false, 'No se puede subir la firma de un acuerdo en borrador, vencido o anulado.');
+}
+// Defensa en tiempo real: el barrido de vencidos (listar_historial_acuerdos)
+// puede no haber corrido todavía sobre este Acuerdo en particular si nadie
+// visitó Historial desde que se cumplió el plazo — no confiar solo en
+// $fila['estado'] para el punto más crítico (bloquear la subida), chequear
+// la fecha acá mismo también y dejar el registro consistente de una vez.
+if (in_array($fila['estado'], ['generado', 'enviado'], true) && $fila['fecha_generacion']) {
+	$vencida = (new DateTime($fila['fecha_generacion']))->modify('+20 days') < new DateTime();
+	if ($vencida) {
+		$upd = $mysqli->prepare("UPDATE repositorio_acuerdos SET estado = 'vencido' WHERE id = ?");
+		if ($upd) { $upd->bind_param('i', $acuerdoId); $upd->execute(); $upd->close(); }
+		responder(false, 'El plazo de 20 días para firmar esta Acta ya venció.');
+	}
 }
 
 if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {

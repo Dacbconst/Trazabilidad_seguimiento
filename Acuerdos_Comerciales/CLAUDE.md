@@ -252,13 +252,97 @@ funcionando ("me parece perfecto, solo otro cambio..."):
   con datos reales debajo) + PDF real de Dompdf sin excepciones, para
   Distribuidor y Directo.
 
-**Nota de infraestructura para la próxima sesión**: estos 6 fixes están
+**Ronda 7, mismo día — mismos 2 renombres de la Ronda 6, ahora en el
+formulario interactivo de Registrar (no solo el PDF)**: pedido explícito
+("cambialo en sus propios formularios, no metas esa de la celda nueva,
+solo cambiale los nombres" + "tanto para directa como distribuidor").
+`renderTableHeaders()` en `assets/js/registrar.js` arma los encabezados de
+las 4 tablas editables (Meta de Compras/Cabeceras/Rumas/Perchas) con texto
+**fijo, sin condicionar por canal** (a diferencia del PDF, que sí usa
+`$fmt`/`$esDistribuidor`) — por eso, a pedido explícito, el rename aplica
+igual para Directo y Distribuidor, sin agregar ninguna rama nueva por
+canal ni la celda combinada rowspan/colspan de la Ronda 3/5 (eso es
+exclusivo del documento impreso, el formulario se queda con su estructura
+de siempre):
+- "Valor Estimado" → **"Valor Estimado a Ganar"** (tabla de Meta de Compras).
+- "Pago Total" → **"Pago Total Cajas"** en las 3 tablas de Visibilidad
+  (Cabeceras, Rumas, Perchas) — las 3 ocurrencias.
+- **Corrección sobre el "incidente" documentado originalmente acá**: en su
+  momento se atribuyó a una colisión de edición concurrente entre sesiones
+  (el cambio "desapareció" del archivo poco después de guardarse). El
+  usuario aclaró después que **no fue eso** — lo borró él a propósito
+  porque el resultado se veía mal (ver Ronda 8 más abajo). Queda la nota
+  corregida para no repetir la lectura errónea: cuando un cambio
+  "desaparece" en este proyecto, antes de asumir colisión de sesiones,
+  preguntar/considerar que puede ser una reversión deliberada del usuario.
+- **Probado**: servidor local (`php -S localhost:8899`) + sesión falsa vía
+  `_dev_login_temp.php` (creado y borrado en la misma verificación, sin
+  tocar la base) con 2 supervisores reales de solo-lectura (`JAVIER
+  MALDONADO` → canal directo, `SIXTO TRAVEZ` → canal distribuidor, vía
+  `repositorio_locales_supervisores_cliente`) — se leyó el `innerHTML` de
+  los 4 `<thead>` en el navegador real para los 2 canales, confirmando los
+  4 encabezados nuevos en ambos.
+
+**Ronda 8, mismo día — el rename de la Ronda 7 ensanchaba las columnas,
+arreglado con `<br>` en vez de texto largo en 1 línea**: el usuario borró
+el cambio de la Ronda 7 porque se veía mal, tanto en Directo como en
+Distribuidor — causa real: `.ac-table-acuerdo` usa `table-layout:auto` +
+`thead th { white-space:nowrap }` (`assets/css/style.css`), y con
+`table-layout:auto` el ancho de columna se calcula a partir del contenido
+más ancho de esa columna — "Valor Estimado a Ganar"/"Pago Total Cajas" en
+una sola línea son notablemente más largos que "Valor Estimado"/"Pago
+Total" de antes, así que esas columnas (y con ellas la tabla entera)
+crecían para no cortar el texto.
+
+**Fix**: mismo texto, pero partido con un `<br>` literal en el punto donde
+ya se cortaba antes de agregar la palabra nueva — "Valor Estimado<br>a
+Ganar", "Pago Total<br>Cajas" — en las 4 tablas de `renderTableHeaders()`
+(`assets/js/registrar.js`). Un `<br>` fuerza el salto de línea SIN pelear
+con `white-space:nowrap` (nowrap solo suprime el wrap automático por
+espacios de más ancho que la columna, no bloquea un salto de línea
+explícito) — la columna termina midiendo el ancho de la línea más larga de
+las 2 ("Valor Estimado" ~14 caracteres, no la frase completa de 23), muy
+parecido al ancho que tenía antes del rename. Se agregó la clase
+`.ac-th-2l` (`assets/css/style.css`, `line-height:1.25` sobre
+`.ac-table-acuerdo thead th.ac-th-2l`) solo para que las 2 líneas no
+queden pegadas — nada más se tocó del resto del CSS de la tabla (no se
+sacó `nowrap` ni se cambió `table-layout`, a propósito: esas reglas siguen
+siendo correctas para el resto de encabezados de 1 línea).
+**Probado**: mismo método que la Ronda 7 (servidor local + sesión falsa +
+Playwright) pero esta vez midiendo el ancho real en px de cada `<th>`
+(`getBoundingClientRect().width`) antes/después — "Valor Estimado a
+Ganar" bajó de necesitar ~230px en 1 línea a ~138px en 2 líneas, "Pago
+Total Cajas" a ~107px — y capturando screenshot de las 4 tablas para
+confirmar visualmente que el texto entra en 2 líneas legibles, sin
+recortarse, para los 2 canales.
+
+**Nota de infraestructura para la próxima sesión**: estos 8 fixes están
 SOLO en el filesystem local — no hay forma de que Claude los despliegue al
 entorno de desarrollo de Azure (ver sección de arriba). Probados con mirror
 local (`php -S localhost:8899` + sesión falsa vía script temporal que se
 borra después, sin tocar la base) y con datos sintéticos para el PDF —
 nunca contra el entorno real. Si el usuario ya desplegó y algo se ve
 distinto a lo descrito acá, confiar en lo que él reporte, no en esta nota.
+
+## 2 ajustes visuales más en Registrar (2026-08-24, misma vuelta)
+
+- **Bandera de Canal (`#ac-canal-badge`) agrandada** a pedido explícito —
+  `font-size:13px; padding:6px 16px` puntual por `#id`, sin tocar el
+  `.ac-badge` compartido (afecta también a roles en Gestión de Usuarios,
+  badges de Firma en Historial, etc. — esos quedan en su tamaño de
+  siempre).
+- **"Meses Incluidos" ya NO se trunca con "…"** — el ajuste de anchos por
+  `flex-basis` de la ronda anterior (ver arriba, "Ronda 2 — repartir el
+  ancho de los filtros") se había probado solo con Playwright a
+  1280/1366/1440px, sin sidebar real ocupando espacio — en uso real
+  (sidebar expandido) el campo quedaba más angosto de lo probado y sí
+  truncaba. En vez de seguir afinando px a mano (ya falló una vez),
+  `#ac-months-display` ahora tiene su propio override (por `#id`, le gana
+  al `white-space:nowrap` compartido con `.ac-input-readonly`) que permite
+  pasar a una 2da línea en vez de cortar — nunca se trunca sin importar el
+  ancho real disponible. `.ac-field-meses` también subió un poco de peso
+  (`1.3`→`1.5`, base `200px`→`210px`) para que necesite envolver menos
+  seguido.
 
 ## Rebate % y Participación bloqueados a mano, sin lógica todavía (2026-08-24)
 
@@ -1273,40 +1357,46 @@ propio valor real (`aplicarBorrador()`), no este default.
   signo `$`. **No probado en navegador real** — mismo pendiente que la
   sección de arriba, falta el `ALTER TABLE` de `sin_visibilidad`.
 
-### Zona de firmas de Distribuidor + sin visibilidad: 3 firmas con "Obligatorio" (2026-08-24)
+### Zona de firmas de Distribuidor + sin visibilidad: 2 firmas, sin "Obligatorio" (2026-08-24, corregido 2026-08-25)
 
 El usuario mostró una captura del formato físico real y la zona de firmas
 del PDF no calzaba. **Confirmado con el usuario, alcance exacto (no
 asumido):**
 - Aplica **SOLO cuando `es_distribuidor=true` Y `sin_visibilidad=true`** —
   Distribuidor CON visibilidad y Directo (con o sin visibilidad) siguen
-  con las 2 firmas de siempre (Ejecutivo/Desarrollador + Jefe Comercial,
-  sin "Obligatorio"), sin cambios.
+  con las 2 firmas de siempre (Ejecutivo/Desarrollador + Jefe Comercial),
+  sin cambios.
 - La firma izquierda **mantiene el nombre real autocompletado** de quién
-  generó el Acta (`$nombreEjecutivoHtml`, ya existía) — la captura del
-  usuario solo definía el layout/etiquetas nuevas, no pedía sacar ese
-  autocompletado.
+  generó el Acta (`$nombreEjecutivoHtml`, ya existía).
 
 **Implementado en `includes/acta_pdf.php`** (bloque `firmas-footer`,
-condicional `$esDistribuidor && $sinVisibilidad`): pasa de 2 a 3 firmas —
+condicional `$esDistribuidor && $sinVisibilidad`): 2 firmas, misma
+estructura de tabla de 2 columnas que el layout por defecto, pero con la
+etiqueta derecha distinta —
 1. **Desarrollador de Mercado** (nombre autocompletado, como antes).
 2. **Asesor Comercial (distribuidor)** — reemplaza a "Jefe Comercial" en
    esta posición; línea en blanco, no hay de dónde autocompletarla.
-3. **Jefe Comercial** — se mueve a una fila nueva, centrada, debajo de las
-   otras 2 (antes estaba a la derecha de la primera); línea en blanco.
 
-Cada una lleva la etiqueta `.label` **"Obligatorio"** arriba de su línea de
-firma (no existía antes en ningún formato) — así lo exige el formato
-físico real, confirmado con la captura del usuario.
+**2026-08-24 → 2026-08-25, historial del ajuste**: la primera versión
+(24-08) agregaba una 3ra firma ("Jefe Comercial", centrada, debajo de las
+otras 2) y la etiqueta `.label` **"Obligatorio"** arriba de cada línea,
+según una captura del formato físico que el usuario mostró en ese momento.
+El 25-08, contra otra captura real del PDF ya generado, el usuario pidió
+explícitamente sacar las 3 palabras "Obligatorio" y la 3ra firma completa
+("Jefe Comercial") — quedando en 2 firmas acá + Firma del Cliente más
+abajo = **3 firmas en total en todo el documento**, ninguna con
+"Obligatorio". Con este ajuste, el único diferencial real de este layout
+frente al de 2 firmas por defecto es la etiqueta derecha ("Asesor
+Comercial (distribuidor)" en vez de "Jefe Comercial").
 
 **Probado**: `php -l` limpio; `generar_acta_html()` con datos sintéticos
 para los 3 casos relevantes (Distribuidor+sin visibilidad, Distribuidor+con
-visibilidad, Directo+sin visibilidad) — solo el primero trae "Obligatorio"
-(3 veces) y "Asesor Comercial (distribuidor)"; los otros 2 quedan
-byte-idénticos al layout de 2 firmas de siempre, sin regresión. Además se
-generó el PDF real (`generar_acta_pdf_binario()`) para el caso
-Distribuidor+sin visibilidad y se leyó visualmente — entra en 1 sola
-página, layout correcto, nombre autocompletado presente.
+visibilidad, Directo+sin visibilidad) — solo el primero trae "Asesor
+Comercial (distribuidor)" y sin "Obligatorio" en ningún lado; los otros 2
+quedan sin cambios, sin regresión. Además se generó el PDF real
+(`generar_acta_pdf_binario()`) para el caso Distribuidor+sin visibilidad y
+se leyó visualmente — entra en 1 sola página, layout correcto, nombre
+autocompletado presente.
 
 ## Historial: columna "Periodo" con formato "Qx (mes-mes)" (2026-08-23)
 
@@ -1546,6 +1636,291 @@ de estado son señal reservada, se reusan, no se generan por serie).
 **Pendiente (fuera de alcance de esta vuelta, "luego hablamos")**: integrar
 esto con la app Android propia de Jabonería Wilson — ver sección de memoria
 del proyecto, "Pendiente: subir Acta firmada".
+
+## Vencimiento de firma: 20 días + campanita de alertas (2026-08-25)
+
+Pedido explícito: un Acta 'generado'/'enviado' que pasa **20 días desde
+`fecha_generacion`** sin volver firmada se bloquea (ya no se le puede subir
+la firma) y desaparece de Historial — mismo efecto visual que "Eliminar"
+(`estado='anulado'`), pero con un valor de ENUM **distinto**
+(`'vencido'`), a pedido explícito, para poder diferenciar después en
+reportes "el usuario canceló" vs. "se venció solo". Además se pidió una
+campanita de notificaciones en el header para avisar antes de que se
+cumpla el plazo.
+
+**Decisiones confirmadas con el usuario (3 preguntas, no asumidas):**
+1. Estado nuevo `'vencido'` en el ENUM (no reusar `'anulado'`) — requiere
+   `ALTER TABLE`, ver `datos/vencimiento_firma_schema.sql` (Claude no lo
+   corre, solo lectura — pendiente que el usuario lo ejecute).
+2. Umbral de aviso de la campanita: **5 días** antes del vencimiento.
+3. Alcance: "Mis Actas" (propias, por `creado_por`) para cualquier
+   desarrollador/superdesarrollador, **igual que Historial** — pero
+   superdesarrollador ADEMÁS ve una sección "Equipo" con **todos** los
+   pendientes de **todos** los usuarios (no solo los de 5 días o menos):
+   pedido textual "no darle alertas innecesarias sino que tenga seguimiento
+   de los usuarios que traen pendientes" — es visibilidad de equipo, no una
+   alerta urgente, por eso no lleva umbral de días ni suma al badge.
+
+**Sin cron en este proyecto** (hosting compartido, sin job runner) — en vez
+de eso, un **"barrido" lazy** (`barrer_actas_vencidas()`,
+`includes/functions.php`) hace `UPDATE ... SET estado='vencido' WHERE
+estado IN ('generado','enviado') AND fecha_generacion < CURDATE() -
+INTERVAL 20 DAY`, y corre cada vez que se listan Actas (arranque de
+`listar_historial_acuerdos()`) o se calculan las alertas de la campanita
+(`listar_alertas_firma_propias()`/`listar_equipo_pendientes_firma()`, misma
+función). Es un `UPDATE` sin parámetros de usuario (`query()`, no
+`prepare()`) — con `MYSQLI_REPORT_OFF` (ver `db_connect.php`) simplemente
+no hace nada si el ENUM todavía no tiene `'vencido'`, mismo patrón
+defensivo que el resto de columnas nuevas de este archivo (confirmado
+corriendo las funciones nuevas contra la base real, sin el `ALTER TABLE`
+todavía aplicado: no tira excepción, solo no vence nada).
+**Trade-off aceptado**: el bloqueo se aplica la próxima vez que alguien
+carga Historial o abre la campanita, no al segundo exacto del día 20 — para
+un flujo de firma física en papel, de sobra.
+
+**Bloqueo real en `getters/subir_acta_firmada.php`**: además de rechazar
+`estado IN ('borrador','anulado','vencido')` (ya cubría borrador/anulado,
+se sumó vencido), hay una **segunda capa** de defensa en el punto más
+crítico — si el estado en base todavía dice 'generado'/'enviado' pero ya
+pasaron los 20 días (porque nadie visitó Historial desde entonces), este
+getter calcula la fecha él mismo, actualiza el registro a 'vencido' ahí
+mismo y rechaza la subida, en vez de confiar ciegamente en el barrido lazy
+de arriba.
+
+**Consultas nuevas (`includes/functions.php`)**:
+- `barrer_actas_vencidas($mysqli)` — el UPDATE de arriba.
+- `listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral=5)` —
+  `generado`/`enviado` de `creado_por=$usuarioId`, con `DATEDIFF(fecha_generacion
+  + 20 días, CURDATE())` entre 0 y `$diasUmbral`.
+- `listar_equipo_pendientes_firma($mysqli)` — mismo estado, sin filtro de
+  usuario ni de días, `GROUP BY` usuario (`repositorio_usuarios_acuerdos`),
+  cuenta pendientes + el más próximo a vencer de cada uno.
+- Las 3 consultas existentes de Historial que ya excluían `'anulado'`
+  (`listar_historial_acuerdos()` ×2, `obtener_stats_historial()`,
+  `listar_anios_disponibles()`) ahora excluyen también `'vencido'`.
+
+**Campanita (`getters/alertas_firma.php` + `assets/js/alertas-firma.js` +
+`index.php` + `assets/css/style.css`)**: widget global del header (mismo
+espíritu que `assets/js/lightbox.js`), ícono + badge junto al avatar del
+usuario, dropdown con "Mis Actas por vencer" (todos) y, si el rol es
+superdesarrollador, una sección "Equipo — pendientes de firma" debajo (sin
+aportar al contador del badge). Sondeo cada 5 minutos desde JS — el plazo
+se mide en días, no hace falta más seguido.
+**Bug encontrado y corregido en la verificación visual real**: la clase
+`.ac-alertas-badge` traía `display:flex` incondicional, que pisaba el
+`display:none` que el navegador aplica por default al atributo `hidden`
+(misma especificidad, la regla de autor gana) — el badge se veía con "0"
+aunque el JS ya le hubiera puesto `hidden`. Se agregó
+`.ac-alertas-badge[hidden] { display:none; }` para que el atributo vuelva a
+mandar. **Lección repetida en este proyecto** (ya pasó con `.ac-stat-tile`
+vs `.ac-hist-stat`, ver más arriba): una clase con una propiedad puesta
+"a secas" puede pisar silenciosamente un estado que se controla con
+atributos/otra clase — repasar visualmente el estado "oculto", no solo el
+"visible".
+
+**Probado**: `php -l`/`node --check` limpios en los 6 archivos tocados;
+las 3 funciones nuevas corridas contra la base real (solo lectura) — sin
+el `ALTER TABLE` todavía corrido, `barrer_actas_vencidas()` no rompe nada,
+y `listar_alertas_firma_propias()`/`listar_equipo_pendientes_firma()` traen
+datos reales correctos (ej. 2 usuarios reales con pendientes genuinos,
+ninguno todavía dentro de los 5 días de umbral — consistente, el proyecto
+recién empezó a generar Actas). Servidor local + sesión falsa (creado con
+un `user_id` real de la base para que "Mis Actas" tuviera contexto
+verdadero, sin escribir nada) + Playwright: badge oculto correctamente
+tras el fix, panel se abre/cierra con el ícono, contenido de "Equipo" con
+los 2 usuarios reales confirmado vía `innerHTML`.
+
+**Pendiente**: correr `datos/vencimiento_firma_schema.sql` para que
+`'vencido'` exista de verdad en el ENUM — hasta entonces, el barrido y el
+bloqueo en tiempo real de `subir_acta_firmada.php` quedan como no-op
+silencioso (no rompen nada, pero tampoco vencen nada todavía). No probado
+contra el entorno real de Azure, solo mirror local.
+
+### Panel de prueba temporal — `_dev_panel_pruebas.php` (2026-08-25)
+
+El usuario necesitaba probar el vencimiento de 20 días sin esperar de
+verdad, pero **su cuenta personal de HeidiSQL no tiene permiso de
+escritura** (confirmado por él) — no podía correr él mismo el `UPDATE`
+para retroceder una `fecha_generacion` de prueba, y Claude tiene prohibido
+ejecutarlo directamente (regla raíz del repo, sin excepción). Solución:
+2 archivos nuevos, **TEMPORALES**, para borrar cuando se termine de
+probar:
+- `Acuerdos_Comerciales/_dev_panel_pruebas.php` — página autónoma (no
+  linkeada desde el menú/sidebar), lista los Acuerdos propios en
+  `generado`/`enviado`/`vencido` con botones "Aviso (16d)" / "Vencido
+  (21d)" / "Revertir".
+- `Acuerdos_Comerciales/getters/_dev_simular_vencimiento.php` — el
+  `UPDATE` real, con el mismo chequeo de propiedad (`creado_por` =
+  sesión) que ya usan `eliminar_acuerdo.php`/`subir_acta_firmada.php`.
+
+**Por qué esto NO viola la regla de solo-lectura de Claude**: el `UPDATE`
+lo corre el backend de la app cuando EL USUARIO hace clic, exactamente
+igual que cualquier otro botón de escritura que ya existe en este proyecto
+(Eliminar, Subir Firma, Guardar Acuerdo) — todos escriben con las
+credenciales de `config.php`. Claude nunca invoca el `UPDATE` él mismo
+desde un script/consola propia; solo escribió el código que el usuario
+dispara.
+
+**Diseño descartado primero, por qué**: la primera versión ponía un botón
+de prueba directo en cada fila de Historial (`renderFilaHistorial()`,
+`historial.js`, `style.css`) — se revirtió porque una vez que un Acta
+pasa a `'vencido'`, Historial deja de mostrarla (a propósito, mismo
+criterio que `'anulado'`), así que **no habría quedado ninguna fila
+donde hacer clic en "Revertir"**. La página autónoma no depende de la
+vista filtrada de Historial, así que sigue mostrando (y permitiendo
+revertir) las Actas ya vencidas por la prueba.
+
+**Modo "revertir"**: no puede recuperar la `fecha_generacion` original
+exacta — deja el Acuerdo en `estado='generado'` con `fecha_generacion =
+CURDATE()` (hoy), suficiente para "destestearlo" y seguir usándolo con
+normalidad.
+
+**Cómo usarlo**: entrar a `_dev_panel_pruebas.php` (misma carpeta que
+`index.php`) logueado, sin necesidad de tocar HeidiSQL para nada.
+
+**El usuario ya lo usó de verdad**: backdateó el Acuerdo real `id=47`
+("ADN-2026-0044", suyo) a 16 días — esto fue clave para encontrar y
+verificar los 2 bugs visuales de la sección siguiente, porque generó la
+primera alerta real (antes de esto, ningún Acuerdo real estaba dentro del
+umbral de 5 días).
+
+## Vencimiento de firma — 2 bugs visuales reales + aviso en la fila de Historial (2026-08-25, misma sesión)
+
+El usuario probó la campanita con una alerta real (ver arriba) y mandó una
+captura: el badge mostraba "1" pero el panel de abajo se veía como un
+rectángulo prácticamente vacío. Pidió además una marca visual de
+vencimiento **directamente en la fila de Historial**, no solo dentro de la
+campanita.
+
+**Bug 1 — panel invisible por color de fondo**: `.ac-alertas-panel` usaba
+`background: var(--color-surface)`, el MISMO color que `body` (`#fbf8ff`)
+— sin contraste real, solo un borde clarito y una sombra suave lo
+separaban de la página. Corregido a `--color-surface-container-lowest`
+(blanco puro).
+
+**Bug 2 (el real culpable de que casi no se viera nada) — recortado por
+`overflow:hidden`**: `.ac-header-inner` tiene `overflow:hidden` a
+propósito, agregado por otra sesión como "red de seguridad" contra
+superposición de texto en un reflow transitorio (ver el comentario en ese
+selector). El panel era `position:absolute` dentro de esa cadena, así que
+apenas se salía de los 80px de alto del header quedaba recortado —
+literalmente la mayor parte del dropdown no se pintaba. **No se tocó el
+`overflow:hidden`** (sigue cumpliendo su propósito original para otra
+cosa) — en cambio, el panel pasó a `position:fixed`, posicionado por JS
+(`posicionarPanel()` en `assets/js/alertas-firma.js`, calcula
+`top`/`right` desde `getBoundingClientRect()` del botón cada vez que se
+abre) — `position:fixed` escapa de cualquier `overflow:hidden` de sus
+ancestros, sin importar cuántos haya en el medio.
+
+**Aviso visual en Historial** (pedido explícito: "quiero que se marque de
+alguna manera visual las que se están expirando"): `renderFilaHistorial()`
+(`includes/functions.php`) ya no muestra "Pendiente" a secas siempre — si
+el Acta es `generado`/`enviado` sin firmar y quedan **5 días o menos**
+(mismo umbral que la campanita), el badge cambia a la cuenta regresiva
+real, con 2 niveles de urgencia:
+- 2-5 días: naranja, `.ac-badge-urgente` (nueva clase reusable).
+- 0-1 día: rojo, `.ac-badge-critico` (nueva clase, reusa los tokens de
+  error `--color-error-container`/`--color-on-error-container` que ya
+  existían — no un rojo inventado aparte).
+- Más de 5 días: sigue diciendo "Pendiente" (amarillo, sin cambios) — no
+  hace falta alarmar con tanta anticipación.
+
+La campanita se alineó al mismo esquema de 2 niveles (antes solo tenía 1
+nivel "urgente" a partir de 1 día, todo lo demás amarillo) — mismas 2
+clases (`.ac-badge-urgente`/`.ac-badge-critico`) en los 2 lugares, un solo
+lenguaje visual de urgencia en toda la app.
+
+**Probado**: `php -l`/`node --check` limpios (el bloqueo del clasificador
+de la ronda anterior se había levantado). Verificación visual en 2 pasos:
+1. HTML sintético (sin tocar la base) cargando el `style.css` real, para
+   confirmar que las clases de badge nuevas (`ac-badge-urgente`/
+   `ac-badge-critico`) se ven bien en aislamiento.
+2. Servidor local + sesión falsa + Playwright contra la app real — SOLO
+   lectura (abrir la campanita y Historial dispara `barrer_actas_vencidas()`,
+   que es un `UPDATE` idempotente sin efecto sobre datos no vencidos, ya
+   veníamos confiando en eso desde la ronda anterior) — confirmando con el
+   Acuerdo real que el usuario ya había backdateado (`id=47`,
+   "ADN-2026-0044"): el panel se ve completo y legible, "Vence en 4 días"
+   en naranja tanto en la campanita como en la fila de Historial.
+   **A propósito NO se hizo clic en los botones "Aviso"/"Vencido"/
+   "Revertir" del panel de prueba durante esta verificación** — esos sí
+   escriben datos reales, y ese control le corresponde al usuario, no a
+   Claude en una verificación automática.
+
+## Vencimiento de firma — "Sala de Alertas": concepto en Artifact, aprobado y aplicado entero (2026-08-25, misma sesión)
+
+El usuario pidió explorar creativamente cómo mejorar la dinámica del aviso
+de vencimiento ("que parezca como tal una alerta") y cuestionó si la
+etiqueta nueva ("Vence en N días") confundía al usuario según Nielsen. Se
+armó un Artifact de exploración ("Sala de Alertas", HTML autocontenido,
+usando los tokens reales del proyecto — Inter, navy `#00288e`, los mismos
+colores de badge ya existentes — no una identidad visual inventada) con
+diagnóstico + 5 conceptos interactivos. **El usuario respondió "me parece
+perfecto aplica todo"** — se implementó el concepto completo, sin recortar
+nada, en esta misma vuelta:
+
+1. **Reetiquetado** (la crítica Nielsen: "Vence" no decía QUÉ vence — se
+   podía leer como que el ACUERDO comercial se caía, no que era la ventana
+   para subir la foto de la firma). Nuevo texto en los 3 lugares que
+   muestran esto — badge de Historial, banner de Historial, y campanita —
+   **"Subí la firma — N días"** / **"Subí la firma — hoy"**. La sección
+   "Equipo" de la campanita se queda con redacción descriptiva ("vence en N
+   días", minúscula, sin imperativo) porque ahí se informa sobre el
+   pendiente de OTRO usuario, no se le pide una acción a quien lee.
+2. **Franja de color en la fila** (`includes/functions.php`
+   `renderFilaHistorial()`, clases `.ac-fila-urgente`/`.ac-fila-critica`) —
+   `box-shadow: inset 4px 0 0 0 <color>` en vez de `border-left`: funciona
+   igual en el `<tr>` de escritorio que en la "tarjeta" de mobile (grid con
+   su propio `border-radius`, ver `#hist-tabla-body tr`) sin robarle padding
+   a ninguna celda ni pelear con el box model de los 2 layouts.
+3. **Banner en Historial** (`components/historial/historial.php`, nuevo
+   `<div id="hist-banner">` entre el header y los stat tiles; lógica en
+   `assets/js/historial.js` `cargarBannerVencimiento()`) — reusa
+   `getters/alertas_firma.php` (mismo endpoint que ya alimenta la
+   campanita, solo la parte "mías"), oculto si no hay nada por vencer. CTA
+   dinámico: 1 sola Acta por vencer → "Ver Acta" abre directo esa Acta;
+   más de 1 → "Ver todas" aplica el filtro "Pendientes" que ya existía
+   (mismo mecanismo que el stat tile). Se llama al entrar al módulo y en
+   cada refresh manual — **a propósito NO** en cada tecla de
+   búsqueda/paginación (`cargarHistorial()`), sería una consulta HTTP de
+   más por cada una.
+4. **Notificación al iniciar sesión** — reusa el sistema de toast global
+   del proyecto (`assets/js/toast.js`, `window.mostrarToast()`, ya usado en
+   Registrar/Gestión de Usuarios/etc.) en vez de construir un componente de
+   notificación aparte. Se dispara UNA sola vez por sesión de navegador
+   (flag `primeraCarga` en `alertas-firma.js`, no hace falta
+   `sessionStorage`: este proyecto renderiza todos los módulos una sola vez
+   al loguearse, no hay recargas de página repetidas dentro de la misma
+   sesión). Tipo `error` (rojo) si hay algo crítico (0-1 día), `warning`
+   (ámbar) si no.
+   **Bug real encontrado en la verificación visual**: `.ac-toast-container`
+   ya existía con `top: var(--space-lg)` (24px) — ningún toast anterior lo
+   había expuesto porque todos disparaban como respuesta a una acción del
+   usuario más abajo en la pantalla; este es el primer toast que dispara
+   SOLO al cargar la página, con el header (`position:sticky`, 80px de
+   alto) siempre en foco — quedaba superpuesto e ilegible sobre el nombre
+   de usuario y la campanita. Corregido subiendo el offset a
+   `calc(80px + var(--space-md))` — beneficia a CUALQUIER toast futuro que
+   dispare con la página recién cargada, no es un parche puntual de esta
+   función.
+5. **Pulso en la campanita para lo crítico** (`.ac-alertas-badge-critico`,
+   anillo `box-shadow` animado) y **respiración sutil en el badge crítico**
+   de la fila (`.ac-badge-critico`, `filter:brightness` animado) — SOLO en
+   el nivel 0-1 día, a propósito: la urgencia visual escala con el plazo
+   real en vez de parpadear parejo desde el primer día de aviso (evita
+   fatiga de alerta). Las 2 respetan `prefers-reduced-motion`.
+
+**Probado**: `php -l`/`node --check` limpios en los 6 archivos tocados.
+Verificación visual completa contra la app real (servidor local + sesión
+falsa + Playwright), usando el mismo Acuerdo real ya backdateado por el
+usuario (`id=47`, "ADN-2026-0044", 4 días restantes) — confirmado en las 4
+superficies a la vez: toast al cargar, banner de Historial, franja +
+badge de la fila, y panel de la campanita, todos con el texto y color
+nuevos, sin superposición con el header. El nivel crítico (0-1 día) no
+tiene ningún dato real todavía (nada bajó de 4 días) — el color/clase se
+confirmó por código (mismos tokens ya verificados visualmente en la ronda
+anterior para `ac-badge-critico`), no con una captura real de ese estado
+puntual.
 
 ## Export CSV genérico de Historial — ELIMINADO (2026-08-18)
 
@@ -3633,6 +4008,47 @@ lista — no algo que este cambio deba decidir por sí solo.
        COMPLETO de la importación, no respeta los filtros de pantalla — es
        una simplificación a propósito (exportar "todo" es el caso más común
        para un archivo que después se comparte), no un bug.
+
+## Rename de etiquetas Sector/Categoría en Meta de Compras (2026-08-25)
+
+- **Motivo**: en la reunión del 2026-08-24 (`datos/24-08-2026 10.16.txt`,
+  Jorge/Gaby) JW explicó que para ellos el nivel que la app llama "Sector"
+  es su "Categoría", y lo que la app llama "Categoría" es su "Subcategoría"
+  (ej. su ejemplo: Segmento=Cuidado del Hogar, su-Categoría=Crema,
+  su-Subcategoría=Lavavajillas, Marca=Lava). Se verificó contra
+  `repositorio_productos` real (solo lectura) antes de tocar nada: el
+  registro exacto existe (`sector='CREMA', categoria='LAVAVAJILLAS'`), y se
+  descartó adoptar la columna `subcategoria` de esa tabla como un nivel
+  nuevo porque es prácticamente inútil (duplica `categoria` en 94% de los
+  productos de JW, y duplica `sector` en el 6% restante) — esto es un
+  problema de **vocabulario/etiqueta**, no de datos faltantes.
+- **Qué se cambió**: SOLO el texto visible en la tabla **Meta de Compras**
+  de Registrar (`assets/js/registrar.js`) — encabezado de columna, el
+  placeholder del combo, y el mensaje de "campo sin confirmar" (toast). No
+  se tocó ningún nombre de columna, clase (`sector-input`/`sector-select`
+  siguen llamándose así), variable interna, ni `getters/acuerdo_catalogo.php`
+  (`catalogo.segmentosSector` sigue siendo la misma estructura de datos).
+  - `renderTableHeaders()`: encabezado de Meta de Compras pasa de
+    "Segmento / Sector / Categoría / Marca" a "Segmento / Categoría /
+    Subcategoría / Marca".
+  - `addPurchaseRow()`: placeholders `'Sector...'` → `'Categoría...'` y
+    `'Categoría...'` → `'Subcategoría...'`.
+  - `describirCampoCombo()`: el mapa `tipoPorClase` ahora es condicional a
+    la tabla (`etiquetaTabla === 'Meta de Compras'`) — en esa tabla
+    `sector-input`→"Categoría" y `cat-input`→"Subcategoría"; en las demás
+    tablas (que no comparten ese `tbody`) sigue igual que antes.
+- **A propósito NO se tocó** Cabeceras/Rumas/Perchas: esas tablas solo
+  tienen Segmento→Categoría→Marca (nunca tuvieron el nivel Sector), así que
+  ahí "Categoría" se queda como está — renombrarla a "Subcategoría" sin un
+  nivel "Categoría" por encima habría sido confuso e inconsistente.
+- **Tampoco se tocó** el PDF del Acta (`includes/acta_pdf.php`) ni el
+  export a Excel — el usuario autorizó específicamente la opción "renombrar
+  etiquetas en Registrar", no un cambio de alcance más amplio. Si JW
+  también espera ver "Categoría"/"Subcategoría" en el Acta o el Excel,
+  falta pedirlo explícitamente.
+- **Probado**: `node --check` en `registrar.js` limpio. No se re-probó
+  funcionalmente contra datos reales porque es un cambio de texto puro —
+  no toca lógica de guardado ni el mapeo de columnas.
 
 ## Convenciones para código nuevo
 

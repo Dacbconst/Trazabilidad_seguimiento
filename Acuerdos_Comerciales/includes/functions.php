@@ -346,6 +346,81 @@ function trimestreABounds($trimestre) {
 	return [$inicio, $inicio + 2];
 }
 
+// Vencimiento de firma (2026-08-25): un Acta 'generado'/'enviado' que pasa
+// 20 días desde fecha_generacion sin volver firmada pasa a 'vencido' — deja
+// de poder subírsele la firma (ver subir_acta_firmada.php) y desaparece de
+// Historial, mismo criterio que 'anulado' (ver listar_historial_acuerdos()
+// y las demás consultas de abajo que ya excluían 'anulado'). Sin cron en
+// este proyecto (hosting compartido, sin job runner) — en vez de eso, este
+// "barrido" corre cada vez que se listan Actas o se calculan las alertas de
+// la campanita, así los datos quedan consistentes sin depender de un
+// proceso en segundo plano. `query()` (no `prepare()`) porque no hay
+// parámetros de usuario — con MYSQLI_REPORT_OFF (ver db_connect.php) esto
+// simplemente devuelve false y no hace nada si el ENUM todavía no tiene
+// 'vencido' (falta correr el ALTER TABLE, ver CLAUDE.md), mismo patrón
+// defensivo que el resto de columnas nuevas de este archivo.
+function barrer_actas_vencidas($mysqli) {
+	$mysqli->query(
+		"UPDATE repositorio_acuerdos
+		 SET estado = 'vencido'
+		 WHERE estado IN ('generado', 'enviado')
+		   AND fecha_generacion IS NOT NULL
+		   AND fecha_generacion < DATE_SUB(CURDATE(), INTERVAL 20 DAY)"
+	);
+}
+
+// Actas propias por vencer (2026-08-25): alimenta "Mis Actas" de la
+// campanita del header — 'generado'/'enviado' sin firmar, con
+// $diasUmbral días o menos para cumplirse el plazo de 20 días. Corre el
+// barrido primero para no mostrar como "por vencer" algo que en realidad
+// ya venció (y para que la próxima carga de Historial no lo vuelva a ver).
+function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
+	if (!$usuarioId) return [];
+	barrer_actas_vencidas($mysqli);
+	$stmt = $mysqli->prepare(
+		"SELECT a.id, a.documento_no, a.fecha_generacion,
+		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
+		 FROM repositorio_acuerdos a
+		 WHERE a.creado_por = ?
+		   AND a.estado IN ('generado', 'enviado')
+		   AND a.fecha_generacion IS NOT NULL
+		 HAVING dias_restantes BETWEEN 0 AND ?
+		 ORDER BY dias_restantes ASC"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('ii', $usuarioId, $diasUmbral);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	return $filas;
+}
+
+// Seguimiento de equipo (2026-08-25, solo superdesarrollador): a diferencia
+// de listar_alertas_firma_propias() esto NO se limita a los últimos N días
+// — el pedido explícito fue "no darle alertas innecesarias sino que tenga
+// seguimiento de los usuarios que traen pendientes", así que trae TODO lo
+// generado/enviado sin firmar de cualquier usuario, agrupado por quién lo
+// creó, con el más próximo a vencer de cada uno — es una vista informativa
+// de equipo, no un contador de urgencia como "Mis Actas".
+function listar_equipo_pendientes_firma($mysqli) {
+	barrer_actas_vencidas($mysqli);
+	$stmt = $mysqli->prepare(
+		"SELECT u.usuario, COUNT(a.id) AS pendientes,
+		        MIN(DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE())) AS dias_restantes_minimo
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 WHERE a.estado IN ('generado', 'enviado')
+		   AND a.fecha_generacion IS NOT NULL
+		 GROUP BY u.id, u.usuario
+		 ORDER BY dias_restantes_minimo ASC"
+	);
+	if (!$stmt) return [];
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	return $filas;
+}
+
 // $usuarioId filtra a "solo los acuerdos que ESTE usuario creó"
 // (repositorio_acuerdos.creado_por, guardado por guardar_acuerdo.php al
 // insertar). Antes se inferÃ­a indirectamente vÃ­a supervisor/territorio; ahora
@@ -372,6 +447,11 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
 
+	// Barrido de vencimiento de firma (2026-08-25) — corre acá para que
+	// Historial nunca muestre un Acta que ya debería estar vencida solo
+	// porque nadie visitó esta pantalla desde que se cumplieron los 20 días.
+	barrer_actas_vencidas($mysqli);
+
 	// El JOIN es solo para mostrar pos_name/cedi — repositorio_locales_
 	// supervisores_cliente puede tener varias filas con el mismo pos_id bajo
 	// distintos supervisores (~1,116 duplicados detectados), por eso el
@@ -389,7 +469,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
-		WHERE a.estado NOT IN ('borrador', 'anulado')
+		WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
 		  AND a.creado_por = ?
 		  AND d.pos_name LIKE ?
 		  AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
@@ -478,7 +558,7 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 		        MIN(CASE WHEN a.acta_firmada_archivo IS NULL THEN a.fecha_generacion END) AS pendiente_mas_antigua
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
-		 WHERE a.estado NOT IN ('borrador', 'anulado')
+		 WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
 		   AND a.creado_por = ?
 		   AND d.pos_name LIKE ?
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
@@ -506,7 +586,7 @@ function listar_anios_disponibles($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT anio FROM repositorio_acuerdos
-		 WHERE creado_por = ? AND estado NOT IN ('borrador', 'anulado')
+		 WHERE creado_por = ? AND estado NOT IN ('borrador', 'anulado', 'vencido')
 		 ORDER BY anio DESC"
 	);
 	if (!$stmt) return [];
@@ -525,9 +605,39 @@ function renderFilaHistorial(array $a) {
 	// mano. Un solo botón por fila que cambia de ícono/acción según el
 	// estado: subir si falta, ver el archivo si ya está.
 	$tieneFirma = !empty($a['tiene_firma']);
-	$firmaBadge = $tieneFirma
-		? '<span class="ac-badge ac-badge-ok">Firmada</span>'
-		: '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
+	// Aviso visual de vencimiento (2026-08-25) — el badge "Pendiente" de
+	// siempre pasa a mostrar la cuenta regresiva cuando quedan 5 días o
+	// menos (mismo umbral que la campanita del header, ver
+	// listar_alertas_firma_propias() más abajo), con 2 niveles de urgencia.
+	// Texto rediseñado tras revisar la etiqueta contra las heurísticas de
+	// Nielsen (ver concepto "Sala de Alertas", 2026-08-25, aprobado por el
+	// usuario tal cual): "Vence en N días" no decía QUÉ vence — se podía
+	// leer como que el ACUERDO comercial se cae, no que es la ventana para
+	// subir la foto de la firma (heurística 2, coincidencia con el mundo
+	// real). "Subí la firma — N días" nombra la acción pendiente en vez de
+	// solo el dato (heurística 5, prevención de errores) y usa el
+	// vocabulario del usuario ("subí la firma") en vez del sistema
+	// ("vence"). $filaUrgencia además marca el `<tr>` para la franja de
+	// color lateral (ver ac-fila-urgente/ac-fila-critica en style.css).
+	$filaUrgencia = '';
+	if ($tieneFirma) {
+		$firmaBadge = '<span class="ac-badge ac-badge-ok">Firmada</span>';
+	} else {
+		$diasRestantes = null;
+		if (!empty($a['fecha_generacion']) && in_array($a['estado'] ?? '', ['generado', 'enviado'], true)) {
+			$limite = (new DateTime($a['fecha_generacion']))->modify('+20 days');
+			$diasRestantes = (int) (new DateTime('today'))->diff($limite)->format('%r%a');
+		}
+		if ($diasRestantes !== null && $diasRestantes <= 5) {
+			$texto = $diasRestantes <= 0 ? 'Subí la firma — hoy' : ($diasRestantes === 1 ? 'Subí la firma — 1 día' : 'Subí la firma — '.$diasRestantes.' días');
+			$esCritico = $diasRestantes <= 1;
+			$clase = $esCritico ? 'ac-badge-critico' : 'ac-badge-urgente';
+			$filaUrgencia = $esCritico ? ' ac-fila-critica' : ' ac-fila-urgente';
+			$firmaBadge = '<span class="ac-badge '.$clase.'" title="Plazo de firma: 20 días desde la generación del Acta">'.$texto.'</span>';
+		} else {
+			$firmaBadge = '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
+		}
+	}
 	// .ac-row-actions-primary + el <span> de texto (oculto en desktop, ver
 	// style.css): en mobile este es el botón que más importa de toda la fila
 	// — la mayoría de las subidas de Acta firmada van a pasar por celular,
@@ -538,7 +648,7 @@ function renderFilaHistorial(array $a) {
 		: '<button type="button" class="ac-icon-btn ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0" title="Subir Acta Firmada"><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
 
 	return '
-	<tr data-id="'.(int) $a['id'].'">
+	<tr data-id="'.(int) $a['id'].'" class="hist-fila'.$filaUrgencia.'">
 		<td><button type="button" class="ac-link-id hist-btn-ver" data-id="'.(int) $a['id'].'">#'.htmlspecialchars($a['documento_no']).'</button></td>
 		<td class="ac-hist-distribuidor">'.htmlspecialchars($a['pos_name']).'</td>
 		<td>'.htmlspecialchars($a['cedi'] ?: '—').'</td>

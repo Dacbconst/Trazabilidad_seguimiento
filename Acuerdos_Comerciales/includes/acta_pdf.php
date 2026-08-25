@@ -440,34 +440,30 @@ td { padding: '.px(4, $escala).' '.px(11, $escala).'; word-wrap: break-word; fon
 
 <div class="firmas-footer">
 '.($esDistribuidor && $sinVisibilidad ? '
-<!-- Layout de 3 firmas (Distribuidor + sin visibilidad únicamente,
+<!-- Layout de 2 firmas (Distribuidor + sin visibilidad únicamente,
      confirmado con el usuario 2026-08-24 contra una captura real del
      formato físico) — Distribuidor CON visibilidad y Directo siguen con
-     las 2 firmas de siempre, más abajo. Cada línea lleva "OBLIGATORIO"
-     arriba (así lo exige el formato físico). La izquierda mantiene el
-     nombre real autocompletado de quién generó el Acta (ya existía,
-     confirmado que se mantiene); las otras 2 quedan en blanco para llenar
-     a mano, no hay de dónde autocompletarlas. -->
+     las 2 firmas de siempre, más abajo, pero acá la etiqueta derecha es
+     distinta ("Asesor Comercial (distribuidor)", no "Jefe Comercial").
+     2026-08-25, pedido explícito: se sacó el "OBLIGATORIO" de cada línea y
+     la 3ra firma (Jefe Comercial) que tenía este layout al inicio — ahora
+     coincide en cantidad de firmas con el resto de formatos (2 acá + Firma
+     del Cliente más abajo = 3 en total en todo el documento). La izquierda
+     mantiene el nombre real autocompletado de quién generó el Acta (ya
+     existía, se mantiene); la derecha queda en blanco para llenar a mano,
+     no hay de dónde autocompletarla. -->
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
-		<p class="label" style="margin:0;">Obligatorio</p>
 		<div class="firma-linea-firmar"></div>
 		<p style="margin:0; font-weight:bold;">'.$nombreEjecutivoHtml.'</p>
 		<p class="label" style="margin-top:'.px(8, $escala).';">Desarrollador de Mercado</p>
 	</td>
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
-		<p class="label" style="margin:0;">Obligatorio</p>
 		<div class="firma-linea-firmar"></div>
 		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
 		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial (distribuidor)</p>
 	</td>
-</tr></table>
-<div style="text-align:center; margin-top:'.px(14, $escala).';">
-	<p class="label" style="margin:0;">Obligatorio</p>
-	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(32, $escala).' auto;"></div>
-	<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
-	<p class="label" style="margin-top:'.px(8, $escala).';">Jefe Comercial</p>
-</div>' : '
+</tr></table>' : '
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>

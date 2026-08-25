@@ -445,13 +445,19 @@
 		var count = months.length;
 
 		purchaseHead.innerHTML =
-			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Sector</th><th class="ac-sticky-col ac-sticky-col-3">Categoría</th><th class="ac-sticky-col ac-sticky-col-4">Marca</th>' +
+			// Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría") a
+			// pedido explícito de JW (reunión 2026-08-24): así llaman ellos a
+			// estos mismos dos niveles. Solo texto visible — la columna interna
+			// sigue siendo 'sector' (clase sector-input, catalogo.segmentosSector),
+			// sin tocar acuerdo_catalogo.php ni el mapeo de datos. Cabeceras/Rumas
+			// no tienen este nivel intermedio, así que ahí "Categoría" queda igual.
+			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Categoría</th><th class="ac-sticky-col ac-sticky-col-3">Subcategoría</th><th class="ac-sticky-col ac-sticky-col-4">Marca</th>' +
 			months.map(function (m) { return '<th class="ac-text-right">' + m + ' ($)</th>'; }).join('') +
-			'<th class="ac-text-right ac-col-highlight">Total Período</th><th class="ac-text-right ac-col-highlight">Rebate %</th><th class="ac-text-right ac-col-highlight">Valor Estimado</th><th></th></tr>';
+			'<th class="ac-text-right ac-col-highlight">Total Período</th><th class="ac-text-right ac-col-highlight">Rebate %</th><th class="ac-text-right ac-col-highlight ac-th-2l">Valor Estimado<br>a Ganar</th><th></th></tr>';
 
 		cabecerasHead.innerHTML =
 			'<tr><th rowspan="2" class="ac-sticky-col">Segmento</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-3">Marca</th>' +
-			'<th colspan="' + count + '">Cabecera Pago x Mes</th><th rowspan="2">Pago Total</th><th rowspan="2"></th></tr>' +
+			'<th colspan="' + count + '">Cabecera Pago x Mes</th><th rowspan="2" class="ac-th-2l">Pago Total<br>Cajas</th><th rowspan="2"></th></tr>' +
 			'<tr>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '</tr>';
 
 		// Rumas visualmente tiene una columna por mes (igual que Cabeceras/Perchas),
@@ -460,14 +466,14 @@
 		// valor distinto por mes — ver CLAUDE.md.
 		rumasHead.innerHTML =
 			'<tr><th rowspan="2" class="ac-sticky-col">Segmento</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-3">Marca</th>' +
-			'<th colspan="' + count + '">Valor Ruma x Mes (se edita en la mini tabla de la derecha)</th><th rowspan="2">Pago Total</th><th rowspan="2"></th></tr>' +
+			'<th colspan="' + count + '">Valor Ruma x Mes (se edita en la mini tabla de la derecha)</th><th rowspan="2" class="ac-th-2l">Pago Total<br>Cajas</th><th rowspan="2"></th></tr>' +
 			'<tr>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '</tr>';
 
 		perchasHead.innerHTML =
 			'<tr><th rowspan="3" class="ac-sticky-col">Marca Perchas</th><th rowspan="1">Participación</th><th rowspan="1">Cantidad</th>' +
 			'<th colspan="' + (count + 1) + '">Pago Mensual</th><th rowspan="3"></th></tr>' +
 			'<tr><th colspan="' + (count + 2) + '">Pago x Mes x Percha ($)</th></tr>' +
-			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th>Pago Total</th></tr>';
+			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th class="ac-th-2l">Pago Total<br>Cajas</th></tr>';
 	}
 
 	function syncTables() {
@@ -663,8 +669,8 @@
 		var tr = document.createElement('tr');
 		var html =
 			'<td class="ac-sticky-col">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('sector', 'Sector...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('sector', 'Categoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('cat', 'Subcategoría...', true) + '</td>' +
 			'<td class="ac-sticky-col ac-sticky-col-4">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
 		activeMonthsIndices.forEach(function () {
 			html += '<td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input month-input" value="0"></div></td>';
@@ -940,10 +946,6 @@
 		if (input === distribuidorSearch) return etiquetaCampoLocal();
 		if (input === empresaSearch) return 'Distribuidor';
 
-		var tipoPorClase = { 'seg-input': 'Segmento', 'sector-input': 'Sector', 'cat-input': 'Categoría', 'marca-input': 'Marca' };
-		var tipo = Object.keys(tipoPorClase).filter(function (c) { return input.classList.contains(c); })[0];
-		var etiquetaTipo = tipo ? tipoPorClase[tipo] : 'Campo';
-
 		var tablaPorId = {
 			'ac-purchase-body': 'Meta de Compras',
 			'ac-cabeceras-body': 'Cabeceras',
@@ -952,6 +954,15 @@
 		};
 		var tbody = input.closest('tbody');
 		var etiquetaTabla = tbody && tablaPorId[tbody.id];
+
+		// Meta de Compras usa "Categoría"/"Subcategoría" (nomenclatura de JW)
+		// para sector-input/cat-input; las demás tablas no tienen ese nivel
+		// intermedio y siguen llamando "Categoría" al cat-input, sin más.
+		var tipoPorClase = etiquetaTabla === 'Meta de Compras'
+			? { 'seg-input': 'Segmento', 'sector-input': 'Categoría', 'cat-input': 'Subcategoría', 'marca-input': 'Marca' }
+			: { 'seg-input': 'Segmento', 'sector-input': 'Sector', 'cat-input': 'Categoría', 'marca-input': 'Marca' };
+		var tipo = Object.keys(tipoPorClase).filter(function (c) { return input.classList.contains(c); })[0];
+		var etiquetaTipo = tipo ? tipoPorClase[tipo] : 'Campo';
 
 		return etiquetaTabla ? (etiquetaTipo + ' en ' + etiquetaTabla) : etiquetaTipo;
 	}

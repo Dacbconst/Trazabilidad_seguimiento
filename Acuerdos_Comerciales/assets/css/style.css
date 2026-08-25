@@ -426,6 +426,90 @@ body {
 }
 .ac-header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
+/* Campanita de alertas de firma (2026-08-25) — widget global del header,
+   mismo criterio de posicionamiento que el resto de .ac-header-user. */
+.ac-alertas-wrap { position: relative; }
+.ac-alertas-btn {
+	position: relative;
+	width: 40px; height: 40px;
+	display: flex; align-items: center; justify-content: center;
+	border: none; background: transparent; border-radius: var(--radius-full);
+	color: var(--color-on-surface-variant); cursor: pointer;
+	transition: background 0.15s;
+}
+.ac-alertas-btn:hover, .ac-alertas-btn[aria-expanded="true"] { background: var(--color-surface-container-high); color: var(--color-primary); }
+.ac-alertas-badge {
+	position: absolute; top: 2px; right: 2px;
+	min-width: 16px; height: 16px; padding: 0 4px;
+	display: flex; align-items: center; justify-content: center;
+	border-radius: var(--radius-full);
+	background: var(--color-error); color: #fff;
+	font-size: 10px; font-weight: 700; line-height: 1;
+	border: 1px solid var(--color-surface);
+}
+/* Sin esto, el `display:flex` de arriba pisa el `display:none` que el
+   navegador aplica por default al atributo `hidden` (misma especificidad,
+   la regla de autor gana) — el badge se quedaba visible con "0" adentro
+   aunque el JS ya le hubiera puesto `hidden` (encontrado en la
+   verificación visual real, 2026-08-25). */
+.ac-alertas-badge[hidden] { display: none; }
+/* Anillo pulsante solo cuando hay al menos 1 Acta en el nivel crítico
+   (0-1 día) — del concepto "Sala de Alertas" (2026-08-25). Mismo criterio
+   de restricción que .ac-badge-critico: escala con el plazo real, no
+   parpadea desde el primer día de aviso (evita fatiga de alerta). */
+.ac-alertas-badge-critico { animation: ac-alertas-anillo 1.8s ease-out infinite; }
+@keyframes ac-alertas-anillo {
+	0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.55); }
+	70% { box-shadow: 0 0 0 8px rgba(186, 26, 26, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .ac-alertas-badge-critico { animation: none; } }
+/* 2 bugs reales encontrados en la verificación visual (2026-08-25, captura
+   real del usuario mostrando el panel prácticamente en blanco):
+   1) `background: var(--color-surface)` era el MISMO color que `body` —
+      corregido a blanco puro (`--color-surface-container-lowest`).
+   2) `.ac-header-inner` tiene `overflow:hidden` a propósito (red de
+      seguridad contra superposición de texto, ver ese selector más arriba)
+      — con `position:absolute` el panel quedaba recortado por ese overflow
+      apenas se salía de los 80px de alto del header, así que la mayor
+      parte del dropdown ni se pintaba. `position:fixed` (posicionado por
+      JS en `alertas-firma.js` según el rect real del botón al abrir)
+      escapa de cualquier `overflow:hidden` de sus ancestros — mismo
+      resultado visual de "cuelga debajo del botón", sin depender de que
+      ningún padre en el medio tenga overflow visible. */
+.ac-alertas-panel {
+	position: fixed;
+	width: 340px; max-width: 90vw; max-height: 70vh; overflow-y: auto;
+	background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline);
+	border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20,20,40,0.28);
+	z-index: 500;
+}
+.ac-alertas-panel-header {
+	padding: var(--space-sm) var(--space-md);
+	font-weight: 700; font-size: 14px;
+	background: var(--color-surface-container-low);
+	border-bottom: 1px solid var(--color-outline-variant);
+	border-radius: var(--radius) var(--radius) 0 0;
+}
+.ac-alertas-panel-body { padding: var(--space-sm) var(--space-md); }
+.ac-alertas-vacio { font-size: 13px; color: var(--color-on-surface-variant); margin: var(--space-xs) 0; }
+.ac-alertas-seccion-titulo {
+	font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+	color: var(--color-on-surface-variant); margin: var(--space-sm) 0 var(--space-xs);
+}
+.ac-alertas-seccion-equipo { border-top: 1px solid var(--color-outline-variant); padding-top: var(--space-sm); }
+.ac-alertas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ac-alertas-item {
+	display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+	padding: var(--space-xs) var(--space-sm); border-radius: var(--radius);
+	cursor: pointer; transition: background 0.15s;
+}
+.ac-alertas-item:hover { background: var(--color-surface-container-high); }
+.ac-alertas-item-doc { font-weight: 600; font-size: 13px; }
+.ac-alertas-item-equipo { cursor: default; }
+.ac-alertas-item-equipo:hover { background: transparent; }
+.ac-alertas-item-meta { font-size: 12px; color: var(--color-on-surface-variant); white-space: nowrap; }
+
 /* Header angosto: con la hamburguesa nueva a la izquierda del logo, el
    padding grande de .ac-brand (pensado para desktop sin ese botón) sobra;
    y el nombre+rol completo puede no entrar junto al avatar en un celular
@@ -555,9 +639,15 @@ body {
 .ac-select:focus { border-color: var(--color-primary); }
 
 /* Toasts — reemplazan al viejo .ac-form-msg (texto inline arriba del
-   formulario) en todo el proyecto, ver assets/js/toast.js. */
+   formulario) en todo el proyecto, ver assets/js/toast.js.
+   `top` bajado de var(--space-lg) a debajo de .ac-header (80px de alto,
+   position:sticky, siempre visible) — encontrado en la verificación visual
+   real (2026-08-25) con el toast de vencimiento de firma: al ser el primer
+   toast que dispara SOLO al cargar la página (todos los demás del proyecto
+   disparan como respuesta a una acción, con el header ya "fuera de foco"),
+   quedaba superpuesto/ilegible sobre el nombre de usuario y la campanita. */
 .ac-toast-container {
-	position: fixed; top: var(--space-lg); right: var(--space-lg);
+	position: fixed; top: calc(80px + var(--space-md)); right: var(--space-lg);
 	z-index: 1000;
 	display: flex; flex-direction: column; gap: var(--space-sm);
 	width: min(360px, calc(100vw - 2 * var(--space-lg)));
@@ -695,6 +785,31 @@ body {
 .ac-badge-superdesarrollador { background: #ffdbce; color: #802a00; }
 .ac-badge-ok { background: #d7f2db; color: #1e5c26; }
 .ac-badge-revisar { background: #fff2cc; color: #7a5b00; }
+/* Más urgente que ".ac-badge-revisar" (amarillo) — mismo naranja que ya
+   usaba ".ac-alertas-item-urgente" en la campanita (2026-08-25), ahora
+   reusable también en las filas de Historial ("Vence hoy"/"Vence en 1
+   día"). */
+.ac-badge-urgente { background: #ffdbce; color: #802a00; }
+/* Nivel más urgente todavía (0-1 día de plazo) — reusa los tokens de error
+   que ya existen en el proyecto (--color-error-container/
+   --color-on-error-container), no un rojo inventado aparte. */
+.ac-badge-critico { background: var(--color-error-container); color: var(--color-on-error-container); }
+/* Respiración sutil solo en el nivel más urgente (2026-08-25, del concepto
+   "Sala de Alertas") — a propósito NO se anima ".ac-badge-urgente"
+   (2-5 días): la urgencia visual debe escalar junto con el plazo real, no
+   parpadear todo por igual desde el primer día de aviso. */
+.ac-badge-critico { animation: ac-badge-respirar 2s ease-in-out infinite; }
+@keyframes ac-badge-respirar { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
+@media (prefers-reduced-motion: reduce) { .ac-badge-critico { animation: none; } }
+
+/* Franja lateral de urgencia en la fila de Historial (2026-08-25, del
+   concepto "Sala de Alertas") — inset box-shadow en vez de border-left:
+   funciona igual en el <tr> de escritorio (fila de tabla) que en la
+   "tarjeta" de mobile (grid con su propio border-radius, ver
+   #hist-tabla-body tr más abajo) sin pelear con el box model de ninguno de
+   los 2 layouts ni robarle padding a las celdas. */
+.hist-fila.ac-fila-urgente { box-shadow: inset 4px 0 0 0 #c8531d; }
+.hist-fila.ac-fila-critica { box-shadow: inset 4px 0 0 0 var(--color-error); }
 
 .ac-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
 .ac-switch input { opacity: 0; width: 0; height: 0; }
@@ -828,6 +943,10 @@ body {
 /* Bandera de Canal (Directo / Distribuidor) — solo lectura, deuda técnica ver registrar.js */
 .ac-badge-canal-directo { background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed); }
 .ac-badge-canal-distribuidor { background: var(--color-surface-container-high); color: var(--color-on-surface-variant); }
+/* Más grande que un ".ac-badge" normal (2026-08-24, pedido explícito) — solo
+   este, no el ".ac-badge" compartido con roles/Historial/etc., que se
+   queda en su tamaño de siempre. */
+#ac-canal-badge { font-size: 13px; padding: 6px 16px; }
 
 .ac-acuerdo-filtros-card { padding: var(--space-lg); overflow: visible; }
 /* Flexbox en vez de grid parejo (2026-08-24, pedido explícito: "Distribuidor
@@ -862,7 +981,13 @@ body {
    poco más que el peso base (el peor caso, "JULIO-AGOSTO-SEPTIEMBRE",
    sigue entrando cómodo, probado con Playwright a 1280/1366/1440px con las
    4 combinaciones de trimestre). */
-.ac-field-meses { flex: 1.3 1 200px; }
+.ac-field-meses { flex: 1.5 1 210px; }
+/* Ya NO se trunca con "…" (2026-08-24, pedido explícito: "que se vea bien",
+   el ancho ajustado a mano en la ronda anterior no alcanzaba con el sidebar
+   real ocupando espacio) — se deja pasar a una 2da línea en vez de cortar
+   el texto. Más específico que ".ac-input-readonly" (selector por #id) para
+   ganarle a ese `white-space:nowrap` compartido con las celdas de tabla. */
+#ac-months-display { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
 .ac-input-readonly {
 	display: flex; align-items: center;
 	background: var(--color-surface-container-low);
@@ -1014,6 +1139,14 @@ body {
 	vertical-align: middle;
 }
 .ac-table-acuerdo tbody td { padding: var(--space-xs) var(--space-sm); vertical-align: middle; }
+/* Encabezados de 2 líneas con <br> explícito (2026-08-25, pedido explícito):
+   con table-layout:auto + thead th en nowrap, un encabezado largo en una
+   sola línea ("Valor Estimado a Ganar", "Pago Total Cajas") empujaba el
+   ancho de esa columna (y de la tabla entera) — un <br> fuerza el salto de
+   línea SIN pelear con nowrap (nowrap solo suprime el wrap automático por
+   espacios, no bloquea un <br> literal), así la columna se queda con el
+   ancho de la línea más larga de las 2, no con el texto completo junto. */
+.ac-table-acuerdo thead th.ac-th-2l { line-height: 1.25; }
 .ac-table-bordered { border: 1px solid var(--color-outline-variant); }
 .ac-table-bordered th, .ac-table-bordered td { border: 1px solid var(--color-outline-variant); text-align: center; }
 .ac-table-bordered thead th { background: var(--color-surface-container-low); }
@@ -1273,6 +1406,25 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
    y la barra, no en todo el fondo de la tarjeta. Al estar activa (filtro
    aplicado) recién ahí se agrega un fondo tintado suave, para que "elegida"
    se lea distinto de "disponible". */
+/* Banner de vencimiento (2026-08-25, del concepto "Sala de Alertas") — 2
+   niveles de urgencia, mismos tonos que ac-badge-urgente/ac-badge-critico
+   para que se lea como la misma señal en toda la pantalla. */
+.ac-hist-banner {
+	display: flex; align-items: center; gap: var(--space-sm);
+	padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg);
+	margin: var(--space-md) 0;
+}
+.ac-hist-banner-icon { font-size: 22px; flex-shrink: 0; }
+.ac-hist-banner-text { flex: 1 1 auto; font-size: 14px; font-weight: 600; }
+.ac-hist-banner-cta {
+	border: none; border-radius: var(--radius); padding: 8px 16px;
+	font-size: 13px; font-weight: 700; cursor: pointer; flex-shrink: 0; color: #fff;
+}
+.ac-hist-banner-urgente { background: #ffdbce; color: #802a00; }
+.ac-hist-banner-urgente .ac-hist-banner-cta { background: #802a00; }
+.ac-hist-banner-critica { background: var(--color-error-container); color: var(--color-on-error-container); }
+.ac-hist-banner-critica .ac-hist-banner-cta { background: var(--color-error); }
+
 .ac-hist-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin: var(--space-md) 0; }
 .ac-hist-stat {
 	width: 100%; display: flex; align-items: flex-start; gap: var(--space-md);

@@ -1,0 +1,93 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+las metas por trimestre por cada uno de los clientes, ya ese formato todavía Diego no lo ha trabajado, entonces eso estaría pendiente por elaborar, ya que es la información que en este caso al momento de seleccionar cada uno de los clientes, ya va a aparecer la información de los acuerdos por categoría y cada uno de sus valores dependiendo del trimestre, pues no, y está pendiente la, cómo queda el, a ver si me fue el otro punto, está pendiente, ah ya sí, y la carga de la estructura para el cuadrito de los rebates, que yo me lo compartiste, pero obviamente Diego le hizo foco como a los otros puntos que ya habíamos visto en la reunión, de ahí a los cambios que salgan, obviamente después de esa sesión estaríamos ya avanzando para una siguiente reunión, entonces ahí te doy paso Diego para que puedas mostrarle e indicarle los cambios y todo lo que con lo que has trabajado para que ella lo sepa. También le dije Michelle a Diego con respecto al tema del bloqueo de que no se puedan hacer dos o tres acuerdos dentro del mismo trimestre, aunque tenga ese punto de venta asignado a dos o tres usuarios, pues no, entonces eso ya Diego también lo tiene mapeado y eso ya lo va a estar trabajando internamente para poder hacer el bloqueo de que sólo una persona pueda generar el acuerdo. Entonces ahí te doy paso Diego para que le expliques a Michelle. 
+
+Sí, por el momento déjelo así, pero creo que ese de jefe comercial no creo que iría. Michelle también, dame un minutito, un dieguito, Michelle también, ese dieguito ya activó para que se pueda cargar el acta, el acta ya firmada, ahí creo que tienes en ese mismo el ejemplo, eso explícale por favor. Sí, ajá, Michelle aquí, ajá, ahí tenemos esa consulta que tiene Diego es que qué campo alimenta esa columna de ahí, para que salga directamente el acta y puedas tener esa conversación. 
+
+Entonces si yo lo reviso con la analista y si en tal caso ella sí lo tiene, entonces arrastraríamos ese campo, caso contrario igual yo te estoy notificando ya, porque de ahí es lo último que estaría faltando en la estructura que se descargue. Ahí muéstrale ese dieguito, ya justo él te está mostrando como los campos que se estarían descargando ya en la estructura del Excel, pues no. Y cuando ustedes en el EPB, no le puedo, ahí hay un apartado que dice si es autoservicio, mayoristas, cobertura. 
+
+Sí, ya lo voy a revisar con Scarlett, que es la analista que maneja esa base para ver si de ahí extraemos esa columna, ya. Ya, pero de ahí ya tienes como supongamos, ya con esta información que ya han llenado los acuerdos comerciales, correcto, ya el rebate obviamente ya que se suba la base maestra del rebate aprobado, ya ahí ya habría que completar los campos que están en celeste, de hecho Diego ya dejó formulado tal cual tu estructura. Entonces aquí ya no deberías tú hacer más, nada más que actualizar los campos. 
+
+Ya él tiene ahí el tema de la sumatoria, ya eso ya te va a bajar el archivo ya con todas las fórmulas. Ya, y por ende se van a ir alimentando los campos, ya, y de ahí obviamente tú irás haciendo las modificaciones necesarias. Ya, y de ahí asimismo en todas las otras pesañas, no se sienta el caso de igual forma te paso este archivo como lo estamos dando estructurado para que tú me digas si o le falta una columna, ya, porque igual Diego seguió de la estructura que tú nos compartiste. 
+
+Sí, está bien, eso no faltaría de ahí a los cálculos. Sí, para que le eche igual un ojito y el resumen de los pagos que también lo tiene. No sé si solo son esas cuatro pestañas o en tal caso se nos está escapando una. 
+
+No, solo son esas dos más. Ya, perfecto, entonces igual que estaríamos compartiendo, ya nos queda pendiente revisar con la analista el tema de dónde podemos sacar el tipo de cliente, ya, en base a la base que ella maneja de EPB y en este caso cargar el tema de los formatos para el formato que ya se estaría alimentando los valores de las cuotas mensuales para cada uno de los clientes por categoría, ya, y de ahí la estructura para el tema del rebate. No creo, creo que no se nos está escapando algo o no sé si es de tu punto de vista, no sé, nos está escapando algo que nos falte agregar. 
+
+Ya, hay una consulta, no se puede, por ejemplo, ahí digamos ya sale un ganador ahí y no se puede reflejar allá en la app como que este cliente ganó tal, tantas cajas o tanto en nota de crédito. Claro, porque digamos en el Excel yo tengo que extraerme la venta y la, y la cartera y en el Excel ya falta hacer el, ya solo eso sería ahí los cálculos, ya. Y en cuota total cómo saldrá? O sea, de lo que yo voy llenando en la categoría, cliente categoría, yo voy llenando, se va actualizando la cuota total. 
+
+Ya. Ya, Diego, creo que en la cuota de cliente, ahí en la donde, donde está mencionando si gana por categoría, supongo que es que si llega a su cumplimiento del 100%, ¿verdad? Sí, o sea que primero tiene que llegar al 100, al 100% en todo el acuerdo comercial, de ahí se le paga por categoría. Ya, pero esto tú lo colocas o esto, esto, esto quieres que se lo deje formulado, la parte de gana. 
+
+Sí, es que eso sí, claro, porque ahí nos indica si está ganando o no el rebate. Ya, eso ahí está formulado, Diego, está solo escrito. Ah, sí, sí está. 
+
+Sí, sí, sí, está formulado. Sí, sí. Entonces ahí tendríamos que hacer como la prueba. 
+
+Bueno, ya luego cuando, cuando ya tengamos como ya toda la estructura hecha, ahí haríamos pruebas internas contigo para que tú igual alimentes, hagamos un ejercicio cargando las matrices que alimentan la plataforma, creando un acuerdo por cada uno de los canales y obviamente con visibilidad y sin visibilidad para poder tener la carga maestra del Excel y de igual cuando ya tú la cargas como con información igual ficticia de tu parte para ver quién gana, quién no gana y ver cómo se estaría reflejando. Igual ese punto de que me indicas de que dentro de la misma plataforma, en este caso, Diego, si se puede, ¿verdad? Solo habría que alimentar primero el Excel como un resumen. Ya, no sé si hasta ahí, Michelle, tengas alguna otra consulta. 
+
+No, tocaría hacer la prueba porque en eso de la venta, ya depende igual cómo tengan, cómo se descargue el Excel porque en nuestro cubo los nombres van a diferir o no sé si les podría pasar o una plana del Excel, o sea, pegado en valores para que no se cambie, no sé. En ese caso, ya pues todo, todo se va a mostrar tal y cual como tú cargas el repositorio inicial. Si tú cargas el repositorio inicial tal cual como tú lo tienes en el cubo, todo lo que se va a descargar va a salirte con esos mismos campos, con esos mismos nombres. 
+
+Y ahí no tendrías inconveniente con hacer los buscadores directamente de la info del cubo, ¿me cachas? Sí. De la fuente de información que tú cargas como ya estos son las cuotas pactadas por cada uno de los clientes, ya es tal cual con esos mismos nombres se va a descargar el archivo. Claro, y luego hay que revisar si están iguales en la base de EPB, porque la base de EPB es la que te asigna el usuario o el responsable de cada cliente. 
+
+Ya, entonces internamente haríamos igual ese match, pero sí sería bueno que igual nos compartas cómo realmente están escritos los clientes para revisar con la fuente de información con la que se estaría comparando. Porque igual como eso extrae directamente con un usuario, ellos van a poder ingresar solo a los clientes que tienen asignados. Entonces sí habría que hacer un cruce total de que los nombres como están dentro del cubo estén igual en la base de EPB de la analisa para que no genere algún conflicto en el momento de que ya estemos manipulando o ya trabajando la información.
+
+Claro, sí, porque más me preocupa en la base de los distribuidores, en ese, porque a veces es como que dos códigos les suman para un cliente, así. Pero el nombre del cliente es igual. No, así sea está diferente. 
+
+Por eso es lo que yo les decía, en el acuerdo los desarrolladores deberían poner los dos nombres. Obviamente que nosotros, o sea, el desarrollador le pone ya cuando va a ser firmar, pero no sé cómo se podría hacer ahí. O al menos que yo les avise. 
+
+O sea, lo que pasa es que aquí el desarrollador va a tener a menos. Aquí sí hay un punto, porque deberíamos tener un solo ID de cliente en este caso. Porque, o sea, si tú ya los tienes mapeados, se puede en este caso, como Diego, se pudiera dejar como un ID único para ese cliente y que considere que, aunque sean dos, tres códigos, si seleccionamos el ID del cliente, obviamente con el nombre, para que pudiera cruzar. 
+
+Porque no va a poder seleccionar tres nombres, porque el acta se está generando por cada uno de los clientes. Correcto, ajá. Correcto, pero ahí tú deberías indicarnos como que este cliente aquí tiene tres códigos. 
+
+Este de aquí sí es único, como para ir mapeando y obviamente ir viendo en la estructura, cómo estaría visualizándose, para que no genere conflictos mañana. Ajá, sí. Entonces, igual internamente revisa, Diego, cómo quedaría ahí la estructura, si generamos como un ID para cada uno de estos clientes. 
+
+Y para que hasta eso Michelle nos pueda compartir la base y nos pueda indicar cuáles serían los clientes que sí tienen los códigos así de dos y tres. Ya, entonces hasta ahí Michelle. No sé si tengas algo más, algún punto que se nos esté escapando. 
+
+No, hasta el momento no, porque tocaría ver cuándo se cargue, o sea ya con una prueba más o menos para ver cómo se está cargando y todo. Pero ahorita la estructura está bien. Ajá, cuando ya tengamos realmente ya toda la estructura con todos esos cambios que nos has pedido, hay que hacer un ejercicio desde cero, cargando la base de maestra, que sería la fuente de información principal, las tres bases que en este caso es la base de los acuerdos, las metas, en este caso por mes en dólares, el rebate y el tema de la participación de la perch. 
+
+Cargamos eso, de ahí vamos haciendo un ejercicio por cada una de las actas, luego la carga obviamente de ya la acta firmada como un ejemplo y de igual forma la descarga del Excel y hasta terminar y cerrar todo el ciclo. De igual forma dentro de la pestaña donde te muestra, te mostró en antes Diego, tienes también, ponte un ratito Diego por favor, ya tienes ahí igual, te dice cuántos acuerdos generados como un visual en tu primera visa, cuántos acuerdos tienes generados, cuántos ya fueron cargados con su firma y cuántos se encuentran pendientes para que tú puedas tener un control y puedas visualizar cuántos todavía están pendientes y obviamente te agrego los filtros. Hay alguna manera de, por ejemplo, establecer una fecha, por ejemplo, tiene el plazo para cargar hasta el 4 de septiembre y si no se bloquea eso, claro, 20 días a partir de lo que ya está hecho el acuerdo.
+
+Ajá, ok. Entonces nos llevamos esos puntos que revisamos y de igual cualquier cosa yo igual estaría creo que mostrando en un avance hasta lo que pueda terminar Diego en la estructura el viernes que tenemos la REU con Jorge y de ahí la siguiente semana estaríamos teniendo otra sesión Michelle para poder ir viendo ya como ya el ciclo deberíamos ya tenerlo ya casi que terminado, pues no? Claro, y ahí se puede poner, por ejemplo, ahí que el como ese, el vendedor o el desarrollador escoja sólo marcas del gol, el macho y la vacía, que no coja nada de alcohol. ¿En qué parte? Ah no, pero ya va a estar, no, eso ya de las cuotas va a estar ahí ya subido automáticamente.
+
+Claro, si tú le cargas. ¿Y en la visibilidad? ¿En la visibilidad de tu archivo Excel? No, no, en el otro, en el aplicativo. Ah, en la parte de abajo, en la parte de abajo.
+
+Ajá, para que sólo marcas jabonería Wilson, así. Ponte, ponte otra vez, ajá, ponte en uno de los acuerdos como ejemplo, porfa, Diego. Arriba, arriba, registrar acuerdos, registrar acuerdos, ajá, como si estuviéramos ingresando uno.
+
+Sí, lo que dice Michelle es que si en la parte de abajo ya, si tú cargas cuatro, ábrete un acuerdo que tengas ahí en borrador para poder ver. De igual forma, también lo que dijo Diego es, Michelle fue que ellos pueden guardar en borradores hasta tener la certeza de que ya estaría completo los acuerdos y ellos ahí ya luego generan el acuerdo comercial. Entonces, si ellos tienen ya como que valores y están por confirmar algún valor pendiente, ellos muy bien pueden modificar después antes de generar el acto.
+
+Ya una vez que está generado el acto, obviamente ya no pueden hacer modificaciones. Ahora, lo que nos menciona Michelle, sí, ándate arribita ahí, ahí donde dice el borrador, tú puedes, él puede ir borrando. Si sólo quiere hacer acuerdos sólo para lo que es Gol, puede ir borrando y deja sólo lo que es Gol.
+
+Eso no interfiere y abajo de igual forma. Y no le pueden como bloquear para que sólo coja, porque ya conozco que tal vez escojan un victorio con con el Gol y eso no es parte del acuerdo. Es sólo jabonería, digamos así, jabonería Wilson es sólo del acuerdo de jabonería Wilson.
+
+Ya, pero entonces dentro de las metas arriba se iban a ver productos de alicor. No, sólo de jabonería van a ver. Allá, pero entonces ellos, claro, pero entonces ellos no van a poder modificar, porque si el acuerdo inicial, cuando ya se carga, todo te muestra, supongamos los productos de jabonería Wilson, abajo sólo te va a desplegar los productos de jabonería Wilson ya por después de la misividad.
+
+Correcto. En todo, en todo lo que tienes en la parte de abajo te va a salir Gol, Lava, el jabón, el macho, supongamos, porque es lo que tú cargaste al inicio y ellos lo único que van a hacer es llenar los campos de los gozados. Nada que.
+
+Sí, sí, sí, ahí no hay, ahí no habría conflicto, ya sea en el momento que tú cargues ya más adelante. Supongo que en algún momento se iban a incorporar marcas de alicor, entonces ya hay otro acuerdo para ellos, para el acuerdo. Ah, ok.
+
+Ya, entonces. Si ahí no hay conflicto, si tú sólo le cargas inicialmente todo jabonería Wilson, ellos van a ver los productos sólo de jabonería Wilson, lo que tú le has colocado, las marcas que tú le has colocado. Ya.
+
+Entonces ahí sí me queda claro. Ya, pues entonces, Michelle, con eso estaríamos avanzando, no sé si Diego, tú tengas alguna pregunta adicional. Ah, ya.
+
+Sí, un acta por cada uno, por cada uno de los clientes. Correcto, sí. Perdón, no le entendí.
+
+Ajá. Ajá. Sí, pero ahí.
+
+Ajá. Sí, correcto, pero obviamente los valores que estás cargando inicialmente sólo son los valores en dólares y obviamente en ese caso el desarrollador va a tener que completar la información de abajo sí o sí. En visibilidad.
+
+Ajá, para poder generar y guardar el acta. Ellos lo que no van a poder modificar son los dólares que vas a colocar en la parte de arriba. Correcto.
+
+Ajá. Correcto, entonces ahí en el Excel tú tienes, en el Excel tú tienes un cliente y tienes todas las categorías en las cuales ellos están aplicando, en ese caso, el acuerdo comercial, que es lo que nos menciona Michelle, que sólo son las categorías de Javonería Wilson. Ajá.
+
+Ajá. Categorías, clientes, categorías. Ajá.
+
+No, pues debería ser en el mismo listado, no, no, ahí te estás como componiendo, Diego, porque supongamos Michelle carga 50 clientes, ya, son los 50 clientes que te van a aparecer en el listado, obviamente ya asignándole cuál es el asesor, la persona que atiende cada uno de esos clientes, entonces ya cuando yo como usuario ingreso a la plataforma, selecciono el cliente, ya me van a aparecer lo que ya se cargó de las negociaciones que ya tienen en temas de dólares, ya, y yo voy a ir completando lo de abajo. Ajá. Entonces yo voy completando, genero el ato y ahí seguimos la secuencia de lo que ya revisamos.
+
+Ajá. Entonces ahí, no sé si respondí tu consulta, sí, todo es lo mismo, o sea, todo es lo mismo, cargamos la cantidad de clientes que se hayan realizado acuerdos y obviamente eso va a ir asignado con una persona responsable por punto de venta y van a entrar y con su usuario van a poder ingresar al punto de venta y obviamente ya ver todo este despliegue de datos que ya hemos revisado. Ese es el ejercicio.
+
+Ajá. Ya. Entonces ahí Michelle, yo te estaría igual escribiendo si en tal caso Diego en el momento que está estructurando y haciendo los ajustes de la plataforma, le genera alguna consulta, yo te paso algún mensajito, ya.
+
+Ya, ya listo Gabby. Ya, dale Michelle. Gracias.
+
+Gracias.
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)

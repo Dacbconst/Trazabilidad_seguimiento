@@ -16,6 +16,9 @@
 	var paginacionInfo  = document.getElementById('hist-paginacion-info');
 	var paginacionBtns  = document.getElementById('hist-paginacion-btns');
 	var buscarTimeout   = null;
+	var histBanner      = document.getElementById('hist-banner');
+	var histBannerText  = document.getElementById('hist-banner-text');
+	var histBannerCta   = document.getElementById('hist-banner-cta');
 
 	function escapeHtml(texto) {
 		var div = document.createElement('div');
@@ -176,12 +179,54 @@
 	anioSelect.addEventListener('change', function () { cargarHistorial(1); });
 	buscarBtn.addEventListener('click', function () { cargarHistorial(1); });
 
+	// Banner de vencimiento (2026-08-25, del concepto "Sala de Alertas") —
+	// reusa la misma data que la campanita del header (assets/js/alertas-
+	// firma.js, getters/alertas_firma.php), pero SOLO "mías" (acá no hay
+	// espacio ni motivo para la sección de Equipo). No se llama desde
+	// cargarHistorial() a propósito: esa se dispara en cada tecla de
+	// búsqueda/paginación/cambio de filtro, sería una consulta de más por
+	// cada una — se llama solo al entrar al módulo y al refrescar.
+	function diasCortosHist(dias) {
+		dias = parseInt(dias, 10);
+		if (dias <= 0) return 'hoy';
+		if (dias === 1) return '1 día';
+		return dias + ' días';
+	}
+	function cargarBannerVencimiento() {
+		fetch('getters/alertas_firma.php')
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				var mias = (data.ok && data.mias) ? data.mias : [];
+				if (!mias.length) { histBanner.hidden = true; return; }
+
+				var masUrgente = mias[0]; // ya vienen ordenados ASC por dias_restantes.
+				var hayCritico = mias.some(function (a) { return parseInt(a.dias_restantes, 10) <= 1; });
+				histBanner.hidden = false;
+				histBanner.classList.toggle('ac-hist-banner-critica', hayCritico);
+				histBanner.classList.toggle('ac-hist-banner-urgente', !hayCritico);
+				histBannerText.textContent = mias.length === 1
+					? '#' + masUrgente.documento_no + ' — Subí la firma: quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.'
+					: mias.length + ' Actas por vencer — la más próxima, #' + masUrgente.documento_no + ', quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.';
+				histBannerCta.textContent = mias.length === 1 ? 'Ver Acta' : 'Ver todas';
+				histBannerCta.onclick = mias.length === 1
+					? function () { abrirDetalle(masUrgente.id); }
+					: function () {
+						firmaFiltroActual = 'pendientes';
+						actualizarTilesActivos();
+						cargarHistorial(1);
+					};
+			})
+			.catch(function () { histBanner.hidden = true; });
+	}
+	cargarBannerVencimiento();
+
 	// Recarga la página actual sin perder la búsqueda/filtro de mes — a
 	// diferencia de "Nuevo Acuerdo", esto no reinicia nada, solo vuelve a
 	// pedir los mismos datos por si algo cambió (ej. un Acuerdo generado
 	// desde otra pestaña/sesión).
 	function refrescarHistorial() {
 		cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
+		cargarBannerVencimiento();
 	}
 	document.getElementById('hist-actualizar').addEventListener('click', refrescarHistorial);
 	// Expuesto para que index.php pueda refrescar este módulo automáticamente

@@ -51,6 +51,18 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 		</div>
 	</div>
 
+	<!-- Banner de vencimiento (2026-08-25, del concepto "Sala de Alertas",
+	     aprobado por el usuario tal cual) — aparece solo si el usuario tiene
+	     Actas propias por vencer (mismo umbral/datos que la campanita del
+	     header, ver getters/alertas_firma.php), oculto el resto del tiempo.
+	     No es un <select> más de filtro: es un aviso, con su propio color de
+	     urgencia y una acción directa. -->
+	<div class="ac-hist-banner" id="hist-banner" hidden>
+		<span class="material-symbols-outlined ac-hist-banner-icon">warning</span>
+		<span class="ac-hist-banner-text" id="hist-banner-text"></span>
+		<button type="button" class="ac-hist-banner-cta" id="hist-banner-cta"></button>
+	</div>
+
 	<!-- Stat tiles (2026-08-21): también son filtro — click en "Firmadas" o
 	     "Pendientes de Firma" filtra la tabla a ese subconjunto; click de
 	     nuevo en el que ya está activo vuelve a "todos". Los números respetan
