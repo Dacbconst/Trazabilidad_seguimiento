@@ -44,6 +44,23 @@ body {
 	background: var(--color-surface);
 }
 
+/* Scrollbar delgado, sin las flechitas nativas de subir/bajar de Windows
+   (2026-08-24, pedido explícito) — Chrome/Edge en Windows muestra por
+   default un scrollbar clásico con botones de flecha en cada extremo si el
+   sitio no lo customiza; acá se saca ese botón y se deja solo el thumb,
+   redondeado y con los tokens de color del proyecto. Global (no solo en
+   Repositorios) porque cualquier área con scroll — la página completa, una
+   tabla ancha, un modal largo — tiene el mismo problema. `scrollbar-width:
+   thin` cubre Firefox (que no soporta los pseudo-elementos `::-webkit-*` y
+   nunca mostró flechitas para empezar, pero adelgaza el track igual). */
+* { scrollbar-width: thin; scrollbar-color: var(--color-outline-variant) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: var(--radius-full); border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--color-outline); background-clip: padding-box; }
+*::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
 .material-symbols-outlined {
 	font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 	font-size: 20px;
@@ -132,7 +149,18 @@ body {
 .ac-login-title { font-size: 24px; font-weight: 700; margin: 0 0 var(--space-xs); }
 .ac-login-subtitle { font-size: 14px; color: var(--color-secondary); margin: 0; }
 
-.ac-field { margin-bottom: var(--space-lg); }
+/* min-width:0 (2026-08-24, bug real reportado a 100% de zoom): sin esto, un
+   .ac-field dentro de un grid (ej. .ac-acuerdo-filtros) hereda el
+   min-width:auto por default de todo ítem de grid/flex — el ítem se niega a
+   encogerse por debajo del ancho intrínseco de su contenido (ej. el texto
+   "ENERO-FEBRERO-MARZO" de Meses Incluidos), así que se desborda de su
+   columna en vez de dejar que el overflow:hidden/text-overflow:ellipsis de
+   adentro (.ac-input-readonly) haga su trabajo. A 75% de zoom el navegador
+   redondea distinto y el desborde real quedaba oculto por casualidad — a
+   100% (el zoom por default) se ve. Sin efecto en los .ac-field que NO están
+   dentro de un grid (la mayoría del resto de la app, ej. formularios
+   apilados) — min-width solo aplica a ítems de flex/grid. */
+.ac-field { margin-bottom: var(--space-lg); min-width: 0; }
 .ac-field-label {
 	display: block;
 	font-size: 12px;
@@ -781,7 +809,12 @@ body {
 .ac-text-center { text-align: center; }
 .ac-tabular { font-variant-numeric: tabular-nums; }
 
-.ac-acuerdo { display: flex; flex-direction: column; gap: var(--space-lg); }
+/* position:relative (2026-08-24): ancla acá el overlay de carga de
+   "Previsualización" (ver acMostrarCargando() en registrar.js) — sin esto,
+   el overlay position:absolute se posiciona contra el ancestro posicionado
+   más cercano que encuentre (probablemente .ac-content o el body), no
+   contra el formulario completo. */
+.ac-acuerdo { display: flex; flex-direction: column; gap: var(--space-lg); position: relative; }
 /* .ac-card trae overflow:hidden (para recortar esquinas redondeadas) — pero
    esta card específica contiene el popover del período y el panel del
    combobox de Distribuidor, que necesitan "flotar" por encima del resto del
@@ -797,12 +830,39 @@ body {
 .ac-badge-canal-distribuidor { background: var(--color-surface-container-high); color: var(--color-on-surface-variant); }
 
 .ac-acuerdo-filtros-card { padding: var(--space-lg); overflow: visible; }
+/* Flexbox en vez de grid parejo (2026-08-24, pedido explícito: "Distribuidor
+   más ancho, Meses Incluidos y Año más angostos") — con
+   grid-template-columns: repeat(auto-fit, minmax(...,1fr)) todos los campos
+   se repartían el espacio en partes IGUALES, sin forma limpia de darle más
+   peso a uno que a otro. flex-grow sí lo permite directo: cada .ac-field
+   reparte el espacio sobrante proporcional a su peso, no en partes iguales.
+   flex-wrap sigue bajando a la fila siguiente en pantallas angostas, mismo
+   comportamiento que el auto-fit de antes. */
 .ac-acuerdo-filtros {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	display: flex;
+	flex-wrap: wrap;
 	gap: var(--space-lg);
 	align-items: end;
 }
+.ac-acuerdo-filtros .ac-field { flex: 1 1 180px; }
+/* Distribuidor/Local y la Empresa Distribuidora (canal Distribuidor): el
+   combo de búsqueda por nombre es el que más texto real necesita mostrar
+   (razones sociales largas) — bastante más peso Y una base de arranque más
+   grande (no solo el grow ratio) para que la diferencia se note de verdad,
+   no unos pocos px. */
+#ac-empresa-field, #ac-distribuidor-field { flex: 2.5 1 260px; }
+/* Año: el contenido es siempre 4 dígitos ("2026") — no tiene sentido que
+   compita por el mismo espacio que un combo de texto, pero el trigger de
+   "select bonito" (padding + ícono de flecha, ver select-bonito.js) necesita
+   más que el ancho crudo del texto — 90px lo dejaba cortando "2026" a "2…". */
+#ac-anio-field { flex: 0.5 1 115px; }
+/* Meses Incluidos: antes tenía grid-column:span 2 (doble ancho fijo) porque
+   con el grid parejo de antes era el más apretado de los 5 — ahora que
+   Distribuidor/Año ya no compiten por partes iguales, le alcanza con un
+   poco más que el peso base (el peor caso, "JULIO-AGOSTO-SEPTIEMBRE",
+   sigue entrando cómodo, probado con Playwright a 1280/1366/1440px con las
+   4 combinaciones de trimestre). */
+.ac-field-meses { flex: 1.3 1 200px; }
 .ac-input-readonly {
 	display: flex; align-items: center;
 	background: var(--color-surface-container-low);
@@ -976,6 +1036,24 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-2,
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-3,
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-4 { background: var(--color-surface-container-low); }
+
+/* Campos bloqueados (2026-08-24: Rebate % de Meta de Compras, Participación
+   de Perchas — pendientes de autorrellenar desde un repositorio futuro, ver
+   CLAUDE.md) — gris marcado (no la lavanda sutil de --color-surface-
+   container-high, pedido explícito "que se note más") + cursor "no
+   permitido", pero el número se deja bien oscuro/legible encima, sin
+   opacity ni texto gris que lo apague. Selector puntual (no
+   ".ac-mini-input:read-only" genérico) para no pisar el estilo propio que
+   ya tiene ".ac-combo-input" si algún día vuelve a haber un combo readonly
+   por otro motivo. */
+.ac-rebate-input:read-only, .v-participacion:read-only {
+	background: #d7d5dc;
+	border-color: #b8b5c2;
+	color: #1a1b22;
+	font-weight: 600;
+	cursor: not-allowed;
+	-webkit-text-fill-color: #1a1b22; /* Safari/iOS: sin esto, un input:read-only puede mostrar el texto más pálido que su color: real. */
+}
 
 .ac-mini-select, .ac-mini-input {
 	width: 100%; min-width: 130px;
@@ -1571,6 +1649,80 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo-exportar.ac-repo-exportar-abierto .ac-repo-exportar-opcion:last-child { transition-delay: 0.05s; }
 .ac-repo-exportar-opcion:hover { background: rgba(0, 40, 142, 0.05); }
 .ac-repo-badge { display: inline-flex; padding: 3px 10px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; background: #fbf0cf; color: #7a5b00; }
+.ac-repo-editar .ac-btn-text, .ac-repo-eliminar .ac-btn-text { display: none; } /* icon-only en desktop, ver mobile más abajo */
+
+/* ---------- Repositorios: tarjetas en mobile (2026-08-24) ----------
+   Mismo criterio que el rediseño mobile de Historial (ver esa sección más
+   arriba): la tabla de columnas obligaba a scroll horizontal para llegar al
+   botón de Editar/Eliminar en pantalla chica. Acá no se puede copiar la
+   técnica de Historial nth-child tal cual — Rebate y Participación de
+   Percha tienen distinta cantidad de columnas (5 vs 2, ver CONFIG en
+   repositorios.js) — así que el layout se arma por `data-key`/`data-label`
+   (agregados en cada <td> desde JS) en vez de posición fija de columna:
+   Marca queda como identificador prominente arriba a la izquierda, el %
+   (Rebate o Participación, cualquiera de los dos) como badge arriba a la
+   derecha en la MISMA fila (posiciones explícitas de grid), y el resto de
+   columnas de datos (Segmento/Sector/Categoría en Rebate, ninguna en
+   Participación) se acomodan solas debajo, una por fila, sin importar
+   cuántas haya. */
+@media (max-width: 700px) {
+	#repo-tabla thead { display: none; }
+	#repo-tabla, #repo-tabla tbody { display: block; width: 100%; min-width: 0; }
+	#repo-tabla-body { display: flex; flex-direction: column; gap: var(--space-sm); }
+	#repo-tabla-body tr {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 4px var(--space-sm);
+		background: var(--color-surface-container-lowest);
+		border: 1px solid var(--color-outline-variant);
+		border-radius: var(--radius-lg);
+		padding: var(--space-md);
+	}
+	/* Fila especial de "Cargando.../Sin registros" (un <td colspan>, no N
+	   columnas reales) — no se le aplica el grid de tarjeta. Los selectores
+	   de "columna de datos" de abajo llevan `:not([colspan])` a propósito —
+	   sin eso, esta celda (sin data-key) igual matcheaba ese selector y el
+	   `::before` agregaba un ": " suelto antes de "Sin registros." (bug real
+	   encontrado con Playwright, ver screenshot). */
+	#repo-tabla-body tr:has(td[colspan]) { display: block; grid-template-columns: none; padding: var(--space-lg); text-align: center; }
+	#repo-tabla-body tr:has(td[colspan]) td { grid-column: auto; }
+
+	#repo-tabla-body td { display: block; padding: 0; border: none; text-align: left; }
+	#repo-tabla-body td[data-key="marca"] {
+		grid-row: 1; grid-column: 1;
+		font-weight: 700; font-size: 15px; color: var(--color-on-surface);
+		align-self: center;
+	}
+	#repo-tabla-body td[data-key$="_pct"] { grid-row: 1; grid-column: 2; justify-self: end; align-self: center; }
+	/* Cualquier otra columna de datos (ni Marca ni el %) — ocupa el ancho
+	   completo, una debajo de otra; el orden de colocación automática de
+	   Grid respeta el orden real de columnas de cada tipo. */
+	#repo-tabla-body td:not([data-key="marca"]):not([data-key$="_pct"]):not([data-key="acciones"]):not([colspan]) {
+		grid-column: 1 / -1;
+		font-size: 13px; color: var(--color-on-surface-variant);
+	}
+	#repo-tabla-body td:not([data-key="marca"]):not([data-key$="_pct"]):not([data-key="acciones"]):not([colspan])::before {
+		content: attr(data-label) ": "; font-weight: 600; color: var(--color-on-surface-variant);
+	}
+	#repo-tabla-body td[data-key="acciones"] {
+		grid-column: 1 / -1;
+		margin-top: 6px; padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-outline-variant);
+	}
+
+	/* Editar/Eliminar: de iconos angostos apretados a la derecha, a 2
+	   botones de ancho completo con su nombre visible — mismo criterio que
+	   los botones del header de Historial en mobile ("no ícono pelado"). */
+	#repo-tabla-body .ac-row-actions { justify-content: stretch; }
+	#repo-tabla-body .ac-row-actions .ac-icon-btn {
+		flex: 1 1 0; width: auto; height: 40px;
+		border: 1px solid var(--color-outline-variant); border-radius: var(--radius);
+		gap: var(--space-xs);
+		font-family: var(--font-body); font-size: 13px; font-weight: 700;
+	}
+	#repo-tabla-body .ac-row-actions .ac-icon-btn-danger { border-color: var(--color-error); }
+	#repo-tabla-body .ac-btn-text { display: inline; }
+}
 
 /* Modal "Subir Archivo": paso 1 (elegir) vs paso 2 (previsualización editable) */
 .ac-repo-subir-modal { max-width: 480px; width: 95vw; }

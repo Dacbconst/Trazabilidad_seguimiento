@@ -76,13 +76,18 @@
 			return;
 		}
 		tablaBody.innerHTML = filas.map(function (fila) {
+			// data-key/data-label (2026-08-24): Rebate y Participación de Percha
+			// tienen distinta cantidad de columnas (5 vs 2) — la vista mobile
+			// (ver style.css, tarjetas por fila) arma el layout por estos
+			// atributos en vez de nth-child, para no depender de una posición
+			// fija de columna que solo calza con uno de los 2 tipos.
 			var tds = cols.map(function (c) {
-				return '<td' + (c.numero ? ' class="ac-text-right"' : '') + '>' + celdaValor(c, fila) + '</td>';
+				return '<td' + (c.numero ? ' class="ac-text-right"' : '') + ' data-key="' + c.key + '" data-label="' + escapeHtml(c.label) + '">' + celdaValor(c, fila) + '</td>';
 			}).join('');
 			return '<tr data-id="' + fila.id + '">' + tds +
-				'<td class="ac-text-right"><div class="ac-row-actions">' +
-				'<button type="button" class="ac-icon-btn ac-repo-editar" title="Editar"><span class="material-symbols-outlined">edit</span></button>' +
-				'<button type="button" class="ac-icon-btn ac-icon-btn-danger ac-repo-eliminar" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>' +
+				'<td class="ac-text-right" data-key="acciones"><div class="ac-row-actions">' +
+				'<button type="button" class="ac-icon-btn ac-repo-editar" title="Editar"><span class="material-symbols-outlined">edit</span><span class="ac-btn-text">Editar</span></button>' +
+				'<button type="button" class="ac-icon-btn ac-icon-btn-danger ac-repo-eliminar" title="Eliminar"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar</span></button>' +
 				'</div></td></tr>';
 		}).join('');
 

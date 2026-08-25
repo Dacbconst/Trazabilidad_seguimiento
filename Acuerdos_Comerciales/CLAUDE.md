@@ -79,6 +79,265 @@ corrido).
   código + `php -l`, pendiente de que el usuario lo pruebe él mismo
   (servidor local disponible si lo pide).
 
+## Registrar Acuerdo PDV — 4 arreglos puntuales (2026-08-24, feedback con captura real)
+
+El usuario reportó, con una captura real del entorno de desarrollo a 100% de
+zoom (no 75%, con el que se había probado antes), varios problemas —
+diagnosticados y arreglados con un mirror local (`php -S` + sesión falsa,
+sin escribir nada en la base) porque el fix no estaba desplegado todavía
+como para probarlo en el entorno real de arriba:
+
+- **"Meses Incluidos" quedaba pegado al borde de la tarjeta de filtros** a
+  1440px de ancho (reproducido exacto con Playwright, mismo look que la
+  captura del usuario). Causa: `.ac-field` es un ítem de `.ac-acuerdo-filtros`
+  (CSS Grid) pero nunca tuvo `min-width: 0` — mismo bug/lección que ya
+  encontró la sesión de responsive de hoy en `#hist-tabla` (ver "Responsive
+  / mobile" más abajo: "cualquier contenedor flex/grid/tabla en este
+  proyecto necesita min-width:0 explícito para poder encogerse"). Sin eso,
+  el contenido intrínseco (el texto "ENERO-FEBRERO-MARZO") obligaba al ítem
+  a desbordar su columna en vez de dejar que el `overflow:hidden;
+  text-overflow:ellipsis` que YA tenía `.ac-input-readonly` hiciera su
+  trabajo. Arreglado con `.ac-field { min-width: 0; }` (global, sin efecto
+  en los `.ac-field` que no están dentro de un grid — la mayoría del resto
+  de la app) + `.ac-field-meses { grid-column: span 2; }` nueva (le da el
+  doble de ancho a ese campo específico, es el que más texto necesita:
+  "JULIO-AGOSTO-SEPTIEMBRE" es el peor caso). Probado con Playwright a
+  1280/1366/1440px y con las 4 combinaciones de trimestre — el peor caso
+  entra cómodo, sin desbordar.
+- **"Previsualización" sin ningún feedback de carga** mientras Dompdf arma
+  el PDF — el usuario reportó que parecía "quedarse colgado" y terminaba
+  clickeando varias veces. Reusa el componente ya existente
+  `assets/js/cargando.js` (`acBotonCargando()`/`acMostrarCargando()`/
+  `acOcultarCargando()`, construido hoy por otra sesión para el mismo
+  síntoma en Historial) — mismo patrón exacto que `historial.js`/
+  `liquidacion.js` (`.then()/.catch()/.finally()`). Bloquea TODO el
+  formulario (`.ac-acuerdo`, se le agregó `position:relative` para anclar
+  el overlay) mientras arma el PDF, no solo el botón.
+- **Título del Acta de Directo partido en 2 líneas** ("Meta de Compras en
+  Dólares" + salto de línea + "Home Care") — el usuario lo reportó
+  confundido primero como un problema de Distribuidor (que en realidad
+  está bien, mide en Cajas, verificado hoy contra el Excel real, sin
+  tocar), y tras aclarar por chat resultó ser sobre Directo. Cambiado el
+  `<br>` por `+` en `includes/acta_pdf.php`: ahora
+  `'1. Meta de Compras en Dólares + Home Care'` en una sola línea, para
+  Directo con Y sin visibilidad (mismo punto de código, no depende del
+  switch). Distribuidor (`'1. Meta de Compras en Cajas'`) no se tocó.
+- **Campo "Local" → "Distribuidor" en canal Directo únicamente** (pedido
+  explícito, revierte PARCIALMENTE el rename de 2026-08-20 — Distribuidor
+  sigue diciendo "Local" para no repetir la palabra "Distribuidor" con 2
+  campos de esa pantalla, "el usuario eligió esa opción de 3" vía
+  `AskUserQuestion`). Label + placeholder ahora condicionales por
+  `$canalUsuario` en `registrar.php`; en `registrar.js` se agregó
+  `etiquetaCampoLocal()` (lee `CANAL_USUARIO` global) y se usa en los 3
+  lugares que generaban texto para este campo (`describirCampoCombo()`,
+  el mensaje "Selecciona un ...", los placeholders "Elige un ... primero"
+  de las tablas). **No se tocaron** los mensajes de error de
+  `guardar_acuerdo.php` (backend, genéricos, poca visibilidad — mismo
+  criterio de alcance que el rename original: "el usuario acotó el pedido
+  al módulo de registro").
+
+**Ronda 2, mismo día — repartir el ancho de los filtros a propósito**: el
+usuario pidió Distribuidor más ancho, Año y Meses Incluidos más angostos.
+`grid-template-columns: repeat(auto-fit, minmax(180px,1fr))` reparte el
+espacio sobrante en partes IGUALES entre columnas, sin forma limpia de
+pesar una más que otra — se cambió `.ac-acuerdo-filtros` de `display:grid`
+a `display:flex; flex-wrap:wrap`, con `flex-grow`/`flex-basis` por campo
+(`#ac-distribuidor-field`/`#ac-empresa-field` con el doble+ de peso,
+`#ac-anio-field` con menos de la mitad, `.ac-field-meses` con un poco más
+que el peso base — ya no `grid-column:span 2` fijo). **Cuidado si se toca
+`#ac-anio-field` de nuevo**: un `flex-basis` de 90px cortaba "2026" a "2…"
+— el trigger de "select bonito" (`select-bonito.js`) necesita más ancho
+que el texto crudo (padding + ícono de flecha), 115px fue el mínimo que no
+cortó en las 3 pruebas. Probado con Playwright a 1280/1366/1440px: a 1440px
+"Meses Incluidos" queda con truncamiento parcial ("ENERO-FEBRERO-MA…") —
+**es el trade-off aceptado a propósito** (el usuario pidió angostarlo para
+darle el espacio a Distribuidor), no un bug — a 1280/1366px entra completo
+porque ahí ya bajó a su propia fila.
+
+**Ronda 3, mismo día — fila "Meta en Dólares" en la tabla del PDF, solo
+Directo (con y sin visibilidad)**: pedido explícito con captura de
+referencia (el formato real trae 2 filas de encabezado: "Categoría"/
+"Rebate"/"Estimado a Ganar" con `rowspan="2"`, y una celda combinada "Meta
+en Dólares" con `colspan` sobre ENE/FEB/MAR/Total Período, con los meses en
+una 2da fila debajo). Implementado en `includes/acta_pdf.php`, tabla de
+Meta de Compras, condicionado a `!$esDistribuidor` — Distribuidor sigue con
+su encabezado de 1 sola fila de siempre, sin tocar (no pedido ahí, y ya
+dice "Cajas" no "Dólares"). **Mismo patrón de ancho que ya estaba probado
+en la tabla de Perchas más abajo en este archivo** (la celda combinada de
+arriba NO lleva `width` propio — Dompdf igual reparte bien los anchos
+usando la fila de ABAJO, que sí tiene una celda por columna con su
+`ancho_style()`; no hizo falta redescubrir esto, ya estaba documentado).
+**Probado**: no se pudo previsualizar el PDF real generado por Dompdf
+directo (Playwright headless no renderiza `file://*.pdf`, lo trata como
+descarga) — se generó el PDF real igual (bytes válidos, sin excepciones) y
+además se renderizó `generar_acta_html()` (la MISMA función, antes de
+pasar por Dompdf) en un navegador real para confirmar visualmente que el
+`rowspan`/`colspan` alinea bien: "Meta en Dólares" cae exacto sobre
+ENE/FEB/MAR/Total Período en los 2 formatos de Directo, y Distribuidor
+quedó pixel-igual a antes del cambio.
+
+**Ronda 4, mismo día — tabla de Meta de Compras "se ve muy alta" +
+encabezado "Rebate" partido en 2 líneas**, reportado con captura real
+(categorías largas tipo "CABELLO DE ANGEL LARGOS DON VITTORIO"). Causa
+real: con nombres de categoría largos, `ancho_columna_categoria()` llegaba
+a su tope de 48% y dejaba muy poco resto para repartir — Rebate (peso 8 de
+74) quedaba en ~5-6% de la tabla, insuficiente para la palabra "REBATE" en
+1 línea. 3 cambios en `includes/acta_pdf.php`:
+- `ancho_columna_categoria(..., 22, 38)` — tope bajado de 48 a 38 (el
+  mínimo de 22 no se tocó).
+- Pesos re-balanceados: Rebate 8→16 (el doble), restado de Total
+  Período y Estimado a Ganar (16→12 cada uno) — el denominador 74 no
+  cambió, solo la distribución.
+- `td, th` compartían el mismo padding vertical (7px) — separado en 2
+  reglas, `th` se queda en 7px, `td` (filas de datos) baja a 4px. Aplica a
+  las 4 tablas por igual (Meta de Compras/Cabeceras/Rumas/Perchas
+  comparten el mismo CSS `td`/`th`) — no se acotó solo a Meta de Compras,
+  a propósito, para que las tablas del documento se vean consistentes
+  entre sí.
+- Nueva clase `.meta-tabla-compras` (además de `.meta-tabla`, que
+  comparten las 4 tablas) con `margin-bottom` extra (+14px) — **esta sí
+  acotada solo a la tabla de Meta de Compras**, no a las otras 3, mismo
+  criterio que el espacio extra que ya tiene el párrafo antes de las
+  firmas (no es la primera vez que se pide "como un enter de Word").
+- **Probado**: mismo método que la ronda 3 (`generar_acta_html()` en
+  navegador real, sin pasar por Dompdf/PDF) con datos sintéticos calcando
+  los nombres largos de la captura real — "REBATE" entra en 1 sola línea,
+  filas visualmente más compactas. **Ojo**: el ancho real en el PDF de
+  Dompdf puede repartirse distinto a un navegador (ver notas de "OJO"
+  arriba en este archivo sobre `ancho_style()`/`table-layout:fixed`) —
+  si en el entorno real "Rebate" todavía se ve apretado, el próximo ajuste
+  es subir el peso de 16 a algo más alto, no revisar de cero la causa.
+
+**Ronda 5, mismo día — misma fila combinada, ahora también en Distribuidor
+("Meta en Cajas")**: pedido explícito para extender el patrón de la Ronda 3
+(hasta entonces solo Directo) a Distribuidor, con el mismo texto que ya usa
+esta tabla para la unidad (`$fmt`: "Dólares" en Directo, "Cajas" en
+Distribuidor). El `<thead>` de la tabla de Meta de Compras en
+`includes/acta_pdf.php` estaba ramificado en 2 estructuras distintas por
+`$esDistribuidor` (una de 1 fila para Distribuidor, otra de 2 filas
+rowspan/colspan para Directo) — se **unificó en una sola estructura de 2
+filas para ambos canales**, cambiando solo los textos: `($esDistribuidor ?
+'Meta en Cajas' : 'Meta en Dólares')` en la celda combinada, y
+`($esDistribuidor ? 'Cajas Estimadas a Ganar' : 'Estimado a Ganar')` en la
+columna final (ya eran textos distintos entre canales antes de este
+cambio, ahora conviven en la misma estructura de HTML). Mismo patrón de
+ancho ya documentado en la Ronda 3 (celda combinada sin `width` propio, la
+fila de abajo reparte). **Probado**: mismo método (`generar_acta_html()` en
+navegador real + PDF real de Dompdf generado sin excepciones) para los 3
+casos — Distribuidor con visibilidad, Distribuidor sin visibilidad, y
+Directo (para confirmar que no cambió nada ahí) — "Meta en Cajas" cae
+exacto sobre ENE/FEB/MAR/Total Período en los 2 formatos de Distribuidor,
+Directo quedó pixel-igual a la Ronda 3.
+
+**Ronda 6, mismo día — textos puntuales, solo Distribuidor**: 2 ajustes de
+redacción sobre lo de la Ronda 5, pedidos tras ver una captura real ya
+funcionando ("me parece perfecto, solo otro cambio..."):
+- "Cajas Estimadas a Ganar" → **"Valor Estimado a Ganar"** (columna final de
+  la tabla de Meta de Compras, `includes/acta_pdf.php` línea del
+  `<th rowspan="2">`). Directo se queda con "Estimado a Ganar", sin tocar.
+- "Pago Total" → **"Pago Total Cajas"** en las 3 tablas de Visibilidad
+  (2.a Cabeceras y 2.b Rumas, ambas dentro de `tabla_marca_html()`,
+  condicionado a `$fmt === 'numero'`; y 2.b Perchas, condicionado
+  directamente a `$esDistribuidor`). Directo se queda con "Pago Total" a
+  secas en las 3, sin tocar.
+- **No tocado a propósito** (fuera de lo pedido): la fila `Pago x Mes x
+  Percha ($)` de la tabla de Perchas sigue con el signo "$" hardcodeado
+  incluso en Distribuidor — el usuario solo mencionó "Pago Total", no ese
+  otro encabezado. Si al revisar el PDF real nota que ese "($)" también
+  debería decir "(Cajas)" en Distribuidor, es el mismo patrón de arriba
+  (condicionar a `$esDistribuidor`), pendiente de que lo pida.
+- **Probado**: mismo método (`generar_acta_html()` en navegador con líneas
+  reales de las 4 tablas — antes las pruebas de Meta de Compras no traían
+  datos en Cabeceras/Rumas/Perchas, esta vez sí, para ver los encabezados
+  con datos reales debajo) + PDF real de Dompdf sin excepciones, para
+  Distribuidor y Directo.
+
+**Nota de infraestructura para la próxima sesión**: estos 6 fixes están
+SOLO en el filesystem local — no hay forma de que Claude los despliegue al
+entorno de desarrollo de Azure (ver sección de arriba). Probados con mirror
+local (`php -S localhost:8899` + sesión falsa vía script temporal que se
+borra después, sin tocar la base) y con datos sintéticos para el PDF —
+nunca contra el entorno real. Si el usuario ya desplegó y algo se ve
+distinto a lo descrito acá, confiar en lo que él reporte, no en esta nota.
+
+## Rebate % y Participación bloqueados a mano, sin lógica todavía (2026-08-24)
+
+Primer paso de lo que se discutió en la reunión JW 2026-08-24
+(`datos/24-08-2026 10.16.txt`, ver "Reunión JW 2026-08-24" en la memoria del
+proyecto): JW va a subir un repositorio que autocompleta y bloquea Rebate %
+y Participación en el Acta — **todavía no existe ese repositorio ni la
+lógica de autorrelleno**, pero el usuario pidió dejar los campos
+bloqueados desde ya ("próximamente habrá una lógica ahí, pero por ahora
+hazlo así"):
+- `.ac-rebate-input` (Rebate % de Meta de Compras, `addPurchaseRow()`) y
+  `.v-participacion` (Participación de Perchas, `addPerchaRow()`) en
+  `assets/js/registrar.js` ganaron el atributo `readonly` — mantienen su
+  valor por defecto de siempre (0 y "50%" respectivamente), pero ya no se
+  pueden tipear.
+- CSS puntual nuevo en `style.css` (`.ac-rebate-input:read-only,
+  .v-participacion:read-only`) — fondo apagado + `cursor:not-allowed`, para
+  que se vea bloqueado a simple vista (sin esto se verían como campos
+  editables normales, ya que no comparten la clase `.ac-combo-input` que sí
+  tenía su propio estilo de solo-lectura). **Ajustado (mismo día, pedido
+  explícito "que se note más")**: gris marcado `#d7d5dc` (no la lavanda
+  sutil `--color-surface-container-high` de la primera versión) + borde
+  `#b8b5c2`, con el número en `#1a1b22` bold encima para que siga bien
+  legible — incluye `-webkit-text-fill-color` porque Safari/iOS puede
+  mostrar el texto de un `input:read-only` más pálido que su `color:` real
+  sin ese fix.
+- **No se tocó nada de lógica de negocio** — el valor sigue siendo el
+  default de siempre, no hay autorrelleno real todavía. Cuando llegue el
+  repositorio de JW, esto es lo que hay que reemplazar: sacar/mantener el
+  `readonly` según corresponda y cargar el valor real ahí en vez del
+  default fijo.
+- Afecta solo a Meta de Compras y Perchas — Cabeceras/Rumas no tienen
+  campos de este tipo, no se tocaron.
+
+## Bug real: spinners readonly dejaban clientes inalcanzables (2026-08-24)
+
+Encontrado por el usuario en producción real (Javier Maldonado no
+encontraba "DISTRIBUIDORA SUPERALIANZA S.A.S" en el spinner de
+Distribuidor/Local): el bloqueo total (`readonly`) que se puso el
+2026-08-20 en todos los combos de texto (Distribuidor/Local, Empresa,
+Segmento/Sector/Categoría/Marca) tenía un efecto colateral serio, no
+previsto en su momento — `comboRender()` (`assets/js/registrar.js`) corta
+la lista en **60 opciones** (`.slice(0, 60)`, ordenadas alfabéticamente), y
+sin poder tipear para filtrar, cualquier opción más allá del puesto 60
+alfabético quedaba **inalcanzable de verdad**, sin ningún camino en la UI
+para llegar ahí. Confirmado contra datos reales (solo lectura): Javier
+Maldonado tiene 368 clientes activos, y "SUPERALIANZA" está en el puesto
+alfabético #94 — muy por fuera del límite.
+
+**Corregido restaurando la búsqueda por texto, sin reabrir el problema
+original** (el usuario había pedido explícitamente que nunca quedara un
+valor tipeado sin elegir de verdad de la lista — eso se mantiene):
+- `inicializarCombo()` ya no depende de `readonly` para evitar texto
+  "fantasma" — ahora escucha `input` para filtrar la lista en vivo
+  (`comboRender(input.value)`), y en `blur` compara el texto contra la
+  opción REAL actualmente seleccionada (`hidden.value` → su `label`); si no
+  coincide exacto, limpia el campo (input y hidden) solo. Mismo resultado
+  de fondo que el `readonly` (nunca queda un valor sin elegir de verdad),
+  sin el efecto colateral de hacer inalcanzable todo lo que no entra en los
+  primeros 60.
+- Se sacó el atributo `readonly` de los 6 combos afectados: `#ac-empresa-search`/
+  `#ac-distribuidor-search` (`components/registrar/registrar.php`) y los 4
+  de `comboCellHtml()` (Segmento/Sector/Categoría/Marca, usados en las 4
+  tablas del Acta).
+- `input.select()` al enfocar (restaurado) — así escribir de una vez
+  reemplaza el valor anterior, sin tener que borrarlo a mano primero.
+- La validación de "filas fantasma" (`describirCampoCombo()`/toast de
+  "campo sin confirmar") queda como **segunda capa** de seguridad, ya no
+  como la única — por si algún flujo llega a guardar sin pasar por el blur.
+- **No se subió el límite de 60 ni se sacó** — con supervisores de cientos
+  de clientes, ningún límite razonable resuelve esto solo; la búsqueda por
+  texto es la solución real (el usuario lo eligió explícitamente entre 2
+  opciones antes de implementar esto).
+- Probado: sintaxis limpia (`node --check`/`php -l`), sin `readonly`
+  restante en ningún `.ac-combo-input` (`grep` confirmado), lógica de
+  `normalizarBusqueda()` (sin acentos, minúsculas, sin espacios) ya
+  soportaba filtrar por substring — solo hacía falta reconectar el
+  listener de `input` que el bloqueo total había sacado.
+
 ## Stack y entorno
 
 - Base de datos: MySQL/MariaDB, administrada vía HeidiSQL, alojada en hosting
@@ -2575,6 +2834,59 @@ El usuario pidió 2 cosas más, la 2da mucho más importante que la 1ra:
      causa COMPARTIDA (el componente/wrapper común) en vez de parchear
      cada instancia por separado — un fix ahí escala solo a todos los
      usos futuros también.
+
+### Scrollbar sin flechitas nativas + Repositorios: tabla → tarjetas en mobile (2026-08-24)
+
+**Flechitas de scrollbar (pedido explícito, "quita esas flechitas")**:
+Windows + Chrome/Edge muestra por default un scrollbar clásico con botones
+de flecha arriba/abajo en cada extremo si el sitio no lo customiza (la app
+nunca había tocado esto — `grep` de "scrollbar" en todo el proyecto daba 0
+resultados antes de este cambio). Agregado GLOBAL en `style.css` (no solo
+Repositorios, cualquier área con scroll tenía el mismo problema): regla
+`*` con `scrollbar-width: thin` (Firefox) + los pseudo-elementos
+`::-webkit-scrollbar*` (Chrome/Edge/Safari) — thumb redondeado con los
+tokens de color del proyecto, `::-webkit-scrollbar-button { display: none }`
+saca los botones de flecha. **No se pudo verificar visualmente esto en
+particular** — los screenshots de Playwright (ver más abajo) no capturan el
+scrollbar nativo del SO en absoluto (headless Chromium no lo renderiza en
+la captura), a diferencia del resto de este cambio que sí se verificó así;
+queda pendiente que el usuario confirme en su Chrome/Edge real.
+
+**Repositorios: tabla → tarjetas en mobile, mismo criterio que el rediseño
+de Historial** (ver "Historial: rediseño mobile completo" más arriba) pero
+con una diferencia real: Historial tiene 7 columnas SIEMPRE fijas
+(`nth-child` alcanza); Repositorios tiene 2 pestañas con distinta cantidad
+de columnas (Rebate: Segmento/Sector/Categoría/Marca/Rebate% = 5; Participación
+de Percha: Marca/Participación% = 2, ver `CONFIG` en `repositorios.js`) —
+`nth-child` no sirve para las 2 a la vez. Se resolvió por atributos en vez
+de posición:
+- `assets/js/repositorios.js` (`renderFilas()`): cada `<td>` ahora lleva
+  `data-key="<col.key>"` y `data-label="<col.label>"`; la celda de acciones
+  lleva `data-key="acciones"`, y los botones Editar/Eliminar ganaron un
+  `<span class="ac-btn-text">` (oculto en desktop, visible en mobile —
+  antes eran solo íconos).
+- `style.css`, bajo 700px: Marca (`[data-key="marca"]`) queda prominente
+  arriba-izquierda, el % (`[data-key$="_pct"]`, matchea tanto `rebate_pct`
+  como `participacion_pct`) como badge arriba-derecha en la MISMA fila
+  (`grid-row:1` explícito en ambos), cualquier otra columna de datos se
+  acomoda debajo sola vía colocación automática de CSS Grid (columna
+  explícita `1/-1`, fila automática — funciona para 0, 3, o cualquier
+  cantidad de columnas "detalle" sin hardcodear cuántas hay), con el label
+  de esa columna antepuesto vía `::before { content: attr(data-label) }`.
+  Editar/Eliminar pasan a 2 botones de ancho completo con su nombre visible
+  (mismo criterio que los botones del header de Historial en mobile).
+- **Verificado con Playwright real** (`npx playwright screenshot`, headless
+  Chromium, viewport 390×900, contra el `style.css` real + HTML calcado del
+  que arma `repositorios.js`) — **encontró y corrigió un bug real que el
+  razonamiento sobre el CSS solo no hubiera visto**: la fila especial "Sin
+  registros" (`<td colspan>`, sin `data-key`) igual matcheaba el selector
+  `:not([data-key="marca"])...` de las columnas "detalle", así que el
+  `::before` le agregaba un `": "` suelto antes del texto ("`: Sin
+  registros.`"). Corregido agregando `:not([colspan])` a esos 2 selectores.
+  Reverificado tras el fix: Rebate (con las 3 columnas detalle), Participación
+  de Percha (sin ninguna) y el estado vacío — los 3 casos se ven limpios,
+  capturas descartadas después de confirmar (no se guardan screenshots en
+  el repo).
 
 ## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
 

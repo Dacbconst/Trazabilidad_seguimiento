@@ -21,6 +21,13 @@
 	// Directo/Mayorista.
 	var catalogoDistribuidor = { canal: 'directo', empresas: {}, clientes: [] };
 
+	// Etiqueta dinámica del campo pos_id (2026-08-24, pedido explícito): en
+	// Directo vuelve a decir "Distribuidor" (como antes del rename de
+	// 2026-08-20); Distribuidor sigue diciendo "Local" para no pisar el otro
+	// campo de esa pantalla (la empresa, que se ve "Distribuidor"). Mismo
+	// criterio en todos los textos generados por JS que nombran este campo.
+	function etiquetaCampoLocal() { return CANAL_USUARIO === 'distribuidor' ? 'Local' : 'Distribuidor'; }
+
 	var selectedStart = 0;
 	var selectedEnd = 2;
 	var activeMonthsIndices = [0, 1, 2];
@@ -274,19 +281,31 @@
 	// getOpciones: función que devuelve [{value, label}] — función (no array
 	// fijo) porque en los combos encadenados (Categoría/Marca) las opciones
 	// válidas cambian según lo que se eligió antes en la fila.
-	// El input es readonly (ver comboCellHtml/registrar.php) — nunca se tipea
-	// nada ahí, siempre se elige de la lista completa que se abre con
-	// focus/click. Por eso ya no hace falta escuchar 'input' (no puede
-	// dispararse por teclado en un campo readonly) ni "seleccionar todo el
-	// texto" para que tipear reemplace — eso era para cuando sí se podía
-	// escribir a mano.
+	// Búsqueda por texto restaurada (2026-08-24) — el bloqueo total (readonly,
+	// sin poder tipear nada) que se puso el 2026-08-20 tenía un efecto
+	// colateral serio no previsto entonces: el panel corta en 60 opciones
+	// (ver comboRender más abajo) y sin poder tipear para filtrar, cualquier
+	// opción más allá del puesto 60 alfabético quedaba INALCANZABLE — un
+	// supervisor con más de 60 locales/clientes (ej. 368 en un caso real)
+	// no podía elegir la mayoría de su cartera. Se restaura poder tipear
+	// para filtrar, pero se mantiene la regla original de fondo (nunca un
+	// valor tipeado sin elegir de verdad queda como "fantasma"): al perder
+	// el foco, si lo que quedó escrito no coincide EXACTO con la opción
+	// realmente seleccionada, el campo se limpia solo.
 	function inicializarCombo(input, hidden, getOpciones, onSeleccionar) {
 		function abrir() {
 			comboActivo = { input: input, hidden: hidden, getOpciones: getOpciones, onSeleccionar: onSeleccionar };
 			posicionarPanelCombo(input);
-			comboRender('');
+			comboRender(input.value);
 		}
-		input.addEventListener('focus', abrir);
+		function labelDeSeleccionActual() {
+			var op = getOpciones().filter(function (o) { return o.value === hidden.value; })[0];
+			return op ? op.label : '';
+		}
+		input.addEventListener('focus', function () {
+			abrir();
+			input.select();
+		});
 		// El evento 'focus' NO se dispara de nuevo si el campo ya estaba
 		// enfocado (ej: elegís una opción, el campo se queda con el foco a
 		// propósito, y volvés a hacer click ahí mismo para elegir otra cosa)
@@ -295,12 +314,26 @@
 		input.addEventListener('click', function () {
 			if (!comboActivo || comboActivo.input !== input) abrir();
 		});
+		// Filtra la lista en vivo mientras se tipea — no toca `hidden.value`
+		// acá (solo comboSeleccionar() lo hace); si el usuario tipea y se va
+		// sin elegir, el blur de abajo detecta el desajuste y limpia todo.
+		input.addEventListener('input', function () {
+			if (!comboActivo || comboActivo.input !== input) abrir();
+			else comboRender(input.value);
+		});
 		// Sin esto, salir del campo con Tab (en vez de elegir una opción con
 		// el mouse) dejaba el panel abierto apuntando al campo anterior. El
 		// mousedown+preventDefault() de las opciones evita el blur mientras
 		// se hace click en una, así que esto no interfiere con esa selección.
 		input.addEventListener('blur', function () {
 			if (comboActivo && comboActivo.input === input) comboCerrar();
+			// Nunca dejar un valor tipeado que no coincide con una opción
+			// real seleccionada — mismo espíritu que el bloqueo total de
+			// antes, pero ahora sí se puede tipear para buscar.
+			if (input.value !== labelDeSeleccionActual()) {
+				hidden.value = '';
+				input.value = '';
+			}
 		});
 	}
 
@@ -357,11 +390,11 @@
 		var habilitado = !!distribuidorSelect.value;
 		Array.prototype.forEach.call(document.querySelectorAll('#ac-purchase-body .seg-input, #ac-cabeceras-body .seg-input, #ac-rumas-body .seg-input'), function (input) {
 			input.disabled = !habilitado;
-			input.placeholder = habilitado ? 'Segmento...' : 'Elige un Local primero';
+			input.placeholder = habilitado ? 'Segmento...' : 'Elige un ' + etiquetaCampoLocal() + ' primero';
 		});
 		Array.prototype.forEach.call(document.querySelectorAll('#ac-perchas-body .marca-input'), function (input) {
 			input.disabled = !habilitado;
-			input.placeholder = habilitado ? 'Marca...' : 'Elige un Local primero';
+			input.placeholder = habilitado ? 'Marca...' : 'Elige un ' + etiquetaCampoLocal() + ' primero';
 		});
 	}
 
@@ -454,14 +487,17 @@
 	// Celda de tabla con buscador (input visible) + valor real (input oculto,
 	// mismo nombre de clase que antes usaba el <select>, para no tocar el
 	// resto del código que lee `.seg-select`/`.cat-select`/`.marca-select`).
-	// readonly a propósito (2026-08-20, pedido explícito): estos campos son
-	// spinners, no texto libre — se elige SIEMPRE de la lista completa que se
-	// abre al hacer click, nunca tipeando. Con readonly el navegador bloquea
-	// cualquier inserción de texto (tipear, pegar) sin impedir el click/focus
-	// que abre el panel — ver inicializarCombo() más abajo.
+	// Ya NO es readonly (era así desde 2026-08-20, se sacó el 2026-08-24):
+	// con listas de más de 60 opciones (ej. 368 clientes de un supervisor
+	// real) y sin poder tipear para filtrar, cualquier opción más allá del
+	// puesto 60 alfabético quedaba inalcanzable — bug real encontrado en
+	// producción. Ahora se puede tipear para buscar, pero `inicializarCombo()`
+	// sigue sin dejar un valor tipeado sin elegir de verdad (se limpia solo
+	// al perder el foco si no coincide con una opción real) — mismo
+	// resultado que se buscaba con el readonly, sin el efecto colateral.
 	function comboCellHtml(tipo, placeholder, disabled) {
 		return '<div class="ac-combo ac-combo-cell">' +
-			'<input type="text" class="ac-input ac-mini-input ac-combo-input ' + tipo + '-input" placeholder="' + placeholder + '" autocomplete="off" readonly' + (disabled ? ' disabled' : '') + '>' +
+			'<input type="text" class="ac-input ac-mini-input ac-combo-input ' + tipo + '-input" placeholder="' + placeholder + '" autocomplete="off"' + (disabled ? ' disabled' : '') + '>' +
 			'<input type="hidden" class="' + tipo + '-select" value="">' +
 			'</div>';
 	}
@@ -635,7 +671,10 @@
 		});
 		html +=
 			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell">$0.00</td>' +
-			'<td class="ac-text-right ac-col-highlight"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-rebate-input" value="0"></td>' +
+			// Rebate % bloqueado (2026-08-24, pedido explícito): va a salir de un
+			// repositorio que JW sube (reunión 2026-08-24, ver CLAUDE.md) — por
+			// ahora solo se bloquea el campo, sin lógica de autorrelleno todavía.
+			'<td class="ac-text-right ac-col-highlight"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-rebate-input" value="0" readonly></td>' +
 			'<td class="ac-text-right ac-col-highlight ac-tabular est-cell">$0.00</td>' +
 			'<td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
 		tr.innerHTML = html;
@@ -765,7 +804,10 @@
 		var tr = document.createElement('tr');
 		var html =
 			'<td class="ac-sticky-col">' + comboCellHtml('marca', 'Marca...', false) + '</td>' +
-			'<td><input type="text" class="ac-input ac-mini-input v-participacion" value="50%"></td>' +
+			// Participación bloqueada (2026-08-24, mismo pedido/motivo que Rebate
+			// % de Meta de Compras arriba) — también saldría de un repositorio
+			// que sube JW, sin lógica de autorrelleno todavía.
+			'<td><input type="text" class="ac-input ac-mini-input v-participacion" value="50%" readonly></td>' +
 			'<td><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
 		activeMonthsIndices.forEach(function () {
 			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
@@ -888,12 +930,14 @@
 	}
 
 	// Arma una etiqueta legible ("Marca en Meta de Compras", "Distribuidor")
-	// para el toast de "campo sin confirmar" — así, si esta red de seguridad
-	// llega a dispararse (no debería, los campos son readonly desde
-	// 2026-08-20), se puede ubicar el campo exacto en vez de un mensaje
-	// genérico que obliga a revisar las 4 tablas a mano.
+	// para el toast de "campo sin confirmar" — segunda capa de seguridad
+	// además del blur de inicializarCombo() (que ya debería limpiar solo
+	// cualquier texto tipeado sin elegir de verdad, ver 2026-08-24) — por si
+	// algún flujo raro llega a guardar sin pasar por ese blur, así se puede
+	// ubicar el campo exacto en vez de un mensaje genérico que obliga a
+	// revisar las 4 tablas a mano.
 	function describirCampoCombo(input) {
-		if (input === distribuidorSearch) return 'Local';
+		if (input === distribuidorSearch) return etiquetaCampoLocal();
 		if (input === empresaSearch) return 'Distribuidor';
 
 		var tipoPorClase = { 'seg-input': 'Segmento', 'sector-input': 'Sector', 'cat-input': 'Categoría', 'marca-input': 'Marca' };
@@ -936,7 +980,7 @@
 	}
 
 	function validarCabecera(estado) {
-		if (!distribuidorSelect.value) { mostrarMensaje('Selecciona un Local.', false); return false; }
+		if (!distribuidorSelect.value) { mostrarMensaje('Selecciona un ' + etiquetaCampoLocal() + '.', false); return false; }
 		if (selectedStart === null || selectedEnd === null) { mostrarMensaje('Selecciona el Periodo del Acuerdo.', false); return false; }
 
 		var sinConfirmar = encontrarSpinnersSinConfirmar();
@@ -1076,8 +1120,20 @@
 	// las mismas validaciones que guardarAcuerdo (spinners sin confirmar,
 	// participación, Distribuidor/Periodo) pero sin exigir ninguna línea real
 	// — previsualizar algo todavía incompleto es válido.
+	var generarActaBtn = document.getElementById('ac-generar-acta');
+
 	function mostrarPreview() {
 		if (!validarCabecera('borrador')) return;
+
+		// Feedback de carga (2026-08-24, pedido explícito): armar el PDF con
+		// Dompdf tarda un momento — sin esto no había ninguna señal visible y
+		// el usuario terminaba clickeando "Previsualización" varias veces
+		// pensando que el sistema se había quedado colgado. Mismo componente
+		// reusable que ya usan Historial/Liquidación (assets/js/cargando.js) —
+		// bloquea TODO el formulario (acuerdoContainer, no solo el botón) para
+		// que tampoco se pueda seguir editando mientras arma el PDF.
+		acBotonCargando(generarActaBtn, true);
+		acMostrarCargando(acuerdoContainer);
 
 		var payload = {
 			pos_id: distribuidorSelect.value,
@@ -1121,7 +1177,11 @@
 				aplicarZoom();
 				actaModalOverlay.classList.add('ac-modal-open');
 			})
-			.catch(function () { mostrarMensaje('No se pudo armar la vista previa. Intenta nuevamente.', false); });
+			.catch(function () { mostrarMensaje('No se pudo armar la vista previa. Intenta nuevamente.', false); })
+			.finally(function () {
+				acBotonCargando(generarActaBtn, false);
+				acOcultarCargando(acuerdoContainer);
+			});
 	}
 
 	// Deja el formulario listo para el siguiente Acuerdo — el usuario puede

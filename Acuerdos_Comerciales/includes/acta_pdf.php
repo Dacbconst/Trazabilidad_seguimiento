@@ -48,7 +48,10 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 		return '<th class="num" style="'.ancho_style($anchoMesPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
 	$marcaHead = '<th style="'.ancho_style($anchoMarcaPct).'">Marca</th>';
-	$totalHead = '<th style="'.ancho_style($anchoTotalPct).'">Pago Total</th>';
+	// "Pago Total Cajas" (2026-08-25, pedido explícito, solo Distribuidor —
+	// $fmt='numero' es la misma marca que ya distingue el canal en toda esta
+	// función): Directo se queda con "Pago Total" a secas, ya mide en $.
+	$totalHead = '<th style="'.ancho_style($anchoTotalPct).'">'.($fmt === 'numero' ? 'Pago Total Cajas' : 'Pago Total').'</th>';
 	return [$rows, $marcaHead, $mesesHead, $totalHead];
 }
 
@@ -173,12 +176,24 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	$categoriaTextos = array_map(function ($linea) {
 		return trim($linea['segmento'].' '.$linea['categoria'].' '.$linea['marca']);
 	}, $detalle['lineas']['meta_compra']);
-	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escala, $medirTexto), 2);
+	// anchoMaxPct bajado de 48 a 38 (2026-08-24, pedido explícito): con
+	// categorías largas (ej. "CABELLO DE ANGEL LARGOS DON VITTORIO") esa
+	// columna llegaba al tope de 48% y dejaba muy poco resto para Rebate —
+	// "REBATE" (encabezado) terminaba partido en 2 líneas. Recortar el
+	// máximo de Categoría le da más aire al resto sin tocar el mínimo de
+	// abajo (22%, sigue evitando que se vea demasiado angosta con nombres
+	// cortos).
+	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escala, $medirTexto, 22, 38), 2);
 	$restoPct = 100 - $categoriaPct;
+	// Pesos re-balanceados (2026-08-24): Rebate pasa de 8 a 16 (el doble) —
+	// era el más angosto de los 4 y el único con problema real de wrap en el
+	// encabezado ("REBATE" no es un nombre largo, pero con tan poco % de
+	// tabla ancha no entraba en 1 línea). Se le resta a Total Período y
+	// Estimado a Ganar (16→12 cada uno) para no cambiar el denominador (74).
 	$mesesPct    = round(34 * $restoPct / 74, 2);
-	$totalPct    = round(16 * $restoPct / 74, 2);
-	$rebatePct   = round(8 * $restoPct / 74, 2);
-	$estimadoPct = round(16 * $restoPct / 74, 2);
+	$totalPct    = round(12 * $restoPct / 74, 2);
+	$rebatePct   = round(16 * $restoPct / 74, 2);
+	$estimadoPct = round(12 * $restoPct / 74, 2);
 
 	$metaRows = ''; $metaSums = array_fill(0, $cantidadMeses, 0.0); $metaGrandTotal = 0.0; $metaGrandEst = 0.0;
 	foreach ($detalle['lineas']['meta_compra'] as $i => $linea) {
@@ -245,11 +260,13 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 		.'<th colspan="'.($cantidadMeses + 1).'">Pago Mensual</th>'
 		.'</tr>';
 	$perchaHeadRow2 = '<tr><th colspan="'.($cantidadMeses + 2).'">Pago x Mes x Percha ($)</th></tr>';
+	// "Pago Total Cajas" (2026-08-25, pedido explícito, solo Distribuidor,
+	// mismo criterio que tabla_marca_html() más arriba).
 	$perchaHeadRow3 = '<tr>'
 		.'<th style="'.ancho_style(14).'">% de Peso</th>'
 		.'<th style="'.ancho_style(10).'">Max Percha</th>'
 		.$mesesHeadPercha
-		.'<th style="'.ancho_style(20).'">Pago Total</th>'
+		.'<th style="'.ancho_style(20).'">'.($esDistribuidor ? 'Pago Total Cajas' : 'Pago Total').'</th>'
 		.'</tr>';
 	foreach ($detalle['lineas']['percha'] as $linea) {
 		if ($linea['marca'] === '') continue;
@@ -292,13 +309,23 @@ table { width: 100%; border-collapse: collapse; table-layout: fixed; }
    propósito, para que subir el texto general (párrafos/etiquetas/condiciones)
    no arrastre también los datos de las tablas, que ya están en un tamaño que
    funciona bien y no se quiere tocar (pedido explícito 2026-08-19). */
-td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word; font-size: '.px(18.5, $escala).'; }
+th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word; font-size: '.px(18.5, $escala).'; }
+/* Filas de datos con menos padding vertical que el encabezado (2026-08-24,
+   pedido explícito: "se ve muy alta de arriba a abajo") — antes compartían
+   el mismo padding que th (7px), quedaban más altas de lo necesario para
+   solo 1 línea de números. Padding horizontal sin tocar. */
+td { padding: '.px(4, $escala).' '.px(11, $escala).'; word-wrap: break-word; font-size: '.px(18.5, $escala).'; }
 .num { text-align: right; }
 .ctr { text-align: center; }
 .vacio { text-align: center; color: #000000; padding: '.px(7, $escala).' !important; }
 .doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(15.5, $escala).'; color: #000000; }
 .doc-no strong { display: block; font-size: '.px(22, $escala).'; }
 .meta-tabla { margin: '.px(6, $escala).' 0 '.px(5, $escala).'; }
+/* "Un enter de más" después de la tabla de Meta de Compras (2026-08-24,
+   pedido explícito, mismo espíritu que el margin-bottom extra que ya tiene
+   el párrafo antes de las firmas) — solo esta tabla, no las de
+   Cabeceras/Rumas/Perchas (comparten .meta-tabla, no se tocaron). */
+.meta-tabla-compras { margin-bottom: '.px(14, $escala).'; }
 .meta-tabla td, .meta-tabla th { border: 1px solid #c4c5d5; }
 .meta-tabla thead th { background: #eeedf7; }
 .total-row td { font-weight: bold; border-top: 2px solid #000000; }
@@ -329,10 +356,27 @@ td, th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word;
 <p>JABONERÍA WILSON S.A. y '.h($detalle['distribuidor']).' celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.</p>
 <p><span class="label">Periodo del acuerdo</span> <strong>'.h($periodoTexto).'</strong></p>
 
-<p class="subtitulo">'.($esDistribuidor ? '1. Meta de Compras en Cajas' : '1. Meta de Compras en Dólares<br>Home Care').'</p>
+<p class="subtitulo">'.($esDistribuidor ? '1. Meta de Compras en Cajas' : '1. Meta de Compras en Dólares + Home Care').'</p>
 <p class="hint">'.($esDistribuidor ? 'Cajas compradas por categoría sin considerar cajas a título gratuito por bonificación/descuentos.' : 'Dólares comprados por categoría sin considerar bonificación/descuentos.').'</p>
-<table class="meta-tabla">
-	<thead><tr><th style="'.ancho_style($categoriaPct).'">Categoría</th>'.$mesesHeadHtml.'<th style="'.ancho_style($totalPct).'">Total Período</th><th style="'.ancho_style($rebatePct).'">Rebate</th><th style="'.ancho_style($estimadoPct).'">'.($esDistribuidor ? 'Cajas Estimadas a Ganar' : 'Estimado a Ganar').'</th></tr></thead>
+<table class="meta-tabla meta-tabla-compras">
+	<thead>
+	<!-- Fila extra "Meta en Dólares"/"Meta en Cajas" (2026-08-24, pedido
+	     explícito — primero solo Directo, extendido después a Distribuidor
+	     con el mismo texto que ya usa esta tabla para la unidad, ver $fmt
+	     más arriba) — rowspan/colspan sobre las columnas de mes+Total
+	     Período, mismo patrón ya probado en la tabla de Perchas más abajo
+	     (el ancho por columna va en la fila que SÍ tiene una celda por
+	     columna, acá la 2da; la celda combinada de arriba no necesita width
+	     propio, Dompdf igual reparte bien — confirmado en el render real de
+	     Perchas). Misma estructura para los 2 canales, solo cambia el texto. -->
+	<tr>
+		<th rowspan="2" style="'.ancho_style($categoriaPct).'">Categoría</th>
+		<th colspan="'.($cantidadMeses + 1).'">'.($esDistribuidor ? 'Meta en Cajas' : 'Meta en Dólares').'</th>
+		<th rowspan="2" style="'.ancho_style($rebatePct).'">Rebate</th>
+		<th rowspan="2" style="'.ancho_style($estimadoPct).'">'.($esDistribuidor ? 'Valor Estimado a Ganar' : 'Estimado a Ganar').'</th>
+	</tr>
+	<tr>'.$mesesHeadHtml.'<th style="'.ancho_style($totalPct).'">Total Período</th></tr>
+	</thead>
 	<tbody>'.$metaRows.'</tbody>
 	<tfoot><tr class="total-row"><td>Total</td>';
 	foreach ($metaSums as $s) $html .= '<td class="num">'.$fmt($s).'</td>';

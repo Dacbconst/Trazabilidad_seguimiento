@@ -42,14 +42,20 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			<div class="ac-field <?= $canalUsuario === 'distribuidor' ? '' : 'hidden' ?>" id="ac-empresa-field">
 				<label class="ac-field-label" for="ac-empresa-search">Distribuidor</label>
 				<div class="ac-combo" id="ac-empresa-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir distribuidor..." autocomplete="off" readonly>
+					<input type="text" class="ac-select ac-combo-input" id="ac-empresa-search" placeholder="Elegir distribuidor..." autocomplete="off">
 					<input type="hidden" id="ac-empresa" value="">
 				</div>
 			</div>
-			<div class="ac-field">
-				<label class="ac-field-label" for="ac-distribuidor-search">Local</label>
+			<div class="ac-field" id="ac-distribuidor-field">
+				<!-- Etiqueta dinámica (2026-08-24, pedido explícito): en canal
+				     Directo este campo vuelve a decir "Distribuidor" (como
+				     antes del rename de 2026-08-20) — Distribuidor sigue
+				     diciendo "Local" para no pisar el otro campo de esa
+				     pantalla ("Distribuidor" = la empresa). IDs/variables
+				     internas SIN cambiar, mismo criterio que aquel rename. -->
+				<label class="ac-field-label" for="ac-distribuidor-search"><?= $canalUsuario === 'distribuidor' ? 'Local' : 'Distribuidor' ?></label>
 				<div class="ac-combo" id="ac-distribuidor-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar local..." autocomplete="off" readonly>
+					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="<?= $canalUsuario === 'distribuidor' ? 'Buscar local...' : 'Buscar distribuidor...' ?>" autocomplete="off">
 					<input type="hidden" id="ac-distribuidor" value="">
 				</div>
 			</div>
@@ -68,7 +74,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 					<option value="3">Q4 (Octubre - Diciembre)</option>
 				</select>
 			</div>
-			<div class="ac-field">
+			<div class="ac-field" id="ac-anio-field">
 				<label class="ac-field-label" for="ac-anio">Año</label>
 				<select class="ac-select ac-select-bonito-auto" id="ac-anio">
 					<?php foreach ($anios as $a): ?>
@@ -76,7 +82,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 					<?php endforeach; ?>
 				</select>
 			</div>
-			<div class="ac-field">
+			<div class="ac-field ac-field-meses">
 				<label class="ac-field-label">Meses Incluidos</label>
 				<div class="ac-input ac-input-readonly" id="ac-months-display">Sin selección</div>
 			</div>
