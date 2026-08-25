@@ -209,6 +209,65 @@ function canalDeSupervisor($mysqli, $supervisor) {
 	return null;
 }
 
+// ---------- Repositorio de Cuotas trimestrales (2026-08-25) ----------
+// Mismo criterio de matching ya probado en Liquidación
+// (liquidacion_candidatos_pos_id(), includes/liquidacion_import.php): match
+// primario por nombre (pos_name LIKE 'cliente%'), desempate por CEDI del
+// Excel = supervisor (canal directa, único canal visto hasta ahora en los
+// Excel de Cuotas — si algún día llega un Excel de canal Distribuidor,
+// ajustar el campo de desempate a tipo_distribuidor igual que Liquidación).
+// A diferencia de Liquidación (que puede dejar varios candidatos para que
+// el usuario elija a mano en "Pendientes de Asignar" viendo más contexto),
+// acá se necesita UN solo pos_id para poder guardar la fila — 0 o más de 1
+// candidato después del desempate se resuelve como "sin match" (pos_id
+// NULL, estado pendiente_match en el repositorio).
+function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
+		 WHERE pos_name LIKE CONCAT(?, '%')"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('s', $clienteExcel);
+	$stmt->execute();
+	$posIds = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
+	$stmt->close();
+
+	if (count($posIds) === 1) return $posIds[0];
+	if (count($posIds) === 0 || !$cediExcel) return null;
+
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
+		 WHERE pos_name LIKE CONCAT(?, '%') AND supervisor = ?"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('ss', $clienteExcel, $cediExcel);
+	$stmt->execute();
+	$desempatados = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
+	$stmt->close();
+
+	return count($desempatados) === 1 ? $desempatados[0] : null;
+}
+
+// Dado un pos_id ya resuelto, encuentra qué usuario de la app (cuenta
+// 'activo') es su responsable — vía el mismo supervisor real del cliente
+// (ver supervisores_asignados_activos()). Null si el cliente no tiene
+// supervisor asignado en el maestro, o si ese supervisor todavía no tiene
+// una cuenta activa creada en Gestión de Usuarios (caso real: JW asigna
+// supervisores en su base antes de que Diego cree el usuario acá).
+function usuarioIdDePosId($mysqli, $posId) {
+	$stmt = $mysqli->prepare(
+		"SELECT u.id FROM repositorio_locales_supervisores_cliente c
+		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = c.supervisor AND u.status = 'activo'
+		 WHERE c.pos_id = ? LIMIT 1"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('s', $posId);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $fila ? (int) $fila['id'] : null;
+}
+
 // ---------- Gestión de Usuarios (repositorio_usuarios_acuerdos) ----------
 // Centralizado aquí porque tanto la carga inicial (gestion-usuarios.php) como
 // el refresco por AJAX (getters/tabla_usuarios.php) necesitan la misma consulta
@@ -848,5 +907,79 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 	$stmt->close();
 
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
+}
+
+// Cuotas resueltas (pos_id encontrado) — 'pendiente_match' vive aparte en
+// listar_repositorio_cuotas_pendientes_match(), mismo concepto visual que
+// "Pendientes de Asignar" de Liquidación, para no mezclar "cliente
+// identificado, cuota lista para usarse" con "todavía no sabemos de quién
+// es esta fila" en la misma tabla.
+function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+
+	$stmtTotal = $mysqli->prepare(
+		"SELECT COUNT(*) AS total FROM repositorio_cuota_cliente
+		 WHERE estado <> 'pendiente_match' AND (cliente_excel LIKE ? OR pos_id LIKE ? OR sector LIKE ?)"
+	);
+	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmtTotal->bind_param('sss', $like, $like, $like);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
+
+	$stmt = $mysqli->prepare(
+		"SELECT c.id, c.pos_id, c.cliente_excel, c.sector, c.trimestre, c.anio, c.valor_mensual, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = c.actualizado_por
+		 WHERE c.estado <> 'pendiente_match' AND (c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.sector LIKE ?)
+		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel, c.sector
+		 LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmt->bind_param('sssii', $like, $like, $like, $porPagina, $offset);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
+}
+
+// Cola de resolución manual — filas donde resolverPosIdCliente() no encontró
+// exactamente un cliente (0 o más de 1 candidato). Se muestran junto con los
+// candidatos posibles (mismo nombre, sin filtrar por CEDI) para que el
+// superdesarrollador elija a mano, igual que liquidacion_pendientes.php.
+function listar_repositorio_cuotas_pendientes_match($mysqli) {
+	$stmt = $mysqli->prepare(
+		"SELECT id, cliente_excel, cedi_excel, plan, sector, trimestre, anio, valor_mensual
+		 FROM repositorio_cuota_cliente
+		 WHERE estado = 'pendiente_match'
+		 ORDER BY cliente_excel, sector"
+	);
+	if (!$stmt) return [];
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$stmtCand = $mysqli->prepare(
+		"SELECT pos_id, pos_name, cedi, supervisor FROM repositorio_locales_supervisores_cliente
+		 WHERE pos_name LIKE CONCAT(?, '%') ORDER BY pos_name LIMIT 10"
+	);
+	foreach ($filas as &$fila) {
+		$fila['candidatos'] = [];
+		if ($stmtCand) {
+			$stmtCand->bind_param('s', $fila['cliente_excel']);
+			$stmtCand->execute();
+			$fila['candidatos'] = $stmtCand->get_result()->fetch_all(MYSQLI_ASSOC);
+		}
+	}
+	unset($fila);
+	if ($stmtCand) $stmtCand->close();
+
+	return $filas;
 }
 ?>

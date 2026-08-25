@@ -29,6 +29,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			Participación de Percha
 			<span class="ac-repo-tab-count" id="repo-tab-participacion-count">—</span>
 		</button>
+		<button type="button" class="ac-repo-tab" id="repo-tab-cuotas" data-tipo="cuotas">
+			<span class="material-symbols-outlined">request_quote</span>
+			Cuotas Trimestrales
+			<span class="ac-repo-tab-count" id="repo-tab-cuotas-count">—</span>
+		</button>
 	</div>
 
 	<section class="ac-card">
@@ -61,6 +66,15 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 						</div>
 					</div>
 				</div>
+				<!-- Solo visible en la pestaña Cuotas (assets/js/repositorios.js
+				     alterna .hidden en activarTab()) — cola de clientes del Excel
+				     que no matchearon solos contra el maestro, ver
+				     getters/cuotas_pendientes_asignar.php. -->
+				<button type="button" class="ac-btn-outline ac-btn-inline hidden" id="repo-pendientes-abrir">
+					<span class="material-symbols-outlined">person_search</span>
+					Pendientes de Asignar
+					<span class="ac-repo-tab-count" id="repo-pendientes-count">—</span>
+				</button>
 				<button type="button" class="ac-btn-primary ac-btn-inline" id="repo-subir-abrir">
 					<span class="material-symbols-outlined">upload_file</span>
 					Subir Archivo
@@ -127,6 +141,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 					<div class="ac-archivo-chip-nombre" id="repo-preview-nombre-archivo">—</div>
 					<div class="ac-archivo-chip-detalle" id="repo-preview-cantidad">—</div>
 				</div>
+			</div>
+			<!-- El Excel de Cuotas no trae el año (solo el trimestre, inferido del
+			     propio archivo por repositorio_parsear_cuotas()) — lo elige el
+			     superdesarrollador acá antes de guardar. Oculto para Rebate/
+			     Participación (assets/js/repositorios.js). -->
+			<div class="ac-field hidden" id="repo-preview-anio-wrap">
+				<label class="ac-field-label" for="repo-preview-anio">Año de este trimestre</label>
+				<input type="number" class="ac-input" id="repo-preview-anio" style="max-width:140px;">
 			</div>
 			<p class="ac-field-hint">Así vamos a guardar estos datos. Podés corregir cualquier campo antes de confirmar.</p>
 			<div class="ac-alert-error hidden" id="repo-preview-errores"></div>

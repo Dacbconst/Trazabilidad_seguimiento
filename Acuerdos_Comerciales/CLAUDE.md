@@ -1922,6 +1922,17 @@ confirmó por código (mismos tokens ya verificados visualmente en la ronda
 anterior para `ac-badge-critico`), no con una captura real de ese estado
 puntual.
 
+**Ajuste, mismo día — el toast se sentía "flaquito"**: pedido explícito
+tras ver el toast de vencimiento en pantalla. `.ac-toast` tenía padding
+angosto (`space-sm space-md`, 8px/16px) pensado para mensajes de 1 línea —
+con un mensaje de 2 líneas (como el de vencimiento) quedaba con poco aire
+arriba/abajo. Subido a `padding: var(--space-md)` parejo (16px), ícono de
+28px a 34px, `line-height` del mensaje de 20px a 21px. **Afecta a los
+toasts de TODO el proyecto** (`assets/js/toast.js` es compartido —
+Registrar, Gestión de Usuarios, etc.), no solo al de vencimiento: es el
+mismo componente en todos lados, a propósito no se creó una variante aparte
+solo para este caso.
+
 ## Export CSV genérico de Historial — ELIMINADO (2026-08-18)
 
 Hubo una primera versión de export en Historial (`getters/exportar_actas.php`,
@@ -2495,9 +2506,52 @@ pedir reparar, 3 hojas presentes.
       y BLOQUEEN los campos `rebate_pct`/`participacion` en Registrar
       Acuerdo PDV — hoy siguen siendo tipeados a mano y editables ahí, el
       repositorio nuevo todavía no está conectado a ese formulario.
+      - **⚠️ Bloqueador real encontrado 2026-08-25**: la tabla
+        `repositorio_rebate_producto` (y `repositorio_participacion_percha`)
+        **todavía NO existen en producción** — están en el código (los
+        getters de `Repositorios` ya las consultan) y en
+        `datos/repositorios_schema.sql`, pero el `CREATE TABLE` nunca se
+        corrió en la base real (confirmado con `DESCRIBE` de solo lectura:
+        error "no existe"). Coincide con que la pantalla de Repositorios
+        muestra "0" en ambas pestañas. Nada de lo de abajo se puede
+        verificar contra datos reales hasta que esto se resuelva.
 - [ ] (Ídem) repositorio de CUOTAS trimestrales que Michelle subiría para
       que Meta de Compras salga ya lleno/bloqueado al elegir cliente en
       Registrar Acuerdo PDV — pieza grande, no construida.
+      - **Análisis de factibilidad 2026-08-25** (solo planificación, nada
+        implementado — pedido explícito del usuario de no tocar código
+        todavía): la idea que surgió es que Michelle suba directo la hoja
+        "CUOTA CLIENTE - CATEGORÍA" (la misma que ya generamos nosotros en
+        `getters/exportar_cuota_categoria.php`) y que el sistema arme el
+        Acta sola. **Se puede autollenar Cliente (match por nombre, reusando
+        `liquidacion_candidatos_pos_id()` de Liquidación), Período (mismo
+        detector de columnas de mes ya usado), Sector/Categoría, cuota
+        mensual y Rebate %** — todos vienen directo en esa hoja. **Lo que NO
+        se puede autollenar: la Marca.** Esa hoja nunca tuvo columna de
+        Marca — la columna "CATEGORIAS" ahí es el Sector, no la Marca, y una
+        línea de Meta de Compras necesita Segmento+Categoría+Marca para ser
+        válida (`registrar.js` la descarta si falta cualquiera de las 3).
+        - **Idea para resolver la Marca (no implementada, depende del
+          bloqueador de arriba)**: matchear Sector + Rebate% de la fila
+          subida contra el repositorio de Rebate (`repositorio_rebate_producto`,
+          que mapea Segmento/Sector/Categoría/Marca → % fijo) — si dentro de
+          un mismo Sector cada Marca tiene un % distinto (lo cual parece
+          cierto por el caso ya documentado de "PASTAS 4%/3% = 2 líneas
+          reales distintas"), el % sería suficiente para resolver la Marca
+          real, no una sugerencia — un dato cierto. **No se pudo verificar
+          si el % es realmente único por Sector** porque el repositorio
+          está vacío (ver bloqueador de arriba) — falta esa verificación
+          antes de construir esto.
+        - **Diseño acordado si se construye**: Cliente/Período/Sector/Cuota/
+          Rebate% quedan BLOQUEADOS (vienen directo del archivo, sin
+          ambigüedad). La Marca, aunque se resuelva por match, quedaría
+          PRE-LLENADA PERO EDITABLE, no bloqueada — a diferencia de los
+          demás campos, es algo que nosotros inferimos, no un dato que vino
+          tal cual del archivo; bloquearla sería mostrar más certeza de la
+          que realmente hay.
+        - Cabeceras/Rumas/Perchas quedan 100% fuera de esto — esa hoja no
+          trae ningún dato de visibilidad, se seguirían llenando a mano
+          igual que hoy.
 - [ ] (Ídem) revisar si el formato `'money'` de "VISIBILIDAD (2)"
       (Distribuidor) es correcto — la reunión confirma que Distribuidor se
       paga en CAJAS, no en dólares.
@@ -4049,6 +4103,163 @@ lista — no algo que este cambio deba decidir por sí solo.
 - **Probado**: `node --check` en `registrar.js` limpio. No se re-probó
   funcionalmente contra datos reales porque es un cambio de texto puro —
   no toca lógica de guardado ni el mapeo de columnas.
+
+## Repositorio de Cuotas trimestrales + Actas precargadas (2026-08-25, EN CONSTRUCCIÓN — plan aprobado, Fase 1 a medio hacer)
+
+**Leer esto ANTES de tocar `repositorio_cuota_cliente`, `cuotas_*.php` o
+`obtener_acta_precargada.php` en cualquier sesión** (esto se está
+construyendo en paralelo entre dos máquinas — esta nota es para que la otra
+sesión sepa exactamente dónde quedó).
+
+**Qué es**: JW (Michelle) sube un Excel trimestral de cuotas por cliente
+(columnas reales: `CEDI, CLIENTE, PLAN, CATEGORIAS, CONCAT, <mes1>, <mes2>,
+<mes3>`, un monto $ fijo repetido en los 3 meses) — mismo patrón self-service
+que Rebate%/Participación (Módulo Repositorios), pero esta vez con cliente.
+El sistema resuelve solo a qué `pos_id` corresponde cada fila y arma
+"Actas precargadas" que el ejecutivo/asesor dueño de ese cliente puede
+cargar en Registrar, con **Meta de Compras autorellenada y bloqueada por
+completo** (fila + monto) y las otras 3 tablas (Cabeceras/Rumas/Perchas)
+recibiendo la fila sugerida con identidad bloqueada pero precio abierto
+(reusa `sugerirEnOtrasTablas()`, ya existente, sin código nuevo ahí).
+
+**Decisiones clave, confirmadas con el usuario**:
+- "CATEGORIAS" del Excel = columna `sector` en la base (mismo nivel que se
+  renombró a "Categoría" en pantalla el mismo día, ver sección de arriba).
+- El match cliente→pos_id y el armado de Segmento/Subcategoría/Marca de
+  cada fila de Meta de Compras (que el Excel de cuotas NO trae) lo resuelve
+  el sistema solo, sin pedirle a JW más columnas — decisión explícita del
+  usuario. Para Subcategoría/Marca: si el mismo `pos_id`+`sector` ya tiene
+  una línea de Meta de Compras en una Acta anterior, se reusa esa
+  combinación (continuidad real del cliente); si no hay historial, esos 2
+  campos quedan vacíos para que el asesor los complete a mano con el combo
+  normal (el monto/Segmento/Sector ya vienen bloqueados igual) —
+  `getters/guardar_acuerdo.php:127` ya descarta filas incompletas, así que
+  esto no necesita validación nueva.
+- El año NO viene en el Excel — lo elige el superdesarrollador en pantalla
+  al subir; el trimestre SÍ se infiere solo de qué 3 columnas de mes trae
+  el archivo (`xlsx_detectar_columnas_mes()`).
+- "Actas Precargadas" es un módulo nuevo tipo "Mis Borradores" (mismo
+  patrón: modal con lista + botón "Cargar en el formulario") — decisión del
+  propio usuario para resolver el caso "me llega una Acta precargada
+  mientras tengo otra en curso, o me llegan 2": una cola pasiva, no
+  interrumpe el formulario en curso.
+
+**Ya construido (código, sin probar contra datos reales todavía)**:
+- `includes/functions.php`: `resolverPosIdCliente($mysqli, $clienteExcel,
+  $cediExcel)` (match por nombre + desempate por CEDI=supervisor, calcado
+  de `liquidacion_candidatos_pos_id()`) y `usuarioIdDePosId($mysqli,
+  $posId)` (pos_id → usuario responsable vía supervisor, no existía ningún
+  mapeo en ese sentido antes de esto).
+- `includes/repositorio_import.php`: `repositorio_parsear_cuotas()` —
+  parsea CEDI/CLIENTE/PLAN/CATEGORIAS + columnas de mes dinámicas, infiere
+  trimestre, avisa (sin bloquear) si los 3 meses no traen el mismo monto.
+- `getters/cuotas_previsualizar_excel.php` — paso 1, no toca la base.
+- `getters/cuotas_guardar.php` — paso 2, UPSERT en `repositorio_cuota_cliente`
+  sobre `(pos_id, sector, trimestre, anio)`, resuelve `pos_id` fila por
+  fila, `estado='pendiente_match'` si no matchea único (sin bloquear el
+  resto del archivo, mismo criterio "el sistema se defiende solo").
+
+**Esquema ya corrido en producción (2026-08-25, confirmado por Claude con
+`DESCRIBE`/`SHOW INDEX` de solo lectura)**: `datos/cuota_cliente_schema.sql`
+— tabla `repositorio_cuota_cliente` existe con columnas e índices correctos
+(`idx_pos_sector_periodo` UNIQUE sobre las 4 columnas, `idx_estado`,
+`idx_acuerdo_generado`). **Gotcha real encontrado en el camino**: la
+primera vez que se corrió, HeidiSQL creó las columnas con 2 espacios
+pegados al inicio del nombre (`"  pos_id"` en vez de `"pos_id"`) —
+probablemente el copiar/pegar del bloque SQL (indentado con tabs) convirtió
+esos tabs en espacios que quedaron pegados al identificador. Se detectó con
+un `DESCRIBE` de solo lectura (el error real al correr el `CREATE INDEX`
+fue "Key column 'pos_id' doesn't exist in table", porque el nombre real
+tenía los espacios). Se corrigió reescribiendo el `.sql` con espacios
+normales (sin tabs) + un `DROP TABLE IF EXISTS` al principio. **Lección
+para cualquier `.sql` nuevo de este proyecto: evitar tabs en el archivo que
+se le pasa al usuario para HeidiSQL, usar espacios simples.**
+
+**Todavía sin construir (pendiente, esto sigue la Fase 1/2 del plan de esa
+sesión)**:
+- `getters/cuotas_pendientes_asignar.php` + `getters/cuotas_resolver_match.php`
+  (cola de resolución manual para `pos_id` NULL, mismo concepto visual que
+  "Pendientes de Asignar" de Liquidación).
+- 3ra pestaña dentro de `components/repositorios/repositorios.php` +
+  `assets/js/repositorios.js` (subida/previsualización/tabla de Cuotas,
+  reusando el patrón visual ya construido para Rebate/Participación).
+- Fase 2 completa: `getters/listar_actas_precargadas.php`,
+  `getters/obtener_acta_precargada.php`, botón "Actas Precargadas" en
+  Historial (calco de "Mis Borradores"), `registrar.js:
+  cargarPrecarga()`/`window.acRegistrarCargarPrecarga`, marcar
+  `estado='usada'` al guardar el Acuerdo resultante.
+- **Todavía sin probar contra un Excel real** de Cuotas — falta confirmar
+  si "CEDI" del Excel de Cuotas es literalmente el mismo valor que
+  `supervisor` (se asumió por analogía con el Excel de Liquidación, no
+  verificado con este archivo específico todavía).
+
+**Checklist del plan aprobado (copiado acá completo porque el archivo del
+plan vive en `~/.claude/plans/` de esta máquina, que la sesión de la otra
+compu no puede leer — esto es la fuente de verdad de qué falta):**
+
+- [x] `datos/cuota_cliente_schema.sql` — corrido en producción (2026-08-25).
+- [x] `includes/functions.php`: `resolverPosIdCliente()`, `usuarioIdDePosId()`,
+      `listar_repositorio_cuotas()`, `listar_repositorio_cuotas_pendientes_match()`.
+- [x] `includes/repositorio_import.php`: `repositorio_parsear_cuotas()`.
+- [x] `getters/cuotas_previsualizar_excel.php` (paso 1, no toca la base).
+- [x] `getters/cuotas_guardar.php` (paso 2, UPSERT + resolución de pos_id).
+- [x] `getters/cuotas_pendientes_asignar.php` (lista la cola).
+- [x] `getters/cuotas_resolver_match.php` (asigna pos_id a mano o descarta).
+- [x] `getters/repositorio_listar.php` y `getters/repositorio_eliminar.php`
+      extendidos con tipo `cuotas`.
+- [ ] **Frontend Fase 1 (PAUSADO 2026-08-25 a mitad de camino — leer esto
+      antes de seguir, para no perder el hilo desde cualquiera de las 2
+      máquinas):**
+  - [x] `components/repositorios/repositorios.php`: 3ra pestaña
+        `repo-tab-cuotas` ("Cuotas Trimestrales") agregada al lado de
+        Rebate/Participación.
+  - [x] Botón `repo-pendientes-abrir` ("Pendientes de Asignar" + contador)
+        agregado en `.ac-repo-actions`, con clase `hidden` puesta a mano en
+        el HTML — **todavía no tiene el JS que lo muestra/oculta según la
+        pestaña activa, ni el modal que debería abrir** (ese modal AÚN NO
+        EXISTE en el HTML, falta crearlo).
+  - [x] Input `repo-preview-anio`/`repo-preview-anio-wrap` agregado dentro
+        del paso de previsualización del modal "Subir Archivo" (con clase
+        `hidden` puesta a mano) — para que el superdesarrollador tipee el
+        año antes de guardar Cuotas (el Excel no lo trae). **Todavía no
+        tiene el JS que lo muestra/oculta ni que lee su valor al guardar.**
+  - [ ] **`assets/js/repositorios.js` — NADA de esto está hecho todavía**:
+    - Entrada `cuotas` en el objeto `CONFIG` (columnas sugeridas: pos_id,
+      cliente_excel, sector, trimestre, anio, valor_mensual, estado — con
+      un flag para desactivar la edición inline por fila, a diferencia de
+      Rebate/Participación, porque estos datos vienen de un match
+      automático, no tiene sentido editar pos_id/trimestre a mano ahí).
+    - En `activarTab()`: mostrar/ocultar `repo-pendientes-abrir` y
+      `repo-preview-anio-wrap` según `tipo === 'cuotas'`.
+    - `previsualizarArchivo()`: para `tipoActivo === 'cuotas'`, apuntar a
+      `getters/cuotas_previsualizar_excel.php` (no
+      `repositorio_previsualizar_excel.php`) y guardar `data.trimestre` en
+      una variable para mandarlo después al guardar.
+    - `guardarFilas()`/el listener de `repo-subir-guardar`: para cuotas,
+      apuntar a `getters/cuotas_guardar.php` con body
+      `{filas, trimestre, anio}` (leyendo `#repo-preview-anio`) en vez del
+      `{tipo, filas}` genérico.
+    - Modal nuevo "Pendientes de Asignar" (HTML todavía no existe en
+      `repositorios.php`): tabla simple listando
+      `getters/cuotas_pendientes_asignar.php`, cada fila con sus
+      `candidatos` (botones clicables, mismo patrón visual que
+      `liq-candidatos`/`liq-btn-candidato` de `assets/js/liquidacion.js` —
+      sin CSS dedicada, esas clases tampoco tienen reglas propias en
+      `style.css`, se apoyan en `.ac-btn-outline`/`.ac-btn-inline`
+      genéricos) + un input de pos_id manual + botón "Descartar", todos
+      llamando a `getters/cuotas_resolver_match.php`.
+- [ ] **Fase 2 completa, sin empezar**: `getters/listar_actas_precargadas.php`,
+      `getters/obtener_acta_precargada.php`, botón "Actas Precargadas" en
+      Historial (calco de "Mis Borradores"), `registrar.js:
+      cargarPrecarga()`/`window.acRegistrarCargarPrecarga` (bloquea
+      `.month-input` de Meta de Compras, llama `sugerirEnOtrasTablas()` para
+      las otras 3 tablas), marcar `estado='usada'` en
+      `repositorio_cuota_cliente` al guardar el Acuerdo resultante
+      (parámetro nuevo `origen_precarga` en `guardar_acuerdo.php`).
+- [ ] Probar con un Excel real de Cuotas de punta a punta (previsualizar,
+      ver qué matchea solo vs. qué cae en Pendientes de Asignar, resolver a
+      mano, y recién ahí probar Fase 2 con un cliente CON historial y uno
+      SIN historial).
 
 ## Convenciones para código nuevo
 

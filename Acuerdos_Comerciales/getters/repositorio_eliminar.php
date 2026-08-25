@@ -25,11 +25,16 @@ $body = json_decode(file_get_contents('php://input'), true);
 $tipo = $body['tipo'] ?? '';
 $id   = (int) ($body['id'] ?? 0);
 
-if (!in_array($tipo, ['rebate', 'participacion'], true) || $id <= 0) {
+if (!in_array($tipo, ['rebate', 'participacion', 'cuotas'], true) || $id <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
-$tabla = $tipo === 'rebate' ? 'repositorio_rebate_producto' : 'repositorio_participacion_percha';
+$tablasPorTipo = [
+	'rebate'        => 'repositorio_rebate_producto',
+	'participacion' => 'repositorio_participacion_percha',
+	'cuotas'        => 'repositorio_cuota_cliente',
+];
+$tabla = $tablasPorTipo[$tipo];
 $stmt = $mysqli->prepare("DELETE FROM $tabla WHERE id = ?");
 if (!$stmt) {
 	responder(false, 'El repositorio todavía no existe en la base (falta correr datos/repositorios_schema.sql).');

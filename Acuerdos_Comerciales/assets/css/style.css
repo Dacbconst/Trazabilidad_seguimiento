@@ -654,11 +654,17 @@ body {
 }
 .ac-toast {
 	position: relative;
-	display: flex; align-items: center; gap: var(--space-sm);
+	display: flex; align-items: center; gap: var(--space-md);
 	background: var(--color-surface-container-lowest);
 	border-radius: var(--radius-md);
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
-	padding: var(--space-sm) var(--space-md);
+	/* Padding subido de "space-sm space-md" (8px 16px) a "space-md" parejo
+	   (2026-08-25, pedido explícito: "se me hace muy flaquito") — se notaba
+	   sobre todo con mensajes de 2 líneas (ej. el toast de vencimiento de
+	   firma), donde el padding vertical angosto de antes dejaba muy poco
+	   aire arriba/abajo del texto. Afecta a TODOS los toasts del proyecto
+	   (componente compartido), no solo al de vencimiento. */
+	padding: var(--space-md);
 	overflow: hidden;
 	animation: ac-toast-in 0.25s ease-out;
 }
@@ -667,17 +673,17 @@ body {
 @keyframes ac-toast-out { to { transform: translateX(24px); opacity: 0; } }
 
 .ac-toast-icon {
-	flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+	flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
 	display: flex; align-items: center; justify-content: center;
 	color: #fff;
 }
-.ac-toast-icon .material-symbols-outlined { font-size: 18px; }
+.ac-toast-icon .material-symbols-outlined { font-size: 20px; }
 .ac-toast-success .ac-toast-icon { background: #2e7d32; }
 .ac-toast-error .ac-toast-icon { background: #d32f2f; }
 .ac-toast-warning .ac-toast-icon { background: #f9a825; }
 .ac-toast-info .ac-toast-icon { background: #1976d2; }
 
-.ac-toast-msg { flex: 1 1 auto; font-size: 14px; line-height: 20px; color: var(--color-on-surface); }
+.ac-toast-msg { flex: 1 1 auto; font-size: 14px; line-height: 21px; color: var(--color-on-surface); }
 .ac-toast-close { flex: 0 0 auto; background: none; border: none; cursor: pointer; color: var(--color-on-surface-variant); padding: 2px; display: flex; }
 .ac-toast-close .material-symbols-outlined { font-size: 18px; }
 

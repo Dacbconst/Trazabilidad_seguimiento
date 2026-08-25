@@ -81,6 +81,89 @@ function repositorio_parsear_rebate($rutaArchivo) {
 	return ['filas' => $resultado];
 }
 
+// Excel de Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md
+// "Repositorio de Cuotas trimestrales + Actas precargadas") — columnas
+// reales: CEDI, CLIENTE, PLAN, CATEGORIAS, CONCAT (redundante, se ignora),
+// y 3 columnas de mes con el mismo monto repetido (ej. ABRIL/MAYO/JUNIO).
+// A diferencia de Rebate/Participación, acá SÍ hay cliente — el pos_id se
+// resuelve después, en getters/cuotas_guardar.php (necesita conexión a la
+// base, este parser es puro y no recibe $mysqli).
+// "CATEGORIAS" del Excel de JW es el mismo nivel que la app guarda como
+// columna `sector` (ver rename de etiquetas 2026-08-25: en pantalla ahora
+// se ve "Categoría", pero la columna real sigue siendo sector).
+function repositorio_parsear_cuotas($rutaArchivo) {
+	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
+	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
+	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
+	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
+
+	$enc = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS']);
+	if (!$enc) return ['error' => 'No se encontraron las columnas CEDI, CLIENTE y CATEGORIAS en el archivo.'];
+
+	$colesMes = xlsx_detectar_columnas_mes($filas[$enc['fila']]);
+	if (!$colesMes) return ['error' => 'No se encontró ninguna columna de mes (ej. ABRIL, MAYO, JUNIO) en el archivo.'];
+
+	// El trimestre se infiere de qué 3 meses trae el encabezado — tienen que
+	// formar exactamente uno de los 4 trimestres fijos del proyecto (mismo
+	// criterio que repositorio_acuerdos.mes_inicio/mes_fin en toda la app,
+	// nunca un rango libre). Si el archivo trae menos/más de 3, o meses que
+	// no calzan con ningún trimestre completo, se avisa en vez de adivinar.
+	$mesesDetectados = array_map(function ($d) { return $d['mes']; }, $colesMes);
+	sort($mesesDetectados);
+	$trimestres = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]];
+	$trimestre = null;
+	foreach ($trimestres as $idx => $meses) {
+		if ($mesesDetectados === $meses) { $trimestre = $idx + 1; break; }
+	}
+	if ($trimestre === null) {
+		return ['error' => 'Las columnas de mes encontradas no forman un trimestre completo (Ene-Mar, Abr-Jun, Jul-Sep u Oct-Dic).'];
+	}
+
+	$m = $enc['mapa'];
+	$colCedi = xlsx_col($m, 'CEDI');
+	$colCliente = xlsx_col($m, 'CLIENTE');
+	$colPlan = xlsx_col($m, 'PLAN');
+	$colCategorias = xlsx_col($m, 'CATEGORIAS');
+
+	$resultado = [];
+	$avisos = [];
+	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
+		$fila = $filas[$i];
+		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
+		$sector  = repositorio_normalizar_texto($fila[$colCategorias] ?? '');
+		if ($cliente === '' && $sector === '') continue; // fila vacía (hueco o fin de hoja)
+
+		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
+		$plan = $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '';
+
+		$valores = [];
+		foreach ($colesMes as $d) {
+			$crudo = $fila[$d['col']] ?? 0;
+			$valores[] = is_numeric($crudo) ? (float) $crudo : (float) str_replace(['$', ',', ' '], '', (string) $crudo);
+		}
+		$valorMensual = round($valores[0] ?? 0, 2);
+		// El criterio confirmado con el usuario es "1 monto fijo, repetido en
+		// los 3 meses del trimestre" — si un archivo real trae valores
+		// distintos por mes, puede ser un caso de negocio nuevo sin
+		// contemplar todavía: se guarda igual (con el del primer mes) pero
+		// se avisa, sin bloquear el resto de filas válidas (mismo criterio
+		// de "el sistema se defiende solo" que ya usa Rebate/Participación).
+		if (count(array_unique(array_map(function ($v) { return round($v, 2); }, $valores))) > 1) {
+			$avisos[] = 'Fila de "'.$cliente.'" ('.$sector.'): los montos mensuales no son iguales, se usó el del primer mes ($'.number_format($valorMensual, 2).').';
+		}
+
+		$resultado[] = [
+			'cliente_excel' => $cliente,
+			'cedi_excel'    => $cedi,
+			'plan'          => $plan,
+			'sector'        => $sector,
+			'valor_mensual' => $valorMensual,
+		];
+	}
+	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
+	return ['filas' => $resultado, 'avisos' => $avisos, 'trimestre' => $trimestre];
+}
+
 function repositorio_parsear_participacion($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
