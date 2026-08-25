@@ -39,10 +39,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 		</div>
 		<div class="ac-btn-group">
 			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-actualizar" title="Actualizar">
-				<span class="material-symbols-outlined">refresh</span> Actualizar
+				<span class="material-symbols-outlined">refresh</span> <span class="ac-btn-text">Actualizar</span>
 			</button>
-			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-abrir-borradores">
-				<span class="material-symbols-outlined">draft</span> Mis Borradores
+			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-abrir-borradores" title="Mis Borradores">
+				<span class="material-symbols-outlined">draft</span> <span class="ac-btn-text">Mis Borradores</span>
 			</button>
 			<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-nuevo-acuerdo">
 				<span class="material-symbols-outlined">add</span>

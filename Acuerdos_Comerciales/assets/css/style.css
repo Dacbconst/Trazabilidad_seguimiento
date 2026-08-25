@@ -67,8 +67,28 @@ body {
 	justify-content: space-between;
 	padding: 0 var(--space-lg);
 }
+.ac-header-brand-group { display: flex; align-items: center; }
 .ac-brand { display: flex; align-items: center; padding: 0 var(--space-xl); }
 .ac-brand-logo { height: 48px; width: auto; max-width: 195px; display: block; }
+/* Hamburguesa del drawer mobile (2026-08-25, ver "Sidebar mobile" más abajo)
+   — oculta en desktop, solo aparece bajo 900px junto al breakpoint del
+   drawer. Mismo look que .ac-sidebar-toggle para no sumar un patrón visual
+   nuevo. */
+.ac-header-menu-btn {
+	display: none;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border: none;
+	border-radius: var(--radius);
+	background: none;
+	color: var(--color-on-surface-variant);
+	cursor: pointer;
+	margin-right: var(--space-sm);
+}
+.ac-header-menu-btn:hover { background: var(--color-surface-container-high); color: var(--color-primary); }
 
 /* ---------- Login ---------- */
 .ac-login-main {
@@ -308,6 +328,48 @@ body {
 	margin: 0;
 }
 
+/* ---------- Sidebar mobile: drawer off-canvas (2026-08-25) ----------
+   Bajo 900px la sidebar deja de ser un item flex de .ac-shell (que hoy
+   simplemente la empuja/angosta) y pasa a un drawer fixed que entra desde
+   la izquierda — mismo breakpoint que .ac-users-grid (línea 362) y el
+   modal de Firma, para no sumar un breakpoint nuevo al proyecto. El toggle
+   de colapso a íconos (.collapsed, arriba) queda solo para desktop — en
+   mobile la sidebar usa .open/.ac-sidebar-backdrop en su lugar (ver JS de
+   index.php, que decide cuál de los dos con matchMedia). */
+@media (max-width: 900px) {
+	.ac-header-menu-btn { display: flex; }
+	.ac-sidebar {
+		position: fixed;
+		top: 80px;
+		left: -280px;
+		height: calc(100vh - 80px);
+		z-index: 120;
+		transition: left 0.2s ease;
+		box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+	}
+	.ac-sidebar.open { left: 0; }
+	/* Si el drawer se abre mientras venía colapsado de una sesión de
+	   escritorio previa (mismo localStorage), igual se ve completo — el
+	   colapso a íconos no tiene sentido en un drawer que ya se abre/cierra
+	   entero. */
+	.ac-sidebar.collapsed { width: 280px; }
+	.ac-sidebar.collapsed .ac-sidebar-brand-row h2,
+	.ac-sidebar.collapsed .ac-sidebar-version,
+	.ac-sidebar.collapsed .ac-nav-label,
+	.ac-sidebar.collapsed .ac-sidebar-watermark { display: revert; }
+	.ac-sidebar.collapsed .ac-sidebar-nav a,
+	.ac-sidebar.collapsed .ac-sidebar-logout { justify-content: flex-start; padding-left: var(--space-md); padding-right: var(--space-md); }
+	.ac-sidebar-backdrop {
+		display: none;
+		position: fixed;
+		inset: 0;
+		top: 80px;
+		background: rgba(26, 27, 34, 0.5);
+		z-index: 119;
+	}
+	.ac-sidebar-backdrop.open { display: block; }
+}
+
 .ac-header-user { display: flex; align-items: center; gap: var(--space-md); }
 .ac-header-user-info { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3; }
 .ac-header-user-info .nombre { font-weight: 700; font-size: 14px; }
@@ -326,6 +388,19 @@ body {
 	overflow: hidden;
 }
 .ac-header-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Header angosto: con la hamburguesa nueva a la izquierda del logo, el
+   padding grande de .ac-brand (pensado para desktop sin ese botón) sobra;
+   y el nombre+rol completo puede no entrar junto al avatar en un celular
+   chico — se oculta el rol primero (el nombre solo ya identifica a quién
+   está logueado). */
+@media (max-width: 900px) {
+	.ac-header-inner { padding: 0 var(--space-md); }
+	.ac-brand { padding: 0; }
+}
+@media (max-width: 480px) {
+	.ac-header-user-info .rol { display: none; }
+}
 
 /* .ac-content es flex:1 dentro de .ac-shell — sin overflow-x:hidden, un ítem
    flex nunca se encoge más allá del ancho de su contenido más ancho (acá, la
@@ -383,6 +458,7 @@ body {
 
 .ac-form { padding: var(--space-lg); display: flex; flex-direction: column; }
 .ac-form .ac-field { margin-bottom: var(--space-md); }
+.ac-form .ac-progreso-carga { margin-bottom: var(--space-md); }
 .ac-field-hint { font-size: 11px; color: var(--color-on-surface-variant); margin: var(--space-xs) 0 0; }
 
 .ac-select {
@@ -446,6 +522,28 @@ body {
 .ac-search-input { padding: 10px 16px 10px 40px; border-radius: var(--radius-full); font-size: 14px; }
 
 .ac-table-scroll { overflow-x: auto; }
+/* Pista visual de "hay más columnas para el lado" en mobile (2026-08-25,
+   pase de responsividad) — receta CSS-only de "scroll shadows" (2
+   gradientes con background-attachment:local que se mueven con el
+   contenido, tapando la sombra fija de atrás salvo en los extremos donde
+   todavía hay algo para scrollear). Beneficia a TODAS las tablas anchas de
+   la app por igual (Registrar, Historial, Gestión de Usuarios, Liquidación,
+   Repositorios) porque comparten esta misma clase contenedora. Solo bajo
+   900px — en desktop las tablas ya se ven completas o el usuario ya conoce
+   el patrón de scroll horizontal, no hace falta la pista. */
+@media (max-width: 900px) {
+	.ac-table-scroll {
+		background:
+			linear-gradient(to right, var(--color-surface-container-lowest) 50%, rgba(255,255,255,0)) left,
+			linear-gradient(to left, var(--color-surface-container-lowest) 50%, rgba(255,255,255,0)) right,
+			linear-gradient(to right, rgba(26,27,34,.12), rgba(26,27,34,0)) left,
+			linear-gradient(to left, rgba(26,27,34,.12), rgba(26,27,34,0)) right;
+		background-repeat: no-repeat;
+		background-color: var(--color-surface-container-lowest);
+		background-size: 24px 100%, 24px 100%, 10px 100%, 10px 100%;
+		background-attachment: local, local, scroll, scroll;
+	}
+}
 .ac-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 640px; }
 .ac-table thead th {
 	padding: var(--space-md) var(--space-lg);
@@ -507,6 +605,12 @@ body {
 .ac-switch input:disabled + .ac-slider { cursor: not-allowed; opacity: 0.5; }
 
 .ac-row-actions { display: flex; justify-content: flex-end; gap: var(--space-xs); }
+/* El texto del botón principal de fila (hoy solo "Subir/Ver Firma" en
+   Historial) va oculto en desktop — ahí es un ícono más entre varios, todos
+   del mismo tamaño. En mobile se muestra (ver rediseño de tarjetas de
+   Historial más abajo), porque ahí SÍ es el botón que más importa de la
+   fila. */
+.ac-row-actions-primary-label { display: none; }
 .ac-icon-btn {
 	width: 36px; height: 36px;
 	display: flex; align-items: center; justify-content: center;
@@ -579,12 +683,25 @@ body {
 .ac-modal-header h3 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
 .ac-modal-close { border: none; background: none; cursor: pointer; color: var(--color-on-surface-variant); padding: var(--space-xs); }
 .ac-modal-usuario { font-size: 16px; line-height: 24px; font-weight: 700; margin: 0 0 var(--space-md); }
+/* .ac-modal-body/.ac-modal-footer nunca habían tenido estilo propio (el
+   resto de los modales de la app ponen el padding a mano en un div/form
+   hijo, ej. liq-form-subir) — el modal de subida de Repositorios sí confió
+   en estas 2 clases genéricas, así que su contenido quedaba pegado a los
+   bordes del modal, sin espacio entre el texto de ayuda y el dropzone.
+   2026-08-24. */
+.ac-modal-body { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
+.ac-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-sm); padding: var(--space-lg); border-top: 1px solid var(--color-outline-variant); }
 
 @media (max-width: 600px) {
 	.ac-content { padding: var(--space-md); }
 	.ac-page-title { font-size: 24px; }
 	.ac-search-wrap { max-width: none; }
 	.ac-card-header-split { flex-direction: column; align-items: stretch; }
+	/* .ac-acuerdo-section-title-split es una clase distinta de
+	   .ac-card-header-split (título + switch "Visibilidad y Espacios" de
+	   Registrar, línea 761) y no heredaba este stacking — gap encontrado
+	   2026-08-25 haciendo el pase de responsividad del proyecto. */
+	.ac-acuerdo-section-title-split { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
 }
 
 /* ---------- Registrar Acuerdo PDV ---------- */
@@ -754,6 +871,18 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	border-radius: var(--radius-sm);
 	box-sizing: border-box;
 }
+/* Bug real de tipeo en mobile (2026-08-25, pedido explícito del usuario):
+   font-size < 16px en un input dispara zoom automático de iOS Safari al
+   enfocarlo — con 13px, tocar cualquier celda de Meta de Compras/Cabeceras/
+   Rumas/Perchas hacía que la página entera saltara de zoom. Se sube a 16px
+   SOLO bajo 900px (no se toca la densidad ya aprobada en desktop) y se
+   agranda un poco el padding para que el dedo tenga un target más cómodo. */
+@media (max-width: 900px) {
+	.ac-mini-select, .ac-mini-input {
+		font-size: 16px;
+		padding: 8px 10px;
+	}
+}
 /* Apuntaba a .ac-mini-select (de cuando estas celdas eran <select> nativos);
    desde que son comboboxes de texto (.ac-combo-input) esta regla ya no
    coincidía con nada y el min-width:130px genérico de .ac-mini-input hacía
@@ -820,6 +949,12 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-acuerdo-rumas-legend table { width: 100%; min-width: 0; }
 .ac-acuerdo-rumas-legend th { font-size: 10px; text-transform: uppercase; }
 .ac-acuerdo-rumas-legend td { font-size: 13px; }
+/* Bajo 900px .ac-acuerdo-rumas-layout ya envuelve (flex-wrap) y la leyenda
+   pasa a su propia fila — pero seguía angosta a 300px fijos en vez de
+   aprovechar el ancho disponible de esa fila completa. */
+@media (max-width: 900px) {
+	.ac-acuerdo-rumas-legend { flex-basis: 100%; width: 100%; }
+}
 .ac-table-acuerdo, .ac-table-bordered { margin: 0; }
 #ac-purchase-container, #ac-cabeceras-container, #ac-perchas-container { padding: var(--space-lg); }
 .ac-acuerdo-percha-hint { padding: 0 var(--space-lg) var(--space-lg); margin: 0; }
@@ -831,7 +966,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-link-btn:hover { text-decoration: underline; }
 
 /* .ac-acuerdo-preview-bar también lo usa historial.php (página completa, sin modal). */
-.ac-acuerdo-preview-bar { display: flex; justify-content: space-between; margin-bottom: var(--space-lg); }
+.ac-acuerdo-preview-bar { display: flex; justify-content: space-between; margin-bottom: var(--space-lg); flex-wrap: wrap; gap: var(--space-sm); }
 .ac-acta-modal-overlay { z-index: 110; }
 .ac-modal.ac-acta-modal { max-width: 900px; width: 95vw; height: 92vh; max-height: 92vh; display: flex; flex-direction: column; }
 .ac-acta-modal-bar {
@@ -847,6 +982,23 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
    lo habilita (ver registrar.js). */
 .ac-btn-disabled { opacity: 0.5; pointer-events: none; cursor: not-allowed; }
 .ac-acta-pdf-frame { flex: 1 1 auto; width: 100%; border: none; }
+/* El PDF en sí (generado server-side con Dompdf, página A4 fija) no puede
+   reflowar para mobile — eso es una limitación real del formato, no un bug
+   (se sigue viendo con scroll/pinch-zoom nativo del visor de PDF del
+   navegador). Lo que sí se ajusta es la barra de controles: en un celular
+   angosto, zoom-controls + Generar/Descargar + cerrar no entran en una sola
+   fila — se envuelve en 2 líneas en vez de comprimirse hasta ilegible. */
+@media (max-width: 600px) {
+	.ac-acta-modal-bar { flex-wrap: wrap; row-gap: var(--space-sm); }
+	/* order (no cambia el HTML): fila 1 = zoom + cerrar (ambos auto-width,
+	   space-between los separa), fila 2 = los botones de acción a 100% de
+	   ancho — sin esto, el botón cerrar (último en el DOM) quedaba solo en
+	   una 3ra fila en vez de acompañar al zoom arriba. */
+	.ac-acta-zoom-controls { order: 1; }
+	.ac-modal-close { order: 2; }
+	.ac-acta-modal-actions { order: 3; margin-left: 0; width: 100%; }
+	.ac-acta-modal-actions .ac-btn-secondary, .ac-acta-modal-actions .ac-btn-primary { flex: 1 1 auto; justify-content: center; }
+}
 
 /* Antes max-width:640px con .ac-table forzada a min-width:0 (la tabla
    necesita min-width:640px por la regla genérica, y con el padding del modal
@@ -889,9 +1041,39 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
    altura default del navegador (~150px). */
 #hist-pdf-frame { height: 80vh; }
 
+/* Filtros de Historial en mobile: rediseño real, no el formulario de
+   desktop apilado (2026-08-25, 2da vuelta — el usuario lo marcó
+   explícito: "no lo veo bien para ser una versión móvil"). El buscador
+   ya dispara sola al tipear (debounce 350ms, historial.js línea ~154) y
+   los selects de Período/Año ya disparan solos en "change" — el botón
+   "Buscar" es 100% redundante en cualquier tamaño de pantalla, así que en
+   mobile (donde cada fila cuesta espacio) se oculta directamente en vez de
+   ocupar una fila entera para algo que no hace falta tocar. Período/Año
+   pasan de 2 filas completas a una sola fila de 2 columnas (son selects
+   cortos, no necesitan todo el ancho). "Descargar Excel" es una acción
+   secundaria (no es filtro) — se separa visualmente como pill angosto en
+   vez de un botón ancho igual de pesado que el resto. */
 @media (max-width: 600px) {
-	.ac-hist-filtros { flex-direction: column; align-items: stretch; }
-	.ac-hist-periodo, .ac-hist-anio { width: 100%; }
+	.ac-hist-filtros {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		grid-template-areas:
+			"search   search"
+			"periodo  anio"
+			"exportar exportar";
+		gap: var(--space-sm);
+	}
+	.ac-hist-search-wrap { grid-area: search; flex: none; width: 100%; }
+	.ac-hist-periodo { grid-area: periodo; width: 100%; min-width: 0; }
+	.ac-hist-anio { grid-area: anio; width: 100%; min-width: 0; }
+	#hist-buscar-btn { display: none; }
+	#hist-exportar-cuota {
+		grid-area: exportar;
+		justify-self: end;
+		width: auto;
+		padding: 8px var(--space-md);
+		font-size: 11px;
+	}
 }
 
 /* ---------- Historial: stat tiles = también filtro (2026-08-21, rediseñadas) ----------
@@ -935,8 +1117,111 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-hist-stat-ok.ac-hist-stat-activo { border-color: #1e9e5a; background: #f2fbf6; }
 .ac-hist-stat-warn.ac-hist-stat-activo { border-color: #e8a33d; background: #fffaf0; }
 
+/* ---------- Historial: rediseño mobile completo (2026-08-25) ----------
+   El usuario lo marcó explícitamente como "desordenado" en celular y pidió
+   un rediseño de verdad, no solo parches — porque la mayoría de las subidas
+   de Acta firmada (la tarea principal de este módulo) van a pasar desde el
+   celular. 3 cambios, todos solo bajo 700px (mismo breakpoint que ya usaban
+   los stat tiles):
+   1) Botones del header: "Actualizar"/"Mis Borradores" se compactan a solo
+      ícono (con su texto ya envuelto en .ac-btn-text para poder ocultarlo),
+      "Nuevo Acuerdo" queda como el único botón de ancho completo — antes
+      eran 3 botones de texto completo apilados, mucho espacio vertical
+      antes de llegar a ver un solo acuerdo.
+   2) Stat tiles: de 3 tarjetas altas apiladas a una fila compacta de 3
+      "chips" (mismo dato, mucho menos alto).
+   3) La tabla de 7 columnas (que obligaba a scroll horizontal para llegar
+      al botón de acción) pasa a una lista de tarjetas — cada <tr> se
+      reordena visualmente con CSS Grid (grid-template-areas, el DOM/orden
+      de <td> no cambia, así que no hace falta tocar la paginación ni el
+      refresco por AJAX de historial.js, que solo reemplaza el innerHTML
+      del <tbody>). El botón de Firma queda como acción principal con texto
+      visible, a lo ancho, en vez de un ícono más entre 4 del mismo tamaño. */
 @media (max-width: 700px) {
-	.ac-hist-stats { grid-template-columns: 1fr; }
+	.ac-hist-header .ac-btn-group { width: 100%; }
+	#hist-actualizar, #hist-abrir-borradores { flex: 0 0 auto; }
+	#hist-actualizar .ac-btn-text, #hist-abrir-borradores .ac-btn-text { display: none; }
+	#hist-nuevo-acuerdo { flex-basis: 100%; justify-content: center; }
+
+	/* min-width:0 en los 3 items del grid: mismo patrón de bug que ya se
+	   repitió varias veces en este archivo — un item de grid/flex no se
+	   encoge por debajo del ancho de su contenido si no se lo decís
+	   explícito, así que sin esto las 3 tiles podían terminar de tamaños
+	   desiguales o la 3ra empujada fuera de la fila (reportado 2026-08-25,
+	   pedido explícito: "del mismo tamaño... en una sola fila las tres"). */
+	.ac-hist-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
+	.ac-hist-stat { flex-direction: column; align-items: flex-start; gap: 6px; padding: var(--space-sm) var(--space-sm); min-width: 0; }
+	/* align-items:flex-start de arriba (necesario para que el ícono no se
+	   estire) también hace que .ac-hist-stat-body deje de estirarse al
+	   ancho completo de la tarjeta (tomaba el ancho natural del texto en vez
+	   de encogerse) — sin width:100% acá, la etiqueta se salía del borde de
+	   la tarjeta en vez de truncarse con "…". */
+	.ac-hist-stat-body { width: 100%; }
+	.ac-hist-stat-icon { width: 26px; height: 26px; }
+	.ac-hist-stat-icon .material-symbols-outlined { font-size: 15px; }
+	.ac-stat-label { font-size: 9px; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+	.ac-stat-value { font-size: 19px; }
+	.ac-stat-bar { display: none; }
+	.ac-hist-stat-activo { padding: calc(var(--space-sm) - 1px); }
+
+	#hist-tabla thead { display: none; }
+	/* min-width:0 explícito: sin esto, .ac-table (regla genérica,
+	   min-width:640px, pensada para que las tablas anchas fuercen su propio
+	   scroll horizontal) seguía aplicando acá y forzaba la tarjeta entera a
+	   640px, empujando "Periodo" y el badge de Firma fuera de la pantalla —
+	   mismo patrón de bug ya documentado en .ac-content/.ac-acuerdo-rumas-layout
+	   más arriba en este archivo (un contenedor no se encoge más allá del
+	   min-width/min-content de su contenido si no se lo decís explícito). */
+	#hist-tabla, #hist-tabla tbody { display: block; width: 100%; min-width: 0; }
+	#hist-tabla-body {
+		display: flex; flex-direction: column; gap: var(--space-sm);
+	}
+	#hist-tabla-body tr {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		grid-template-areas:
+			"doc      badge"
+			"dist     dist"
+			"cedi     periodo"
+			"fecha    fecha"
+			"acciones acciones";
+		gap: 3px var(--space-sm);
+		background: var(--color-surface-container-lowest);
+		border: 1px solid var(--color-outline-variant);
+		border-radius: var(--radius-lg);
+		padding: var(--space-md);
+	}
+	/* Fila especial de "Cargando..."/"No se encontraron acuerdos" (un solo
+	   <td colspan="7">, no 7 columnas reales) — no tiene que forzarse al
+	   grid de tarjeta de arriba. */
+	#hist-tabla-body tr:has(td[colspan]) { display: block; grid-template-columns: none; padding: var(--space-lg); text-align: center; }
+	#hist-tabla-body tr:has(td[colspan]) td { grid-area: unset; }
+
+	#hist-tabla-body td { display: block; padding: 0; border: none; text-align: left; }
+	#hist-tabla-body td:nth-child(1) { grid-area: doc; align-self: center; }
+	#hist-tabla-body td:nth-child(1) .ac-link-id { font-size: 16px; }
+	#hist-tabla-body td:nth-child(2) { grid-area: dist; font-weight: 700; font-size: 15px; color: var(--color-on-surface); }
+	#hist-tabla-body td:nth-child(3) { grid-area: cedi; font-size: 13px; color: var(--color-on-surface-variant); text-align: left; }
+	#hist-tabla-body td:nth-child(4) { grid-area: periodo; font-size: 13px; color: var(--color-on-surface-variant); text-align: right; }
+	#hist-tabla-body td:nth-child(5) { grid-area: badge; justify-self: end; align-self: center; }
+	#hist-tabla-body td:nth-child(6) { grid-area: fecha; font-size: 12px; color: var(--color-outline); text-align: left; }
+	#hist-tabla-body td:nth-child(7) {
+		grid-area: acciones;
+		margin-top: 6px; padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-outline-variant);
+	}
+
+	#hist-tabla-body .ac-row-actions { justify-content: stretch; }
+	#hist-tabla-body .ac-row-actions-primary {
+		flex: 1 1 auto; width: auto; height: 40px;
+		border: 1px solid var(--color-primary);
+		border-radius: var(--radius);
+		gap: var(--space-xs);
+		padding: 0 var(--space-md);
+		font-family: var(--font-body); font-size: 13px; font-weight: 700;
+	}
+	#hist-tabla-body .ac-row-actions-primary.ac-icon-btn-success { border-color: #1e9e5a; }
+	#hist-tabla-body .ac-row-actions-primary-label { display: inline; }
 }
 
 /* ---------- Modal "Subir Acta Firmada": 2 paneles lado a lado (2026-08-21) ---------- */
@@ -998,12 +1283,17 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-firma-modal-botones .ac-btn-outline, .ac-firma-modal-botones .ac-btn-primary { flex: 1 1 auto; justify-content: center; }
 }
 
-/* ---------- Resumen de Pagos (Liquidación): stat tiles, filtros, gráfico ---------- */
+/* ---------- Resumen de Pagos (Liquidación): stat tiles, filtros, gráfico ----------
+   .ac-card no trae padding propio (el padding vive en .ac-card-header, o en
+   las celdas de .ac-table para el caso de tablas) — estos 3 bloques son
+   contenido libre (no tabla, no header) directamente dentro de .ac-card, así
+   que sin margen horizontal propio quedaban pegados al borde de la tarjeta
+   (reportado 2026-08-24, "muy pegado a los bordes"). */
 .ac-resumen-stats {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 	gap: var(--space-sm);
-	margin: var(--space-md) 0;
+	margin: var(--space-md) var(--space-lg);
 }
 .ac-stat-tile {
 	background: var(--color-surface-container);
@@ -1019,10 +1309,10 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-stat-value { margin: 0; font-size: 22px; font-weight: 700; color: var(--color-on-surface); }
 .ac-stat-tile-warn .ac-stat-value { color: #7a5b00; }
 
-.ac-resumen-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-md); margin-bottom: var(--space-md); }
+.ac-resumen-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-md); margin: 0 var(--space-lg) var(--space-md); }
 .ac-field-inline { margin-bottom: 0; min-width: 200px; }
 
-.ac-resumen-chart-wrap { margin-bottom: var(--space-lg); }
+.ac-resumen-chart-wrap { margin: 0 var(--space-lg) var(--space-lg); }
 .ac-resumen-chart-title { font-size: 13px; font-weight: 700; color: var(--color-on-surface-variant); margin: 0 0 var(--space-sm); }
 .ac-chart-legend { display: flex; gap: var(--space-md); margin-bottom: var(--space-md); }
 .ac-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-on-surface-variant); }
@@ -1068,7 +1358,11 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo { display: flex; flex-direction: column; gap: var(--space-lg); }
 .ac-repo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
 
-.ac-repo-tabs { display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); }
+/* overflow-x:auto (no wrap): en desktop las 2 pestañas entran solas y esto
+   no cambia nada visualmente — en un celular angosto "Participación de
+   Percha" + "Rebate" no entran en una fila, y sin esto se recortaban en vez
+   de poder deslizarse (mismo patrón ya usado en .ac-table-scroll). */
+.ac-repo-tabs { display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); overflow-x: auto; }
 .ac-repo-tab {
 	display: flex; align-items: center; gap: var(--space-sm);
 	padding: var(--space-sm) var(--space-lg);
@@ -1076,6 +1370,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	color: var(--color-on-surface-variant);
 	font-family: var(--font-body); font-size: 14px; font-weight: 600;
 	cursor: pointer; margin-bottom: -1px;
+	flex-shrink: 0;
+	white-space: nowrap;
 }
 .ac-repo-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .ac-repo-tab-count {
@@ -1136,6 +1432,14 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-dropzone .material-symbols-outlined { font-size: 40px; color: var(--color-primary); }
 .ac-dropzone-title { font-size: 14px; font-weight: 600; margin: 0; }
 .ac-dropzone-sub { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; }
+
+/* Barra de carga real (% de bytes subidos, vía XHR upload.onprogress, no un
+   spinner indeterminado) — pedido explícito 2026-08-24: no limitar el
+   tamaño de subida, pero sí mostrar progreso si el archivo es pesado. */
+.ac-progreso-carga { display: flex; flex-direction: column; gap: var(--space-xs); }
+.ac-progreso-carga-texto { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; text-align: center; }
+.ac-progreso-carga-track { height: 8px; border-radius: var(--radius-full); background: var(--color-surface-container-high); overflow: hidden; }
+.ac-progreso-carga-fill { height: 100%; width: 0%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.15s linear; }
 
 .ac-archivo-chip { display: flex; align-items: center; gap: var(--space-sm); background: var(--color-surface-container-low); border-radius: var(--radius); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); }
 .ac-archivo-chip .material-symbols-outlined { color: var(--color-primary); }

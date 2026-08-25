@@ -2034,6 +2034,330 @@ esquema ni sumar dependencias:
   real sigue sin probar** (falta el `CREATE TABLE`, mismo pendiente que
   arriba).
 
+### Modal de subida: padding + barra de carga real (2026-08-24, otra sesión)
+
+- **Bug real de CSS, no de PHP**: el usuario reportó el modal "Subir
+  Archivo" apretado, sin padding de los lados ni espacio entre el texto de
+  ayuda y el dropzone — dudaba si era "un bug con los archivos PHP". Causa:
+  `.ac-modal-body`/`.ac-modal-footer` (las clases que este modal usa) **nunca
+  tuvieron ninguna regla en `style.css`** — ningún otro modal de la app las
+  usa (cada uno pone su padding a mano en un div/form hijo propio). Se
+  agregó estilo real a ambas clases (`padding`, `gap` entre hijos en el
+  body, `border-top` + `justify-content:flex-end` en el footer) —
+  corrección genérica, cubre automáticamente cualquier otro modal futuro
+  que use estas 2 clases. Verificado renderizando el HTML real del
+  componente contra el CSS real (sin servidor ni login) y comparando contra
+  la captura del usuario. Guardado como lección en memoria
+  (`feedback_acuerdos_comerciales`) — sospechar primero de una clase CSS
+  sin estilo ante "esto se ve apretado", no de un bug de lógica PHP.
+- **Límite de 10MB: se probó agregar y se REVIRTIÓ a pedido explícito**
+  ("no limites la subida"). El texto ".xlsx — máximo 10 MB" del dropzone
+  prometía un límite que en realidad **nunca estuvo respaldado por ningún
+  chequeo real** (solo por `upload_max_filesize`/`post_max_size` del
+  servidor, que aplican de todos modos y no dependen de este código) — se
+  sacó esa mención del texto para no prometer algo que no se cumple.
+- **Barra de carga real agregada en su lugar** (`assets/js/repositorios.js`,
+  `previsualizarArchivo()` reescrita de `fetch()` a `XMLHttpRequest` —
+  `fetch()` no expone progreso de subida, hacía falta XHR para el % real
+  vía `xhr.upload.addEventListener('progress', ...)`). El dropzone se
+  oculta y aparece una barra con `%` en vivo mientras sube; vuelve a
+  mostrarse el dropzone al terminar (éxito o error) o si se reabre el modal
+  a mitad de una subida anterior (`mostrarPasoElegir()` llama
+  `ocultarProgresoCarga()`). Nuevas clases `.ac-progreso-carga*` en
+  `style.css`, mismo `--color-primary` que el resto de la app. **Probado**:
+  sintaxis JS limpia, y visualmente renderizando el HTML real con la barra
+  al 63% contra el CSS real — se ve bien. No se pudo probar una subida real
+  de un archivo pesado end-to-end (requiere el módulo funcionando en
+  producción, con el schema corrido).
+- **Mismo arreglo replicado en el modal "Subir Excel de Liquidación"**
+  (2026-08-24, pedido explícito: "meter ese arreglo acá en el módulo de
+  liquidación"): ese modal no tenía el bug de padding (el `<form>` ya usa
+  `style="padding:..."` inline, no las clases `.ac-modal-body`/
+  `.ac-modal-footer`), pero sí le faltaba la barra de carga real — el envío
+  usaba `fetch()` sin ninguna señal de avance. `components/liquidacion/
+  liquidacion.php` ganó el mismo bloque `.ac-progreso-carga` (reutiliza las
+  clases CSS ya creadas para Repositorios, no se duplicó nada) y `assets/js/
+  liquidacion.js` reescribió el `submit` del form de `fetch()` a
+  `XMLHttpRequest` con `xhr.upload.addEventListener('progress', ...)`,
+  mismo patrón (`mostrarProgresoSubirLiq()`/`ocultarProgresoSubirLiq()`).
+  Bug encontrado y corregido en el camino: la barra quedaba pegada al botón
+  "Procesar Excel" porque `.ac-form .ac-field { margin-bottom: ... }` no
+  aplica a un div que no es `.ac-field` — se agregó `.ac-form
+  .ac-progreso-carga { margin-bottom: var(--space-md); }` en `style.css`.
+  Verificado igual que en Repositorios: JS syntax-checked (`node -c`) y
+  visualmente contra el CSS real vía Playwright.
+
+### "71 de 71 clientes en Revisar" en Resumen de Pagos — 1 bug real + 1 falso positivo (2026-08-24)
+
+El usuario mostró un screenshot del Resumen de Pagos (Directa, Q2 2026, 1
+importación) con **71 clientes y 71 "Por revisar"** — el 100%. Se investigó
+en 2 partes, verificando con datos reales vía script de solo lectura
+(`php.exe` está en `C:\xampp\php\php.exe`, no en el PATH):
+
+1. **Bug real, corregido**: `liquidacion_calcular_resumen_pagos()` en
+   `includes/liquidacion_import.php` (2 queries, tablas
+   `repositorio_liquidacion_cuota_categoria` y `..._visibilidad`) calculaba
+   `sin_resolver` como `SUM(estado_match <> 'matcheado')` — eso cuenta como
+   "sin resolver" también las filas resueltas a propósito como `'sin_acta'`
+   (flujo "No tiene Acta (dato histórico)", ver `liquidacion_resolver_match.php`),
+   que YA están resueltas y no deberían pedir revisión nunca más. Corregido a
+   `SUM(estado_match NOT IN ('matcheado', 'sin_acta'))` en ambas queries —
+   mismo criterio que ya usaba `liquidacion_pendientes.php` línea 51. Impacto
+   real en la importación #4 (la del screenshot): solo 1 fila de 310 tenía
+   `estado_match='sin_acta'`, así que este fix por sí solo NO explica el
+   71/71 — pero sigue siendo un bug real y hay que tenerlo corregido para
+   cuando haya más backfills históricos.
+2. **NO es un bug — es esperado dado el estado actual de los datos**: se
+   verificó, fila por fila, en qué paso fallaba el match de las 309 filas
+   restantes de la importación #4 (`liquidacion_candidatos_pos_id()` /
+   `liquidacion_candidatos_acuerdo_id()`, ambas de solo lectura). Resultado:
+   **las 309 resolvieron su pos_id sin problema** (0 fallaron ahí) — fallaron
+   las 309 en el segundo paso, `liquidacion_candidatos_acuerdo_id()`, porque
+   **casi no hay Actas generadas para Q2 2026 todavía** (`SELECT COUNT(*)
+   FROM repositorio_acuerdos WHERE anio=2026 AND mes_inicio<=5 AND
+   mes_fin>=3` → solo 2 en estado `generado` + 1 `borrador`, para TODOS los
+   clientes). Esta importación de Liquidación se subió antes de que existan
+   las Actas de ese trimestre para la mayoría de clientes, así que no hay
+   nada contra qué matchear — el sistema está funcionando correctamente al
+   mostrarlos como "Revisar" (ninguno tiene Acta con la que vincularse
+   todavía, no es que el matching esté roto). Esto es la misma preocupación
+   de fondo que ya está documentada en "⚠️ REPLANTEO 2026-08-23" más abajo:
+   el orden real Excel-vs-Actas en el proceso de JW sigue sin confirmarse.
+   **Si vuelve a aparecer un caso así, antes de asumir que es un bug de
+   matching, verificar primero cuántas Actas existen para ese
+   canal+trimestre+año** — puede ser simplemente que todavía no se generaron.
+
+### Resumen de Pagos: stats/filtros/gráfico pegados al borde de la tarjeta (2026-08-24)
+
+Bug real de CSS, distinto del anterior: `.ac-card` no trae padding propio
+(el padding vive en `.ac-card-header`, o en las celdas de `.ac-table` para
+tablas) — `.ac-resumen-stats`, `.ac-resumen-filtros` y `.ac-resumen-chart-wrap`
+son contenido libre (no tabla, no header) que cuelga directo de `.ac-card`,
+así que sin margen horizontal propio quedaban pegados al borde de la
+tarjeta. Corregido en `style.css`: los 3 ganaron `margin` horizontal
+`var(--space-lg)` (antes solo tenían margen vertical). La tabla de abajo
+(`.ac-table-scroll`) NO se tocó — esa ya se ve bien porque el padding vive
+en las celdas (`th`/`td`), mismo patrón que el resto de la app. Verificado
+visualmente contra el CSS real vía Playwright (antes/después). Mismo tipo
+de bug que el de `.ac-modal-body`/`.ac-modal-footer` de Repositorios de
+esta misma sesión — patrón a repetir si aparece de nuevo: contenido que NO
+es tabla ni header dentro de un `.ac-card` necesita su propio padding/margen
+horizontal, `.ac-card` nunca lo da gratis.
+
+## Responsive / mobile (2026-08-25)
+
+Pedido explícito del usuario: "todo el proyecto sea responsivo, que sea
+para móvil y se vea super bien", con prioridad especial en que Registrar
+Acuerdo PDV se pueda tipear y ver bien. Antes de esto el proyecto no tenía
+ninguna estrategia sistemática — el shell global (sidebar/header) no tenía
+NINGÚN breakpoint, y solo 7 `@media` sueltos cubrían componentes puntuales
+(Gestión de Usuarios, Historial, modal de Firma, gráfico de Resumen de
+Pagos), ninguno tocaba el shell ni Registrar. Plan completo en
+`C:\Users\diego\.claude\plans\stateless-bouncing-boole.md` si hace falta el
+detalle completo de la investigación previa (3 agentes Explore).
+
+**Decisión confirmada con el usuario** (AskUserQuestion): las 4 tablas
+anchas de Registrar (Meta de Compras/Cabeceras/Rumas/Perchas) mantienen el
+scroll horizontal existente (ya tenían columnas sticky + `.ac-table-scroll`)
+en vez de reescribirse como tarjetas apiladas — mucho menor riesgo, no se
+toca la lógica de cálculo de plata de esas 4 tablas.
+
+Breakpoint reusado: **900px** (ya era el de `.ac-users-grid` y el modal de
+Firma) para todo lo nuevo del shell — no se inventó un breakpoint nuevo.
+Todo el trabajo es CSS + JS de UI, cero cambios de SQL/getters/cálculos.
+
+- **Shell global → drawer off-canvas bajo 900px** (`index.php`,
+  `assets/css/style.css` sección "Shell autenticado"/"Sidebar mobile"): la
+  sidebar (antes fija 280px, sin ningún tratamiento mobile — en celular
+  simplemente empujaba el contenido) pasa a `position:fixed` con
+  `left:-280px` → `.open { left:0 }`, más un `.ac-sidebar-backdrop` nuevo.
+  Hamburguesa nueva (`.ac-header-menu-btn`, `#acHeaderMenuBtn`) a la
+  izquierda del logo, visible solo bajo 900px. El toggle de colapso a
+  íconos (`.collapsed`, preferencia persistida en localStorage) queda
+  **solo para desktop** — el JS de `index.php` decide con
+  `matchMedia('(max-width: 900px)')` cuál de los dos comportamientos usar,
+  para que las 2 lógicas de clase (`.collapsed` vs `.open`) nunca choquen.
+  El drawer se cierra solo al hacer click en el backdrop o en cualquier
+  link de navegación (patrón estándar) y NO se persiste en localStorage
+  (siempre arranca cerrado). El rol del usuario (`.ac-header-user-info
+  .rol`) se oculta bajo 480px para no desbordar junto al avatar.
+- **Registrar Acuerdo PDV — el fix real de "que se pueda tipear bien"**:
+  `.ac-mini-input`/`.ac-mini-select` (celdas de las 4 tablas) tenían
+  `font-size: 13px` — en iOS Safari, cualquier input con `font-size < 16px`
+  dispara zoom automático al enfocarlo, por eso tocar cualquier celda desde
+  el celular hacía saltar el zoom de toda la página. Subido a 16px + más
+  padding, pero **solo bajo 900px** (no se toca la densidad ya aprobada en
+  desktop). Además: (1) fix real de overflow en `assets/js/registrar.js` —
+  el panel del combobox (`posicionarPanelCombo()`) se posicionaba con
+  `left`/`width` sin clampear contra `window.innerWidth`, podía salirse del
+  borde derecho en pantallas angostas; (2) gap real encontrado —
+  `.ac-acuerdo-section-title-split` (título + switch de "2. Visibilidad y
+  Espacios") no heredaba el stacking de `.ac-card-header-split` a 600px, ya
+  corregido; (3) la leyenda de Rumas (`.ac-acuerdo-rumas-legend`, fija a
+  300px) ahora pasa a `width:100%` bajo 900px cuando ya envolvió a su
+  propia fila; (4) la barra del modal de Acta (zoom + Generar/Descargar +
+  cerrar) ahora envuelve en 2 filas bajo 600px en vez de comprimirse
+  ilegible (con `order` para que "cerrar" quede junto al zoom en la fila 1,
+  no solo en una 3ra fila).
+- **Límite real, no un bug**: el modal de Acta muestra un PDF real generado
+  server-side con Dompdf (página A4 de layout fijo) — no puede reflowar
+  para mobile, se ve con pinch-zoom/scroll nativo del visor de PDF del
+  navegador, igual que cualquier PDF. Mismo caso para el panel de preview
+  del Acta en Historial (`#ac-historial-preview`/`#hist-pdf-frame`).
+- **Indicador de scroll compartido** (`.ac-table-scroll`, bajo 900px):
+  receta CSS-only de "scroll shadows" (gradientes con
+  `background-attachment:local`) que muestra una sombra sutil en los bordes
+  cuando todavía hay contenido para el lado — beneficia a las 4 tablas de
+  Registrar y a las de Historial/Gestión de Usuarios/Liquidación/
+  Repositorios por igual, misma clase compartida.
+- **Pulido puntual en el resto**: `.ac-acuerdo-preview-bar` (Volver +
+  Descargar/Imprimir, usada en Registrar e Historial) ahora envuelve en
+  mobile — antes "VOLVER AL HISTORIAL" + "DESCARGAR / IMPRIMIR PDF" no
+  entraban juntos en una fila de 375px; `.ac-repo-tabs` (Repositorios) ganó
+  `overflow-x:auto` — "Participación de Percha" + "Rebate" no entran juntas
+  en un celular angosto, ahora se pueden deslizar en vez de recortarse.
+  Historial (stat tiles a 700px, filtros a 600px), Gestión de Usuarios
+  (grid a 900px) y el modal de Firma (2 paneles a 900px con
+  `min-height:45vh` por panel) ya tenían tratamiento mobile de antes,
+  confirmado que sigue andando bien.
+- **Verificación con mirrors** (primera pasada): cada pieza se probó con
+  mirrors HTML standalone (`<link>` al `style.css` real) capturados con
+  Playwright a 375px/768px/1200px, antes/después. `node -c` sobre los `.js`
+  tocados, `php -l` (con `C:\xampp\php\php.exe`, no está en el PATH) sobre
+  los `.php` tocados, chequeo de balance de llaves en `style.css`.
+- **Verificación real, en vivo (2026-08-25, mismo día)**: el usuario compartió
+  capturas reales desde su celular tomadas contra el entorno de desarrollo
+  (`https://webecuador-desarrollo.azurewebsites.net/App/XploraEcuador/
+  Acuerdos_Comerciales/`) y dio credenciales explícitas
+  (`JAVIER MALDONADO` / rol con acceso completo) para loguearse ahí de
+  verdad — "estamos en desarrollo... aún no está lanzada la página". Se usó
+  Playwright para loguearse en ese entorno real (vía `page.request`/
+  `page.goto`, solo lectura — ningún dato se modificó) y diagnosticar
+  directo contra el DOM/CSS servidos, no contra un mirror. Esto encontró un
+  **bug real preexistente que los mirrors NO habían detectado**:
+  - **`.ac-hist-search-wrap` se inflaba a 260px de alto en mobile** (el
+    ícono de lupa del buscador de Historial quedaba flotando muy por debajo
+    del input, con un hueco enorme). Causa real, confirmada con
+    `getComputedStyle()`/`getBoundingClientRect()` en vivo:
+    `.ac-hist-search-wrap { flex: 1 1 260px; }` fue escrito asumiendo
+    layout en FILA (260px = ancho mínimo), pero el breakpoint existente
+    `@media (max-width:600px) { .ac-hist-filtros { flex-direction: column;
+    } }` cambia el eje principal a vertical — y ese mismo `260px` de
+    flex-basis pasa a aplicarse como ALTO, no ancho. Arreglado agregando
+    `.ac-hist-search-wrap { flex: none; width: 100%; }` dentro de ese mismo
+    breakpoint. Revisado el resto del CSS por el mismo patrón (`flex: 1 1
+    Npx` dentro de un contenedor que en algún breakpoint pasa a
+    `flex-direction:column`) — el único otro caso (`.ac-repo-filtros
+    .ac-input-wrap`) vive en un contenedor que nunca cambia a columna, no
+    tiene el mismo riesgo.
+  - **Por qué el mirror no lo agarró**: el mirror combinado
+    (`test_resto.html`) SÍ reprodujo el bug visualmente, pero al aislarlo
+    en un archivo mínimo sin el contenedor `.ac-hist-filtros` alrededor
+    (para "confirmar"), el bug desapareció — porque el bug depende
+    exactamente de ESE contenedor pasando a columna, no del
+    `.ac-input-wrap` en sí. Se descartó como "artefacto del mirror" sin
+    investigarlo más a fondo, y era real. **Lección**: si un mirror
+    reproduce algo raro y después un mirror "aislado" no lo reproduce, la
+    diferencia entre ambos ES la pista — no descartarlo sin entender por
+    qué desaparece.
+  - **Hallazgo de infraestructura, no un bug de código**: al loguearse en
+    vivo se confirmó que `assets/css/style.css` en ese entorno YA tenía
+    todos los cambios de esta sesión (contenido idéntico, comentarios
+    incluidos) — pero `index.php` seguía sirviendo la versión vieja (sin
+    `acHeaderMenuBtn`/drawer), varios minutos después de guardado. O sea:
+    **los `.css` se reflejan casi al instante en este entorno de
+    "desarrollo", pero los `.php` tardan más** (probablemente opcache de
+    PHP con revalidación no inmediata, o el paso de sync/deploy trata
+    archivos estáticos distinto de los `.php` — no confirmado cuál de las
+    dos). Contradice la nota vieja de memoria "deploy manual por FTP/Kudu"
+    — este entorno de desarrollo específico parece sincronizarse solo,
+    al menos para CSS. **Si se repite este síntoma** (un cambio de CSS se
+    ve reflejado pero uno de PHP no, en este mismo entorno), no asumir que
+    el archivo local está mal — probablemente es este mismo retraso, hay
+    que esperar o pedirle al usuario que reinicie el App Service.
+
+### Historial: rediseño completo mobile (2026-08-25, mismo día)
+
+El usuario, viendo las capturas reales de arriba, pidió explícitamente un
+rediseño de verdad (no parches) del módulo Historial en mobile — "siento
+que ese módulo muy desordenado... sé que lo puedes hacer mejor" — porque la
+mayoría de las subidas de Acta firmada (la tarea principal de este módulo)
+van a pasar desde el celular. Todo el cambio vive dentro de
+`@media (max-width: 700px)` en `style.css` — desktop no se tocó
+(verificado, screenshot antes/después idéntico). 3 piezas:
+
+1. **Header**: "Actualizar"/"Mis Borradores" se compactan a solo ícono
+   (su texto ahora vive en `<span class="ac-btn-text">`, mismo patrón que
+   ya usaba `.ac-nav-label` en la sidebar colapsada, para poder ocultarlo
+   por CSS) — "Nuevo Acuerdo" queda como único botón de ancho completo.
+   Antes eran 3 botones de texto completo apilados.
+2. **Stat tiles**: de 3 tarjetas altas apiladas (`grid-template-columns:1fr`)
+   a una fila compacta de 3 "chips" (ícono chico + valor, sin la barra de
+   progreso, `text-overflow:ellipsis` en la etiqueta) — mismo dato, mucho
+   menos alto.
+3. **La tabla de 7 columnas → lista de tarjetas**: reportado con capturas
+   reales como "desordenado" — la tabla forzaba scroll horizontal para
+   llegar al botón de acción, justo el que más se va a usar desde el
+   celular. Cada `<tr>` se reordena visualmente con CSS Grid
+   (`grid-template-areas`) SIN tocar el orden real de los `<td>` en el DOM
+   — importante porque `historial.js` reusa el mismo HTML server-side
+   (`renderFilaHistorial()` en `includes/functions.php`) tanto en la carga
+   inicial como en cada refresco AJAX (`tbody.innerHTML = data.filas`), así
+   que no hizo falta tocar el JS ni la paginación para nada. Layout de la
+   tarjeta: Documento# + badge de Firma arriba, Distribuidor debajo en
+   negrita (el dato que más importa para identificar la fila), Localidad +
+   Período en una línea, Fecha chica y muted, y las Acciones abajo con un
+   separador. El botón de Firma (`.ac-row-actions-primary`, nueva clase)
+   pasa a ser el CTA principal — ancho, con texto visible ("Subir Firma"/
+   "Ver Firma", el `<span class="ac-row-actions-primary-label">` vive
+   oculto en desktop) — en vez de un ícono más, del mismo tamaño que
+   "Eliminar". La fila especial de "Cargando.../vacío" (`<td colspan="7">`)
+   se excluye del grid de tarjeta con `tr:has(td[colspan])`.
+   **Bug real encontrado armando esto** (mismo patrón que ya está
+   documentado en el comentario de `.ac-content`/`.ac-acuerdo-rumas-layout`
+   más arriba en este archivo): la regla genérica `.ac-table { min-width:
+   640px; }` seguía aplicando sobre `#hist-tabla` aun con `display:block`,
+   forzando toda la tarjeta a 640px y empujando "Período"/el badge fuera de
+   la pantalla — corregido con `#hist-tabla { min-width: 0; }` dentro del
+   mismo breakpoint. **Lección repetida**: cualquier contenedor
+   flex/grid/tabla en este proyecto necesita `min-width:0` explícito para
+   poder encogerse por debajo del ancho de su contenido — el navegador
+   nunca lo hace solo.
+
+### Historial mobile, 2da vuelta: filtros + stat tiles (2026-08-25, mismo día)
+
+El usuario confirmó que `index.php` ya se sincronizó en el entorno de
+desarrollo (drawer/hamburguesa funcionando ahí) y mandó 2 capturas nuevas
+del rediseño de arriba ya en vivo: le gustó cómo quedaron las tarjetas de
+Acuerdo, pero marcó 2 cosas puntuales para mejorar — la caja de filtros
+"no encaja bien... no lo veo bien para ser una versión móvil", y pidió que
+los 3 stat tiles queden "del mismo tamaño, bien ubicados, en una sola
+fila". Ambos corregidos, mismo breakpoint `@media (max-width: 600px)`:
+
+- **Filtros (`.ac-hist-filtros`)**: antes era el formulario de desktop
+  apilado tal cual (buscador + 2 selects + 2 botones, 5 filas completas).
+  Rediseño real con CSS Grid: buscador arriba a lo ancho, Período+Año en
+  UNA fila de 2 columnas (son selects cortos, no necesitan ancho completo),
+  y el botón "Buscar" se OCULTA en mobile — es 100% redundante en
+  cualquier tamaño de pantalla (el buscador ya dispara solo al tipear,
+  debounce 350ms, `historial.js` línea ~154, y los selects disparan solos
+  en `change`), pero en desktop se deja como estaba por las dudas /
+  affordance visual. "Descargar Excel" pasa a un pill angosto alineado a
+  la derecha en vez de un botón ancho — es una acción secundaria (no es un
+  filtro), no debía competir visualmente con el buscador.
+- **Stat tiles**: **bug real encontrado armando la 2da vuelta** — al pasar
+  `.ac-hist-stat` a `flex-direction:column` (para el layout compacto de
+  chip) también hacía falta `align-items:flex-start` (para que el ícono no
+  se estirara a lo ancho), pero eso mismo hacía que `.ac-hist-stat-body`
+  (el div que tiene la etiqueta+valor) dejara de estirarse al ancho de la
+  tarjeta — tomaba el ancho NATURAL del texto de la etiqueta en vez de
+  encogerse, así que "PENDIENTES DE FIRMA" se salía del borde de su propia
+  tarjeta en vez de truncarse con "…" (mismo síntoma que el bug del
+  buscador de la 1ra vuelta, causa distinta). Corregido con
+  `.ac-hist-stat-body { width: 100%; }` dentro del breakpoint. Probado
+  hasta 320px (el ancho de pantalla más chico común) — las 3 tiles quedan
+  parejas y dentro de una sola fila en todos los anchos probados.
+
 ## Módulo "Liquidación" (2026-08-17 — antes era el placeholder "Auditoría")
 
 El ítem de sidebar que antes era `auditoria` (hoy "Próximamente") **se

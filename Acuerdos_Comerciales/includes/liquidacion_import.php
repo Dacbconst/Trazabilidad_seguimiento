@@ -268,7 +268,7 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 		"SELECT cedi_o_distribuidor, cliente_o_nombre,
 		        SUM(rebate_dolares_excel) AS volumen,
 		        MAX(acuerdo_id) AS acuerdo_id,
-		        SUM(estado_match <> 'matcheado') AS sin_resolver
+		        SUM(estado_match NOT IN ('matcheado', 'sin_acta')) AS sin_resolver
 		 FROM repositorio_liquidacion_cuota_categoria
 		 WHERE importacion_id = ?
 		 GROUP BY cedi_o_distribuidor, cliente_o_nombre"
@@ -292,7 +292,7 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 		"SELECT cedi_o_distribuidor, cliente_o_nombre,
 		        SUM(pago_total_excel) AS visibilidad,
 		        MAX(acuerdo_id) AS acuerdo_id,
-		        SUM(estado_match <> 'matcheado') AS sin_resolver
+		        SUM(estado_match NOT IN ('matcheado', 'sin_acta')) AS sin_resolver
 		 FROM repositorio_liquidacion_visibilidad
 		 WHERE importacion_id = ?
 		 GROUP BY cedi_o_distribuidor, cliente_o_nombre"

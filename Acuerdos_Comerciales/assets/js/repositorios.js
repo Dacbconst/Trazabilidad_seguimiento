@@ -235,6 +235,9 @@
 	var footerPreview = document.getElementById('repo-subir-footer-preview');
 	var dropzone = document.getElementById('repo-dropzone');
 	var archivoInput = document.getElementById('repo-archivo-input');
+	var progresoCarga = document.getElementById('repo-subir-progreso');
+	var progresoCargaFill = document.getElementById('repo-subir-progreso-fill');
+	var progresoCargaTexto = document.getElementById('repo-subir-progreso-texto');
 	var previewNombreArchivo = document.getElementById('repo-preview-nombre-archivo');
 	var previewCantidad = document.getElementById('repo-preview-cantidad');
 	var previewTablaHead = document.getElementById('repo-preview-tabla-head');
@@ -286,6 +289,7 @@
 		footerElegir.classList.remove('hidden');
 		footerPreview.classList.add('hidden');
 		subirModal.classList.remove('ac-repo-subir-modal-ancho');
+		ocultarProgresoCarga(); // por si se reabre el modal a mitad de una subida anterior
 		filasPreview = null;
 		ocultarErroresPreview();
 	}
@@ -318,23 +322,55 @@
 
 	// Paso 1 -> 2: sube el archivo a repositorio_previsualizar_excel.php, que
 	// SOLO lo parsea (no toca la base) y devuelve las filas leídas — ver
-	// comentario de cabecera en ese getter.
+	// comentario de cabecera en ese getter. Sin límite de tamaño propio acá
+	// (pedido explícito 2026-08-24: "no limites la subida") — vía XHR en vez
+	// de fetch() porque fetch() no expone progreso de subida, y con un
+	// archivo pesado el pedido fue justamente mostrar una barra de carga
+	// real, no dejar la ventana "trabada" sin feedback.
 	function previsualizarArchivo(archivo) {
 		var formData = new FormData();
 		formData.append('tipo', tipoActivo);
 		formData.append('archivo', archivo);
 
-		fetch('getters/repositorio_previsualizar_excel.php', { method: 'POST', body: formData })
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
-				if (!data.ok) { mostrarMensaje(data.message, false); return; }
-				filasPreview = data.filas;
-				previewNombreArchivo.textContent = data.nombre_archivo;
-				previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)';
-				renderPreviewTabla();
-				mostrarPasoPreview();
-			})
-			.catch(function () { mostrarMensaje('Error de conexión al leer el archivo.', false); });
+		mostrarProgresoCarga();
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', 'getters/repositorio_previsualizar_excel.php');
+		xhr.upload.addEventListener('progress', function (e) {
+			if (!e.lengthComputable) return;
+			var pct = Math.round((e.loaded / e.total) * 100);
+			progresoCargaFill.style.width = pct + '%';
+			progresoCargaTexto.textContent = 'Subiendo… ' + pct + '%';
+		});
+		xhr.addEventListener('load', function () {
+			ocultarProgresoCarga();
+			var data;
+			try { data = JSON.parse(xhr.responseText); } catch (err) {
+				mostrarMensaje('Respuesta inválida del servidor al leer el archivo.', false);
+				return;
+			}
+			if (!data.ok) { mostrarMensaje(data.message, false); return; }
+			filasPreview = data.filas;
+			previewNombreArchivo.textContent = data.nombre_archivo;
+			previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)';
+			renderPreviewTabla();
+			mostrarPasoPreview();
+		});
+		xhr.addEventListener('error', function () {
+			ocultarProgresoCarga();
+			mostrarMensaje('Error de conexión al leer el archivo.', false);
+		});
+		xhr.send(formData);
+	}
+
+	function mostrarProgresoCarga() {
+		dropzone.classList.add('hidden');
+		progresoCargaFill.style.width = '0%';
+		progresoCargaTexto.textContent = 'Subiendo…';
+		progresoCarga.classList.remove('hidden');
+	}
+	function ocultarProgresoCarga() {
+		progresoCarga.classList.add('hidden');
+		dropzone.classList.remove('hidden');
 	}
 
 	function renderPreviewTabla() {

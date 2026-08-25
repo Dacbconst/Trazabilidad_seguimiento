@@ -197,6 +197,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 				<input type="file" class="ac-input" id="liq-archivo" name="archivo" accept=".xlsx" required>
 				<p class="ac-field-hint">Tiene que traer la hoja de cuota/venta/rebate y la de visibilidad, en el formato que ya usa JW. El período (qué meses cubre) se detecta solo, leyendo las columnas del archivo — no hace falta elegirlo a mano.</p>
 			</div>
+			<!-- Barra de carga real (2026-08-24, mismo arreglo que Repositorios,
+			     ver CLAUDE.md "Módulo Repositorios" y assets/js/repositorios.js):
+			     subida vía XHR para poder mostrar el % real de un Excel pesado,
+			     no un fetch() que no lo expone. -->
+			<div class="ac-progreso-carga hidden" id="liq-subir-progreso">
+				<p class="ac-progreso-carga-texto" id="liq-subir-progreso-texto">Subiendo…</p>
+				<div class="ac-progreso-carga-track">
+					<div class="ac-progreso-carga-fill" id="liq-subir-progreso-fill"></div>
+				</div>
+			</div>
 			<button class="ac-btn-primary" type="submit" id="liq-subir-submit">Procesar Excel</button>
 		</form>
 	</div>

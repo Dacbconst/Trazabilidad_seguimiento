@@ -48,6 +48,14 @@ if (!xlsx_disponible()) {
 	responder(false, 'El servidor no tiene la extensión "zip" de PHP habilitada — no se puede leer el Excel. Avisar al equipo técnico.');
 }
 
+// 2026-08-24: se probó agregar un límite propio de 10MB (mismo patrón que
+// subir_acta_firmada.php) para que coincida con lo que ya prometía la
+// pantalla — el usuario pidió explícitamente NO limitar la subida acá, solo
+// mostrar una barra de carga mientras procesa un archivo pesado (ver
+// components/repositorios/repositorios.php y assets/js/repositorios.js).
+// Sigue aplicando el límite real del servidor
+// (upload_max_filesize/post_max_size), eso no se puede evitar desde acá.
+
 $rutaTmp = $_FILES['archivo']['tmp_name'];
 $nombreArchivo = basename($_FILES['archivo']['name']);
 

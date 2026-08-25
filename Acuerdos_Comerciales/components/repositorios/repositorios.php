@@ -106,7 +106,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			<div class="ac-dropzone" id="repo-dropzone">
 				<span class="material-symbols-outlined">upload_file</span>
 				<p class="ac-dropzone-title">Arrastra tu Excel acá o hacé click para elegirlo</p>
-				<p class="ac-dropzone-sub">.xlsx — máximo 10 MB</p>
+				<p class="ac-dropzone-sub">.xlsx</p>
+			</div>
+			<!-- Sin subida en curso por default — aparece recién mientras se sube
+			     un archivo (assets/js/repositorios.js, subida real vía XHR para
+			     poder mostrar el % real, no un fetch() que no lo expone). -->
+			<div class="ac-progreso-carga hidden" id="repo-subir-progreso">
+				<p class="ac-progreso-carga-texto" id="repo-subir-progreso-texto">Subiendo…</p>
+				<div class="ac-progreso-carga-track">
+					<div class="ac-progreso-carga-fill" id="repo-subir-progreso-fill"></div>
+				</div>
 			</div>
 			<input type="file" id="repo-archivo-input" accept=".xlsx" hidden>
 		</div>

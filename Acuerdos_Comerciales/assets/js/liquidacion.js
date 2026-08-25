@@ -116,9 +116,13 @@
 	var subirModalOverlay = document.getElementById('liq-subir-modal-overlay');
 	var formSubir = document.getElementById('liq-form-subir');
 	var submitBtn = document.getElementById('liq-subir-submit');
+	var subirProgreso = document.getElementById('liq-subir-progreso');
+	var subirProgresoFill = document.getElementById('liq-subir-progreso-fill');
+	var subirProgresoTexto = document.getElementById('liq-subir-progreso-texto');
 
 	document.getElementById('liq-abrir-subir').addEventListener('click', function () {
 		formSubir.reset();
+		ocultarProgresoSubirLiq();
 		subirModalOverlay.classList.add('ac-modal-open');
 	});
 	document.getElementById('liq-subir-modal-close').addEventListener('click', function () {
@@ -128,33 +132,57 @@
 		if (e.target === subirModalOverlay) subirModalOverlay.classList.remove('ac-modal-open');
 	});
 
+	function mostrarProgresoSubirLiq() {
+		subirProgresoFill.style.width = '0%';
+		subirProgresoTexto.textContent = 'Subiendo…';
+		subirProgreso.classList.remove('hidden');
+	}
+	function ocultarProgresoSubirLiq() {
+		subirProgreso.classList.add('hidden');
+	}
+
+	// XHR en vez de fetch() (2026-08-24, mismo arreglo que Repositorios): fetch()
+	// no expone progreso de subida, así que con un Excel pesado el botón
+	// "Procesando..." se queda mudo sin dar ninguna señal de avance real.
 	formSubir.addEventListener('submit', function (e) {
 		e.preventDefault();
 		submitBtn.disabled = true;
 		submitBtn.textContent = 'Procesando...';
+		mostrarProgresoSubirLiq();
 
-		fetch('getters/importar_liquidacion.php', {
-			method: 'POST',
-			body: new FormData(formSubir),
-		})
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
-				submitBtn.disabled = false;
-				submitBtn.textContent = 'Procesar Excel';
-				mostrarToast(data.message, data.ok ? 'success' : 'error');
-				if (data.ok) {
-					subirModalOverlay.classList.remove('ac-modal-open');
-					if (data.filas_pendientes > 0) {
-						mostrarToast(data.filas_pendientes + ' filas quedaron pendientes de asignar a mano.', 'warning');
-					}
-					cargarImportaciones();
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', 'getters/importar_liquidacion.php');
+		xhr.upload.addEventListener('progress', function (ev) {
+			if (!ev.lengthComputable) return;
+			var pct = Math.round((ev.loaded / ev.total) * 100);
+			subirProgresoFill.style.width = pct + '%';
+			subirProgresoTexto.textContent = 'Subiendo… ' + pct + '%';
+		});
+		xhr.addEventListener('load', function () {
+			submitBtn.disabled = false;
+			submitBtn.textContent = 'Procesar Excel';
+			ocultarProgresoSubirLiq();
+			var data;
+			try { data = JSON.parse(xhr.responseText); } catch (err) {
+				mostrarToast('Respuesta inválida del servidor.', 'error');
+				return;
+			}
+			mostrarToast(data.message, data.ok ? 'success' : 'error');
+			if (data.ok) {
+				subirModalOverlay.classList.remove('ac-modal-open');
+				if (data.filas_pendientes > 0) {
+					mostrarToast(data.filas_pendientes + ' filas quedaron pendientes de asignar a mano.', 'warning');
 				}
-			})
-			.catch(function () {
-				submitBtn.disabled = false;
-				submitBtn.textContent = 'Procesar Excel';
-				mostrarToast('Error de conexión al subir el archivo.', 'error');
-			});
+				cargarImportaciones();
+			}
+		});
+		xhr.addEventListener('error', function () {
+			submitBtn.disabled = false;
+			submitBtn.textContent = 'Procesar Excel';
+			ocultarProgresoSubirLiq();
+			mostrarToast('Error de conexión al subir el archivo.', 'error');
+		});
+		xhr.send(new FormData(formSubir));
 	});
 
 	// ---------- Pendientes de Asignar ----------

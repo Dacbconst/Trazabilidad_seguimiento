@@ -42,7 +42,12 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 
 	<header class="ac-header">
 		<div class="ac-header-inner">
-			<div class="ac-brand"><img src="assets/img/logo_alicorp.png" alt="Alicorp" class="ac-brand-logo"></div>
+			<div class="ac-header-brand-group">
+				<button type="button" id="acHeaderMenuBtn" class="ac-header-menu-btn" aria-label="Abrir menú">
+					<span class="material-symbols-outlined">menu</span>
+				</button>
+				<div class="ac-brand"><img src="assets/img/logo_alicorp.png" alt="Alicorp" class="ac-brand-logo"></div>
+			</div>
 			<div class="ac-header-user">
 				<div class="ac-header-user-info">
 					<span class="nombre"><?= htmlspecialchars($_SESSION['username']) ?></span>
@@ -57,6 +62,7 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 
 	<div class="ac-shell">
 		<?php include __DIR__.'/partials/sidebar.php'; ?>
+		<div class="ac-sidebar-backdrop" id="acSidebarBackdrop"></div>
 
 		<main class="ac-content">
 			<?php foreach ($secciones as $i => $seccion): ?>
@@ -70,15 +76,40 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 	<script>
 		var acSidebar = document.getElementById('acSidebar');
 		var acSidebarToggle = document.getElementById('sidebarToggle');
+		var acHeaderMenuBtn = document.getElementById('acHeaderMenuBtn');
+		var acSidebarBackdrop = document.getElementById('acSidebarBackdrop');
+		var mqMobile = window.matchMedia('(max-width: 900px)');
 
 		if (localStorage.getItem('ac_sidebar_colapsado') === '1') {
 			acSidebar.classList.add('collapsed');
 		}
 
+		// Colapso a rail de íconos — SOLO desktop (≥900px). En mobile la
+		// sidebar es un drawer (abierta/cerrada, ver abrirDrawer/cerrarDrawer
+		// más abajo) — las dos lógicas de clase (.collapsed vs .open) nunca
+		// deben pisarse, por eso este toggle chequea el viewport primero.
 		acSidebarToggle.addEventListener('click', function () {
+			if (mqMobile.matches) {
+				cerrarDrawer();
+				return;
+			}
 			acSidebar.classList.toggle('collapsed');
 			localStorage.setItem('ac_sidebar_colapsado', acSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
+
+		// Drawer mobile (2026-08-25): no se persiste en localStorage a
+		// propósito (a diferencia del colapso desktop) — siempre arranca
+		// cerrado, patrón estándar de drawer.
+		function abrirDrawer() {
+			acSidebar.classList.add('open');
+			acSidebarBackdrop.classList.add('open');
+		}
+		function cerrarDrawer() {
+			acSidebar.classList.remove('open');
+			acSidebarBackdrop.classList.remove('open');
+		}
+		acHeaderMenuBtn.addEventListener('click', abrirDrawer);
+		acSidebarBackdrop.addEventListener('click', cerrarDrawer);
 
 		// Cada módulo se renderiza UNA sola vez al cargar la página (todas las
 		// secciones van incluidas de entrada, ver el foreach de arriba) — cambiar
@@ -106,6 +137,9 @@ $toast_js_v = @filemtime(__DIR__.'/assets/js/toast.js') ?: time();
 				document.querySelectorAll('.ac-content-panel').forEach(function (panel) { panel.classList.remove('active'); });
 				document.querySelector(href).classList.add('active');
 				if (refrescoPorSeccion[href]) refrescoPorSeccion[href]();
+				// En mobile, elegir una sección cierra el drawer — si no, el menú
+				// se queda tapando la pantalla recién abierta.
+				if (mqMobile.matches) cerrarDrawer();
 			});
 		});
 	</script>

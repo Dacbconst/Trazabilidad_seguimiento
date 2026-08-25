@@ -528,9 +528,14 @@ function renderFilaHistorial(array $a) {
 	$firmaBadge = $tieneFirma
 		? '<span class="ac-badge ac-badge-ok">Firmada</span>'
 		: '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
+	// .ac-row-actions-primary + el <span> de texto (oculto en desktop, ver
+	// style.css): en mobile este es el botón que más importa de toda la fila
+	// — la mayoría de las subidas de Acta firmada van a pasar por celular,
+	// así que necesita texto visible y buen tamaño táctil, no un ícono
+	// pelado igual de chico que "Eliminar" (2026-08-25, pedido explícito).
 	$firmaBtn = $tieneFirma
-		? '<button type="button" class="ac-icon-btn ac-icon-btn-success hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'" title="Ver Acta Firmada"><span class="material-symbols-outlined">task_alt</span></button>'
-		: '<button type="button" class="ac-icon-btn hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0" title="Subir Acta Firmada"><span class="material-symbols-outlined">upload_file</span></button>';
+		? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'" title="Ver Acta Firmada"><span class="material-symbols-outlined">task_alt</span><span class="ac-row-actions-primary-label">Ver Firma</span></button>'
+		: '<button type="button" class="ac-icon-btn ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0" title="Subir Acta Firmada"><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
 
 	return '
 	<tr data-id="'.(int) $a['id'].'">

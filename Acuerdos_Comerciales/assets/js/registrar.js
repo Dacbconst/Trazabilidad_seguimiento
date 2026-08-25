@@ -217,12 +217,20 @@
 	document.body.appendChild(comboPanel);
 	var comboActivo = null; // { input, hidden, getOpciones, onSeleccionar }
 
+	// Clamp de left (2026-08-25, pase de responsividad): sin esto, un combo
+	// cerca del borde derecho de una pantalla angosta hacía que
+	// left + width se saliera del viewport (el ancho mínimo de 220px no
+	// entra completo en varios celulares si el input está a la derecha).
 	function posicionarPanelCombo(input) {
 		var r = input.getBoundingClientRect();
+		var ancho = Math.max(r.width, 220);
+		var margen = 8;
+		var left = Math.min(r.left, window.innerWidth - ancho - margen);
+		left = Math.max(left, margen);
 		comboPanel.style.position = 'fixed';
-		comboPanel.style.left = r.left + 'px';
+		comboPanel.style.left = left + 'px';
 		comboPanel.style.top = (r.bottom + 4) + 'px';
-		comboPanel.style.width = Math.max(r.width, 220) + 'px';
+		comboPanel.style.width = ancho + 'px';
 	}
 
 	function comboRender(filtro) {
