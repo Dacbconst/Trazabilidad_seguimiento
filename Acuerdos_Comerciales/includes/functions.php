@@ -248,6 +248,43 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
 	return count($desempatados) === 1 ? $desempatados[0] : null;
 }
 
+// Corrige el texto de "CATEGORIAS" del Excel de Cuotas contra el catálogo
+// real de productos (2026-08-25, hallazgo real probando con datos reales):
+// "POLVO DETERGENTE" no existe como Sector — es Sector "POLVO" + Subcategoría
+// "DETERGENTE" pegados en el mismo texto (confirmado: sector=POLVO tiene una
+// única categoria real, "DETERGENTE"). Se busca en 2 pasos:
+//   1. ¿El texto matchea directo con un Sector real? -> se usa tal cual.
+//   2. ¿Es "Sector Subcategoría" pegados (CONCAT(sector,' ',categoria) exacto)
+//      contra una única combinación real? -> se separa, se usa solo el Sector.
+// Si ninguno de los dos matchea (ej. "OTRAS CATEGORIAS" — hay 3 Subcategorías
+// reales bajo sector=OTROS, ninguna "encaja" en el texto, genuinamente
+// ambiguo), se devuelve null — el valor crudo se guarda igual (nunca se
+// inventa un Sector), pero queda para que cuotas_guardar.php avise.
+function resolverSectorReal($mysqli, $sectorCrudo) {
+	$stmt = $mysqli->prepare(
+		"SELECT 1 FROM repositorio_productos WHERE fabricante = 'JABONERIA WILSON' AND sector = ? AND activar = 'SI' LIMIT 1"
+	);
+	if ($stmt) {
+		$stmt->bind_param('s', $sectorCrudo);
+		$stmt->execute();
+		$existe = $stmt->get_result()->fetch_assoc();
+		$stmt->close();
+		if ($existe) return $sectorCrudo;
+	}
+
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT sector FROM repositorio_productos
+		 WHERE fabricante = 'JABONERIA WILSON' AND activar = 'SI' AND CONCAT(sector, ' ', categoria) = ?"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('s', $sectorCrudo);
+	$stmt->execute();
+	$sectores = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'sector');
+	$stmt->close();
+
+	return count($sectores) === 1 ? $sectores[0] : null;
+}
+
 // Dado un pos_id ya resuelto, encuentra qué usuario de la app (cuenta
 // 'activo') es su responsable — vía el mismo supervisor real del cliente
 // (ver supervisores_asignados_activos()). Null si el cliente no tiene
@@ -266,6 +303,203 @@ function usuarioIdDePosId($mysqli, $posId) {
 	$fila = $stmt->get_result()->fetch_assoc();
 	$stmt->close();
 	return $fila ? (int) $fila['id'] : null;
+}
+
+// ---------- Actas Precargadas (Fase 2 del Repositorio de Cuotas, 2026-08-25) ----------
+// Resolución EN VIVO, nunca guardada — a propósito (ver CLAUDE.md, "Repositorio
+// de Cuotas trimestrales + Actas precargadas"): si a un supervisor le crean la
+// cuenta de usuario DESPUÉS de que sus cuotas ya estaban subidas, las ve solas
+// en la próxima consulta (cada 5 min, cuando la campanita de alertas hace
+// polling), sin que nadie tenga que resubir el Excel. Agrupa por
+// (pos_id, trimestre, anio) — varias filas de sector de un mismo cliente son
+// UNA sola Acta precargada, no una por sector.
+function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
+	if (!$usuarioId) return [];
+	$stmt = $mysqli->prepare(
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.valores_mensuales
+		 FROM repositorio_cuota_cliente c
+		 JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND u.id = ?
+		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('i', $usuarioId);
+	$stmt->execute();
+	$filasCrudas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	// Se cuenta en PHP, no en SQL (2026-08-26, corregido: el contador decía
+	// "5 categorías" pero la Acta armaba 4 — categorías en $0 se descartan
+	// en obtener_precarga_detalle(), este conteo tiene que coincidir exacto
+	// con lo que el asesor va a ver de verdad, sumar JSON en SQL directo es
+	// más frágil que traer las filas y sumar acá).
+	$grupos = [];
+	foreach ($filasCrudas as $f) {
+		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
+		if (!is_array($valores) || array_sum($valores) <= 0) continue;
+		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
+		if (!isset($grupos[$clave])) {
+			$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0];
+		}
+		$grupos[$clave]['categorias']++;
+	}
+	return array_values($grupos);
+}
+
+// Arma el detalle de una Acta precargada para poblar Registrar — misma forma
+// que obtener_acuerdo_detalle() pero sin id/documento_no/estado (todavía no
+// existe el Acuerdo real, se crea recién cuando el asesor guarda). Cada fila
+// de repositorio_cuota_cliente (una por sector) se convierte en una línea de
+// Meta de Compras:
+//   - Segmento/Subcategoría/Marca: se reusa la línea de Meta de Compras MÁS
+//     RECIENTE de ese mismo pos_id+sector en cualquier Acta anterior
+//     (continuidad real del cliente) — si no hay historial, Categoría queda
+//     vacía y Subcategoría/Marca también, para que el asesor los complete a
+//     mano con el combo normal (guardar_acuerdo.php ya descarta filas
+//     incompletas, no hace falta validación nueva acá).
+//   - valores_mensuales: viene fijo del repositorio, se marca `bloqueado` para
+//     que registrar.js deje esos inputs de mes en readonly.
+function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
+	$stmt = $mysqli->prepare(
+		"SELECT id, sector, valores_mensuales FROM repositorio_cuota_cliente
+		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
+		 ORDER BY sector"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('sii', $posId, $trimestre, $anio);
+	$stmt->execute();
+	$filasCuota = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	if (!$filasCuota) return null;
+
+	$stmtCliente = $mysqli->prepare(
+		"SELECT pos_name, cedi, canal, tipo_distribuidor FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1"
+	);
+	$stmtCliente->bind_param('s', $posId);
+	$stmtCliente->execute();
+	$cliente = $stmtCliente->get_result()->fetch_assoc();
+	$stmtCliente->close();
+	if (!$cliente) return null;
+
+	$stmtHistorial = $mysqli->prepare(
+		"SELECT l.segmento, l.categoria, l.marca
+		 FROM repositorio_acuerdo_lineas l
+		 JOIN repositorio_acuerdos a ON a.id = l.acuerdo_id
+		 WHERE a.pos_id = ? AND l.tipo = 'meta_compra' AND l.sector = ?
+		 ORDER BY a.created_at DESC LIMIT 1"
+	);
+	$stmtSegmentoPorSector = $mysqli->prepare(
+		"SELECT DISTINCT segmento FROM repositorio_productos
+		 WHERE fabricante = 'JABONERIA WILSON' AND sector = ? AND activar = 'SI'"
+	);
+
+	$lineasMeta = [];
+	foreach ($filasCuota as $fc) {
+		$segmento = null; $categoria = null; $marca = null;
+		if ($stmtHistorial) {
+			$stmtHistorial->bind_param('ss', $posId, $fc['sector']);
+			$stmtHistorial->execute();
+			$prev = $stmtHistorial->get_result()->fetch_assoc();
+			if ($prev) { $segmento = $prev['segmento']; $categoria = $prev['categoria']; $marca = $prev['marca']; }
+		}
+		if ($segmento === null && $stmtSegmentoPorSector) {
+			$stmtSegmentoPorSector->bind_param('s', $fc['sector']);
+			$stmtSegmentoPorSector->execute();
+			$segmentos = array_column($stmtSegmentoPorSector->get_result()->fetch_all(MYSQLI_ASSOC), 'segmento');
+			if (count($segmentos) === 1) $segmento = $segmentos[0];
+		}
+		$valores = $fc['valores_mensuales'] !== null ? json_decode($fc['valores_mensuales'], true) : [];
+		$valores = is_array($valores) ? $valores : [];
+		// Categoría con $0 en los 3 meses (2026-08-25, pedido explícito: "llegó
+		// vacía, ni para qué incluirla") — no tiene sentido meterla en la
+		// Acta: como Meta de Compras ya no deja eliminar filas de una
+		// precarga, una fila en $0 quedaría atrapada ahí para siempre sin
+		// poder sacarla. Se descarta acá, antes de armar la línea, en vez de
+		// dejar que llegue al formulario.
+		if (array_sum($valores) <= 0) continue;
+		$lineasMeta[] = [
+			'cuota_id'          => (int) $fc['id'],
+			'segmento'          => $segmento,
+			'sector'            => $fc['sector'],
+			'categoria'         => $categoria,
+			'marca'             => $marca,
+			'rebate_pct'        => 0,
+			'valores_mensuales' => $valores,
+			'bloqueado'         => true,
+		];
+	}
+	if ($stmtHistorial) $stmtHistorial->close();
+	if ($stmtSegmentoPorSector) $stmtSegmentoPorSector->close();
+
+	$mesInicio = ($trimestre - 1) * 3;
+
+	return [
+		'pos_id'          => $posId,
+		'distribuidor'    => $cliente['pos_name'],
+		'localidad'       => $cliente['cedi'] ?: '—',
+		'anio'            => (int) $anio,
+		'mes_inicio'      => $mesInicio,
+		'mes_fin'         => $mesInicio + 2,
+		'es_distribuidor' => ($cliente['canal'] ?? null) === 'DISTRIBUIDOR',
+		'empresa_distribuidora' => $cliente['tipo_distribuidor'] ?: '',
+		'lineas'          => ['meta_compra' => $lineasMeta, 'cabecera' => [], 'ruma' => [], 'percha' => []],
+	];
+}
+
+// Resumen para el superdesarrollador (2026-08-25, pedido explícito: "¿a
+// quién le estoy mandando qué?") — 4 números de panorama general +
+// desglose por usuario para el gráfico. "Actas" acá siempre significa un
+// grupo (pos_id, trimestre, anio), nunca una fila suelta de sector — el
+// mismo criterio de agrupación que listar_actas_precargadas_pendientes().
+function resumen_cuotas($mysqli) {
+	$agrupador = "CONCAT(c.pos_id, '|', c.trimestre, '|', c.anio)";
+
+	$pendientes = 0;
+	$r = $mysqli->query("SELECT COUNT(DISTINCT $agrupador) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_uso'");
+	if ($r) $pendientes = (int) $r->fetch_assoc()['n'];
+
+	$usadas = 0;
+	$r = $mysqli->query("SELECT COUNT(DISTINCT $agrupador) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'usada'");
+	if ($r) $usadas = (int) $r->fetch_assoc()['n'];
+
+	$sinAsignar = 0;
+	$r = $mysqli->query(
+		"SELECT COUNT(DISTINCT $agrupador) AS n
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND u.id IS NULL"
+	);
+	if ($r) $sinAsignar = (int) $r->fetch_assoc()['n'];
+
+	$pendientesMatch = 0;
+	$r = $mysqli->query("SELECT COUNT(DISTINCT c.cliente_excel, c.trimestre, c.anio) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_match'");
+	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
+
+	$stmt = $mysqli->prepare(
+		"SELECT u.usuario, COUNT(DISTINCT $agrupador) AS actas_pendientes
+		 FROM repositorio_cuota_cliente c
+		 JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso'
+		 GROUP BY u.id, u.usuario
+		 ORDER BY actas_pendientes DESC"
+	);
+	$porUsuario = [];
+	if ($stmt) {
+		$stmt->execute();
+		$porUsuario = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+		$stmt->close();
+	}
+
+	return [
+		'pendientes'        => $pendientes,
+		'usadas'            => $usadas,
+		'sin_asignar'       => $sinAsignar,
+		'pendientes_match'  => $pendientesMatch,
+		'por_usuario'       => $porUsuario,
+	];
 }
 
 // ---------- Gestión de Usuarios (repositorio_usuarios_acuerdos) ----------
@@ -448,32 +682,6 @@ function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 	);
 	if (!$stmt) return [];
 	$stmt->bind_param('ii', $usuarioId, $diasUmbral);
-	$stmt->execute();
-	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-	$stmt->close();
-	return $filas;
-}
-
-// Seguimiento de equipo (2026-08-25, solo superdesarrollador): a diferencia
-// de listar_alertas_firma_propias() esto NO se limita a los últimos N días
-// — el pedido explícito fue "no darle alertas innecesarias sino que tenga
-// seguimiento de los usuarios que traen pendientes", así que trae TODO lo
-// generado/enviado sin firmar de cualquier usuario, agrupado por quién lo
-// creó, con el más próximo a vencer de cada uno — es una vista informativa
-// de equipo, no un contador de urgencia como "Mis Actas".
-function listar_equipo_pendientes_firma($mysqli) {
-	barrer_actas_vencidas($mysqli);
-	$stmt = $mysqli->prepare(
-		"SELECT u.usuario, COUNT(a.id) AS pendientes,
-		        MIN(DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE())) AS dias_restantes_minimo
-		 FROM repositorio_acuerdos a
-		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
-		 WHERE a.estado IN ('generado', 'enviado')
-		   AND a.fecha_generacion IS NOT NULL
-		 GROUP BY u.id, u.usuario
-		 ORDER BY dias_restantes_minimo ASC"
-	);
-	if (!$stmt) return [];
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -847,9 +1055,13 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
 
+	// eliminado_en IS NULL (2026-08-25, borrado lógico — regla base, ver
+	// datos/repositorios_schema.sql y repositorio_eliminar.php): el listado
+	// normal nunca muestra filas borradas, esas viven en "Eliminados" (ver
+	// listar_repositorio_rebate_eliminados() más abajo).
 	$stmtTotal = $mysqli->prepare(
 		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto
-		 WHERE segmento LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?"
+		 WHERE eliminado_en IS NULL AND (segmento LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)"
 	);
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	$stmtTotal->bind_param('ssss', $like, $like, $like, $like);
@@ -864,7 +1076,7 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 		"SELECT r.id, r.segmento, r.sector, r.categoria, r.marca, r.rebate_pct, r.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_rebate_producto r
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = r.actualizado_por
-		 WHERE r.segmento LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?
+		 WHERE r.eliminado_en IS NULL AND (r.segmento LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?)
 		 ORDER BY r.segmento, r.sector, r.categoria, r.marca
 		 LIMIT ? OFFSET ?"
 	);
@@ -882,7 +1094,9 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
 
-	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_participacion_percha WHERE marca LIKE ?');
+	// eliminado_en IS NULL (2026-08-25, borrado lógico — ver nota en
+	// listar_repositorio_rebate() de arriba, mismo criterio acá).
+	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_participacion_percha WHERE eliminado_en IS NULL AND marca LIKE ?');
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	$stmtTotal->bind_param('s', $like);
 	$stmtTotal->execute();
@@ -896,7 +1110,7 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 		"SELECT p.id, p.marca, p.participacion_pct, p.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_participacion_percha p
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = p.actualizado_por
-		 WHERE p.marca LIKE ?
+		 WHERE p.eliminado_en IS NULL AND p.marca LIKE ?
 		 ORDER BY p.marca
 		 LIMIT ? OFFSET ?"
 	);
@@ -933,7 +1147,7 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
 	$stmt = $mysqli->prepare(
-		"SELECT c.id, c.pos_id, c.cliente_excel, c.sector, c.trimestre, c.anio, c.valor_mensual, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
+		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan, c.sector, c.trimestre, c.anio, c.valores_mensuales, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_cuota_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = c.actualizado_por
 		 WHERE c.estado <> 'pendiente_match' AND (c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.sector LIKE ?)
@@ -946,6 +1160,14 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
+	// mysqli no decodifica columnas JSON solo — sin esto, json_encode() de la
+	// respuesta completa lo manda como STRING escapado en vez de objeto (ver
+	// mismo criterio en obtener_acuerdo_detalle()/valores_mensuales).
+	foreach ($filas as &$fila) {
+		$fila['valores_mensuales'] = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
+	}
+	unset($fila);
+
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 
@@ -955,7 +1177,7 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 // superdesarrollador elija a mano, igual que liquidacion_pendientes.php.
 function listar_repositorio_cuotas_pendientes_match($mysqli) {
 	$stmt = $mysqli->prepare(
-		"SELECT id, cliente_excel, cedi_excel, plan, sector, trimestre, anio, valor_mensual
+		"SELECT id, cliente_excel, cedi_excel, plan, sector, trimestre, anio, valores_mensuales
 		 FROM repositorio_cuota_cliente
 		 WHERE estado = 'pendiente_match'
 		 ORDER BY cliente_excel, sector"
@@ -964,6 +1186,11 @@ function listar_repositorio_cuotas_pendientes_match($mysqli) {
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
+
+	foreach ($filas as &$fila) {
+		$fila['valores_mensuales'] = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
+	}
+	unset($fila);
 
 	$stmtCand = $mysqli->prepare(
 		"SELECT pos_id, pos_name, cedi, supervisor FROM repositorio_locales_supervisores_cliente

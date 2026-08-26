@@ -84,7 +84,16 @@ function repositorio_parsear_rebate($rutaArchivo) {
 // Excel de Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md
 // "Repositorio de Cuotas trimestrales + Actas precargadas") — columnas
 // reales: CEDI, CLIENTE, PLAN, CATEGORIAS, CONCAT (redundante, se ignora),
-// y 3 columnas de mes con el mismo monto repetido (ej. ABRIL/MAYO/JUNIO).
+// y 3 columnas de mes, CADA UNA con su propio monto (pueden ser distintos
+// entre sí — corregido 2026-08-25, la primera versión asumía mal que los 3
+// meses siempre traían el mismo monto). Se devuelven como mes1/mes2/mes3
+// (posición dentro del trimestre, no el índice real de mes) para que el
+// modal de previsualización los edite como 3 columnas simples — el índice
+// real 0-11 recién se calcula en getters/cuotas_guardar.php a partir del
+// trimestre, para armar el mismo formato de `valores_mensuales` JSON que ya
+// usa repositorio_acuerdo_lineas (`{"3": 600, "4": 650, "5": 700}`) — así
+// la Fase 2 (Actas Precargadas) puede copiarlo directo a Meta de Compras
+// sin ninguna conversión.
 // A diferencia de Rebate/Participación, acá SÍ hay cliente — el pos_id se
 // resuelve después, en getters/cuotas_guardar.php (necesita conexión a la
 // base, este parser es puro y no recibe $mysqli).
@@ -139,17 +148,7 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 		$valores = [];
 		foreach ($colesMes as $d) {
 			$crudo = $fila[$d['col']] ?? 0;
-			$valores[] = is_numeric($crudo) ? (float) $crudo : (float) str_replace(['$', ',', ' '], '', (string) $crudo);
-		}
-		$valorMensual = round($valores[0] ?? 0, 2);
-		// El criterio confirmado con el usuario es "1 monto fijo, repetido en
-		// los 3 meses del trimestre" — si un archivo real trae valores
-		// distintos por mes, puede ser un caso de negocio nuevo sin
-		// contemplar todavía: se guarda igual (con el del primer mes) pero
-		// se avisa, sin bloquear el resto de filas válidas (mismo criterio
-		// de "el sistema se defiende solo" que ya usa Rebate/Participación).
-		if (count(array_unique(array_map(function ($v) { return round($v, 2); }, $valores))) > 1) {
-			$avisos[] = 'Fila de "'.$cliente.'" ('.$sector.'): los montos mensuales no son iguales, se usó el del primer mes ($'.number_format($valorMensual, 2).').';
+			$valores[] = round(is_numeric($crudo) ? (float) $crudo : (float) str_replace(['$', ',', ' '], '', (string) $crudo), 2);
 		}
 
 		$resultado[] = [
@@ -157,7 +156,9 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 			'cedi_excel'    => $cedi,
 			'plan'          => $plan,
 			'sector'        => $sector,
-			'valor_mensual' => $valorMensual,
+			'mes1'          => $valores[0] ?? 0,
+			'mes2'          => $valores[1] ?? 0,
+			'mes3'          => $valores[2] ?? 0,
 		];
 	}
 	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];

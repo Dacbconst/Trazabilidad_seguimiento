@@ -59,6 +59,16 @@ body {
 *::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: var(--radius-full); border: 2px solid transparent; background-clip: padding-box; }
 *::-webkit-scrollbar-thumb:hover { background: var(--color-outline); background-clip: padding-box; }
 *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+/* Refuerzo 2026-08-25 — el usuario reportó las flechitas de vuelta (esta vez
+   en el scroll vertical de la página, no visto antes porque con solo 2
+   pestañas cortas en Repositorios la página no llegaba a necesitar scroll
+   vertical propio; con Cuotas Trimestrales sí). La regla de arriba
+   (`::-webkit-scrollbar-button { display: none }`) ya estaba, pero algunas
+   versiones de Chrome/Edge en Windows solo obedecen esto si también se
+   apunta la variante `:single-button` (la que realmente dibuja el
+   triángulo) — sin este selector más específico, el `display:none` genérico
+   puede quedar sin efecto en el scrollbar raíz de `html`. */
+*::-webkit-scrollbar-button:single-button { display: none; width: 0; height: 0; }
 *::-webkit-scrollbar-corner { background: transparent; }
 
 .material-symbols-outlined {
@@ -233,6 +243,14 @@ body {
 	transition: opacity 0.15s;
 }
 .ac-btn-primary:hover { opacity: 0.9; }
+/* Ícono girando dentro de un botón mientras espera una respuesta del
+   servidor (2026-08-25, pedido explícito: "pon una pantalla de carga
+   mientras responde") — genérico, cualquier botón puede usarlo agregando
+   .ac-btn-cargando y cambiando su ícono a "progress_activity". */
+.ac-btn-cargando { opacity: 0.75; cursor: wait; pointer-events: none; }
+.ac-btn-cargando .material-symbols-outlined { animation: ac-girar 0.8s linear infinite; }
+@keyframes ac-girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ac-btn-cargando .material-symbols-outlined { animation: none; } }
 
 .ac-alert-error {
 	background: var(--color-error-container);
@@ -479,36 +497,113 @@ body {
       ningún padre en el medio tenga overflow visible. */
 .ac-alertas-panel {
 	position: fixed;
-	width: 340px; max-width: 90vw; max-height: 70vh; overflow-y: auto;
+	width: 380px; max-width: 90vw; max-height: 75vh;
+	display: flex; flex-direction: column;
 	background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline);
-	border-radius: var(--radius); box-shadow: 0 12px 32px rgba(20,20,40,0.28);
-	z-index: 500;
+	border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(20,20,40,0.28);
+	z-index: 500; overflow: hidden;
 }
+/* Mismo bug ya encontrado una vez con .ac-alertas-badge (2026-08-25): un
+   `display` puesto "a secas" en la clase pisa el `display:none` que el
+   navegador aplica por default al atributo `hidden` (misma especificidad,
+   la regla de autor gana) — el panel quedaba "cerrado" en el DOM
+   (`panel.hidden === true`) pero seguía pintado en pantalla, imposible de
+   cerrar de verdad (reportado por el usuario, 2026-08-26: "no puedo
+   cerrar"). Mismo arreglo: forzar `display:none` cuando el atributo está
+   presente. */
+.ac-alertas-panel[hidden] { display: none; }
 .ac-alertas-panel-header {
-	padding: var(--space-sm) var(--space-md);
-	font-weight: 700; font-size: 14px;
-	background: var(--color-surface-container-low);
+	display: flex; align-items: center; justify-content: space-between;
+	padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+	background: var(--color-surface-container-lowest);
 	border-bottom: 1px solid var(--color-outline-variant);
-	border-radius: var(--radius) var(--radius) 0 0;
+	flex-shrink: 0;
 }
-.ac-alertas-panel-body { padding: var(--space-sm) var(--space-md); }
-.ac-alertas-vacio { font-size: 13px; color: var(--color-on-surface-variant); margin: var(--space-xs) 0; }
-.ac-alertas-seccion-titulo {
-	font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-	color: var(--color-on-surface-variant); margin: var(--space-sm) 0 var(--space-xs);
+.ac-alertas-panel-titulo { margin: 0; font-weight: 700; font-size: 15px; }
+/* Botón de refrescar manual (2026-08-25) — mismo mecanismo que
+   acBotonCargando() ya usa "Actualizar" en Historial (gira el ícono +
+   deshabilita mientras carga), reusado acá tal cual, no una variante nueva. */
+.ac-alertas-refrescar {
+	width: 32px; height: 32px; border: none; background: transparent; border-radius: var(--radius-full);
+	color: var(--color-on-surface-variant); cursor: pointer; display: flex; align-items: center; justify-content: center;
+	transition: background 0.15s, color 0.15s;
 }
-.ac-alertas-seccion-equipo { border-top: 1px solid var(--color-outline-variant); padding-top: var(--space-sm); }
-.ac-alertas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.ac-alertas-item {
-	display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
-	padding: var(--space-xs) var(--space-sm); border-radius: var(--radius);
+.ac-alertas-refrescar:hover { background: var(--color-surface-container-high); color: var(--color-primary); }
+.ac-alertas-refrescar .material-symbols-outlined { font-size: 18px; }
+.ac-alertas-refrescar:disabled { opacity: 0.6; cursor: default; }
+
+/* Pestañas — diseño tomado de "diseños ideas/code.html" (mockup de
+   referencia): borde inferior de 2px que se colorea al activarse, sin
+   fondo propio (el contraste lo da el borde + el color de texto). */
+.ac-alertas-tabs {
+	display: flex; gap: var(--space-md); padding: 0 var(--space-md);
+	background: var(--color-surface-container-lowest);
+	border-bottom: 1px solid var(--color-outline-variant);
+	flex-shrink: 0;
+}
+.ac-alertas-tab {
+	flex: 1 1 auto; border: none; background: transparent; cursor: pointer;
+	padding: var(--space-sm) 0; margin-bottom: -1px;
+	border-bottom: 2px solid transparent;
+	font-size: 12.5px; font-weight: 600; color: var(--color-on-surface-variant);
+	transition: color 0.15s, border-color 0.15s;
+}
+.ac-alertas-tab:hover { color: var(--color-on-surface); }
+.ac-alertas-tab-activa, .ac-alertas-tab-activa:hover { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 700; }
+
+.ac-alertas-panel-body { padding: var(--space-sm); overflow-y: auto; flex: 1 1 auto; }
+.ac-alertas-vacio { font-size: 13px; color: var(--color-on-surface-variant); margin: var(--space-sm); }
+
+/* "Actas Asignadas" — activity feed (mismo patrón del mockup: ícono
+   circular + texto, separadores finos entre filas, sin fondo propio salvo
+   al hover). */
+.ac-activity-item {
+	display: flex; align-items: center; gap: var(--space-sm);
+	padding: var(--space-sm); border-radius: var(--radius);
 	cursor: pointer; transition: background 0.15s;
+	border-bottom: 1px solid var(--color-outline-variant);
 }
-.ac-alertas-item:hover { background: var(--color-surface-container-high); }
-.ac-alertas-item-doc { font-weight: 600; font-size: 13px; }
-.ac-alertas-item-equipo { cursor: default; }
-.ac-alertas-item-equipo:hover { background: transparent; }
-.ac-alertas-item-meta { font-size: 12px; color: var(--color-on-surface-variant); white-space: nowrap; }
+.ac-activity-item:last-child { border-bottom: none; }
+.ac-activity-item:hover { background: var(--color-surface-container-high); }
+.ac-activity-icon {
+	flex-shrink: 0; width: 36px; height: 36px; border-radius: var(--radius-full);
+	background: var(--color-surface-container-high); color: var(--color-on-surface-variant);
+	display: flex; align-items: center; justify-content: center;
+}
+.ac-activity-icon .material-symbols-outlined { font-size: 18px; }
+.ac-activity-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* Puntito de "no visto" (2026-08-26, pedido explícito) — un solo color en
+   las 2 pestañas (no varía por severidad): es un indicador de lectura, una
+   señal aparte de la urgencia que ya dan los colores de ac-alertbox. Se
+   guarda en localStorage (ver alertas-firma.js, `vistas`) — sin backend
+   real para esto, es estado por navegador, no por usuario. */
+.ac-notif-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); margin-right: 6px; vertical-align: middle; }
+.ac-activity-titulo { font-size: 13px; font-weight: 600; color: var(--color-on-surface); }
+.ac-activity-meta { font-size: 12px; color: var(--color-on-surface-variant); }
+
+/* "Actas Por Firmar" — cajas de alerta con franja de color a la izquierda
+   (mismo patrón del mockup: border-left grueso coloreado por severidad,
+   fondo tintado suave, esquinas redondeadas solo del lado derecho). Mismos
+   2 niveles/colores que ya usan ac-badge-urgente/ac-badge-critico en el
+   resto de la app (fila de Historial, banner) — un solo lenguaje visual de
+   urgencia en toda la app, no una paleta nueva para esta caja. */
+.ac-alertbox {
+	display: flex; align-items: flex-start; gap: var(--space-sm);
+	padding: var(--space-sm) var(--space-sm) var(--space-sm) 10px;
+	border-left: 4px solid; border-radius: 0 var(--radius) var(--radius) 0;
+	cursor: pointer; margin-bottom: var(--space-xs);
+}
+.ac-alertbox:last-child { margin-bottom: 0; }
+.ac-alertbox-urgente { background: #ffdbce4d; border-left-color: #c8531d; }
+.ac-alertbox-critica { background: color-mix(in srgb, var(--color-error-container) 55%, transparent); border-left-color: var(--color-error); }
+.ac-alertbox-icono { font-size: 18px; margin-top: 1px; }
+.ac-alertbox-urgente .ac-alertbox-icono { color: #802a00; }
+.ac-alertbox-critica .ac-alertbox-icono { color: var(--color-error); }
+.ac-alertbox-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ac-alertbox-titulo { font-size: 13px; font-weight: 700; color: var(--color-on-surface); }
+.ac-alertbox-desc { font-size: 12.5px; }
+.ac-alertbox-urgente .ac-alertbox-desc { color: #802a00; }
+.ac-alertbox-critica .ac-alertbox-desc { color: var(--color-on-error-container); }
 
 /* Header angosto: con la hamburguesa nueva a la izquierda del logo, el
    padding grande de .ac-brand (pensado para desktop sin ese botón) sobra;
@@ -762,6 +857,11 @@ body {
 }
 .ac-table tbody tr:hover { background: var(--color-surface-container-low); }
 .ac-table tbody tr.ac-row-inactivo { opacity: 0.55; }
+/* Agrupación visual por cliente en el Repositorio de Cuotas (2026-08-25) —
+   tinte más tenue que el hover de arriba a propósito, para que pasar el
+   mouse siga notándose por encima del tinte de grupo. */
+.ac-table tbody tr.ac-repo-fila-grupo-par { background: rgba(0, 40, 142, 0.035); }
+.ac-table tbody tr.ac-repo-fila-grupo-par:hover { background: var(--color-surface-container-low); }
 .ac-table-empty { text-align: center; color: var(--color-outline); padding: var(--space-xl) !important; }
 .ac-text-right { text-align: right; }
 .ac-mono { font-family: 'Courier New', monospace; color: var(--color-on-surface-variant); white-space: nowrap; }
@@ -840,6 +940,15 @@ body {
 	transition: background 0.15s;
 }
 .ac-icon-btn:hover { background: var(--color-surface-container-high); }
+/* Botón deshabilitado (2026-08-25) — usado para "Agregar Fila"/"Eliminar"
+   en Meta de Compras cuando la Acta viene de una precarga (ver
+   bloquearFilasPrecargadas(), registrar.js): sin esto, un <button>
+   disabled con estos estilos custom no se ve visualmente distinto del
+   habilitado (el navegador no aplica su dimming nativo a botones sin
+   estilo nativo). */
+.ac-icon-btn:disabled, .ac-btn-outline:disabled, .ac-btn-primary:disabled, .ac-btn-secondary:disabled {
+	opacity: 0.4; cursor: not-allowed; pointer-events: none;
+}
 .ac-icon-btn-danger:hover { color: var(--color-error); background: var(--color-error-container); }
 /* Verde persistente (no solo al hover) — usado en "Ver Acta Firmada" cuando
    ya hay un archivo subido, mismo verde que .ac-badge-ok para que el ícono
@@ -865,6 +974,10 @@ body {
 	background: var(--color-surface-container-low);
 	border-top: 1px solid var(--color-outline-variant);
 }
+/* Paginación arriba de la tabla (2026-08-25) — mismo bloque que la de abajo,
+   pero el divisor va del lado contrario: separa de lo que sigue (la tabla),
+   no de lo que ya pasó. */
+.ac-pagination-top { border-top: none; border-bottom: 1px solid var(--color-outline-variant); }
 .ac-pagination-info { font-size: 14px; line-height: 20px; color: var(--color-on-surface-variant); }
 .ac-pagination-btns { display: flex; gap: var(--space-xs); }
 .ac-page-btn {
@@ -1185,13 +1298,28 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
    ".ac-mini-input:read-only" genérico) para no pisar el estilo propio que
    ya tiene ".ac-combo-input" si algún día vuelve a haber un combo readonly
    por otro motivo. */
-.ac-rebate-input:read-only, .v-participacion:read-only {
+.ac-rebate-input:read-only, .v-participacion:read-only, .month-input:read-only {
 	background: #d7d5dc;
 	border-color: #b8b5c2;
 	color: #1a1b22;
 	font-weight: 600;
 	cursor: not-allowed;
 	-webkit-text-fill-color: #1a1b22; /* Safari/iOS: sin esto, un input:read-only puede mostrar el texto más pálido que su color: real. */
+}
+
+/* Combos de identidad (Segmento/Categoría) bloqueados por una Acta
+   precargada (Fase 2 del Repositorio de Cuotas, 2026-08-25) — mismo gris
+   marcado que arriba, pero clase propia en vez de ".ac-combo-input:disabled"
+   genérico: ese selector también matchea el bloqueo TEMPORAL normal de la
+   cascada (ej. Categoría antes de elegir Segmento), que no debe verse igual
+   a "esto viene fijo de un repositorio". */
+.ac-combo-input-precargado {
+	background: #d7d5dc !important;
+	border-color: #b8b5c2 !important;
+	color: #1a1b22 !important;
+	font-weight: 600;
+	cursor: not-allowed !important;
+	-webkit-text-fill-color: #1a1b22;
 }
 
 .ac-mini-select, .ac-mini-input {
@@ -1420,6 +1548,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg);
 	margin: var(--space-md) 0;
 }
+.ac-hist-banner[hidden] { display: none; }
 .ac-hist-banner-icon { font-size: 22px; flex-shrink: 0; }
 .ac-hist-banner-text { flex: 1 1 auto; font-size: 14px; font-weight: 600; }
 .ac-hist-banner-cta {
@@ -1884,7 +2013,23 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 
 /* Modal "Subir Archivo": paso 1 (elegir) vs paso 2 (previsualización editable) */
 .ac-repo-subir-modal { max-width: 480px; width: 95vw; }
-.ac-repo-subir-modal.ac-repo-subir-modal-ancho { max-width: 720px; }
+/* Ancho REACTIVO a la cantidad de columnas (2026-08-25, pedido explícito:
+   "que dependiendo la cantidad de columnas también se haga de ancho") —
+   antes era un `max-width: 1100px` fijo, así que Participación (2
+   columnas: Marca + Participación %) se veía con un montón de espacio
+   vacío al costado, reservando el mismo ancho que Cuotas (hasta 7
+   columnas). `width: fit-content` hace que el modal se ajuste al ancho
+   REAL de su contenido (la tabla, que ya mide sus columnas por contenido
+   real desde el fix anterior — ver sección de arriba) en vez de siempre
+   estirarse al máximo. `min-width` evita que una tabla angosta (2
+   columnas cortas) quede incómodamente apretada; `max-width: min(1300px,
+   95vw)` sigue siendo el techo — nunca más ancho que la pantalla, y una
+   tabla que lo supera igual cae al scroll horizontal interno de siempre. */
+.ac-repo-subir-modal.ac-repo-subir-modal-ancho {
+	width: fit-content;
+	min-width: 480px;
+	max-width: min(1300px, 95vw);
+}
 .ac-dropzone {
 	border: 1.5px dashed var(--color-outline-variant); border-radius: var(--radius-lg);
 	background: var(--color-surface-container-low);
@@ -1914,14 +2059,55 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
    celdas de la previsualización son inputs simples editables, sin bordes
    rojos ni mensajes de validación por campo. */
 .ac-preview-table-scroll { border: 1px solid var(--color-outline-variant); border-radius: var(--radius); }
-.ac-preview-table th, .ac-preview-table td { padding: var(--space-xs) var(--space-sm); }
+/* Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito:
+   "que pueda con el mouse mover la tabla sosteniendo y moviendo" — ver
+   activarArrastreScroll() en repositorios.js). Cursor de "mano abierta" en
+   reposo, "mano cerrada" mientras arrastra; sin selección de texto durante
+   el arrastre (si no, cada drag seleccionaría el contenido de las celdas
+   en vez de mover la tabla). */
+.ac-preview-table-scroll { cursor: grab; }
+.ac-preview-table-scroll.ac-arrastrando { cursor: grabbing; user-select: none; }
+/* Grilla estilo Excel, ancho REAL por auto-ajuste (2026-08-25, 2da vuelta —
+   la 1ra con `anchoPct`/`table-layout:fixed` fue un porcentaje adivinado a
+   mano que no se adaptaba si cambiaba la cantidad de columnas, y encima
+   recortaba texto igual: "esto no es nada inteligente"). Ahora NO se fuerza
+   ningún ancho por CSS — la tabla queda en `table-layout: auto` (el default
+   del navegador) y cada `<input>` lleva el atributo HTML `size` (calculado
+   en JS del largo real de SU valor, ver `tamanoInput()`/`renderPreviewTabla()`
+   en repositorios.js) en vez de `width`. Con `size`, el motor de layout de
+   tablas mide el ancho natural de cada input como lo haría con cualquier
+   texto — y ensancha la columna entera hasta la celda más ancha (`<th>`
+   incluido, que se mide solo) — es EXACTAMENTE el mecanismo que usa Excel
+   para autoajustar una columna a su contenido, no una aproximación. `min-width:
+   0` sigue pisando el `min-width: 640px` de `.ac-table` genérica (acá no
+   hace falta, la tabla ya se ajusta sola al ancho real de sus datos).
+   Padding de celda y de input, los dos, se ajustaron más angostos — antes
+   se sumaban (padding de la celda + padding del input) y eso era la altura
+   de fila de más que se pidió reducir. */
+.ac-preview-table { min-width: 0; }
+.ac-preview-table th, .ac-preview-table td {
+	padding: 4px var(--space-xs);
+	border: 1px solid var(--color-outline-variant);
+}
 .ac-preview-input {
-	width: 100%; min-width: 90px; padding: 8px 10px;
+	min-width: 0; padding: 5px 6px;
 	font-family: var(--font-body); font-size: 13px;
-	border: 1px solid var(--color-outline-variant); border-radius: var(--radius-sm);
+	border: 1px solid transparent; border-radius: var(--radius-sm);
 	background: var(--color-surface-container-lowest); color: var(--color-on-surface); outline: none;
 }
-.ac-preview-input:focus { border-color: var(--color-primary); }
+.ac-preview-input:focus { border-color: var(--color-primary); background: var(--color-surface-container-lowest); }
+
+/* Fila entera pintada según "Al guardar" en la previsualización de Cuotas
+   (2026-08-25, pedido explícito: "esperaba que se pintaran las filas
+   también", no solo el badge chico) — mismos tonos que .ac-badge-ok/
+   -revisar/-urgente. Hay que pisar el fondo propio de .ac-preview-input
+   (si no, el <tr> pintado no se ve — el input tapa casi toda la celda). */
+tr.ac-preview-fila-nueva { background: #d7f2db; }
+tr.ac-preview-fila-nueva .ac-preview-input { background: #d7f2db; }
+tr.ac-preview-fila-actualiza { background: #fff2cc; }
+tr.ac-preview-fila-actualiza .ac-preview-input { background: #fff2cc; }
+tr.ac-preview-fila-usada { background: #ffdbce; }
+tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 
 /* Resumen de errores post-guardado (2026-08-24) — no es validación DENTRO de
    la tabla (eso el usuario lo pidió explícitamente afuera): es el resultado

@@ -35,6 +35,12 @@ $mesFin     = (int) ($body['mes_fin'] ?? -1);
 $estado     = $body['estado'] ?? 'borrador';
 $sinVisibilidad = !empty($body['sin_visibilidad']);
 $lineas     = is_array($body['lineas'] ?? null) ? $body['lineas'] : [];
+// Fase 2 del Repositorio de Cuotas (2026-08-25): si este Acuerdo se generó
+// desde una Acta precargada, registrar.js manda de dónde salió — se valida
+// que el pos_id coincida con el que se está guardando (nunca se confía en
+// el origen tal cual llega) antes de marcar esas filas como consumidas, ver
+// más abajo, después del commit.
+$origenPrecarga = is_array($body['origen_precarga'] ?? null) ? $body['origen_precarga'] : null;
 
 $estadosPermitidosDesdeForm = ['borrador', 'generado', 'enviado'];
 
@@ -356,6 +362,29 @@ try {
 } catch (Exception $e) {
 	$mysqli->rollback();
 	responder(false, 'No se pudo guardar el acuerdo: '.$e->getMessage());
+}
+
+// Consumir la Acta precargada de origen (Fase 2, 2026-08-25): las filas de
+// repositorio_cuota_cliente que la generaron pasan a 'usada' + quedan
+// enlazadas al Acuerdo real — desaparecen de la campanita de alertas y
+// quedan protegidas de "Eliminar" en el Repositorio de Cuotas (ver
+// getters/repositorio_eliminar.php). No aborta el guardado si esto falla —
+// el Acuerdo ya quedó bien guardado, en el peor caso la precarga sigue
+// apareciendo en la campanita (molesto, no destructivo).
+if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
+	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
+	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
+	if ($trimestrePrecarga >= 1 && $trimestrePrecarga <= 4 && $anioPrecarga > 0) {
+		$stmtUsada = $mysqli->prepare(
+			"UPDATE repositorio_cuota_cliente SET estado = 'usada', acuerdo_id_generado = ?
+			 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'"
+		);
+		if ($stmtUsada) {
+			$stmtUsada->bind_param('isii', $acuerdoId, $posId, $trimestrePrecarga, $anioPrecarga);
+			$stmtUsada->execute();
+			$stmtUsada->close();
+		}
+	}
 }
 
 // Snapshot del PDF: solo al generar (no en cada guardado de borrador), para

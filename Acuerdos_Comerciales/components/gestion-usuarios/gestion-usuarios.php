@@ -90,6 +90,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 				</div>
 			</div>
 
+			<!-- Paginación arriba Y abajo (2026-08-25, pedido explícito: "tengo
+			     que bajar para poder cambiar de página"). Ver renderPaginacion()
+			     en gestion-usuarios.js, que ahora escribe en las 2 a la vez. -->
+			<div class="ac-pagination ac-pagination-top" id="paginacion-usuarios-top" data-pagina="<?= $resultado['pagina'] ?>" data-total-paginas="<?= $resultado['total_paginas'] ?>">
+				<span class="ac-pagination-info" id="paginacion-info-top">Página <?= $resultado['pagina'] ?> de <?= $resultado['total_paginas'] ?></span>
+				<div class="ac-pagination-btns" id="paginacion-btns-top"></div>
+			</div>
+
 			<div class="ac-table-scroll">
 				<table class="ac-table" id="tabla-usuarios">
 					<thead>

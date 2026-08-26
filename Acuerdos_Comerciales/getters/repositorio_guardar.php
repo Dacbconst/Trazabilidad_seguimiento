@@ -74,10 +74,16 @@ function repositorio_identificar_fila($tipo, $fila) {
 $mysqli->begin_transaction();
 try {
 	if ($tipo === 'rebate') {
+		// eliminado_en/eliminado_por se limpian acá a propósito (2026-08-25,
+		// borrado lógico — ver repositorio_eliminar.php): si el UPSERT
+		// encuentra una fila que estaba borrada (mismo segmento/sector/
+		// categoría/marca, el UNIQUE la sigue ocupando aunque esté borrada),
+		// re-subir el Excel la reactiva sola — sin esto, la fila quedaría
+		// actualizada pero seguiría invisible en el listado normal.
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_rebate_producto (segmento, sector, categoria, marca, rebate_pct, actualizado_por)
 			 VALUES (?, ?, ?, ?, ?, ?)
-			 ON DUPLICATE KEY UPDATE rebate_pct = VALUES(rebate_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW()'
+			 ON DUPLICATE KEY UPDATE rebate_pct = VALUES(rebate_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
 		);
 		if (!$stmt) throw new Exception('El repositorio de Rebate todavía no existe en la base (falta correr datos/repositorios_schema.sql).');
 
@@ -122,10 +128,11 @@ try {
 		}
 		$stmt->close();
 	} else {
+		// eliminado_en/eliminado_por en NULL acá, mismo motivo que Rebate arriba.
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_participacion_percha (marca, participacion_pct, actualizado_por)
 			 VALUES (?, ?, ?)
-			 ON DUPLICATE KEY UPDATE participacion_pct = VALUES(participacion_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW()'
+			 ON DUPLICATE KEY UPDATE participacion_pct = VALUES(participacion_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
 		);
 		if (!$stmt) throw new Exception('El repositorio de Participación todavía no existe en la base (falta correr datos/repositorios_schema.sql).');
 

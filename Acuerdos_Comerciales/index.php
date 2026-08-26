@@ -63,8 +63,33 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 						<span class="ac-alertas-badge" id="acAlertasBadge" hidden>0</span>
 					</button>
 					<div class="ac-alertas-panel" id="acAlertasPanel" hidden>
-						<div class="ac-alertas-panel-header">Alertas de firma</div>
-						<div class="ac-alertas-panel-body" id="acAlertasBody">
+						<div class="ac-alertas-panel-header">
+							<h3 class="ac-alertas-panel-titulo">Notificaciones</h3>
+							<!-- Botón de refrescar manual (2026-08-25, pedido explícito: "dar
+							     la sensación que está en vivo la página siempre") — sin
+							     conexión en tiempo real (Firebase o similar) de verdad, este
+							     botón + el refresco automático en cada cambio de módulo (ver
+							     index.php más abajo) son el sustituto: nunca hay push real,
+							     pero nunca hace falta recargar toda la página para ver algo
+							     nuevo tampoco. -->
+							<button type="button" class="ac-alertas-refrescar" id="acAlertasRefrescarBtn" title="Actualizar notificaciones">
+								<span class="material-symbols-outlined">refresh</span>
+							</button>
+						</div>
+						<!-- 2 pestañas — diseño tomado de "diseños ideas/code.html" (mockup
+						     de referencia): "Actas Asignadas" (precargadas del Repositorio
+						     de Cuotas, formato activity feed) y "Actas Por Firmar" (plazo de
+						     20 días, formato de caja de alerta con franja de color). Por
+						     firmar arranca activa (mismo default que el mockup: es la más
+						     urgente de las 2). -->
+						<div class="ac-alertas-tabs">
+							<button type="button" class="ac-alertas-tab" id="acAlertasTabAsignadas" data-tab="asignadas">Actas Asignadas</button>
+							<button type="button" class="ac-alertas-tab ac-alertas-tab-activa" id="acAlertasTabFirmar" data-tab="firmar">Actas Por Firmar</button>
+						</div>
+						<div class="ac-alertas-panel-body" id="acAlertasBodyAsignadas" hidden>
+							<p class="ac-alertas-vacio">Cargando...</p>
+						</div>
+						<div class="ac-alertas-panel-body" id="acAlertasBodyFirmar">
 							<p class="ac-alertas-vacio">Cargando...</p>
 						</div>
 					</div>
@@ -171,6 +196,12 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 				document.querySelectorAll('.ac-content-panel').forEach(function (panel) { panel.classList.remove('active'); });
 				document.querySelector(href).classList.add('active');
 				if (refrescoPorSeccion[href]) refrescoPorSeccion[href]();
+				// Campanita de notificaciones (2026-08-25, pedido explícito): se
+				// refresca en CUALQUIER cambio de módulo, no solo los que ya
+				// tenían su propio hook arriba — a diferencia de esos, esto nunca
+				// destruye nada en pantalla (Registrar incluido), solo vuelve a
+				// pedir la data de alertas.
+				if (window.acAlertasFirmaRefrescar) window.acAlertasFirmaRefrescar();
 				// En mobile, elegir una sección cierra el drawer — si no, el menú
 				// se queda tapando la pantalla recién abierta.
 				if (mqMobile.matches) cerrarDrawer();

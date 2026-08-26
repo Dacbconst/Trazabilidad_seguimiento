@@ -33,6 +33,11 @@
 	var activeMonthsIndices = [0, 1, 2];
 	var acuerdoId = null;
 	var documentoNo = null;
+	// Fase 2 del Repositorio de Cuotas (2026-08-25): si el formulario actual
+	// vino de una Acta precargada (cargarPrecarga()), se manda junto con el
+	// guardado para que guardar_acuerdo.php marque esas filas como 'usada'.
+	// null en cualquier otro caso (Nuevo Acuerdo, Borrador).
+	var origenPrecarga = null;
 
 	// ---------- Switch "Visibilidad y Espacios" (2026-08-24) ----------
 	// Activado por defecto (mismo comportamiento de siempre, sin cambios). Al
@@ -1030,7 +1035,8 @@
 			mes_fin: selectedEnd,
 			estado: estado,
 			sin_visibilidad: !visibilidadActiva,
-			lineas: recolectarLineas()
+			lineas: recolectarLineas(),
+			origen_precarga: origenPrecarga
 		};
 
 		fetch('getters/guardar_acuerdo.php', {
@@ -1058,6 +1064,7 @@
 					acuerdoId = data.acuerdo_id;
 					documentoNo = data.documento_no;
 					formSucio = false;
+					origenPrecarga = null; // ya se consumió, no reenviar en un guardado siguiente (ej. borrador -> generado)
 					if (onOk) onOk();
 				}
 			})
@@ -1201,6 +1208,7 @@
 	function limpiarFormularioParaNuevoAcuerdo() {
 		acuerdoId = null;
 		documentoNo = null;
+		origenPrecarga = null;
 		distribuidorSelect.value = '';
 		distribuidorSearch.value = '';
 		if (CANAL_USUARIO === 'distribuidor') {
@@ -1214,6 +1222,13 @@
 		visibilidadActiva = true;
 		visibilidadToggle.checked = true;
 		aplicarBloqueoVisibilidad();
+		// "Agregar Fila" de Meta de Compras pudo quedar bloqueado por una Acta
+		// precargada anterior en esta misma sesión (ver bloquearFilasPrecargadas())
+		// — el siguiente Acuerdo empieza limpio, sin ese bloqueo. Las filas en
+		// sí ya se reconstruyen frescas (sin disabled) porque syncTables()
+		// arriba las arma de cero.
+		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
+		if (btnAgregarPurchase) { btnAgregarPurchase.disabled = false; btnAgregarPurchase.title = ''; }
 		formSucio = false;
 	}
 
@@ -1358,6 +1373,9 @@
 	function aplicarBorrador(a) {
 		acuerdoId = a.id;
 		documentoNo = a.documento_no;
+		origenPrecarga = null; // un Borrador nunca viene de una precarga
+		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
+		if (btnAgregarPurchase) { btnAgregarPurchase.disabled = false; btnAgregarPurchase.title = ''; } // por si quedó bloqueado de una precarga anterior en esta sesión
 
 		anioSelect.value = a.anio;
 		selectedStart = a.mes_inicio;
@@ -1423,6 +1441,136 @@
 			})
 			.catch(function () { mostrarMensaje('Error de conexión al cargar el borrador.', false); });
 	}
+
+	// Fase 2 del Repositorio de Cuotas (2026-08-25) — deja readonly/disabled
+	// (según corresponda) las celdas de cada fila de Meta de Compras recién
+	// poblada por una precarga: Segmento/Categoría(DB sector) y los 3 montos
+	// SIEMPRE bloqueados (eso es justo lo que pidió JW, "que no lo puedan
+	// tipear"); Subcategoría(DB categoria)/Marca SOLO si vinieron resueltas
+	// desde el historial del cliente — si no hay historial, quedan abiertas
+	// para que el asesor las complete con el combo normal (sin esto la fila
+	// se guardaría incompleta y guardar_acuerdo.php la descartaría en
+	// silencio, ver ese archivo línea ~127). `lineasMeta` y las filas de
+	// `purchaseBody` están en el mismo orden porque
+	// poblarTablasConLineas() agrega una fila por cada elemento del array,
+	// en orden, sin saltarse ninguno.
+	function bloquearFilasPrecargadas(lineasMeta) {
+		var filas = purchaseBody.querySelectorAll('tr');
+		Array.prototype.forEach.call(filas, function (tr, i) {
+			var fila = lineasMeta[i];
+			if (!fila || !fila.bloqueado) return;
+			Array.prototype.forEach.call(tr.querySelectorAll('.month-input'), function (inp) { inp.readOnly = true; });
+			// Segmento/Sector SOLO se bloquean si vinieron resueltos — si el
+			// Segmento quedó ambiguo (2+ Segmentos reales posibles para ese
+			// Sector, ver obtener_precarga_detalle()), la fila queda con el
+			// cascade normal (Sector deshabilitado hasta elegir Segmento, como
+			// en cualquier fila nueva) — bloquearla igual la habría dejado
+			// trabada para siempre, sin ninguna forma de completarla (bug real
+			// encontrado probando con datos reales, 2026-08-25).
+			if (fila.segmento) {
+				tr.querySelector('.seg-input').disabled = true;
+				tr.querySelector('.seg-input').classList.add('ac-combo-input-precargado');
+				tr.querySelector('.sector-input').disabled = true;
+				tr.querySelector('.sector-input').classList.add('ac-combo-input-precargado');
+			}
+			if (fila.categoria) {
+				tr.querySelector('.cat-input').disabled = true;
+				tr.querySelector('.cat-input').classList.add('ac-combo-input-precargado');
+			}
+			if (fila.marca) {
+				tr.querySelector('.marca-input').disabled = true;
+				tr.querySelector('.marca-input').classList.add('ac-combo-input-precargado');
+			}
+			// Corregido 2026-08-25 (pedido explícito, probando en navegador
+			// real): la fila NO debe poder eliminarse — la Acta precargada es
+			// una estructura fija que el asesor solo completa (Subcategoría/
+			// Marca si faltan), nunca reorganiza. Se deshabilita el botón en
+			// vez de sacarlo del DOM para no tener que tocar el resto del
+			// layout de la fila.
+			var btnEliminar = tr.querySelector('.ac-remove-row');
+			if (btnEliminar) { btnEliminar.disabled = true; btnEliminar.title = 'Esta fila viene de una Acta precargada — no se puede quitar'; }
+		});
+		// "Agregar Fila" de Meta de Compras también se bloquea del todo — la
+		// tabla es una estructura fija mientras esta Acta vino de una
+		// precarga, el asesor solo llena lo que falta, no agrega productos
+		// nuevos acá (si hace falta, es un caso para hablarlo aparte, no
+		// para resolverlo agregando una fila suelta).
+		var btnAgregar = document.getElementById('ac-add-purchase-row');
+		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta viene de una precarga — la tabla de Meta de Compras es fija'; }
+	}
+
+	function aplicarPrecarga(p, trimestre, anio) {
+		acuerdoId = null;
+		documentoNo = null;
+		origenPrecarga = { pos_id: p.pos_id, trimestre: trimestre, anio: anio };
+
+		anioSelect.value = p.anio;
+		selectedStart = p.mes_inicio;
+		selectedEnd = p.mes_fin;
+		activeMonthsIndices = [];
+		for (var i = selectedStart; i <= selectedEnd; i++) activeMonthsIndices.push(i);
+		for (var q = 0; q < TRIMESTRES.length; q++) {
+			if (TRIMESTRES[q][0] === selectedStart && TRIMESTRES[q][1] === selectedEnd) {
+				periodoSelect.value = String(q);
+				break;
+			}
+		}
+		updatePickerUI();
+
+		// Mismo criterio que aplicarBorrador(): en canal Distribuidor hay que
+		// fijar la Empresa antes que el Distribuidor, porque el combo de
+		// Distribuidor arma sus opciones a partir de la Empresa elegida.
+		if (catalogoDistribuidor.canal === 'distribuidor') {
+			var empresaDeCliente = null;
+			Object.keys(catalogoDistribuidor.empresas).some(function (emp) {
+				var match = catalogoDistribuidor.empresas[emp].some(function (c) { return c.pos_id === p.pos_id; });
+				if (match) { empresaDeCliente = emp; }
+				return match;
+			});
+			if (empresaDeCliente) {
+				empresaSelect.value = empresaDeCliente;
+				empresaSearch.value = empresaDeCliente;
+				distribuidorSearch.disabled = false;
+			}
+		}
+		distribuidorSelect.value = p.pos_id;
+		distribuidorSearch.value = p.distribuidor;
+		localidadEl.textContent = p.localidad || '—';
+		actualizarBloqueoPorDistribuidor();
+
+		// Acta nueva de verdad (no un borrador restaurado) — Visibilidad
+		// arranca en su estado por defecto, igual que "Nuevo Acuerdo".
+		visibilidadActiva = true;
+		visibilidadToggle.checked = true;
+		aplicarBloqueoVisibilidad();
+
+		poblarTablasConLineas(p.lineas);
+		bloquearFilasPrecargadas(p.lineas.meta_compra);
+
+		// Cargar la precarga no es en sí un cambio "sin guardar" — recién se
+		// vuelve sucio si el asesor completa Subcategoría/Marca o edita
+		// Cabeceras/Rumas/Perchas a partir de acá (mismo criterio que un
+		// Borrador restaurado).
+		formSucio = false;
+		mostrarMensaje('Acta precargada cargada — completá lo que falte y generá el Acta.', true);
+	}
+
+	function cargarPrecarga(posId, trimestre, anio) {
+		var params = new URLSearchParams({ pos_id: posId, trimestre: trimestre, anio: anio });
+		fetch('getters/obtener_acta_precargada.php?' + params.toString())
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar la Acta precargada.', false); return; }
+				aplicarPrecarga(data.precarga, trimestre, anio);
+			})
+			.catch(function () { mostrarMensaje('Error de conexión al cargar la Acta precargada.', false); });
+	}
+
+	// La campanita de alertas vive en assets/js/alertas-firma.js (widget
+	// global del header), pero cargar la precarga en el formulario solo lo
+	// puede hacer este módulo — mismo patrón que
+	// window.acRegistrarCargarBorrador de abajo.
+	window.acRegistrarCargarPrecarga = cargarPrecarga;
 
 	// El modal "Mis Borradores" vive en Historial (components/historial.js),
 	// pero cargar un borrador en el formulario solo lo puede hacer este

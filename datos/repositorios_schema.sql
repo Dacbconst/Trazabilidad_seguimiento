@@ -19,6 +19,17 @@
 -- con Actas viejas de antes de 2026-08-18): este repositorio es dato nuevo
 -- desde cero, no hay nada legacy que tolerar.
 
+-- Borrado lógico, regla base (2026-08-25, pedido explícito del usuario tras
+-- descubrir que "Eliminar" era un DELETE físico real, sin forma de deshacer
+-- un borrado por error): eliminado_en (NULL = activa; con fecha = cuándo se
+-- borró) + eliminado_por (quién) — mismo patrón de auditoría que
+-- created_at/updated_at/actualizado_por, que ya existían. Nunca más DELETE
+-- físico en una tabla de repositorio/catálogo nueva — "Eliminar" en la app
+-- pasa a ser un UPDATE que llena estas 2 columnas, la fila sigue existiendo
+-- y se puede reactivar (ver getters/repositorio_reactivar.php). Aplica
+-- también como convención para cualquier tabla repositorio_* futura (ver
+-- CLAUDE.md "Convenciones para código nuevo") — repositorio_cuota_cliente
+-- se está trabajando aparte, no se tocó acá.
 CREATE TABLE repositorio_rebate_producto (
 	id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 	segmento VARCHAR(200) NOT NULL,
@@ -28,7 +39,9 @@ CREATE TABLE repositorio_rebate_producto (
 	rebate_pct DECIMAL(6,4) NOT NULL,
 	actualizado_por INT UNSIGNED NULL,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	eliminado_en DATETIME NULL,
+	eliminado_por INT UNSIGNED NULL
 );
 
 CREATE TABLE repositorio_participacion_percha (
@@ -37,8 +50,13 @@ CREATE TABLE repositorio_participacion_percha (
 	participacion_pct DECIMAL(5,2) NOT NULL,
 	actualizado_por INT UNSIGNED NULL,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	eliminado_en DATETIME NULL,
+	eliminado_por INT UNSIGNED NULL
 );
+
+CREATE INDEX idx_rebate_eliminado_en ON repositorio_rebate_producto (eliminado_en);
+CREATE INDEX idx_participacion_eliminado_en ON repositorio_participacion_percha (eliminado_en);
 
 -- Evita duplicados exactos del mismo producto/marca — el getter de guardado
 -- hace UPSERT (INSERT ... ON DUPLICATE KEY UPDATE) sobre esta clave, tanto

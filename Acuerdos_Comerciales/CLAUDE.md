@@ -1910,6 +1910,18 @@ nada, en esta misma vuelta:
    real en vez de parpadear parejo desde el primer día de aviso (evita
    fatiga de alerta). Las 2 respetan `prefers-reduced-motion`.
 
+**Bug real, 4to caso del mismo patrón de `[hidden]` (2026-08-26)**: el
+usuario reportó el ícono de warning del banner flotando en Historial sin
+mostrar nada — `.ac-hist-banner { display:flex; ... }` no tenía la regla
+`[hidden] { display:none }`, mismo patrón exacto ya documentado 3 veces
+antes en este archivo (`.ac-alertas-badge`, `.ac-stat-tile`/`.ac-hist-stat`,
+y el propio comentario "Lección repetida" de la sección de Vencimiento de
+Firma). Corregido con `.ac-hist-banner[hidden] { display: none; }`. **Regla
+para código nuevo, de acá en más**: cualquier elemento que se oculte con el
+atributo `hidden` (no con una clase `.hidden`) necesita su selector
+`[hidden]` explícito al lado de la clase que le pone `display`, sin
+excepción — no volver a confiar en que el navegador lo va a manejar solo.
+
 **Probado**: `php -l`/`node --check` limpios en los 6 archivos tocados.
 Verificación visual completa contra la app real (servidor local + sesión
 falsa + Playwright), usando el mismo Acuerdo real ya backdateado por el
@@ -1932,6 +1944,142 @@ toasts de TODO el proyecto** (`assets/js/toast.js` es compartido —
 Registrar, Gestión de Usuarios, etc.), no solo al de vencimiento: es el
 mismo componente en todos lados, a propósito no se creó una variante aparte
 solo para este caso.
+
+## Campanita rediseñada a 2 pestañas — se sacó la vista de Equipo (2026-08-25/26)
+
+Pedido explícito: "esa campanita ya no debería existir del lado del
+superdesarrollador... esa mecánica de seguimiento de equipo quitémosla" +
+"tomá cómo está armado el notification en la carpeta 'diseños ideas' para
+usar acá mismo diseño y funcionalidad" (**solo esa parte del mockup de
+referencia — nada de cómo armaron el resto de esa página**, aclarado
+explícitamente) + "no tenemos una conexión Firebase o algo así" + "por
+cada cambio de módulo sea un actualizar para las noti, con un botoncito de
+refrescar, para dar la sensación de que la página está siempre en vivo".
+
+**Se sacó `listar_equipo_pendientes_firma()`** (`includes/functions.php`)
+y el key `equipo` de `getters/alertas_firma.php` — era la vista agregada
+de "quién trae pendientes" solo para superdesarrollador (ver sección
+"Vencimiento de firma" más arriba). Reemplazada del todo por el rediseño
+de abajo, no quedó ningún resto de esa mecánica.
+
+**Referencia usada — `diseños ideas/code.html`** ("Tabbed Notification
+View - Enterprise Dashboard", HTML+Tailwind standalone, con
+`diseños ideas/DESIGN.md` documentando su sistema de diseño propio): un
+popover de 2 pestañas — **"Activity Feed"** (ítems de alta densidad con
+ícono/avatar circular de 40px, separadores finos) y **"System Alerts"**
+(cajas con franja de color de 4px a la izquierda según severidad, esquinas
+redondeadas solo del lado derecho). El mockup YA traía las 2 pestañas
+literalmente tituladas **"Actas asigandas"** / **"Actas Por FIRMAR"** en
+español — confirma que el mapeo a este proyecto era: Activity Feed =
+Actas Precargadas (Fase 2 del Repositorio de Cuotas, ver sección más abajo
+— "una Acta asignada" es exactamente eso, no un concepto nuevo), System
+Alerts = Actas por vencer (la sección "Vencimiento de firma" de arriba).
+**Se tomó SOLO ese patrón visual + la mecánica de tabs** — colores,
+tipografía, sidebar, header del mockup: todo ignorado, se usan los tokens
+reales de este proyecto (`--color-primary`, `--color-error-container`,
+las mismas clases `ac-badge-urgente`/`ac-badge-critico` que ya existían).
+
+**Implementado**:
+- `assets/js/alertas-firma.js` — reescrito. 2 funciones de render
+  (`renderAsignadas()`/`renderFirmar()`) en vez de una sola con secciones
+  apiladas; `activarTab()` hace el show/hide + clase activa (mismo patrón
+  simple que el `<script>` inline del mockup, sin librería). Pestaña "Por
+  Firmar" arranca activa por default — mismo default que traía el mockup
+  (era la "System" tab la marcada activa en el HTML original, no
+  "Activity"), y tiene sentido acá también: es la más urgente de las 2.
+- `.ac-activity-item` (`assets/css/style.css`) — fila de Actas Asignadas:
+  ícono circular 36px + título + meta (trimestre/año/categorías), borde
+  inferior fino entre filas. Sin fecha relativa tipo "hace 2h" — a
+  propósito: `repositorio_cuota_cliente` no tiene un timestamp de "cuándo
+  se asignó", inventar uno sería fabricar un dato falso.
+- `.ac-alertbox`/`.ac-alertbox-urgente`/`.ac-alertbox-critica` — caja de
+  Actas Por Firmar: `border-left: 4px` coloreado + fondo tintado suave +
+  esquinas redondeadas solo a la derecha, calcado del mockup. Mismos 2
+  colores que ya usan `ac-badge-urgente`/`ac-badge-critico` en el resto de
+  la app (fila de Historial, banner) — no una paleta nueva para esta caja.
+- **Botón de refrescar** (`#acAlertasRefrescarBtn`, ícono `refresh` junto
+  al título "Notificaciones") — reusa `acBotonCargando()`
+  (`assets/js/cargando.js`, ya usado por "Actualizar" en Historial) para
+  el giro del ícono mientras carga, no un componente nuevo.
+- **Refresco en cada cambio de módulo** (`index.php`, dentro del listener
+  de clicks de `.ac-sidebar-nav`): se agregó `if
+  (window.acAlertasFirmaRefrescar) window.acAlertasFirmaRefrescar();`
+  **incondicional**, para TODOS los links de sidebar — a diferencia de
+  `refrescoPorSeccion` (el mapa de arriba, que solo cubre Historial/
+  Gestión de Usuarios/Liquidación/Repositorios), esto corre incluso al
+  entrar a Registrar, porque nunca toca el formulario en pantalla, solo
+  vuelve a pedir la data de la campanita.
+- **Sin Firebase / tiempo real de verdad** (confirmado explícitamente por
+  el usuario que no existe esa infraestructura): la "sensación de en vivo"
+  la dan 3 cosas combinadas — el sondeo de 5 minutos que ya existía, el
+  refresco en cada cambio de módulo (nuevo), y el botón de refrescar
+  manual (nuevo) — nunca hay un push real del servidor.
+
+**Probado**: `php -l`/`node --check` limpios en los 4 archivos tocados.
+Servidor local + sesión falsa + Playwright contra la app real (solo
+lectura): 2 usuarios reales distintos para cubrir los 2 estados de cada
+pestaña — `uid=8` (JAVIER MALDONADO, tiene 1 Acta Precargada real de
+`repositorio_cuota_cliente`, pestaña "Por Firmar" vacía) y `uid=2`
+(ADRIAN VASQUEZ, tiene la Acta ya conocida `#ADN-2026-0044` por vencer,
+pestaña "Asignadas" vacía) — confirmado el cambio de pestaña, el contenido
+real en cada una, el ícono del botón de refrescar girando mientras carga
+y deteniéndose después, y que Historial (banner + badge de fila) sigue
+funcionando igual tras sacar `equipo` del getter compartido.
+
+### Bug real: el panel no se podía cerrar + puntito de "no visto" (2026-08-26, mismo módulo)
+
+El usuario reportó "tengo un bug que no puedo cerrar, después que ya abrí
+aún sale con el número 1" — se le preguntó para desambiguar (¿el panel no
+cierra, o el badge no se limpia?) y confirmó: **el panel de notificaciones
+no se cerraba** al hacer clic en la campanita de nuevo ni al hacer clic
+afuera.
+
+**Causa — mismo patrón de bug que ya había aparecido una vez con
+`.ac-alertas-badge` (ver sección "Vencimiento de firma" más arriba,
+2026-08-25)**: `.ac-alertas-panel` tenía `display: flex` puesto "a secas"
+en la clase — con la misma especificidad que la regla `[hidden] {
+display:none }` que trae el navegador por default, gana la regla de autor.
+`panel.hidden = true` (JS) SÍ ponía el atributo, pero el panel se quedaba
+`display:flex` igual — "cerrado" en el DOM, pintado en pantalla de
+todos modos. Confirmado con Playwright: `{hiddenAttr: true, display:
+"flex"}` antes del fix. Corregido con `.ac-alertas-panel[hidden] {
+display: none; }`, mismo arreglo de la vez anterior.
+**Lección que se repite en este proyecto** (3ra vez ya, contando la del
+badge y la de `.ac-stat-tile`/`.ac-hist-stat` mucho antes): cualquier
+elemento que se oculta con el atributo `hidden` necesita revisarse contra
+CUALQUIER `display` que su propia clase ya traiga puesto sin condición —
+no alcanza con confiar en que el atributo por sí solo va a ocultar algo.
+
+**De paso, en el mismo mensaje, pedido nuevo**: "falta que tenga el
+puntito al lado de la notificación... que coincida con los numeritos, así
+ya marco que la vi" — sistema de visto/no visto:
+- **Sin backend real** (no hay tabla de "leídos" ni Firebase, mismo motivo
+  que el resto de la campanita) — se guarda en `localStorage`
+  (`ac_notif_vistas`, `assets/js/alertas-firma.js`). Es estado **por
+  navegador**, no por usuario de verdad: si el mismo usuario entra desde
+  otra computadora, ve todo como no visto de nuevo — aceptado, no hay
+  infraestructura para más.
+- Clave por ítem: "Por Firmar" usa el `id` real de la Acta; "Asignadas" no
+  tiene un `id` propio (viene de un `GROUP BY` en SQL), así que se arma la
+  clave con `pos_id+trimestre+año`, su identidad real.
+- **El badge cuenta NO VISTOS, no el total** — un ítem visto se queda en
+  su lista (no desaparece), solo pierde el puntito y deja de sumar al
+  número, "para que coincida con los numeritos" tal como se pidió.
+- **Se marca todo como visto al ABRIR el panel** (`abrirPanel()` →
+  `marcarTodoVisto()`), las 2 pestañas de una sola vez, no ítem por ítem
+  ni pestaña por pestaña — mismo criterio simple que describió el usuario
+  ("ya marco que la vi" al abrir).
+- Puntito (`.ac-notif-dot`, 7px, color `--color-primary`) — un solo color
+  en las 2 pestañas, es señal de lectura, no de urgencia (esa la siguen
+  dando los colores de `ac-alertbox-urgente`/`-critica`).
+
+**Probado**: `node --check` limpio. Playwright contra la app real: badge
+mostraba "1" con el puntito presente antes de abrir; justo al abrir, badge
+se oculta y el puntito desaparece (sin volver a pedir datos al servidor,
+solo re-render con el estado de `vistas` actualizado); cerrado con la
+campanita confirmado con `display:none` real (ya no solo el atributo);
+reabierto después, badge se mantiene oculto y sin puntito (persistido en
+localStorage entre aperturas).
 
 ## Export CSV genérico de Historial — ELIMINADO (2026-08-18)
 
@@ -2864,6 +3012,167 @@ esta misma sesión — patrón a repetir si aparece de nuevo: contenido que NO
 es tabla ni header dentro de un `.ac-card` necesita su propio padding/margen
 horizontal, `.ac-card` nunca lo da gratis.
 
+## Repositorios: previsualización estilo Excel, ancho auto-ajustado de verdad (2026-08-25, 2 vueltas)
+
+Pedido explícito con captura real de referencia: la tabla de previsualización
+del modal "Subir Archivo" (paso 2, antes de guardar) se veía amontonada —
+todas las columnas al mismo ancho angosto (~90px), texto largo cortado sin
+ningún indicio. **Nota: este cambio es transversal a los 3 tipos de
+repositorio (Rebate, Participación, Cuotas) porque toca `CONFIG` y el CSS
+compartido — pero es puramente aditivo/de layout (no cambia ninguna lógica
+de guardado/match) y no toca nada de la sección "Repositorio de Cuotas
+trimestrales..." (en construcción por otra sesión en paralelo, ver más
+abajo) — solo sus arrays de columnas.**
+
+**1ra vuelta (descartada): `anchoPct` — porcentaje fijo adivinado a mano
+por columna, con `table-layout: fixed`.** Mejoró el amontonamiento pero el
+usuario la rechazó explícitamente al ver una hoja real con más columnas de
+las previstas (Mes 1/Mes 2/Mes 3 del trimestre, agregadas mientras tanto
+por la otra sesión que construye Cuotas): *"esto no es nada inteligente, no
+detecta el espacio que debe darle a cada celda"* — los % estaban pensados
+para una cantidad fija de columnas, no se adaptaban si cambiaba cuántas
+había ni si el contenido real no calzaba con lo que se supuso.
+
+**2da vuelta (la que quedó): ancho REAL auto-ajustado, sin adivinar nada.**
+- **Causa real del problema original** (esto seguía siendo cierto): cada
+  celda es un `<input>` con `width:100%` — en `table-layout:auto` (default
+  del navegador), la columna mide su contenido MÁS CHICO, y un input sin
+  `size` pide solo su ancho mínimo, sin importar si el dato real es "BARRA"
+  o 34 caracteres.
+- **La solución de verdad**: sacar `table-layout: fixed` (volver al `auto`
+  del navegador) y ponerle a cada `<input>` el atributo HTML `size`
+  (**no** `width` de CSS) calculado en JS del largo real de SU valor
+  (`tamanoInput()` en `repositorios.js`, clamp 4-40 caracteres). Con `size`,
+  el motor de layout de tablas mide el ancho natural del input como
+  mediría cualquier texto, y ensancha la columna entera hasta la celda más
+  ancha (`<th>` incluido, que se mide solo, sin tocar nada) — es el MISMO
+  mecanismo que usa Excel para autoajustar una columna, no una
+  aproximación. La propiedad `anchoPct` se sacó de las 4 configuraciones
+  (Rebate, Participación, `columnasPreview`/`columnas` de Cuotas) — quedó
+  100% muerta tras este cambio, confirmado con un `grep` antes de borrarla.
+- **Altura de fila reducida** (la 2da queja, "hay espacio en blanco que se
+  puede reducir"): el padding de la celda Y el padding del input se
+  sumaban — ambos se achicaron (`padding:4px var(--space-xs)` en la celda,
+  `padding:5px 6px` en el input).
+- **Consecuencia esperada, no un bug**: con 7 columnas reales (Cliente
+  largo + CEDI + Plan + Categoría + 3 meses), el ancho natural total puede
+  superar el ancho del modal (1100px) — en ese caso la tabla se desborda
+  DENTRO de `.ac-preview-table-scroll` (`overflow-x:auto`, ya existía) y
+  hace falta scroll horizontal para ver las últimas columnas — mismo
+  patrón que ya usan las tablas anchas de Registrar Acuerdo PDV. Ningún
+  dato se pierde ni se recorta, solo hay que scrollear para verlo, igual
+  que en Excel real cuando hay más columnas anchas que pantalla.
+- **Verificado con Playwright real** (`npx playwright screenshot` +
+  `page.evaluate()` para forzar el scroll y confirmar que Mes 2/Mes 3
+  siguen ahí, no se perdieron — `scrollWidth` 1372px vs `clientWidth`
+  1050px en la prueba, confirma que el desborde es real y el scroll
+  funciona): Cliente/CEDI/Plan/Categoría entran completos sin cortar en la
+  vista inicial, Mes 2/Mes 3 aparecen correctos al scrollear a la derecha.
+
+**3ra vuelta — orden de columnas + arrastre con mouse (2026-08-25, misma
+sesión de feedback):**
+- **Orden CEDI antes que Cliente**: pedido por el usuario mostrando una
+  captura donde el orden era Cliente/CEDI — **resuelto por otra sesión en
+  paralelo antes de que llegara a tocarlo** (`columnasPreview` de Cuotas ya
+  quedó CEDI/Cliente/Plan/Categoría/meses, "mismo orden que trae el Excel
+  real", confirmado leyendo el archivo actual). No hizo falta ningún cambio acá.
+- **Arrastre horizontal con mouse tipo touch**: pedido explícito — con el
+  ancho auto-ajustado la tabla puede quedar más ancha que el modal (ver
+  arriba) y el scrollbar nativo del navegador solo se ve/alcanza pegado
+  abajo del todo, no arriba. Se agregó "drag-to-scroll": mantener click y
+  mover el mouse desplaza la tabla horizontalmente, sin depender de
+  encontrar el scrollbar — mismo gesto que un swipe táctil.
+  - `activarArrastreScroll()` nueva en `repositorios.js`, activada sobre
+    `.ac-preview-table-scroll` — `mousedown` arranca el arrastre (excepto
+    si el click empezó en `input/button/a/select/textarea`, para no romper
+    el foco normal al editar una celda), `mousemove` mueve `scrollLeft`
+    según el delta del mouse, `mouseup` **en `document`, no en el
+    contenedor** (si se soltara afuera del contenedor mientras se arrastra,
+    un listener solo en el contenedor no dispararía y el arrastre quedaría
+    "pegado").
+  - CSS: cursor `grab` en reposo, `grabbing` + `user-select:none` mientras
+    arrastra (clase `.ac-arrastrando`, toggleada por el JS) — sin el
+    `user-select:none`, cada arrastre seleccionaría el texto de las celdas
+    en vez de mover la tabla.
+  - **Verificado con Playwright real** (simulando `mouse.down()` →
+    `mouse.move()` en pasos → `mouse.up()`, no a ojo): un arrastre de 150px
+    movió `scrollLeft` esos mismos 150px. Reverificado aparte que hacer
+    click normal en un input SIGUE enfocándolo correctamente (el guard de
+    `input/button/...` no rompió la edición).
+  - Alcance: solo `.ac-preview-table-scroll` (la tabla de previsualización)
+    por ahora — si se pide extenderlo a otras tablas anchas de la app
+    (Registrar, etc.), se puede reusar la misma función tal cual.
+  - **Efecto secundario real, corregido en el momento**: el arrastre movía
+    bastante el mouse, y si el `mouseup` terminaba cayendo justo sobre el
+    fondo oscuro del `#repo-subir-modal-overlay`, el `click` nativo del
+    navegador disparaba el listener de "cerrar modal al hacer click afuera"
+    (`subirOverlay.addEventListener('click', ...)`) — el usuario perdía el
+    modal (y lo que ya había corregido en la previsualización) por un click
+    accidental que en realidad era el final de un arrastre. **Se sacó ese
+    listener entero** — este modal específico ya no se cierra por click
+    afuera, solo por la "X" (`repo-subir-modal-close`) o "Cancelar"
+    (`repo-subir-cancelar`), ambos intactos.
+
+**4ta vuelta — modal reactivo al ancho real de la tabla (2026-08-25, misma
+sesión de feedback):** pedido explícito, con pregunta directa de si era
+buena idea — se confirmó que sí y se explicó por qué antes de tocar código.
+Antes `.ac-repo-subir-modal-ancho` era un `max-width: 1100px` fijo, así que
+Participación (solo 2 columnas: Marca + Participación %) se veía con un
+modal igual de ancho que Cuotas (hasta 7 columnas), con un montón de
+espacio vacío al costado sin necesidad.
+
+- **Arreglado en `style.css`, una sola regla, sin JS**: `width: fit-content`
+  (el modal se ajusta al ancho real de su contenido — la tabla, que ya mide
+  sus columnas por contenido real desde la vuelta anterior de este mismo
+  cambio) en vez de `width: 100%` heredado de `.ac-modal` genérica.
+  `min-width: 480px` para que una tabla de 2 columnas cortas no quede
+  incómodamente apretada; `max-width: min(1300px, 95vw)` sigue de techo —
+  nunca más ancho que la pantalla, y una tabla que lo supera cae al scroll
+  horizontal interno de siempre (mismo mecanismo ya verificado antes).
+- **Verificado con Playwright real** (no a ojo): 2 modales lado a lado, uno
+  con la tabla de Participación (2 columnas) y otro con Cuotas (7 columnas,
+  nombres reales largos) — el primero salió notablemente angosto ajustado a
+  su contenido, el segundo se ensanchó solo para que las 7 columnas entraran
+  cómodas, sin necesitar scroll en el viewport de prueba (1400px).
+
+## Paginación arriba Y abajo de la tabla, en las 3 listas (2026-08-25)
+
+Pedido explícito: "al darle click a la página 2... tengo de nuevo bajar para
+poder cambiar de página" — con la paginación solo abajo, cambiar de página
+más de una vez seguida obliga a bajar el scroll cada vez para volver a
+encontrar los controles. **Se preguntó explícitamente al usuario si aplicar
+esto en las 3 listas paginadas de la app (Historial, Repositorios, Gestión
+de Usuarios) o solo en la que estaba probando — eligió las 3**, mismo
+patrón en toda la app.
+
+**Mismo cambio mecánico en los 3 pares componente+JS** (`historial.php`/
+`historial.js`, `repositorios.php`/`repositorios.js`,
+`gestion-usuarios.php`/`gestion-usuarios.js`):
+- HTML: se duplicó el bloque `.ac-pagination` (info + botones) justo antes
+  de `.ac-table-scroll`, con IDs `-top` nuevos (ej. `hist-paginacion-info-top`)
+  — el bloque de abajo, con sus IDs originales, no se tocó.
+- JS: los `var` que apuntaban a un solo elemento (`paginacionInfo`,
+  `paginacionBtns`) pasaron a ser arrays de 2 elementos
+  (`paginacionInfoEls`, `paginacionBtnsEls`); `renderPaginacion()`/
+  `renderPaginacionBtns()` ahora escriben el mismo HTML y enganchan los
+  mismos listeners en ambos contenedores con un `.forEach()`, en vez de
+  uno solo. **El estado (`data-pagina`/`data-total-paginas`, leído en
+  varios lugares para saber "en qué página estoy")** sigue viviendo
+  SOLO en el elemento de ABAJO (`paginacionEl`, sin cambios) — el de
+  arriba es puramente visual, nunca se lee su `dataset`.
+- CSS (`style.css`): nueva clase `.ac-pagination-top` — mismo bloque que
+  `.ac-pagination`, pero el borde divisor se invierte (`border-bottom` en
+  vez de `border-top`) porque ahora separa de lo que sigue (la tabla), no
+  de lo que ya pasó.
+- **Verificado con Playwright real** (no a ojo): se armó un HTML de prueba
+  con el patrón exacto (card con paginación arriba, tabla, paginación
+  abajo) contra el `style.css` real — el resultado visual calza con lo
+  esperado, bordes/esquinas del `.ac-card` intactos, ambas barras
+  idénticas en contenido.
+- Confirmado que no quedó ninguna referencia viva a los `var` viejos
+  (`paginacionInfo`/`paginacionBtns` singulares) en los 3 archivos JS
+  tocados — se buscó explícito antes de dar el cambio por terminado.
+
 ## Responsive / mobile (2026-08-25)
 
 Pedido explícito del usuario: "todo el proyecto sea responsivo, que sea
@@ -3280,6 +3589,17 @@ particular** — los screenshots de Playwright (ver más abajo) no capturan el
 scrollbar nativo del SO en absoluto (headless Chromium no lo renderiza en
 la captura), a diferencia del resto de este cambio que sí se verificó así;
 queda pendiente que el usuario confirme en su Chrome/Edge real.
+
+**Reaparecieron 2026-08-25** — el usuario las vio en el scroll VERTICAL de
+la página (no en un scroll horizontal de tabla), en la pestaña Repositorios
+apenas se agregó Cuotas Trimestrales (con 2 pestañas cortas la página nunca
+había necesitado scroll vertical propio, por eso no se había notado antes).
+Reforzado: se agregó también el selector `*::-webkit-scrollbar-button:single-button
+{ display: none; ... }` — algunas versiones de Chrome/Edge en Windows solo
+obedecen el `display:none` si se apunta esa variante específica (la que
+dibuja el triángulo), el selector genérico `::-webkit-scrollbar-button`
+puede quedar sin efecto en el scrollbar raíz de `html` en esos casos. Sigue
+sin poder verificarse visualmente desde acá — confirmar con el usuario.
 
 **Repositorios: tabla → tarjetas en mobile, mismo criterio que el rediseño
 de Historial** (ver "Historial: rediseño mobile completo" más arriba) pero
@@ -4104,7 +4424,7 @@ lista — no algo que este cambio deba decidir por sí solo.
   funcionalmente contra datos reales porque es un cambio de texto puro —
   no toca lógica de guardado ni el mapeo de columnas.
 
-## Repositorio de Cuotas trimestrales + Actas precargadas (2026-08-25, EN CONSTRUCCIÓN — plan aprobado, Fase 1 a medio hacer)
+## Repositorio de Cuotas trimestrales + Actas precargadas (2026-08-25, EN CONSTRUCCIÓN — Fase 1 completa sin probar con datos reales, Fase 2 sin empezar)
 
 **Leer esto ANTES de tocar `repositorio_cuota_cliente`, `cuotas_*.php` o
 `obtener_acta_precargada.php` en cualquier sesión** (esto se está
@@ -4138,11 +4458,15 @@ recibiendo la fila sugerida con identidad bloqueada pero precio abierto
 - El año NO viene en el Excel — lo elige el superdesarrollador en pantalla
   al subir; el trimestre SÍ se infiere solo de qué 3 columnas de mes trae
   el archivo (`xlsx_detectar_columnas_mes()`).
-- "Actas Precargadas" es un módulo nuevo tipo "Mis Borradores" (mismo
-  patrón: modal con lista + botón "Cargar en el formulario") — decisión del
-  propio usuario para resolver el caso "me llega una Acta precargada
-  mientras tengo otra en curso, o me llegan 2": una cola pasiva, no
-  interrumpe el formulario en curso.
+- "Actas Precargadas" es una cola PASIVA (nunca interrumpe un formulario en
+  curso) — resuelve el caso "me llega una Acta precargada mientras tengo
+  otra en curso, o me llegan 2". **Dónde se ve, CAMBIADO 2026-08-25**: no es
+  un botón en Historial tipo "Mis Borradores" (esa primera idea se descartó
+  — el usuario objetó que una Acta asignada es más urgente que un Borrador
+  propio y merece más visibilidad, no menos) — se suma como 3ra categoría a
+  la campanita de alertas del header (ya construida para vencimiento de
+  firma), visible en toda pantalla. Ver detalle completo en el checklist de
+  Fase 2 más abajo.
 
 **Ya construido (código, sin probar contra datos reales todavía)**:
 - `includes/functions.php`: `resolverPosIdCliente($mysqli, $clienteExcel,
@@ -4152,7 +4476,9 @@ recibiendo la fila sugerida con identidad bloqueada pero precio abierto
   mapeo en ese sentido antes de esto).
 - `includes/repositorio_import.php`: `repositorio_parsear_cuotas()` —
   parsea CEDI/CLIENTE/PLAN/CATEGORIAS + columnas de mes dinámicas, infiere
-  trimestre, avisa (sin bloquear) si los 3 meses no traen el mismo monto.
+  trimestre, devuelve `mes1/mes2/mes3` con el monto REAL de cada mes (ver
+  corrección de la misma fecha, más abajo — la primera versión asumía mal
+  que los 3 meses siempre traían el mismo monto).
 - `getters/cuotas_previsualizar_excel.php` — paso 1, no toca la base.
 - `getters/cuotas_guardar.php` — paso 2, UPSERT en `repositorio_cuota_cliente`
   sobre `(pos_id, sector, trimestre, anio)`, resuelve `pos_id` fila por
@@ -4175,23 +4501,42 @@ normales (sin tabs) + un `DROP TABLE IF EXISTS` al principio. **Lección
 para cualquier `.sql` nuevo de este proyecto: evitar tabs en el archivo que
 se le pasa al usuario para HeidiSQL, usar espacios simples.**
 
-**Todavía sin construir (pendiente, esto sigue la Fase 1/2 del plan de esa
-sesión)**:
-- `getters/cuotas_pendientes_asignar.php` + `getters/cuotas_resolver_match.php`
-  (cola de resolución manual para `pos_id` NULL, mismo concepto visual que
-  "Pendientes de Asignar" de Liquidación).
-- 3ra pestaña dentro de `components/repositorios/repositorios.php` +
-  `assets/js/repositorios.js` (subida/previsualización/tabla de Cuotas,
-  reusando el patrón visual ya construido para Rebate/Participación).
-- Fase 2 completa: `getters/listar_actas_precargadas.php`,
-  `getters/obtener_acta_precargada.php`, botón "Actas Precargadas" en
-  Historial (calco de "Mis Borradores"), `registrar.js:
-  cargarPrecarga()`/`window.acRegistrarCargarPrecarga`, marcar
-  `estado='usada'` al guardar el Acuerdo resultante.
-- **Todavía sin probar contra un Excel real** de Cuotas — falta confirmar
-  si "CEDI" del Excel de Cuotas es literalmente el mismo valor que
-  `supervisor` (se asumió por analogía con el Excel de Liquidación, no
-  verificado con este archivo específico todavía).
+**Estado real, no repetir acá — ver el checklist completo más abajo**, que
+es el que se mantiene al día. Dos correcciones importantes salidas de la
+primera prueba real del usuario (2026-08-25, con un Excel de prueba propio
+en `datos/`):
+- **Confirmado por el usuario: CEDI en el Excel de Cuotas de canal Directa
+  ES el nombre del usuario/asesor** (mismo criterio ya usado — `supervisor`
+  en `repositorio_locales_supervisores_cliente` — así que
+  `resolverPosIdCliente()` no necesitó cambios). Esto también simplifica la
+  Fase 2: la asignación de la Acta precargada puede confiar en el
+  `supervisor` real del `pos_id` ya resuelto, sin depender del texto CEDI
+  crudo del Excel.
+- **Corregido: los 3 meses del trimestre SÍ pueden traer montos distintos
+  entre sí** (la primera versión asumía 1 solo monto repetido, error real
+  encontrado al probar con datos de prueba reales) — `valor_mensual
+  DECIMAL` se reemplazó por `valores_mensuales JSON`, mismo formato exacto
+  que `repositorio_acuerdo_lineas.valores_mensuales` (`{"3": 600, "4": 650,
+  "5": 700}`), para que la Fase 2 lo copie directo sin convertir nada.
+  **Pendiente que el usuario corra este ALTER** (no hace falta recrear la
+  tabla, decisión del usuario tras preguntarle DROP+CREATE vs ALTER — con
+  cualquiera de las dos se pierden los datos de la columna vieja igual, un
+  monto único no dice cuál de los 3 meses era):
+  ```sql
+  ALTER TABLE repositorio_cuota_cliente
+    DROP COLUMN valor_mensual,
+    ADD COLUMN valores_mensuales JSON NOT NULL AFTER anio;
+  ```
+- **Eliminar en Cuotas — bloqueado si ya está `usada` (2026-08-25, pedido
+  explícito)**: a diferencia de Rebate/Participación (DELETE físico
+  siempre, son catálogos puros sin historia), una fila de Cuotas en estado
+  `usada` ya generó una Acta real (`acuerdo_id_generado`) — borrarla de
+  verdad rompería la trazabilidad de con qué datos se generó esa Acta.
+  `getters/repositorio_eliminar.php` ahora chequea el estado antes de
+  borrar SOLO para `tipo=cuotas`: `pendiente_match`/`pendiente_uso`/
+  `descartada` se borran físico igual que siempre, `usada` se rechaza con
+  un mensaje claro. No requiere cambio de esquema, es solo un check en el
+  getter.
 
 **Checklist del plan aprobado (copiado acá completo porque el archivo del
 plan vive en `~/.claude/plans/` de esta máquina, que la sesión de la otra
@@ -4207,59 +4552,259 @@ compu no puede leer — esto es la fuente de verdad de qué falta):**
 - [x] `getters/cuotas_resolver_match.php` (asigna pos_id a mano o descarta).
 - [x] `getters/repositorio_listar.php` y `getters/repositorio_eliminar.php`
       extendidos con tipo `cuotas`.
-- [ ] **Frontend Fase 1 (PAUSADO 2026-08-25 a mitad de camino — leer esto
-      antes de seguir, para no perder el hilo desde cualquiera de las 2
-      máquinas):**
-  - [x] `components/repositorios/repositorios.php`: 3ra pestaña
-        `repo-tab-cuotas` ("Cuotas Trimestrales") agregada al lado de
-        Rebate/Participación.
-  - [x] Botón `repo-pendientes-abrir` ("Pendientes de Asignar" + contador)
-        agregado en `.ac-repo-actions`, con clase `hidden` puesta a mano en
-        el HTML — **todavía no tiene el JS que lo muestra/oculta según la
-        pestaña activa, ni el modal que debería abrir** (ese modal AÚN NO
-        EXISTE en el HTML, falta crearlo).
-  - [x] Input `repo-preview-anio`/`repo-preview-anio-wrap` agregado dentro
-        del paso de previsualización del modal "Subir Archivo" (con clase
-        `hidden` puesta a mano) — para que el superdesarrollador tipee el
-        año antes de guardar Cuotas (el Excel no lo trae). **Todavía no
-        tiene el JS que lo muestra/oculta ni que lee su valor al guardar.**
-  - [ ] **`assets/js/repositorios.js` — NADA de esto está hecho todavía**:
-    - Entrada `cuotas` en el objeto `CONFIG` (columnas sugeridas: pos_id,
-      cliente_excel, sector, trimestre, anio, valor_mensual, estado — con
-      un flag para desactivar la edición inline por fila, a diferencia de
-      Rebate/Participación, porque estos datos vienen de un match
-      automático, no tiene sentido editar pos_id/trimestre a mano ahí).
-    - En `activarTab()`: mostrar/ocultar `repo-pendientes-abrir` y
-      `repo-preview-anio-wrap` según `tipo === 'cuotas'`.
-    - `previsualizarArchivo()`: para `tipoActivo === 'cuotas'`, apuntar a
-      `getters/cuotas_previsualizar_excel.php` (no
-      `repositorio_previsualizar_excel.php`) y guardar `data.trimestre` en
-      una variable para mandarlo después al guardar.
-    - `guardarFilas()`/el listener de `repo-subir-guardar`: para cuotas,
-      apuntar a `getters/cuotas_guardar.php` con body
-      `{filas, trimestre, anio}` (leyendo `#repo-preview-anio`) en vez del
-      `{tipo, filas}` genérico.
-    - Modal nuevo "Pendientes de Asignar" (HTML todavía no existe en
-      `repositorios.php`): tabla simple listando
-      `getters/cuotas_pendientes_asignar.php`, cada fila con sus
-      `candidatos` (botones clicables, mismo patrón visual que
-      `liq-candidatos`/`liq-btn-candidato` de `assets/js/liquidacion.js` —
-      sin CSS dedicada, esas clases tampoco tienen reglas propias en
-      `style.css`, se apoyan en `.ac-btn-outline`/`.ac-btn-inline`
-      genéricos) + un input de pos_id manual + botón "Descartar", todos
-      llamando a `getters/cuotas_resolver_match.php`.
-- [ ] **Fase 2 completa, sin empezar**: `getters/listar_actas_precargadas.php`,
-      `getters/obtener_acta_precargada.php`, botón "Actas Precargadas" en
-      Historial (calco de "Mis Borradores"), `registrar.js:
-      cargarPrecarga()`/`window.acRegistrarCargarPrecarga` (bloquea
-      `.month-input` de Meta de Compras, llama `sugerirEnOtrasTablas()` para
-      las otras 3 tablas), marcar `estado='usada'` en
-      `repositorio_cuota_cliente` al guardar el Acuerdo resultante
-      (parámetro nuevo `origen_precarga` en `guardar_acuerdo.php`).
-- [ ] Probar con un Excel real de Cuotas de punta a punta (previsualizar,
-      ver qué matchea solo vs. qué cae en Pendientes de Asignar, resolver a
-      mano, y recién ahí probar Fase 2 con un cliente CON historial y uno
-      SIN historial).
+- [x] **Frontend Fase 1 — completo (2026-08-25)**:
+  - `components/repositorios/repositorios.php`: 3ra pestaña
+    `repo-tab-cuotas`, botón `repo-pendientes-abrir` (contador + toggle por
+    pestaña), input `repo-preview-anio`/`repo-preview-anio-wrap` en el paso
+    de previsualización, y el modal completo `repo-pendientes-modal-overlay`
+    (tabla + candidatos + input de pos_id manual + descartar), reusando el
+    ancho de `.ac-borradores-modal`.
+  - `assets/js/repositorios.js`: `CONFIG.cuotas` (con `columnasPreview`
+    aparte de `columnas` — el Excel no trae pos_id/trimestre/anio/estado, eso
+    se resuelve recién al guardar) + `editable: false` (sin edición inline,
+    a diferencia de Rebate/Participación) + soporte genérico `col.render()`
+    en `celdaValor()`. `activarTab()` muestra/oculta el botón de Pendientes.
+    `previsualizarArchivo()`/el guardado del modal ramifican por
+    `tipoActivo==='cuotas'` a `cuotas_previsualizar_excel.php`/
+    `cuotas_guardar.php` (payload `{filas, trimestre, anio}`, año leído del
+    input nuevo). Sección completa "Pendientes de Asignar" (abrir/cerrar
+    modal, listar, click en candidato o input manual + botón Asignar,
+    botón Descartar) contra `cuotas_pendientes_asignar.php`/
+    `cuotas_resolver_match.php`.
+  - **Probado**: `node --check`/`php -l` limpios en los 2 archivos.
+    **Todavía NO probado en navegador real ni con un Excel real de Cuotas**
+    — falta ese ciclo completo antes de dar la Fase 1 por confirmada.
+- [x] **Fase 2 — construida (2026-08-25), probada con datos reales de solo
+      lectura, falta la prueba real en navegador.** DISEÑO CAMBIADO respecto al
+      plan original, leer antes de construir:** el plan original tenía un
+      botón "Actas Precargadas" en Historial, calco de "Mis Borradores". El
+      usuario objetó eso con un argumento válido: un Borrador es algo que el
+      propio usuario dejó a medias (baja prioridad, tiene sentido que sea un
+      botón discreto) — una Acta Precargada es trabajo ASIGNADO que hay que
+      completar, esconderla detrás de un botón le quita la urgencia real que
+      tiene. Decisión (confirmada con el usuario): en vez de un botón nuevo
+      en Historial, se suma como 3ra categoría a la **campanita de alertas**
+      del header (`getters/alertas_firma.php` +
+      `assets/js/alertas-firma.js`, ya construida para "vence en 20 días") —
+      visible en TODA pantalla apenas se entra al sistema, mismo mecanismo
+      que ya está probado y que el usuario ya conoce, en vez de sumar un
+      lugar más donde mirar. Al hacer click en un item de esta categoría, va
+      DIRECTO a Registrar con esa Acta cargada (no pasa por Historial) — por
+      eso el botón/modal separado en Historial que decía el plan original
+      **ya no hace falta, se saca del alcance**.
+  - `getters/alertas_firma.php`: sumar una 3ra clave `precargadas` a la
+    respuesta JSON (junto a `mias`/`equipo`), usando una función nueva
+    `listar_actas_precargadas_pendientes($mysqli, $usuarioId)` en
+    `includes/functions.php` (agrupa `repositorio_cuota_cliente` por
+    `pos_id`+`trimestre`+`anio` donde `estado='pendiente_uso'` y el
+    `pos_id` resuelve a este usuario vía `usuarioIdDePosId()`).
+  - `assets/js/alertas-firma.js`: nueva sección "Actas Precargadas por
+    completar" en `renderPanel()`, mismo estilo de lista que "Mis Actas por
+    vencer". El contador del badge (`total`) pasa a ser
+    `mias.length + precargadas.length`; `hayCritico` (el pulso) también se
+    activa si hay al menos 1 precargada pendiente (a diferencia de
+    vencimiento, una precarga no tiene una fecha que la escale sola, así
+    que se trata como urgente desde que existe). Click en un item llama a
+    una función nueva (no `irAHistorial()`) que cambia a la pestaña
+    Registrar y dispara `window.acRegistrarCargarPrecarga(posId, trimestre,
+    anio)`.
+  - `getters/obtener_acta_precargada.php` — arma el JSON de la precarga
+    (con el fallback de historial de Subcategoría/Marca, ver Hallazgos
+    clave más arriba) — se mantiene igual que en el plan original.
+  - `registrar.js`: `cargarPrecarga()`/`window.acRegistrarCargarPrecarga`
+    (bloquea `.month-input` de Meta de Compras, llama a
+    `sugerirEnOtrasTablas()` para las otras 3 tablas) — se mantiene igual
+    que en el plan original.
+  - Marcar `estado='usada'` en `repositorio_cuota_cliente` al guardar el
+    Acuerdo resultante (parámetro nuevo `origen_precarga` en
+    `guardar_acuerdo.php`) — igual que en el plan original.
+- [x] Probado con datos reales, de solo lectura (`listar_actas_precargadas_pendientes()`
+      y `obtener_precarga_detalle()` corridos directo contra la base) —
+      encontró y corrigió 2 bugs reales antes de que llegaran al usuario:
+
+  1. **Sector del Excel no siempre matchea el catálogo real** — "POLVO
+     DETERGENTE" no existe como Sector; es Sector "POLVO" + Subcategoría
+     "DETERGENTE" pegados en el mismo texto (confirmado: `sector='POLVO'`
+     tiene una única Subcategoría real, "DETERGENTE"). Nueva función
+     `resolverSectorReal($mysqli, $sectorCrudo)` en `includes/functions.php`,
+     conectada en `getters/cuotas_guardar.php` (Fase 1, no Fase 2 — se
+     corrige ANTES de guardar, no después): 1) ¿matchea directo un Sector
+     real? úsalo tal cual; 2) ¿es "Sector Subcategoría" pegados
+     (`CONCAT(sector,' ',categoria)` exacto) contra una única combinación
+     real? sepáralo, usa solo el Sector; 3) si ninguno matchea (ej. "OTRAS
+     CATEGORIAS" — hay 3 Subcategorías reales bajo `sector='OTROS'`,
+     ninguna encaja, genuinamente ambiguo) se guarda el texto crudo IGUAL
+     (nunca se inventa un Sector) pero con un aviso claro. **Las filas de
+     prueba ya subidas con el bug viejo quedaron con `sector='POLVO
+     DETERGENTE'` guardado tal cual** — hay que volver a subir el Excel de
+     prueba (el UPSERT va a crear una fila NUEVA con `sector='POLVO'`
+     correcto, porque `sector` es parte de la UNIQUE — las viejas con el
+     texto sin corregir quedan huérfanas, hay que borrarlas a mano desde la
+     tabla de Cuotas).
+  2. **Bug real en `registrar.js` (`bloquearFilasPrecargadas()`)**: bloqueaba
+     Segmento/Categoría SIEMPRE, incluso cuando el Segmento quedó ambiguo
+     (ej. `sector='LIQUIDO'` tiene 2 Segmentos reales posibles para JW,
+     `obtener_precarga_detalle()` correctamente lo deja `null` en vez de
+     adivinar) — eso dejaba la fila trabada para siempre, sin ninguna forma
+     de completarla (Segmento bloqueado y vacío a la vez). Corregido: el
+     bloqueo de Segmento/Sector ahora es condicional a que
+     `fila.segmento` haya venido resuelto — si quedó ambiguo, la fila usa
+     el cascade normal (Sector deshabilitado hasta elegir Segmento, como
+     cualquier fila nueva), con los 3 montos mensuales siempre bloqueados
+     igual (eso es lo que JW pidió proteger, no cambia).
+
+  **Todavía sin probar en navegador real** — falta que el usuario cargue
+  una Acta precargada de verdad desde la campanita y confirme visualmente
+  que Meta de Compras queda bien bloqueada/completa y que
+  Cabeceras/Rumas/Perchas reciben la sugerencia.
+
+## Repositorio de Cuotas — borrado lógico + Resumen visual (2026-08-25, mismo día que Fase 2)
+
+Surgió de una tanda de preguntas operativas reales del usuario tras probar
+Fase 1/2 con datos reales (re-subida, cómo dar de baja algo, cómo saber a
+quién se le manda cada Acta) — 3 cambios más:
+
+- **Mensaje de guardado distingue nuevo vs. actualizado** (2026-08-25,
+  pedido explícito: "el que sube el archivo tiene que entender si está
+  cargando algo nuevo o modificando algo que ya existía") — antes decía
+  genérico "Se guardaron N filas", ahora usa `$stmt->affected_rows` de cada
+  `INSERT...ON DUPLICATE KEY UPDATE` (1=nueva, 2=actualizada,
+  0=ya existía igual, sin cambios) y arma el mensaje real, ej. "Se
+  guardaron 8 fila(s) nueva(s), 3 actualizada(s), 1 sin cambios (ya existía
+  igual)." Requiere que la conexión NO tenga el flag `CLIENT_FOUND_ROWS`
+  (confirmado: `db_connect.php` conecta sin flags, así que aplica la
+  semántica clásica 0/1/2).
+  **Ronda 2, mismo pedido, REEMPLAZA lo anterior**: probamos primero una
+  caja verde fija que se quedaba abierta después de guardar (mostrando el
+  resultado real) — el usuario aclaró que no quería enterarse RECIÉN
+  DESPUÉS de guardar, quería saber ANTES de confirmar. Se sacó esa caja del
+  todo (`.ac-alert-success`/`#repo-preview-resultado`, ya no existen) y en
+  su lugar la previsualización de Cuotas ahora tiene una columna extra "Al
+  guardar" con un badge por fila (Nuevo / Actualiza / Ya usada — no se
+  puede modificar / Cliente sin identificar), calculado ANTES de que el
+  usuario confirme:
+  - `getters/cuotas_verificar_estado.php` (nuevo, solo lectura, nunca
+    escribe) — resuelve pos_id/sector igual que `cuotas_guardar.php`
+    (`resolverPosIdCliente()`/`resolverSectorReal()`) y consulta si ya
+    existe una fila para `(pos_id, sector, trimestre, año)`, sin guardar
+    nada.
+  - `assets/js/repositorios.js`: `verificarEstadosPreview()` — se llama
+    apenas se sube el archivo (con el Año por default ya puesto) y de
+    nuevo cada vez que el superdesarrollador cambia el Año (debounce
+    400ms, `previewAnioInput` input listener) — el trimestre se sabe del
+    Excel, pero el año recién se tipea en este mismo paso, así que el
+    chequeo no se puede hacer antes de eso. `renderPreviewTabla()` agrega
+    la columna "Al guardar" solo para `tipoActivo==='cuotas'`.
+  - **Probado con datos reales de solo lectura**: BARRA (ya subida antes)
+    dio "actualiza", "POLVO DETERGENTE" (que ahora se resuelve a Sector
+    real "POLVO", nunca guardado bajo esa clave corregida todavía) dio
+    "nuevo" correctamente, y un cliente inventado dio "sin_cliente" — los
+    3 casos esperados, confirmados exactos.
+  - **Ronda 3, mismo día, 3 pedidos más tras probar en navegador**:
+    1. **Spinner en "Guardar"** — botón genérico `.ac-btn-cargando`
+       (`style.css`, ícono `progress_activity` girando con `@keyframes
+       ac-girar`, `prefers-reduced-motion` respetado) — se activa en
+       `guardarCuotas()`/`guardarFilas()` justo antes del `fetch`, se
+       apaga en `onDone` o en el `.catch()` de error (para no quedar
+       trabado si falla la conexión).
+    2. **Fila entera pintada, no solo el badge** — `claseFilaEstado()`
+       agrega `ac-preview-fila-nueva`/`-actualiza`/`-usada` al `<tr>`;
+       tuvo que pisarse también el fondo de `.ac-preview-input` (el input
+       tapa casi toda la celda, pintar solo el `<tr>` no se veía).
+    3. **El aviso rojo de "revisar" después de guardar confundía** —
+       resultó ser la nota de interpretación de Sector
+       ("POLVO DETERGENTE"->"POLVO", o "no coincide con el catálogo") que
+       ya existía en `cuotas_guardar.php`, pero recién se veía DESPUÉS de
+       guardar. `getters/cuotas_verificar_estado.php` ahora también
+       expone `sector_interpretado`/`sector_sin_resolver` (mismo criterio
+       que `resolverSectorReal()`), y `badgeEstadoPreview()` los muestra
+       como una 2da línea dentro del mismo badge — la misma info, pero
+       ANTES de confirmar.
+
+**Fase 2 probada en navegador real por primera vez (2026-08-25) — 3 correcciones más, todas confirmadas contra datos reales de solo lectura:**
+
+1. **Filas duplicadas (7 en vez de 5) explicadas**: eran las filas viejas
+   guardadas ANTES de la corrección de `resolverSectorReal()` ("POLVO
+   DETERGENTE" sin separar) conviviendo con las nuevas correctas ("POLVO")
+   — se resolvió borrando y resubiendo la base completa del Repositorio de
+   Cuotas. **Lección para cualquier corrección futura de `sector` en
+   Cuotas: avisar siempre que hay que limpiar filas viejas con la clave
+   vieja, porque `sector` es parte de la UNIQUE — nunca se auto-fusionan.**
+2. **"Agregar Fila"/"Eliminar" en Meta de Compras ahora se BLOQUEAN
+   del todo cuando el Acuerdo viene de una precarga** (pedido explícito,
+   corrige el diseño anterior que sí dejaba eliminar filas) — la tabla es
+   una estructura fija, el asesor solo completa Subcategoría/Marca si
+   faltan, nunca la reorganiza. `bloquearFilasPrecargadas()` deshabilita
+   el botón `#ac-add-purchase-row` y cada `.ac-remove-row` de las filas
+   precargadas; `limpiarFormularioParaNuevoAcuerdo()`/`aplicarBorrador()`
+   los reactivan para el siguiente Acuerdo (si no, quedarían bloqueados
+   para toda la sesión). Nueva regla CSS genérica
+   `.ac-icon-btn:disabled, .ac-btn-outline:disabled, .ac-btn-primary:disabled,
+   .ac-btn-secondary:disabled { opacity:0.4; cursor:not-allowed;
+   pointer-events:none; }` — sin esto un `<button disabled>` con estos
+   estilos custom no se ve distinto al habilitado.
+3. **Categorías en $0 ya no entran a la precarga** — como ahora Meta de
+   Compras no deja eliminar filas (punto anterior), una categoría con los
+   3 meses en $0 (ej. "OTRAS CATEGORIAS" sin datos reales en el Excel)
+   quedaría atrapada para siempre sin poder sacarla. `obtener_precarga_detalle()`
+   ahora descarta esas filas ANTES de armar la línea (`array_sum($valores)
+   <= 0`, ver `includes/functions.php`). **Probado con datos reales**:
+   antes de este fix daba 5 líneas (incluida OTRAS CATEGORIAS en $0),
+   después da 4 — exacto lo que esperaba el usuario.
+   - **Corregido 2026-08-26** (el usuario lo notó de inmediato en la
+     campanita real: "5 categorías" pero solo 4 en el formulario) —
+     `listar_actas_precargadas_pendientes()` ya no cuenta con `COUNT(*)`
+     en SQL, trae las filas y suma/filtra `valores_mensuales` en PHP
+     (mismo criterio `array_sum() <= 0` que `obtener_precarga_detalle()`).
+     Probado con datos reales: daba 5, ahora da 4, coincide exacto.
+
+**Hallazgo 2026-08-26, NO es un bug — investigado a pedido del usuario**:
+probando con Javier Maldonado (cliente YUCAILLA PADILLA RENE WILFRIDO,
+Sector BARRA), el PDF real que le dio JW dice "BARRA DETERGENTE EL
+MACHO", pero el spinner de Subcategoría solo mostraba "LAVAVAJILLAS" y
+"ROPA" — parecía que faltaba "EL MACHO". Investigado con `SELECT` de solo
+lectura contra `repositorio_productos`: **"EL MACHO" sí existe**, activo,
+bajo Sector "BARRA" — pero su Subcategoría real ahí es **"ROPA"**, no
+"DETERGENTE". Es un desajuste de nomenclatura entre el maestro de
+productos de Alicorp (tabla externa, este proyecto NUNCA la puede tocar,
+ni esquema ni datos) y lo que JW imprimió a mano en el Acta de papel —
+mismo tipo de caso que "POLVO DETERGENTE"/"OTRAS CATEGORIAS" pero al
+revés (acá el dato SÍ está, solo con otro nombre). Recomendación dada al
+usuario: elegir "ROPA" en el spinner (es la opción real que corresponde a
+"EL MACHO") y, si este desajuste de nombres se repite seguido, comentárselo
+directo a JW — no es algo resoluble desde el código de este proyecto.
+
+- **Bug real corregido en `cuotas_guardar.php`**: resubir el mismo
+  trimestre podía "revivir" una fila ya `usada` (ya generó una Acta real) de
+  vuelta a `pendiente_uso`, rompiendo el enlace con esa Acta. Ahora se
+  chequea el estado ANTES del UPSERT — si ya está `usada`, esa fila puntual
+  se salta por completo (aviso claro, no falla el resto del archivo).
+- **"Eliminar" en Cuotas pasó a ser borrado lógico** (`estado='descartada'`,
+  ya no `DELETE` físico) para `pendiente_match`/`pendiente_uso` — sigue
+  bloqueado del todo para `usada`. Nuevo botón/getter
+  `getters/cuotas_reactivar.php` (solo visible en filas `descartada`) la
+  vuelve a `pendiente_uso` (si tenía `pos_id`) o `pendiente_match` (si no).
+  `updated_at`/`actualizado_por` ya alcanzan para que el usuario pueda
+  ubicar "qué se descartó y cuándo" si después hay que deshacerlo.
+- **Botón "Resumen"** (solo pestaña Cuotas) — modal con 4 stat tiles
+  (Actas pendientes, Ya generadas, Sin usuario asignado, Clientes sin
+  identificar) + gráfico de barras horizontales por usuario (cuántas Actas
+  precargadas pendientes tiene cada uno). `resumen_cuotas($mysqli)` en
+  `functions.php` + `getters/cuotas_resumen.php`. Mismo patrón visual EXACTO
+  ya construido y probado en Liquidación ("Resumen de Pagos") — tarjetas
+  `.ac-resumen-stats`/`.ac-stat-tile` + barras HTML/CSS puro
+  (`.ac-chart-rows`/`.ac-chart-track`/`.ac-chart-seg`, nunca SVG a mano, ver
+  esa lección ya documentada), reusando el mismo azul `#2a78d6` ya validado
+  con el script de la skill `dataviz` — un solo color porque es 1 sola
+  medida por usuario (no hace falta leyenda).
+- **Probado con datos reales de solo lectura**: `resumen_cuotas()` corrido
+  contra la base real dio 12 Actas pendientes, 11 sin usuario asignado, 1
+  asignada a JAVIER MALDONADO, 0 usadas — coincide exacto con lo que se
+  había verificado a mano antes con `usuarioIdDePosId()`.
+
+**Todavía sin probar en navegador real** — falta abrir el modal de Resumen
+y ver el gráfico de verdad, y probar el ciclo completo Descartar->Reactivar
+desde la tabla.
 
 ## Convenciones para código nuevo
 
@@ -4272,3 +4817,22 @@ compu no puede leer — esto es la fuente de verdad de qué falta):**
   consultar `repositorio_productos` / `repositorio_localesddt2` en vivo.
 - Meses siempre se representan como `TINYINT` 0-11 (0=Enero), nunca como texto
   "ENE"/"FEB" en la base (el texto es solo para mostrar en UI/PDF).
+- **Borrado lógico siempre, nunca `DELETE` físico, en tablas de
+  catálogo/repositorio nuevas** (regla base agregada 2026-08-25, tras un
+  caso real: "Eliminar" en Repositorios era un `DELETE` real, y si alguien
+  borraba algo por error no había forma de recuperarlo, ni el dato ni
+  cuándo pasó). Toda tabla nueva de este tipo lleva, además de
+  `created_at`/`updated_at`/`actualizado_por` (quién la modificó por última
+  vez): `eliminado_en DATETIME NULL` (NULL = activa) + `eliminado_por INT
+  UNSIGNED NULL` (quién la borró). "Eliminar" en el código pasa a ser un
+  `UPDATE ... SET eliminado_en = NOW(), eliminado_por = ?`, nunca un
+  `DELETE`; todo `SELECT` de listado agrega `WHERE eliminado_en IS NULL`; y
+  si la tabla tiene un `UNIQUE KEY` de negocio, el UPSERT de guardado tiene
+  que limpiar `eliminado_en`/`eliminado_por` en su `ON DUPLICATE KEY UPDATE`
+  (si no, volver a cargar una fila con la misma clave que una ya borrada
+  actualiza el dato pero la deja invisible, atascada). Implementado primero
+  en `repositorio_rebate_producto`/`repositorio_participacion_percha` (ver
+  sección "Módulo Repositorios" — pantalla "Eliminados" con filtro de fecha
+  + botón Reactivar); `repositorio_cuota_cliente` ya usa el mismo principio
+  con su propio mecanismo (`estado='descartada'`, tiene su propio `estado`
+  enum así que no necesitó las 2 columnas nuevas) — no fue necesario tocarla.

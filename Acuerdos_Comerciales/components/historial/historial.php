@@ -125,6 +125,17 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 	</section>
 
 	<section class="ac-card">
+		<!-- Paginación arriba Y abajo (2026-08-25, pedido explícito: "tengo
+		     que bajar para poder cambiar de página" — con la tabla llena, los
+		     controles de abajo quedan fuera de vista). Ver renderPaginacionBtns()
+		     en historial.js, que ahora escribe en las 2 a la vez. -->
+		<div class="ac-pagination ac-pagination-top" id="hist-paginacion-top" data-pagina="<?= $resultado['pagina'] ?>" data-total-paginas="<?= $resultado['total_paginas'] ?>">
+			<p class="ac-pagination-info" id="hist-paginacion-info-top">
+				Mostrando <strong><?= count($acuerdos) ?></strong> de <strong><?= $resultado['total'] ?></strong> acuerdos
+			</p>
+			<div class="ac-pagination-btns" id="hist-paginacion-btns-top"></div>
+		</div>
+
 		<div class="ac-table-scroll">
 			<table class="ac-table" id="hist-tabla">
 				<thead>

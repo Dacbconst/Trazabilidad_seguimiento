@@ -75,11 +75,38 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 					Pendientes de Asignar
 					<span class="ac-repo-tab-count" id="repo-pendientes-count">—</span>
 				</button>
+				<!-- Solo visible en la pestaña Cuotas — "¿a quién le estoy mandando
+				     qué Actas?" (2026-08-25, pedido explícito), ver
+				     getters/cuotas_resumen.php. -->
+				<button type="button" class="ac-btn-outline ac-btn-inline hidden" id="repo-resumen-abrir">
+					<span class="material-symbols-outlined">bar_chart</span>
+					Resumen
+				</button>
+				<!-- Solo visible en Rebate/Participación (2026-08-25, borrado
+				     lógico — regla base, ver datos/repositorios_schema.sql):
+				     Cuotas ya tiene su propio mecanismo de reactivar
+				     (`estado='descartada'`), no se duplica acá. Ver
+				     getters/repositorio_eliminados.php/_reactivar.php. -->
+				<button type="button" class="ac-btn-outline ac-btn-inline" id="repo-eliminados-abrir">
+					<span class="material-symbols-outlined">restore_from_trash</span>
+					Eliminados
+				</button>
 				<button type="button" class="ac-btn-primary ac-btn-inline" id="repo-subir-abrir">
 					<span class="material-symbols-outlined">upload_file</span>
 					Subir Archivo
 				</button>
 			</div>
+		</div>
+
+		<!-- Paginación arriba Y abajo de la tabla (2026-08-25, pedido explícito:
+		     "tengo que bajar para poder cambiar de página" — con la tabla
+		     llena, los controles de abajo quedan fuera de vista). Misma pareja
+		     info+botones duplicada arriba, siempre en sincro con la de abajo —
+		     ver renderPaginacion() en repositorios.js, que ahora escribe en
+		     las 2 a la vez en vez de una sola. -->
+		<div class="ac-pagination ac-pagination-top" id="repo-paginacion-top" data-pagina="1" data-total-paginas="1">
+			<p class="ac-pagination-info" id="repo-paginacion-info-top">Cargando...</p>
+			<div class="ac-pagination-btns" id="repo-paginacion-btns-top"></div>
 		</div>
 
 		<div class="ac-table-scroll">
@@ -169,6 +196,109 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<span class="material-symbols-outlined">save</span>
 				Guardar
 			</button>
+		</div>
+	</div>
+</div>
+
+<!-- "Pendientes de Asignar" — solo pestaña Cuotas (ver botón
+     repo-pendientes-abrir arriba): filas cuyo cliente del Excel no
+     matchea de forma única contra el maestro (resolverPosIdCliente(),
+     includes/functions.php). Mismo concepto visual que la pantalla
+     homónima de Liquidación (assets/js/liquidacion.js), reusa el ancho de
+     .ac-borradores-modal (lista simple, no necesita el ancho de la
+     previsualización de Excel). -->
+<div class="ac-modal-overlay" id="repo-pendientes-modal-overlay">
+	<div class="ac-modal ac-borradores-modal">
+		<div class="ac-modal-header">
+			<h3>Pendientes de Asignar</h3>
+			<button type="button" class="ac-modal-close" id="repo-pendientes-modal-close" aria-label="Cerrar">
+				<span class="material-symbols-outlined">close</span>
+			</button>
+		</div>
+		<div class="ac-modal-body">
+			<p class="ac-field-hint">El nombre del cliente en el Excel no matcheó solo con ningún cliente único del maestro — elegí uno de los candidatos, buscá el pos_id correcto a mano, o descartá la fila si es un error de tipeo.</p>
+			<div class="ac-table-scroll">
+				<table class="ac-table" id="repo-pendientes-tabla">
+					<thead>
+						<tr>
+							<th>Cliente (Excel)</th>
+							<th>CEDI</th>
+							<th>Categoría</th>
+							<th>Período</th>
+							<th class="ac-text-right">Montos</th>
+							<th>Asignar cliente</th>
+						</tr>
+					</thead>
+					<tbody id="repo-pendientes-body">
+						<tr><td colspan="6" class="ac-table-empty">Cargando...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- "Resumen" — solo pestaña Cuotas (ver botón repo-resumen-abrir arriba):
+     panorama general (getters/cuotas_resumen.php) + gráfico de barras por
+     usuario, mismo patrón visual ya construido y probado en Liquidación
+     ("Resumen de Pagos", ver assets/js/liquidacion.js) — tarjetas de stat +
+     barras en HTML/CSS puro (no SVG, ver esa misma lección documentada en
+     CLAUDE.md). -->
+<div class="ac-modal-overlay" id="repo-resumen-modal-overlay">
+	<div class="ac-modal ac-acta-modal">
+		<div class="ac-modal-header">
+			<h3>Resumen — Cuotas Trimestrales</h3>
+			<button type="button" class="ac-modal-close" id="repo-resumen-modal-close" aria-label="Cerrar">
+				<span class="material-symbols-outlined">close</span>
+			</button>
+		</div>
+		<div class="ac-modal-body">
+			<div class="ac-resumen-stats" id="repo-resumen-stats"></div>
+			<div class="ac-resumen-chart-wrap">
+				<p class="ac-resumen-chart-title">Actas precargadas pendientes por usuario</p>
+				<div id="repo-resumen-chart"></div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- "Eliminados" — Rebate/Participación (2026-08-25, pedido explícito tras
+     descubrir que "Eliminar" era un DELETE físico sin vuelta atrás: "si por
+     error borro algo, ¿cómo lo recupero?"). Filtro de fecha (desde/hasta,
+     sobre `eliminado_en`) para "filtrar rápido el día" — botón Reactivar
+     por fila, ver getters/repositorio_eliminados.php/_reactivar.php. -->
+<div class="ac-modal-overlay" id="repo-eliminados-modal-overlay">
+	<div class="ac-modal ac-borradores-modal">
+		<div class="ac-modal-header">
+			<h3>Eliminados</h3>
+			<button type="button" class="ac-modal-close" id="repo-eliminados-modal-close" aria-label="Cerrar">
+				<span class="material-symbols-outlined">close</span>
+			</button>
+		</div>
+		<div class="ac-modal-body">
+			<p class="ac-field-hint">Filas borradas de este repositorio — se pueden reactivar en cualquier momento, no se pierde el dato.</p>
+			<div class="ac-repo-filtros" style="padding:0 0 var(--space-md);">
+				<div class="ac-field ac-field-inline">
+					<label class="ac-field-label" for="repo-eliminados-desde">Borrado desde</label>
+					<input type="date" class="ac-input" id="repo-eliminados-desde">
+				</div>
+				<div class="ac-field ac-field-inline">
+					<label class="ac-field-label" for="repo-eliminados-hasta">Borrado hasta</label>
+					<input type="date" class="ac-input" id="repo-eliminados-hasta">
+				</div>
+				<button type="button" class="ac-btn-outline ac-btn-inline" id="repo-eliminados-buscar">
+					<span class="material-symbols-outlined">search</span>
+					Filtrar
+				</button>
+			</div>
+			<div class="ac-table-scroll">
+				<table class="ac-table" id="repo-eliminados-tabla">
+					<thead id="repo-eliminados-tabla-head"></thead>
+					<tbody id="repo-eliminados-body">
+						<tr><td class="ac-table-empty">Cargando...</td></tr>
+					</tbody>
+				</table>
+			</div>
 		</div>
 	</div>
 </div>

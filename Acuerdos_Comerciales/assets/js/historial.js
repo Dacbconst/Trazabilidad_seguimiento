@@ -12,9 +12,13 @@
 	var tbody           = document.getElementById('hist-tabla-body');
 	var tablaCard       = tbody.closest('.ac-card');
 	var actualizarBtn   = document.getElementById('hist-actualizar');
+	// paginacionEl sigue siendo la ÚNICA fuente de verdad del estado (data-pagina/
+	// data-total-paginas) — el bloque de arriba es solo visual, se pinta en
+	// sincro pero nada lee su dataset. Paginación arriba Y abajo (2026-08-25,
+	// pedido explícito: "tengo que bajar para poder cambiar de página").
 	var paginacionEl    = document.getElementById('hist-paginacion');
-	var paginacionInfo  = document.getElementById('hist-paginacion-info');
-	var paginacionBtns  = document.getElementById('hist-paginacion-btns');
+	var paginacionInfoEls = [document.getElementById('hist-paginacion-info-top'), document.getElementById('hist-paginacion-info')];
+	var paginacionBtnsEls = [document.getElementById('hist-paginacion-btns-top'), document.getElementById('hist-paginacion-btns')];
 	var buscarTimeout   = null;
 	var histBanner      = document.getElementById('hist-banner');
 	var histBannerText  = document.getElementById('hist-banner-text');
@@ -140,7 +144,8 @@
 				tbody.innerHTML = data.filas;
 				paginacionEl.dataset.pagina = data.pagina;
 				paginacionEl.dataset.totalPaginas = data.total_paginas;
-				paginacionInfo.innerHTML = 'Mostrando <strong>' + data.mostrando + '</strong> de <strong>' + data.total + '</strong> acuerdos';
+				var infoHtml = 'Mostrando <strong>' + data.mostrando + '</strong> de <strong>' + data.total + '</strong> acuerdos';
+				paginacionInfoEls.forEach(function (el) { if (el) el.innerHTML = infoHtml; });
 				renderPaginacionBtns(data.pagina, data.total_paginas);
 				if (data.stats) renderStats(data.stats);
 			})
@@ -162,11 +167,14 @@
 		}
 		html += '<button type="button" class="ac-page-btn" data-pg="' + (pagina + 1) + '" ' + (pagina >= totalPaginas ? 'disabled' : '') + '>' +
 			'<span class="material-symbols-outlined">chevron_right</span></button>';
-		paginacionBtns.innerHTML = html;
 
-		Array.prototype.forEach.call(paginacionBtns.querySelectorAll('.ac-page-btn'), function (btn) {
-			btn.addEventListener('click', function () {
-				if (!btn.disabled) cargarHistorial(parseInt(btn.dataset.pg, 10));
+		paginacionBtnsEls.forEach(function (contenedor) {
+			if (!contenedor) return;
+			contenedor.innerHTML = html;
+			Array.prototype.forEach.call(contenedor.querySelectorAll('.ac-page-btn'), function (btn) {
+				btn.addEventListener('click', function () {
+					if (!btn.disabled) cargarHistorial(parseInt(btn.dataset.pg, 10));
+				});
 			});
 		});
 	}
@@ -205,7 +213,7 @@
 				histBanner.classList.toggle('ac-hist-banner-critica', hayCritico);
 				histBanner.classList.toggle('ac-hist-banner-urgente', !hayCritico);
 				histBannerText.textContent = mias.length === 1
-					? '#' + masUrgente.documento_no + ' — Subí la firma: quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.'
+					? '#' + masUrgente.documento_no + ' — Sube la firma: quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.'
 					: mias.length + ' Actas por vencer — la más próxima, #' + masUrgente.documento_no + ', quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.';
 				histBannerCta.textContent = mias.length === 1 ? 'Ver Acta' : 'Ver todas';
 				histBannerCta.onclick = mias.length === 1

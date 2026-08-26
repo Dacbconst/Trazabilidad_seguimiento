@@ -1,9 +1,13 @@
 (function () {
 	var buscarInput     = document.getElementById('us-buscar');
 	var tbody           = document.getElementById('tabla-usuarios-body');
+	// paginacionEl sigue siendo la ÚNICA fuente de verdad del estado (data-pagina/
+	// data-total-paginas) — el bloque de arriba es solo visual, se pinta en
+	// sincro pero nada lee su dataset. Paginación arriba Y abajo (2026-08-25,
+	// pedido explícito: "tengo que bajar para poder cambiar de página").
 	var paginacionEl    = document.getElementById('paginacion-usuarios');
-	var paginacionInfo  = document.getElementById('paginacion-info');
-	var paginacionBtns  = document.getElementById('paginacion-btns');
+	var paginacionInfoEls = [document.getElementById('paginacion-info-top'), document.getElementById('paginacion-info')];
+	var paginacionBtnsEls = [document.getElementById('paginacion-btns-top'), document.getElementById('paginacion-btns')];
 	var formNuevo       = document.getElementById('form-nuevo-usuario');
 	var nuSubmit        = document.getElementById('nu-submit');
 	var modalClave      = document.getElementById('modal-clave');
@@ -96,7 +100,8 @@
 				tbody.innerHTML = data.filas;
 				paginacionEl.dataset.pagina = data.pagina;
 				paginacionEl.dataset.totalPaginas = data.total_paginas;
-				paginacionInfo.textContent = 'Página ' + data.pagina + ' de ' + data.total_paginas;
+				var infoTexto = 'Página ' + data.pagina + ' de ' + data.total_paginas;
+				paginacionInfoEls.forEach(function (el) { if (el) el.textContent = infoTexto; });
 				renderPaginacionBtns(data.pagina, data.total_paginas);
 				vincularEventosFila();
 			});
@@ -111,11 +116,14 @@
 		}
 		html += '<button type="button" class="ac-page-btn" data-pg="' + (pagina + 1) + '" ' + (pagina >= totalPaginas ? 'disabled' : '') + '>' +
 			'<span class="material-symbols-outlined">chevron_right</span></button>';
-		paginacionBtns.innerHTML = html;
 
-		Array.prototype.forEach.call(paginacionBtns.querySelectorAll('.ac-page-btn'), function (btn) {
-			btn.addEventListener('click', function () {
-				if (!btn.disabled) cargarUsuarios(parseInt(btn.dataset.pg, 10));
+		paginacionBtnsEls.forEach(function (contenedor) {
+			if (!contenedor) return;
+			contenedor.innerHTML = html;
+			Array.prototype.forEach.call(contenedor.querySelectorAll('.ac-page-btn'), function (btn) {
+				btn.addEventListener('click', function () {
+					if (!btn.disabled) cargarUsuarios(parseInt(btn.dataset.pg, 10));
+				});
 			});
 		});
 	}
