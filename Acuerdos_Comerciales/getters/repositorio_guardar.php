@@ -65,7 +65,7 @@ $clavesVistas = []; // clave normalizada -> índice de la última fila que la us
 // de campos que ya tenga tipeados, aunque estén incompletos.
 function repositorio_identificar_fila($tipo, $fila) {
 	if ($tipo === 'rebate') {
-		$partes = array_filter([$fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['segmento'] ?? '']);
+		$partes = array_filter([$fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['ciudad'] ?? '', $fila['canal'] ?? '']);
 		return $partes ? implode(' / ', $partes) : '(fila vacía)';
 	}
 	return ($fila['marca'] ?? '') !== '' ? $fila['marca'] : '(fila vacía)';
@@ -76,19 +76,26 @@ try {
 	if ($tipo === 'rebate') {
 		// eliminado_en/eliminado_por se limpian acá a propósito (2026-08-25,
 		// borrado lógico — ver repositorio_eliminar.php): si el UPSERT
-		// encuentra una fila que estaba borrada (mismo segmento/sector/
+		// encuentra una fila que estaba borrada (misma ciudad/canal/sector/
 		// categoría/marca, el UNIQUE la sigue ocupando aunque esté borrada),
 		// re-subir el Excel la reactiva sola — sin esto, la fila quedaría
 		// actualizada pero seguiría invisible en el listado normal.
+		//
+		// Clave (ciudad, canal, sector, categoria, marca) — NO segmento
+		// (2026-08-27, rediseño: la primera versión con segmento nunca tuvo
+		// filas reales; el Excel real de JW no tiene esa columna, pero SÍ
+		// tiene Ciudad y Canal, que cambian el % del mismo producto — ver
+		// datos/repositorios_schema.sql).
 		$stmt = $mysqli->prepare(
-			'INSERT INTO repositorio_rebate_producto (segmento, sector, categoria, marca, rebate_pct, actualizado_por)
-			 VALUES (?, ?, ?, ?, ?, ?)
+			'INSERT INTO repositorio_rebate_producto (ciudad, canal, sector, categoria, marca, rebate_pct, actualizado_por)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)
 			 ON DUPLICATE KEY UPDATE rebate_pct = VALUES(rebate_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
 		);
 		if (!$stmt) throw new Exception('El repositorio de Rebate todavía no existe en la base (falta correr datos/repositorios_schema.sql).');
 
 		foreach ($filas as $indice => $fila) {
-			$segmento  = repositorio_normalizar_texto($fila['segmento'] ?? '');
+			$ciudad    = repositorio_normalizar_texto($fila['ciudad'] ?? '');
+			$canal     = repositorio_normalizar_texto($fila['canal'] ?? '');
 			$sector    = repositorio_normalizar_texto($fila['sector'] ?? '');
 			$categoria = repositorio_normalizar_texto($fila['categoria'] ?? '');
 			$marca     = repositorio_normalizar_texto($fila['marca'] ?? '');
@@ -96,9 +103,10 @@ try {
 			$etiqueta  = repositorio_identificar_fila($tipo, $fila);
 
 			$faltantes = [];
-			if ($segmento === '') $faltantes[] = 'Segmento';
-			if ($sector === '') $faltantes[] = 'Sector';
-			if ($categoria === '') $faltantes[] = 'Categoría';
+			if ($ciudad === '') $faltantes[] = 'Ciudad';
+			if ($canal === '') $faltantes[] = 'Canal';
+			if ($sector === '') $faltantes[] = 'Categoría'; // columna interna "sector" = "Categoría" en pantalla, ver CONFIG.rebate en repositorios.js
+			if ($categoria === '') $faltantes[] = 'Subcategoría'; // columna interna "categoria" = "Subcategoría" en pantalla
 			if ($marca === '') $faltantes[] = 'Marca';
 			if ($faltantes) {
 				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)];
@@ -113,13 +121,13 @@ try {
 				continue;
 			}
 
-			$clave = $segmento.'|'.$sector.'|'.$categoria.'|'.$marca;
+			$clave = $ciudad.'|'.$canal.'|'.$sector.'|'.$categoria.'|'.$marca;
 			if (isset($clavesVistas[$clave])) {
 				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Este producto se repite más abajo en el mismo archivo — se guardó el último valor'];
 			}
 			$clavesVistas[$clave] = $indice;
 
-			$stmt->bind_param('ssssdi', $segmento, $sector, $categoria, $marca, $rebatePct, $usuarioSesion);
+			$stmt->bind_param('sssssdi', $ciudad, $canal, $sector, $categoria, $marca, $rebatePct, $usuarioSesion);
 			if ($stmt->execute()) {
 				$guardadas++;
 			} else {

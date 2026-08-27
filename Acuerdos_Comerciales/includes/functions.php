@@ -285,6 +285,70 @@ function resolverSectorReal($mysqli, $sectorCrudo) {
 	return count($sectores) === 1 ? $sectores[0] : null;
 }
 
+// Busca un Rebate% en repositorio_rebate_producto tolerando el mismo tipo de
+// desajuste de nombres que resolverSectorReal() (2026-08-27, bug real
+// encontrado probando con datos reales): el Excel de JW guarda "LIQUIDOS"
+// (plural) y "DETERGENTE" para EL MACHO, pero el cascade real de Registrar
+// (repositorio_productos) ofrece "LIQUIDO" (singular) y "ROPA" — una
+// búsqueda exacta contra lo que el asesor elige de verdad NUNCA matchea esas
+// filas (confirmado: ~32 de 55 filas reales, todo el bloque LIQUIDO, más
+// BARRA+EL MACHO). En vez de re-guardar los datos ya subidos, se prueban
+// variantes ACÁ, en el momento de buscar — no se toca
+// repositorio_rebate_producto ni repositorio_productos.
+function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca) {
+	$stmtBase = $mysqli->prepare(
+		"SELECT rebate_pct FROM repositorio_rebate_producto
+		 WHERE eliminado_en IS NULL
+		   AND UPPER(TRIM(ciudad)) = UPPER(TRIM(?)) AND UPPER(TRIM(canal)) = UPPER(TRIM(?))
+		   AND UPPER(TRIM(sector)) = UPPER(TRIM(?)) AND UPPER(TRIM(categoria)) = UPPER(TRIM(?))
+		   AND UPPER(TRIM(marca)) = UPPER(TRIM(?))
+		 LIMIT 1"
+	);
+	if (!$stmtBase) return null;
+
+	$intentar = function ($sectorProbar, $categoriaProbar) use ($mysqli, $stmtBase, $ciudad, $canal, $marca) {
+		$stmtBase->bind_param('sssss', $ciudad, $canal, $sectorProbar, $categoriaProbar, $marca);
+		$stmtBase->execute();
+		$fila = $stmtBase->get_result()->fetch_assoc();
+		return $fila ? (float) $fila['rebate_pct'] : null;
+	};
+
+	// Variantes de plural/singular (agregar o quitar una "S" final) — mismo
+	// criterio que resolverSectorReal(), esta vez sobre Sector Y Categoría.
+	$variantesTexto = function ($texto) {
+		$variantes = [$texto];
+		if (substr($texto, -1) === 'S') $variantes[] = substr($texto, 0, -1);
+		else $variantes[] = $texto.'S';
+		return $variantes;
+	};
+
+	foreach ($variantesTexto($sector) as $sectorProbar) {
+		foreach ($variantesTexto($categoria) as $categoriaProbar) {
+			$valor = $intentar($sectorProbar, $categoriaProbar);
+			if ($valor !== null) { $stmtBase->close(); return $valor; }
+		}
+	}
+	$stmtBase->close();
+
+	// Última opción: ¿Ciudad+Canal+Sector+Marca (ignorando Categoría, que es
+	// el campo que más varía de nombre entre JW y el catálogo real, ver caso
+	// EL MACHO/ROPA) determinan una única fila? Si hay más de una, no se
+	// adivina — se devuelve null como cualquier "sin match" real.
+	$stmt = $mysqli->prepare(
+		"SELECT rebate_pct FROM repositorio_rebate_producto
+		 WHERE eliminado_en IS NULL
+		   AND UPPER(TRIM(ciudad)) = UPPER(TRIM(?)) AND UPPER(TRIM(canal)) = UPPER(TRIM(?))
+		   AND UPPER(TRIM(sector)) = UPPER(TRIM(?)) AND UPPER(TRIM(marca)) = UPPER(TRIM(?))"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('ssss', $ciudad, $canal, $sector, $marca);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return count($filas) === 1 ? (float) $filas[0]['rebate_pct'] : null;
+}
+
 // Dado un pos_id ya resuelto, encuentra qué usuario de la app (cuenta
 // 'activo') es su responsable — vía el mismo supervisor real del cliente
 // (ver supervisores_asignados_activos()). Null si el cliente no tiene
@@ -463,27 +527,30 @@ function resumen_cuotas($mysqli) {
 	$r = $mysqli->query("SELECT COUNT(DISTINCT $agrupador) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'usada'");
 	if ($r) $usadas = (int) $r->fetch_assoc()['n'];
 
-	$sinAsignar = 0;
-	$r = $mysqli->query(
-		"SELECT COUNT(DISTINCT $agrupador) AS n
-		 FROM repositorio_cuota_cliente c
-		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
-		 WHERE c.estado = 'pendiente_uso' AND u.id IS NULL"
-	);
-	if ($r) $sinAsignar = (int) $r->fetch_assoc()['n'];
-
 	$pendientesMatch = 0;
 	$r = $mysqli->query("SELECT COUNT(DISTINCT c.cliente_excel, c.trimestre, c.anio) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_match'");
 	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
 
+	// Lista ÚNICA (2026-08-26, reemplaza el número suelto "Sin usuario
+	// asignado" — el usuario lo encontró confuso sin poder ver A QUIÉN
+	// correspondía) — usuarios reales CON cuenta activa, más los
+	// supervisores del maestro que tienen cuotas pendientes pero todavía no
+	// tienen una cuenta creada en Gestión de Usuarios (`tiene_cuenta: false`,
+	// el frontend los muestra con una marca pasiva en vez de ocultarlos).
 	$stmt = $mysqli->prepare(
-		"SELECT u.usuario, COUNT(DISTINCT $agrupador) AS actas_pendientes
+		"SELECT u.usuario AS nombre, COUNT(DISTINCT $agrupador) AS actas_pendientes, 1 AS tiene_cuenta
 		 FROM repositorio_cuota_cliente c
 		 JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
 		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
 		 WHERE c.estado = 'pendiente_uso'
 		 GROUP BY u.id, u.usuario
+		 UNION ALL
+		 SELECT m.supervisor AS nombre, COUNT(DISTINCT $agrupador) AS actas_pendientes, 0 AS tiene_cuenta
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND u.id IS NULL
+		 GROUP BY m.supervisor
 		 ORDER BY actas_pendientes DESC"
 	);
 	$porUsuario = [];
@@ -491,12 +558,13 @@ function resumen_cuotas($mysqli) {
 		$stmt->execute();
 		$porUsuario = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 		$stmt->close();
+		foreach ($porUsuario as &$fila) { $fila['tiene_cuenta'] = (bool) $fila['tiene_cuenta']; }
+		unset($fila);
 	}
 
 	return [
 		'pendientes'        => $pendientes,
 		'usadas'            => $usadas,
-		'sin_asignar'       => $sinAsignar,
 		'pendientes_match'  => $pendientesMatch,
 		'por_usuario'       => $porUsuario,
 	];
@@ -1061,10 +1129,10 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 	// listar_repositorio_rebate_eliminados() más abajo).
 	$stmtTotal = $mysqli->prepare(
 		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto
-		 WHERE eliminado_en IS NULL AND (segmento LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)"
+		 WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR canal LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)"
 	);
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmtTotal->bind_param('ssss', $like, $like, $like, $like);
+	$stmtTotal->bind_param('sssss', $like, $like, $like, $like, $like);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -1073,15 +1141,15 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
 	$stmt = $mysqli->prepare(
-		"SELECT r.id, r.segmento, r.sector, r.categoria, r.marca, r.rebate_pct, r.updated_at, u.usuario AS actualizado_por_usuario
+		"SELECT r.id, r.ciudad, r.canal, r.sector, r.categoria, r.marca, r.rebate_pct, r.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_rebate_producto r
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = r.actualizado_por
-		 WHERE r.eliminado_en IS NULL AND (r.segmento LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?)
-		 ORDER BY r.segmento, r.sector, r.categoria, r.marca
+		 WHERE r.eliminado_en IS NULL AND (r.ciudad LIKE ? OR r.canal LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?)
+		 ORDER BY r.ciudad, r.canal, r.sector, r.categoria, r.marca
 		 LIMIT ? OFFSET ?"
 	);
 	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmt->bind_param('ssssii', $like, $like, $like, $like, $porPagina, $offset);
+	$stmt->bind_param('sssssii', $like, $like, $like, $like, $like, $porPagina, $offset);
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();

@@ -255,7 +255,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 		<div class="ac-modal-body">
 			<div class="ac-resumen-stats" id="repo-resumen-stats"></div>
 			<div class="ac-resumen-chart-wrap">
-				<p class="ac-resumen-chart-title">Actas precargadas pendientes por usuario</p>
+				<p class="ac-resumen-chart-title">A quién le corresponden — usuarios con cuenta y supervisores sin cuenta todavía</p>
 				<div id="repo-resumen-chart"></div>
 			</div>
 		</div>

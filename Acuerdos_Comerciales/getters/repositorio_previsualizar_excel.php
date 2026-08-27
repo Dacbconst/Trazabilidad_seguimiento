@@ -74,8 +74,14 @@ if (!$resultado['filas']) {
 	responder(false, 'El archivo no tiene filas de datos reconocibles.');
 }
 
+// $resultado['aviso'] (solo Rebate, ver repositorio_parsear_rebate()): el
+// archivo se pudo leer igual, pero le falta la columna Segmento — se
+// muestra como aviso no bloqueante en la previsualización (misma caja
+// .ac-alert-error que ya usa Cuotas para sus avisos, ver
+// mostrarErroresPreview() en repositorios.js).
 responder(true, 'Archivo leído correctamente.', [
 	'nombre_archivo' => $nombreArchivo,
 	'filas' => $resultado['filas'],
+	'avisos' => !empty($resultado['aviso']) ? [$resultado['aviso']] : [],
 ]);
 ?>

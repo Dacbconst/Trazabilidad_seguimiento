@@ -578,25 +578,44 @@
 		var sectorInput = tr.querySelector('.sector-input'), sectorHidden = tr.querySelector('.sector-select');
 		var catInput = tr.querySelector('.cat-input'), catHidden = tr.querySelector('.cat-select');
 		var marcaInput = tr.querySelector('.marca-input'), marcaHidden = tr.querySelector('.marca-select');
+		var rebateInput = tr.querySelector('.ac-rebate-input');
 
-		function aplicarSeg(value) {
+		// Rebate % conectado al repositorio (2026-08-27, ver
+		// buscarYAplicarRebate más abajo) — cualquier cambio en la cascada
+		// por encima de Marca invalida el % que estaba mostrado (venía de OTRA
+		// combinación), así que se resetea a editable/0 hasta que se vuelva a
+		// completar la fila. `silencioso=true` (usado por sugerir(), abajo) lo
+		// salta a propósito: restaurar un borrador/precarga no debe tocar el
+		// rebate_pct histórico ya guardado en esa línea.
+		function resetearRebate() {
+			if (!rebateInput) return;
+			rebateInput.value = 0;
+			rebateInput.readOnly = false;
+			rebateInput.title = '';
+			updatePurchaseRow(tr);
+		}
+
+		function aplicarSeg(value, label, silencioso) {
 			segHidden.value = value; segInput.value = value;
 			sectorHidden.value = ''; sectorInput.value = ''; sectorInput.disabled = !value;
 			catHidden.value = ''; catInput.value = ''; catInput.disabled = true;
 			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = true;
+			if (!silencioso) resetearRebate();
 		}
-		function aplicarSector(value) {
+		function aplicarSector(value, label, silencioso) {
 			sectorHidden.value = value; sectorInput.value = value;
 			catHidden.value = ''; catInput.value = ''; catInput.disabled = !value;
 			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = true;
+			if (!silencioso) resetearRebate();
 		}
-		function aplicarCat(value) {
+		function aplicarCat(value, label, silencioso) {
 			catHidden.value = value; catInput.value = value;
 			marcaHidden.value = ''; marcaInput.value = ''; marcaInput.disabled = !value;
+			if (!silencioso) resetearRebate();
 		}
-		function aplicarMarca(value) {
+		function aplicarMarca(value, label, silencioso) {
 			marcaHidden.value = value; marcaInput.value = value;
-			if (value && onMarcaElegida) onMarcaElegida(segHidden.value, catHidden.value, value);
+			if (value && onMarcaElegida && !silencioso) onMarcaElegida(segHidden.value, sectorHidden.value, catHidden.value, value);
 		}
 
 		inicializarCombo(segInput, segHidden, function () {
@@ -622,10 +641,10 @@
 			sugerir: function (segmento, sector, categoria, marca) {
 				if (segHidden.value) return;
 				if (!sector) sector = inferirSectorDesde(segmento, categoria, marca);
-				aplicarSeg(segmento);
-				if (sector) aplicarSector(sector);
-				aplicarCat(categoria);
-				aplicarMarca(marca);
+				aplicarSeg(segmento, null, true);
+				if (sector) aplicarSector(sector, null, true);
+				aplicarCat(categoria, null, true);
+				aplicarMarca(marca, null, true);
 			}
 		};
 	}
@@ -669,6 +688,50 @@
 		if (filaPercha && filaPercha._comboMarca) filaPercha._comboMarca.sugerir(marca);
 	}
 
+	// Conecta el Rebate % de Meta de Compras al repositorio self-service
+	// (repositorio_rebate_producto, 2026-08-27 — objetivo final documentado
+	// desde la reunión JW 2026-08-18: "que Rebate % se autocomplete y
+	// bloquee, no se tipee a mano"). Se llama al completar Sector+Categoría+
+	// Marca en una fila (ver el callback de bindCascadaComboConSector en
+	// addPurchaseRow). El repositorio guarda por Ciudad+Canal además de
+	// Sector+Categoría+Marca (el mismo producto tiene % distinto según esos
+	// 2 — ver CLAUDE.md "Rebate: rediseño — Ciudad+Canal reemplazan a
+	// Segmento") — Canal se resuelve del canal real del usuario (mismo
+	// criterio que `es_distribuidor` en el resto del proyecto); Ciudad se
+	// resuelve de la Localidad (CEDI) del cliente ya elegido, EXCEPTO en
+	// Distribuidor, donde el repositorio siempre usa "TODAS" sin importar la
+	// ciudad real (confirmado con datos reales: las filas de canal
+	// Distribuidor nunca varían por ciudad). Si hay match exacto, bloquea el
+	// campo con el valor real; si NO hay match (combinación no cargada, o
+	// todavía no se eligió Distribuidor/Local — sin Ciudad no hay cómo
+	// buscar), deja el campo editable — nunca bloquea al usuario por falta
+	// de datos.
+	function buscarYAplicarRebate(tr, sector, categoria, marca) {
+		var rebateInput = tr.querySelector('.ac-rebate-input');
+		if (!rebateInput) return;
+		var canal = catalogoDistribuidor.canal === 'distribuidor' ? 'DISTRIBUIDOR' : 'DIRECTA';
+		var ciudad = canal === 'DISTRIBUIDOR' ? 'TODAS' : localidadEl.textContent;
+		var params = new URLSearchParams({ ciudad: ciudad || '', canal: canal, sector: sector || '', categoria: categoria, marca: marca });
+		fetch('getters/acuerdo_buscar_rebate.php?' + params.toString())
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				// La fila puede haber cambiado de Marca mientras esta consulta
+				// estaba en vuelo (el usuario re-eligió rápido) — solo aplica si
+				// el combo sigue mostrando la misma Marca que se consultó.
+				if (tr.querySelector('.marca-select').value !== marca) return;
+				if (data && data.ok && data.encontrado) {
+					rebateInput.value = (parseFloat(data.rebate_pct) * 100).toFixed(2);
+					rebateInput.readOnly = true;
+					rebateInput.title = 'Bloqueado — viene del repositorio de Rebate.';
+				} else {
+					rebateInput.readOnly = false;
+					rebateInput.title = 'No hay Rebate % cargado en el repositorio para esta combinación — escribilo a mano.';
+				}
+				updatePurchaseRow(tr);
+			})
+			.catch(function () { /* silencioso: el campo ya quedó editable (resetearRebate), el usuario puede seguir tipeando a mano */ });
+	}
+
 	// ---------- Meta de Compras ----------
 	function addPurchaseRow() {
 		var tr = document.createElement('tr');
@@ -682,16 +745,21 @@
 		});
 		html +=
 			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell">$0.00</td>' +
-			// Rebate % bloqueado (2026-08-24, pedido explícito): va a salir de un
-			// repositorio que JW sube (reunión 2026-08-24, ver CLAUDE.md) — por
-			// ahora solo se bloquea el campo, sin lógica de autorrelleno todavía.
+			// Rebate % conectado al repositorio (2026-08-27, ver
+			// buscarYAplicarRebate) — arranca readonly/0 porque la fila todavía
+			// no tiene Segmento/Sector/Categoría/Marca completos; se bloquea con
+			// el valor real si hay match en repositorio_rebate_producto, o se
+			// desbloquea para tipear a mano si no lo hay (ver resetearRebate()).
 			'<td class="ac-text-right ac-col-highlight"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-rebate-input" value="0" readonly></td>' +
 			'<td class="ac-text-right ac-col-highlight ac-tabular est-cell">$0.00</td>' +
 			'<td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
 		tr.innerHTML = html;
 		purchaseBody.appendChild(tr);
 
-		tr._combo = bindCascadaComboConSector(tr, function (seg, cat, marca) { sugerirEnOtrasTablas(seg, cat, marca); });
+		tr._combo = bindCascadaComboConSector(tr, function (seg, sector, cat, marca) {
+			sugerirEnOtrasTablas(seg, cat, marca);
+			buscarYAplicarRebate(tr, sector, cat, marca);
+		});
 
 		var recalc = function () { updatePurchaseRow(tr); };
 		tr.querySelectorAll('.month-input, .ac-rebate-input').forEach(function (i) { i.addEventListener('input', recalc); });

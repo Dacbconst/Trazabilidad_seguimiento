@@ -1289,15 +1289,17 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-3,
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-4 { background: var(--color-surface-container-low); }
 
-/* Campos bloqueados (2026-08-24: Rebate % de Meta de Compras, Participación
-   de Perchas — pendientes de autorrellenar desde un repositorio futuro, ver
-   CLAUDE.md) — gris marcado (no la lavanda sutil de --color-surface-
-   container-high, pedido explícito "que se note más") + cursor "no
-   permitido", pero el número se deja bien oscuro/legible encima, sin
-   opacity ni texto gris que lo apague. Selector puntual (no
-   ".ac-mini-input:read-only" genérico) para no pisar el estilo propio que
-   ya tiene ".ac-combo-input" si algún día vuelve a haber un combo readonly
-   por otro motivo. */
+/* Campos bloqueados — Rebate % de Meta de Compras (conectado al repositorio
+   2026-08-27, ver buscarYAplicarRebate() en registrar.js: readonly SOLO
+   cuando hay match real en repositorio_rebate_producto, editable si no hay
+   match cargado todavía) y Participación de Perchas (sigue fijo en 0,
+   pendiente de que exista repositorio_participacion_percha, ver CLAUDE.md) —
+   gris marcado (no la lavanda sutil de --color-surface-container-high,
+   pedido explícito "que se note más") + cursor "no permitido", pero el
+   número se deja bien oscuro/legible encima, sin opacity ni texto gris que
+   lo apague. Selector puntual (no ".ac-mini-input:read-only" genérico) para
+   no pisar el estilo propio que ya tiene ".ac-combo-input" si algún día
+   vuelve a haber un combo readonly por otro motivo. */
 .ac-rebate-input:read-only, .v-participacion:read-only, .month-input:read-only {
 	background: #d7d5dc;
 	border-color: #b8b5c2;
@@ -1872,6 +1874,34 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-chart-row-label { flex-basis: 130px; max-width: 130px; }
 	.ac-chart-row-value { flex-basis: 70px; }
 }
+
+/* "A quién le corresponden" del Resumen de Cuotas (2026-08-26) — lista con
+   avatar, agrupada en 2 secciones (con cuenta de usuario / sin cuenta
+   todavía) en vez de un badge chico al lado del nombre: separar
+   espacialmente los 2 grupos se distingue de un vistazo. Maquetado primero
+   en Claude Design, aprobado por el usuario, pasado a código acá — mismos
+   tokens reales del proyecto que .ac-avatar-initials/--color-primary, no
+   colores inventados. */
+.ac-resumen-grupo-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 var(--space-sm); }
+.ac-resumen-grupo-titulo-activo { color: var(--color-primary); }
+.ac-resumen-grupo-titulo-inactivo { color: var(--color-outline); }
+.ac-resumen-fila { display: flex; align-items: center; gap: var(--space-sm); border-radius: var(--radius-lg); }
+.ac-resumen-fila-activa { background: var(--color-surface); border: 1px solid var(--color-surface-container); padding: 10px 12px; }
+.ac-resumen-fila:not(.ac-resumen-fila-activa) { padding: 6px 12px; }
+.ac-resumen-avatar-activo, .ac-resumen-avatar-inactivo {
+	width: 32px; height: 32px; border-radius: var(--radius);
+	display: flex; align-items: center; justify-content: center;
+	font-weight: 700; font-size: 13px; flex-shrink: 0;
+}
+.ac-resumen-avatar-activo { background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed); }
+.ac-resumen-avatar-inactivo { background: var(--color-surface-container); color: var(--color-outline); }
+.ac-resumen-nombre { flex: 0 0 180px; max-width: 180px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-resumen-nombre-activo { font-weight: 600; color: var(--color-on-surface); }
+.ac-resumen-nombre-inactivo { color: var(--color-on-surface-variant); }
+.ac-resumen-barra-activa { background: var(--color-primary); }
+.ac-resumen-barra-inactiva { background: var(--color-outline-variant); }
+.ac-resumen-nota { display: flex; align-items: center; gap: 6px; margin: var(--space-xs) 0 0; font-size: 12px; color: var(--color-outline); }
+.ac-resumen-nota svg { flex-shrink: 0; }
 
 /* ---------- Repositorios (2026-08-24) ---------- */
 .ac-repo { display: flex; flex-direction: column; gap: var(--space-lg); }

@@ -33,7 +33,7 @@
 		return dias + ' días';
 	}
 	function accionTexto(dias) {
-		return 'Sube la firma — ' + diasCortos(dias);
+		return 'Subí la firma — ' + diasCortos(dias);
 	}
 
 	// ---------- Vistas (2026-08-26, pedido explícito: "un puntito al lado

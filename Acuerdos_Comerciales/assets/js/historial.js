@@ -213,7 +213,7 @@
 				histBanner.classList.toggle('ac-hist-banner-critica', hayCritico);
 				histBanner.classList.toggle('ac-hist-banner-urgente', !hayCritico);
 				histBannerText.textContent = mias.length === 1
-					? '#' + masUrgente.documento_no + ' — Sube la firma: quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.'
+					? '#' + masUrgente.documento_no + ' — Subí la firma: quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.'
 					: mias.length + ' Actas por vencer — la más próxima, #' + masUrgente.documento_no + ', quedan ' + diasCortosHist(masUrgente.dias_restantes) + '.';
 				histBannerCta.textContent = mias.length === 1 ? 'Ver Acta' : 'Ver todas';
 				histBannerCta.onclick = mias.length === 1

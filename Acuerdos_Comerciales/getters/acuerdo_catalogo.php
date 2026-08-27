@@ -18,6 +18,32 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 
 define('FABRICANTE_ACUERDOS', 'JABONERIA WILSON');
 
+// Alcance real de Acuerdos Comerciales (2026-08-27) — JW fabrica bastante
+// más que línea de limpieza (PASTAS "DON VITTORIO", SALSAS, AEROSOL
+// "SAPOLIO", OTROS/CLORO "EL MACHO"...), pero esas líneas NUNCA aparecen en
+// ninguna de las 3 fuentes reales de este módulo (Cuotas trimestrales,
+// Liquidación Directa/Distribuidor, ni el Excel de Rebate) — las 3
+// coinciden exactas en los mismos 4 Sectores: BARRA/CREMA/LIQUIDO/POLVO.
+// Ver CLAUDE.md, "Alcance real de Acuerdos Comerciales — Sector/Categoría
+// restringidos" para la investigación completa. Filtra las 4 tablas del
+// Acta (Meta de Compras/Cabeceras/Rumas/Perchas), no solo Meta de Compras.
+$combosValidos = [
+	['BARRA', 'LAVAVAJILLAS'],
+	['BARRA', 'ROPA'],
+	['CREMA', 'LAVAVAJILLAS'],
+	['LIQUIDO', 'DESINFECTANTES'],
+	['LIQUIDO', 'DETERGENTE'],
+	['LIQUIDO', 'JABON TOCADOR'],
+	['LIQUIDO', 'LAVAVAJILLAS'],
+	['LIQUIDO', 'SUAVIZANTES'],
+	['POLVO', 'DETERGENTE'],
+];
+$condicionesCombo = [];
+foreach ($combosValidos as $combo) {
+	$condicionesCombo[] = "(sector = '".$mysqli->real_escape_string($combo[0])."' AND categoria = '".$mysqli->real_escape_string($combo[1])."')";
+}
+$filtroSectorCategoria = '('.implode(' OR ', $condicionesCombo).')';
+
 $segmentos = [];
 $res = $mysqli->query(
 	"SELECT DISTINCT segmento, categoria, marca
@@ -27,6 +53,7 @@ $res = $mysqli->query(
 	   AND segmento IS NOT NULL AND segmento <> ''
 	   AND categoria IS NOT NULL AND categoria <> ''
 	   AND marca IS NOT NULL AND marca <> ''
+	   AND $filtroSectorCategoria
 	 ORDER BY segmento, categoria, marca"
 );
 while ($row = $res->fetch_assoc()) {
@@ -45,6 +72,7 @@ $res = $mysqli->query(
 	 WHERE fabricante = '".$mysqli->real_escape_string(FABRICANTE_ACUERDOS)."'
 	   AND activar = 'SI'
 	   AND marca IS NOT NULL AND marca <> ''
+	   AND $filtroSectorCategoria
 	 ORDER BY marca"
 );
 while ($row = $res->fetch_assoc()) {
@@ -70,6 +98,7 @@ $res = $mysqli->query(
 	   AND sector IS NOT NULL AND sector <> ''
 	   AND categoria IS NOT NULL AND categoria <> ''
 	   AND marca IS NOT NULL AND marca <> ''
+	   AND $filtroSectorCategoria
 	 ORDER BY segmento, sector, categoria, marca"
 );
 while ($row = $res->fetch_assoc()) {

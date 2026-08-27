@@ -5,11 +5,22 @@
 	var CONFIG = {
 		rebate: {
 			label: 'Rebate',
-			buscarPlaceholder: 'Buscar por segmento, sector, categoría o marca...',
+			// Ciudad/Canal reemplazan a Segmento (2026-08-27) — el Excel real
+			// de JW (datos/RABATE.xlsx) no trae Segmento, pero sí Ciudad y
+			// Canal, que cambian el % del mismo Sector+Categoría+Marca (ver
+			// CLAUDE.md "Rebate: el Excel real de JW no usa el vocabulario...").
+			// Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría")
+			// — mismo criterio que ya se aplicó en Meta de Compras de
+			// Registrar: la columna interna `sector`/`categoria` no cambia de
+			// nombre, solo el texto visible, para que se lea igual que el
+			// Excel real que sube JW (su "Categoría" = nuestro Sector, su
+			// "Subcategoría" = nuestra Categoría).
+			buscarPlaceholder: 'Buscar por ciudad, canal, categoría, subcategoría o marca...',
 			columnas: [
-				{ key: 'segmento', label: 'Segmento' },
-				{ key: 'sector', label: 'Sector' },
-				{ key: 'categoria', label: 'Categoría' },
+				{ key: 'ciudad', label: 'Ciudad' },
+				{ key: 'canal', label: 'Canal' },
+				{ key: 'sector', label: 'Categoría' },
+				{ key: 'categoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
 				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(1) + '%'; } }
 			]
@@ -357,7 +368,9 @@
 		tabRebate.classList.toggle('active', tipo === 'rebate');
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
-		pendientesAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
+		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito
+		// "quita el botón de Pendientes de Asignar") — se deja el resto del
+		// mecanismo intacto (getters, modal), por si se retoma después.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
 		// "Eliminados" (borrado lógico, 2026-08-25): Rebate/Participación solo
 		// — Cuotas ya tiene su propio mecanismo (estado='descartada'), no se
@@ -920,23 +933,24 @@
 
 	// ---------- Resumen (solo Cuotas) ----------
 	// "¿A quién le estoy mandando qué Actas?" (2026-08-25, pedido explícito) —
-	// mismo patrón visual ya construido y probado en Liquidación ("Resumen de
-	// Pagos", assets/js/liquidacion.js): tarjetas de stat + barras
-	// horizontales en HTML/CSS puro (nunca SVG a mano, ver esa lección en
-	// CLAUDE.md). Un solo color de barra (no hace falta leyenda, es 1 sola
-	// medida por usuario) — reusa el mismo azul ya validado con el script de
-	// la skill dataviz para Liquidación, en vez de inventar/revalidar uno
-	// nuevo.
-	var COLOR_RESUMEN = '#2a78d6';
+	// tarjetas de stat + lista agrupada en 2 secciones (con cuenta/sin
+	// cuenta, ver renderResumenChart()). Rediseño visual 2026-08-26: primero
+	// maquetado en Claude Design, aprobado por el usuario y pasado a código
+	// real acá — colores/avatares en las clases .ac-resumen-* nuevas de
+	// style.css, tomadas de los tokens reales del proyecto (--color-primary,
+	// .ac-avatar-initials), no inventadas.
 	var resumenOverlay = document.getElementById('repo-resumen-modal-overlay');
 	var resumenStats = document.getElementById('repo-resumen-stats');
 	var resumenChart = document.getElementById('repo-resumen-chart');
 
+	// "Sin usuario asignado" como número suelto se sacó (2026-08-26, pedido
+	// explícito: "me hace ruido... quítalo, lo veo innecesario") — esa misma
+	// información ahora vive en la lista de abajo, con nombre y una marca
+	// pasiva por fila (ver renderResumenChart()), no como un conteo ciego.
 	function renderResumenStats(data) {
 		var tiles = [
 			{ label: 'Actas pendientes de completar', value: String(data.pendientes) },
 			{ label: 'Ya generadas (usadas)', value: String(data.usadas) },
-			{ label: 'Sin usuario asignado', value: String(data.sin_asignar), warn: data.sin_asignar > 0 },
 			{ label: 'Clientes sin identificar', value: String(data.pendientes_match), warn: data.pendientes_match > 0 }
 		];
 		resumenStats.innerHTML = tiles.map(function (t) {
@@ -947,24 +961,59 @@
 		}).join('');
 	}
 
+	// Lista única de a quién le corresponden las Actas pendientes — usuarios
+	// reales CON cuenta (barra de color normal) y supervisores del maestro
+	// que todavía no tienen cuenta creada (`tiene_cuenta: false`, ver
+	// resumen_cuotas() en functions.php) con una marca pasiva "Sin cuenta"
+	// al lado del nombre, en vez de un número aparte sin decir a quién
+	// corresponde (2026-08-26, pedido explícito).
+	// Iniciales para el avatar circular de cada fila — mismo criterio visual
+	// que .ac-avatar-initials ya usa en Gestión de Usuarios (primeras letras
+	// de las 2 primeras palabras del nombre).
+	function inicialesDe(nombre) {
+		var partes = (nombre || '').trim().split(/\s+/);
+		return ((partes[0] || '')[0] || '') + ((partes[1] || '')[0] || '');
+	}
+
+	function filaResumenUsuario(u, conCuenta) {
+		var avatarClase = conCuenta ? 'ac-resumen-avatar-activo' : 'ac-resumen-avatar-inactivo';
+		var filaClase = conCuenta ? 'ac-resumen-fila-activa' : '';
+		var barraClase = conCuenta ? 'ac-resumen-barra-activa' : 'ac-resumen-barra-inactiva';
+		var nombreClase = conCuenta ? 'ac-resumen-nombre-activo' : 'ac-resumen-nombre-inactivo';
+		return '<div class="ac-resumen-fila ' + filaClase + '">' +
+			'<div class="' + avatarClase + '">' + escapeHtml(inicialesDe(u.nombre).toUpperCase()) + '</div>' +
+			'<span class="ac-resumen-nombre ' + nombreClase + '">' + escapeHtml(u.nombre) + '</span>' +
+			'<div class="ac-chart-track"><div class="ac-chart-seg ' + barraClase + '" style="width:' + Math.max((u.actas_pendientes / u._max) * 100, 6) + '%;" title="' + escapeHtml(u.nombre) + ' — ' + u.actas_pendientes + ' Acta(s) pendiente(s)"></div></div>' +
+			'<span class="ac-chart-row-value">' + u.actas_pendientes + '</span>' +
+			'</div>';
+	}
+
+	// Agrupado en 2 secciones — "Con cuenta de usuario" / "Sin cuenta
+	// todavía" — en vez de una lista sola con un badge chico al lado del
+	// nombre (2026-08-26, rediseño hecho primero en Claude Design y
+	// aprobado por el usuario): separar espacialmente los dos grupos se
+	// distingue de un vistazo, sin tener que leer cada fila una por una.
 	function renderResumenChart(porUsuario) {
 		if (!porUsuario.length) {
 			resumenChart.innerHTML = '<p class="ac-field-hint">Nadie tiene Actas precargadas pendientes ahora mismo.</p>';
 			return;
 		}
 		var max = Math.max.apply(null, porUsuario.map(function (u) { return u.actas_pendientes; })) || 1;
-		resumenChart.innerHTML =
-			'<div class="ac-chart-rows" role="img" aria-label="Actas precargadas pendientes por usuario">' +
-			porUsuario.map(function (u) {
-				var pct = Math.max((u.actas_pendientes / max) * 100, 1);
-				return '<div class="ac-chart-row">' +
-					'<span class="ac-chart-row-label" title="' + escapeHtml(u.usuario) + '">' + escapeHtml(u.usuario) + '</span>' +
-					'<div class="ac-chart-track">' +
-					'<div class="ac-chart-seg" style="width:' + pct + '%; background:' + COLOR_RESUMEN + ';" title="' + escapeHtml(u.usuario) + ' — ' + u.actas_pendientes + ' Acta(s) pendiente(s)"></div>' +
-					'</div>' +
-					'<span class="ac-chart-row-value">' + u.actas_pendientes + '</span>' +
-					'</div>';
-			}).join('') + '</div>';
+		porUsuario.forEach(function (u) { u._max = max; });
+		var conCuenta = porUsuario.filter(function (u) { return u.tiene_cuenta; });
+		var sinCuenta = porUsuario.filter(function (u) { return !u.tiene_cuenta; });
+
+		var html = '';
+		if (conCuenta.length) {
+			html += '<p class="ac-resumen-grupo-titulo ac-resumen-grupo-titulo-activo">Con cuenta de usuario</p>' +
+				'<div class="ac-chart-rows" style="margin-bottom:16px;">' + conCuenta.map(function (u) { return filaResumenUsuario(u, true); }).join('') + '</div>';
+		}
+		if (sinCuenta.length) {
+			html += '<p class="ac-resumen-grupo-titulo ac-resumen-grupo-titulo-inactivo">Sin cuenta todavía</p>' +
+				'<div class="ac-chart-rows">' + sinCuenta.map(function (u) { return filaResumenUsuario(u, false); }).join('') + '</div>' +
+				'<p class="ac-resumen-nota"><span class="material-symbols-outlined" style="font-size:16px;">info</span>Sus Actas quedan asignadas solas apenas se les cree la cuenta en Gestión de Usuarios.</p>';
+		}
+		resumenChart.innerHTML = html;
 	}
 
 	function abrirResumen() {
@@ -1003,9 +1052,10 @@
 	function columnasEliminados() {
 		return tipoActivo === 'rebate'
 			? [
-				{ key: 'segmento', label: 'Segmento' },
-				{ key: 'sector', label: 'Sector' },
-				{ key: 'categoria', label: 'Categoría' },
+				{ key: 'ciudad', label: 'Ciudad' },
+				{ key: 'canal', label: 'Canal' },
+				{ key: 'sector', label: 'Categoría' },
+				{ key: 'categoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
 				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(1) + '%'; } }
 			]

@@ -374,6 +374,67 @@ hazlo así"):
   repositorio de JW, esto es lo que hay que reemplazar: sacar/mantener el
   `readonly` según corresponda y cargar el valor real ahí en vez del
   default fijo.
+
+**⚠️ Superado para Rebate % (2026-08-27) — ver sección "Rebate % conectado
+al repositorio" más abajo.** Participación de Perchas sigue exactamente
+como se describe arriba (fijo en 0, readonly siempre) — `repositorio_participacion_percha`
+todavía no existe en producción.
+
+## Rebate % conectado al repositorio (2026-08-27)
+
+Objetivo final de la reunión JW 2026-08-18 implementado para Meta de
+Compras: `rebate_pct` ya no es siempre un campo fijo en 0 — se busca en vivo
+contra `repositorio_rebate_producto` (ya creada en producción, ver "Módulo
+Repositorios") apenas la fila completa Segmento+Sector+Categoría+Marca.
+
+- **Nuevo getter `getters/acuerdo_buscar_rebate.php`** (solo lectura,
+  roles `desarrollador`/`superdesarrollador`) — recibe
+  `segmento`/`sector`/`categoria`/`marca` por GET, busca match exacto
+  (`UPPER(TRIM(...))` en los 2 lados — el repositorio se normaliza a
+  mayúsculas al guardar, pero `repositorio_productos` no necesariamente
+  coincide byte a byte) con `eliminado_en IS NULL`. Responde
+  `{ok:true, encontrado:true, rebate_pct}` o `{ok:true, encontrado:false}`
+  — nunca un error 500 aunque la tabla no exista todavía en algún entorno
+  (mismo fallback defensivo que el resto del proyecto: `prepare()` falla en
+  silencio, responde "sin match").
+- **`assets/js/registrar.js`, `bindCascadaComboConSector()`**: al completar
+  Marca (el último nivel de la cascada de Meta de Compras) se llama
+  `buscarYAplicarRebate(tr, seg, sector, cat, marca)`:
+  - **Hay match** → bloquea el input (`readOnly=true`) con el % real del
+    catálogo, `title` explicando por qué.
+  - **No hay match** (combinación todavía no cargada en el repositorio) →
+    deja el campo **editable**, con un `title` que lo explica — decisión de
+    diseño explícita: nunca bloquear el flujo de Registrar por falta de
+    datos en un repositorio que se sigue poblando de a poco. Mismo criterio
+    ya usado en "Actas precargadas" (Marca pre-llenada pero editable cuando
+    la inferencia no es segura).
+  - Cualquier cambio en Segmento/Sector/Categoría (por encima de Marca)
+    invalida el % mostrado — `resetearRebate()` lo vuelve a 0/editable hasta
+    que se complete la fila de nuevo, para no dejar un % de OTRA
+    combinación visible por error.
+  - **Restaurar un borrador o una Acta precargada (`sugerir()`) NO dispara
+    esta búsqueda** — un `rebate_pct` ya guardado en una línea es un dato
+    histórico congelado (mismo principio ya aplicado en el export de
+    Historial: "si el rebate cambia después, NO debe alterar
+    retroactivamente Actas que ya se generaron con el valor viejo"). Se
+    implementó pasando un 3er parámetro `silencioso` a
+    `aplicarSeg`/`aplicarSector`/`aplicarCat`/`aplicarMarca` (el 2do
+    parámetro ya estaba ocupado por el `label` que manda `comboSeleccionar()`
+    en la interacción real, no se podía reusar) — `sugerir()` lo pasa en
+    `true`, la selección real de un combo lo deja `undefined` (falsy).
+  - Guard contra carrera: si el usuario re-elige Marca mientras la consulta
+    anterior sigue en vuelo, la respuesta vieja se descarta (compara
+    `marca-select.value` actual contra la Marca consultada antes de aplicar).
+- **No se tocó** `getters/guardar_acuerdo.php` — sigue leyendo el valor del
+  input tal cual, bloqueado o no, mismo comportamiento de siempre.
+- **Probado**: `node --check`/`php -l` limpios. `acuerdo_buscar_rebate.php`
+  corrido directo (sesión simulada, solo lectura) contra la base real —
+  `prepare()`/`execute()` confirmados OK contra la tabla real recién creada;
+  como `repositorio_rebate_producto` está vacía todavía (0 filas, recién
+  creada), solo se pudo confirmar el camino "sin match" (campo queda
+  editable) — falta que el usuario cargue al menos un producto real en
+  Repositorios > Rebate y pruebe en el navegador que ese caso sí bloquea el
+  campo con el % correcto.
 - Afecta solo a Meta de Compras y Perchas — Cabeceras/Rumas no tienen
   campos de este tipo, no se tocaron.
 
@@ -2851,6 +2912,235 @@ escribir nada real; no quedó ningún artefacto de ese mockup en el código.
   real que ver) ni el flujo completo de guardado end-to-end (requiere las
   tablas creadas).
 
+### Rebate: el Excel real de JW no usa el vocabulario de la app (2026-08-27)
+
+**⚠️ Superado por la sección siguiente** ("Rebate: rediseño — Ciudad+Canal
+reemplazan a Segmento") — el diagnóstico de acá (vocabulario CATEGORIA/
+SUBCATEGORIA) sigue siendo válido, pero la parte de "Segmento vacío, avisar
+y completar a mano" quedó obsoleta: el usuario confirmó que Segmento
+directamente NO EXISTE como concepto en este repositorio — no hace falta
+completarlo nunca, se sacó de la tabla. Leer la sección siguiente para el
+estado real y vigente.
+
+Primer archivo real subido por el usuario (`datos/RABATE.xlsx`, 55 filas)
+tiró "No se encontraron las columnas Segmento, Sector, Categoría y Marca en
+el archivo" — no dejaba subir nada. Diagnosticado corriendo
+`repositorio_parsear_rebate()` directo contra el archivo real (solo
+lectura, sin tocar la base): sus columnas de verdad son **CIUDAD, CANAL,
+CATEGORIA, SUBCATEGORIA, MARCA, REBATE** — nada de "Segmento"/"Sector".
+`xlsx_encontrar_encabezado()` exigía las 4 columnas exactas de una, así que
+ni siquiera llegaba a intentar mapear nada.
+
+- **Mismo swap de vocabulario ya documentado para Meta de Compras en
+  Registrar** (ver "Rename de etiquetas Sector/Categoría..." más abajo): lo
+  que JW llama **"CATEGORIA" es nuestro Sector**, y lo que llama
+  **"SUBCATEGORIA" es nuestra Categoría**. Corregido en
+  `repositorio_parsear_rebate()` (`includes/repositorio_import.php`): el
+  encabezado ahora se busca solo exigiendo **MARCA** (la única columna
+  universal entre las 2 variantes vistas), y Sector/Categoría se resuelven
+  cada uno con su propia lista de alias (`SECTOR`→`CATEGORIA` para Sector;
+  `SUBCATEGORIA`→`CATEGORIA` para Categoría, saltando la que ya se usó como
+  Sector para no tomar la misma columna dos veces).
+- **La columna Segmento simplemente no existe en este archivo real** — se
+  probó auto-inferirla matcheando Sector+Categoría+Marca contra
+  `repositorio_productos` (mismo mecanismo que ya usa
+  `resolverSectorReal()` para Cuotas) y el resultado fue malo: de 11
+  combinaciones únicas probadas, **solo 1 matcheó** — los nombres del Excel
+  de JW no calzan exacto con el catálogo real (`LIQUIDOS` vs `LIQUIDO`,
+  `LAVAVAJILLA` vs `LAVAVAJILLAS`, etc.). Se descartó la inferencia por
+  poco confiable — en vez de eso, si el archivo no trae columna de
+  Segmento, `repositorio_parsear_rebate()` devuelve las filas con
+  `segmento: ''` (editable en la previsualización, mismo input libre de
+  siempre) más un `aviso` no bloqueante explicando que hay que completarlo
+  a mano — `getters/repositorio_previsualizar_excel.php` lo pasa como
+  `avisos: [...]` (mismo mecanismo que ya usaba Cuotas para sus avisos,
+  `mostrarErroresPreview()` en `repositorios.js`, sin tocar el JS).
+  `repositorio_guardar.php` ya rechazaba (con motivo claro) cualquier fila
+  sin Segmento — eso no cambió, solo se avisa antes en vez de ser sorpresa
+  recién al guardar.
+- **Pendiente real, no solo de código**: si esto se repite seguido, lo más
+  limpio a mediano plazo es pedirle a JW que agregue una columna Segmento
+  al archivo (o unificar los nombres de Sector/Categoría con el catálogo
+  real) — completar Segmento a mano en 50+ filas cada vez que suben el
+  Excel no escala bien.
+- **Probado**: `php -l` limpio en los 2 archivos tocados
+  (`includes/repositorio_import.php`, `getters/repositorio_previsualizar_excel.php`).
+  Corrido `repositorio_parsear_rebate()` directo contra `datos/RABATE.xlsx`
+  (solo lectura) — las 55 filas se leen bien, Sector/Categoría mapeados
+  correcto desde CATEGORIA/SUBCATEGORIA, Segmento vacío con el aviso
+  esperado. **No probado en navegador** — falta que el usuario confirme que
+  la previsualización se ve bien y que puede completar Segmento a mano y
+  guardar.
+
+### Rebate: rediseño — Ciudad+Canal reemplazan a Segmento (2026-08-27, mismo día)
+
+El usuario confirmó explícitamente ("nuestro repositorio como tal es ese
+Excel... eso que antes decíamos no estaba definido del todo, no debés
+basarte en eso" / "nuestro Excel es el veredicto final que es lo que
+quieren subir en ese repo") que `datos/RABATE.xlsx` es la fuente de verdad
+completa — el diseño anterior con Segmento (2026-08-24) fue una suposición
+mía, nunca confirmada con JW, y nunca tuvo filas reales en producción.
+
+**Hallazgo real que motivó el rediseño (no solo el vocabulario)**:
+revisando las 55 filas completas del archivo (no solo las primeras),
+encontré que **CIUDAD y CANAL cambian el % de Rebate del mismo producto**
+— confirmado con los 11 productos únicos del archivo, cada uno con
+exactamente 5 filas (DISTRIBUIDOR/TODAS + DIRECTA×4 ciudades), cada una con
+su propio %. Ejemplo real: CREMA/LAVAVAJILLA/LAVA da 2.5% en
+Distribuidor/Todas, 3.5% en Directa/Manabí-Guayaquil-Santo Domingo, 4.0% en
+Directa/Quito. Sin Ciudad+Canal en la clave única, el UPSERT hubiera
+pisado 44 de las 55 filas reales entre sí — se lo advertí al usuario antes
+de tocar el schema (`AskUserQuestion`, confirmó Ciudad+Canal en la clave).
+
+**Schema — `datos/repositorios_schema.sql` actualizado, `ALTER` (no
+`DROP`+`CREATE`, pedido explícito) para que el usuario lo corra**:
+```sql
+ALTER TABLE repositorio_rebate_producto
+	DROP COLUMN segmento,
+	ADD COLUMN ciudad VARCHAR(200) NOT NULL AFTER id,
+	ADD COLUMN canal VARCHAR(100) NOT NULL AFTER ciudad;
+
+DROP INDEX uq_rebate_producto ON repositorio_rebate_producto;
+CREATE UNIQUE INDEX uq_rebate_producto ON repositorio_rebate_producto (ciudad, canal, sector, categoria, marca);
+```
+Sin riesgo de pérdida de datos — la tabla seguía en 0 filas reales
+(confirmado, solo lectura) al momento del rediseño. **Las columnas
+`sector`/`categoria` NO se tocaron** — siguen siendo el mismo par de
+siempre (`sector`=CATEGORIA del Excel de JW, `categoria`=SUBCATEGORIA), ver
+más abajo el rename de ETIQUETA (no de columna).
+
+**Código actualizado, todos verificados con `php -l`/`node --check` y
+`repositorio_parsear_rebate()` corrido directo contra `datos/RABATE.xlsx`
+(solo lectura, 55 filas, `aviso: null` porque el archivo SÍ trae Ciudad y
+Canal)**:
+- `includes/repositorio_import.php` — `repositorio_parsear_rebate()` lee
+  CIUDAD/CANAL como columnas propias (sin alias, son literales en el
+  archivo real); el `aviso` de "falta completar" ahora es sobre Ciudad/
+  Canal, no sobre Segmento (que ya ni se busca).
+- `getters/repositorio_guardar.php` — INSERT/UPDATE con
+  `(ciudad, canal, sector, categoria, marca, rebate_pct, actualizado_por)`;
+  validación de campos faltantes incluye Ciudad/Canal, ya no Segmento.
+- `includes/functions.php` — `listar_repositorio_rebate()` selecciona/
+  busca/ordena por ciudad+canal+sector+categoria+marca.
+- `getters/repositorio_eliminados.php`, `getters/repositorio_exportar.php`
+  (CSV y `.xlsx`) — mismas columnas nuevas.
+- `getters/acuerdo_buscar_rebate.php` (el lookup para Registrar, ver
+  sección "Rebate % conectado al repositorio" más arriba) — **ya NO manda
+  ni pide Segmento** (nunca existió en esta tabla).
+- `assets/js/registrar.js` — `buscarYAplicarRebate(tr, sector, categoria,
+  marca)` perdió el parámetro `segmento` (ya no se manda ni se usa).
+
+**Etiquetas visibles: "Categoría"/"Subcategoría", no "Sector"/"Categoría"**
+(pedido explícito del usuario, "ellos [JW] quieren ver esa columna" — si
+suben un archivo con esos nombres, esperan verlos reflejados, no
+traducidos en silencio a nuestro vocabulario interno). **Mismo criterio
+exacto ya aplicado en Meta de Compras de Registrar** (ver "Rename de
+etiquetas Sector/Categoría..." más abajo): la columna interna sigue
+llamándose `sector`/`categoria` en la base y en el código — SOLO cambia el
+texto que ve el usuario. Tocado en 3 lugares, todos coordinados:
+`CONFIG.rebate.columnas` y `columnasEliminados()` en `repositorios.js`
+(`key:'sector'` → `label:'Categoría'`, `key:'categoria'` →
+`label:'Subcategoría'`), y los encabezados de export en
+`repositorio_exportar.php` (CSV y `.xlsx`). Los mensajes de "falta
+completar" de `repositorio_guardar.php` (`$faltantes[]`) también dicen
+"Categoría"/"Subcategoría" ahora, para no contradecir lo que se ve en la
+tabla.
+
+**Probado**: `php -l` limpio en los archivos tocados. Falta que el usuario
+corra el `ALTER` de arriba y suba `RABATE.xlsx` de verdad para confirmar
+que las 55 filas se guardan bien y se ven con las etiquetas correctas.
+
+**⚠️ Superado el mismo día — matching de Ciudad/Canal ya resuelto** (ver
+sección siguiente, "Rebate: matching de Ciudad/Canal resuelto") — el
+usuario pidió avanzar con esto ("sí hazlo") apenas se confirmó que sin
+Ciudad/Canal el autocompletado quedaba "sin match" en casi todos los casos
+reales. Leer esa sección para el estado real y vigente del lookup.
+
+### Rebate: matching de Ciudad/Canal resuelto (2026-08-27, mismo día)
+
+`getters/acuerdo_buscar_rebate.php` ahora resuelve Ciudad y Canal de
+verdad, no solo Sector+Categoría+Marca — con los 5 campos completos el
+match es exacto sobre la clave única de la tabla (`ciudad, canal, sector,
+categoria, marca`), sin ambigüedad ni degradación a "no encontrado" por
+tener 2+ valores.
+
+- **Canal**: mismo criterio que `es_distribuidor` en el resto del proyecto
+  — `catalogoDistribuidor.canal === 'distribuidor' ? 'DISTRIBUIDOR' :
+  'DIRECTA'` (`assets/js/registrar.js`, `buscarYAplicarRebate()`).
+- **Ciudad**: para canal Directo, la `Localidad` (CEDI) del cliente ya
+  elegido (`localidadEl.textContent`, el mismo dato que ya se mostraba en
+  pantalla y se manda al guardar el Acuerdo) — **confirmado con datos
+  reales que esto calza exacto**: los 4 valores de CEDI reales para canal
+  `COBERTURA` en `repositorio_locales_supervisores_cliente` son
+  `GUAYAQUIL/QUITO/SANTO DOMINGO/MANABI`, IDÉNTICOS a las 4 ciudades del
+  Excel real de Rebate — no fue necesario inventar ningún mapeo. Para canal
+  Distribuidor, **siempre "TODAS" literal, nunca la ciudad real del
+  distribuidor** — confirmado con los datos reales del Excel: las 11 filas
+  de canal Distribuidor dicen Ciudad "TODAS" sin excepción, nunca varían
+  por ciudad puntual.
+- Si no hay Distribuidor/Local elegido todavía, `localidadEl.textContent`
+  es `'—'` — no matchea nada, el campo queda editable como cualquier caso
+  sin datos, sin necesitar un caso especial en el código.
+- **Probado con datos reales de solo lectura** (5 escenarios, sesión
+  simulada, cada uno en su propio proceso PHP para evitar que
+  `require_once`/`$mysqli` se pisen entre `include()` repetidos del mismo
+  getter en un solo proceso — limitación del harness de prueba, no del
+  código real):
+  - Quito/Directa/Crema/Lavavajilla/Lava → 4.0% ✓
+  - Manabí/Directa/Crema/Lavavajilla/Lava → 3.5% ✓
+  - Todas/Distribuidor/Crema/Lavavajilla/Lava → 2.5% ✓
+  - Quito/Distribuidor/... → sin match ✓ (Distribuidor real es "Todas", no Quito)
+  - Cuenca/Directa/... → sin match ✓ (ciudad no cargada en el repositorio)
+  - Los 5 casos dieron exactamente el resultado esperado.
+**⚠️ Ajustado el mismo día (después de subir `RABATE.xlsx` de verdad) —
+match exacto era DEMASIADO estricto, ver "Rebate: matching tolerante"
+más abajo.** El match exacto de arriba (UPPER/TRIM sobre los 5 campos tal
+cual) verificado con datos SINTÉTICOS (mismo texto en ambos lados) daba
+bien, pero contra el cascade REAL de Registrar (que sale de
+`repositorio_productos`, no del Excel de JW) fallaba en la mayoría de los
+casos por diferencias de texto entre las dos fuentes — mismo síntoma que
+ya se había visto antes con Segmento (LIQUIDOS/LIQUIDO). Se agregó
+tolerancia — ver la sección siguiente para el estado real y vigente.
+
+### Rebate: matching tolerante — plural/singular + fallback sin Categoría (2026-08-27, mismo día)
+
+Subido `RABATE.xlsx` real y probado en Registrar: el autocompletado seguía
+sin encontrar match para productos que sí estaban cargados, porque el
+texto de Sector/Categoría que arma el cascade de Meta de Compras (desde
+`repositorio_productos`, el catálogo real de Wilson) no siempre coincide
+letra por letra con el texto que JW tipeó en su Excel — ej. "LIQUIDOS"
+(Excel) vs "LIQUIDO" (catálogo real), o "DETERGENTE" (Excel, para EL
+MACHO) vs "ROPA" (catálogo real para ese mismo producto). El match exacto
+`UPPER(TRIM(...))` de la versión anterior no toleraba ninguna de estas
+diferencias.
+
+**Nueva función `buscarRebateProducto($mysqli, $ciudad, $canal, $sector,
+$categoria, $marca)`** en `includes/functions.php`, consumida por
+`getters/acuerdo_buscar_rebate.php` (que ahora es un wrapper delgado — solo
+lee los `$_GET`, valida sesión/rol, y llama a esta función). Intenta, en
+orden, hasta encontrar una fila:
+1. Match exacto de los 5 campos (como antes).
+2. Variantes de plural/singular de Sector Y Categoría (agregar o quitar una
+   "S" final — mismo criterio que ya usa `resolverSectorReal()` para
+   Cuotas), probando las 4 combinaciones (sector singular/plural × categoría
+   singular/plural).
+3. Último recurso: Ciudad+Canal+Sector+Marca **ignorando Categoría** (el
+   campo que más varía de nombre entre JW y el catálogo real, ver el caso
+   EL MACHO/ROPA) — solo se acepta si da una ÚNICA fila; si hay 2+, es
+   genuinamente ambiguo y no se adivina, se responde "sin match" igual que
+   siempre.
+- **No se implementó todavía, queda pendiente si hace falta**: normalizar
+  con un diccionario de sinónimos más amplio (ej. "ROPA" ↔ "DETERGENTE")
+  — la heurística de plural/singular + fallback sin Categoría resuelve los
+  casos vistos hasta ahora sin necesitar mantener una lista de equivalencias
+  a mano.
+- **Probado**: `php -l` limpio en `includes/functions.php` y
+  `getters/acuerdo_buscar_rebate.php`. **Falta confirmar en navegador** con
+  el archivo real ya cargado (`RABATE.xlsx`, 55 filas, subido por el
+  usuario) que el autocompletado ahora sí bloquea el campo para los
+  productos reales de Registrar — pendiente de que el usuario lo pruebe con
+  una fila real de Meta de Compras.
+
 ### Blindaje "el sistema se defiende solo" (2026-08-24, misma sesión)
 
 Pedido explícito del usuario: no quiere quedar "detrás" del sistema
@@ -4774,6 +5064,52 @@ usuario: elegir "ROPA" en el spinner (es la opción real que corresponde a
 "EL MACHO") y, si este desajuste de nombres se repite seguido, comentárselo
 directo a JW — no es algo resoluble desde el código de este proyecto.
 
+**Resumen — Cuotas Trimestrales, rediseño 2026-08-26 (pedido explícito,
+"me hace ruido... quítalo, lo veo innecesario")**: el usuario probó la
+pantalla en el navegador y el tile "Sin usuario asignado: 11" le pareció
+confuso — un número sin decir A QUIÉN corresponde. Cambios:
+- Se sacó ese tile. `resumen_cuotas()` (`includes/functions.php`) ya no
+  devuelve `sin_asignar` — la lista `por_usuario` ahora es ÚNICA (un
+  `UNION ALL`: usuarios reales con cuenta activa + supervisores del
+  maestro con cuotas pendientes que todavía no tienen cuenta), cada fila
+  con `tiene_cuenta` (bool). El campo cambió de `usuario` a `nombre`
+  (ya no es siempre un usuario real).
+- `renderResumenChart()` (`assets/js/repositorios.js`) muestra esa lista
+  única — la barra de un supervisor sin cuenta sale con `opacity:0.5` +
+  "(sin cuenta)" al lado del nombre, marca pasiva en vez de un badge de
+  alerta (no es un error, es solo informativo).
+- **Probado con datos reales de solo lectura**: da 4 filas — JAVIER
+  MALDONADO (con cuenta, 1 Acta), CARLOS PROAÑO (sin cuenta, 8), XAVIER
+  ALVARADO (sin cuenta, 2), DANNY QUINDE (sin cuenta, 1) — coincide exacto
+  con lo que ya se había visto a mano antes.
+- **De paso, mismo pedido**: el botón "Pendientes de Asignar" de la
+  pestaña Cuotas se ocultó (no se borró el mecanismo completo, solo se
+  dejó de mostrar el botón en `activarTab()`) — el usuario pidió sacarlo
+  rápido sin invertir tiempo en removerlo del todo. Si hace falta
+  retomarlo, `getters/cuotas_pendientes_asignar.php`/`cuotas_resolver_match.php`
+  y el modal siguen intactos, solo no hay forma de abrirlo desde la UI
+  por ahora.
+
+**Rediseño visual con Claude Design, pasado a código real (2026-08-26)**:
+el usuario pidió explícitamente usar la skill `design` para mejorar la
+lista "A quién le corresponden" antes de decidir si valía la pena — se
+armó una maqueta estática (1 artboard, tokens reales del proyecto
+tomados de `style.css`: `--color-primary` #00288e,
+`.ac-avatar-initials`, etc.), publicada como Artifact para que la
+revisara. Le gustó, pidió aplicarla — mismo patrón que ya se usó para el
+Módulo Repositorios ("empezó como mockup... pasó a código real").
+Cambio real (`assets/js/repositorios.js`: `renderResumenChart()`,
+`filaResumenUsuario()`, `inicialesDe()` nuevas; `assets/css/style.css`:
+bloque `.ac-resumen-*` nuevo después de `.ac-chart-row`): la lista ya no
+es un solo bloque con un badge chico "(sin cuenta)" — son 2 secciones
+separadas ("Con cuenta de usuario" / "Sin cuenta todavía"), cada fila con
+avatar de iniciales (mismo estilo que `.ac-avatar-initials` de Gestión de
+Usuarios), nombre y barra — las de "sin cuenta" en gris apagado
+(`--color-outline`/`--color-outline-variant`), las de "con cuenta" en el
+azul primario del proyecto, con una tarjeta sutil de fondo para
+distinguirlas más. Nota informativa al final del grupo sin cuenta
+explicando que se resuelve solo cuando se les crea la cuenta.
+
 - **Bug real corregido en `cuotas_guardar.php`**: resubir el mismo
   trimestre podía "revivir" una fila ya `usada` (ya generó una Acta real) de
   vuelta a `pendiente_uso`, rompiendo el enlace con esa Acta. Ahora se
@@ -4836,3 +5172,210 @@ desde la tabla.
   + botón Reactivar); `repositorio_cuota_cliente` ya usa el mismo principio
   con su propio mecanismo (`estado='descartada'`, tiene su propio `estado`
   enum así que no necesitó las 2 columnas nuevas) — no fue necesario tocarla.
+
+## Rebate — bug real corregido en el match Registrar↔repositorio (2026-08-27)
+
+**Contexto**: la sesión paralela (misma tarde) hizo casi todo el trabajo de
+conectar Rebate a Registrar con el Excel real de JW (`datos/RABATE.xlsx`,
+55 filas: `CIUDAD | CANAL | CATEGORIA | SUBCATEGORIA | MARCA | REBATE`) —
+`ALTER TABLE` de `repositorio_rebate_producto` (sacó `segmento`, agregó
+`ciudad`/`canal`, ya corrido, 55 filas reales guardadas), parser flexible
+(`repositorio_parsear_rebate()` acepta tanto `SECTOR/CATEGORIA` propio como
+`CATEGORIA/SUBCATEGORIA` de JW), y `getters/acuerdo_buscar_rebate.php` +
+`assets/js/registrar.js` (`buscarYAplicarRebate()`) ya conectados: al
+completar Sector+Subcategoría+Marca en una fila de Meta de Compras, busca
+el Rebate real (Ciudad=CEDI del cliente si es Directo, "TODAS" si es
+Distribuidor) y bloquea el campo si hay match, o lo deja editable si no.
+
+**Bug real encontrado y corregido en esta sesión, verificado con datos
+reales de solo lectura**: la búsqueda comparaba texto EXACTO (`UPPER(TRIM())`)
+entre lo que el asesor elige en el cascade real (que sale de
+`repositorio_productos`, ej. Sector="LIQUIDO" singular, Subcategoría="ROPA"
+para EL MACHO) contra lo que quedó guardado en el repositorio tal cual vino
+del Excel de JW (Sector="LIQUIDOS" plural, Subcategoría="DETERGENTE" para
+EL MACHO — mismos 2 desajustes de nombre ya documentados para Cuotas).
+Confirmado con una prueba real: buscar exacto con los valores que de
+verdad ofrece el cascade daba "SIN MATCH" para LIQUIDO+DETERGENTE+CIERTO Y
+para BARRA+ROPA+EL MACHO — es decir, **todo el bloque LIQUIDO (~32 de 55
+filas reales) y BARRA+EL MACHO nunca hubieran matcheado en la práctica**,
+aunque el dato estuviera cargado.
+
+Corregido con `buscarRebateProducto($mysqli, $ciudad, $canal, $sector,
+$categoria, $marca)` (nueva, `includes/functions.php`, mismo espíritu que
+`resolverSectorReal()` de Cuotas pero en el momento de BUSCAR, no de
+guardar — a propósito, para no tener que re-guardar los datos ya subidos):
+1. Match exacto (como ya hacía `acuerdo_buscar_rebate.php`).
+2. Variantes de plural/singular (agregar/quitar una "S" final) de Sector Y
+   de Categoría, probadas en combinación — resuelve LIQUIDOS/LIQUIDO.
+3. Último recurso: Ciudad+Canal+Sector+Marca SIN Categoría — si da una
+   única fila, se usa esa (nunca si hay más de una) — resuelve el caso
+   EL MACHO/ROPA sin necesidad de adivinar entre varias Categorías reales.
+`getters/acuerdo_buscar_rebate.php` ahora delega en esta función en vez de
+tener la consulta exacta inline. **No se tocó `repositorio_rebate_producto`
+(los datos ya subidos quedan tal cual, con el texto crudo del Excel) ni
+`repositorio_productos`** — la corrección vive solo en la búsqueda.
+
+**Probado con datos reales de solo lectura** — los 2 casos que antes
+fallaban ahora resuelven bien (`LIQUIDO+DETERGENTE+CIERTO+QUITO+DIRECTA` ->
+0.015, `BARRA+ROPA+EL MACHO+QUITO+DIRECTA` -> 0.015, coincide exacto con
+las filas reales del Excel), un combo inventado sigue dando `NULL`
+correctamente (no hay falsos positivos). **Todavía sin probar en
+navegador real** — falta abrir Registrar, elegir un producto de la familia
+LIQUIDO o EL MACHO, y confirmar visualmente que el Rebate% se autocompleta
+y bloquea de verdad.
+
+## Alcance real de Acuerdos Comerciales — Sector/Categoría restringidos a 9 combos (2026-08-27)
+
+El usuario recordó de una reunión que JW no trabaja con todo lo que ofrecen
+los spinners de Meta de Compras (ej. PASTAS) y pidió investigar antes de
+tocar nada — usando `repositorio_productos` **y** los Excel reales de
+Liquidación (no solo Rebate) como evidencia independiente.
+
+**Investigación (3 fuentes reales, todas de solo lectura)**:
+- `repositorio_productos` (fabricante=JABONERIA WILSON, activar=SI) tiene
+  18 combinaciones Sector+Subcategoría reales: AEROSOL (AMBIENTADOR,
+  INSECTICIDAS — marca SAPOLIO), BARRA (LAVAVAJILLAS, ROPA), CREMA
+  (LAVAVAJILLAS), LIQUIDO (DESINFECTANTES, DETERGENTE, JABON TOCADOR,
+  LAVAVAJILLAS, SUAVIZANTES), OTROS (CLORO — EL MACHO, LIMPIADOR DE
+  VIDRIO, LIMPIADOR POLVO — LAVA), PASTAS (CORTOS, LARGOS — DON VITTORIO),
+  POLVO (DETERGENTE), SALSAS (CLASICA, SALSA DE TOMATE). **Todos son
+  productos reales de JW** (confirmado con `GROUP_CONCAT(DISTINCT
+  fabricante)` por combo — ninguno mezclado con otra marca), JW simplemente
+  fabrica bastante más que línea de limpieza.
+- `datos/RABATE.xlsx` (Excel real de Rebate): solo 8 de esas 18
+  combinaciones aparecen.
+- `datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA 2026.xlsx`, hoja
+  "CUOTA CLIENTE - CATEGORÍA": la columna CATEGORIAS (=nuestro Sector) solo
+  trae `BARRA`, `CREMA`, `LIQUIDO`, `POLVO DETERGENTE` + un cajón genérico
+  sin desglosar `OTRAS CATEGORIAS`.
+- `datos/LIQUIDACION DE ACUERDO COMERCIALES DISTRIBUIDORES Q2 2026.xlsx`,
+  hoja "CUOTAS POR CAT -DISTRIBUIDORES": mismo resultado, solo `BARRA`,
+  `CREMA`, `LIQUIDO`, `POLVO DETERGENTE` — ni siquiera tiene el cajón
+  genérico.
+
+**Las 3 fuentes de negocio reales (Cuotas, Liquidación, Rebate) coinciden
+exactas**: JW nunca trabaja `AEROSOL`, `OTROS`, `PASTAS` ni `SALSAS` dentro
+de Acuerdos Comerciales — ni un solo Excel real de ningún proceso de este
+módulo los menciona. Esto reduce el catálogo real a **9 de las 18
+combinaciones**: `BARRA/LAVAVAJILLAS`, `BARRA/ROPA`, `CREMA/LAVAVAJILLAS`,
+`LIQUIDO/DESINFECTANTES`, `LIQUIDO/DETERGENTE`, `LIQUIDO/JABON TOCADOR`,
+`LIQUIDO/LAVAVAJILLAS`, `LIQUIDO/SUAVIZANTES`, `POLVO/DETERGENTE`.
+
+**Implementado — el usuario confirmó restringir las 4 tablas del Acta, no
+solo Meta de Compras** (vía `AskUserQuestion`, eligiendo el alcance más
+amplio de las 3 opciones ofrecidas). Un solo punto de cambio:
+`getters/acuerdo_catalogo.php` — array `$combosValidos` (las 9 parejas
+Sector+Categoría de arriba) armado en un `$filtroSectorCategoria` SQL
+(`(sector='X' AND categoria='Y') OR ...`, valores fijos del código, no de
+usuario) y agregado como `AND` extra en las 3 queries del archivo:
+- `segmentos_sector` (Meta de Compras, tiene nivel Sector): filtra directo
+  por el combo Sector+Categoría — de 18 combos reales pasa a mostrar
+  exactamente los 9 confirmados.
+- `segmentos` (Cabeceras/Rumas, sin nivel Sector visible): mismo filtro
+  aplicado sobre Sector/Categoría internos aunque esas tablas no muestren
+  esas columnas — el Segmento resultante sigue siendo el mismo (`CUIDADO
+  DEL HOGAR`/`CUIDADO PERSONAL`, ninguno se pierde), pero ya no ofrece
+  categorías/marcas exclusivas de PASTAS/SALSAS/AEROSOL/OTROS dentro de
+  esos 2 segmentos.
+- `marcas_percha` (Perchas, solo Marca): mismo filtro — de 10 marcas reales
+  de JW baja a 7 (`CIERTO, EL ARRANCAGRASA, EL MACHO, GOL, LAVA, MISTY,
+  SAPOLIO`), quedan afuera `ALACENA`, `ALACENA LIMON` (SALSAS) y `DON
+  VITTORIO` (PASTAS) — `EL MACHO`/`SAPOLIO` SÍ quedan porque también venden
+  productos dentro de los 9 combos válidos (`EL MACHO` en `BARRA/ROPA`,
+  confirmado en el caso ya documentado más arriba).
+
+**No se tocó `repositorio_productos`** (maestro externo de Alicorp, regla
+de siempre) — el filtro vive 100% en la consulta de este getter, reversible
+con solo tocar `$combosValidos` si el alcance real cambia (ej. si JW agrega
+otra línea a Acuerdos Comerciales más adelante).
+
+**Probado con datos reales de solo lectura** (mismas queries que arma el
+getter, corridas directo contra la base): `segmentos_sector` da exacto los
+9 combos esperados, ni uno más ni uno menos; conteo de marcas de Percha
+baja de 10 a 7 como se esperaba; los 2 Segmentos (`CUIDADO DEL
+HOGAR`/`CUIDADO PERSONAL`) se mantienen, ninguno queda vacío por el filtro.
+`php -l` limpio. **Todavía sin probar en navegador real** — falta abrir
+Registrar y confirmar visualmente que los 4 spinners ya no ofrecen
+PASTAS/SALSAS/AEROSOL/OTROS en ninguna de las 4 tablas.
+
+## Módulo nuevo "Seguimiento de Equipo" (superdesarrollador) — SOLO DISEÑO, nada implementado todavía (2026-08-27)
+
+Pedido explícito: un módulo nuevo, exclusivo `superdesarrollador`, "tipo
+seguimiento" — dos cosas puntuales: (1) cuántas Actas se generaron en
+total, (2) quiénes tienen Actas por vencer. Es, en espíritu, la vista de
+"Equipo" que se sacó de la campanita (ver sección "Campanita rediseñada a
+2 pestañas" más arriba, 2026-08-25/26) — pero como módulo propio del
+sidebar, no metida dentro del panel de notificaciones.
+
+**A pedido explícito del usuario, se diseñó primero con Claude Design
+(canvas) antes de tocar código — nada de esto está implementado, es
+100% mockup.** El link del canvas (privado, del usuario) quedó en:
+`https://claude.ai/code/artifact/a941e96c-4a54-4399-9b9c-cc269505219c`
+— para retomar en otra sesión, hay que leerlo con la herramienta de
+Artifact (`action: "read"`) o abrirlo en el navegador, **no hace falta
+rehacer el diseño de cero**.
+
+**Historial de vueltas de diseño (por qué terminó donde terminó)**:
+1. 1ra versión: calcada pixel a pixel de los componentes reales del
+   proyecto (mismo sidebar, header, `.ac-hist-stat`, `.ac-table`,
+   badges) — el usuario la aprobó en el fondo pero pidió explícitamente
+   "no quiero que sea igual a alguno de mis repos existentes, quiero
+   algo original".
+2. 2da versión: dirección completamente distinta — estética "libro de
+   registro/dossier" (serif Newsreader, papel kraft, sellos de tinta
+   circulares en vez de badges) — el usuario la rechazó: "mantén
+   nuestro diseño... eso parecen pptx" — se había ido demasiado lejos
+   del lenguaje visual real de la app, se sentía como una presentación,
+   no como una pantalla del sistema.
+3. **3ra versión (la que quedó, la del link de arriba)**: vuelta a los
+   tokens/componentes reales del proyecto (Inter, `--color-primary:
+   #00288e`, mismos badges/tarjetas/tabla que Historial) — pero
+   conservando lo que sí funcionó del intento 2: el **nivel de detalle**
+   que pidió el usuario después ("si me decís cuántas faltan por
+   firmar, quiero que después clasifique de cuáles usuarios son y qué
+   actas son, a ese nivel de detalle").
+
+**Estructura del diseño final (2 artboards en el canvas)**:
+- **`Main` — Registro general**: header con "Actualizar"; 4 stat tiles
+  (mismo componente que `.ac-hist-stat` de Historial, con un 4to nuevo)
+  — Actas Generadas en Total / Firmadas / Pendientes de Firma /
+  Vencidas; tabla "Equipo — Actas por vencer" con 1 fila por usuario
+  (Usuario, Pendientes, Más Próxima a Vencer con badge de color igual
+  a `ac-badge-urgente`/`ac-badge-critico`, Vencidas, y un botón **"Ver
+  Actas →"**).
+- **`Detalle` — Expediente individual**: se abre al clickear "Ver
+  Actas" de una fila. Breadcrumb de vuelta, cabecera con avatar-
+  iniciales del asesor (mismo patrón `.ac-avatar-initials` de Gestión
+  de Usuarios), sus propios 4 stat tiles, y una tabla `.ac-table` real
+  con las Actas PUNTUALES de ese asesor — Documento (`#ADN-2026-XXXX`),
+  Cliente/PDV, Fecha Generada, Plazo (badge), Acciones (descargar/ver,
+  iguales a los íconos de fila de Historial). Se armó completo solo
+  para Adrian Vasquez como ejemplo (3 Actas reales de este proyecto —
+  `#ADN-2026-0044/0051/0056` — usadas ya varias veces en esta sesión
+  para pruebas, con números de días que cuadran entre el registro
+  general y el expediente: "3 días" en la fila = Acta `#0044` con ese
+  mismo plazo en el detalle).
+
+**Para implementar de verdad cuando se retome** (nada de esto existe
+en código todavía):
+- Nuevo `secciones.php`: entrada `seguimiento`, roles
+  `['superdesarrollador']`, ícono `monitoring`.
+- Backend: la función `listar_equipo_pendientes_firma()` que se borró
+  al sacar "Equipo" de la campanita (ver sección de arriba) es
+  prácticamente la base de la tabla del registro general — hay que
+  revivirla (o algo similar) + sumar una query de conteos globales
+  (total/firmadas/pendientes/vencidas, sin filtrar por `creado_por` —
+  a diferencia de TODO el resto del proyecto, que siempre filtra por el
+  usuario logueado, ver `CLAUDE.md`/reglas de arriba).
+- El expediente individual (`Detalle`) necesita un getter nuevo — algo
+  como `listar_actas_de_usuario($mysqli, $usuarioId)` filtrando por
+  `creado_por = ?` y `estado IN ('generado','enviado')`, mismas
+  columnas que ya trae `listar_alertas_firma_propias()`
+  (`includes/functions.php`) más `pos_name`/`cedi` (join con
+  `repositorio_locales_supervisores_cliente`, mismo patrón que
+  `listar_historial_acuerdos()`).
+- Ojo: como esto es la ÚNICA pantalla del proyecto donde
+  `superdesarrollador` ve Actas de OTROS usuarios (todo lo demás filtra
+  siempre por `creado_por` del que está logueado), reforzar el chequeo
+  de rol en el/los getters nuevos — no alcanza con que el módulo esté
+  oculto en el sidebar para roles sin permiso.

@@ -39,17 +39,18 @@ if ($formato === 'xlsx') {
 	$hoja = $wb->agregarHoja($tipo === 'rebate' ? 'REBATE' : 'PARTICIPACION PERCHA');
 
 	if ($tipo === 'rebate') {
-		$cols = ['Segmento', 'Sector', 'Categoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación'];
+		$cols = ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
-			$wb->celda($hoja, $fila, 1, $f['segmento']);
-			$wb->celda($hoja, $fila, 2, $f['sector']);
-			$wb->celda($hoja, $fila, 3, $f['categoria']);
-			$wb->celda($hoja, $fila, 4, $f['marca']);
-			$wb->celda($hoja, $fila, 5, (float) $f['rebate_pct'], false, 'pct'); // ya es fracción (0.025), 'pct' formatea como %.
-			$wb->celda($hoja, $fila, 6, $f['actualizado_por_usuario'] ?? '');
-			$wb->celda($hoja, $fila, 7, $f['updated_at']);
+			$wb->celda($hoja, $fila, 1, $f['ciudad']);
+			$wb->celda($hoja, $fila, 2, $f['canal']);
+			$wb->celda($hoja, $fila, 3, $f['sector']);
+			$wb->celda($hoja, $fila, 4, $f['categoria']);
+			$wb->celda($hoja, $fila, 5, $f['marca']);
+			$wb->celda($hoja, $fila, 6, (float) $f['rebate_pct'], false, 'pct'); // ya es fracción (0.025), 'pct' formatea como %.
+			$wb->celda($hoja, $fila, 7, $f['actualizado_por_usuario'] ?? '');
+			$wb->celda($hoja, $fila, 8, $f['updated_at']);
 			$fila++;
 		}
 	} else {
@@ -81,10 +82,10 @@ $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8, para que Excel no rompa las tildes al abrir el CSV.
 
 if ($tipo === 'rebate') {
-	fputcsv($out, ['Segmento', 'Sector', 'Categoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación']);
+	fputcsv($out, ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [
-			$f['segmento'], $f['sector'], $f['categoria'], $f['marca'],
+			$f['ciudad'], $f['canal'], $f['sector'], $f['categoria'], $f['marca'],
 			number_format((float) $f['rebate_pct'] * 100, 2).'%',
 			$f['actualizado_por_usuario'] ?? '', $f['updated_at'],
 		]);

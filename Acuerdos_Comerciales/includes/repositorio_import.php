@@ -42,43 +42,86 @@ function repositorio_normalizar_texto($crudo) {
 	return mb_strtoupper($texto, 'UTF-8');
 }
 
+// Formato real confirmado por el usuario 2026-08-27 ("nuestro Excel es el
+// veredicto final que es lo que quieren subir en ese repo",
+// `datos/RABATE.xlsx`): CIUDAD, CANAL, CATEGORIA, SUBCATEGORIA, MARCA,
+// REBATE — reemplaza por completo el primer diseño (Segmento/Sector/
+// Categoría/Marca, una suposición copiada de Meta de Compras que nunca se
+// confirmó con JW y nunca tuvo filas reales en producción). Su "CATEGORIA"
+// es nuestro "Sector" y su "SUBCATEGORIA" es nuestra "Categoría" — mismo
+// swap de vocabulario ya documentado para Meta de Compras en Registrar (ver
+// CLAUDE.md "Rename de etiquetas Sector/Categoría..."). Ciudad y Canal SÍ
+// importan de verdad: el mismo Sector+Categoría+Marca tiene un % de Rebate
+// distinto según Canal (DISTRIBUIDOR/DIRECTA) y Ciudad (verificado con las
+// 55 filas reales del archivo) — por eso son columnas propias de la tabla,
+// no datos descartados.
 function repositorio_parsear_rebate($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
 	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
 	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
 
-	$enc = xlsx_encontrar_encabezado($filas, ['SEGMENTO', 'SECTOR', 'CATEGORIA', 'MARCA']);
-	if (!$enc) return ['error' => 'No se encontraron las columnas Segmento, Sector, Categoría y Marca en el archivo.'];
+	$enc = xlsx_encontrar_encabezado($filas, ['MARCA']);
+	if (!$enc) return ['error' => 'No se encontró la columna Marca en el archivo.'];
+	$m = $enc['mapa'];
+
+	$colCiudad = xlsx_col($m, 'CIUDAD') !== null ? 'CIUDAD' : null;
+	$colCanal  = xlsx_col($m, 'CANAL') !== null ? 'CANAL' : null;
+
+	// Sector (nuestro nivel): el archivo propio dice SECTOR; el que sube JW
+	// en la práctica le dice CATEGORIA.
+	$colSector = null;
+	foreach (['SECTOR', 'CATEGORIA'] as $candidato) {
+		if (xlsx_col($m, $candidato) !== null) { $colSector = $candidato; break; }
+	}
+
+	// Categoría (nuestro nivel): el archivo propio dice CATEGORIA; JW le dice
+	// SUBCATEGORIA. Si "CATEGORIA" ya quedó tomada arriba como Sector, acá
+	// solo puede venir de SUBCATEGORIA — nunca la misma columna dos veces.
+	$colCategoria = null;
+	foreach (['SUBCATEGORIA', 'CATEGORIA'] as $candidato) {
+		if ($candidato === $colSector) continue;
+		if (xlsx_col($m, $candidato) !== null) { $colCategoria = $candidato; break; }
+	}
+
+	if ($colSector === null || $colCategoria === null) {
+		return ['error' => 'No se encontraron las columnas de Sector y Categoría en el archivo (se aceptan también los nombres SECTOR/CATEGORIA o, como en el formato real de JW, CATEGORIA/SUBCATEGORIA).'];
+	}
 
 	$colRebate = null;
 	foreach (['REBATE %', 'REBATE', 'REBATE PCT'] as $candidato) {
-		if (xlsx_col($enc['mapa'], $candidato) !== null) { $colRebate = $candidato; break; }
+		if (xlsx_col($m, $candidato) !== null) { $colRebate = $candidato; break; }
 	}
 	if ($colRebate === null) return ['error' => 'No se encontró la columna de Rebate % en el archivo.'];
 
-	$m = $enc['mapa'];
 	$resultado = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
-		$segmento  = repositorio_normalizar_texto($fila[xlsx_col($m, 'SEGMENTO')] ?? '');
-		$sector    = repositorio_normalizar_texto($fila[xlsx_col($m, 'SECTOR')] ?? '');
-		$categoria = repositorio_normalizar_texto($fila[xlsx_col($m, 'CATEGORIA')] ?? '');
+		$ciudad    = $colCiudad !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCiudad)] ?? '') : '';
+		$canal     = $colCanal !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCanal)] ?? '') : '';
+		$sector    = repositorio_normalizar_texto($fila[xlsx_col($m, $colSector)] ?? '');
+		$categoria = repositorio_normalizar_texto($fila[xlsx_col($m, $colCategoria)] ?? '');
 		$marca     = repositorio_normalizar_texto($fila[xlsx_col($m, 'MARCA')] ?? '');
 		// Fila completamente vacía (huecos entre secciones, o el final de la
-		// hoja) — se salta en silencio. Una fila con SOLO alguno de los 4
+		// hoja) — se salta en silencio. Una fila con SOLO alguno de los
 		// campos vacío sí se incluye (queda a la vista en la previsualización
 		// para que el usuario la corrija a mano, no se descarta).
-		if ($segmento === '' && $sector === '' && $categoria === '' && $marca === '') continue;
+		if ($ciudad === '' && $canal === '' && $sector === '' && $categoria === '' && $marca === '') continue;
 		$resultado[] = [
-			'segmento'   => $segmento,
+			'ciudad'     => $ciudad,
+			'canal'      => $canal,
 			'sector'     => $sector,
 			'categoria'  => $categoria,
 			'marca'      => $marca,
 			'rebate_pct' => round(repositorio_valor_a_fraccion($fila[xlsx_col($m, $colRebate)] ?? 0), 4),
 		];
 	}
-	return ['filas' => $resultado];
+
+	$aviso = ($colCiudad === null || $colCanal === null)
+		? 'Este archivo no trae columna de Ciudad y/o Canal — completalos a mano en cada fila antes de guardar (una fila sin Ciudad o Canal no se va a poder guardar).'
+		: null;
+
+	return ['filas' => $resultado, 'aviso' => $aviso];
 }
 
 // Excel de Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md

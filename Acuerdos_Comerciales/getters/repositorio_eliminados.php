@@ -32,7 +32,7 @@ if (!in_array($tipo, ['rebate', 'participacion'], true)) {
 // adaptado a texto vacío porque acá el filtro es una fecha, no un entero.
 if ($tipo === 'rebate') {
 	$stmt = $mysqli->prepare(
-		"SELECT r.id, r.segmento, r.sector, r.categoria, r.marca, r.rebate_pct, r.eliminado_en, u.usuario AS eliminado_por_usuario
+		"SELECT r.id, r.ciudad, r.canal, r.sector, r.categoria, r.marca, r.rebate_pct, r.eliminado_en, u.usuario AS eliminado_por_usuario
 		 FROM repositorio_rebate_producto r
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = r.eliminado_por
 		 WHERE r.eliminado_en IS NOT NULL
