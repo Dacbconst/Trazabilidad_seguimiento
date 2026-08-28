@@ -8,6 +8,7 @@ $secciones = [
 	['id' => 'registrar',        'label' => 'Registrar Acuerdo PDV', 'icono' => 'dashboard',       'componente' => 'components/registrar/registrar.php',               'roles' => ['desarrollador', 'superdesarrollador']],
 	['id' => 'historial',        'label' => 'Historial de Acuerdos', 'icono' => 'description',     'componente' => 'components/historial/historial.php',               'roles' => ['desarrollador', 'superdesarrollador']],
 	['id' => 'repositorios',     'label' => 'Repositorios',          'icono' => 'inventory_2',     'componente' => 'components/repositorios/repositorios.php',         'roles' => ['superdesarrollador']],
+	['id' => 'seguimiento',      'label' => 'Seguimiento de Equipo', 'icono' => 'monitoring',      'componente' => 'components/seguimiento/seguimiento.php',           'roles' => ['superdesarrollador']],
 	// Liquidación oculta temporalmente (2026-08-25, pedido explícito del
 	// usuario) — sigue en duda de negocio si el mecanismo de subir Excel +
 	// matching automático es lo que el cliente realmente pidió (ver

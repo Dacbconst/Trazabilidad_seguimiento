@@ -5379,3 +5379,209 @@ en código todavía):
   siempre por `creado_por` del que está logueado), reforzar el chequeo
   de rol en el/los getters nuevos — no alcanza con que el módulo esté
   oculto en el sidebar para roles sin permiso.
+
+## Módulo "Seguimiento de Equipo" — implementado de verdad (2026-08-27, mismo día, otra sesión)
+
+Retoma el mockup de la sección anterior, pero con un cambio de diseño
+explícito del usuario respecto al plan original: **en vez del artboard
+"Detalle" con breadcrumb (navegar a una pantalla aparte)**, el usuario pidió
+un **dropdown/acordeón inline** — click en cualquier parte de la fila de un
+usuario expande, DEBAJO de esa misma fila, sus Actas puntuales (documento,
+distribuidor, fecha generada — y para Pendientes de Firma, además días
+restantes). Mismo patrón para las 2 tablas ("Actas Generadas" y "Pendientes
+de Firma"), con filtro de trimestre + año arriba de ambas.
+
+**Archivos nuevos**:
+- `components/seguimiento/seguimiento.php` — página completa: filtros
+  (trimestre/año, mismo `<select>` que Historial), 4 stat tiles (Total/
+  Firmadas/Pendientes/Vencidas, informativos, no filtran nada al click) y
+  las 2 tablas con SSR inicial (mismo patrón que Historial: primer render en
+  PHP, refrescos posteriores por AJAX).
+- `assets/js/seguimiento.js` — filtros (recarga las 2 tablas + stats),
+  expand/colapso por fila (delegación de click en el `<tbody>`, no solo el
+  botón chevron — toda la fila es clickeable) con caché en el DOM
+  (`data-cargado`, el detalle de un usuario se pide al servidor una sola vez
+  por carga de página, no en cada abrir/cerrar). Expuesto
+  `window.acSeguimientoRefrescar` (hookeado en `index.php`, mismo patrón que
+  Historial/Repositorios/etc.).
+- `getters/seguimiento_resumen.php` / `getters/seguimiento_actas_usuario.php`
+  — ambos reforzando `rolPermitido(['superdesarrollador'])` de nuevo (única
+  pantalla del proyecto que expone Actas de otros usuarios).
+
+**Backend (`includes/functions.php`)**: `resumen_seguimiento_equipo()`
+(stats + desglose por usuario de ambas tablas), `listar_actas_equipo_usuario()`
+(el detalle que se abre al expandir), `renderFilaSeguimientoUsuario()` +
+`renderFilaDetalleSeguimientoGenerada()`/`renderFilaDetalleSeguimientoPendiente()`
+(HTML de las filas, mismo patrón de "el servidor renderiza el `<tr>`, el
+getter solo lo envuelve en JSON" que ya usa Historial —
+`renderFilaHistorial()`), `badgeDiasRestantesSeguimiento()` (mismo criterio
+de urgencia de 20 días que Historial: ≤5 días urgente, ≤1 crítico).
+`listar_anios_disponibles_equipo()` — como acá `superdesarrollador` ve TODO
+el equipo, es sin filtrar por `creado_por`, a diferencia de
+`listar_anios_disponibles()` que ya existía para Historial.
+
+**3 hallazgos reales corregidos, verificados con datos reales de solo
+lectura (nunca con un script que escriba — regla raíz del repo) antes de
+darlo por terminado**:
+1. **El total global (42) no coincidía con la suma de la tabla por usuario
+   (7)** — la primera versión usaba `JOIN` normal a
+   `repositorio_usuarios_acuerdos`, que descarta en silencio cualquier Acta
+   con `creado_por IS NULL`. Confirmado con datos reales: **35 de 42 Actas
+   reales son así** (Actas viejas, de antes de que se empezara a rastrear el
+   usuario que las generó — ver "El gap real" en Pendientes/decisiones
+   abiertas). Corregido con `LEFT JOIN` + `COALESCE(u.id, 0)`/
+   `COALESCE(u.usuario, 'Sin usuario asignado')`, un bucket sintético
+   `usuario_id=0` que agrupa esas 35 — mismo criterio que ya usa
+   `resumen_cuotas()` para los supervisores sin cuenta. Fila con tratamiento
+   visual apagado (`.ac-seg-fila-huerfana`, opacidad + subtítulo explicando
+   por qué), para no confundirla con un usuario real del equipo.
+2. **El detalle de ese bucket daba vacío pese a contar 35** — el `LEFT JOIN`
+   de arriba resuelve el CONTEO, pero `listar_actas_equipo_usuario()`
+   todavía usaba `JOIN` normal a `repositorio_locales_supervisores_cliente`
+   (para traer `pos_name`) — confirmado con datos reales: **0 de esas 35
+   Actas tienen un `pos_id` que matchee el maestro actual** (`JW0618`,
+   `JW0965`, etc. ya no existen ahí), así que las 35 desaparecían también
+   del detalle. Mismo fix: `LEFT JOIN`, `pos_name` cae a `'—'` en el render
+   si no hay match, la fila nunca desaparece.
+3. **Badge "Vence hoy" engañoso en Actas viejas sin estado real** —
+   `dias_restantes` se calcula en el SQL para cualquier fila con
+   `fecha_generacion`, sin mirar `estado`; confirmado con datos reales que
+   esas 35 Actas viejas tienen `estado` en blanco (no `generado`/`enviado`
+   reales) — sin guard, el badge las mostraba como "Vence hoy" aunque nunca
+   corrieron ese plazo. Corregido en
+   `renderFilaDetalleSeguimientoGenerada()` con el mismo chequeo que ya usa
+   `renderFilaHistorial()`: el badge de días solo aplica si
+   `estado IN ('generado','enviado')`, si no cae a "Pendiente" genérico.
+
+**Probado**: `php -l` limpio en los 6 archivos tocados/nuevos, `node --check`
+limpio en `seguimiento.js`. Las 2 funciones nuevas y sus variantes de bucket
+huérfano corridas directo contra la base real (solo lectura, sin llamar
+`barrer_actas_vencidas()` desde el script de diagnóstico — esa función hace
+un `UPDATE`, nunca se invoca a mano fuera de la app real, regla raíz del
+repo): stats reales (42 total, 1 firmada, 6 pendientes, 0 vencidas), 2
+usuarios reales con cuenta (JAVIER MALDONADO 4, ADRIAN VASQUEZ 3) + el
+bucket de 35 sin usuario, suma exacta 42/42; detalle de ambos usuarios
+reales y del bucker huérfano confirmados con filas reales. **Todavía sin
+probar en navegador real** — falta que el usuario entre a "Seguimiento de
+Equipo" logueado como `superdesarrollador`, confirme visualmente el
+acordeón (expandir/colapsar, ambas tablas, ambos filtros) y que el mockup
+del canvas se sienta reflejado en el resultado real.
+
+## Módulo "Seguimiento de Equipo" — REDISEÑO completo, reemplaza la implementación anterior (2026-08-27, mismo día, sesión de diseño)
+
+**⚠️ Superada la sección "Módulo 'Seguimiento de Equipo' — implementado de
+verdad" de arriba** (tiles + tabla con acordeón) — el usuario la calificó
+"6 de 10" y pidió explícitamente rediseñar con Claude Design. Se hizo 3
+rondas de mockup (link del canvas final, aprobado:
+`https://claude.ai/code/artifact/3ed37f45-9a0c-4bd0-b013-672084c70975`,
+leer con Artifact `action:"read"` si hace falta retomar el diseño) antes de
+tocar código real:
+
+1. **1ra ronda de mockup**: maestro-detalle con 2 pestañas (Generadas/
+   Pendientes) + franja con barra proporcional + bucket "Sin usuario
+   asignado". El usuario dio 6/10: la barra proporcional era ilegible (84%
+   histórico aplastaba el resto a una línea invisible), y las 2 pestañas se
+   sentían redundantes con los "chips" de la franja (misma info, 2
+   mecanismos distintos).
+2. **2da ronda**: reemplazó las 2 pestañas + la barra por **un solo filtro
+   de 4 estados** (Todas/Firmadas/Pendientes/Vencidas) que controla a la
+   vez la lista de Equipo y el detalle — "Todas" muestra todo (lo que antes
+   hacía la pestaña Generadas), los otros 3 filtran la MISMA tabla. Se sacó
+   el bucket "Sin usuario asignado" por completo, a pedido explícito del
+   usuario ("no pongas un histórico dizque sin vincular, eso no") — el
+   total pasó de 42 (crudo) a 7 (solo Actas con `creado_por` real). Se
+   agregó buscador de usuario (en memoria, sin red).
+3. **3ra ronda (la que se implementó)**: mismos cambios funcionales,
+   corrigiendo el copy — "Quién generó qué, y a quién hay que ir a buscar
+   la firma primero" y "— ordenado por cantidad" sonaban poco corporativos,
+   reemplazados por texto más formal (ver `VISTAS` en `seguimiento.js`).
+   Confirmado también: el orden de Pendientes es ascendente por días
+   restantes (arriba lo más próximo a vencer, abajo lo que tiene más
+   margen) — ya estaba así, el usuario solo lo reconfirmó explícito.
+
+**Arquitectura real, distinta al resto del proyecto a propósito**: los 2
+getters (`getters/seguimiento_resumen.php`,
+`getters/seguimiento_actas_usuario.php`) devuelven **JSON crudo**, no HTML
+pre-armado como el resto de getters de este proyecto (ver
+`renderFilaHistorial()` de Historial) — `assets/js/seguimiento.js` arma
+TODO el DOM (lista, filtros, detalle) en cliente a partir de ese JSON.
+Decisión deliberada: cambiar de filtro/buscar tiene que sentirse
+instantáneo, sin ida y vuelta al servidor en cada click, y el dataset por
+equipo es chico. Mismo espíritu que ya usa `resumen_cuotas()` +
+`renderResumenChart()` de Repositorios (JSON in, JS arma el gráfico), no es
+un patrón nuevo en el proyecto, solo la primera vez que se usa para una
+lista completa en vez de un gráfico.
+
+**Backend (`includes/functions.php`)** — reemplaza TODO lo de la sección
+anterior:
+- `resumen_seguimiento_equipo($mysqli, $trimestre, $anio)`: 1 sola query
+  con `JOIN` normal (no LEFT JOIN — ya no hay bucket huérfano) a
+  `repositorio_usuarios_acuerdos`, `GROUP BY u.id`, trae
+  `total/firmadas/pendientes/vencidas/dias_mas_proxima` por usuario en una
+  sola pasada (antes eran 2 queries separadas, "generadas" y "pendientes").
+  Solo devuelve usuarios con al menos 1 Acta real en el período — no hay
+  fila "0 Actas" para alguien sin actividad (se evaluó traer TODOS los
+  usuarios activos con `LEFT JOIN`, se descartó: los roles reales no
+  distinguen limpio "equipo comercial" de "cuenta admin" — `FRANKLIN
+  SALCEDO` y `JAVIER MALDONADO` son ambos `superdesarrollador` en la base
+  real, no `desarrollador` — así que filtrar por rol hubiera sido
+  arbitrario; derivar el equipo de quién generó Actas de verdad evita esa
+  ambigüedad sin inventar una regla de negocio nueva).
+- `listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre, $anio,
+  $tipo)`: `$tipo` ahora es `'todas'|'firmadas'|'pendientes'|'vencidas'`
+  (antes era un booleano `$soloPendientes`) — un `switch` arma la condición
+  SQL y el `ORDER BY` (`pendientes` ordena por `dias_restantes ASC`, el
+  resto por fecha de generación DESC). Ya no hay rama `usuario_id=0` ni
+  `LEFT JOIN` al maestro de clientes (volvió a `JOIN` normal, ya no hace
+  falta tolerar `pos_id` sin match del bucket huérfano que ya no existe).
+- Se borraron `badgeDiasRestantesSeguimiento()`, `renderFilaSeguimientoUsuario()`,
+  `renderFilaDetalleSeguimientoGenerada()`, `renderFilaDetalleSeguimientoPendiente()`
+  — quedaron sin uso porque el render ahora vive 100% en `seguimiento.js`
+  (`badgeParaActa()`, `badgeParaDias()`, mismo criterio de 20 días/≤5
+  urgente/≤1 crítico, reimplementado en JS).
+- `listar_anios_disponibles_equipo()` se mantiene igual.
+
+**Frontend**:
+- `components/seguimiento/seguimiento.php`: solo arma el shell (header,
+  pills de trimestre + `<select>` de año, los 4 botones de filtro con
+  contadores en 0, buscador, contenedores vacíos con "Cargando...") — mismo
+  patrón que ya usa la campanita de alertas en `index.php` (JS llena todo
+  vía fetch al cargar). Los pills de trimestre/el filtro de estado son
+  botones reales (no un `<select>`), calcado del mockup aprobado.
+- `assets/js/seguimiento.js`: `cargarResumen()` (fetch inicial + en cada
+  cambio de trimestre/año), `computeFilasBase()`/`aplicarBusqueda()`
+  (arman la lista filtrada en memoria, sin red), `cargarDetalle()` (única
+  llamada de red que SÍ depende de la selección — con caché simple vía
+  `ultimoFetchKey` para no repetir el fetch si la selección efectiva no
+  cambió). Anillo de avatar: `conic-gradient` inline calculado en JS
+  (verde = % firmadas, naranja/rojo = urgencia de lo pendiente).
+- CSS nuevo en `assets/css/style.css`, sección "Seguimiento de Equipo
+  (2026-08-27, rediseño maestro-detalle...)" — reemplaza el bloque CSS de
+  la versión anterior (acordeón) completo. Grid maestro-detalle cae a 1
+  columna bajo 900px.
+
+**Probado**: `php -l`/`node --check` limpios en los 6 archivos. Las 2
+funciones nuevas de `functions.php` corridas directo contra la base real
+(solo lectura): `resumen_seguimiento_equipo()` da exacto
+total=7/firmadas=1/pendientes=6/vencidas=0 y los 2 usuarios reales con sus
+4 conteos + `dias_mas_proxima` correctos; `listar_actas_equipo_usuario()`
+probado con los 4 tipos (`todas`/`firmadas`/`pendientes`/`vencidas`) contra
+usuarios reales — el orden de `pendientes` da 2/13/18 días (ascendente,
+como se pidió), `firmadas` para JAVIER MALDONADO da exacto su única Acta
+firmada, `vencidas` da vacío (0 reales, coincide). **Todavía sin probar en
+navegador real** — falta que el usuario entre a "Seguimiento de Equipo"
+logueado como `superdesarrollador` y confirme visualmente los 4 filtros,
+el buscador, y que el layout ocupa bien el espacio real de `.ac-content`
+(pedido explícito, no solo el ancho fijo del mockup).
+
+### 2 bugs reales encontrados por el usuario probando en navegador (2026-08-27, mismo día)
+1. **`.ac-avatar-initials { border-radius: var(--radius) }` (4px) nunca fue
+   un círculo** — cuadrado con esquinas apenas curvas, invisible en Gestión
+   de Usuarios (el avatar flota solo) pero roto/desalineado contra el aro
+   perfectamente redondo nuevo de Seguimiento de Equipo
+   (`.ac-seg-avatar-ring`). Corregido en el componente COMPARTIDO
+   (`border-radius: 50%`) — mejora también Gestión de Usuarios de paso.
+2. **Botón "Todas" del filtro de Seguimiento mostraba 0** — el backend
+   manda `stats.total`, no `stats.todas`; `actualizarBotonesFiltro()`
+   buscaba `statsActual['todas']` (undefined). Corregido con mapeo
+   explícito `key === 'todas' ? statsActual.total : statsActual[key]`.

@@ -1277,4 +1277,145 @@ function listar_repositorio_cuotas_pendientes_match($mysqli) {
 
 	return $filas;
 }
+
+// ---------- Seguimiento de Equipo (repositorio_acuerdos, TODOS los usuarios) ----------
+// Rediseño 2026-08-27 (misma fecha, sesión de diseño con Claude Design):
+// reemplaza el primer intento (tiles + tabla con acordeón) por un
+// maestro-detalle con UN SOLO filtro de estado (Todas/Firmadas/Pendientes/
+// Vencidas) que controla a la vez la lista de "Equipo" y el detalle — ver el
+// mockup aprobado, link en CLAUDE.md. Sin bucket de "Sin usuario asignado"
+// (pedido explícito del usuario: no mostrarlo) — este módulo solo cuenta
+// Actas con un usuario real vinculado (`creado_por`), por diseño, no es un
+// bug si el total no coincide con el total crudo de `repositorio_acuerdos`.
+//
+// Arquitectura: los getters devuelven JSON crudo (no HTML pre-armado como el
+// resto del proyecto) — mismo patrón ya usado en resumen_cuotas()/
+// cuotas_resumen.php (el gráfico de barras de Repositorios también arma su
+// DOM en JS a partir de JSON). Se eligió acá porque cambiar de filtro/
+// buscar tiene que sentirse instantáneo (sin ida y vuelta al servidor por
+// cada click), y el dataset por equipo es chico.
+//
+// Única pantalla del proyecto donde superdesarrollador ve Actas de OTROS
+// usuarios (todo lo demás filtra siempre por creado_por de la sesión) —
+// reforzar el chequeo de rol en los getters, no alcanza con que el módulo
+// esté oculto del sidebar para los demás roles.
+
+// Años con al menos un Acuerdo real de CUALQUIER usuario — a diferencia de
+// listar_anios_disponibles() (que filtra por creado_por), este filtro de
+// Seguimiento es a nivel de todo el equipo.
+function listar_anios_disponibles_equipo($mysqli) {
+	$anios = [];
+	$r = $mysqli->query(
+		"SELECT DISTINCT anio FROM repositorio_acuerdos
+		 WHERE estado NOT IN ('borrador', 'anulado') ORDER BY anio DESC"
+	);
+	if ($r) $anios = array_map('intval', array_column($r->fetch_all(MYSQLI_ASSOC), 'anio'));
+	return $anios;
+}
+
+// Stats globales (4 números) + un array por usuario con sus 4 conteos
+// (total/firmadas/pendientes/vencidas) más `dias_mas_proxima` (la Acta
+// pendiente más urgente de ese usuario, null si no tiene ninguna) — de acá
+// el frontend deriva las 4 vistas filtradas sin pedir nada más al servidor.
+// $trimestre 1-4 (0 = todos), $anio 0 = todos.
+function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
+	barrer_actas_vencidas($mysqli);
+
+	$bounds          = trimestreABounds($trimestre);
+	$trimestreActivo = $bounds ? 1 : 0;
+	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
+	$anio            = (int) $anio;
+
+	$vacio = ['stats' => ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'vencidas' => 0], 'equipo' => []];
+
+	$stmt = $mysqli->prepare(
+		"SELECT u.id AS usuario_id, u.usuario AS nombre,
+		        COUNT(*) AS total,
+		        COUNT(CASE WHEN a.acta_firmada_archivo IS NOT NULL THEN 1 END) AS firmadas,
+		        COUNT(CASE WHEN a.acta_firmada_archivo IS NULL AND a.estado IN ('generado', 'enviado') THEN 1 END) AS pendientes,
+		        COUNT(CASE WHEN a.estado = 'vencido' THEN 1 END) AS vencidas,
+		        MIN(CASE WHEN a.acta_firmada_archivo IS NULL AND a.estado IN ('generado', 'enviado')
+		                 THEN DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) END) AS dias_mas_proxima
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 WHERE a.estado NOT IN ('borrador', 'anulado')
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)
+		 GROUP BY u.id, u.usuario
+		 ORDER BY total DESC"
+	);
+	if (!$stmt) return $vacio;
+	$stmt->bind_param('iiiii', $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->execute();
+	$equipo = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$stats = ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'vencidas' => 0];
+	foreach ($equipo as &$u) {
+		$u['usuario_id']       = (int) $u['usuario_id'];
+		$u['total']            = (int) $u['total'];
+		$u['firmadas']         = (int) $u['firmadas'];
+		$u['pendientes']       = (int) $u['pendientes'];
+		$u['vencidas']         = (int) $u['vencidas'];
+		$u['dias_mas_proxima'] = $u['dias_mas_proxima'] !== null ? (int) $u['dias_mas_proxima'] : null;
+		$stats['total']      += $u['total'];
+		$stats['firmadas']   += $u['firmadas'];
+		$stats['pendientes'] += $u['pendientes'];
+		$stats['vencidas']   += $u['vencidas'];
+	}
+	unset($u);
+
+	return ['stats' => $stats, 'equipo' => $equipo];
+}
+
+// Detalle de un usuario para el filtro de estado activo — $tipo:
+// 'todas' | 'firmadas' | 'pendientes' | 'vencidas' (validado con whitelist
+// en el getter, acá se usa directo en el SQL). 'pendientes' ordena por
+// urgencia (menos días primero); el resto por fecha de generación. Mismo
+// GROUP BY a.id que listar_historial_acuerdos() por los ~1,116 pos_id
+// duplicados de repositorio_locales_supervisores_cliente.
+function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio = 0, $tipo = 'todas') {
+	$usuarioId = (int) $usuarioId;
+	if (!$usuarioId) return [];
+
+	$bounds          = trimestreABounds($trimestre);
+	$trimestreActivo = $bounds ? 1 : 0;
+	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
+	$anio            = (int) $anio;
+
+	switch ($tipo) {
+		case 'firmadas':   $condicionEstado = "a.acta_firmada_archivo IS NOT NULL"; $orden = 'a.fecha_generacion DESC'; break;
+		case 'pendientes': $condicionEstado = "a.estado IN ('generado', 'enviado') AND a.acta_firmada_archivo IS NULL"; $orden = 'dias_restantes ASC'; break;
+		case 'vencidas':   $condicionEstado = "a.estado = 'vencido'"; $orden = 'a.fecha_generacion DESC'; break;
+		default:           $condicionEstado = "a.estado NOT IN ('borrador', 'anulado')"; $orden = 'a.fecha_generacion DESC';
+	}
+
+	$stmt = $mysqli->prepare(
+		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
+		        (a.acta_firmada_archivo IS NOT NULL) AS tiene_firma,
+		        d.pos_name,
+		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 WHERE a.creado_por = ?
+		   AND $condicionEstado
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)
+		 GROUP BY a.id
+		 ORDER BY $orden"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('iiiiii', $usuarioId, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	foreach ($filas as &$f) {
+		$f['tiene_firma']    = (bool) $f['tiene_firma'];
+		$f['dias_restantes'] = $f['dias_restantes'] !== null ? (int) $f['dias_restantes'] : null;
+	}
+	unset($f);
+	return $filas;
+}
 ?>

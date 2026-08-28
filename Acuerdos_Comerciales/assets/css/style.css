@@ -868,7 +868,16 @@ body {
 
 .ac-user-cell { display: flex; align-items: center; gap: var(--space-md); }
 .ac-avatar-initials {
-	width: 32px; height: 32px; border-radius: var(--radius);
+	/* border-radius: var(--radius) (2026-08-27, bug real encontrado con
+	   Seguimiento de Equipo) daba un cuadrado con esquinas apenas
+	   redondeadas (--radius = 4px), no un círculo — invisible en la mayoría
+	   de los usos (Gestión de Usuarios, etc., donde el avatar flota solo),
+	   pero se notaba fuerte en el anillo de estado nuevo (.ac-seg-avatar-ring),
+	   que SÍ es un círculo perfecto alrededor: el avatar cuadrado adentro se
+	   veía roto/desalineado contra el aro redondo. "Avatar circular" era
+	   la intención documentada siempre, nunca el 4px — corregido acá, en el
+	   componente compartido, para que todos los usos existentes se vean bien. */
+	width: 32px; height: 32px; border-radius: 50%;
 	background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed);
 	display: flex; align-items: center; justify-content: center;
 	font-weight: 700; font-size: 13px; flex-shrink: 0;
@@ -2146,3 +2155,119 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 #repo-preview-errores p { margin: 0 0 var(--space-xs); font-weight: 700; }
 #repo-preview-errores ul { margin: 0; padding-left: var(--space-lg); }
 #repo-preview-errores li { margin-bottom: 2px; }
+
+/* ---------- Seguimiento de Equipo (2026-08-27, rediseño maestro-detalle con Claude Design) ---------- */
+/* Contenedor raíz: mismo patrón que .ac-historial (flex column + gap entre
+   TODAS las secciones — header, filtros, línea "Vista actual", grid). Sin
+   esto, cada sección cae con márgenes propios inconsistentes/ninguno — bug
+   real reportado por el usuario (secciones pegadas/solapadas, el margen
+   negativo de .ac-seg-viendo, pensado para este gap, chocaba contra los
+   botones de arriba porque el gap nunca existió). */
+.ac-seguimiento { display: flex; flex-direction: column; gap: var(--space-lg); }
+
+/* Header: mismo patrón que .ac-hist-header, pero el bloque de la derecha es
+   el filtro de período (pills Q1-Q4 + año), no botones de acción. */
+.ac-seg-periodo { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+.ac-seg-pill-group { display: flex; background: var(--color-surface-container); border-radius: var(--radius-full); padding: 4px; gap: 2px; }
+.ac-seg-pill {
+	border: none; background: transparent; cursor: pointer;
+	padding: 8px 14px; border-radius: var(--radius-full);
+	font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-on-surface-variant);
+	transition: background 0.12s ease, color 0.12s ease;
+}
+.ac-seg-pill:hover { background: var(--color-surface-container-high); }
+.ac-seg-pill-activo, .ac-seg-pill-activo:hover { background: var(--color-primary); color: var(--color-on-primary); }
+.ac-seg-anio { border-radius: var(--radius-full); padding: 8px 32px 8px 14px; font-size: 13px; font-weight: 600; min-width: 0; width: auto; }
+
+/* Filtro único de estado — Todas/Firmadas/Pendientes/Vencidas. Controla a
+   la vez la lista de Equipo y el detalle (un solo mecanismo, no dos
+   haciendo cosas parecidas — feedback explícito sobre la 1ra versión).
+   Cada botón trae su color en data-color; el JS pinta background/color
+   inline solo cuando está activo (ver actualizarBotonesFiltro()). */
+.ac-seg-filtros { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.ac-seg-filtro {
+	flex: 1 1 150px; min-width: 150px; text-align: left; border: none; cursor: pointer;
+	background: var(--color-surface-container); color: var(--color-on-surface-variant);
+	border-radius: 12px; padding: 12px 20px;
+	transition: background 0.12s ease, color 0.12s ease;
+}
+.ac-seg-filtro:not(.ac-seg-filtro-activo):hover { background: var(--color-surface-container-high); }
+.ac-seg-filtro-head { display: flex; align-items: center; gap: var(--space-sm); font-size: 13px; font-weight: 700; }
+.ac-seg-filtro-head .material-symbols-outlined { font-size: 18px; }
+.ac-seg-filtro-valor { display: block; margin-top: 4px; font-size: 22px; font-weight: 800; }
+
+.ac-seg-viendo { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--color-outline); }
+.ac-seg-viendo .material-symbols-outlined { font-size: 14px; }
+.ac-seg-viendo strong { color: var(--color-on-surface-variant); }
+
+/* Maestro-detalle: lista fija a la izquierda, detalle ocupa el resto — en
+   pantallas angostas cae a una columna (lista arriba, detalle abajo) para
+   ocupar bien el espacio en vez de forzar 2 columnas apretadas. */
+.ac-seg-grid { display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: var(--space-lg); align-items: start; }
+@media (max-width: 900px) { .ac-seg-grid { grid-template-columns: 1fr; } }
+
+.ac-seg-equipo-header { padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--color-outline-variant); }
+.ac-seg-equipo-titulo { display: flex; align-items: center; gap: var(--space-sm); }
+.ac-seg-equipo-titulo h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.ac-seg-equipo-titulo .material-symbols-outlined { color: var(--color-primary); font-size: 20px; }
+.ac-seg-orden { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--color-outline); white-space: nowrap; }
+.ac-seg-buscar-wrap { margin-top: var(--space-sm); }
+.ac-seg-buscar-wrap .ac-input { padding-left: 36px; }
+
+.ac-seg-fila-usuario {
+	display: flex; align-items: center; gap: var(--space-sm); padding: 14px var(--space-lg);
+	border-bottom: 1px solid var(--color-surface-container); cursor: pointer; background: var(--color-surface-container-lowest);
+	transition: background 0.12s ease;
+}
+.ac-seg-fila-usuario:last-child { border-bottom: none; }
+.ac-seg-fila-usuario:hover { background: var(--color-surface-container-low); }
+.ac-seg-fila-usuario.is-selected { background: var(--color-secondary-fixed); box-shadow: inset 3px 0 0 0 var(--color-primary); }
+.ac-seg-fila-usuario.is-selected:hover { background: var(--color-secondary-fixed); filter: brightness(0.98); }
+.ac-seg-fila-info { flex: 1; min-width: 0; }
+.ac-seg-fila-info .ac-user-name { margin: 0; }
+.ac-seg-fila-meta { margin: 2px 0 0; font-size: 12px; color: var(--color-outline); }
+
+/* Anillo de estado alrededor del avatar (conic-gradient inline via JS) —
+   verde = proporción firmada, naranja/rojo = urgencia de lo pendiente. El
+   aro blanco intermedio separa visualmente el anillo del avatar. */
+.ac-seg-avatar-ring { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ac-seg-avatar-ring-lg { width: 56px; height: 56px; }
+.ac-seg-avatar-gap { width: 86%; height: 86%; border-radius: 50%; background: var(--color-surface-container-lowest); display: flex; align-items: center; justify-content: center; }
+.ac-seg-avatar-ring-lg .ac-avatar-initials { width: 42px; height: 42px; font-size: 15px; }
+
+.ac-seg-vacio, .ac-seg-vacio-detalle {
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	text-align: center; padding: var(--space-xl) var(--space-lg); gap: var(--space-sm); min-height: 200px;
+}
+.ac-seg-vacio-detalle { min-height: 480px; }
+.ac-seg-vacio .material-symbols-outlined, .ac-seg-vacio-detalle .material-symbols-outlined { font-size: 36px; color: var(--color-outline-variant); }
+.ac-seg-vacio p, .ac-seg-vacio-detalle p { margin: 0; font-size: 13px; color: var(--color-outline); max-width: 280px; }
+
+/* ---- Panel de detalle ---- */
+.ac-seg-detalle-card { min-height: 480px; }
+.ac-seg-detalle-header { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--color-outline-variant); flex-wrap: wrap; }
+.ac-seg-eyebrow { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-primary); margin-bottom: 2px; }
+.ac-seg-detalle-header h2 { margin: 0; font-size: 20px; font-weight: 700; }
+.ac-seg-detalle-stat { margin-left: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ac-seg-detalle-stat-num { font-size: 20px; font-weight: 800; color: var(--color-on-surface); }
+.ac-seg-detalle-stat-label { font-size: 11px; color: var(--color-outline); }
+
+.ac-seg-detalle-thead, .ac-seg-detalle-fila { display: flex; align-items: center; font-size: 13px; }
+.ac-seg-detalle-thead {
+	padding: 10px var(--space-lg); background: var(--color-surface-container-low); border-bottom: 1px solid var(--color-outline-variant);
+	font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-outline);
+}
+.ac-seg-detalle-fila { padding: 14px var(--space-lg); border-bottom: 1px solid var(--color-surface-container); }
+.ac-seg-detalle-fila:last-child { border-bottom: none; }
+.ac-seg-detalle-thead > span:nth-child(1), .ac-seg-detalle-fila > span:nth-child(1) { flex: 1.5; }
+.ac-seg-detalle-thead > span:nth-child(2), .ac-seg-detalle-fila > span:nth-child(2) { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { flex: 1; }
+.ac-seg-detalle-thead > span:nth-child(4), .ac-seg-detalle-fila > span:nth-child(4) { width: 130px; }
+.ac-seg-doc { font-weight: 700; color: var(--color-primary); }
+
+.ac-seg-cargando { padding: var(--space-xl); text-align: center; color: var(--color-outline); font-size: 13px; }
+
+@media (max-width: 600px) {
+	.ac-seg-filtro { flex: 1 1 45%; }
+	.ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { display: none; }
+}
