@@ -380,7 +380,7 @@ function usuarioIdDePosId($mysqli, $posId) {
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
 	$stmt = $mysqli->prepare(
-		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.valores_mensuales
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.valores_mensuales, c.updated_at
 		 FROM repositorio_cuota_cliente c
 		 JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
 		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
@@ -398,15 +398,30 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	// en obtener_precarga_detalle(), este conteo tiene que coincidir exacto
 	// con lo que el asesor va a ver de verdad, sumar JSON en SQL directo es
 	// más frágil que traer las filas y sumar acá).
+	// `actualizado_en` = el `updated_at` MÁS RECIENTE entre las filas del
+	// grupo (2026-08-27, bug real reportado por el usuario: subió Cuotas
+	// para un cliente, se movió entre módulos, y la campanita NO marcó la
+	// Acta como nueva/sin ver). Causa real: el "visto" de la campanita
+	// (assets/js/alertas-firma.js) se guarda en localStorage con clave
+	// `pos_id+trimestre+año` únicamente — si ESE mismo cliente+trimestre ya
+	// se había visto alguna vez antes (confirmado con datos reales: este
+	// cliente puntual ya se usó en una prueba de otra sesión, un día antes),
+	// el navegador lo recuerda como "visto" para siempre, aunque las filas
+	// de la base sean completamente nuevas. Se manda `actualizado_en` para
+	// que la clave de "visto" en JS incluya esta marca de tiempo — si el
+	// cliente se resube/reasigna, la clave cambia y vuelve a marcarse como
+	// no visto, sin perder el criterio de "ya lo vi" para lo que de verdad
+	// no cambió desde la última vez.
 	$grupos = [];
 	foreach ($filasCrudas as $f) {
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
 		if (!is_array($valores) || array_sum($valores) <= 0) continue;
 		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
 		if (!isset($grupos[$clave])) {
-			$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0];
+			$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at']];
 		}
 		$grupos[$clave]['categorias']++;
+		if ($f['updated_at'] > $grupos[$clave]['actualizado_en']) $grupos[$clave]['actualizado_en'] = $f['updated_at'];
 	}
 	return array_values($grupos);
 }
@@ -1359,6 +1374,12 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 		$u['pendientes']       = (int) $u['pendientes'];
 		$u['vencidas']         = (int) $u['vencidas'];
 		$u['dias_mas_proxima'] = $u['dias_mas_proxima'] !== null ? (int) $u['dias_mas_proxima'] : null;
+		// Calculado acá (misma función que usa Gestión de Usuarios) para que
+		// el frontend nunca tenga su propia versión — antes seguimiento.js
+		// reimplementaba esto con una regex más simple (solo espacios) que
+		// daba mal las iniciales de un usuario con punto en el nombre
+		// (ej. "javier.maldonado"), divergiendo del resto de la app.
+		$u['iniciales']        = inicialesUsuario($u['nombre']);
 		$stats['total']      += $u['total'];
 		$stats['firmadas']   += $u['firmadas'];
 		$stats['pendientes'] += $u['pendientes'];
@@ -1379,6 +1400,14 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	$usuarioId = (int) $usuarioId;
 	if (!$usuarioId) return [];
 
+	// Sin esto, un Acta que ya pasó los 20 días pero nadie visitó Historial/
+	// este módulo desde entonces seguía apareciendo como 'generado'/
+	// 'enviado' con días negativos en vez de 'vencido' — mismo criterio que
+	// listar_historial_acuerdos()/resumen_seguimiento_equipo() (esta función
+	// se llama sola sin pasar antes por esa, ej. si el detalle se pide
+	// directo contra el getter).
+	barrer_actas_vencidas($mysqli);
+
 	$bounds          = trimestreABounds($trimestre);
 	$trimestreActivo = $bounds ? 1 : 0;
 	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
@@ -1392,13 +1421,20 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 		default:           $condicionEstado = "a.estado NOT IN ('borrador', 'anulado')"; $orden = 'a.fecha_generacion DESC';
 	}
 
+	// LEFT JOIN (no JOIN normal) a propósito: el conteo por usuario de
+	// resumen_seguimiento_equipo() no depende del maestro de clientes, así
+	// que si el `pos_id` de un Acta real ya no matchea ese maestro (mismo
+	// fenómeno ya documentado para las Actas huérfanas viejas — puede
+	// pasarle a una Acta con usuario real también), con JOIN normal esa
+	// fila desaparecía del detalle aunque SÍ contara en el total de la
+	// lista de Equipo. pos_name cae a NULL -> '—' en seguimiento.js.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_archivo IS NOT NULL) AS tiene_firma,
 		        d.pos_name,
 		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.creado_por = ?
 		   AND $condicionEstado
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))

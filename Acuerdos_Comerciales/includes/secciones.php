@@ -2,7 +2,8 @@
 // Secciones del sidebar. "roles" es la lista exacta de roles que ven cada
 // módulo (se valida con rolPermitido() de functions.php). No es jerárquico.
 //
-//   superdesarrollador -> los 4 módulos
+//   superdesarrollador -> los 5 módulos (Liquidación está temporalmente
+//                          oculta, ver comentario más abajo, pero cuenta)
 //   desarrollador       -> Registrar, Historial
 $secciones = [
 	['id' => 'registrar',        'label' => 'Registrar Acuerdo PDV', 'icono' => 'dashboard',       'componente' => 'components/registrar/registrar.php',               'roles' => ['desarrollador', 'superdesarrollador']],

@@ -59,12 +59,26 @@
 		try { localStorage.setItem(VISTAS_KEY, JSON.stringify(Object.keys(vistas))); } catch (e) {}
 	}
 	function claveFirmar(a) { return 'firmar:' + a.id; }
-	function claveAsignada(p) { return 'asignadas:' + p.pos_id + ':' + p.trimestre + ':' + p.anio; }
+	// Incluye `actualizado_en` (2026-08-27, bug real: sin esto, un cliente
+	// que ya se había visto una vez en la campanita quedaba "visto" para
+	// siempre en este navegador, aunque se le resubiera/reasignara una
+	// Acta completamente nueva más adelante — el usuario reportó justo este
+	// caso, verificado con datos reales) — si el cliente/trimestre se
+	// resube o reasigna, `actualizado_en` cambia y la clave completa
+	// cambia con él, volviendo a marcarlo como no visto.
+	function claveAsignada(p) { return 'asignadas:' + p.pos_id + ':' + p.trimestre + ':' + p.anio + ':' + p.actualizado_en; }
 	// Último fetch en memoria — hace falta fuera de cargarAlertas() para que
 	// marcarTodoVisto() (se llama al abrir el panel) sepa qué había sin
 	// pedir la data de nuevo.
 	var ultimasMias = [];
 	var ultimasPrecargadas = [];
+	// Evita que una respuesta vieja pise a una más nueva — la campanita se
+	// puede refrescar por 3 caminos a la vez (botón manual, cambio de
+	// módulo, sondeo de 5 min); si dos se superponen y el más viejo
+	// responde después, sin esto pisaba el badge/panel ya actualizado con
+	// datos desactualizados. Mismo bug ya encontrado y corregido en
+	// Seguimiento de Equipo/Historial/Gestión de Usuarios/Repositorios.
+	var alertasReqId = 0;
 
 	function irAHistorial(id) {
 		var link = document.querySelector('.ac-sidebar-nav a[href="#sec-historial"]');
@@ -213,10 +227,12 @@
 	}
 
 	function cargarAlertas() {
+		var miReqId = ++alertasReqId;
 		if (refrescarBtn) acBotonCargando(refrescarBtn, true);
 		return fetch('getters/alertas_firma.php')
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
+				if (miReqId !== alertasReqId) return; // respuesta vieja, ya se disparó otro refresco — ignorar.
 				if (!data.ok) return;
 				ultimasMias = data.mias || [];
 				ultimasPrecargadas = data.precargadas || [];
@@ -226,10 +242,12 @@
 				if (primeraCarga) { avisarAlInicio(ultimasMias, ultimasPrecargadas); primeraCarga = false; }
 			})
 			.catch(function () {
+				if (miReqId !== alertasReqId) return;
 				bodyAsignadas.innerHTML = '<p class="ac-alertas-vacio">No se pudo cargar.</p>';
 				bodyFirmar.innerHTML = '<p class="ac-alertas-vacio">No se pudo cargar.</p>';
 			})
 			.finally(function () {
+				if (miReqId !== alertasReqId) return;
 				if (refrescarBtn) acBotonCargando(refrescarBtn, false);
 			});
 	}

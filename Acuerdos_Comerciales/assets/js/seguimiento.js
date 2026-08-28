@@ -18,6 +18,15 @@
 	var statsActual   = { total: 0, firmadas: 0, pendientes: 0, vencidas: 0 };
 	var ultimoFetchKey = null;
 
+	// Tokens de request en vuelo — evitan que una respuesta vieja (llegó
+	// tarde por la red) pise a una más nueva. Ej: click en usuario A, click
+	// rápido en usuario B, la respuesta de A llega después que la de B —
+	// sin esto, A terminaba pintando el panel encima de B aunque B siguiera
+	// resaltado como seleccionado en la lista. Mismo mecanismo para
+	// cargarResumen() (cambiar de trimestre/año rápido dos veces seguidas).
+	var resumenReqId = 0;
+	var detalleReqId = 0;
+
 	// Copy de cada vista — texto corporativo, sin jerga interna ("ordenado
 	// por cantidad" se rechazó explícitamente por sonar poco profesional).
 	var VISTAS = {
@@ -33,12 +42,6 @@
 		return div.innerHTML;
 	}
 
-	function inicialesDe(nombre) {
-		var partes = nombre.trim().split(/\s+/).filter(Boolean);
-		if (partes.length >= 2) return (partes[0].charAt(0) + partes[1].charAt(0)).toUpperCase();
-		return nombre.substring(0, 2).toUpperCase();
-	}
-
 	function formatearFecha(iso) {
 		if (!iso) return '—';
 		var p = iso.split('-');
@@ -52,20 +55,26 @@
 		return 'plain';
 	}
 
+	// Devuelve {className, text} — className se aplica JUNTO a la clase base
+	// ".ac-badge" (ej. "ac-badge ac-badge-critico"), nunca colores inline:
+	// así el badge hereda la animación de pulso de .ac-badge-critico
+	// (style.css) — con colores hardcodeados en JS esa animación nunca se
+	// aplicaba, aunque el color coincidiera a simple vista (bug real,
+	// encontrado en revisión).
 	function badgeParaDias(dias, tier) {
-		if (tier === 'critico') return { bg: '#ffdad6', color: '#93000a', text: dias <= 0 ? 'Vence hoy' : 'Vence en 1 día' };
-		if (tier === 'urgente') return { bg: '#ffdbce', color: '#802a00', text: 'Vence en ' + dias + ' días' };
-		return { bg: '#eeedf7', color: '#444653', text: dias + ' días' };
+		if (tier === 'critico') return { className: 'ac-badge-critico', text: dias <= 0 ? 'Vence hoy' : 'Vence en 1 día' };
+		if (tier === 'urgente') return { className: 'ac-badge-urgente', text: 'Vence en ' + dias + ' días' };
+		return { className: '', text: dias + ' días' };
 	}
 
 	function badgeParaActa(a) {
-		if (a.tiene_firma) return { bg: '#d7f2db', color: '#1e5c26', text: 'Firmada' };
-		if (a.estado === 'vencido') return { bg: '#ffdad6', color: '#93000a', text: 'Vencida' };
+		if (a.tiene_firma) return { className: 'ac-badge-ok', text: 'Firmada' };
+		if (a.estado === 'vencido') return { className: 'ac-badge-critico', text: 'Vencida' };
 		var enPlazo = a.estado === 'generado' || a.estado === 'enviado';
 		if (enPlazo && a.dias_restantes !== null && a.dias_restantes !== undefined) {
 			return badgeParaDias(a.dias_restantes, tierPorDias(a.dias_restantes));
 		}
-		return { bg: '#eeedf7', color: '#444653', text: 'Pendiente' };
+		return { className: 'ac-badge-revisar', text: 'Pendiente' };
 	}
 
 	function ringGradient(pctVerde, tier) {
@@ -75,32 +84,58 @@
 		return 'conic-gradient(#1e9e5a 0% ' + pctVerde + '%, ' + urg + ' ' + pctVerde + '% 100%)';
 	}
 
+	// El anillo también tiene que reflejar Vencidas, no solo Pendientes — un
+	// usuario con 0 pendientes pero Actas vencidas mostraba un aro gris
+	// "neutral" (bug real: parecía que no tenía nada urgente, ni siquiera
+	// mirando el filtro "Vencidas"). `dias_mas_proxima` puede venir null
+	// aunque pendientes>0 (todas sus pendientes sin fecha_generacion, caso
+	// teórico hoy — ver CLAUDE.md) — guardado con `!= null` para no pasarle
+	// null a tierPorDias() (ahí "null <= 1" da true en JS, pintaría crítico
+	// por error).
 	function ringDeUsuario(u) {
 		var pct = u.total > 0 ? Math.round((u.firmadas / u.total) * 100) : 0;
-		var tier = u.pendientes > 0 ? tierPorDias(u.dias_mas_proxima) : 'plain';
+		var tier = 'plain';
+		if (u.vencidas > 0) tier = 'critico';
+		else if (u.pendientes > 0 && u.dias_mas_proxima != null) tier = tierPorDias(u.dias_mas_proxima);
 		return ringGradient(pct, tier);
 	}
 
 	// ---------- Filas de "Equipo" según el filtro de estado activo ----------
+	// `u.iniciales` viene calculado en el servidor (inicialesUsuario() de
+	// functions.php) — antes se recalculaba acá con una regex más simple
+	// (solo espacios) que divergía de la real para usuarios con punto en el
+	// nombre (ej. "javier.maldonado" daba mal las iniciales solo en este
+	// módulo). Una sola fuente de verdad ahora.
 	function computeFilasBase(equipo, filtro) {
 		return equipo.map(function (u) {
-			var f = { id: u.usuario_id, nombre: u.nombre, iniciales: inicialesDe(u.nombre), ringCss: ringDeUsuario(u) };
+			var f = { id: u.usuario_id, nombre: u.nombre, iniciales: u.iniciales, ringCss: ringDeUsuario(u) };
 			if (filtro === 'firmadas') {
-				f.incluir = u.firmadas > 0; f.sortKey = -u.firmadas;
-				f.badgeBg = '#d7f2db'; f.badgeColor = '#1e5c26'; f.badgeText = u.firmadas + (u.firmadas === 1 ? ' Firmada' : ' Firmadas');
-				f.metaLabel = 'de ' + u.total + ' Actas en total';
+				f.incluir = u.firmadas > 0;
+				if (f.incluir) {
+					f.sortKey = -u.firmadas;
+					f.badgeClass = 'ac-badge-ok'; f.badgeText = u.firmadas + (u.firmadas === 1 ? ' Firmada' : ' Firmadas');
+					f.metaLabel = 'de ' + u.total + ' Actas en total';
+				}
 			} else if (filtro === 'pendientes') {
-				f.incluir = u.pendientes > 0; f.sortKey = u.pendientes > 0 ? u.dias_mas_proxima : 999999;
-				var b = u.pendientes > 0 ? badgeParaDias(u.dias_mas_proxima, tierPorDias(u.dias_mas_proxima)) : { bg: '', color: '', text: '' };
-				f.badgeBg = b.bg; f.badgeColor = b.color; f.badgeText = b.text;
-				f.metaLabel = 'de ' + u.total + ' Actas en total';
+				f.incluir = u.pendientes > 0;
+				if (f.incluir) {
+					var tieneDias = u.dias_mas_proxima != null;
+					f.sortKey = tieneDias ? u.dias_mas_proxima : 999999;
+					var b = tieneDias ? badgeParaDias(u.dias_mas_proxima, tierPorDias(u.dias_mas_proxima)) : { className: '', text: 'Sin fecha' };
+					f.badgeClass = b.className; f.badgeText = b.text;
+					f.metaLabel = 'de ' + u.total + ' Actas en total';
+				}
 			} else if (filtro === 'vencidas') {
-				f.incluir = u.vencidas > 0; f.sortKey = -u.vencidas;
-				f.badgeBg = '#ffdad6'; f.badgeColor = '#93000a'; f.badgeText = u.vencidas + (u.vencidas === 1 ? ' Vencida' : ' Vencidas');
-				f.metaLabel = 'de ' + u.total + ' Actas en total';
+				f.incluir = u.vencidas > 0;
+				if (f.incluir) {
+					f.sortKey = -u.vencidas;
+					f.badgeClass = 'ac-badge-critico'; f.badgeText = u.vencidas + (u.vencidas === 1 ? ' Vencida' : ' Vencidas');
+					f.metaLabel = 'de ' + u.total + ' Actas en total';
+				}
 			} else { // todas
-				f.incluir = true; f.sortKey = -u.total;
-				f.badgeBg = '#d3e4fe'; f.badgeColor = '#0b1c30'; f.badgeText = u.total + (u.total === 1 ? ' Acta' : ' Actas');
+				f.incluir = true;
+				f.sortKey = -u.total;
+				f.badgeClass = ''; f.badgeText = u.total + (u.total === 1 ? ' Acta' : ' Actas');
 				f.metaLabel = u.firmadas + ' firmada' + (u.firmadas === 1 ? '' : 's') + ' · ' + u.pendientes + ' pendiente' + (u.pendientes === 1 ? '' : 's');
 			}
 			return f;
@@ -123,8 +158,7 @@
 			btn.style.color = activo ? '#ffffff' : '';
 			// El backend manda `total`, no `todas` (statsActual = {total,
 			// firmadas, pendientes, vencidas}) — mapeo explícito acá, si no
-			// el botón "Todas" quedaba siempre en 0 (bug real, encontrado
-			// por el usuario probando en el navegador).
+			// el botón "Todas" quedaba siempre en 0.
 			var valor = key === 'todas' ? statsActual.total : statsActual[key];
 			btn.querySelector('[data-valor="' + key + '"]').textContent = valor != null ? valor : 0;
 		});
@@ -145,13 +179,18 @@
 			'</div>';
 	}
 
+	function badgeHtml(claseExtra, texto) {
+		var clase = 'ac-badge' + (claseExtra ? ' ' + claseExtra : '');
+		return '<span class="' + clase + '">' + escapeHtml(texto) + '</span>';
+	}
+
 	function renderLista(filas) {
 		listaCont.innerHTML = filas.map(function (f) {
 			var sel = f.id === estado.selectedId ? ' is-selected' : '';
 			return '<div class="ac-seg-fila-usuario' + sel + '" data-id="' + f.id + '">' +
 				avatarRingHtml(f.ringCss, f.iniciales, false) +
 				'<div class="ac-seg-fila-info"><p class="ac-user-name">' + escapeHtml(f.nombre) + '</p><p class="ac-seg-fila-meta">' + escapeHtml(f.metaLabel) + '</p></div>' +
-				'<span class="ac-badge" style="background:' + f.badgeBg + ';color:' + f.badgeColor + ';">' + escapeHtml(f.badgeText) + '</span>' +
+				badgeHtml(f.badgeClass, f.badgeText) +
 				'</div>';
 		}).join('');
 		Array.prototype.forEach.call(listaCont.querySelectorAll('.ac-seg-fila-usuario'), function (row) {
@@ -162,7 +201,7 @@
 				Array.prototype.forEach.call(listaCont.querySelectorAll('.ac-seg-fila-usuario'), function (r) {
 					r.classList.toggle('is-selected', parseInt(r.dataset.id, 10) === id);
 				});
-				var filaSel = computeFilasBase(equipoActual, estado.filtro).filter(function (f) { return f.id === id; })[0];
+				var filaSel = filas.filter(function (f) { return f.id === id; })[0];
 				cargarDetalle(filaSel);
 			});
 		});
@@ -174,6 +213,19 @@
 		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">' + icono + '</span><p>' + escapeHtml(texto) + '</p></div>';
 	}
 
+	// Estado de error genérico — a diferencia de un simple toast (que
+	// desaparece solo y no dice nada sobre lo que hay EN pantalla), deja el
+	// panel en un estado explícito de "no se pudo cargar" en vez de quedarse
+	// trabado para siempre en los placeholders "Cargando..." del SSR (bug
+	// real: si el primer fetch fallaba — sesión vencida, red caída — la
+	// pantalla quedaba mostrando "Cargando..." sin fin, sin ningún indicio
+	// de que algo salió mal ni forma de reintentar salvo recargar la página).
+	function mostrarErrorGeneral() {
+		mostrarToast('Error de conexión al cargar el seguimiento.', 'error');
+		listaCont.innerHTML = '<div class="ac-seg-vacio"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el equipo. Actualizá la página para reintentar.</p></div>';
+		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el detalle.</p></div>';
+	}
+
 	// ---------- Render: panel de detalle ----------
 	function renderDetalle(filaUsuario, actas) {
 		var v = VISTAS[estado.filtro];
@@ -183,8 +235,8 @@
 				return '<div class="ac-seg-detalle-fila">' +
 					'<span class="ac-seg-doc">#' + escapeHtml(a.documento_no) + '</span>' +
 					'<span>' + escapeHtml(a.pos_name || '—') + '</span>' +
-					'<span class="ac-text-right ac-tabular">' + formatearFecha(a.fecha_generacion) + '</span>' +
-					'<span class="ac-text-center"><span class="ac-badge" style="background:' + b.bg + ';color:' + b.color + ';">' + escapeHtml(b.text) + '</span></span>' +
+					'<span class="ac-text-right ac-tabular">' + escapeHtml(formatearFecha(a.fecha_generacion)) + '</span>' +
+					'<span class="ac-text-center">' + badgeHtml(b.className, b.text) + '</span>' +
 					'</div>';
 			}).join('')
 			: '<div class="ac-table-empty">Sin Actas para este filtro.</div>';
@@ -199,18 +251,38 @@
 			'<div class="ac-seg-detalle-body">' + filasHtml + '</div>';
 	}
 
+	// Clave del detalle actualmente cargado — usuario + filtro + período.
+	function claveDetalle(usuarioId) {
+		return usuarioId + '|' + estado.filtro + '|' + estado.trimestre + '|' + estado.anio;
+	}
+
+	// ultimoFetchKey se actualiza DESPUÉS de confirmar éxito (no antes de
+	// lanzar el fetch) — si se marcaba como "ya cargado" de entrada y el
+	// fetch fallaba, un refresco posterior con la misma clave se saltaba el
+	// reintento. En error se limpia a null a propósito, para que CUALQUIER
+	// refresco posterior reintente.
+	// `miReqId` evita que una respuesta vieja (ej. click en A, click rápido
+	// en B, la respuesta de A llega después) pise el panel ya actualizado
+	// por B — solo la respuesta del ÚLTIMO pedido puede pintar/actualizar
+	// el caché.
 	function cargarDetalle(filaUsuario) {
 		if (!filaUsuario) return;
+		var miReqId = ++detalleReqId;
+		var key = claveDetalle(filaUsuario.id);
 		detalleCard.innerHTML = '<div class="ac-seg-cargando">Cargando...</div>';
 		var url = 'getters/seguimiento_actas_usuario.php?usuario_id=' + filaUsuario.id +
 			'&trimestre=' + estado.trimestre + '&anio=' + estado.anio + '&tipo=' + estado.filtro;
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				if (!data.ok) { detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error al cargar el detalle.</p></div>'; return; }
+				if (miReqId !== detalleReqId) return;
+				if (!data.ok) { ultimoFetchKey = null; detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error al cargar el detalle.</p></div>'; return; }
+				ultimoFetchKey = key;
 				renderDetalle(filaUsuario, data.actas);
 			})
 			.catch(function () {
+				if (miReqId !== detalleReqId) return;
+				ultimoFetchKey = null;
 				detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error de conexión.</p></div>';
 			});
 	}
@@ -231,27 +303,31 @@
 			return;
 		}
 
+		// == null (no !estado.selectedId) a propósito: un id real nunca es 0
+		// hoy, pero "falsy" también atrapa 0 — si algún día existe un id
+		// sintético 0, esta condición lo hubiera ignorado silenciosamente
+		// cada vez que se seleccionara.
 		var validIds = filas.map(function (f) { return f.id; });
-		if (!estado.selectedId || validIds.indexOf(estado.selectedId) === -1) {
+		if (estado.selectedId == null || validIds.indexOf(estado.selectedId) === -1) {
 			estado.selectedId = filas[0].id;
 		}
 
 		renderLista(filas);
 
-		var key = estado.selectedId + '|' + estado.filtro + '|' + estado.trimestre + '|' + estado.anio;
-		if (key !== ultimoFetchKey) {
-			ultimoFetchKey = key;
+		if (claveDetalle(estado.selectedId) !== ultimoFetchKey) {
 			cargarDetalle(filas.filter(function (f) { return f.id === estado.selectedId; })[0]);
 		}
 	}
 
 	function cargarResumen() {
+		var miReqId = ++resumenReqId;
 		Array.prototype.forEach.call(tarjetas, function (c) { acMostrarCargando(c); });
 		var url = 'getters/seguimiento_resumen.php?trimestre=' + estado.trimestre + '&anio=' + estado.anio;
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				if (!data.ok) return;
+				if (miReqId !== resumenReqId) return;
+				if (!data.ok) { mostrarErrorGeneral(); return; }
 				equipoActual = data.equipo;
 				statsActual = data.stats;
 				ultimoFetchKey = null;
@@ -259,9 +335,11 @@
 				refrescarListaYDetalle();
 			})
 			.catch(function () {
-				mostrarToast('Error de conexión al cargar el seguimiento.', 'error');
+				if (miReqId !== resumenReqId) return;
+				mostrarErrorGeneral();
 			})
 			.finally(function () {
+				if (miReqId !== resumenReqId) return;
 				Array.prototype.forEach.call(tarjetas, function (c) { acOcultarCargando(c); });
 			});
 	}

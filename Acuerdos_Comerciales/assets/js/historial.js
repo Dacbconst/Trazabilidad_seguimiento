@@ -20,6 +20,15 @@
 	var paginacionInfoEls = [document.getElementById('hist-paginacion-info-top'), document.getElementById('hist-paginacion-info')];
 	var paginacionBtnsEls = [document.getElementById('hist-paginacion-btns-top'), document.getElementById('hist-paginacion-btns')];
 	var buscarTimeout   = null;
+	// Tokens de request en vuelo — evitan que una respuesta vieja pise a una
+	// más nueva (ej. tipear "a", esperar el debounce de 350ms, y antes de
+	// que esa respuesta vuelva ya se tipeó "ab" y se disparó un 2do fetch —
+	// si el 2do responde primero y el 1ro llega después, sin este guard el
+	// 1ro pisaba la tabla con resultados de una búsqueda vieja/distinta a lo
+	// que el input muestra en pantalla ahora mismo). Mismo patrón ya
+	// aplicado en Seguimiento de Equipo tras encontrar el mismo bug ahí.
+	var historialReqId = 0;
+	var bannerReqId     = 0;
 	var histBanner      = document.getElementById('hist-banner');
 	var histBannerText  = document.getElementById('hist-banner-text');
 	var histBannerCta   = document.getElementById('hist-banner-cta');
@@ -117,6 +126,7 @@
 
 	// ---------- Listado: búsqueda + filtro de período (trimestre + año + firma) + paginación ----------
 	function cargarHistorial(pagina) {
+		var miReqId = ++historialReqId;
 		var q          = buscarInput.value.trim();
 		var trimestre  = trimestreSelect.value;
 		var anio       = anioSelect.value;
@@ -140,6 +150,7 @@
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
+				if (miReqId !== historialReqId) return; // respuesta vieja, ya se disparó otra búsqueda/filtro/página — ignorar.
 				if (!data.ok) return;
 				tbody.innerHTML = data.filas;
 				paginacionEl.dataset.pagina = data.pagina;
@@ -150,9 +161,11 @@
 				if (data.stats) renderStats(data.stats);
 			})
 			.catch(function () {
+				if (miReqId !== historialReqId) return;
 				mostrarToast('Error de conexión al cargar el historial.', 'error');
 			})
 			.finally(function () {
+				if (miReqId !== historialReqId) return;
 				acBotonCargando(actualizarBtn, false);
 				acOcultarCargando(tablaCard);
 			});
@@ -201,9 +214,11 @@
 		return dias + ' días';
 	}
 	function cargarBannerVencimiento() {
+		var miReqId = ++bannerReqId;
 		fetch('getters/alertas_firma.php')
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
+				if (miReqId !== bannerReqId) return;
 				var mias = (data.ok && data.mias) ? data.mias : [];
 				if (!mias.length) { histBanner.hidden = true; return; }
 
@@ -224,7 +239,10 @@
 						cargarHistorial(1);
 					};
 			})
-			.catch(function () { histBanner.hidden = true; });
+			.catch(function () {
+				if (miReqId !== bannerReqId) return;
+				histBanner.hidden = true;
+			});
 	}
 	cargarBannerVencimiento();
 

@@ -20,6 +20,10 @@
 	var nuSupervisor    = document.getElementById('nu-supervisor');
 	var rlSupervisor    = document.getElementById('rl-supervisor');
 	var buscarTimeout   = null;
+	// Evita que una respuesta vieja (llegó tarde por la red) pise a una más
+	// nueva — ej. tipear rápido, el 1er fetch responde después que el 2do.
+	// Mismo bug ya encontrado y corregido en Seguimiento de Equipo/Historial.
+	var usuariosReqId   = 0;
 
 	// ---------- Supervisor: 1 supervisor = 1 cuenta (ver functions.php) ----------
 	// Autocompletar Nombre de Usuario con el supervisor elegido (el admin
@@ -90,12 +94,14 @@
 	}
 
 	function cargarUsuarios(pagina) {
+		var miReqId = ++usuariosReqId;
 		var q   = buscarInput.value.trim();
 		var url = 'getters/tabla_usuarios.php?q=' + encodeURIComponent(q) + '&pg=' + (pagina || 1);
 
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
+				if (miReqId !== usuariosReqId) return;
 				if (!data.ok) return;
 				tbody.innerHTML = data.filas;
 				paginacionEl.dataset.pagina = data.pagina;

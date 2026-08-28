@@ -112,6 +112,11 @@
 	var paginaActual = 1;
 	var busquedaActual = '';
 	var buscarTimeout = null;
+	// Evita que una respuesta vieja pise a una más nueva (tipear rápido, o
+	// cambiar de tab justo cuando un fetch anterior sigue en vuelo). Mismo
+	// bug ya encontrado y corregido en Seguimiento de Equipo/Historial/
+	// Gestión de Usuarios.
+	var listaReqId = 0;
 	var filasPreview = null; // filas leídas del Excel, en edición dentro del modal
 	var trimestrePreview = null; // solo cuotas: inferido del propio Excel por repositorio_parsear_cuotas()
 	var estadosPreview = null; // solo cuotas: nuevo/actualiza/usada/sin_cliente por fila, ver verificarEstadosPreview()
@@ -334,21 +339,27 @@
 	}
 
 	function cargarLista() {
+		var miReqId = ++listaReqId;
+		var tipoAlPedir = tipoActivo; // por si cambia de tab mientras esto viaja
 		renderCabecera();
 		tablaBody.innerHTML = '<tr><td class="ac-table-empty">Cargando...</td></tr>';
 		var params = new URLSearchParams({ tipo: tipoActivo, q: busquedaActual, pg: paginaActual });
 		fetch('getters/repositorio_listar.php?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
+				if (miReqId !== listaReqId) return; // respuesta vieja, ignorar.
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el repositorio.', false); return; }
 				renderFilas(data.filas);
 				var infoHtml = 'Mostrando <strong>' + data.filas.length + '</strong> de <strong>' + data.total + '</strong> registros';
 				paginacionInfoEls.forEach(function (el) { if (el) el.innerHTML = infoHtml; });
 				renderPaginacion(data.pagina, data.total_paginas);
-				var contador = document.getElementById('repo-tab-' + tipoActivo + '-count');
+				var contador = document.getElementById('repo-tab-' + tipoAlPedir + '-count');
 				if (contador) contador.textContent = data.total;
 			})
-			.catch(function () { mostrarMensaje('Error de conexión al cargar el repositorio.', false); });
+			.catch(function () {
+				if (miReqId !== listaReqId) return;
+				mostrarMensaje('Error de conexión al cargar el repositorio.', false);
+			});
 	}
 
 	// ---------- Exportar (CSV/Excel) ----------

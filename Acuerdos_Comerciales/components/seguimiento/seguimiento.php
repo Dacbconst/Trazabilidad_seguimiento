@@ -34,13 +34,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/seguimiento.js') ?: time();
 				<button type="button" class="ac-seg-pill" data-trimestre="4">Q4</button>
 			</div>
 			<select class="ac-select ac-seg-anio ac-select-bonito-auto" id="seg-anio">
-				<?php if ($aniosDisponibles): ?>
-					<?php foreach ($aniosDisponibles as $a): ?>
-						<option value="<?= $a ?>"><?= $a ?></option>
-					<?php endforeach; ?>
-				<?php else: ?>
-					<option value="0">Año</option>
-				<?php endif; ?>
+				<!-- "Todos los años" siempre primera opción y seleccionada por
+				     default (mismo criterio que hist-anio en Historial) — sin
+				     esto, el <select> arrancaba en el primer año real de la
+				     lista, excluyendo en silencio cualquier Acta de años
+				     anteriores desde la primera carga, sin que el usuario
+				     pudiera volver a "todos" desde la UI. -->
+				<option value="0">Todos los años</option>
+				<?php foreach ($aniosDisponibles as $a): ?>
+					<option value="<?= $a ?>"><?= $a ?></option>
+				<?php endforeach; ?>
 			</select>
 		</div>
 	</div>

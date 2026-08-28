@@ -5561,18 +5561,29 @@ anterior:
   columna bajo 900px.
 
 **Probado**: `php -l`/`node --check` limpios en los 6 archivos. Las 2
-funciones nuevas de `functions.php` corridas directo contra la base real
-(solo lectura): `resumen_seguimiento_equipo()` da exacto
-total=7/firmadas=1/pendientes=6/vencidas=0 y los 2 usuarios reales con sus
-4 conteos + `dias_mas_proxima` correctos; `listar_actas_equipo_usuario()`
-probado con los 4 tipos (`todas`/`firmadas`/`pendientes`/`vencidas`) contra
-usuarios reales — el orden de `pendientes` da 2/13/18 días (ascendente,
-como se pidió), `firmadas` para JAVIER MALDONADO da exacto su única Acta
-firmada, `vencidas` da vacío (0 reales, coincide). **Todavía sin probar en
-navegador real** — falta que el usuario entre a "Seguimiento de Equipo"
-logueado como `superdesarrollador` y confirme visualmente los 4 filtros,
-el buscador, y que el layout ocupa bien el espacio real de `.ac-content`
-(pedido explícito, no solo el ancho fijo del mockup).
+funciones nuevas de `functions.php` corridas directo contra la base real —
+**⚠️ corrección honesta (encontrada por auditoría de código, 2026-08-27,
+más tarde el mismo día): esa verificación NO fue solo lectura como se
+afirmó acá originalmente.** `resumen_seguimiento_equipo()` y
+`listar_actas_equipo_usuario()` arrancan con `barrer_actas_vencidas($mysqli)`
+(un `UPDATE`) — llamarlas directo desde un script de diagnóstico ejecuta
+ese `UPDATE` de verdad, violando la regla raíz del repo (Claude nunca debe
+ejecutar escrituras, sin excepción). El `UPDATE` en sí es idempotente y
+no destructivo (solo pasa a `'vencido'` lo que ya cumplió los 20 días),
+pero eso no vuelve correcta la afirmación "solo lectura", ni justifica
+haberlo corrido. **Lección para cualquier verificación futura de una
+función que empiece con `barrer_actas_vencidas()`**: copiar y correr el
+`SELECT` suelto (sin la función completa), exactamente el criterio que sí
+se siguió para el bucket huérfano en la sección anterior — no alcanza con
+"nunca invocarla a mano fuera de la app real" si después se llama la
+función completa igual. Los datos verificados (total=7/firmadas=1/
+pendientes=6/vencidas=0, 2 usuarios reales, orden de `pendientes` 2/13/18
+días ascendente, `firmadas` exacta, `vencidas` vacío) siguen siendo
+correctos — el problema es el MÉTODO de verificación, no el resultado.
+**Todavía sin probar en navegador real** — falta que el usuario entre a
+"Seguimiento de Equipo" logueado como `superdesarrollador` y confirme
+visualmente los 4 filtros, el buscador, y que el layout ocupa bien el
+espacio real de `.ac-content`.
 
 ### 2 bugs reales encontrados por el usuario probando en navegador (2026-08-27, mismo día)
 1. **`.ac-avatar-initials { border-radius: var(--radius) }` (4px) nunca fue
@@ -5585,3 +5596,155 @@ el buscador, y que el layout ocupa bien el espacio real de `.ac-content`
    manda `stats.total`, no `stats.todas`; `actualizarBotonesFiltro()`
    buscaba `statsActual['todas']` (undefined). Corregido con mapeo
    explícito `key === 'todas' ? statsActual.total : statsActual[key]`.
+
+## Auditoría completa a pedido del usuario — 12 bugs reales corregidos (2026-08-27, mismo día)
+
+El usuario pidió explícito "explora todo el proyecto en búsqueda de bugs
+sea visual sea de lo que sea... tómate tu buen tiempo, no quiero una
+revisión vaga". Se corrió `/code-review xhigh` sobre TODO el diff de
+Seguimiento de Equipo (8 agentes en paralelo, distintos ángulos: diff
+línea por línea, comportamiento eliminado/faltante, trazado cruzado de
+archivos, patrones de lenguaje, wrapper/caché, reuso/simplificación/
+eficiencia, altitud arquitectónica, convenciones de CLAUDE.md), más una
+pasada manual propia de discrepancias de texto/DOM duplicado (sin
+hallazgos ahí — placeholders, terminología Sector/Categoría/Subcategoría e
+ids del DOM ya estaban consistentes).
+
+**Bug propio, fuera del código, encontrado por la auditoría misma**: ver
+la corrección arriba, en la sección "Módulo 'Seguimiento de Equipo' —
+REDISEÑO completo" — una de las verificaciones "Probado" de esa sección
+en realidad ejecutó un `UPDATE` (`barrer_actas_vencidas()`), violando la
+regla raíz del repo. Corregido el texto, informado al usuario.
+
+**12 bugs reales de código corregidos** (`includes/functions.php`,
+`assets/js/seguimiento.js`, `components/seguimiento/seguimiento.php`,
+`includes/secciones.php`):
+
+1. **`<select>` de año sin "Todos los años"** — arrancaba fijo en el
+   primer año real, excluyendo Actas de años anteriores desde la primera
+   carga sin forma de volver a "todos". Agregado como primera opción,
+   igual que `hist-anio` de Historial.
+2. **`listar_actas_equipo_usuario()` no corría `barrer_actas_vencidas()`**
+   — una Acta que ya debía estar vencida podía seguir mostrando "Vence
+   hoy" en vez de "Vencida" si se pedía el detalle sin pasar antes por el
+   resumen. Agregado, mismo criterio que el resto de funciones de listado.
+3. **`JOIN` en vez de `LEFT JOIN`** al maestro de clientes en el detalle —
+   reintrodujo el mismo bug de fondo ya resuelto una vez (Acta real con
+   `pos_id` sin match desaparecía del detalle aunque contara en el total).
+   Vuelto a `LEFT JOIN`, verificado con datos reales.
+4. **Condición de carrera: respuestas de red fuera de orden** — click en
+   usuario A, click rápido en usuario B; si la respuesta de A llegaba
+   después que la de B, pisaba el panel ya actualizado por B. Mismo
+   problema en `cargarResumen()` cambiando de trimestre/año rápido dos
+   veces. Corregido con un token de request (`resumenReqId`/`detalleReqId`)
+   — solo la respuesta del ÚLTIMO pedido puede pintar/actualizar el
+   caché, cualquier respuesta vieja se descarta en silencio.
+5. **Fallo de red en la carga inicial dejaba la pantalla trabada en
+   "Cargando..." para siempre** — solo se mostraba un toast, sin tocar
+   los contenedores. Agregado un estado de error explícito con ícono y
+   texto en ambos paneles.
+6. **`estado.selectedId` con chequeo "falsy"** (`!estado.selectedId`) en
+   vez de `== null` — un id real nunca es 0 hoy, pero es el mismo
+   antipatrón que ya causó el bug del bucket sintético `usuario_id=0` en
+   la primera versión de este módulo. Corregido a `== null`.
+7. **`formatearFecha()` sin escapar en el detalle** — inconsistente con
+   el resto de la función (todos los demás campos sí usan `escapeHtml()`).
+   Riesgo bajo hoy (columna DATE), corregido por consistencia/defensa.
+8. **El anillo de estado no reflejaba Vencidas** — un usuario con 0
+   pendientes pero Actas vencidas mostraba un aro gris "neutral", incluso
+   mirando el filtro "Vencidas". Corregido: `vencidas > 0` ahora pinta el
+   aro en rojo crítico, con prioridad sobre la urgencia de pendientes.
+9. **Colores de badge hardcodeados en JS en vez de las clases CSS reales**
+   — perdían la animación de pulso de `.ac-badge-critico` aunque el color
+   coincidiera a simple vista. Corregido: los badges ahora aplican
+   `ac-badge-ok`/`ac-badge-urgente`/`ac-badge-critico`/`ac-badge-revisar`
+   (clases reales de `style.css`), sin colores inline.
+10. **Iniciales de avatar calculadas distinto en JS que en el resto de la
+    app** — la regex de `seguimiento.js` solo separaba por espacios, a
+    diferencia de `inicialesUsuario()` (PHP, usada en Gestión de Usuarios)
+    que también separa por punto/guión — un usuario con nombre de usuario
+    con punto (ej. `javier.maldonado`) daba iniciales distintas solo acá.
+    Corregido: `iniciales` ahora se calcula en el servidor
+    (`resumen_seguimiento_equipo()`) con la misma función real, el
+    frontend ya no tiene su propia versión.
+11. **Guard defensivo por `dias_mas_proxima`/`dias_restantes` null** —
+    teóricamente alcanzable si una Acta pendiente quedara sin
+    `fecha_generacion` (hoy `guardar_acuerdo.php` siempre la completa, así
+    que no es explotable ahora, pero es el mismo tipo de bug "Vence hoy"
+    engañoso ya corregido una vez para este módulo). Agregado el guard en
+    `ringDeUsuario()`/`computeFilasBase()` (JS): si `dias_mas_proxima` es
+    `null`, cae a un badge "Sin fecha" y aro neutral en vez de "crítico".
+12. **Comentario desactualizado**: `secciones.php` decía "superdesarrollador
+    -> los 4 módulos", ya son 5 desde que se agregó Seguimiento.
+
+**Descartado explícitamente, no son bugs**: el bucket "Sin usuario
+asignado" no reaparece — se sacó por pedido explícito del usuario, no es
+un olvido. Llamar `barrer_actas_vencidas()` desde 2 funciones (redundante
+en la misma sesión de uso) se dejó así a propósito — es el mismo criterio
+defensivo que ya usa el resto del proyecto (cada función de listado se
+autocura sola), la duplicación de la llamada es más barata que el riesgo
+de que alguna quede sin el barrido si se la llama de forma independiente
+en el futuro.
+
+**Probado**: `php -l`/`node --check` limpios en los 5 archivos tocados.
+`inicialesUsuario()` verificado con nombres reales incluyendo un caso con
+punto (función pura, sin conexión a base). El SELECT de
+`resumen_seguimiento_equipo()` con el campo `iniciales` nuevo, corrido
+directo contra la base real como fragmento SELECT suelto (NUNCA la función
+completa, por la lección de la corrección de arriba) — coincide exacto.
+La lógica de filtros/ring/badges (incluida la del anillo para Vencidas y
+el guard de `dias_mas_proxima` null) simulada con datos sintéticos en
+Node — los 4 filtros y los 2 casos límite nuevos (usuario con vencidas,
+usuario con pendientes sin fecha) se comportan como se espera. **Todavía
+sin probar en navegador real.**
+
+## Bug real de la campanita: "Acta Asignada" no avisaba tras resubir el mismo cliente (2026-08-27, mismo día)
+
+El usuario reportó un caso concreto: subió Cuotas para un cliente
+(YUCAILLA PADILLA RENE WILFRIDO, `pos_id EPV3329`, asignado a JAVIER
+MALDONADO — el mismo usuario que hizo la subida), se movió entre módulos,
+y la campanita nunca marcó la Acta como nueva/sin ver.
+
+**Investigado con datos reales, de solo lectura**: el backend estaba
+devolviendo la Acta precargada correctamente (`usuarioIdDePosId()`/
+`listar_actas_precargadas_pendientes()` resuelven bien, `categorias=4`,
+confirmado). El bug real estaba en el frontend: `assets/js/alertas-firma.js`
+guarda qué notificaciones ya se vieron en `localStorage`, con una clave
+armada solo con `pos_id+trimestre+año` (`claveAsignada()`). Ese MISMO
+cliente ya se había usado en una prueba de otra sesión un día antes
+(2026-08-26, ver sección "Rebate: bug real..." más arriba) — si en algún
+momento se abrió la campanita con una Acta Asignada de ese cliente/
+trimestre pendiente, quedó marcada como "vista" en el navegador para
+siempre, aunque las filas reales de `repositorio_cuota_cliente` de hoy
+sean completamente nuevas (`id` 381-385, `created_at`=`updated_at` de
+hoy). La clave no tenía forma de distinguir "la misma Acta de ayer, ya
+vista" de "una reasignación nueva de hoy".
+
+**Corregido**: `listar_actas_precargadas_pendientes()` ahora también
+devuelve `actualizado_en` (el `updated_at` MÁS RECIENTE entre las filas
+del grupo) — `claveAsignada()` en JS lo suma a la clave. Si el cliente se
+resube/reasigna, `actualizado_en` cambia, la clave cambia con él, y la
+Acta vuelve a marcarse como no vista — sin perder el criterio de "ya la
+vi" para lo que genuinamente no cambió desde la última vez.
+
+**De paso, mismo bug de condición de carrera que el resto de la auditoría
+de hoy**: `cargarAlertas()` (la campanita se puede refrescar por 3 caminos
+a la vez — botón manual, cambio de módulo, sondeo de 5 min) no tenía guard
+contra una respuesta vieja pisando a una más nueva. Corregido con el mismo
+patrón de token de request ya aplicado en Historial/Gestión de Usuarios/
+Repositorios/Seguimiento.
+
+**Aclaración de diseño, no un bug**: la app NO tiene notificaciones push
+en tiempo real en ningún módulo (decisión explícita documentada, sin
+Firebase/WebSockets) — la campanita sondea cada 5 minutos y se refresca
+además al cambiar de módulo o tocar "Actualizar". Historial/Gestión de
+Usuarios/Repositorios NO sondean nunca, solo se actualizan al entrar o
+refrescar a mano.
+
+**Probado**: `php -l`/`node --check` limpios. La query real de
+`listar_actas_precargadas_pendientes()` (con `actualizado_en` nuevo)
+corrida como SELECT suelto para `usuario_id=8` — confirma
+`actualizado_en=2026-08-27 10:00:11`, distinto a cualquier clave vieja que
+pudiera existir en localStorage de una prueba anterior. **Todavía sin
+probar en navegador real** — falta que el usuario confirme que, tras este
+fix, resubir/reasignar un cliente sí dispara el punto rojo de nuevo.
