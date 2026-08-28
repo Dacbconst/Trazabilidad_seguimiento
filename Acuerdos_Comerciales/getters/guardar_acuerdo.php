@@ -75,6 +75,29 @@ $stmt->bind_param('ss', $posId, $supervisorSesion);
 $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
+
+// Segunda vía de propiedad — CEDI del Excel de Cuotas (2026-08-28, bug real
+// encontrado: el maestro de Alicorp y el Excel real de Liquidación de JW
+// discrepan en casi la mitad de los clientes de canal Directo — ver
+// CLAUDE.md "Actas Asignadas: CEDI del Excel gana..."). Sin esto, un
+// asesor con una Acta Precargada real (usuarioIdDeCuota() ya lo dejó pasar
+// en la campanita/obtener_acta_precargada.php) llegaba hasta acá y el
+// GUARDADO se rechazaba igual, porque este chequeo seguía mirando solo el
+// maestro — la Acta quedaba visible pero imposible de completar. Solo
+// aplica cuando el guardado viene realmente marcado como originado en ESA
+// precarga puntual (mismo pos_id) — nunca abre la puerta a guardar
+// cualquier pos_id con cualquier origen_precarga inventado en el POST.
+if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
+	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
+	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
+	if ($trimestrePrecarga >= 1 && $trimestrePrecarga <= 4 && $anioPrecarga > 0) {
+		$duenoCuota = usuarioIdDeCuota($mysqli, $posId, $trimestrePrecarga, $anioPrecarga);
+		if ($duenoCuota && (int) $duenoCuota === (int) ($_SESSION['user_id'] ?? 0)) {
+			$existePos = true;
+		}
+	}
+}
+
 if (!$existePos) {
 	responder(false, 'El Local seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
 }

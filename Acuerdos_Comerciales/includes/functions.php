@@ -369,6 +369,54 @@ function usuarioIdDePosId($mysqli, $posId) {
 	return $fila ? (int) $fila['id'] : null;
 }
 
+// Dueño real de UNA fila de Cuotas — CEDI del Excel manda SIEMPRE sobre el
+// maestro de Alicorp (2026-08-28, pedido explícito del usuario, con
+// evidencia real: el cliente EPV3329/"YUCAILLA PADILLA RENE WILFRIDO"
+// aparece con venta REAL bajo JAVIER MALDONADO en el Excel real de
+// Liquidación de JW — datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA
+// 2026.xlsx —, pero el maestro `repositorio_locales_supervisores_cliente`
+// dice `supervisor=FRANKLIN SALCEDO, canal=MAYORISTA` para ese mismo
+// pos_id — un choque real entre las 2 fuentes, no un bug de lectura. El
+// usuario decidió: para el caso puntual de Actas Precargadas/Asignadas
+// (este repositorio), confiar en el CEDI que trae el Excel de JW — es el
+// documento de negocio real que ya usan para pagos, más confiable acá que
+// el campo `supervisor` del maestro de Alicorp (que puede representar otra
+// cosa, ej. ruta de reparto, o estar desactualizado). **Alcance acotado a
+// propósito**: NO se tocó `usuarioIdDePosId()` (arriba, sigue siendo
+// puramente maestro) ni `canalDeSupervisor()`/el resto del proyecto — esta
+// función es SOLO para resolver a quién le corresponde una Acta Precargada
+// de Cuotas. Si el CEDI no matchea ningún usuario activo real (typo, o el
+// supervisor todavía no tiene cuenta creada), cae al maestro como
+// respaldo — nunca deja sin dueño una fila que el maestro sí puede resolver.
+function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
+	$stmt = $mysqli->prepare(
+		"SELECT cedi_excel FROM repositorio_cuota_cliente WHERE pos_id = ? AND trimestre = ? AND anio = ? LIMIT 1"
+	);
+	if ($stmt) {
+		$stmt->bind_param('sii', $posId, $trimestre, $anio);
+		$stmt->execute();
+		$fila = $stmt->get_result()->fetch_assoc();
+		$stmt->close();
+		$cedi = $fila ? trim((string) $fila['cedi_excel']) : '';
+		if ($cedi !== '') {
+			$stmtCedi = $mysqli->prepare(
+				"SELECT id FROM repositorio_usuarios_acuerdos
+				 WHERE status = 'activo'
+				   AND (UPPER(TRIM(usuario)) = UPPER(TRIM(?)) OR UPPER(TRIM(supervisor)) = UPPER(TRIM(?)))
+				 LIMIT 1"
+			);
+			if ($stmtCedi) {
+				$stmtCedi->bind_param('ss', $cedi, $cedi);
+				$stmtCedi->execute();
+				$filaCedi = $stmtCedi->get_result()->fetch_assoc();
+				$stmtCedi->close();
+				if ($filaCedi) return (int) $filaCedi['id'];
+			}
+		}
+	}
+	return usuarioIdDePosId($mysqli, $posId);
+}
+
 // ---------- Actas Precargadas (Fase 2 del Repositorio de Cuotas, 2026-08-25) ----------
 // Resolución EN VIVO, nunca guardada — a propósito (ver CLAUDE.md, "Repositorio
 // de Cuotas trimestrales + Actas precargadas"): si a un supervisor le crean la
@@ -377,14 +425,23 @@ function usuarioIdDePosId($mysqli, $posId) {
 // polling), sin que nadie tenga que resubir el Excel. Agrupa por
 // (pos_id, trimestre, anio) — varias filas de sector de un mismo cliente son
 // UNA sola Acta precargada, no una por sector.
+// Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota() (arriba,
+// 2026-08-28) — acá como JOIN porque se necesita para TODAS las filas
+// pendientes a la vez, no una consulta puntual. `u_cedi` matchea directo
+// contra `c.cedi_excel`; si no hay match real ahí, `u_master` cae al
+// mismo camino de siempre (maestro de Alicorp) — `COALESCE` se queda con
+// el primero que exista.
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
 	$stmt = $mysqli->prepare(
 		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.valores_mensuales, c.updated_at
 		 FROM repositorio_cuota_cliente c
-		 JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
-		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
-		 WHERE c.estado = 'pendiente_uso' AND u.id = ?
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND COALESCE(u_cedi.id, u_master.id) = ?
 		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel"
 	);
 	if (!$stmt) return [];
@@ -552,20 +609,34 @@ function resumen_cuotas($mysqli) {
 	// supervisores del maestro que tienen cuotas pendientes pero todavía no
 	// tienen una cuenta creada en Gestión de Usuarios (`tiene_cuenta: false`,
 	// el frontend los muestra con una marca pasiva en vez de ocultarlos).
+	// Mismo criterio "CEDI del Excel gana" (2026-08-28, ver usuarioIdDeCuota()
+	// más arriba) — `dueno_id`/`dueno_nombre` se resuelven con CEDI primero,
+	// maestro de Alicorp como respaldo si el CEDI no matchea ningún usuario
+	// real. Sin esto, este resumen podía mostrar un nombre distinto al que
+	// realmente le llega la Acta por la campanita (listar_actas_precargadas_pendientes()) —
+	// las 2 consultas ahora usan la misma lógica de dueño.
 	$stmt = $mysqli->prepare(
-		"SELECT u.usuario AS nombre, COUNT(DISTINCT $agrupador) AS actas_pendientes, 1 AS tiene_cuenta
+		"SELECT COALESCE(u_cedi.usuario, u_master.usuario) AS nombre,
+		        COUNT(DISTINCT $agrupador) AS actas_pendientes,
+		        (COALESCE(u_cedi.id, u_master.id) IS NOT NULL) AS tiene_cuenta
 		 FROM repositorio_cuota_cliente c
-		 JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
-		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
-		 WHERE c.estado = 'pendiente_uso'
-		 GROUP BY u.id, u.usuario
-		 UNION ALL
-		 SELECT m.supervisor AS nombre, COUNT(DISTINCT $agrupador) AS actas_pendientes, 0 AS tiene_cuenta
-		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
 		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.supervisor = m.supervisor AND u.status = 'activo'
-		 WHERE c.estado = 'pendiente_uso' AND u.id IS NULL
-		 GROUP BY m.supervisor
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND COALESCE(u_cedi.id, u_master.id) IS NOT NULL
+		 GROUP BY COALESCE(u_cedi.id, u_master.id), nombre
+		 UNION ALL
+		 SELECT COALESCE(m.supervisor, c.cedi_excel) AS nombre, COUNT(DISTINCT $agrupador) AS actas_pendientes, 0 AS tiene_cuenta
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND u_cedi.id IS NULL AND u_master.id IS NULL
+		 GROUP BY COALESCE(m.supervisor, c.cedi_excel)
 		 ORDER BY actas_pendientes DESC"
 	);
 	$porUsuario = [];
@@ -577,11 +648,80 @@ function resumen_cuotas($mysqli) {
 		unset($fila);
 	}
 
+	// Actas precargadas que YA NO se van a poder generar — el Local ya tiene
+	// un Acuerdo activo en el mismo Período (misma regla de
+	// getters/guardar_acuerdo.php, "solo un Acta activa por Local+Período",
+	// 2026-08-23). Sin este aviso el superdesarrollador solo se enteraba
+	// cuando el asesor intentaba generar y el guardado se rechazaba en
+	// silencio para él — acá se detecta ANTES, con los mismos datos que
+	// hacen falta para decidir qué hacer (2026-08-28, pedido explícito:
+	// "que se vea como un cuadro comparativo" en el modal de Resumen).
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT c.pos_id, c.trimestre, c.anio FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_uso'"
+	);
+	$grupos = [];
+	if ($stmt) {
+		$stmt->execute();
+		$grupos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+		$stmt->close();
+	}
+	$chocan = [];
+	if ($grupos) {
+		$stmtExistente = $mysqli->prepare(
+			"SELECT a.documento_no, a.created_at, u.usuario
+			 FROM repositorio_acuerdos a
+			 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+			 WHERE a.pos_id = ? AND a.anio = ? AND a.mes_inicio = ? AND a.mes_fin = ?
+			   AND a.estado NOT IN ('borrador', 'anulado')
+			 LIMIT 1"
+		);
+		$stmtCliente = $mysqli->prepare(
+			"SELECT pos_name FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1"
+		);
+		foreach ($grupos as $g) {
+			$mesInicio = ($g['trimestre'] - 1) * 3;
+			$mesFin = $mesInicio + 2;
+			$stmtExistente->bind_param('siii', $g['pos_id'], $g['anio'], $mesInicio, $mesFin);
+			$stmtExistente->execute();
+			$existente = $stmtExistente->get_result()->fetch_assoc();
+			if (!$existente) continue;
+
+			$posName = $g['pos_id'];
+			if ($stmtCliente) {
+				$stmtCliente->bind_param('s', $g['pos_id']);
+				$stmtCliente->execute();
+				$fc = $stmtCliente->get_result()->fetch_assoc();
+				if ($fc && $fc['pos_name']) $posName = $fc['pos_name'];
+			}
+			$duenoId = usuarioIdDeCuota($mysqli, $g['pos_id'], $g['trimestre'], $g['anio']);
+			$duenoNombre = null;
+			if ($duenoId) {
+				$ru = $mysqli->query('SELECT usuario FROM repositorio_usuarios_acuerdos WHERE id = '.(int) $duenoId);
+				$fu = $ru ? $ru->fetch_assoc() : null;
+				$duenoNombre = $fu ? $fu['usuario'] : null;
+			}
+
+			$chocan[] = [
+				'pos_id'             => $g['pos_id'],
+				'local'              => $posName,
+				'trimestre'          => (int) $g['trimestre'],
+				'anio'               => (int) $g['anio'],
+				'asignado_a'         => $duenoNombre,
+				'existente_documento_no' => $existente['documento_no'],
+				'existente_usuario'  => $existente['usuario'],
+				'existente_fecha'    => $existente['created_at'],
+			];
+		}
+		$stmtExistente->close();
+		if ($stmtCliente) $stmtCliente->close();
+	}
+
 	return [
 		'pendientes'        => $pendientes,
 		'usadas'            => $usadas,
 		'pendientes_match'  => $pendientesMatch,
 		'por_usuario'       => $porUsuario,
+		'chocan'            => $chocan,
 	];
 }
 

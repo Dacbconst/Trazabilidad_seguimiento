@@ -5748,3 +5748,284 @@ corrida como SELECT suelto para `usuario_id=8` — confirma
 pudiera existir en localStorage de una prueba anterior. **Todavía sin
 probar en navegador real** — falta que el usuario confirme que, tras este
 fix, resubir/reasignar un cliente sí dispara el punto rojo de nuevo.
+
+## Actas precargadas: filas vacías espejo en Cabeceras/Rumas/Perchas (2026-08-27, mismo día)
+
+Pedido explícito: al cargar una Acta precargada (Repositorio de Cuotas
+Trimestrales), Meta de Compras ya llegaba con sus filas bloqueadas y fijas
+(ver "Repositorio de Cuotas trimestrales..." más arriba), pero
+Cabeceras/Rumas/Perchas seguían arrancando con **1 sola fila vacía** de
+siempre (el default de cualquier Acuerdo nuevo) — el asesor tenía que
+clickear "Agregar Fila" a mano tantas veces como categorías trajera la
+precarga para tener una fila por cada una.
+
+**Implementado en `assets/js/registrar.js`, sin tocar backend/esquema**:
+- `generarFilasVaciasOtrasTablas(cantidadLineasMeta)` (nueva) — completa
+  Cabeceras/Rumas/Perchas hasta tener tantas filas como líneas trajo Meta
+  de Compras (`p.lineas.meta_compra.length`), reusando
+  `addCabeceraRow()`/`addRumaRow()`/`addPerchaRow()` normales (empiezan en
+  1 porque `poblarTablasConLineas()` ya puso la primera). **Las filas
+  quedan 100% vacías** (sin Segmento/Categoría/Marca sugeridos) — a
+  propósito, ver el porqué más abajo.
+- `bloquearAgregarOtrasTablas()`/`desbloquearAgregarOtrasTablas()` (nuevas)
+  — deshabilitan/rehabilitan los 3 botones "Agregar Fila"
+  (`ac-add-cabecera-row`/`ac-add-ruma-row`/`ac-add-percha-row`). **A
+  diferencia de Meta de Compras** (que bloquea agregar Y eliminar, tabla
+  100% fija): acá solo se bloquea **agregar** — "Eliminar Fila" se deja
+  intacto, para que el asesor pueda sacar una fila de más si una categoría
+  no lleva Cabecera/Ruma/Percha. Llamadas desde `aplicarPrecarga()` (junto
+  a `bloquearFilasPrecargadas()`), y revertidas en
+  `limpiarFormularioParaNuevoAcuerdo()`/`aplicarBorrador()` (mismo patrón
+  ya existente para el botón de Meta de Compras — un Borrador o el
+  siguiente Acuerdo nunca deben arrastrar este bloqueo).
+- **Probado**: `node --check` limpio. No probado en navegador real todavía.
+
+**Por qué las filas quedan vacías (no autocompletadas) — confirmado
+investigando el flujo real, respuesta a la pregunta del usuario**: el
+Excel de Cuotas que sube JW solo trae `CEDI, CLIENTE, PLAN, CATEGORIAS,
+CONCAT, <mes1>, <mes2>, <mes3>` — ninguna columna de Subcategoría ni Marca.
+Confirmado en `obtener_precarga_detalle()` (`includes/functions.php`): ni
+siquiera el `categoria`/`marca` de las líneas de **Meta de Compras**
+(donde SÍ hay bloqueo real) vienen del Excel — se resuelven con un
+fallback de **continuidad con Actas anteriores del mismo cliente**
+(`JOIN` a `repositorio_acuerdo_lineas` por `pos_id`+`sector`, la última
+Acta con ese Sector) o quedan `null` si no hay historial. Cabeceras/Rumas/
+Perchas ni siquiera tienen ese fallback armado — nunca tuvieron de dónde
+sacar una sugerencia.
+
+**Confirmado: sí, agregar 2 columnas (Subcategoría + Marca) al Excel de
+Cuotas resolvería esto de raíz** — no es una suposición, es directo de
+cómo está armado el resto del sistema:
+- Cabeceras/Rumas usan el árbol Segmento→Categoría→Marca (sin nivel
+  Sector) y Perchas usa solo Marca — **el mismo par Categoría+Marca**
+  (columna `categoria`/`marca` de `repositorio_productos`, ver
+  `getters/acuerdo_catalogo.php`) que ya identifica un producto en Meta de
+  Compras. Si el Excel trajera esas 2 columnas por fila, el mismo
+  match/resolución que hoy ya existe para Meta de Compras (o uno más
+  simple, directo por texto — sin depender de historial) alcanzaría para
+  las 4 tablas a la vez, no sería un desarrollo separado por tabla.
+- **Ojo, esto sigue siendo trabajo de código pendiente si se agregan las
+  columnas** (no "se arregla solo con que JW suba el Excel distinto") —
+  haría falta: 1) que `repositorio_parsear_cuotas()`
+  (`includes/repositorio_import.php`) lea las 2 columnas nuevas, 2) que
+  `repositorio_cuota_cliente` las guarde (columnas nuevas o replantear el
+  guardado), 3) que `obtener_precarga_detalle()` las use en vez del
+  fallback de historial para Meta de Compras, y 4) armar el mismo llenado
+  para Cabeceras/Rumas/Perchas (hoy ese código no existe, recién se
+  agregarían filas VACÍAS con este cambio, no con datos).
+- **Recomendación si el usuario decide pedirlo**: mismo texto que JW ya
+  usa para Rebate (`SUBCATEGORIA`), para no introducir un 3er vocabulario
+  distinto — "Subcategoría" y "Marca" como columnas nuevas, mismo criterio
+  de nombres que ya maneja el resto del proyecto.
+
+**Ronda 2, mismo día — espejar identidad (no solo generar filas vacías) +
+bloquear campos igual que Meta de Compras, probado en navegador real**:
+pedido explícito de subir el nivel — "así mismo como la tabla 1, estos no
+podrán modificar los campos, solo los precios, y claro eliminará nomás".
+
+- `espejarIdentidadOtrasTablas(lineasMeta)` (nueva, `assets/js/registrar.js`)
+  — la fila `i` de Cabeceras/Rumas/Perchas corresponde a la línea `i` de
+  Meta de Compras (mismo orden/conteo, ver arriba). Si esa línea trajo
+  Segmento+Subcategoría+Marca los 3 resueltos (típicamente por
+  continuidad con Actas anteriores, ver `obtener_precarga_detalle()`), se
+  copia esa identidad a Cabecera/Ruma (`_combo.sugerir(...)`) y a Percha
+  (`_comboMarca.sugerir(marca)`), y esos campos quedan bloqueados
+  (`disabled` + clase `ac-combo-input-precargado`, mismo look que Meta de
+  Compras) — **precios/montos siguen editables**, nunca se tocan acá. Si
+  la línea de origen NO está completa (ej. Sector resuelto pero
+  Subcategoría/Marca no, caso real más común hoy — ver arriba, el Excel no
+  trae esos 2 datos), la fila espejo queda con el cascade normal, sin
+  bloquear nada — nunca se llama `.sugerir()` con datos a medias (dejaría
+  el texto literal "null" en el campo).
+- "Eliminar Fila" se mantiene SIN bloquear en estas 3 tablas (a
+  diferencia de Meta de Compras, que bloquea agregar Y eliminar) — el
+  asesor puede sacar una fila de más si una categoría no lleva
+  Cabecera/Ruma/Percha, tal como se pidió.
+
+**Bug real encontrado y corregido probando en navegador (Playwright, sesión
+falsa de solo lectura contra la base real — no HTTP, sesión seteada
+directo por `$_SESSION` en un script temporal borrado al terminar,
+usuario real `FRANKLIN SALCEDO`/uid=6, único cliente con Cuotas reales
+pendientes Y usuario asignado en la base hoy)**: el orden original de
+llamadas en `aplicarPrecarga()` era `generarFilasVaciasOtrasTablas()`
+**después** de `bloquearFilasPrecargadas()` — pero
+`generarFilasVaciasOtrasTablas()` llama a
+`addCabeceraRow()`/`addRumaRow()`/`addPerchaRow()`, y cada una de esas
+termina en `actualizarBloqueoPorDistribuidor()` (función preexistente,
+`assets/js/registrar.js` línea ~394) que **rehabilita TODOS los
+`.seg-input` de Meta de Compras/Cabeceras/Rumas de golpe** (sin distinguir
+cuáles venían bloqueados por precarga) cada vez que se agrega una fila con
+Distribuidor ya elegido. Resultado real observado: el campo Segmento de
+Meta de Compras quedaba SIN bloquear (aunque el valor SÍ era el correcto)
+después de cargar la precarga — Sector seguía bloqueado bien porque
+`actualizarBloqueoPorDistribuidor()` no lo toca, pero Segmento sí.
+**Corregido reordenando** — `generarFilasVaciasOtrasTablas()` ahora corre
+ANTES de `bloquearFilasPrecargadas()`, para que el bloqueo de Meta de
+Compras sea la última operación sobre esas filas (nada corre después que
+vuelva a llamar `addPurchaseRow()`/similar). `espejarIdentidadOtrasTablas()`
+y `bloquearAgregarOtrasTablas()` van después sin problema — ninguna de las
+dos llama a `addXRow()`, no disparan el efecto colateral.
+
+**Probado de punta a punta en navegador real (Playwright, servidor local
+`php -S`, 2 escenarios)**:
+1. **Cliente real** (`EPV3329`, Q2 2026, 4 líneas de Meta de Compras
+   reales) — confirmado tras el fix: Segmento bloqueado con el valor
+   correcto en las 3 líneas que lo resolvieron, línea 4 (Sector LIQUIDO)
+   con Segmento sin resolver queda abierta (comportamiento ya documentado,
+   sin cambios); Sector bloqueado en las 4; Subcategoría/Marca quedan
+   editables en las 4 (este cliente no tenía historial, real, no un caso
+   armado) — 4 filas generadas en Cabeceras/Rumas/Perchas, ninguna
+   mirroreada (esperado, ninguna línea de origen estaba 100% resuelta),
+   los 3 botones "Agregar Fila" bloqueados, "Eliminar Fila" habilitado en
+   las 3.
+2. **Datos sintéticos vía interceptación de red** (`page.route()` en
+   Playwright — nunca tocó la base real, solo devolvió una respuesta JSON
+   fabricada en memoria del navegador para el mismo endpoint) con 3 líneas
+   de Meta de Compras, 2 de ellas con Segmento+Subcategoría+Marca 100%
+   resueltos (`CREMA/LAVAVAJILLAS/LAVA`, `BARRA/ROPA/EL MACHO`) y 1 sin
+   resolver (`POLVO`, categoria/marca `null`) — confirmado exacto:
+   Cabeceras/Rumas fila 1 y 3 llegan con la identidad copiada y BLOQUEADA,
+   fila 2 queda abierta; Perchas mismo patrón con Marca (`LAVA`/`EL
+   MACHO` bloqueados, la del medio abierta).
+- `node --check` limpio en ambas rondas.
+
+**Aclaración del usuario, mismo día — ya NO hace falta resolver "OTRAS
+CATEGORIAS"**: JW confirmó que van a dejar de trabajar esa categoría
+(el cajón genérico sin desglosar que aparece en el Excel real de
+Liquidación Directa, ver "Alcance real de Acuerdos Comerciales" más
+arriba) — no hace falta construir ninguna lógica para resolverla contra
+un Sector real. **Nota importante para la próxima sesión**: hoy en la base
+real (`repositorio_cuota_cliente`) SÍ existen filas viejas con
+`sector='OTRAS CATEGORIAS'` y montos reales (ej. $10-$20/mes, de una
+subida de prueba anterior) — como no matchea ningún Sector real,
+`resolverSectorReal()` la deja tal cual con aviso, y como el monto es > 0
+(no $0), NO se filtra por la regla de "categoría en $0 se descarta" — si
+esas filas siguen `pendiente_uso` cuando alguien cargue esa precarga, van
+a aparecer igual como una línea de Meta de Compras con Sector
+"OTRAS CATEGORIAS" sin resolver. No se tocó nada de esto todavía (no hay
+pedido explícito de limpiarlas, y borrar filas de `repositorio_cuota_cliente`
+requeriría que el usuario lo haga desde la UI de Repositorios — Descartar —
+o corriendo un DELETE él mismo, Claude no puede).
+
+## Actas Asignadas: CEDI del Excel gana sobre el maestro de Alicorp (2026-08-28)
+
+Investigación larga, disparada porque el usuario probó como JAVIER
+MALDONADO subiendo el Excel de prueba de Cuotas y no le salía su propia
+Acta asignada en la campanita. Se auditó a fondo antes de tocar nada:
+
+- **Confirmado con el Excel real de Liquidación de JW** (no solo el de
+  prueba): `EPV3329`/"YUCAILLA PADILLA RENE WILFRIDO" tiene venta real
+  registrada bajo CEDI="JAVIER MALDONADO", pero
+  `repositorio_locales_supervisores_cliente` (el maestro de Alicorp) dice
+  `supervisor=FRANKLIN SALCEDO, canal=MAYORISTA` para ese mismo pos_id — un
+  choque real, no un error de lectura.
+- **Auditoría más amplia** (62 clientes únicos del Excel real de
+  Liquidación Directa Q2 2026, comparados 1 a 1 contra el maestro,
+  ignorando acentos): **29 de 62 (47%) difieren**. De esos, solo 4
+  involucran a las 2 únicas cuentas reales de canal Directo que existen
+  hoy (Javier Maldonado, Franklin Salcedo) — el resto son nombres
+  (`CARLOS PROANO`, `XAVIER ALVARADO`, `MARCELO ESPINOZA`) que **no tienen
+  cuenta creada en absoluto** todavía.
+- **El portafolio real de Javier Maldonado (312 clientes, todos
+  COBERTURA) no se superpone ni un solo cliente con los que el Excel real
+  le atribuye a él (6 clientes, todos canal MAYORISTA en el maestro)** —
+  conclusión: el maestro parece guardar quién **reparte/visita**
+  operativamente (canal MAYORISTA ahí = Franklin Salcedo/Garry Saint),
+  mientras que el Excel real de JW guarda quién **negocia el Acuerdo
+  Comercial** (Javier Maldonado) — dos conceptos reales distintos que el
+  maestro mezcla en un solo campo `supervisor`. Para lo que le importa a
+  ESTA app (quién gestiona el ADN), el Excel tiene la razón.
+- **Adrián Vásquez (canal Distribuidor) sí coincide** con el Excel real de
+  Distribuidores para su única empresa real (`ASERTIA COMERCIAL SA` ↔
+  `ASERTIA`, 216 filas) — pero de las 10 distribuidoras reales que
+  aparecen en ese Excel, **9 no tienen ningún usuario real que las
+  maneje** en la app hoy (DISTRIORENSE→JAIRO FLORES, DISTRIGRANDA→RODRIGO
+  CORDOVA/JHONNY CASTILLO, CAMEL→RODRIGO CORDOVA, COIMFAGI→JHONNY
+  CASTILLO, PRODISPRO→LENIN HERNANDEZ, FREIRE→JULIO CABRERA, LOJANO→JHONNY
+  CASTILLO — nombres reales encontrados en el maestro vía `tipo_distribuidor`,
+  ninguno tiene cuenta creada). `canalDeSupervisor()` clasifica correcto a
+  los 3 candidatos de Directa y a los 7 de Distribuidor apenas se les cree
+  la cuenta — la lógica de canal nunca fue el problema, solo faltan las
+  cuentas.
+
+**Decisión del usuario, acotada a propósito**: para el caso puntual de
+Actas Asignadas/Precargadas (este repositorio), el CEDI del Excel de
+Cuotas **siempre gana** sobre el maestro — nunca se tocó
+`canalDeSupervisor()`, `acuerdo_distribuidores.php` (el combo de Local en
+Registrar sigue filtrando por el maestro, sin cambios) ni ningún otro
+punto del proyecto.
+
+**Implementado — 3 lugares, todos con el mismo criterio**:
+- `usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio)` (nueva,
+  `includes/functions.php`) — busca `cedi_excel` de esa fila en
+  `repositorio_cuota_cliente`, lo matchea contra `usuario` O `supervisor`
+  de un usuario activo; si no matchea nada real, cae a `usuarioIdDePosId()`
+  (el maestro, sin cambios) como respaldo.
+- `getters/obtener_acta_precargada.php` — usa `usuarioIdDeCuota()` en vez
+  de `usuarioIdDePosId()` para decidir si el usuario de sesión puede ver
+  esta precarga.
+- `listar_actas_precargadas_pendientes()` y `resumen_cuotas()`
+  (`includes/functions.php`) — mismo criterio vía `LEFT JOIN` +
+  `COALESCE(u_cedi.id, u_master.id)`, para que la campanita y el modal de
+  Resumen coincidan siempre con lo que decide `obtener_acta_precargada.php`.
+- **`getters/guardar_acuerdo.php` — el bug más grave, encontrado después**:
+  el chequeo de propiedad al GUARDAR seguía mirando solo el maestro — un
+  asesor con una Acta ya visible en su campanita (gracias al fix de
+  arriba) se topaba con "no pertenece a tu cartera de clientes" al
+  intentar guardar. Se agregó una segunda vía: si el guardado viene
+  marcado como originado de esa precarga puntual (mismo pos_id) Y
+  `usuarioIdDeCuota()` confirma que el dueño real es el usuario de la
+  sesión, se permite igual — nunca abre la puerta a un `origen_precarga`
+  inventado, sigue consultando el dato real de la base, no lo que mande
+  el navegador.
+
+**Probado con datos reales de solo lectura**: `usuarioIdDeCuota('EPV3329',
+2, 2026)` da uid=8 (Javier Maldonado, correcto); la campanita de Franklin
+Salcedo para ese mismo cliente ya no muestra nada; `resumen_cuotas()`
+muestra a Javier con 1 Acta pendiente y cuenta real; la simulación del
+chequeo de `guardar_acuerdo.php` pasa de "NO PASA" a "GUARDADO PERMITIDO"
+para el caso real.
+
+## Resumen — Cuotas Trimestrales: aviso de Actas que van a chocar (2026-08-28, mismo día)
+
+Pedido explícito, mismo hilo: mientras se investigaba lo de arriba, el
+usuario preguntó si "no veo mi Acta" podía deberse a la regla de "solo un
+Acta activa por Local+Período" (`guardar_acuerdo.php`, 2026-08-23) —
+verificado que NO era el caso ahora mismo (0 de los 12 grupos
+`pendiente_uso` reales chocan hoy), pero el usuario pidió agregar un aviso
+preventivo en el modal "Resumen — Cuotas Trimestrales" para cuando sí
+pase: mostrar, como cuadro comparativo, qué Acta precargada no se va a
+poder generar y con qué Acuerdo ya existente choca.
+
+**Diseñado primero en Claude Design** (pedido explícito: "diseñálo primero
+... quiero ver si me entendiste la idea") — mockup publicado, aprobado por
+el usuario con un solo agregado: mostrar también a quién se le iba a
+asignar la Acta en el lado izquierdo. Aplicado tal cual a código real.
+
+- `resumen_cuotas()` (`includes/functions.php`) — nueva clave `chocan`:
+  para cada grupo `pendiente_uso` (pos_id+trimestre+año), si ya existe un
+  `repositorio_acuerdos` con ese mismo pos_id+año+mes_inicio+mes_fin y
+  `estado NOT IN ('borrador','anulado')` (misma regla exacta que
+  `guardar_acuerdo.php`), arma un registro con: `local` (pos_name),
+  `trimestre`/`anio`, `asignado_a` (vía `usuarioIdDeCuota()`, puede ser
+  `null` si nadie real lo tiene identificado todavía), y del Acuerdo
+  existente: `documento_no`, `usuario` (quién lo generó), `fecha`.
+- `assets/js/repositorios.js` — `renderResumenChoque()`/`filaResumenChoque()`,
+  llamada desde `abrirResumen()` junto a las 2 secciones que ya existían.
+  Oculta con la clase `.hidden` genérica del proyecto (no con el atributo
+  `hidden` — sin conflicto de especificidad porque esta clase no declara
+  ningún `display` propio en ningún selector).
+- `assets/css/style.css` — bloque `.ac-choque-*` nuevo: fila con
+  `border-left` naranja (mismo tono ya usado en `.ac-badge-urgente`/las
+  cajas de vencimiento), 2 columnas (izquierda = precarga en fondo crema
+  tenue, derecha = Acuerdo existente en fondo gris neutro) separadas por
+  una flecha, badge azul (`--color-secondary-fixed`/`--color-primary`,
+  mismo par que ya usa `.ac-sidebar-nav li.active`) para el número de Acta
+  existente. Responsive: bajo 700px pasa a 1 columna con la flecha
+  rotada 90°.
+- **Probado con Playwright, datos sintéticos inyectados por red
+  (`page.route()`, nunca tocó la base real)** — desktop 1280px y mobile
+  390px, ambos con screenshot real revisado: sin elementos superpuestos,
+  la fila entra completa en ambos anchos, el campo "Se iba a asignar a
+  ..." se ve correcto cuando hay dueño identificado y "Sin usuario
+  identificado todavía" cuando no. `node --check`/`php -l` limpios.

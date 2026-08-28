@@ -258,6 +258,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<p class="ac-resumen-chart-title">A quién le corresponden — usuarios con cuenta y supervisores sin cuenta todavía</p>
 				<div id="repo-resumen-chart"></div>
 			</div>
+			<div id="repo-resumen-choque" class="ac-choque-wrap hidden"></div>
 		</div>
 	</div>
 </div>

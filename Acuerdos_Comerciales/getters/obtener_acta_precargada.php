@@ -32,7 +32,10 @@ if ($posId === '' || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
-$usuarioDueno = usuarioIdDePosId($mysqli, $posId);
+// CEDI del Excel gana sobre el maestro de Alicorp para este caso puntual
+// (usuarioIdDeCuota(), ver includes/functions.php — 2026-08-28, choque real
+// confirmado entre el maestro y el Excel real de Liquidación de JW).
+$usuarioDueno = usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio);
 if (!$usuarioDueno || (int) $usuarioDueno !== (int) $usuarioSesion) {
 	http_response_code(404);
 	responder(false, 'Acta precargada no encontrada.');

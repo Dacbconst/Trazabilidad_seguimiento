@@ -953,6 +953,7 @@
 	var resumenOverlay = document.getElementById('repo-resumen-modal-overlay');
 	var resumenStats = document.getElementById('repo-resumen-stats');
 	var resumenChart = document.getElementById('repo-resumen-chart');
+	var resumenChoque = document.getElementById('repo-resumen-choque');
 
 	// "Sin usuario asignado" como número suelto se sacó (2026-08-26, pedido
 	// explícito: "me hace ruido... quítalo, lo veo innecesario") — esa misma
@@ -1027,16 +1028,59 @@
 		resumenChart.innerHTML = html;
 	}
 
+	// Actas que YA NO se pueden generar porque el Local ya tiene un Acuerdo
+	// activo en el mismo Período (2026-08-28, ver resumen_cuotas() en
+	// functions.php — misma regla que getters/guardar_acuerdo.php, detectada
+	// acá ANTES de que el asesor intente generar y se lo rechacen en
+	// silencio). Diseñado primero en Claude Design y aprobado por el
+	// usuario ("me parece perfecto") — cuadro comparativo: a la izquierda la
+	// Acta precargada (Local + Período + a quién se le iba a asignar), a la
+	// derecha el Acuerdo existente con el que choca (documento, quién lo
+	// generó, fecha).
+	var TRIMESTRE_LABEL = ['', 'Q1', 'Q2', 'Q3', 'Q4'];
+	function filaResumenChoque(c) {
+		var asignadoHtml = c.asignado_a
+			? '<p class="ac-choque-meta">Se iba a asignar a <strong>' + escapeHtml(c.asignado_a) + '</strong></p>'
+			: '<p class="ac-choque-meta">Sin usuario identificado todavía</p>';
+		return '<div class="ac-choque-row">' +
+			'<div class="ac-choque-side ac-choque-side-precarga">' +
+				'<p class="ac-choque-eyebrow ac-choque-eyebrow-precarga">Acta precargada pendiente</p>' +
+				'<p class="ac-choque-local">' + escapeHtml(c.local) + '</p>' +
+				'<p class="ac-choque-meta">Período: <strong>' + TRIMESTRE_LABEL[c.trimestre] + ' ' + c.anio + '</strong></p>' +
+				asignadoHtml +
+			'</div>' +
+			'<div class="ac-choque-arrow"><span class="material-symbols-outlined">arrow_forward</span></div>' +
+			'<div class="ac-choque-side ac-choque-side-existente">' +
+				'<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">Choca con este Acuerdo existente</p>' +
+				'<span class="ac-choque-doc">' + escapeHtml(c.existente_documento_no) + '</span>' +
+				'<p class="ac-choque-meta">Generado por <strong>' + escapeHtml(c.existente_usuario || '—') + '</strong></p>' +
+				'<p class="ac-choque-meta">' + formatoFechaHora(c.existente_fecha) + '</p>' +
+			'</div>' +
+		'</div>';
+	}
+	function renderResumenChoque(chocan) {
+		if (!chocan || !chocan.length) { resumenChoque.classList.add('hidden'); resumenChoque.innerHTML = ''; return; }
+		resumenChoque.classList.remove('hidden');
+		resumenChoque.innerHTML =
+			'<div class="ac-choque-title-row"><span class="material-symbols-outlined">warning</span>' +
+			'<p class="ac-choque-title">Actas que no se van a poder generar (' + chocan.length + ')</p></div>' +
+			'<p class="ac-choque-sub">Este Local ya tiene un Acuerdo activo en el mismo período — la regla de "un Acta por Local y Período" va a bloquear el guardado.</p>' +
+			'<div class="ac-choque-list">' + chocan.map(filaResumenChoque).join('') + '</div>';
+	}
+
 	function abrirResumen() {
 		resumenOverlay.classList.add('ac-modal-open');
 		resumenStats.innerHTML = '';
 		resumenChart.innerHTML = '<p class="ac-field-hint">Cargando...</p>';
+		resumenChoque.classList.add('hidden');
+		resumenChoque.innerHTML = '';
 		fetch('getters/cuotas_resumen.php')
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el resumen.', false); return; }
 				renderResumenStats(data);
 				renderResumenChart(data.por_usuario);
+				renderResumenChoque(data.chocan);
 			})
 			.catch(function () { mostrarMensaje('Error de conexión al cargar el resumen.', false); });
 	}

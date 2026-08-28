@@ -51,7 +51,8 @@ Acuerdos_Comerciales/
 │   ├── registrar/registrar.php
 │   ├── historial/historial.php
 │   ├── repositorios/repositorios.php
-│   ├── liquidacion/liquidacion.php    (oculto del sidebar, ver §6.6)
+│   ├── seguimiento/seguimiento.php
+│   ├── liquidacion/liquidacion.php    (oculto del sidebar, ver §6.7)
 │   └── gestion-usuarios/gestion-usuarios.php
 ├── includes/                  Lógica compartida (funciones de negocio, no HTTP)
 │   ├── functions.php          Autenticación, listados, cálculos — el núcleo
@@ -96,8 +97,9 @@ getter delega la autorización al frontend.
 - Roles reales (la app ya no ofrece `admin`, aunque el `ENUM` de la columna
   todavía lo permite a nivel de MySQL):
   - `desarrollador` → ve **Registrar Acuerdo PDV** e **Historial de Acuerdos**.
-  - `superdesarrollador` → ve los 4 módulos activos (agrega **Repositorios**
-    y **Gestión de Usuarios**; Liquidación existe pero está oculta, ver §6.6).
+  - `superdesarrollador` → ve los 5 módulos activos (agrega **Repositorios**,
+    **Seguimiento de Equipo** y **Gestión de Usuarios**; Liquidación existe
+    pero está oculta, ver §6.7).
 - `rolPermitido(array $roles)` (`functions.php`) es el único gate de
   autorización — se llama igual en cada componente y en cada getter.
 - **Canal del usuario** (Directo vs. Distribuidor) nunca se guarda — se
@@ -130,16 +132,16 @@ la tabla existe hoy en la base real, no el código.
 | `repositorio_acuerdos` | ✅ 56 filas | Cabecera de cada Acta (1 por PDV/período) |
 | `repositorio_acuerdo_lineas` | ✅ 285 filas | Las 4 tablas del Acta (meta_compra/cabecera/ruma/percha), unificadas por `tipo` |
 | `repositorio_usuarios_acuerdos` | ✅ 4 filas | Login y roles |
-| `repositorio_cuota_cliente` | ✅ 0 filas | Cuotas trimestrales subidas por JW (repositorio self-service) |
+| `repositorio_cuota_cliente` | ✅ 60 filas | Cuotas trimestrales subidas por JW (repositorio self-service) |
 | `repositorio_liquidacion_importaciones` | ✅ 2 filas | Lotes de Excel subidos al módulo Liquidación |
 | `repositorio_liquidacion_cuota_categoria` | ✅ 316 filas | Filas de cuota/venta/rebate del Excel de Liquidación |
 | `repositorio_liquidacion_visibilidad` | ✅ 45 filas | Filas de Cabecera/Isla/Percha del Excel de Liquidación |
-| `repositorio_rebate_producto` | ⚠️ Pendiente `ALTER` (ver §6.3.1) | Catálogo Rebate % por Ciudad/Canal/Categoría/Subcategoría/Marca — ver §6.3.1 |
+| `repositorio_rebate_producto` | ✅ 55 filas (`ALTER` corrido 2026-08-27) | Catálogo Rebate % por Ciudad/Canal/Categoría/Subcategoría/Marca — ver §6.3.1 |
 | `repositorio_participacion_percha` | ❌ **NO existe** | Catálogo Participación % por Marca — ver §6.3.2 |
 
-SQL pendiente de correr: el `ALTER TABLE` de Rebate en
-`datos/repositorios_schema.sql` (rediseño 2026-08-27 — reemplaza Segmento
-por Ciudad+Canal, ver §6.3.1) y el `CREATE TABLE` de Participación.
+SQL pendiente de correr: solo el `CREATE TABLE` de Participación (Rebate ya
+migrada — ver `datos/repositorios_schema.sql` para el `ALTER` ya corrido,
+rediseño 2026-08-27 que reemplaza Segmento por Ciudad+Canal, §6.3.1).
 
 #### `repositorio_acuerdos`
 
@@ -201,7 +203,7 @@ precargadas", ver §6.3.3). Clave única `(pos_id, sector, trimestre, anio)`.
 
 #### Tablas de Liquidación (`repositorio_liquidacion_*`)
 
-Ver detalle completo del flujo en §6.6 — el módulo está funcional pero
+Ver detalle completo del flujo en §6.7 — el módulo está funcional pero
 **oculto del sidebar** desde 2026-08-25.
 
 ### 4.2 Maestros externos (solo lectura, no son de este proyecto)
@@ -255,7 +257,7 @@ Ver detalle completo del flujo en §6.6 — el módulo está funcional pero
 - **`lightbox.js`** — `window.acAbrirLightbox(src)`, overlay global para ver
   imágenes ampliadas (fotos de Acta firmada).
 - **`alertas-firma.js`** — campanita del header, sondeo cada 5 min contra
-  `getters/alertas_firma.php`. Ver §6.5.
+  `getters/alertas_firma.php`. Ver §6.6.
 - **Confirmaciones destructivas** usan SweetAlert2 (CDN); mensajes
   informativos usan `toast.js` — no mezclar los dos componentes.
 - **Responsive**: breakpoint compartido en 900px para el shell (drawer
@@ -357,14 +359,13 @@ visualmente dentro de la tabla (celdas simples, sin bordes rojos).
 
 #### 6.3.1 Rebate por Ciudad/Canal/Categoría/Subcategoría/Marca
 
-⚠️ **Rediseñada 2026-08-27, pendiente que el usuario corra el `ALTER`
-en `datos/repositorios_schema.sql`** — el diseño original (columna
+✅ **Rediseñada y en producción (2026-08-27, `ALTER` ya corrido, 55 filas
+reales cargadas de `datos/RABATE.xlsx`)** — el diseño original (columna
 `segmento`) fue una suposición sin confirmar, nunca tuvo filas reales. El
-Excel real que sube JW (`datos/RABATE.xlsx`) no tiene Segmento, pero SÍ
-tiene **Ciudad** y **Canal** — y ambos cambian el % de Rebate del mismo
-producto (confirmado con datos reales: hasta 5 valores distintos por
-Sector+Categoría+Marca). Clave única real:
-`(ciudad, canal, sector, categoria, marca)`.
+Excel real que sube JW no tiene Segmento, pero SÍ tiene **Ciudad** y
+**Canal** — y ambos cambian el % de Rebate del mismo producto (confirmado
+con datos reales: hasta 5 valores distintos por Sector+Categoría+Marca).
+Clave única real: `(ciudad, canal, sector, categoria, marca)`.
 
 **Etiquetas visibles en pantalla ≠ nombre de columna interno** (mismo
 patrón que Meta de Compras, ver §6.1): la columna `sector` se muestra como
@@ -431,14 +432,48 @@ precargadas" que el ejecutivo dueño de ese cliente completa desde Registrar
   marca pasiva "sin cuenta", nota explicando que se resuelve solo al
   crearles la cuenta) — reemplaza un tile suelto de conteo ("Sin usuario
   asignado") que no decía a quién correspondía.
-- **Notificación**: la campanita del header (§6.5) tiene una pestaña "Actas
+- **Notificación**: la campanita del header (§6.6) tiene una pestaña "Actas
   Asignadas" — click ahí va directo a Registrar con esa Acta cargada.
 
 Getters: `cuotas_previsualizar_excel.php`, `cuotas_guardar.php`,
 `cuotas_verificar_estado.php`, `cuotas_pendientes_asignar.php`,
 `cuotas_resolver_match.php`, `cuotas_reactivar.php`, `cuotas_resumen.php`.
 
-### 6.4 Gestión de Usuarios
+### 6.4 Seguimiento de Equipo
+
+**Roles**: `superdesarrollador`. Archivos:
+`components/seguimiento/seguimiento.php`, `assets/js/seguimiento.js`.
+
+Única pantalla del proyecto que muestra Actas de **todos** los usuarios, no
+solo las propias (resuelve para `superdesarrollador` lo que Historial nunca
+hizo — ver §6.2) — vista maestro-detalle: lista de "Equipo" (un usuario por
+fila, con cuántas Actas generó y su estado de firma) + panel de detalle con
+las Actas puntuales de quien se selecciona. Filtro único de 4 estados
+(Todas/Firmadas/Pendientes/Vencidas) controla lista y detalle a la vez, más
+pills de trimestre + `<select>` de año.
+
+- **Arquitectura distinta al resto del proyecto, a propósito**: los 2
+  getters devuelven JSON crudo (no HTML pre-armado como
+  `renderFilaHistorial()` de Historial) — `seguimiento.js` arma todo el DOM
+  en cliente, para que cambiar de filtro/buscar se sienta instantáneo, sin
+  ida y vuelta al servidor por cada click.
+- `getters/seguimiento_resumen.php` → `resumen_seguimiento_equipo($mysqli,
+  $trimestre, $anio)` — una sola query con `JOIN` (no `LEFT JOIN`) a
+  `repositorio_usuarios_acuerdos`, `GROUP BY` usuario: trae
+  total/firmadas/pendientes/vencidas/días-a-la-más-próxima por usuario en
+  una pasada. Solo incluye usuarios con al menos 1 Acta real en el
+  período — no hay fila "0 Actas" para alguien sin actividad (evita
+  inventar una regla de "quién es del equipo comercial": los roles reales
+  no distinguen limpio cuenta admin de vendedor).
+- `getters/seguimiento_actas_usuario.php` → `listar_actas_equipo_usuario($mysqli,
+  $usuarioId, $trimestre, $anio, $tipo)` — Actas puntuales de un usuario
+  para el filtro activo (`todas`/`firmadas`/`pendientes`/`vencidas`).
+- Mismos umbrales de urgencia (20 días para vencer, ≤5 "urgente", ≤1
+  "crítico") que la campanita de alertas (§6.6) y el badge de Historial
+  (§6.2) — reimplementados en `seguimiento.js` porque acá el render es
+  100% cliente.
+
+### 6.5 Gestión de Usuarios
 
 **Roles**: `superdesarrollador`. Archivos:
 `components/gestion-usuarios/gestion-usuarios.php`,
@@ -451,7 +486,7 @@ tomados), activar/desactivar (soft-delete vía `status`).
 Getters: `tabla_usuarios.php`, `crear_usuario.php`, `actualizar_usuario.php`,
 `supervisores_disponibles.php`.
 
-### 6.5 Sistema de alertas (campanita, transversal)
+### 6.6 Sistema de alertas (campanita, transversal)
 
 **Roles**: cualquier usuario logueado. Archivos: `assets/js/alertas-firma.js`
 + `getters/alertas_firma.php`, widget en el header de `index.php`.
@@ -467,7 +502,7 @@ algo a 0-1 día de vencer o cualquier precarga pendiente. Diseño de panel
 (tabs + feed) inspirado en `diseños ideas/code.html` (mockup de referencia,
 no forma parte del runtime de la app).
 
-### 6.6 Liquidación (oculto del sidebar)
+### 6.7 Liquidación (oculto del sidebar)
 
 **Roles**: `superdesarrollador` (código funcional, pero **la entrada del
 sidebar está comentada** en `includes/secciones.php` desde 2026-08-25 —
@@ -575,10 +610,14 @@ fuentes/espaciados si Dompdf reporta más de 1 página.
 - Integración Participación → Registrar (autocompletar y bloquear
   `participacion_pct`) no construida — mismo patrón ya hecho para Rebate
   (§6.3.1), pendiente de que exista la tabla.
-- `superdesarrollador` sigue la misma regla de "solo mis Actas" que
-  `desarrollador` en Historial — pendiente confirmar si debería ver todo.
-- Nombre exacto de la columna de rebate en `repositorio_productos` (para
-  reemplazar el tipeo manual de `rebate_pct`) sin confirmar con el cliente.
+- `desarrollador` sigue viendo solo sus propias Actas en Historial (por
+  diseño) — `superdesarrollador` ya tiene visibilidad de todo el equipo,
+  pero en una pantalla dedicada (**Seguimiento de Equipo**, §6.4), no
+  dentro de Historial mismo.
+- El plan original de agregar una columna de rebate a `repositorio_productos`
+  quedó obsoleto — se resolvió con un repositorio propio
+  (`repositorio_rebate_producto`, self-service, §6.3.1) en vez de tocar el
+  catálogo compartido de la agencia.
 - Columna `CARTERA` (cartera vencida) mencionada en las Condiciones del
   Acta, sin definir de dónde sale el dato real.
 - `_dev_panel_pruebas.php` / `getters/_dev_simular_vencimiento.php` —

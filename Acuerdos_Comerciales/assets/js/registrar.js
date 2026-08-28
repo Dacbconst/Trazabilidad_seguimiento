@@ -1297,6 +1297,7 @@
 		// arriba las arma de cero.
 		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
 		if (btnAgregarPurchase) { btnAgregarPurchase.disabled = false; btnAgregarPurchase.title = ''; }
+		desbloquearAgregarOtrasTablas();
 		formSucio = false;
 	}
 
@@ -1444,6 +1445,7 @@
 		origenPrecarga = null; // un Borrador nunca viene de una precarga
 		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
 		if (btnAgregarPurchase) { btnAgregarPurchase.disabled = false; btnAgregarPurchase.title = ''; } // por si quedó bloqueado de una precarga anterior en esta sesión
+		desbloquearAgregarOtrasTablas();
 
 		anioSelect.value = a.anio;
 		selectedStart = a.mes_inicio;
@@ -1567,6 +1569,71 @@
 		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta viene de una precarga — la tabla de Meta de Compras es fija'; }
 	}
 
+	// Cabeceras/Rumas/Perchas no vienen en el Excel de Cuotas (esa hoja solo
+	// trae CEDI/CLIENTE/PLAN/CATEGORIAS/meses — nada de Subcategoría/Marca
+	// para estas 3 tablas) — así que no hay nada que autocompletar ahí. Lo
+	// que SÍ se puede hacer sin ese dato: dejar tantas filas vacías como
+	// líneas trajo Meta de Compras (para que el asesor no tenga que ir
+	// clickeando "Agregar Fila" una por una) y bloquear "Agregar Fila" del
+	// todo — a diferencia de Meta de Compras, acá "Eliminar Fila" SÍ sigue
+	// habilitado (si una categoría no lleva Cabecera/Ruma/Percha, el asesor
+	// puede sacar esa fila de más).
+	function generarFilasVaciasOtrasTablas(cantidadLineasMeta) {
+		var cantidad = cantidadLineasMeta > 0 ? cantidadLineasMeta : 1;
+		for (var i = cabecerasBody.querySelectorAll('tr').length; i < cantidad; i++) addCabeceraRow();
+		for (var j = rumasBody.querySelectorAll('tr').length; j < cantidad; j++) addRumaRow();
+		for (var k = perchasBody.querySelectorAll('tr').length; k < cantidad; k++) addPerchaRow();
+	}
+
+	// Mismo criterio que bloquearFilasPrecargadas() pero para las filas
+	// espejo de Cabeceras/Rumas/Perchas (2026-08-27, pedido explícito "así
+	// mismo como la tabla 1, estos no podrán modificar los campos, solo los
+	// precios"): la fila i de cada tabla corresponde a la línea i de Meta de
+	// Compras (mismo orden, mismo conteo, ver generarFilasVaciasOtrasTablas)
+	// — si esa línea de Meta de Compras trajo Segmento+Subcategoría+Marca ya
+	// resueltos (fila.segmento/categoria/marca truthy), se copia esa misma
+	// identidad acá y se bloquean esos 3 campos; si no (producto ambiguo,
+	// sin historial), la fila queda con el cascade normal para que el
+	// asesor la complete a mano — nunca se llama a `.sugerir()` con datos a
+	// medias (dejaría literalmente el texto "null" en el campo).
+	function espejarIdentidadOtrasTablas(lineasMeta) {
+		var filasCab = cabecerasBody.querySelectorAll('tr');
+		var filasRuma = rumasBody.querySelectorAll('tr');
+		var filasPercha = perchasBody.querySelectorAll('tr');
+		lineasMeta.forEach(function (fila, i) {
+			if (fila.segmento && fila.categoria && fila.marca) {
+				[filasCab[i], filasRuma[i]].forEach(function (tr) {
+					if (!tr || !tr._combo) return;
+					tr._combo.sugerir(fila.segmento, fila.categoria, fila.marca);
+					['.seg-input', '.cat-input', '.marca-input'].forEach(function (sel) {
+						var input = tr.querySelector(sel);
+						if (input) { input.disabled = true; input.classList.add('ac-combo-input-precargado'); }
+					});
+				});
+			}
+			var trPercha = filasPercha[i];
+			if (fila.marca && trPercha && trPercha._comboMarca) {
+				trPercha._comboMarca.sugerir(fila.marca);
+				var marcaInput = trPercha.querySelector('.marca-input');
+				if (marcaInput) { marcaInput.disabled = true; marcaInput.classList.add('ac-combo-input-precargado'); }
+			}
+		});
+	}
+
+	function bloquearAgregarOtrasTablas() {
+		['ac-add-cabecera-row', 'ac-add-ruma-row', 'ac-add-percha-row'].forEach(function (id) {
+			var btn = document.getElementById(id);
+			if (btn) { btn.disabled = true; btn.title = 'Esta Acta viene de una precarga — completá las filas ya generadas, no se agregan más'; }
+		});
+	}
+
+	function desbloquearAgregarOtrasTablas() {
+		['ac-add-cabecera-row', 'ac-add-ruma-row', 'ac-add-percha-row'].forEach(function (id) {
+			var btn = document.getElementById(id);
+			if (btn) { btn.disabled = false; btn.title = ''; }
+		});
+	}
+
 	function aplicarPrecarga(p, trimestre, anio) {
 		acuerdoId = null;
 		documentoNo = null;
@@ -1613,7 +1680,20 @@
 		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(p.lineas);
+		// Orden importa: generarFilasVaciasOtrasTablas() llama a
+		// addCabeceraRow()/addRumaRow()/addPerchaRow(), y cada una de esas
+		// termina en actualizarBloqueoPorDistribuidor() (rehabilita TODOS los
+		// .seg-input de las 3 tablas + Meta de Compras, según haya
+		// Distribuidor elegido) — si bloquearFilasPrecargadas() corriera
+		// antes, esas llamadas post-lock desharían el bloqueo de Segmento en
+		// Meta de Compras sin querer (bug real encontrado probando esta
+		// misma vuelta). Por eso bloquearFilasPrecargadas() va DESPUÉS de
+		// terminar de generar filas — es la última palabra sobre Meta de
+		// Compras, nada corre después que vuelva a tocar sus inputs.
+		generarFilasVaciasOtrasTablas(p.lineas.meta_compra.length);
 		bloquearFilasPrecargadas(p.lineas.meta_compra);
+		espejarIdentidadOtrasTablas(p.lineas.meta_compra);
+		bloquearAgregarOtrasTablas();
 
 		// Cargar la precarga no es en sí un cambio "sin guardar" — recién se
 		// vuelve sucio si el asesor completa Subcategoría/Marca o edita

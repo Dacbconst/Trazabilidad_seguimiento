@@ -105,7 +105,15 @@ try {
 		if ($sectorResuelto === null) {
 			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'La categoría "'.$sector.'" no coincide con ningún Sector real del catálogo (ni sola ni como Sector+Subcategoría pegados) — se guardó tal cual, revisar con JW'];
 		} elseif ($sectorResuelto !== $sector) {
-			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Se interpretó "'.$sector.'" como Sector "'.$sectorResuelto.'" (Subcategoría incluida en el mismo texto)'];
+			// Interpretación correcta y sin ambigüedad (ej. "POLVO DETERGENTE"
+			// -> Sector "POLVO") — NO se agrega a $avisos (2026-08-28, pedido
+			// explícito: "quítame demasiado ruido visual, esas informativas no
+			// afectan") — con archivos reales esto pasa en casi todas las filas
+			// de un Sector concatenado, y llenaba la lista de "revisá" de avisos
+			// que en realidad no requieren ninguna acción. Sigue visible ANTES
+			// de guardar, como hint chico bajo el badge de cada fila (ver
+			// cuotas_verificar_estado.php/badgeEstadoPreview()) — solo se sacó
+			// de la lista post-guardado.
 			$sector = $sectorResuelto;
 			$etiqueta = $clienteExcel.' / '.$sector;
 		}
