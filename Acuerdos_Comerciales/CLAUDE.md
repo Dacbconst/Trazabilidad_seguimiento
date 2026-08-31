@@ -2789,11 +2789,9 @@ pedir reparar, 3 hojas presentes.
 - [ ] (Ídem) revisar si el formato `'money'` de "VISIBILIDAD (2)"
       (Distribuidor) es correcto — la reunión confirma que Distribuidor se
       paga en CAJAS, no en dólares.
-- [ ] Si `superdesarrollador` debería ver TODOS los acuerdos en Historial (no
-      solo los propios) o seguir la misma regla de `creado_por` que todos.
-      Hoy sigue la misma regla que cualquier otro rol. **Nota:** la reunión
-      del 2026-08-18 sí lo confirma (Michelle ve todo, cada asesor solo lo
-      suyo) — falta implementarlo si `superdesarrollador` = Michelle.
+- [x] ~~Si `superdesarrollador` debería ver TODOS los acuerdos en Historial~~
+      **Implementado 2026-08-31** — ver sección "Historial por Canal +
+      Excel por formato + 'Ver todo' del superdesarrollador" más abajo.
 - [ ] **Portafolio por distribuidor**: los spinners de Segmento/Categoría/
       Marca/Sector hoy muestran TODO el catálogo Wilson (`fabricante =
       'JABONERIA WILSON'`) sin importar qué `pos_id` se eligió — un PDV
@@ -7487,3 +7485,317 @@ código nuevo en este archivo de trabajo (`Claude`) para esta tabla más
 allá de crearla — si la otra sesión ya tiene piezas construidas
 (parser/getter/UI), releer esta sección puede quedar desactualizada apenas
 se fusionen ambas sesiones.
+
+## Cumplimiento de Cuota — 3 mejoras (2026-08-31)
+
+Módulo construido por la otra sesión (2026-08-30, ver
+`components/cumplimiento/*`, `getters/cumplimiento_*.php`,
+`datos/cumplimiento_cuota_schema.sql`) — esta vuelta son 3 pedidos del
+usuario sobre ese módulo ya en pie, probando con un Excel real
+(`datos/CuotaCategoria_Directa_2026-08-29.xlsx`).
+
+1. **Se quitó el banner "Gana Categoría .../ Gana Total..."** — pedido
+   explícito, sin reemplazo. `components/cumplimiento/cumplimiento.php`
+   (bloque `.ac-cumpl-banner` completo) + su CSS en `style.css` (clase sin
+   otro uso, se borró entera).
+
+2. **Bug real: 2 filas del mismo Sector para un mismo cliente se perdían
+   una a la otra al guardar.** Encontrado con datos reales: el cliente
+   "DISTRIBUIDORA NOVOA E HIJOS SOCIEDAD CIVIL" trae 2 líneas de "AEROSOL"
+   en el Excel real (cuota $62 y $73, misma venta real $108 — probablemente
+   2 Subcategorías de Aerosol que esta hoja no distingue por nombre) — la
+   clave única `(pos_id, sector, trimestre, anio)` hacía que la 2da pisara
+   a la 1ra vía `ON DUPLICATE KEY UPDATE`, mostrando solo 1 de las 2 filas
+   reales. **Se le preguntó al usuario cómo resolverlo** (guardar las 2 por
+   separado / sumarlas en 1 sola / dejarlo documentado nomás) — **eligió
+   guardarlas por separado**, calcando el Excel real tal cual.
+   - Columna nueva `linea` (1, 2, 3... según el orden en que ese mismo
+     cliente+CEDI+Sector aparece en el archivo) entra a la clave única:
+     `(pos_id, sector, trimestre, anio, linea)`. Asignada en
+     `repositorio_parsear_cumplimiento_cuota()` (`includes/repositorio_import.php`)
+     al momento del parseo — así el mismo valor le llega intacto tanto a
+     `cumplimiento_verificar_estado.php` (el badge "Al guardar" de la
+     previsualización) como a `cumplimiento_guardar.php` (el INSERT real),
+     sin tener que recalcularlo dos veces. Se llama "línea" (línea 1 de 2,
+     línea 2 de 2) — el usuario pidió explícito no llamarla "ocurrencia"
+     porque suena a que algo falló, cuando es un dato normal.
+   - **Pendiente correr en la base real, en 2 partes** — confirmado con
+     `DESCRIBE` que la tabla ya existe en producción con 8 filas reales, sin
+     esta columna todavía. Ver "Excepción a la regla de solo lectura" al
+     principio de este archivo: Claude puede correr `CREATE`/`ALTER` acá
+     (mostrando el SQL antes, con confirmación explícita), pero cualquier
+     `DROP` —incluido `DROP INDEX`— sigue siendo solo del usuario, sin
+     excepción:
+     1. El usuario corre en HeidiSQL: `DROP INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota;`
+     2. Recién ahí, Claude corre (con el SQL mostrado y confirmado antes):
+        ```sql
+        ALTER TABLE repositorio_cumplimiento_cuota
+          ADD COLUMN linea TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER sector;
+        CREATE UNIQUE INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota (pos_id, sector, trimestre, anio, linea);
+        ```
+     Nada de este fix funciona en producción hasta correr esto — mientras
+     tanto `cumplimiento_guardar.php` va a fallar el INSERT (columna no
+     existe). Las 8 filas ya guardadas siguen teniendo el problema viejo
+     (una sola fila donde debería haber 2) hasta que el usuario resuba el
+     Excel real después del `ALTER`.
+   - Se sacó el aviso "Cliente y categoría repetidos... se usó el valor más
+     reciente" (`tipo: 'duplicado_archivo'`) de `cumplimiento_guardar.php` —
+     ya no aplica, ahora ambas filas se guardan de verdad, no tendría
+     sentido seguir avisando que se descartó una.
+   - **Probado de punta a punta, solo lectura** (nunca se guardó nada real):
+     `repositorio_parsear_cumplimiento_cuota()` corrido directo contra el
+     Excel real confirma `linea=1`/`linea=2` para las 2 filas de AEROSOL,
+     con sus $ reales distintos preservados — antes del fix, la 2da hubiera
+     pisado a la 1ra.
+
+3. **Acordeón: cada asesor arranca cerrado, clic en su cabecera lo abre**
+   (pedido explícito — "el droplist... estará cerrado... al que le doy
+   clic se abre"). `assets/js/cumplimiento.js`, `renderLista()`: el bloque
+   de clientes de cada asesor se envuelve en un `<div class="hidden"
+   id="cumpl-grupo-N">` (clase `.hidden` genérica del proyecto, arranca
+   siempre colapsado); clic en `.ac-cumpl-fila-usuario` togglea esa clase +
+   rota un chevron (`.ac-cumpl-chevron`/`.ac-cumpl-chevron-abierto`, mismo
+   patrón de transición ya usado en `.ac-select-bonito-chevron`). Cada
+   asesor abre/cierra independiente de los demás. `style.css`: `cursor:
+   pointer` + hover en la cabecera, nada más se tocó del layout existente.
+   **Probado con Playwright, datos sintéticos por red (sin tocar la
+   base)**: captura antes (2 asesores, ambos colapsados, chevrons "›") y
+   después de un clic (solo el asesor clickeado se expande, con sus 2
+   categorías reales AEROSOL/PASTAS visibles, el otro asesor se mantiene
+   colapsado) — sin superposición, layout limpio en ambos estados.
+
+## Repositorio de Cuotas — "Otras Categorías" ignorada + aviso "ya usada" con tarjeta real (2026-08-31, mismo día)
+
+Dos pedidos más sobre Cuotas Trimestrales (no Cumplimiento):
+
+1. **"Otras Categorías" se ignora del todo, sin aviso** — JW confirmó que
+   dejaron de trabajar esa categoría (ver "Alcance real de Acuerdos
+   Comerciales" más arriba). Filtrada en `repositorio_parsear_cuotas()`
+   (`includes/repositorio_import.php`) — ni siquiera llega a la
+   previsualización, no solo al guardado — con una red de seguridad
+   duplicada en `getters/cuotas_guardar.php` por si algo se salta el
+   parseo. Probado contra el Excel real de prueba: de 60 filas totales,
+   las 12 de "Otras Categorías" desaparecen, quedan 48.
+
+2. **Bug real encontrado por el usuario**: el aviso "Esta categoría ya se
+   usó en una Acta. No se modificó." (protección de `cuotas_guardar.php`
+   contra revivir una cuota ya consumida) no decía NADA de cuál Acta, quién
+   la generó ni cuándo — el usuario preguntó "por qué no usás el
+   significado real" y recordó el diseño comparativo ya aprobado en Claude
+   Design para "Actas en Choque" (ver sección de arriba, mismo día). Se
+   aplicó el mismo patrón acá:
+   - `cuotas_guardar.php`: la consulta de la fila ya usada ahora hace
+     `LEFT JOIN` a `repositorio_acuerdos`/`repositorio_usuarios_acuerdos`
+     y el aviso lleva `tipo: 'ya_usada'` + `existente_documento_no`/
+     `existente_usuario`/`existente_fecha`, no solo el texto genérico.
+   - **Bug real de mi propio fix anterior, encontrado probando**: había
+     editado primero `mostrarErroresPreview()` (`assets/js/repositorios.js`)
+     pensando que era la función que renderiza esto — probé con Playwright
+     y no aparecía nada. La función REAL que usa el botón "Guardar" para
+     Cuotas es otra completamente distinta, más abajo en el mismo archivo
+     (el handler de `subirGuardarBtn`, que arma un `Swal.fire()` agrupando
+     avisos por motivo en chips, ver "Ronda 2030-08-30 — agrupado por
+     motivo"). Ahí es donde se aplicó el fix real: los avisos con
+     `tipo==='ya_usada'` se sacan del agrupado-por-chips (donde perderían
+     el detalle real, todas las filas comparten el mismo texto de motivo) y
+     se renderizan como tarjetas comparativas (`filaAvisoYaUsada()`, reusa
+     las clases `.ac-choque-*` globales) dentro del mismo `Swal.fire`, con
+     documento/usuario/fecha reales por fila. Los demás avisos (sin
+     cliente, sector sin identificar) se quedan como chips agrupados, sin
+     cambios — a esos si les alcanza el texto genérico agrupado.
+   - **Probado con Playwright, datos sintéticos por red (nunca tocó la
+     base)**, con la flow REAL de la UI (abrir modal, elegir archivo,
+     esperar previsualización, click Guardar) para asegurarse de pasar por
+     el código real y no un atajo: el `Swal.fire` real muestra las 2
+     tarjetas con `ADN-2026-0057`/Javier Maldonado/28-08 y
+     `ADN-2026-0058`/Carlos Proaño/31-08 — exactamente los 2 casos reales
+     que el usuario había visto (confirmados antes contra la base real vía
+     `SELECT`, ver hallazgo previo).
+   - **Lección para la próxima vez que se toque el flujo de guardado de
+     Repositorios**: hay 2 caminos de renderizado de avisos post-guardado
+     que parecen la misma cosa pero no lo son — `mostrarErroresPreview()`
+     (usada solo cuando hay `errores` de verdad, y para Rebate/
+     Participación en general) y el `Swal.fire` agrupado por motivo dentro
+     del handler de `subirGuardarBtn` (el que de verdad se usa para avisos
+     de Cuotas sin errores). Verificar CUÁL de los dos corre de verdad
+     antes de asumirlo — yo mismo asumí mal la primera vez.
+
+## Excel de Historial: columnas Subcategoría/Marca en "CUOTA CLIENTE - CATEGORÍA" (2026-08-31)
+
+Pedido explícito, con captura del encabezado esperado: agregar Categoría/
+Subcategoría (ya existía como "CATEGORIAS", ver más arriba — es el
+`sector`) más una columna nueva de Marca, justo a la derecha de PLAN, en
+ese orden exacto: `PLAN | CATEGORIAS | SUBCATEGORIA | MARCA | ...resto
+sin alterar...`. Aplicado a los 2 formatos (Directo y Distribuidor), sin
+tocar ninguna otra columna existente.
+
+- `getters/exportar_cuota_categoria.php` y
+  `getters/exportar_cuota_categoria_distribuidor.php`: el `SELECT` agregó
+  `l.categoria, l.marca` (ya hacían `JOIN` a `repositorio_acuerdo_lineas`
+  para el Sector). Los índices de columna posteriores se corrieron un
+  puesto (`$colSubcategoria`/`$colMarca` nuevas, `$colConcat`/
+  `$colCuotaInicio`/etc. desplazados +2) — mismo patrón ya usado cada vez
+  que se agregó una columna a esta hoja (ver "Bug real encontrado y
+  corregido" 2026-08-20, fila 1 sin pintar).
+- **Probado**: `php -l` limpio en ambos archivos. No se pudo generar el
+  `.xlsx` real en esta sesión (falta la extensión `zip` en el PHP CLI
+  local, límite ya documentado varias veces en este archivo). **Todavía
+  sin probar en navegador real.**
+
+## Cumplimiento de Cuota: columnas Cuota/Rebate ocultas, donut de Cumplimiento, tile de promedio oculto (2026-08-31)
+
+3 pedidos puntuales sobre el módulo Cumplimiento de Cuota (construido por
+la otra sesión el 2026-08-30, ver sección "Tabla nueva:
+`repositorio_cumplimiento_cuota`" más arriba):
+
+- **Columnas "Cuota" y "Rebate ganado" ocultas** (lista principal y la
+  tabla de previsualización antes de guardar) — mismo criterio "invisible
+  hide" ya usado en otras partes de este proyecto (los datos siguen
+  existiendo en JS/PHP, solo se dejan de RENDERIZAR): `assets/js/cumplimiento.js`
+  sacó esas 2 entradas del array `cols` de `renderPreviewTabla()`;
+  `assets/css/style.css` redujo `.ac-cumpl-col-header`/`.ac-cumpl-fila-cat`
+  de 8 a 6 columnas de grid (`grid-template-columns`) y agregó
+  `display:none` a los `nth-child` que correspondían a esas 2 columnas,
+  con el mismo ajuste replicado en el `@media(max-width:900px)` de mobile
+  (grid-template-areas sin "cuota"/"rebate", nth-child reasignados).
+- **"Cumplimiento" pasó de número plano a un mini donut** — nueva
+  `donutCumplimiento(v)` en `cumplimiento.js` (conic-gradient + `::before`
+  para el hueco central + texto de % superpuesto), reusando el mismo
+  patrón visual que ya usa `ringDeUsuario()` en Seguimiento de Equipo
+  (2026-08-27) para consistencia — no una idea nueva, un componente ya
+  validado en otro módulo. `filaCategoria()` llama a esta función en vez
+  de `pctTexto()` para esa columna.
+- **Tile "Cumplimiento promedio" ocultado** — `style="display:none;"` en
+  `components/cumplimiento/cumplimiento.php`, `<span
+  id="cumpl-stat-promedio">` intacto (el JS lo sigue llenando, solo no se
+  ve) — mismo criterio de "ocultar sin borrar" del resto del pedido.
+- **Probado**: `node --check` limpio en `cumplimiento.js`, llaves de
+  `style.css` balanceadas. **Todavía sin probar en navegador real.**
+
+## Historial por Canal + Excel por formato + "Ver todo" del superdesarrollador (2026-08-31)
+
+Cambio organizacional: la descarga de Excel se restringe a una sola cuenta
+`superdesarrollador`, que además necesita ver las Actas de LOS 2 canales
+(Directo y Distribuidor), no solo las propias — a diferencia de
+`desarrollador`, que sigue viendo exactamente lo mismo de siempre (mismo
+Historial, mismas Actas propias) salvo que pierde el botón "Descargar
+Excel". **Diseñado primero con Claude Design** (2 opciones — pill-filter
+vs. dual-card), el usuario eligió la Opción A (pastillas de filtro, mismo
+patrón visual que ya usan Cumplimiento/Seguimiento de Equipo) explícitamente
+por bajo impacto visual: "no habría tanto cambio visual... solo aplicás el
+cambio en esas zonas sin dañar lo demás que está perfecto donde está".
+
+**Alcance confirmado con el usuario (vía `AskUserQuestion`, con un ejemplo
+concreto para desambiguar una respuesta confusa la primera vez)**: el
+superdesarrollador SÍ puede abrir/ver detalles y descargar el PDF de una
+Acta ajena en Historial (necesita poder revisar lo que ve) — pero Subir
+Firma y Eliminar siguen restringidos SOLO al dueño real de esa Acta
+(`creado_por`), sin excepción por rol.
+
+**Piezas**:
+- `includes/functions.php` — `listar_historial_acuerdos()`/
+  `obtener_stats_historial()`/`listar_anios_disponibles()` ganaron un
+  parámetro `$rol` (para el "ver todo") y las 2 primeras además `$canal`
+  ('directo'/'distribuidor'/'total'). `$verTodos = ($rol ===
+  'superdesarrollador') ? 1 : 0` se combina con `(? = 1 OR a.creado_por =
+  ?)` en el SQL — mismo truco de arity fija ya documentado en varias
+  partes de este archivo, para no tener que armar `bind_param` con
+  cantidad variable de placeholders según el rol.
+  - **Bug real encontrado y corregido en la misma sesión, antes de
+    reportarlo como terminado**: el primer filtro de canal comparaba
+    `d.canal <> 'DISTRIBUIDOR'`/`d.canal = 'DISTRIBUIDOR'` directo sobre
+    el `JOIN` a `repositorio_locales_supervisores_cliente` — como esa
+    tabla puede tener 2+ filas con el MISMO `pos_id` pero `canal`
+    DISTINTO entre sí (documentado desde 2026-07-26, "~1,116 pos_id
+    duplicados"), un mismo Acuerdo podía calzar en las 2 consultas
+    (Directo Y Distribuidor) a la vez — confirmado con datos reales:
+    Acuerdo real `#41` (`ADN-2026-0038`, pos_id `EPVD15130`) tiene una
+    fila `DISTRIBUIDOR` y otra `MAYORISTA` en el maestro, y la suma de
+    "directo"(6) + "distribuidor"(3) daba 9, no los 8 reales de "total".
+    **Corregido con `EXISTS`/`NOT EXISTS`** (gana `DISTRIBUIDOR` si existe
+    CUALQUIER fila así para ese `pos_id`, resuelto UNA sola vez por
+    Acuerdo, mutuamente excluyente de verdad) en las 2 funciones, y el
+    `d.canal` crudo del `SELECT` (usado por el badge de Canal de cada
+    fila) se reemplazó por la misma expresión canónica
+    (`CASE WHEN EXISTS(...) THEN 'DISTRIBUIDOR' ELSE 'OTRO' END`) — para
+    que el badge de una fila nunca contradiga en qué pastilla de filtro
+    cae ese mismo Acuerdo. **Reverificado con el mismo método (SELECT
+    suelto, solo lectura, nunca llamando a las funciones reales — esas
+    arrancan con `barrer_actas_vencidas()`, un `UPDATE`)**: superdev
+    id=1, directo=5 + distribuidor=3 = total=8, coincide exacto.
+- `renderFilaHistorial($a, $mostrarCanal=false)` — celda de Canal nueva
+  (badge Directo/Distribuidor) insertada entre Localidad y Periodo,
+  gateada por `$mostrarCanal` (solo `true` para el superdesarrollador —
+  un desarrollador normal siempre ve un canal único, la fila queda
+  IDÉNTICA a antes de este cambio). `$esPropio = creado_por ===
+  session.user_id`; `$disabledAjeno = $esPropio ? '' : ' disabled'`
+  aplicado al botón de Firma (ambas variantes) y al de Eliminar — usa el
+  atributo HTML nativo `disabled` + una regla CSS compartida ya existente
+  (`.ac-icon-btn:disabled, .ac-btn-outline:disabled, ...`), cero CSS
+  nuevo necesario.
+- `components/historial/historial.php` / `getters/listar_historial.php` —
+  `$esSuperdev`, whitelist de `$canal` (`total`/`directo`/`distribuidor`),
+  pastillas de filtro (`.ac-seg-pill`/`.ac-seg-pill-group`, reusado tal
+  cual de Cumplimiento/Seguimiento de Equipo, cero CSS nuevo para el
+  filtro en sí) gateadas a `$esSuperdev`, `<th>Canal</th>` condicional +
+  `colspan` corregido, y el picker de formato de Excel
+  (`#hist-exportar-wrap`, patrón "expand-in-place" calcado de
+  `.ac-repo-exportar` de Repositorios — Directo/Distribuidor como 2
+  opciones que aparecen al hacer click, no un `<select>` ni un modal).
+- `assets/js/historial.js` — reestructuración del bloque de export (4
+  variables nuevas: `exportarWrap`/`exportarBtn`/`exportarDirectoLink`/
+  `exportarDistribuidorLink`, reemplazando el `exportarCuotaLink` único de
+  antes), listeners de las pastillas de canal, `cargarHistorial()` con
+  `&canal=` en la URL y ambos hrefs de export actualizados según los
+  filtros activos.
+- `getters/exportar_cuota_categoria.php` — restringido a
+  `rolPermitido(['superdesarrollador'])` únicamente (antes cualquier rol
+  con acceso a Historial). `?canal=distribuidor` en la URL delega a
+  `exportar_cuota_categoria_distribuidor.php` (`require` + `exit`, mismo
+  patrón que ya usaba el branch de `canalDeSupervisor()` antes de este
+  cambio); sin ese parámetro, exporta Directo. Se sacó `AND
+  a.creado_por = ?` de las 2 queries (Cuota y Visibilidad) — el
+  superdesarrollador ahora exporta lo de CUALQUIER asesor de ese canal,
+  no solo lo suyo. Mismo cambio (sacar el filtro de `creado_por`) en
+  `exportar_cuota_categoria_distribuidor.php`.
+- `getters/generar_acta_pdf.php` — `$puedeVerCualquiera =
+  ($_SESSION['rol'] ?? '') === 'superdesarrollador'`; el chequeo de 404
+  ahora es `!$cabecera || (!$puedeVerCualquiera && creado_por !==
+  usuario_sesion)` — el resto de getters de escritura sobre una Acta
+  (`subir_acta_firmada.php`, `descargar_acta_firmada.php`,
+  `eliminar_acuerdo.php`) **NO se tocaron a propósito** — siguen
+  exigiendo `creado_por` real, sin excepción de rol, tal como confirmó el
+  usuario.
+
+**Probado**: `php -l`/`node --check` limpios en los 7 archivos tocados,
+llaves de `style.css` balanceadas (792/792). La corrección del bug de
+canal ambiguo se verificó de punta a punta con datos reales de solo
+lectura (nunca llamando a las funciones reales, que hacen un `UPDATE` vía
+`barrer_actas_vencidas()` — se replicó la misma lógica SQL como SELECT
+suelto, mismo criterio ya documentado en este archivo para evitar ese
+error). **Todavía sin probar en navegador real** — falta que el usuario
+entre como superdesarrollador y confirme visualmente las 3 pastillas de
+canal, el picker de Excel con las 2 opciones, que los botones de Subir
+Firma/Eliminar salen deshabilitados en una fila ajena, y que descargar
+cada formato trae el contenido correcto.
+
+**Ajuste, mismo día — "Descargar Excel" salta el picker si el canal ya no
+es ambiguo**: pedido explícito ("si ya filtré por directa ahí ya no
+tendría la doble opción... sino que ya saldría solo la descarga directa,
+mismo caso para cuando pongo el filtro en distribuidor"). Con la pastilla
+de Vista en "Directo" o "Distribuidor", el click en "Descargar Excel" ya
+no abre el desplegable de 2 opciones — dispara directo la descarga de ESE
+formato (simulando un click sobre el link real correspondiente, así
+reusa intacta la misma validación de período/año que ya tenían los
+links). Con "Total" (canal ambiguo) el botón sigue abriendo el picker de
+siempre, sin cambios. `assets/js/historial.js`: `exportarBtn`'s listener
+ahora chequea `canalFiltroActual` antes de abrir el picker; se agregó
+`actualizarTituloExportar()` (el `title`/tooltip del botón cambia según
+el canal activo, para que quede claro qué se va a descargar sin abrir
+nada) llamada al cargar la página y en cada cambio de pastilla. **Bug
+latente corregido de paso**: `canalFiltroActual` arrancaba hardcodeado en
+`'total'` sin importar qué pastilla el servidor ya hubiera marcado activa
+(ej. entrando con `?canal=directo` en la URL) — ahora se inicializa
+leyendo la pastilla `.ac-seg-pill-activo` real del DOM al cargar.
+**Probado**: `node --check` limpio. **Todavía sin probar en navegador
+real.**

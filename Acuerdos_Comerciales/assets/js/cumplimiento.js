@@ -27,6 +27,23 @@ document.addEventListener('DOMContentLoaded', function () {
 	function moneda(v) { return '$' + (parseFloat(v) || 0).toFixed(2); }
 	function pctTexto(v) { return (parseFloat(v) || 0).toFixed(2) + '%'; }
 
+	// Mini donut de Cumplimiento (2026-08-31, pedido explícito: "no me
+	// agrada un número porcentual así seco... pon algo diferente") — mismo
+	// truco de conic-gradient que ya usa ringDeUsuario() más abajo (el aro
+	// de cada asesor), reusado acá a tamaño chico por fila. El relleno se
+	// clampea a 100% (cumplimiento real puede pasar de 100%, ej. 134% — el
+	// círculo no puede "sobrellenarse" visualmente) pero el texto sigue
+	// mostrando el número real, sin clamp.
+	function donutCumplimiento(v) {
+		var pct = parseFloat(v) || 0;
+		var relleno = Math.max(0, Math.min(100, pct));
+		var fondo = relleno <= 0 ? '#c4c5d5' : 'conic-gradient(#1e9e5a 0% ' + relleno + '%, #ffdad6 ' + relleno + '% 100%)';
+		return '<span class="ac-cumpl-donut-wrap" title="Cumplimiento: ' + pctTexto(pct) + '">' +
+			'<span class="ac-cumpl-donut" style="background:' + fondo + '"></span>' +
+			'<span class="ac-cumpl-donut-pct">' + pctTexto(pct) + '</span>' +
+			'</span>';
+	}
+
 	function badgeGana(valor, outline) {
 		var esGana = valor === 'gana';
 		var clase = esGana ? 'ac-badge-ok' : 'ac-badge-critico';
@@ -79,9 +96,13 @@ document.addEventListener('DOMContentLoaded', function () {
 				'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>' +
 				'Bajó desde la última subida</div>';
 		}
+		// Cuota y Rebate ganado ocultas a pedido explícito del usuario
+		// (2026-08-31, ver style.css .ac-cumpl-col-header > div:nth-child(4)
+		// y :nth-child(7)) — los 2 `<div>` se siguen generando acá con su
+		// dato real, nunca se sacó de `cat`, solo se dejaron de mostrar.
 		return '<div class="ac-cumpl-fila-cat ' + grupoClase + '">' +
 			'<div>' + escapeHtml(cat.sector) + cambioHtml + '</div>' +
-			'<div>' + pctTexto(cat.cumplimiento_pct) + '</div>' +
+			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
 			'<div>' + moneda(cat.venta_total) + '</div>' +
 			'<div>' + moneda(cat.cuota_total) + '</div>' +
 			'<div>' + badgeGana(cat.gana_categoria, false) + '</div>' +
@@ -97,33 +118,49 @@ document.addEventListener('DOMContentLoaded', function () {
 			'</div>';
 	}
 
-	function filaCliente(cliente, grupoClase) {
+	// Igual que el acordeón de asesores (ver renderLista() más abajo), pero
+	// un nivel más adentro — cada CLIENTE arranca cerrado, clic en su fila
+	// muestra/oculta sus categorías (2026-08-31, pedido explícito: "convierte
+	// sub droplist esto... hazlos mini droplista también"). Mismo mecanismo
+	// exacto (clase `.hidden` + chevron que rota), solo que acá el id del
+	// grupo tiene que ser único por cliente DENTRO de su asesor, no solo por
+	// asesor — se arma con los 2 índices (usuario + cliente).
+	function filaCliente(cliente, grupoClase, idGrupo) {
 		// Sin badge de Gana Total acá (a propósito): ya se ve en cada fila de
 		// categoría, al lado de Gana Categoría — repetirlo también en esta
 		// cabecera, justo arriba de la primera fila, sería la misma
 		// información dos veces seguidas sin aportar nada nuevo.
 		var actualizado = cliente.actualizado_en ? new Date(cliente.actualizado_en.replace(' ', 'T')) : null;
 		var actualizadoTexto = actualizado ? 'Actualizado ' + actualizado.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) : '';
-		var header = '<div class="ac-cumpl-fila-cliente ' + grupoClase + '">' +
+		var header = '<div class="ac-cumpl-fila-cliente ' + grupoClase + '" data-grupo="' + idGrupo + '">' +
 			'<div class="ac-cumpl-cliente-nombre">' +
-			'<span>' + escapeHtml(cliente.cliente) + '</span>' +
+			'<span class="material-symbols-outlined ac-cumpl-chevron">chevron_right</span>' +
+			'<span class="ac-cumpl-cliente-nombre-texto">' + escapeHtml(cliente.cliente) + '</span>' +
 			(cliente.cedi ? '<span class="ac-field-hint">' + escapeHtml(cliente.cedi) + (cliente.plan ? ' &middot; ' + escapeHtml(cliente.plan) : '') + '</span>' : '') +
 			'</div>' +
 			(actualizadoTexto ? '<span class="ac-field-hint ac-cumpl-cliente-meta">' + actualizadoTexto + '</span>' : '') +
 			'</div>';
 		var filas = cliente.categorias.map(function (cat) { return filaCategoria(cat, grupoClase); }).join('');
-		return header + filas;
+		return header + '<div class="hidden" id="' + idGrupo + '">' + filas + '</div>';
 	}
 
+	// Cada usuario arranca CERRADO (2026-08-31, pedido explícito) — con
+	// varios usuarios y varios clientes cada uno, la lista entera abierta de
+	// entrada era una pantalla larguísima para desplazarse. Clic en la
+	// cabecera del usuario expande/colapsa solo su propio grupo de clientes
+	// — el estado de cada uno vive en la clase `.hidden` del contenedor de
+	// ese grupo (mismo utilitario global del proyecto, no un mecanismo
+	// nuevo) y en la rotación del chevron (`.ac-cumpl-chevron-abierto`).
 	function renderLista(usuarios) {
 		if (!usuarios.length) {
 			lista.innerHTML = '<div class="ac-table-empty">Sin registros para este filtro.</div>';
 			return;
 		}
-		var html = usuarios.map(function (u) {
+		var html = usuarios.map(function (u, indiceUsuario) {
 			var ring = ringDeUsuario(u);
-			var cabecera = '<div class="ac-cumpl-fila-usuario">' +
+			var cabecera = '<div class="ac-cumpl-fila-usuario" data-grupo="cumpl-grupo-' + indiceUsuario + '">' +
 				'<div class="ac-cumpl-usuario-id">' +
+				'<span class="material-symbols-outlined ac-cumpl-chevron">chevron_right</span>' +
 				'<div class="ac-seg-avatar-ring" style="background:' + ring + '"><div class="ac-avatar-initials">' + escapeHtml(u.iniciales) + '</div></div>' +
 				'<div><div class="ac-cumpl-usuario-nombre">' + escapeHtml(u.nombre) + '</div>' +
 				'<div class="ac-field-hint">' + u.total_clientes + ' cliente(s) &middot; ' + u.total_categorias + ' categoría(s)</div></div>' +
@@ -134,16 +171,30 @@ document.addEventListener('DOMContentLoaded', function () {
 				'</div></div>';
 
 			var grupoIndice = -1;
-			var clientesHtml = u.clientes.map(function (c) {
+			var clientesHtml = u.clientes.map(function (c, indiceCliente) {
 				grupoIndice = (grupoIndice + 1) % GRUPO_CLASES.length;
-				return filaCliente(c, GRUPO_CLASES[grupoIndice]);
+				var idGrupoCliente = 'cumpl-grupo-' + indiceUsuario + '-' + indiceCliente;
+				return filaCliente(c, GRUPO_CLASES[grupoIndice], idGrupoCliente);
 			}).join('');
-			return cabecera + clientesHtml;
+			return cabecera + '<div class="hidden" id="cumpl-grupo-' + indiceUsuario + '">' + clientesHtml + '</div>';
 		}).join('');
 		lista.innerHTML = html;
 
 		Array.prototype.forEach.call(lista.querySelectorAll('.ac-cumpl-eliminar'), function (btn) {
 			btn.addEventListener('click', function () { confirmarYEliminar(parseInt(btn.dataset.id, 10)); });
+		});
+
+		// Mismo mecanismo para las 2 cabeceras que colapsan/expanden (asesor
+		// Y cliente, ver comentario de filaCliente()) — ambas comparten
+		// `data-grupo` + `.ac-cumpl-chevron`, así que un solo listener
+		// genérico alcanza para las 2.
+		Array.prototype.forEach.call(lista.querySelectorAll('.ac-cumpl-fila-usuario, .ac-cumpl-fila-cliente'), function (cabeceraEl) {
+			cabeceraEl.addEventListener('click', function () {
+				var grupo = document.getElementById(cabeceraEl.dataset.grupo);
+				if (!grupo) return;
+				grupo.classList.toggle('hidden');
+				cabeceraEl.querySelector('.ac-cumpl-chevron').classList.toggle('ac-cumpl-chevron-abierto', !grupo.classList.contains('hidden'));
+			});
 		});
 	}
 
@@ -349,6 +400,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (item.estado === 'mejora') return '<span class="ac-badge ac-badge-ok">Ahora gana</span>';
 		if (item.estado === 'empeora') return '<span class="ac-badge ac-badge-critico">Ya no gana</span>';
 		if (item.estado === 'sin_cliente') return '<span class="ac-field-hint">Cliente sin identificar</span>';
+		// Sin cambios de verdad (2026-08-31, pedido explícito: "si no hay
+		// nada, obvio no diría nada") — la fila completa ya se comparó
+		// contra la existente en cumplimiento_verificar_estado.php, no solo
+		// Gana Categoría, así que acá "nada" es literal: sin badge, sin
+		// guion, nada que leer.
+		if (item.estado === 'sin_cambios') return '';
 		return '<span class="ac-field-hint">—</span>';
 	}
 	function claseFilaEstado(item) {
@@ -363,12 +420,14 @@ document.addEventListener('DOMContentLoaded', function () {
 		var cols = [
 			{ label: 'Cliente', key: 'cliente_excel' },
 			{ label: 'Categoría', key: 'sector' },
-			{ label: 'Cumplimiento', render: function (f) { return pctTexto(f.cumplimiento_pct); } },
+			{ label: 'Cumplimiento', render: function (f) { return donutCumplimiento(f.cumplimiento_pct); } },
 			{ label: 'Venta real', render: function (f) { return moneda(f.venta_total); } },
-			{ label: 'Cuota', render: function (f) { return moneda(f.cuota_total); } },
+			// Cuota y Rebate ganado ocultas a pedido explícito del usuario
+			// (2026-08-31) — los datos siguen viniendo en `f.cuota_total`/
+			// `f.rebate_real_vol` (no se tocó el parseo ni el guardado),
+			// solo se dejaron de mostrar en esta tabla de previsualización.
 			{ label: 'Gana categoría', render: function (f) { return badgeGana(f.gana_categoria, false); } },
-			{ label: 'Gana total', render: function (f) { return badgeGana(f.gana_total, true); } },
-			{ label: 'Rebate ganado', render: function (f) { return moneda(f.rebate_real_vol); } }
+			{ label: 'Gana total', render: function (f) { return badgeGana(f.gana_total, true); } }
 		];
 		previewTablaHead.innerHTML = '<tr>' + cols.map(function (c) { return '<th>' + escapeHtml(c.label) + '</th>'; }).join('') + '<th>Al guardar</th></tr>';
 		previewTablaBody.innerHTML = filasPreview.map(function (fila, i) {

@@ -519,20 +519,51 @@
 	// revisar (avisos, ej. un producto repetido en el mismo archivo). No toca
 	// la tabla en sí (sin bordes rojos por celda), es una caja de resumen
 	// aparte arriba de la tabla.
+	// Mismo formato comparativo ya aprobado en Claude Design para "Actas en
+	// Choque" del Resumen — Cuotas Trimestrales (2026-08-31, pedido
+	// explícito: "por qué sale 'esta categoría' en vez del significado
+	// real... no diseñé algo visual para esto?") — reusa las clases
+	// `.ac-choque-*` globales (no están escopeadas a ese modal), solo cambia
+	// el texto de los "eyebrow" porque acá el caso es distinto: no es una
+	// Acta precargada que TODAVÍA no se generó y choca con otra, es una fila
+	// que ya se usó para generar la que se ve a la derecha, así que no se
+	// modificó de nuevo.
+	function filaAvisoYaUsada(a) {
+		return '<div class="ac-choque-row">' +
+			'<div class="ac-choque-side ac-choque-side-precarga">' +
+				'<p class="ac-choque-eyebrow ac-choque-eyebrow-precarga">No se modificó (ya se había usado)</p>' +
+				'<p class="ac-choque-local">' + escapeHtml(a.fila) + '</p>' +
+			'</div>' +
+			'<div class="ac-choque-arrow"><span class="material-symbols-outlined">arrow_forward</span></div>' +
+			'<div class="ac-choque-side ac-choque-side-existente">' +
+				'<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">Ya está en esta Acta</p>' +
+				'<span class="ac-choque-doc">' + escapeHtml(a.existente_documento_no || '—') + '</span>' +
+				'<p class="ac-choque-meta">Generado por <strong>' + escapeHtml(a.existente_usuario || '—') + '</strong></p>' +
+				'<p class="ac-choque-meta">' + formatoFechaHora(a.existente_fecha) + '</p>' +
+			'</div>' +
+		'</div>';
+	}
+
 	function mostrarErroresPreview(errores, avisos) {
 		errores = errores || [];
 		avisos = avisos || [];
 		if (!errores.length && !avisos.length) { ocultarErroresPreview(); return; }
+		var avisosYaUsada = avisos.filter(function (a) { return a.tipo === 'ya_usada'; });
+		var avisosResto = avisos.filter(function (a) { return a.tipo !== 'ya_usada'; });
 		var html = '';
 		if (errores.length) {
 			html += '<p>' + errores.length + ' fila(s) NO se guardaron:</p><ul>' +
 				errores.map(function (e) { return '<li>' + escapeHtml(e.fila) + ': ' + escapeHtml(e.motivo) + '</li>'; }).join('') +
 				'</ul>';
 		}
-		if (avisos.length) {
-			html += '<p' + (errores.length ? ' style="margin-top:8px;"' : '') + '>' + avisos.length + ' fila(s) se guardaron, pero revisá:</p><ul>' +
-				avisos.map(function (a) { return '<li>' + escapeHtml(a.fila) + ': ' + escapeHtml(a.motivo) + '</li>'; }).join('') +
+		if (avisosResto.length) {
+			html += '<p' + (errores.length ? ' style="margin-top:8px;"' : '') + '>' + avisosResto.length + ' fila(s) se guardaron, pero revisá:</p><ul>' +
+				avisosResto.map(function (a) { return '<li>' + escapeHtml(a.fila) + ': ' + escapeHtml(a.motivo) + '</li>'; }).join('') +
 				'</ul>';
+		}
+		if (avisosYaUsada.length) {
+			html += '<p style="margin-top:8px;">' + avisosYaUsada.length + ' fila(s) no se modificaron, ya tienen Acta generada:</p>' +
+				'<div class="ac-choque-list">' + avisosYaUsada.map(filaAvisoYaUsada).join('') + '</div>';
 		}
 		previewErrores.innerHTML = html;
 		// Rojo SOLO si de verdad hubo algo que no se guardó — un aviso sin
@@ -896,9 +927,20 @@
 				// motivo + mostrar las filas afectadas como chips que envuelven
 				// en horizontal reduce la altura sin perder ningún dato — el
 				// motivo se lee una sola vez, no 14.
+				// "ya_usada" aparte, con la tarjeta comparativa real (2026-08-31,
+				// pedido explícito: "por qué sale 'esta categoría' en vez del
+				// significado real... no diseñé algo visual para esto?" — mismo
+				// formato ya aprobado en Claude Design para "Actas en Choque" del
+				// Resumen). Un chip de texto no alcanza acá porque cada fila
+				// apunta a una Acta DISTINTA (documento/usuario/fecha propios) —
+				// agruparlas todas bajo el mismo motivo y mostrarlas como chips
+				// perdía justo el dato que hacía falta ver.
+				var avisosYaUsada = avisosRelevantes.filter(function (a) { return a.tipo === 'ya_usada'; });
+				var avisosChip = avisosRelevantes.filter(function (a) { return a.tipo !== 'ya_usada'; });
+
 				var grupos = {};
 				var ordenMotivos = [];
-				avisosRelevantes.forEach(function (a) {
+				avisosChip.forEach(function (a) {
 					if (!grupos[a.motivo]) { grupos[a.motivo] = []; ordenMotivos.push(a.motivo); }
 					grupos[a.motivo].push(a.fila);
 				});
@@ -911,6 +953,13 @@
 						filas.map(function (f) { return '<span class="ac-avisos-chip">' + escapeHtml(f) + '</span>'; }).join('') +
 						'</div></div>';
 				}).join('');
+				if (avisosYaUsada.length) {
+					html += '<div class="ac-avisos-grupo">' +
+						'<div class="ac-avisos-grupo-motivo">Ya tienen Acta generada, no se modificaron' +
+						' <span class="ac-avisos-count">' + avisosYaUsada.length + '</span></div>' +
+						'<div class="ac-choque-list">' + avisosYaUsada.map(filaAvisoYaUsada).join('') + '</div>' +
+						'</div>';
+				}
 				Swal.fire({
 					icon: 'info',
 					title: 'Guardado. Hay algo para revisar.',

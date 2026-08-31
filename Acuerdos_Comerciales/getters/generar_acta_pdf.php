@@ -33,8 +33,14 @@ if ($acuerdoId > 0) {
 // Mismo criterio de scoping que Historial y "Mis Borradores" (creado_por):
 // nadie puede ver el Acta de un acuerdo ajeno adivinando el id por la URL.
 // 404 (no 403) a propósito en ambos casos, para no confirmar si el id existe.
+// Excepción (2026-08-31, confirmado con el usuario): superdesarrollador SÍ
+// puede ver/descargar el PDF de cualquier Acta — ahora ve ambos canales
+// combinados en Historial (ver listar_historial_acuerdos()), tiene que poder
+// abrir lo que ve. Subir Firma/Eliminar de una Acta ajena siguen bloqueados
+// (ver renderFilaHistorial(), esos botones ni se habilitan en la fila).
 $usuarioSesion = $_SESSION['user_id'] ?? null;
-if (!$cabecera || (int) $cabecera['creado_por'] !== (int) $usuarioSesion) {
+$puedeVerCualquiera = ($_SESSION['rol'] ?? '') === 'superdesarrollador';
+if (!$cabecera || (!$puedeVerCualquiera && (int) $cabecera['creado_por'] !== (int) $usuarioSesion)) {
 	http_response_code(404);
 	echo 'Acuerdo no encontrado.';
 	exit;

@@ -43,17 +43,51 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio < 2000) {
 $cacheSector = [];
 $cachePosId  = [];
 
+// Trae la fila completa, no solo gana_categoria (2026-08-31, pedido
+// explícito: "obviamente si hay alguna modificación... y si no hay nada,
+// obvio no diría nada") — antes SIEMPRE decía "Se actualiza" para
+// cualquier fila que ya existiera con el mismo Gana Categoría, aunque
+// literalmente nada hubiera cambiado (mismo $, mismo %, todo igual). Ahora
+// se compara cada campo real contra lo que se va a guardar — si de verdad
+// no cambió nada, el badge queda vacío (ver 'sin_cambios' más abajo), no
+// hace falta avisar de un "cambio" que no existió.
 $stmtExistente = $mysqli->prepare(
-	'SELECT gana_categoria FROM repositorio_cumplimiento_cuota
-	 WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? AND eliminado_en IS NULL LIMIT 1'
+	'SELECT cuota_total, venta_total, cumplimiento_pct, gana_categoria, gana_total,
+	        rebate_pct, pre_rebate, rebate_maximo_110, rebate_real_vol
+	 FROM repositorio_cumplimiento_cuota
+	 WHERE pos_id = ? AND sector = ? AND linea = ? AND trimestre = ? AND anio = ? AND eliminado_en IS NULL LIMIT 1'
 );
+
+// Mismo redondeo que usa cumplimiento_guardar.php al guardar — comparar
+// sin esto (ej. "62" contra "62.00") daría falsos "cambios" por formato,
+// no por dato real.
+function filaSinCambios($existente, $fila, $ganaCategoriaNueva, $ganaTotalNueva) {
+	$aNum = function ($v, $decimales) {
+		return is_numeric($v) ? round((float) $v, $decimales) : null;
+	};
+	if ($existente['gana_categoria'] !== $ganaCategoriaNueva) return false;
+	if ($existente['gana_total'] !== $ganaTotalNueva) return false;
+	if ((float) $existente['cuota_total'] !== $aNum($fila['cuota_total'] ?? null, 2)) return false;
+	if ((float) $existente['venta_total'] !== $aNum($fila['venta_total'] ?? null, 2)) return false;
+	if (round((float) $existente['cumplimiento_pct'], 4) !== $aNum($fila['cumplimiento_pct'] ?? null, 4)) return false;
+	if (round((float) $existente['rebate_real_vol'], 2) !== $aNum($fila['rebate_real_vol'] ?? null, 2)) return false;
+	$rebatePctExistente = $existente['rebate_pct'] !== null ? round((float) $existente['rebate_pct'], 4) : null;
+	if ($rebatePctExistente !== $aNum($fila['rebate_pct'] ?? null, 4)) return false;
+	$preRebateExistente = $existente['pre_rebate'] !== null ? round((float) $existente['pre_rebate'], 2) : null;
+	if ($preRebateExistente !== $aNum($fila['pre_rebate'] ?? null, 2)) return false;
+	$rebateMax110Existente = $existente['rebate_maximo_110'] !== null ? round((float) $existente['rebate_maximo_110'], 2) : null;
+	if ($rebateMax110Existente !== $aNum($fila['rebate_maximo_110'] ?? null, 2)) return false;
+	return true;
+}
 
 $estados = [];
 foreach ($filas as $indice => $fila) {
 	$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
 	$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
 	$sectorCrudo  = repositorio_normalizar_texto($fila['sector'] ?? '');
+	$linea        = is_numeric($fila['linea'] ?? null) ? (int) $fila['linea'] : 1;
 	$ganaCategoriaNueva = strtolower((string) ($fila['gana_categoria'] ?? 'no_gana')) === 'gana' ? 'gana' : 'no_gana';
+	$ganaTotalNueva     = strtolower((string) ($fila['gana_total'] ?? 'no_gana')) === 'gana' ? 'gana' : 'no_gana';
 
 	if ($clienteExcel === '' || $sectorCrudo === '') {
 		$estados[$indice] = ['estado' => 'sin_cliente'];
@@ -80,17 +114,17 @@ foreach ($filas as $indice => $fila) {
 		continue;
 	}
 
-	$stmtExistente->bind_param('ssii', $posId, $sector, $trimestre, $anio);
+	$stmtExistente->bind_param('ssiii', $posId, $sector, $linea, $trimestre, $anio);
 	$stmtExistente->execute();
 	$existente = $stmtExistente->get_result()->fetch_assoc();
 
 	if (!$existente) {
 		$estados[$indice] = ['estado' => 'nuevo'];
+	} elseif (filaSinCambios($existente, $fila, $ganaCategoriaNueva, $ganaTotalNueva)) {
+		// De verdad no cambió nada (fila completa comparada, no solo Gana
+		// Categoría) — no hace falta avisar de un "cambio" que no existió.
+		$estados[$indice] = ['estado' => 'sin_cambios'];
 	} elseif ($existente['gana_categoria'] === $ganaCategoriaNueva) {
-		// Solo se comparó GANA POR CATEGORÍA, no la fila completa — puede haber
-		// cambiado Venta/Cumplimiento/Rebate igual (venta real que avanza a
-		// mitad del trimestre sin cruzar el 80%). "Actualiza", no "Sin
-		// cambios" — sería afirmar algo que este chequeo no verificó.
 		$estados[$indice] = ['estado' => 'actualiza'];
 	} elseif ($ganaCategoriaNueva === 'gana') {
 		$estados[$indice] = ['estado' => 'mejora'];

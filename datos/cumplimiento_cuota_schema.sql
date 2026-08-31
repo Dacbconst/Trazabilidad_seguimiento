@@ -35,6 +35,7 @@ CREATE TABLE repositorio_cumplimiento_cuota (
 	cedi_excel VARCHAR(200) NULL,
 	plan_excel VARCHAR(100) NULL,
 	sector VARCHAR(200) NOT NULL,
+	linea TINYINT UNSIGNED NOT NULL DEFAULT 1,
 	trimestre TINYINT UNSIGNED NOT NULL,
 	anio SMALLINT UNSIGNED NOT NULL,
 	cuota_total DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -54,6 +55,33 @@ CREATE TABLE repositorio_cumplimiento_cuota (
 	eliminado_por INT UNSIGNED NULL
 );
 
-CREATE UNIQUE INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota (pos_id, sector, trimestre, anio);
+CREATE UNIQUE INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota (pos_id, sector, trimestre, anio, linea);
 CREATE INDEX idx_cumplimiento_cuota_eliminado_en ON repositorio_cumplimiento_cuota (eliminado_en);
 CREATE INDEX idx_cumplimiento_cuota_periodo ON repositorio_cumplimiento_cuota (trimestre, anio);
+
+-- linea (2026-08-31, bug real encontrado con datos reales): el Excel de JW
+-- puede traer 2+ filas del MISMO Sector para el mismo cliente (ej.
+-- "DISTRIBUIDORA NOVOA E HIJOS SOCIEDAD CIVIL" con 2 líneas de "AEROSOL",
+-- cuota $62 y $73, ambas con la misma venta real $108 — probablemente 2
+-- Subcategorías de AEROSOL que esta hoja no distingue por nombre). Con la
+-- clave única original (pos_id, sector, trimestre, anio) la 2da fila pisaba
+-- a la primera vía ON DUPLICATE KEY UPDATE y se perdía un dato real. La
+-- columna `linea` (1, 2, 3... según el orden en que aparecen en el Excel
+-- para ese mismo cliente+Sector) entra a la clave única para que las 2
+-- líneas se guarden como filas separadas, calcando el archivo original —
+-- se llama "línea" (línea 1 de 2, línea 2 de 2) y no "ocurrencia" a
+-- propósito: es un dato normal, no una señal de que algo falló.
+--
+-- Pendiente correr en la base real, en 2 partes (ver "Excepción a la regla
+-- de solo lectura" en Acuerdos_Comerciales/CLAUDE.md — Claude puede correr
+-- CREATE/ALTER acá mostrando el SQL antes y con confirmación explícita,
+-- pero CUALQUIER DROP —incluido DROP INDEX— lo tiene que correr el usuario):
+--   1) El usuario corre esto en HeidiSQL:
+--        DROP INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota;
+--   2) Recién ahí, Claude corre (mostrando el SQL y con confirmación):
+--        ALTER TABLE repositorio_cumplimiento_cuota
+--          ADD COLUMN linea TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER sector;
+--        CREATE UNIQUE INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota (pos_id, sector, trimestre, anio, linea);
+-- (el CREATE TABLE de arriba ya incluye la columna final para cuando se
+-- corra este script desde cero en un entorno nuevo — los 2 pasos de arriba
+-- son solo para la base real, que ya tiene la tabla creada sin esta columna.)

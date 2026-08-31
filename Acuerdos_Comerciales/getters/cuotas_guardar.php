@@ -128,6 +128,14 @@ try {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)];
 			continue;
 		}
+
+		// "OTRAS CATEGORIAS" se ignora del todo, sin error ni aviso (2026-08-31,
+		// pedido explícito: "solo ignóralo... ya dijimos que no la usaremos") —
+		// JW confirmó que dejaron de trabajar esta categoría (ver CLAUDE.md,
+		// "Repositorio de Cuotas..."), así que no tiene sentido seguir
+		// guardándola sin resolver ni pidiendo revisión de algo que nunca se
+		// va a resolver.
+		if ($sector === 'OTRAS CATEGORIAS') continue;
 		if ($mes1 === null || $mes1 < 0 || $mes2 === null || $mes2 < 0 || $mes3 === null || $mes3 < 0) {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Los 3 montos mensuales deben ser 0 o más'];
 			continue;
@@ -173,9 +181,19 @@ try {
 		// que ya generó una Acta real, eso rompería el enlace acuerdo_id_generado
 		// y haría reaparecer algo ya hecho en la campanita del asesor. Chequeo
 		// aparte (no ON DUPLICATE KEY UPDATE) para poder avisar la razón exacta.
+		//
+		// Trae también el Acta real (documento_no/usuario/fecha), no solo el
+		// estado (2026-08-31, pedido explícito: "por qué me sale 'esta
+		// categoría' en vez del significado real" — el front ahora arma la
+		// misma tarjeta comparativa ya aprobada en Claude Design para
+		// "Actas en Choque" del Resumen, en vez de un texto genérico).
 		if ($posId) {
 			$stmtCheck = $mysqli->prepare(
-				'SELECT estado FROM repositorio_cuota_cliente WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? LIMIT 1'
+				'SELECT c.estado, a.documento_no, a.created_at, u.usuario
+				 FROM repositorio_cuota_cliente c
+				 LEFT JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
+				 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+				 WHERE c.pos_id = ? AND c.sector = ? AND c.trimestre = ? AND c.anio = ? LIMIT 1'
 			);
 			if ($stmtCheck) {
 				$stmtCheck->bind_param('ssii', $posId, $sector, $trimestre, $anio);
@@ -183,7 +201,14 @@ try {
 				$existente = $stmtCheck->get_result()->fetch_assoc();
 				$stmtCheck->close();
 				if ($existente && $existente['estado'] === 'usada') {
-					$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Esta categoría ya se usó en una Acta. No se modificó.'];
+					$avisos[] = [
+						'indice' => $indice, 'fila' => $etiqueta,
+						'motivo' => 'Esta categoría ya se usó en una Acta. No se modificó.',
+						'tipo' => 'ya_usada',
+						'existente_documento_no' => $existente['documento_no'],
+						'existente_usuario' => $existente['usuario'],
+						'existente_fecha' => $existente['created_at'],
+					];
 					continue;
 				}
 			}

@@ -924,6 +924,39 @@ body {
 }
 .ac-cargando-overlay .material-symbols-outlined { font-size: 32px; color: var(--color-primary); }
 
+/* Overlay centrado en la pantalla completa (2026-08-31, ver
+   acMostrarCargandoPantalla() en cargando.js) — a diferencia de
+   .ac-cargando-overlay (ancla dentro de un .ac-card puntual, se pierde de
+   vista si ese contenedor es más alto que la pantalla), este cubre todo el
+   viewport con position:fixed y muestra una tarjeta con mensaje real +
+   puntos animados, siempre centrada sin importar el scroll. */
+.ac-cargando-pantalla {
+	position: fixed; inset: 0;
+	background: rgba(26, 27, 34, 0.5);
+	display: flex; align-items: center; justify-content: center;
+	z-index: 2000;
+}
+.ac-cargando-pantalla-caja {
+	background: var(--color-surface-container-lowest);
+	border-radius: var(--radius-lg);
+	box-shadow: 0 12px 32px rgba(20, 20, 40, 0.28);
+	padding: var(--space-xl) var(--space-lg);
+	display: flex; flex-direction: column; align-items: center; gap: var(--space-md);
+	max-width: 320px;
+	text-align: center;
+}
+.ac-cargando-pantalla-icono { font-size: 44px; color: var(--color-primary); }
+.ac-cargando-pantalla-texto { margin: 0; font-size: 16px; font-weight: 600; color: var(--color-on-surface); }
+.ac-cargando-puntos span {
+	display: inline-block;
+	animation: ac-puntos-parpadeo 1.4s infinite;
+	opacity: 0;
+}
+.ac-cargando-puntos span:nth-child(2) { animation-delay: 0.2s; }
+.ac-cargando-puntos span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ac-puntos-parpadeo { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ac-cargando-puntos span { animation: none; opacity: 1; } }
+
 .ac-search-wrap { max-width: 260px; width: 100%; }
 .ac-search-input { padding: 10px 16px 10px 40px; border-radius: var(--radius-full); font-size: 14px; }
 
@@ -1662,17 +1695,29 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 		grid-template-columns: 1fr 1fr;
 		grid-template-areas:
 			"search   search"
+			"periodo  anio";
+		gap: var(--space-sm);
+	}
+	/* Fila "exportar" solo si el botón existe (2026-08-31: ahora es
+	   #hist-exportar-wrap, solo se renderiza para superdesarrollador, ver
+	   historial.php) — sin :has() acá, un desarrollador normal (sin ese
+	   div) quedaría con una fila vacía reservada de más por el
+	   grid-template-areas de 3 filas de siempre. */
+	.ac-hist-filtros:has(#hist-exportar-wrap) {
+		grid-template-areas:
+			"search   search"
 			"periodo  anio"
 			"exportar exportar";
-		gap: var(--space-sm);
 	}
 	.ac-hist-search-wrap { grid-area: search; flex: none; width: 100%; }
 	.ac-hist-periodo { grid-area: periodo; width: 100%; min-width: 0; }
 	.ac-hist-anio { grid-area: anio; width: 100%; min-width: 0; }
 	#hist-buscar-btn { display: none; }
-	#hist-exportar-cuota {
+	#hist-exportar-wrap {
 		grid-area: exportar;
 		justify-self: end;
+	}
+	#hist-exportar-wrap .ac-repo-exportar-btn {
 		width: auto;
 		padding: 8px var(--space-md);
 		font-size: 11px;
@@ -1849,6 +1894,33 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	}
 	#hist-tabla-body .ac-row-actions-primary.ac-icon-btn-success { border-color: #1e9e5a; }
 	#hist-tabla-body .ac-row-actions-primary-label { display: inline; }
+
+	/* Fila con columna Canal extra (2026-08-31, solo superdesarrollador — ver
+	   renderFilaHistorial()) — un <td> de más ANTES de Periodo corre todos los
+	   nth-child() de arriba en 1, así que la fila lleva su propia clase
+	   (.hist-fila-con-canal) con el mismo mapeo re-numerado; una clase extra
+	   en el selector le gana en especificidad a las reglas base de arriba, sin
+	   tocarlas — una fila SIN esta clase (desarrollador normal) sigue usando
+	   exactamente el layout de siempre. */
+	#hist-tabla-body tr.hist-fila-con-canal {
+		grid-template-areas:
+			"doc      badge"
+			"dist     dist"
+			"cedi     cedi"
+			"canal    periodo"
+			"fecha    fecha"
+			"acciones acciones";
+	}
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(3) { text-align: left; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(4) { grid-area: canal; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(5) { grid-area: periodo; font-size: 13px; color: var(--color-on-surface-variant); text-align: right; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(6) { grid-area: badge; justify-self: end; align-self: center; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(7) { grid-area: fecha; font-size: 12px; color: var(--color-outline); text-align: left; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(8) {
+		grid-area: acciones;
+		margin-top: 6px; padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-outline-variant);
+	}
 }
 
 /* ---------- Modal "Subir Acta Firmada": 2 paneles lado a lado (2026-08-21) ---------- */
@@ -2468,13 +2540,6 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
    .ac-repo/.ac-seguimiento (los hijos directos no necesitan margen propio). */
 .ac-cumpl { display: flex; flex-direction: column; gap: var(--space-lg); }
 
-.ac-cumpl-banner {
-	display: flex; align-items: center; gap: var(--space-sm);
-	background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed);
-	border-radius: var(--radius); padding: 12px var(--space-md); font-size: 13px; line-height: 1.5;
-}
-.ac-cumpl-banner .material-symbols-outlined { flex-shrink: 0; }
-
 .ac-cumpl-buscar-wrap { min-width: 240px; flex: 1 1 240px; }
 
 /* Encabezado de columnas de la tabla y cada fila de categoría comparten el
@@ -2486,7 +2551,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
    cliente completo (todas sus categorías sumadas) sí llega a GANA total. */
 .ac-cumpl-col-header, .ac-cumpl-fila-cat {
 	display: grid;
-	grid-template-columns: 2fr 0.9fr 1fr 0.9fr 1fr 1fr 1fr 44px;
+	grid-template-columns: 2fr 0.9fr 1fr 1fr 1fr 44px;
 	gap: var(--space-sm);
 	padding: 10px var(--space-lg);
 	align-items: center;
@@ -2500,6 +2565,32 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 }
 .ac-cumpl-fila-cat { font-size: 13px; border-top: 1px solid var(--color-outline-variant); }
 .ac-cumpl-fila-cat > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Columnas "Cuota" (4to hijo) y "Rebate ganado" (7mo hijo) ocultas a pedido
+   explícito del usuario (2026-08-31) — encabezado y datos siguen
+   generándose desde PHP/JS tal cual (el dato no se tocó), display:none
+   solo las saca de la vista. El grid de arriba bajó de 8 a 6 columnas para
+   que el resto se acomode sin dejar huecos vacíos. */
+.ac-cumpl-col-header > div:nth-child(4),
+.ac-cumpl-fila-cat > div:nth-child(4),
+.ac-cumpl-col-header > div:nth-child(7),
+.ac-cumpl-fila-cat > div:nth-child(7) {
+	display: none;
+}
+
+/* Mini donut de Cumplimiento (2026-08-31, ver donutCumplimiento() en
+   cumplimiento.js) — círculo chico con "agujero" al centro (mismo truco
+   conic-gradient + capa interior que ya usa .ac-seg-avatar-ring/
+   .ac-seg-avatar-gap de Seguimiento de Equipo, a escala de fila de tabla en
+   vez de avatar). Verde = cumplido, rosa claro = lo que falta — mismos 2
+   colores que ya usa ringDeUsuario() en este mismo módulo, no una paleta
+   nueva. */
+.ac-cumpl-donut-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.ac-cumpl-donut { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; position: relative; }
+.ac-cumpl-donut::before {
+	content: ''; position: absolute; inset: 4px; border-radius: 50%;
+	background: var(--color-surface-container-lowest);
+}
+.ac-cumpl-donut-pct { font-weight: 600; }
 
 .ac-cumpl-cambio { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; }
 .ac-cumpl-cambio-mejora { color: #1e9e5a; }
@@ -2510,7 +2601,14 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	padding: 14px var(--space-lg);
 	background: var(--color-surface-container-low);
 	border-top: 1px solid var(--color-outline-variant); border-bottom: 1px solid var(--color-outline-variant);
+	cursor: pointer;
 }
+.ac-cumpl-fila-usuario:hover { background: var(--color-surface-container); }
+/* Chevron de expandir/colapsar (2026-08-31) — rota 90° al abrir, misma
+   transición corta que ya usa el resto de la app para micro-interacciones
+   (ver .ac-select-bonito-chevron). */
+.ac-cumpl-chevron { font-size: 20px; color: var(--color-on-surface-variant); flex-shrink: 0; transition: transform 0.15s ease; }
+.ac-cumpl-chevron-abierto { transform: rotate(90deg); }
 .ac-cumpl-usuario-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ac-cumpl-usuario-nombre { font-weight: 800; font-size: 15px; }
 .ac-cumpl-usuario-resumen { display: flex; align-items: center; gap: var(--space-md); font-size: 12px; flex-shrink: 0; }
@@ -2523,9 +2621,15 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap;
 	padding: 12px var(--space-lg) 12px calc(var(--space-lg) + 26px);
 	min-width: 0;
+	cursor: pointer;
 }
+.ac-cumpl-fila-cliente:hover { filter: brightness(0.97); }
 .ac-cumpl-cliente-nombre { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.ac-cumpl-cliente-nombre > span:first-child { font-weight: 700; font-size: 14px; }
+/* Clase dedicada, no ":first-child" (2026-08-31) — con el chevron nuevo
+   como primer hijo, ":first-child" le pegaba este estilo al ícono en vez
+   de al nombre, y encima le pisaba su propio font-size con más
+   especificidad. */
+.ac-cumpl-cliente-nombre-texto { font-weight: 700; font-size: 14px; }
 .ac-cumpl-cliente-meta { flex-shrink: 0; margin: 0; }
 
 /* Badge "Gana Total" repetido por fila de categoría — con borde en vez de
@@ -2555,16 +2659,17 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-cumpl-col-header { display: none; }
 	.ac-cumpl-fila-cat {
 		grid-template-columns: 1fr 1fr;
-		grid-template-areas: "sector sector" "cumpl venta" "cuota gana" "ganatotal rebate" "acciones acciones";
+		grid-template-areas: "sector sector" "cumpl venta" "gana ganatotal" "acciones acciones";
 		row-gap: 6px;
 		padding: 10px var(--space-md) 14px calc(var(--space-md) + 20px);
 	}
 	.ac-cumpl-fila-cat > div:nth-child(1) { grid-area: sector; font-weight: 600; }
 	.ac-cumpl-fila-cat > div:nth-child(2) { grid-area: cumpl; }
 	.ac-cumpl-fila-cat > div:nth-child(3) { grid-area: venta; }
-	.ac-cumpl-fila-cat > div:nth-child(4) { grid-area: cuota; }
+	/* nth-child(4)=Cuota y nth-child(7)=Rebate ganado, ya ocultas con
+	   display:none arriba (fuera de este media query) — sin mapeo de
+	   grid-area acá, no ocupan lugar. */
 	.ac-cumpl-fila-cat > div:nth-child(5) { grid-area: gana; }
 	.ac-cumpl-fila-cat > div:nth-child(6) { grid-area: ganatotal; }
-	.ac-cumpl-fila-cat > div:nth-child(7) { grid-area: rebate; }
 	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
 }

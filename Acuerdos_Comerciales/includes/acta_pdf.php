@@ -132,10 +132,16 @@ function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anc
 // vista previa del navegador pero no se guardan en repositorio_acuerdo_lineas
 // (no existe esa columna) — por eso este PDF no las muestra.
 //
-// $escala reduce fuentes/espaciados en bloque para que quepa en 1 hoja A4 con
-// márgenes de 2.5cm/3cm — la calcula generar_acta_pdf.php probando primero a
-// escala 1 y bajando si Dompdf reporta más de 1 página (ver calcular_escala_una_pagina).
-function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
+// $escala reduce fuentes/espaciados en bloque (título, condiciones, firmas,
+// párrafos — todo menos las tablas) para que quepa en 1 hoja A4 con márgenes
+// de 2.5cm/3cm. $escalaTabla (2026-08-31, pedido explícito: "no afectar el
+// tamaño de letra de otras zonas, solo tocar lo de las tablas") es un factor
+// APARTE que solo reduce fuente/padding/margen de las celdas de tabla (th/td,
+// legend-box, y el margen alrededor de cada tabla) — así generar_acta_pdf_binario()
+// puede achicar SOLO las tablas primero (para que entren más filas, ej. 4 por
+// tabla) antes de tocar el texto general como último recurso. Ambas escalas
+// son independientes entre sí — 1.0/1.0 es el tamaño de siempre.
+function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $escalaTabla = 1.0) {
 	if ($medirTexto === null) $medirTexto = crear_medidor_texto();
 
 	// Formato Distribuidor (2026-08-20, ver datos/FORMATO Distribuidor.pdf;
@@ -183,7 +189,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 	// máximo de Categoría le da más aire al resto sin tocar el mínimo de
 	// abajo (22%, sigue evitando que se vea demasiado angosta con nombres
 	// cortos).
-	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escala, $medirTexto, 22, 38), 2);
+	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escalaTabla, $medirTexto, 22, 38), 2);
 	$restoPct = 100 - $categoriaPct;
 	// Pesos re-balanceados (2026-08-24): Rebate pasa de 8 a 16 (el doble) —
 	// era el más angosto de los 4 y el único con problema real de wrap en el
@@ -210,7 +216,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null) {
 		$metaGrandTotal += $total; $metaGrandEst += $est;
 
 		$categoriaTexto = $categoriaTextos[$i];
-		$fuenteCategoria = fuente_una_linea($categoriaTexto, 18.5 * $escala, $categoriaPct, $medirTexto);
+		$fuenteCategoria = fuente_una_linea($categoriaTexto, 18.5 * $escalaTabla, $categoriaPct, $medirTexto);
 		// Una sola línea horizontal SIEMPRE (requisito explícito, sin excepción):
 		// nowrap fuerza 1 línea y el tamaño ya viene calculado para que quepa.
 		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($categoriaTexto).'</td>';
@@ -309,23 +315,30 @@ table { width: 100%; border-collapse: collapse; table-layout: fixed; }
    propósito, para que subir el texto general (párrafos/etiquetas/condiciones)
    no arrastre también los datos de las tablas, que ya están en un tamaño que
    funciona bien y no se quiere tocar (pedido explícito 2026-08-19). */
-th { padding: '.px(7, $escala).' '.px(11, $escala).'; word-wrap: break-word; font-size: '.px(18.5, $escala).'; }
+/* th/td/legend-box/márgenes de tabla usan $escalaTabla, NUNCA $escala
+   (2026-08-31, pedido explícito: "achica un poco el tamaño del contenido de
+   las tablas... ni afectar los tamaños de letras de otras zonas") — así
+   generar_acta_pdf_binario() puede achicar SOLO esto primero (para que
+   entren más filas por tabla, ej. 4) sin tocar título/condiciones/firmas/
+   párrafos, que siguen atados a $escala (solo se toca como último recurso,
+   igual que siempre). */
+th { padding: '.px(7, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px(18.5, $escalaTabla).'; }
 /* Filas de datos con menos padding vertical que el encabezado (2026-08-24,
    pedido explícito: "se ve muy alta de arriba a abajo") — antes compartían
    el mismo padding que th (7px), quedaban más altas de lo necesario para
    solo 1 línea de números. Padding horizontal sin tocar. */
-td { padding: '.px(4, $escala).' '.px(11, $escala).'; word-wrap: break-word; font-size: '.px(18.5, $escala).'; }
+td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px(18.5, $escalaTabla).'; }
 .num { text-align: right; }
 .ctr { text-align: center; }
-.vacio { text-align: center; color: #000000; padding: '.px(7, $escala).' !important; }
+.vacio { text-align: center; color: #000000; padding: '.px(7, $escalaTabla).' !important; }
 .doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(15.5, $escala).'; color: #000000; }
 .doc-no strong { display: block; font-size: '.px(22, $escala).'; }
-.meta-tabla { margin: '.px(6, $escala).' 0 '.px(5, $escala).'; }
+.meta-tabla { margin: '.px(6, $escalaTabla).' 0 '.px(5, $escalaTabla).'; }
 /* "Un enter de más" después de la tabla de Meta de Compras (2026-08-24,
    pedido explícito, mismo espíritu que el margin-bottom extra que ya tiene
    el párrafo antes de las firmas) — solo esta tabla, no las de
    Cabeceras/Rumas/Perchas (comparten .meta-tabla, no se tocaron). */
-.meta-tabla-compras { margin-bottom: '.px(14, $escala).'; }
+.meta-tabla-compras { margin-bottom: '.px(14, $escalaTabla).'; }
 .meta-tabla td, .meta-tabla th { border: 1px solid #c4c5d5; }
 .meta-tabla thead th { background: #eeedf7; }
 .total-row td { font-weight: bold; border-top: 2px solid #000000; }
@@ -339,8 +352,8 @@ td { padding: '.px(4, $escala).' '.px(11, $escala).'; word-wrap: break-word; fon
 .condiciones li { margin-bottom: '.px(1.5, $escala).'; }
 .firmas-footer { margin-top: '.px(18, $escala).'; }
 .firma-linea-firmar { border-bottom: 1px solid #000000; height: '.px(28, $escala).'; margin: '.px(32, $escala).' 0; }
-.legend-box { border: 1px solid #c4c5d5; border-radius: 4px; padding: '.px(5, $escala).'; }
-.legend-box th, .legend-box td { font-size: '.px(16.5, $escala).'; }
+.legend-box { border: 1px solid #c4c5d5; border-radius: 4px; padding: '.px(5, $escalaTabla).'; }
+.legend-box th, .legend-box td { font-size: '.px(16.5, $escalaTabla).'; }
 </style></head><body>
 
 <div class="doc-no"><span class="label">Documento No:</span><strong>'.h($detalle['documento_no']).'</strong></div>
@@ -420,7 +433,7 @@ td { padding: '.px(4, $escala).' '.px(11, $escala).'; word-wrap: break-word; fon
 	<td style="border:none; width:20%; vertical-align:top; padding:0;">
 		<div class="legend-box">
 			<span class="label">Valor Ruma x Marca x Mes</span>
-			<table style="margin-top:'.px(4, $escala).';"><tbody>'.$rumaLegendRows.'</tbody></table>
+			<table style="margin-top:'.px(4, $escalaTabla).';"><tbody>'.$rumaLegendRows.'</tbody></table>
 		</div>
 	</td>
 </tr></table>
@@ -505,17 +518,17 @@ td { padding: '.px(4, $escala).' '.px(11, $escala).'; word-wrap: break-word; fon
 function generar_acta_pdf_binario(array $detalle) {
 	$medirTexto = crear_medidor_texto();
 
-	$renderizar = function ($escala) use ($detalle, $medirTexto) {
+	$renderizar = function ($escala, $escalaTabla) use ($detalle, $medirTexto) {
 		$options = new \Dompdf\Options();
 		$options->set('isRemoteEnabled', false);
 		$dompdf = new \Dompdf\Dompdf($options);
-		$dompdf->loadHtml(generar_acta_html($detalle, $escala, $medirTexto));
+		$dompdf->loadHtml(generar_acta_html($detalle, $escala, $medirTexto, $escalaTabla));
 		$dompdf->setPaper('A4', 'portrait');
 		$dompdf->render();
 		return $dompdf;
 	};
 
-	// Prueba a tamaño normal (escala 1) y solo si no entra en 1 hoja va
+	// Prueba a tamaño normal (escala 1/1) y solo si no entra en 1 hoja va
 	// reduciendo — nunca achica más de lo necesario. (Se probó también un
 	// modo "agrandar si sobra espacio" — se sacó: con Actas de contenido
 	// medio/largo el margen reservado para las firmas no alcanzaba y se
@@ -523,11 +536,29 @@ function generar_acta_pdf_binario(array $detalle) {
 	// aprovechamiento de espacio de este esquema original ya era bueno, solo
 	// pidió subir el tamaño de letra base — ver los valores en px() de más
 	// abajo.)
+	//
+	// 2026-08-31, pedido explícito ("que entren 4 filas por tabla en 1 sola
+	// hoja... sin afectar el tamaño de letra de otras zonas, solo tocar lo de
+	// las tablas"): el achicado ahora es en 2 pasadas. 1ra pasada — SOLO
+	// $escalaTabla (fuente/padding/margen de las 4 tablas del Acta, ver
+	// includes/acta_pdf.php CSS) baja de a poco hasta un piso de 0.55; título,
+	// condiciones, hints, párrafos y firmas se quedan siempre a tamaño
+	// completo ($escala=1) mientras esta pasada sola alcance para entrar en 1
+	// hoja — que es el caso típico de "faltaban unas pocas filas". 2da
+	// pasada — solo si ni con las tablas al piso entra (Actas con MUCHO
+	// contenido real, caso extremo), recién ahí se recurre al $escala general
+	// de siempre, como último recurso — mismo comportamiento que existía
+	// antes de este cambio.
 	$escala = 1.0;
-	$dompdf = $renderizar($escala);
+	$escalaTabla = 1.0;
+	$dompdf = $renderizar($escala, $escalaTabla);
+	while ($dompdf->getCanvas()->get_page_count() > 1 && $escalaTabla > 0.55) {
+		$escalaTabla -= 0.05;
+		$dompdf = $renderizar($escala, $escalaTabla);
+	}
 	while ($dompdf->getCanvas()->get_page_count() > 1 && $escala > 0.4) {
 		$escala -= 0.08;
-		$dompdf = $renderizar($escala);
+		$dompdf = $renderizar($escala, $escalaTabla);
 	}
 
 	return $dompdf->output();

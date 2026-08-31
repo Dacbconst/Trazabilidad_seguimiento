@@ -8,35 +8,81 @@
 	var trimestreSelect = document.getElementById('hist-trimestre');
 	var anioSelect      = document.getElementById('hist-anio');
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
-	var exportarCuotaLink = document.getElementById('hist-exportar-cuota');
-	// Aviso ANTES de descargar (2026-08-28, bug real reportado por el
-	// usuario) — con "Todos los períodos"/"Todos los años" elegido, el
-	// Excel replica el formato real de JW, que siempre es de UN solo
-	// trimestre de UN solo año; mezclar varios daba un archivo con meses de
-	// períodos distintos bajo un título que solo decía uno (el año se sumó
-	// al mismo chequeo por el mismo motivo exacto — un índice de mes 0-11
-	// tampoco distingue año). El getter ya lo rechaza del lado del servidor
-	// (getters/exportar_cuota_categoria.php) — esto es solo para avisar
-	// ANTES del click, con un modal en vez de un toast (pedido explícito:
-	// más visible, y que indique dónde corregirlo), en vez de que el
-	// usuario reciba un archivo de error en su carpeta de Descargas.
-	exportarCuotaLink.addEventListener('click', function (e) {
-		var faltaTrimestre = trimestreSelect.value === '0';
-		var faltaAnio = anioSelect.value === '0';
-		if (!faltaTrimestre && !faltaAnio) return;
 
-		e.preventDefault();
-		var queFalta = faltaTrimestre && faltaAnio ? 'el período y el año' : (faltaTrimestre ? 'el período' : 'el año');
-		Swal.fire({
-			icon: 'warning',
-			title: 'Elige el período antes de descargar',
-			html: 'Este archivo se genera para un trimestre y año específicos.<br><br>Elige <strong>' + queFalta + '</strong> en el filtro de arriba antes de descargar.',
-			confirmButtonText: 'Ir al filtro',
-			confirmButtonColor: '#00288e'
-		}).then(function () {
-			resaltarFiltroPeriodo(faltaTrimestre, faltaAnio);
+	// "Descargar Excel" ahora es un botón que se expande a 2 formatos
+	// (2026-08-31, pedido explícito, mockup "Opción A" aprobado por el
+	// usuario) — solo existe para superdesarrollador (ver
+	// components/historial/historial.php), así que estos 4 elementos son
+	// `null` para un desarrollador normal. Todo lo que los usa queda
+	// guardado con `if (exportarWrap)` — el resto del archivo (búsqueda,
+	// filtros, tabla, paginación) sigue funcionando igual sin este bloque.
+	var exportarWrap = document.getElementById('hist-exportar-wrap');
+	var exportarBtn = document.getElementById('hist-exportar-btn');
+	var exportarDirectoLink = document.getElementById('hist-exportar-directo');
+	var exportarDistribuidorLink = document.getElementById('hist-exportar-distribuidor');
+	var exportarLinks = [exportarDirectoLink, exportarDistribuidorLink].filter(Boolean);
+
+	if (exportarWrap) {
+		// Mismo botón-que-se-expande-en-2-opciones que ya usa "Exportar" en
+		// Repositorios (.ac-repo-exportar, animación 100% CSS, cero JS/CSS
+		// nuevo para el mecanismo en sí) — abre al hacer click, cierra al
+		// elegir un formato o al hacer click afuera.
+		// Descarga directa cuando ya hay un canal elegido (2026-08-31, pedido
+		// explícito: "si ya filtré por directa ahí ya no tendría la doble
+		// opción... sino que ya saldría solo la descarga directa") — con la
+		// pastilla de Vista en Directo/Distribuidor, el formato ya no es
+		// ambiguo, así que el click dispara la descarga de ESE link (con la
+		// misma validación de período/año de siempre, ver el listener de
+		// exportarLinks más abajo) en vez de abrir el desplegable de 2
+		// opciones. Solo con "Total" (canal ambiguo) sigue abriendo el picker.
+		exportarBtn.addEventListener('click', function () {
+			if (canalFiltroActual === 'directo' && exportarDirectoLink) {
+				exportarDirectoLink.click();
+				return;
+			}
+			if (canalFiltroActual === 'distribuidor' && exportarDistribuidorLink) {
+				exportarDistribuidorLink.click();
+				return;
+			}
+			exportarWrap.classList.add('ac-repo-exportar-abierto');
 		});
-	});
+		var cerrarExportar = function () { exportarWrap.classList.remove('ac-repo-exportar-abierto'); };
+		document.addEventListener('click', function (e) {
+			if (!exportarWrap.contains(e.target)) cerrarExportar();
+		});
+
+		// Aviso ANTES de descargar (2026-08-28, bug real reportado por el
+		// usuario) — con "Todos los períodos"/"Todos los años" elegido, el
+		// Excel replica el formato real de JW, que siempre es de UN solo
+		// trimestre de UN solo año; mezclar varios daba un archivo con meses de
+		// períodos distintos bajo un título que solo decía uno (el año se sumó
+		// al mismo chequeo por el mismo motivo exacto — un índice de mes 0-11
+		// tampoco distingue año). El getter ya lo rechaza del lado del servidor
+		// (getters/exportar_cuota_categoria.php) — esto es solo para avisar
+		// ANTES del click, con un modal en vez de un toast (pedido explícito:
+		// más visible, y que indique dónde corregirlo), en vez de que el
+		// usuario reciba un archivo de error en su carpeta de Descargas.
+		// Aplica a los 2 formatos por igual (2026-08-31, antes era un solo link).
+		exportarLinks.forEach(function (link) {
+			link.addEventListener('click', function (e) {
+				var faltaTrimestre = trimestreSelect.value === '0';
+				var faltaAnio = anioSelect.value === '0';
+				if (!faltaTrimestre && !faltaAnio) { setTimeout(cerrarExportar, 150); return; }
+
+				e.preventDefault();
+				var queFalta = faltaTrimestre && faltaAnio ? 'el período y el año' : (faltaTrimestre ? 'el período' : 'el año');
+				Swal.fire({
+					icon: 'warning',
+					title: 'Elige el período antes de descargar',
+					html: 'Este archivo se genera para un trimestre y año específicos.<br><br>Elige <strong>' + queFalta + '</strong> en el filtro de arriba antes de descargar.',
+					confirmButtonText: 'Ir al filtro',
+					confirmButtonColor: '#00288e'
+				}).then(function () {
+					resaltarFiltroPeriodo(faltaTrimestre, faltaAnio);
+				});
+			});
+		});
+	}
 
 	// Sube el scroll hasta la tarjeta de filtros y le agrega un aro
 	// pulsante (CSS puro, ver .ac-filtro-resaltado en style.css) al/los
@@ -102,11 +148,11 @@
 			setTimeout(function () { objetivo.classList.remove('ac-filtro-confirmado'); }, 1200);
 		});
 
-		if (recienCompleto) {
-			exportarCuotaLink.classList.remove('ac-excel-brillo');
-			void exportarCuotaLink.offsetWidth;
-			exportarCuotaLink.classList.add('ac-excel-brillo');
-			setTimeout(function () { exportarCuotaLink.classList.remove('ac-excel-brillo'); }, 1400);
+		if (recienCompleto && exportarBtn) {
+			exportarBtn.classList.remove('ac-excel-brillo');
+			void exportarBtn.offsetWidth;
+			exportarBtn.classList.add('ac-excel-brillo');
+			setTimeout(function () { exportarBtn.classList.remove('ac-excel-brillo'); }, 1400);
 		}
 		exportCompletoAntes = completoAhora;
 	}
@@ -126,7 +172,7 @@
 			var objetivo = select.closest('.ac-select-bonito') || select;
 			objetivo.classList.remove('ac-filtro-resaltado', 'ac-filtro-confirmado');
 		});
-		exportarCuotaLink.classList.remove('ac-excel-brillo');
+		if (exportarBtn) exportarBtn.classList.remove('ac-excel-brillo');
 	}
 	window.acHistorialLimpiarResaltadoFiltro = limpiarResaltadoFiltroPeriodo;
 	var tbody           = document.getElementById('hist-tabla-body');
@@ -244,20 +290,66 @@
 		cargarHistorial(1);
 	});
 
+	// ---------- Pastillas de Canal (2026-08-31, solo superdesarrollador) ----------
+	// "total" | "directo" | "distribuidor" — solo existe el contenedor
+	// (#hist-canal-group) para superdesarrollador, ver historial.php. Mismo
+	// mecanismo simple que ya usan los pills de período de Cumplimiento/
+	// Seguimiento de Equipo: clase .ac-seg-pill-activo puesta a mano, sin
+	// componente nuevo.
+	var canalGroup = document.getElementById('hist-canal-group');
+	var canalFiltroActual = 'total';
+	// Refleja en el título del botón qué va a pasar al hacer click — con un
+	// canal puntual elegido, ya no hay picker (ver el listener de
+	// exportarBtn más arriba), así que el botón necesita decir SOLO qué
+	// formato descarga.
+	var actualizarTituloExportar = function () {
+		if (!exportarBtn) return;
+		if (canalFiltroActual === 'directo') exportarBtn.title = 'Descarga el Excel de canal Directo';
+		else if (canalFiltroActual === 'distribuidor') exportarBtn.title = 'Descarga el Excel de canal Distribuidor';
+		else exportarBtn.title = 'Elige el formato a descargar';
+	};
+	if (canalGroup) {
+		// Arranca con la pastilla que el servidor ya marcó activa (ej. si se
+		// entra con ?canal=directo en la URL) — sin esto, recargar con un
+		// canal puntual en la URL dejaba la variable en 'total' aunque la
+		// pastilla visual mostrara otra cosa, y el botón de Excel directo
+		// (arriba) hubiera abierto el picker de todos modos.
+		var pillActiva = canalGroup.querySelector('.ac-seg-pill-activo');
+		if (pillActiva) canalFiltroActual = pillActiva.dataset.canal;
+		actualizarTituloExportar();
+		Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
+			btn.addEventListener('click', function () {
+				if (btn.dataset.canal === canalFiltroActual) return;
+				canalFiltroActual = btn.dataset.canal;
+				Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (b) {
+					b.classList.toggle('ac-seg-pill-activo', b === btn);
+				});
+				actualizarTituloExportar();
+				cargarHistorial(1);
+			});
+		});
+	} else {
+		actualizarTituloExportar();
+	}
+
 	// ---------- Listado: búsqueda + filtro de período (trimestre + año + firma) + paginación ----------
 	function cargarHistorial(pagina) {
 		var miReqId = ++historialReqId;
 		var q          = buscarInput.value.trim();
 		var trimestre  = trimestreSelect.value;
 		var anio       = anioSelect.value;
-		var filtrosQs  = '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
+		var filtrosQs  = '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio) +
+			'&canal=' + encodeURIComponent(canalFiltroActual);
 		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + filtrosQs +
 			'&firma=' + encodeURIComponent(firmaFiltroActual) + '&pg=' + (pagina || 1);
 
-		// El botón de export siempre apunta a lo mismo que está filtrado en
-		// pantalla ahora mismo — mismos parámetros que la lista, salvo firma
-		// (el Excel es de Cuota/Categoría, no distingue si ya está firmada).
-		exportarCuotaLink.href = 'getters/exportar_cuota_categoria.php?q=' + encodeURIComponent(q) + filtrosQs;
+		// Los 2 links de export siempre apuntan a lo mismo que está filtrado en
+		// pantalla ahora mismo — mismos parámetros que la lista, salvo firma (el
+		// Excel es de Cuota/Categoría, no distingue si ya está firmada) y canal
+		// (cada link elige el SUYO propio, sin importar qué pastilla de Vista
+		// esté activa — son 2 controles independientes, ver CLAUDE.md).
+		if (exportarDirectoLink) exportarDirectoLink.href = 'getters/exportar_cuota_categoria.php?canal=directo&q=' + encodeURIComponent(q) + '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
+		if (exportarDistribuidorLink) exportarDistribuidorLink.href = 'getters/exportar_cuota_categoria.php?canal=distribuidor&q=' + encodeURIComponent(q) + '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
 
 		// Feedback de carga (2026-08-25, pedido explícito — "le doy
 		// Actualizar y no pasa nada"): ícono de Actualizar gira + overlay

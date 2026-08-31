@@ -28,11 +28,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 		</button>
 	</div>
 
-	<div class="ac-cumpl-banner">
-		<span class="material-symbols-outlined">info</span>
-		<span><strong>Gana Categoría</strong> es el resultado de esa línea sola. <strong>Gana Total</strong> es el resultado del cliente completo, sumando todas sus categorías — por eso se repite igual en todas las filas de un mismo cliente, y puede decir "Gana" aunque una categoría puntual diga "No gana".</span>
-	</div>
-
 	<div class="ac-seg-periodo">
 		<div class="ac-seg-pill-group" id="cumpl-trimestre-group">
 			<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-trimestre="0">Todos</button>
@@ -66,7 +61,13 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 			<span class="ac-stat-label">No ganan</span>
 			<span class="ac-stat-value" id="cumpl-stat-no-ganan" style="color:#93000a;">—</span>
 		</div>
-		<div class="ac-stat-tile">
+		<!-- Tarjeta oculta a pedido explícito del usuario (2026-08-31) —
+		     el <span id="cumpl-stat-promedio"> se queda para que
+		     cumplimiento.js le siga escribiendo el valor sin romper nada,
+		     solo se dejó de mostrar la tarjeta entera. .ac-resumen-stats
+		     usa auto-fit, así que las otras 3 tarjetas se acomodan solas
+		     sin dejar un hueco. -->
+		<div class="ac-stat-tile" style="display:none;">
 			<span class="ac-stat-label">Cumplimiento promedio</span>
 			<span class="ac-stat-value" id="cumpl-stat-promedio">—</span>
 		</div>

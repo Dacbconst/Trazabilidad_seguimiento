@@ -192,6 +192,14 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
 		$sector  = repositorio_normalizar_texto($fila[$colCategorias] ?? '');
 		if ($cliente === '' && $sector === '') continue; // fila vacía (hueco o fin de hoja)
+		// "OTRAS CATEGORIAS" se ignora del todo, ni siquiera llega a la
+		// previsualización (2026-08-31, pedido explícito: "solo ignóralo...
+		// ya dijimos que no la usaremos") — JW confirmó que dejaron de
+		// trabajar esta categoría. Filtrado acá, en el parseo, para que
+		// tampoco aparezca como fila editable en la previsualización — mismo
+		// criterio también aplicado como red de seguridad en
+		// getters/cuotas_guardar.php, por si algo llega a saltarse este paso.
+		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
 		$plan = $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '';
@@ -351,6 +359,18 @@ function repositorio_parsear_cumplimiento_cuota($rutaArchivo) {
 		return is_numeric($v) ? (float) $v : (float) str_replace(['$', ',', ' ', '%'], '', (string) $v);
 	};
 
+	// Cuántas veces ya se vio este cliente+CEDI+Sector en ESTE archivo — un
+	// cliente puede traer 2+ filas con el mismo Sector (ej. 2 líneas de
+	// "AEROSOL" con cuota distinta, misma venta real: probablemente 2
+	// Subcategorías que esta hoja no distingue por nombre). `linea` (1, 2,
+	// 3... en el orden en que aparecen) entra a la clave única de guardado
+	// (ver cumplimiento_cuota_schema.sql) para que NINGUNA fila real se
+	// pierda — antes, la 2da pisaba a la 1ra al guardar (bug real
+	// encontrado 2026-08-31 con datos reales de JW). Nombrada "línea", no
+	// "ocurrencia" — es un dato normal (línea 1 de 2, línea 2 de 2), no un
+	// indicio de que algo falló.
+	$vecesVistoSector = [];
+
 	$resultado = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
@@ -361,11 +381,16 @@ function repositorio_parsear_cumplimiento_cuota($rutaArchivo) {
 		// CATEGORIAS nunca se llenan ahí, así que ya quedan vacíos acá solos).
 		if ($cliente === '' && $sector === '') continue;
 
+		$cediCruda = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
+		$claveLinea = $cliente.'|'.$cediCruda.'|'.$sector;
+		$vecesVistoSector[$claveLinea] = ($vecesVistoSector[$claveLinea] ?? 0) + 1;
+
 		$resultado[] = [
 			'cliente_excel'     => $cliente,
-			'cedi_excel'        => $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '',
+			'cedi_excel'        => $cediCruda,
 			'plan_excel'        => $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '',
 			'sector'            => $sector,
+			'linea'             => $vecesVistoSector[$claveLinea],
 			'cuota_total'       => round($aNumero($fila[$colCuotaTotal] ?? 0), 2),
 			'venta_total'       => round($aNumero($fila[$colVentaTotal] ?? 0), 2),
 			// CUMPLIMIENTO llega como fracción (0.1952, celda de fórmula con

@@ -1287,12 +1287,15 @@
 		// Feedback de carga (2026-08-24, pedido explícito): armar el PDF con
 		// Dompdf tarda un momento — sin esto no había ninguna señal visible y
 		// el usuario terminaba clickeando "Previsualización" varias veces
-		// pensando que el sistema se había quedado colgado. Mismo componente
-		// reusable que ya usan Historial/Liquidación (assets/js/cargando.js) —
-		// bloquea TODO el formulario (acuerdoContainer, no solo el botón) para
-		// que tampoco se pueda seguir editando mientras arma el PDF.
+		// pensando que el sistema se había quedado colgado.
+		// Corregido 2026-08-31: acMostrarCargando(acuerdoContainer) centraba
+		// el spinner DENTRO del formulario — que es mucho más alto que la
+		// pantalla (4 tablas), así que el spinner quedaba fuera de vista y
+		// solo se veía el fondo blanquecino del overlay, sin ningún mensaje.
+		// acMostrarCargandoPantalla() (assets/js/cargando.js) reemplaza eso:
+		// overlay fijo centrado en la PANTALLA, con un mensaje real.
 		acBotonCargando(generarActaBtn, true);
-		acMostrarCargando(acuerdoContainer);
+		acMostrarCargandoPantalla('Generando la vista previa del Acta');
 
 		var payload = {
 			pos_id: distribuidorSelect.value,
@@ -1339,7 +1342,7 @@
 			.catch(function () { mostrarMensaje('No se pudo armar la vista previa. Intenta nuevamente.', false); })
 			.finally(function () {
 				acBotonCargando(generarActaBtn, false);
-				acOcultarCargando(acuerdoContainer);
+				acOcultarCargandoPantalla();
 			});
 	}
 
@@ -1458,7 +1461,7 @@
 				var tr = purchaseBody.lastElementChild;
 				tr._combo.sugerir(fila.segmento, fila.sector || null, fila.categoria, fila.marca);
 				llenarValoresMensuales(tr.querySelectorAll('.month-input'), fila.valores_mensuales);
-				tr.querySelector('.ac-rebate-input').value = (fila.rebate_pct || 0) * 100;
+				tr.querySelector('.ac-rebate-input').value = ((fila.rebate_pct || 0) * 100).toFixed(2);
 				updatePurchaseRow(tr);
 			});
 		} else {
@@ -1689,6 +1692,14 @@
 				trPercha._comboMarca.sugerir(fila.marca);
 				var marcaInput = trPercha.querySelector('.marca-input');
 				if (marcaInput) { marcaInput.disabled = true; marcaInput.classList.add('ac-combo-input-precargado'); }
+				// A diferencia de restaurar un borrador (donde `sugerir()` se
+				// queda silencioso a propósito para no pisar una Participación ya
+				// tipeada/guardada), acá la fila es NUEVA — nunca tuvo un valor
+				// real, se queda en "0%" para siempre si no se busca. Se busca en
+				// vivo el % real del repositorio, igual que si el asesor hubiera
+				// elegido la Marca a mano (2026-08-31, bug real reportado:
+				// Perchas de una Acta Precargada siempre quedaban en 0%).
+				buscarYAplicarParticipacion(trPercha, fila.marca);
 			}
 		});
 	}

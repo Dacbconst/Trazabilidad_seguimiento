@@ -65,7 +65,6 @@ $actualizadas = 0;
 $sinCambios = 0;
 $errores = []; // [{indice, fila, motivo}, ...] — NO se guardaron.
 $avisos  = []; // [{indice, fila, motivo}, ...] — SÍ se guardaron, pero conviene revisar.
-$clavesVistas = []; // pos_id|sector -> índice, para avisar de repetidos DENTRO del mismo archivo.
 
 $mysqli->begin_transaction();
 try {
@@ -76,10 +75,10 @@ try {
 	// nota completa en datos/cumplimiento_cuota_schema.sql).
 	$stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cumplimiento_cuota
-		 (pos_id, cliente_excel, cedi_excel, plan_excel, sector, trimestre, anio,
+		 (pos_id, cliente_excel, cedi_excel, plan_excel, sector, linea, trimestre, anio,
 		  cuota_total, venta_total, cumplimiento_pct, gana_categoria, gana_total,
 		  rebate_pct, pre_rebate, rebate_maximo_110, rebate_real_vol, actualizado_por)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON DUPLICATE KEY UPDATE
 		   gana_categoria_anterior = gana_categoria,
 		   cliente_excel = VALUES(cliente_excel), cedi_excel = VALUES(cedi_excel), plan_excel = VALUES(plan_excel),
@@ -101,6 +100,13 @@ try {
 		$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
 		$plan         = repositorio_normalizar_texto($fila['plan_excel'] ?? '');
 		$sectorCrudo  = repositorio_normalizar_texto($fila['sector'] ?? '');
+		// Un cliente puede traer 2+ filas con el mismo Sector (ver
+		// repositorio_parsear_cumplimiento_cuota() — "linea") — sin este
+		// dato, ya calculado al parsear, la 2da fila pisaría a la 1ra acá
+		// mismo (bug real 2026-08-31). `?: 1` es solo para archivos viejos
+		// previsualizados con una versión anterior del front, nunca debería
+		// hacer falta con un parseo fresco.
+		$linea        = is_numeric($fila['linea'] ?? null) ? (int) $fila['linea'] : 1;
 		$cuotaTotal   = is_numeric($fila['cuota_total'] ?? null) ? round((float) $fila['cuota_total'], 2) : 0.0;
 		$ventaTotal   = is_numeric($fila['venta_total'] ?? null) ? round((float) $fila['venta_total'], 2) : 0.0;
 		$cumplPct     = is_numeric($fila['cumplimiento_pct'] ?? null) ? round((float) $fila['cumplimiento_pct'], 4) : 0.0;
@@ -139,15 +145,16 @@ try {
 			continue;
 		}
 
-		$claveRepetido = $posId.'|'.$sector;
-		if (isset($clavesVistas[$claveRepetido])) {
-			$avisos[] = ['indice' => $clavesVistas[$claveRepetido], 'fila' => $etiqueta, 'motivo' => 'Cliente y categoría repetidos en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
-		}
-		$clavesVistas[$claveRepetido] = $indice;
-
+		// Con `linea` ya diferenciando cada renglón (ver arriba), 2 filas
+		// del mismo cliente+Sector son casos reales y legítimos, no un
+		// duplicado accidental — a diferencia de Cuotas Trimestrales, acá NO
+		// se avisa "se usó el valor más reciente" porque ya no se descarta
+		// nada. Si alguna vez llegaran 2 filas con la misma clave completa
+		// (mismo posId+sector+linea), el UPSERT las trata como una sola
+		// igual — correcto para ese caso.
 		$stmt->bind_param(
-			'sssssiidddssddddi',
-			$posId, $clienteExcel, $cediExcel, $plan, $sector, $trimestre, $anio,
+			'sssssiiidddssddddi',
+			$posId, $clienteExcel, $cediExcel, $plan, $sector, $linea, $trimestre, $anio,
 			$cuotaTotal, $ventaTotal, $cumplPct, $ganaCategoria, $ganaTotal,
 			$rebatePct, $preRebate, $rebateMax110, $rebateRealVol, $usuarioSesion
 		);
@@ -169,14 +176,13 @@ try {
 }
 
 $omitidas = count($errores);
-$avisosRelevantes = array_filter($avisos, function ($a) { return ($a['tipo'] ?? null) !== 'duplicado_archivo'; });
 $partesDetalle = [];
 if ($nuevas > 0) $partesDetalle[] = "$nuevas fila(s) nueva(s)";
 if ($actualizadas > 0) $partesDetalle[] = "$actualizadas actualizada(s)";
 if ($sinCambios > 0) $partesDetalle[] = "$sinCambios sin cambios (ya existían igual)";
 $partesMensaje = [$partesDetalle ? 'Se guardaron '.implode(', ', $partesDetalle).'.' : 'No se guardó ninguna fila nueva.'];
 if ($omitidas > 0) $partesMensaje[] = "$omitidas fila(s) no se guardaron. Revisá el detalle.";
-if ($avisosRelevantes) $partesMensaje[] = count($avisosRelevantes).' fila(s) necesitan revisión. Revisá el detalle.';
+if ($avisos) $partesMensaje[] = count($avisos).' fila(s) necesitan revisión. Revisá el detalle.';
 responder(true, implode(' ', $partesMensaje), [
 	'guardadas' => $guardadas, 'nuevas' => $nuevas, 'actualizadas' => $actualizadas, 'sin_cambios' => $sinCambios,
 	'omitidas' => $omitidas, 'errores' => $errores, 'avisos' => $avisos,

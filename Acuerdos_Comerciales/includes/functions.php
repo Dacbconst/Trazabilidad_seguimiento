@@ -509,7 +509,7 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
 	$stmt = $mysqli->prepare(
-		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.valores_mensuales, c.updated_at
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.sector, c.valores_mensuales, c.updated_at
 		 FROM repositorio_cuota_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
@@ -546,6 +546,10 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	// no cambió desde la última vez.
 	$grupos = [];
 	foreach ($filasCrudas as $f) {
+		// "OTRAS CATEGORIAS" se ignora acá también (2026-08-31, ver
+		// obtener_precarga_detalle()) — el contador tiene que seguir
+		// coincidiendo exacto con lo que el asesor va a ver de verdad.
+		if (strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS') continue;
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
 		if (!is_array($valores) || array_sum($valores) <= 0) continue;
 		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
@@ -629,6 +633,11 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 
 	$lineasMeta = [];
 	foreach ($filasCuota as $fc) {
+		// "OTRAS CATEGORIAS" (2026-08-31, pedido explícito del usuario): JW va
+		// a dejar de usar ese cajón genérico sin desglosar — se ignora al
+		// pregenerar, nunca entra a la Acta Precargada, aunque traiga monto.
+		if (strtoupper(trim($fc['sector'])) === 'OTRAS CATEGORIAS') continue;
+
 		$segmento = null; $categoria = null; $marca = null;
 
 		// 1ra prioridad (2026-08-28): si el Excel de Cuotas trajo SUBCATEGORIA/
@@ -1058,7 +1067,7 @@ function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 // $trimestre: 1-4, o 0/inválido = "Todos los períodos". $anio: 0 = "Todos los años".
 // $filtroFirma: 'todos' (default) | 'firmadas' | 'pendientes' — activado
 // desde los stat tiles de arriba de la tabla (2026-08-21), no un <select>.
-function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $filtroFirma = 'todos', $pagina = 1, $usuarioId = null, $porPagina = 10) {
+function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $filtroFirma = 'todos', $pagina = 1, $usuarioId = null, $porPagina = 10, $rol = null, $canal = 'total') {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
@@ -1081,7 +1090,41 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	// porque nadie visitó esta pantalla desde que se cumplieron los 20 días.
 	barrer_actas_vencidas($mysqli);
 
-	// El JOIN es solo para mostrar pos_name/cedi — repositorio_locales_
+	// "Ver todo" (2026-08-31, pedido explícito): el superdesarrollador ya no
+	// se limita a lo que ÉL generó — con un solo superdesarrollador en total,
+	// necesita ver las Actas de TODOS los asesores, de los 2 canales, para
+	// poder exportar el Excel real de cada uno. `? = 1 OR a.creado_por = ?`
+	// mantiene el conteo de parámetros FIJO sin importar el rol (evita tener
+	// que armar bind_param con una cantidad variable de placeholders) — con
+	// $verTodos=1 el lado izquierdo del OR siempre es verdadero y el filtro
+	// de creador queda anulado; con $verTodos=0 (desarrollador normal) se
+	// comporta exactamente igual que antes.
+	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
+
+	// Filtro de Canal (2026-08-31) — "directo"/"distribuidor"/"total". Se arma
+	// como texto literal (no placeholder) porque $canal ya viene validado
+	// contra una whitelist fija en el caller (historial.php/listar_historial.php).
+	// Sin efecto para un desarrollador normal (siempre ve un solo canal de
+	// todos modos, vía su propio supervisor).
+	// EXISTS, no un simple `d.canal = 'DISTRIBUIDOR'` sobre el JOIN de arriba
+	// (bug real encontrado verificando este cambio contra datos reales,
+	// solo lectura): un mismo pos_id puede tener 2+ filas en el maestro con
+	// `canal` DISTINTO entre sí (confirmado: EPVD15130/"ACOSTA SANTAMARIA
+	// EDGAR PATRICIO" — Acuerdo real #41 — tiene una fila DISTRIBUIDOR y
+	// otra MAYORISTA) — con un filtro directo sobre `d.canal`, ESE Acuerdo
+	// calzaba en las 2 consultas (Directo Y Distribuidor) a la vez, y la
+	// suma de ambas pastillas superaba a "Total". EXISTS resuelve el canal
+	// UNA sola vez por Acuerdo (gana DISTRIBUIDOR si existe cualquier fila
+	// así para ese pos_id) — mutuamente excluyente de verdad, y coincide con
+	// el mismo criterio que ya usa el SELECT de abajo para `es_distribuidor`.
+	$condicionCanal = '';
+	if ($canal === 'directo') {
+		$condicionCanal = " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	} elseif ($canal === 'distribuidor') {
+		$condicionCanal = " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	}
+
+	// El JOIN es solo para mostrar pos_name/cedi/canal — repositorio_locales_
 	// supervisores_cliente puede tener varias filas con el mismo pos_id bajo
 	// distintos supervisores (~1,116 duplicados detectados), por eso el
 	// GROUP BY a.id de abajo, para que un mismo Acuerdo no se duplique en el
@@ -1099,11 +1142,12 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
-		  AND a.creado_por = ?
+		  AND (? = 1 OR a.creado_por = ?)
 		  AND d.pos_name LIKE ?
 		  AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		  AND (? = 0 OR a.anio = ?)
-		  $condicionFirma";
+		  $condicionFirma
+		  $condicionCanal";
 
 	// Este componente se renderiza SIEMPRE (visible u oculto) en cada login de
 	// desarrollador/superdesarrollador, sea cual sea la pestaña activa (ver
@@ -1114,7 +1158,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	if (!$stmtTotal) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmtTotal->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmtTotal->bind_param('iisiiiii', $verTodos, $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -1129,10 +1173,17 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	// que agrega esa columna (ver CLAUDE.md, "Subir Acta firmada"), prepare()
 	// da false acá — mismo fallback que ya usa login() para `supervisor`, sin
 	// esto Historial entero se rompería mientras el usuario corre el SQL.
+	// Canal canónico (2026-08-31): el mismo `d.canal` crudo del JOIN es
+	// ambiguo para un pos_id con filas duplicadas de canal distinto (ver el
+	// comentario de $condicionCanal más arriba) — la badge de Canal de cada
+	// fila tiene que coincidir con el MISMO criterio que ya decide en qué
+	// pastilla (Directo/Distribuidor) cae ese Acuerdo, si no la fila podría
+	// mostrar "Directo" estando filtrada bajo "Distribuidor" o viceversa.
+	$canalCanonico = "(CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR') THEN 'DISTRIBUIDOR' ELSE 'OTRO' END) AS canal";
 	$stmt = $mysqli->prepare(
-		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado,
+		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
 		        (a.acta_firmada_archivo IS NOT NULL) AS tiene_firma, a.acta_firmada_mime,
-		        d.pos_name, d.cedi
+		        d.pos_name, d.cedi, $canalCanonico
 		 $sqlBase
 		 GROUP BY a.id
 		 ORDER BY a.fecha_generacion DESC, a.id DESC
@@ -1140,9 +1191,9 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	);
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
-			"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado,
+			"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
 			        0 AS tiene_firma, NULL AS acta_firmada_mime,
-			        d.pos_name, d.cedi
+			        d.pos_name, d.cedi, $canalCanonico
 			 $sqlBase
 			 GROUP BY a.id
 			 ORDER BY a.fecha_generacion DESC, a.id DESC
@@ -1152,7 +1203,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	if (!$stmt) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
-	$stmt->bind_param('isiiiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio, $porPagina, $offset);
+	$stmt->bind_param('iisiiiiiii', $verTodos, $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio, $porPagina, $offset);
 	$stmt->execute();
 	$acuerdos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -1170,7 +1221,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 // el filtro de firma (esos 3 números son justo lo que decide ese filtro).
 // 'pendiente_mas_antigua' es la fecha_generacion más vieja entre las
 // pendientes, para el "más antigua: DD/MM" del tile.
-function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId) {
+function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId, $rol = null, $canal = 'total') {
 	$vacio = ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'pendiente_mas_antigua' => null];
 	if (!$usuarioId) return $vacio;
 
@@ -1180,6 +1231,17 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 	$trimestreActivo = $bounds ? 1 : 0;
 	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
 	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
+	// Mismo criterio de "ver todo" y filtro de Canal que listar_historial_acuerdos()
+	// (2026-08-31, ver ese comentario para el detalle completo, incluido por
+	// qué es EXISTS y no un `d.canal = ...` directo) — los stat tiles tienen
+	// que reflejar el mismo alcance que la tabla de abajo.
+	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
+	$condicionCanal = '';
+	if ($canal === 'directo') {
+		$condicionCanal = " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	} elseif ($canal === 'distribuidor') {
+		$condicionCanal = " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	}
 
 	$stmt = $mysqli->prepare(
 		"SELECT COUNT(DISTINCT a.id) AS total,
@@ -1188,13 +1250,14 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
-		   AND a.creado_por = ?
+		   AND (? = 1 OR a.creado_por = ?)
 		   AND d.pos_name LIKE ?
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
-		   AND (? = 0 OR a.anio = ?)"
+		   AND (? = 0 OR a.anio = ?)
+		   $condicionCanal"
 	);
 	if (!$stmt) return $vacio; // acta_firmada_archivo todavía no existe, ver CLAUDE.md.
-	$stmt->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->bind_param('iisiiiii', $verTodos, $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmt->execute();
 	$fila = $stmt->get_result()->fetch_assoc();
 	$stmt->close();
@@ -1211,23 +1274,38 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 
 // Años con al menos un Acuerdo real (no borrador/anulado) de este usuario —
 // para poblar el filtro "Año" de Historial sin inventar un rango fijo.
-function listar_anios_disponibles($mysqli, $usuarioId) {
+function listar_anios_disponibles($mysqli, $usuarioId, $rol = null) {
 	if (!$usuarioId) return [];
+	// "Ver todo" (2026-08-31) — mismo criterio que listar_historial_acuerdos():
+	// el superdesarrollador ve los años de TODOS los Acuerdos, no solo los
+	// propios. Sin filtrar por canal a propósito (simplicidad): el selector de
+	// año no necesita reducirse según qué pastilla de canal esté activa.
+	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT anio FROM repositorio_acuerdos
-		 WHERE creado_por = ? AND estado NOT IN ('borrador', 'anulado', 'vencido')
+		 WHERE (? = 1 OR creado_por = ?) AND estado NOT IN ('borrador', 'anulado', 'vencido')
 		 ORDER BY anio DESC"
 	);
 	if (!$stmt) return [];
-	$stmt->bind_param('i', $usuarioId);
+	$stmt->bind_param('ii', $verTodos, $usuarioId);
 	$stmt->execute();
 	$anios = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'anio');
 	$stmt->close();
 	return array_map('intval', $anios);
 }
 
-function renderFilaHistorial(array $a) {
+// $mostrarCanal (2026-08-31): agrega una celda de Canal (Directo/Distribuidor)
+// entre Localidad y Periodo — solo tiene sentido para quien puede ver Actas de
+// los 2 canales mezcladas (superdesarrollador, ver historial.php); un
+// desarrollador normal siempre ve un solo canal, así que ahí la columna se
+// omite y la fila queda EXACTAMENTE igual que antes de este cambio.
+function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	$fecha = $a['fecha_generacion'] ? date('d/m/Y', strtotime($a['fecha_generacion'])) : '—';
+	$celdaCanal = '';
+	if ($mostrarCanal) {
+		$esDistribuidor = ($a['canal'] ?? '') === 'DISTRIBUIDOR';
+		$celdaCanal = '<td><span class="ac-badge ac-badge-canal-'.($esDistribuidor ? 'distribuidor' : 'directo').'">'.($esDistribuidor ? 'Distribuidor' : 'Directo').'</span></td>';
+	}
 
 	// Firma subida (2026-08-21): reusa `acta_firmada_archivo` (antes `firmas`,
 	// JSON sin usar — ver CLAUDE.md) para saber si ya volvió el Acta firmada a
@@ -1267,20 +1345,34 @@ function renderFilaHistorial(array $a) {
 			$firmaBadge = '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
 		}
 	}
+	// Ownership (2026-08-31): con el superdesarrollador viendo Actas de
+	// OTROS asesores en Historial (ver listar_historial_acuerdos(), "ver
+	// todo"), Subir Firma/Ver Firma y Eliminar tienen que seguir bloqueados
+	// para una Acta ajena — decisión confirmada con el usuario, esos 2
+	// botones no se habilitan solo porque ahora se VE la fila. Ver Detalles
+	// y Descargar PDF sí quedan libres para cualquiera (ver
+	// getters/generar_acta_pdf.php, ya actualizado). Para un desarrollador
+	// normal `$esPropio` siempre da true (nunca ve Actas ajenas de entrada),
+	// así que esto no cambia nada para ese rol.
+	$esPropio = (int) ($a['creado_por'] ?? 0) === (int) ($_SESSION['user_id'] ?? 0);
+	$disabledAjeno = $esPropio ? '' : ' disabled';
+	$tituloAjeno = ' title="Esta Acta la generó otro asesor — solo esa cuenta puede subir la firma."';
+
 	// .ac-row-actions-primary + el <span> de texto (oculto en desktop, ver
 	// style.css): en mobile este es el botón que más importa de toda la fila
 	// — la mayoría de las subidas de Acta firmada van a pasar por celular,
 	// así que necesita texto visible y buen tamaño táctil, no un ícono
 	// pelado igual de chico que "Eliminar" (2026-08-25, pedido explícito).
 	$firmaBtn = $tieneFirma
-		? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'" title="Ver Acta Firmada"><span class="material-symbols-outlined">task_alt</span><span class="ac-row-actions-primary-label">Ver Firma</span></button>'
-		: '<button type="button" class="ac-icon-btn ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0" title="Subir Acta Firmada"><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
+		? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'"'.$disabledAjeno.($esPropio ? ' title="Ver Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">task_alt</span><span class="ac-row-actions-primary-label">Ver Firma</span></button>'
+		: '<button type="button" class="ac-icon-btn ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0"'.$disabledAjeno.($esPropio ? ' title="Subir Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
 
 	return '
-	<tr data-id="'.(int) $a['id'].'" class="hist-fila'.$filaUrgencia.'">
+	<tr data-id="'.(int) $a['id'].'" class="hist-fila'.$filaUrgencia.($mostrarCanal ? ' hist-fila-con-canal' : '').'">
 		<td><button type="button" class="ac-link-id hist-btn-ver" data-id="'.(int) $a['id'].'">#'.htmlspecialchars($a['documento_no']).'</button></td>
 		<td class="ac-hist-distribuidor">'.htmlspecialchars($a['pos_name']).'</td>
 		<td>'.htmlspecialchars($a['cedi'] ?: '—').'</td>
+		'.$celdaCanal.'
 		<td class="ac-text-center">'.htmlspecialchars(periodoCorto((int) $a['mes_inicio'], (int) $a['mes_fin'])).'</td>
 		<td class="ac-text-center">'.$firmaBadge.'</td>
 		<td class="ac-text-right ac-tabular">'.$fecha.'</td>
@@ -1293,7 +1385,7 @@ function renderFilaHistorial(array $a) {
 				<button type="button" class="ac-icon-btn hist-btn-ver" data-id="'.(int) $a['id'].'" title="Ver Detalles">
 					<span class="material-symbols-outlined">visibility</span>
 				</button>
-				<button type="button" class="ac-icon-btn ac-icon-btn-danger hist-btn-eliminar" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" title="Eliminar">
+				<button type="button" class="ac-icon-btn ac-icon-btn-danger hist-btn-eliminar" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'"'.$disabledAjeno.($esPropio ? ' title="Eliminar"' : ' title="Esta Acta la generó otro asesor — solo esa cuenta puede eliminarla."').'>
 					<span class="material-symbols-outlined">delete</span>
 				</button>
 			</div>

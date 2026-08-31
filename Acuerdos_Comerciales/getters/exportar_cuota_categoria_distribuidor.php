@@ -38,12 +38,11 @@
 //   con cuota en 0.
 
 $stmtD = $mysqli->prepare(
-	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.rebate_pct, l.valores_mensuales
+	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
-	   AND a.creado_por = ?
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
@@ -55,7 +54,11 @@ if (!$stmtD) {
 	echo 'Error preparando la consulta.';
 	exit;
 }
-$stmtD->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+// Sin filtro de creado_por (2026-08-31, "ver todo" — mismo criterio que
+// exportar_cuota_categoria.php, ver la nota completa ahí): el
+// superdesarrollador único exporta las Actas de TODOS los asesores de este
+// canal, no solo las que él mismo generó.
+$stmtD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 $stmtD->execute();
 $filasD = $stmtD->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmtD->close();
@@ -78,6 +81,12 @@ foreach ($filasD as $f) {
 		'ciudad'       => $f['ciudad'] ?? '',
 		'cliente'      => $f['cliente'],
 		'sector'       => $f['sector'],
+		// Subcategoría/Marca (2026-08-31, mismo pedido que Directa, ver
+		// exportar_cuota_categoria.php) — mismo par elegido en la cascada
+		// de Meta de Compras, puede venir vacío si la línea quedó
+		// ambigua sin resolver del todo.
+		'categoria'    => $f['categoria'] ?? '',
+		'marca'        => $f['marca'] ?? '',
 		'rebate_pct'   => (float) $f['rebate_pct'],
 		'valores'      => $valoresPorMes,
 	];
@@ -96,8 +105,13 @@ usort($filasFinalD, function ($a, $b) {
 });
 
 // ---------- Layout de columnas ----------
-$colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCategoria = 4; $colConcat = 5;
-$colCuotaInicio = 6;
+// SUBCATEGORIA/MARCA (2026-08-31, pedido explícito, mismo criterio que
+// Directa) van justo a la derecha de CATEGORIA, antes de CONCAT — este
+// formato no tiene columna PLAN, así que "a la derecha de Plan" se traduce
+// acá a "a la derecha de Categoria", la misma posición relativa.
+$colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCategoria = 4;
+$colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
+$colCuotaInicio = 8;
 $colCuotaTotal = $colCuotaInicio + $MD;
 $colRebatePct = $colCuotaTotal + 1;
 $colRebateDolar = $colCuotaTotal + 2;
@@ -129,6 +143,8 @@ $wbD->celda($sD1, $filaEncD, $colDistribuidor, 'DISTRIBUIDOR', true, null, $bgEn
 $wbD->celda($sD1, $filaEncD, $colCiudad, 'CIUDAD', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colNombre, 'NOMBRE', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colCategoria, 'CATEGORIA', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sD1, $filaEncD, $colSubcategoria, 'SUBCATEGORIA', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sD1, $filaEncD, $colMarca, 'MARCA', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colConcat, 'CONCAT 1', true, null, $bgEncD, $fontEncD);
 foreach ($mesesColsD as $i => $mi) {
 	$wbD->celda($sD1, $filaEncD, $colCuotaInicio + $i, mb_strtoupper($mesesLargos[$mi]), true, null, $bgEncD, $fontEncD);
@@ -161,7 +177,7 @@ $wbD->combinarCeldas($sD1, XlsxWriter::colLetra($colVentaInicio).'1:'.XlsxWriter
 // Mismo bug ya encontrado y corregido en la hoja de Directa (ver
 // exportar_cuota_categoria.php, 2026-08-20): las columnas de fila 1 que no
 // caen dentro de ninguna fusión no tienen NINGUNA celda — quedan sin pintar.
-foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCategoria, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110] as $c) {
+foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCategoria, $colSubcategoria, $colMarca, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110] as $c) {
 	$wbD->celda($sD1, 1, $c, '', false, null, $bgEncD, $fontEncD);
 }
 foreach ([$colCumplimiento, $colGanaCategoria, $colGanaTotal, $colPreRebate, $colRebateRealVol, $colNovedades] as $c) {
@@ -177,6 +193,8 @@ foreach ($filasFinalD as $g) {
 	$wbD->celda($sD1, $filaD, $colCiudad, $g['ciudad']);
 	$wbD->celda($sD1, $filaD, $colNombre, $g['cliente'], false, null, $bgClienteD, '000000');
 	$wbD->celda($sD1, $filaD, $colCategoria, $g['sector']);
+	$wbD->celda($sD1, $filaD, $colSubcategoria, $g['categoria']);
+	$wbD->celda($sD1, $filaD, $colMarca, $g['marca']);
 	$wbD->formula($sD1, $filaD, $colConcat, 'CONCATENATE('.XlsxWriter::colLetra($colNombre).$filaD.','.XlsxWriter::colLetra($colCategoria).$filaD.')');
 	foreach ($mesesColsD as $i => $mi) {
 		$wbD->celda($sD1, $filaD, $colCuotaInicio + $i, round($g['valores'][$mi] ?? 0, 2), false, 'money');
@@ -285,7 +303,6 @@ $stmtVisD = $mysqli->prepare(
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
-	   AND a.creado_por = ?
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
@@ -294,7 +311,8 @@ $stmtVisD = $mysqli->prepare(
 );
 $filasVisD = [];
 if ($stmtVisD) {
-	$stmtVisD->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	// Sin filtro de creado_por acá tampoco (2026-08-31, "ver todo").
+	$stmtVisD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVisD->execute();
 	$filasVisD = $stmtVisD->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmtVisD->close();

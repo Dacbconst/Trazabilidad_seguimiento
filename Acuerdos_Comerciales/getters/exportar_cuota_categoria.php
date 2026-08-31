@@ -39,7 +39,12 @@ require_once __DIR__.'/../includes/xlsx_writer.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
 
-if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
+// Solo superdesarrollador (2026-08-31, pedido explícito) — con un único
+// superdesarrollador en total, esa cuenta es la única que descarga estos
+// Excel; un desarrollador normal ya no ve el botón "Descargar Excel" en
+// Historial (ver components/historial/historial.php), y este chequeo lo
+// bloquea también si llegara a la URL directo.
+if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	http_response_code(403);
 	echo 'No autorizado.';
 	exit;
@@ -95,11 +100,14 @@ if (!$trimestreActivo || !$anio) {
 	exit;
 }
 
-// Canal Distribuidor tiene su propia hoja ("CUOTAS POR CAT -DISTRIBUIDORES",
-// columnas/colores distintos del archivo real) — vive en un archivo aparte
-// para no arriesgar el código de Directa ya probado (ver 2026-08-20).
-$canalUsuarioExport = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
-if ($canalUsuarioExport === 'distribuidor') {
+// Formato Directo o Distribuidor — elegido EXPLÍCITO en el picker de
+// Historial (2026-08-31, reemplaza el auto-detectar por canalDeSupervisor()
+// del usuario logueado: ya no tiene sentido, el superdesarrollador único
+// necesita poder bajar CUALQUIERA de los 2 formatos, no solo el de su propio
+// canal). Sin valor reconocido, cae a Directo (mismo comportamiento de
+// siempre si alguien llega sin el parámetro).
+$canalExport = ($_GET['canal'] ?? '') === 'distribuidor' ? 'distribuidor' : 'directo';
+if ($canalExport === 'distribuidor') {
 	require __DIR__.'/exportar_cuota_categoria_distribuidor.php';
 	exit;
 }
@@ -107,14 +115,18 @@ if ($canalUsuarioExport === 'distribuidor') {
 // Mismo patrón de GROUP BY a.id, l.id que el resto de exports de Historial —
 // colapsa duplicados de pos_id en el maestro sin perder líneas reales.
 // d.canal <> 'DISTRIBUIDOR': esta hoja es solo para Directa.
+// Sin filtro de creado_por (2026-08-31, "ver todo") — el superdesarrollador
+// exporta las Actas de TODOS los asesores de este canal, no solo las que él
+// mismo generó (misma decisión ya aplicada en Historial, ver
+// listar_historial_acuerdos()). `u.usuario` (columna CEDI de la hoja) ya
+// identifica de quién es cada línea, así que no se pierde esa trazabilidad.
 $stmt = $mysqli->prepare(
-	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.rebate_pct, l.valores_mensuales
+	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
-	   AND a.creado_por = ?
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
@@ -126,7 +138,7 @@ if (!$stmt) {
 	echo 'Error preparando la consulta.';
 	exit;
 }
-$stmt->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+$stmt->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 $stmt->execute();
 $filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
@@ -150,6 +162,14 @@ foreach ($filas as $f) {
 		'cliente'    => $f['cliente'],
 		'plan'       => $f['canal'] ?? '',
 		'sector'     => $f['sector'],
+		// Subcategoría/Marca (2026-08-31, pedido explícito): mismo par
+		// Categoría/Marca elegido en la cascada de Meta de Compras de
+		// Registrar — en la UI de ahí se ven etiquetados "Subcategoría" y
+		// "Marca" (ver CLAUDE.md, "Rename de etiquetas Sector/Categoría"),
+		// pero la columna real sigue siendo `categoria`/`marca`. Pueden
+		// venir vacías si la línea quedó ambigua sin resolver del todo.
+		'categoria'  => $f['categoria'] ?? '',
+		'marca'      => $f['marca'] ?? '',
 		'rebate_pct' => (float) $f['rebate_pct'], // el de ESTA línea, nunca mezclado con otra
 		'valores'    => $valoresPorMes,
 	];
@@ -171,8 +191,12 @@ usort($filasFinal, function ($a, $b) {
 });
 
 // ---------- Layout de columnas (dinámico según cuántos meses hay) ----------
-$colCedi = 1; $colCliente = 2; $colPlan = 3; $colCategorias = 4; $colConcat = 5;
-$colCuotaInicio = 6;
+// SUBCATEGORIA/MARCA (2026-08-31, pedido explícito) van justo a la derecha
+// de CATEGORIAS/PLAN, antes de CONCAT — el resto de columnas de la derecha
+// (CONCAT en adelante) no se tocó, solo se corrieron 2 lugares.
+$colCedi = 1; $colCliente = 2; $colPlan = 3; $colCategorias = 4;
+$colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
+$colCuotaInicio = 8;
 $colTotalQ2 = $colCuotaInicio + $M;
 $colRebatePct = $colTotalQ2 + 1;
 $colRebateDolar = $colTotalQ2 + 2;
@@ -223,6 +247,8 @@ $wb->celda($s1, $filaEnc, $colCedi, 'CEDI', true, null, $bgEncabezado, '000000')
 $wb->celda($s1, $filaEnc, $colCliente, 'CLIENTE', true, null, $bgEncabezado, '000000');
 $wb->celda($s1, $filaEnc, $colPlan, 'PLAN', true, null, $bgEncabezado, '000000');
 $wb->celda($s1, $filaEnc, $colCategorias, 'CATEGORIAS', true, null, $bgEncabezado, '000000');
+$wb->celda($s1, $filaEnc, $colSubcategoria, 'SUBCATEGORIA', true, null, $bgEncabezado, '000000');
+$wb->celda($s1, $filaEnc, $colMarca, 'MARCA', true, null, $bgEncabezado, '000000');
 $wb->celda($s1, $filaEnc, $colConcat, 'CONCAT', true, null, $bgEncabezado, '000000');
 foreach ($mesesCols as $i => $mi) {
 	$wb->celda($s1, $filaEnc, $colCuotaInicio + $i, mb_strtoupper($mesesLargos[$mi]), true, null, $bgEncabezado, '000000');
@@ -261,6 +287,8 @@ $wb->celda($s1, 1, $colCedi, '', false, null, $bgEncabezado, '000000');
 $wb->celda($s1, 1, $colCliente, '', false, null, $bgEncabezado, '000000');
 $wb->celda($s1, 1, $colPlan, '', false, null, $bgEncabezado, '000000');
 $wb->celda($s1, 1, $colCategorias, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colSubcategoria, '', false, null, $bgEncabezado, '000000');
+$wb->celda($s1, 1, $colMarca, '', false, null, $bgEncabezado, '000000');
 $wb->celda($s1, 1, $colConcat, '', false, null, $bgEncabezado, '000000');
 foreach ($mesesCols as $i => $mi) {
 	$wb->celda($s1, 1, $colCuotaInicio + $i, '', false, null, $bgEncabezado, '000000');
@@ -295,6 +323,8 @@ foreach ($filasFinal as $g) {
 	// ver nota arriba — confirmado con el usuario 2026-08-28.
 	$wb->celda($s1, $fila, $colPlan, $g['plan']);
 	$wb->celda($s1, $fila, $colCategorias, $g['sector']);
+	$wb->celda($s1, $fila, $colSubcategoria, $g['categoria']);
+	$wb->celda($s1, $fila, $colMarca, $g['marca']);
 	$wb->formula($s1, $fila, $colConcat, 'CONCAT('.$cl($colCliente).$fila.','.$cl($colCategorias).$fila.')');
 	foreach ($mesesCols as $i => $mi) {
 		$wb->celda($s1, $fila, $colCuotaInicio + $i, round($g['valores'][$mi] ?? 0, 2), false, 'money', $bgCuotaDato, '000000');
@@ -456,7 +486,6 @@ $stmtVis = $mysqli->prepare(
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
-	   AND a.creado_por = ?
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
@@ -465,7 +494,9 @@ $stmtVis = $mysqli->prepare(
 );
 $filasVis = [];
 if ($stmtVis) {
-	$stmtVis->bind_param('isiiiii', $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	// Sin filtro de creado_por acá tampoco (2026-08-31, "ver todo" — ver nota
+	// completa en la 1ra query de este archivo).
+	$stmtVis->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVis->execute();
 	$filasVis = $stmtVis->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmtVis->close();

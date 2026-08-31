@@ -14,7 +14,17 @@ $busqueda  = trim($_GET['q'] ?? '');
 // en functions.php), así que filtrar por Q1-Q4 + Año calza exacto con cómo
 // se guardan los Acuerdos, en vez de un mes cualquiera dentro del rango.
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
-$aniosDisponibles = listar_anios_disponibles($mysqli, $_SESSION['user_id'] ?? null);
+$rolUsuario = $_SESSION['rol'] ?? '';
+// "Ver todo" + filtro de Canal (2026-08-31, pedido explícito): con un solo
+// superdesarrollador en total, esa cuenta necesita ver Actas de Directo Y
+// Distribuidor a la vez (antes cada usuario veía un solo canal, derivado de
+// su supervisor real) — ver el mockup aprobado por el usuario ("Opción A":
+// pastillas Total/Directo/Distribuidor arriba de los stat tiles). Un
+// desarrollador normal nunca ve esta pastilla (sigue viendo solo lo suyo,
+// como siempre), así que $canal solo tiene efecto real para superdesarrollador.
+$esSuperdev = $rolUsuario === 'superdesarrollador';
+$canal = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
+$aniosDisponibles = listar_anios_disponibles($mysqli, $_SESSION['user_id'] ?? null, $rolUsuario);
 // Año: si no vino explícito por query, se autoselecciona el año en curso
 // (2026-08-28, pedido explícito) — pero solo si ese año realmente tiene
 // Acuerdos del usuario; si no, se queda en "Todos los años" en vez de
@@ -30,9 +40,9 @@ if (isset($_GET['anio'])) {
 $filtroFirma = in_array($_GET['firma'] ?? '', ['firmadas', 'pendientes'], true) ? $_GET['firma'] : 'todos';
 $pagina    = (int) ($_GET['pg'] ?? 1);
 $usuarioId = $_SESSION['user_id'] ?? null;
-$resultado = listar_historial_acuerdos($mysqli, $busqueda, $trimestre, $anio, $filtroFirma, $pagina, $usuarioId);
+$resultado = listar_historial_acuerdos($mysqli, $busqueda, $trimestre, $anio, $filtroFirma, $pagina, $usuarioId, 10, $rolUsuario, $canal);
 $acuerdos  = $resultado['acuerdos'];
-$stats     = obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId);
+$stats     = obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId, $rolUsuario, $canal);
 // Solo alimentan el ancho de las barras — el % y "más antigua" ya no se
 // muestran como texto (pedido explícito: quitarlos, dejar solo el número).
 $pctFirmadas = $stats['total'] > 0 ? round($stats['firmadas'] / $stats['total'] * 100) : 0;
@@ -59,6 +69,25 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			</button>
 		</div>
 	</div>
+
+	<?php if ($esSuperdev): ?>
+	<!-- Filtro de Canal (2026-08-31, pedido explícito, mockup "Opción A"
+	     aprobado por el usuario) — solo el superdesarrollador lo ve: es la
+	     única cuenta que necesita mezclar Actas de Directo y Distribuidor a
+	     la vez, un desarrollador normal sigue viendo un solo canal siempre
+	     (derivado de su supervisor real), sin este bloque ni cambio alguno.
+	     Mismas pastillas .ac-seg-pill que ya usan Cumplimiento/Seguimiento de
+	     Equipo — cero CSS nuevo. -->
+	<div class="ac-seg-periodo" style="margin: var(--space-md) 0 0;">
+		<span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--color-on-surface-variant);">Vista</span>
+		<div class="ac-seg-pill-group" id="hist-canal-group">
+			<button type="button" class="ac-seg-pill<?= $canal === 'total' ? ' ac-seg-pill-activo' : '' ?>" data-canal="total">Total</button>
+			<button type="button" class="ac-seg-pill<?= $canal === 'directo' ? ' ac-seg-pill-activo' : '' ?>" data-canal="directo">Directo</button>
+			<button type="button" class="ac-seg-pill<?= $canal === 'distribuidor' ? ' ac-seg-pill-activo' : '' ?>" data-canal="distribuidor">Distribuidor</button>
+		</div>
+	</div>
+	<p class="ac-field-hint">Acá se ven las Actas de los 2 canales. Cada asesor sigue viendo únicamente las de su propio canal.</p>
+	<?php endif; ?>
 
 	<!-- Banner de vencimiento (2026-08-25, del concepto "Sala de Alertas",
 	     aprobado por el usuario tal cual) — aparece solo si el usuario tiene
@@ -126,10 +155,32 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<span class="material-symbols-outlined">search</span>
 				Buscar
 			</button>
-			<a class="ac-btn-outline ac-btn-inline" id="hist-exportar-cuota" href="getters/exportar_cuota_categoria.php" target="_blank">
-				<span class="material-symbols-outlined">download</span>
-				Descargar Excel
-			</a>
+			<?php if ($esSuperdev): ?>
+			<!-- "Descargar Excel" ahora deja elegir el formato (2026-08-31,
+			     pedido explícito: "el excel debería tener una opción para
+			     descargar el de directo o distribuidor") — reserva 100% del
+			     módulo Excel al superdesarrollador, ver getters/exportar_cuota_categoria.php.
+			     Mismo botón-que-se-expande-en-2-opciones que ya usa "Exportar"
+			     en Repositorios (.ac-repo-exportar, cero CSS/animación nueva). -->
+			<div class="ac-repo-exportar" id="hist-exportar-wrap">
+				<button type="button" class="ac-btn-outline ac-btn-inline ac-repo-exportar-btn" id="hist-exportar-btn">
+					<span class="material-symbols-outlined">download</span>
+					Descargar Excel
+				</button>
+				<div class="ac-repo-exportar-opciones-outer">
+					<div class="ac-repo-exportar-opciones">
+						<a class="ac-repo-exportar-opcion" id="hist-exportar-directo" href="getters/exportar_cuota_categoria.php?canal=directo" target="_blank">
+							<span class="material-symbols-outlined">store</span>
+							Formato Directo
+						</a>
+						<a class="ac-repo-exportar-opcion" id="hist-exportar-distribuidor" href="getters/exportar_cuota_categoria.php?canal=distribuidor" target="_blank">
+							<span class="material-symbols-outlined">local_shipping</span>
+							Formato Distribuidor
+						</a>
+					</div>
+				</div>
+			</div>
+			<?php endif; ?>
 		</div>
 	</section>
 
@@ -152,6 +203,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 						<th>ID</th>
 						<th>Distribuidor</th>
 						<th>Localidad</th>
+						<?php if ($esSuperdev): ?><th>Canal</th><?php endif; ?>
 						<th class="ac-text-center">Periodo</th>
 						<th class="ac-text-center">Firma</th>
 						<th class="ac-text-right">Fecha Generada</th>
@@ -161,10 +213,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<tbody id="hist-tabla-body">
 					<?php if ($acuerdos): ?>
 						<?php foreach ($acuerdos as $a): ?>
-							<?= renderFilaHistorial($a) ?>
+							<?= renderFilaHistorial($a, $esSuperdev) ?>
 						<?php endforeach; ?>
 					<?php else: ?>
-						<tr><td colspan="7" class="ac-table-empty">No se encontraron acuerdos.</td></tr>
+						<tr><td colspan="<?= $esSuperdev ? 8 : 7 ?>" class="ac-table-empty">No se encontraron acuerdos.</td></tr>
 					<?php endif; ?>
 				</tbody>
 			</table>
