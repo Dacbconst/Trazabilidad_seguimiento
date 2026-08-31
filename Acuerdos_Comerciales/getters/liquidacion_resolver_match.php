@@ -98,7 +98,7 @@ if ($accion === 'sin_acta') {
 		// reales de nuevo acá, nunca se confía en el id tal cual venga del POST.
 		$acuerdoId = $acuerdoIdElegido;
 	} else {
-		responder(false, 'Ese cliente tiene más de una Acta para el período — elegí cuál es de la lista.', ['acuerdo_ids_candidatos' => $acuerdoIds]);
+		responder(false, 'Ese cliente tiene más de una Acta para el período — elige cuál es de la lista.', ['acuerdo_ids_candidatos' => $acuerdoIds]);
 	}
 	$estadoNuevo = 'matcheado';
 }

@@ -14,7 +14,17 @@ $busqueda  = trim($_GET['q'] ?? '');
 // en functions.php), así que filtrar por Q1-Q4 + Año calza exacto con cómo
 // se guardan los Acuerdos, en vez de un mes cualquiera dentro del rango.
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
-$anio      = (int) ($_GET['anio'] ?? 0);
+$aniosDisponibles = listar_anios_disponibles($mysqli, $_SESSION['user_id'] ?? null);
+// Año: si no vino explícito por query, se autoselecciona el año en curso
+// (2026-08-28, pedido explícito) — pero solo si ese año realmente tiene
+// Acuerdos del usuario; si no, se queda en "Todos los años" en vez de
+// mostrar una tabla vacía por defecto.
+if (isset($_GET['anio'])) {
+	$anio = (int) $_GET['anio'];
+} else {
+	$anioActual = (int) date('Y');
+	$anio = in_array($anioActual, $aniosDisponibles, true) ? $anioActual : 0;
+}
 // Filtro de firma (2026-08-21): activado desde los stat tiles de arriba, no
 // un <select> — ver obtener_stats_historial()/listar_historial_acuerdos().
 $filtroFirma = in_array($_GET['firma'] ?? '', ['firmadas', 'pendientes'], true) ? $_GET['firma'] : 'todos';
@@ -22,7 +32,6 @@ $pagina    = (int) ($_GET['pg'] ?? 1);
 $usuarioId = $_SESSION['user_id'] ?? null;
 $resultado = listar_historial_acuerdos($mysqli, $busqueda, $trimestre, $anio, $filtroFirma, $pagina, $usuarioId);
 $acuerdos  = $resultado['acuerdos'];
-$aniosDisponibles = listar_anios_disponibles($mysqli, $usuarioId);
 $stats     = obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId);
 // Solo alimentan el ancho de las barras — el % y "más antigua" ya no se
 // muestran como texto (pedido explícito: quitarlos, dejar solo el número).

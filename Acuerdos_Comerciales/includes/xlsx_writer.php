@@ -56,6 +56,17 @@ class XlsxWriter {
 		$this->hojas[$hojaIdx]['merges'][] = $rangoRef;
 	}
 
+	// Fuerza un piso de ancho para una columna puntual (2026-08-28) — el
+	// "autofit" de anchoTexto()/xmlCols() de abajo no puede medir el
+	// resultado real de una celda de FÓRMULA (ej. CONCAT), solo adivina un
+	// ancho genérico fijo (11) según el tipo — insuficiente para un CONCAT
+	// de cliente+categoría, que suele salir mucho más largo. Nunca angosta
+	// una columna que el autofit ya calculó más ancha por su cuenta (ver
+	// max() en xmlCols()), solo garantiza un mínimo.
+	public function anchoMinimo($hojaIdx, $col, $ancho) {
+		$this->hojas[$hojaIdx]['anchosMinimos'][$col] = $ancho;
+	}
+
 	private function fontIndex($negrita, $colorHex) {
 		$colorHex = $colorHex ? strtoupper($colorHex) : null;
 		foreach ($this->fonts as $i => $f) {
@@ -163,6 +174,14 @@ class XlsxWriter {
 				$len = $this->anchoTexto($spec + ['numFmtId' => $numFmtId]);
 				if (!isset($anchos[$c]) || $len > $anchos[$c]) $anchos[$c] = $len;
 			}
+		}
+		// Piso manual por columna (ver anchoMinimo()) — se aplica ANTES del
+		// clamp final, así una columna con piso 40 pero autofit calculado más
+		// angosto (ej. CONCAT, ver nota en anchoMinimo()) sale ancha de
+		// verdad, y una columna que el autofit ya calculó más ancha que su
+		// piso no se angosta.
+		foreach (($hoja['anchosMinimos'] ?? []) as $c => $minimo) {
+			if (!isset($anchos[$c]) || $minimo > $anchos[$c]) $anchos[$c] = $minimo;
 		}
 		if (!$anchos) return '';
 		$xml = '<cols>';

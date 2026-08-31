@@ -33,6 +33,19 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
+// Cache dentro de esta misma verificación (2026-08-30, mismo bug de
+// rendimiento que cuotas_guardar.php — ver la nota completa ahí):
+// resolverSectorReal()/resolverPosIdCliente() escanean tablas sin índice
+// útil, y este endpoint corre TODAVÍA más seguido que el guardado real
+// (cada vez que se cambia el Año en la previsualización). El mismo texto
+// de Sector/Cliente da siempre el mismo resultado dentro de una sola
+// verificación, así que cachear es seguro.
+$cacheSector = [];
+$cachePosId  = [];
+$stmtExistente = $mysqli->prepare(
+	'SELECT estado FROM repositorio_cuota_cliente WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? LIMIT 1'
+);
+
 $estados = [];
 foreach ($filas as $fila) {
 	$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
@@ -47,12 +60,19 @@ foreach ($filas as $fila) {
 	// se expone ACÁ también para que el badge de la previsualización ya lo
 	// muestre ANTES de confirmar (2026-08-25, pedido explícito: no
 	// enterarse recién en el aviso rojo de después de guardar).
-	$sectorCrudoMatch = resolverSectorReal($mysqli, $sector);
+	if (!array_key_exists($sector, $cacheSector)) {
+		$cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
+	}
+	$sectorCrudoMatch = $cacheSector[$sector];
 	$sectorResuelto = $sectorCrudoMatch ?: $sector;
 	$sectorInterpretado = $sectorCrudoMatch !== null && $sectorCrudoMatch !== $sector;
 	$sectorSinResolver = $sectorCrudoMatch === null;
 
-	$posId = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel);
+	$clavePos = $clienteExcel.'|'.$cediExcel;
+	if (!array_key_exists($clavePos, $cachePosId)) {
+		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel);
+	}
+	$posId = $cachePosId[$clavePos];
 
 	if (!$posId) {
 		$estados[] = [
@@ -62,15 +82,11 @@ foreach ($filas as $fila) {
 		continue;
 	}
 
-	$stmt = $mysqli->prepare(
-		'SELECT estado FROM repositorio_cuota_cliente WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? LIMIT 1'
-	);
 	$existente = null;
-	if ($stmt) {
-		$stmt->bind_param('ssii', $posId, $sectorResuelto, $trimestre, $anio);
-		$stmt->execute();
-		$existente = $stmt->get_result()->fetch_assoc();
-		$stmt->close();
+	if ($stmtExistente) {
+		$stmtExistente->bind_param('ssii', $posId, $sectorResuelto, $trimestre, $anio);
+		$stmtExistente->execute();
+		$existente = $stmtExistente->get_result()->fetch_assoc();
 	}
 
 	if (!$existente) {
@@ -85,6 +101,7 @@ foreach ($filas as $fila) {
 		'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
 	];
 }
+if ($stmtExistente) $stmtExistente->close();
 
 responder(true, 'ok', ['estados' => $estados]);
 ?>

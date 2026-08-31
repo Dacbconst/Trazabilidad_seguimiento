@@ -9,6 +9,126 @@
 	var anioSelect      = document.getElementById('hist-anio');
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
 	var exportarCuotaLink = document.getElementById('hist-exportar-cuota');
+	// Aviso ANTES de descargar (2026-08-28, bug real reportado por el
+	// usuario) — con "Todos los períodos"/"Todos los años" elegido, el
+	// Excel replica el formato real de JW, que siempre es de UN solo
+	// trimestre de UN solo año; mezclar varios daba un archivo con meses de
+	// períodos distintos bajo un título que solo decía uno (el año se sumó
+	// al mismo chequeo por el mismo motivo exacto — un índice de mes 0-11
+	// tampoco distingue año). El getter ya lo rechaza del lado del servidor
+	// (getters/exportar_cuota_categoria.php) — esto es solo para avisar
+	// ANTES del click, con un modal en vez de un toast (pedido explícito:
+	// más visible, y que indique dónde corregirlo), en vez de que el
+	// usuario reciba un archivo de error en su carpeta de Descargas.
+	exportarCuotaLink.addEventListener('click', function (e) {
+		var faltaTrimestre = trimestreSelect.value === '0';
+		var faltaAnio = anioSelect.value === '0';
+		if (!faltaTrimestre && !faltaAnio) return;
+
+		e.preventDefault();
+		var queFalta = faltaTrimestre && faltaAnio ? 'el período y el año' : (faltaTrimestre ? 'el período' : 'el año');
+		Swal.fire({
+			icon: 'warning',
+			title: 'Elige el período antes de descargar',
+			html: 'Este archivo se genera para un trimestre y año específicos.<br><br>Elige <strong>' + queFalta + '</strong> en el filtro de arriba antes de descargar.',
+			confirmButtonText: 'Ir al filtro',
+			confirmButtonColor: '#00288e'
+		}).then(function () {
+			resaltarFiltroPeriodo(faltaTrimestre, faltaAnio);
+		});
+	});
+
+	// Sube el scroll hasta la tarjeta de filtros y le agrega un aro
+	// pulsante (CSS puro, ver .ac-filtro-resaltado en style.css) al/los
+	// select(es) puntuales que faltan elegir — reemplaza a "una captura"
+	// (pedido literal del usuario) con algo que nunca se desactualiza si el
+	// layout cambia, mismo criterio ya usado para el resaltado de "campo sin
+	// confirmar" de Registrar. El pulso ya NO se apaga solo con un timeout
+	// (2026-08-28, pedido explícito: "que siga parpadeando hasta que el
+	// usuario seleccione un período") — sigue hasta que el propio `change`
+	// del select lo apague (ver actualizarEstadoFiltroPeriodo() más abajo).
+	function resaltarFiltroPeriodo(marcarTrimestre, marcarAnio) {
+		var filtrosCard = document.querySelector('.ac-hist-filtros-card');
+		if (filtrosCard && filtrosCard.scrollIntoView) {
+			filtrosCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+		[marcarTrimestre ? trimestreSelect : null, marcarAnio ? anioSelect : null].forEach(function (select) {
+			if (!select) return;
+			// "Select bonito" envuelve el <select> real (que queda oculto) en
+			// un .ac-select-bonito — hay que resaltar el wrapper visible, no
+			// el <select> nativo invisible.
+			var objetivo = select.closest('.ac-select-bonito') || select;
+			objetivo.classList.remove('ac-filtro-confirmado');
+			objetivo.classList.remove('ac-filtro-resaltado');
+			// Forzar reflow para poder reiniciar la animación si el usuario
+			// clickea "Descargar Excel" dos veces seguidas sin corregir nada.
+			void objetivo.offsetWidth;
+			objetivo.classList.add('ac-filtro-resaltado');
+		});
+	}
+
+	// Apaga el pulso azul del select que se acaba de completar y lo
+	// reemplaza por un flash verde de confirmación (2026-08-28) — y, apenas
+	// período Y año quedan los dos elegidos a la vez, hace "brillar" el
+	// botón de Descargar Excel una vez, como si recién se hubiera
+	// habilitado. Si un select vuelve a "Todos" (0) después de estar
+	// confirmado, NO se pone verde de nuevo — se ignora en silencio (pedido
+	// explícito del usuario: "obviamente si elige el todos de nuevo no se
+	// cambiaría a verde").
+	// Duraciones calcadas de las animaciones CSS (ver style.css, ronda 2: 2
+	// pulsos de .6s/.7s cada uno = 1200/1400ms totales — más lento y con 2
+	// "parpadeos" a propósito, pedido explícito del usuario: "pasa tan
+	// rápido que ni lo noto") — setTimeout en vez de "animationend" porque
+	// .ac-excel-brillo anima 2 elementos a la vez (el botón + su ::after de
+	// brillo) y el evento se dispararía 2 veces, cortando la 2da animación
+	// si se sacara la clase con la primera.
+	var exportCompletoAntes = trimestreSelect.value !== '0' && anioSelect.value !== '0';
+	function actualizarEstadoFiltroPeriodo() {
+		var completoAhora = trimestreSelect.value !== '0' && anioSelect.value !== '0';
+		// Recién ahora quedaron los 2 elegidos a la vez — no solo el que
+		// cambió. Se usa para confirmar en verde TAMBIÉN el otro campo,
+		// aunque nunca haya estado pulsando (pedido explícito: "para que dé
+		// a entender que el año también" cuenta en el momento en que se
+		// habilita la descarga, no solo el campo que el usuario tocó).
+		var recienCompleto = completoAhora && !exportCompletoAntes;
+
+		[trimestreSelect, anioSelect].forEach(function (select) {
+			if (select.value === '0') return; // sigue faltando, no tocar nada
+			var objetivo = select.closest('.ac-select-bonito') || select;
+			var estabaPulsando = objetivo.classList.contains('ac-filtro-resaltado');
+			if (!estabaPulsando && !recienCompleto) return;
+			objetivo.classList.remove('ac-filtro-resaltado');
+			objetivo.classList.add('ac-filtro-confirmado');
+			setTimeout(function () { objetivo.classList.remove('ac-filtro-confirmado'); }, 1200);
+		});
+
+		if (recienCompleto) {
+			exportarCuotaLink.classList.remove('ac-excel-brillo');
+			void exportarCuotaLink.offsetWidth;
+			exportarCuotaLink.classList.add('ac-excel-brillo');
+			setTimeout(function () { exportarCuotaLink.classList.remove('ac-excel-brillo'); }, 1400);
+		}
+		exportCompletoAntes = completoAhora;
+	}
+	trimestreSelect.addEventListener('change', actualizarEstadoFiltroPeriodo);
+	anioSelect.addEventListener('change', actualizarEstadoFiltroPeriodo);
+
+	// Apaga cualquier pulso/flash/brillo que hubiera quedado activo al
+	// cambiar de módulo (2026-08-28, pedido explícito: "que llegue a
+	// desaparecer si cambia de módulo... para no dejar vivo eso todo el
+	// tiempo") — Historial nunca se destruye al cambiar de pestaña (solo se
+	// oculta con CSS, ver index.php), así que sin esto un pulso `infinite`
+	// seguiría animando en segundo plano indefinidamente. Expuesta para que
+	// index.php la llame en CADA click de navegación del sidebar, sin
+	// importar hacia dónde (mismo patrón que window.acAlertasFirmaRefrescar).
+	function limpiarResaltadoFiltroPeriodo() {
+		[trimestreSelect, anioSelect].forEach(function (select) {
+			var objetivo = select.closest('.ac-select-bonito') || select;
+			objetivo.classList.remove('ac-filtro-resaltado', 'ac-filtro-confirmado');
+		});
+		exportarCuotaLink.classList.remove('ac-excel-brillo');
+	}
+	window.acHistorialLimpiarResaltadoFiltro = limpiarResaltadoFiltroPeriodo;
 	var tbody           = document.getElementById('hist-tabla-body');
 	var tablaCard       = tbody.closest('.ac-card');
 	var actualizarBtn   = document.getElementById('hist-actualizar');

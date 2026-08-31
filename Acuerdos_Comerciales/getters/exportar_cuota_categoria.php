@@ -15,10 +15,12 @@
 //   la Acta (congelado al momento en que se generó esa Acta) — nunca un
 //   valor "vivo" de un catálogo externo, para que un cambio de rebate
 //   después no altere retroactivamente Actas ya generadas.
-// - PLAN: se investigó a fondo contra la base real (todas las columnas de
-//   repositorio_locales_supervisores_cliente) y el texto que usa JW
-//   ("AUTOSERVICIO INDEPENDIENTE", etc.) no aparece en ningún lado — queda
-//   vacío, columna para que JW la llene, no se puede derivar hoy.
+// - **Corregido 2026-08-28**: PLAN = `repositorio_locales_supervisores_cliente.canal`
+//   del cliente (COBERTURA/MAYORISTA/AUTOSERVICIO) — confirmado con el
+//   usuario (la analista que administra ese maestro se lo confirmó a él).
+//   El texto exacto que usa JW en su propio Excel ("AUTOSERVICIO
+//   INDEPENDIENTE", etc.) sigue sin existir tal cual en la base — esto usa
+//   el valor real más cercano que sí tenemos, no una traducción textual.
 // - **Una fila por línea de Meta de Compras, SIN agrupar por Sector**
 //   (corregido 2026-08-18 — la primera versión sumaba todas las marcas de
 //   un mismo Sector en una sola fila, asumiendo que compartían el mismo
@@ -63,6 +65,36 @@ if (!$usuarioId) {
 	exit;
 }
 
+// Bug real reportado por el usuario 2026-08-28: con "Todos los períodos"
+// (trimestre=0) elegido en Historial, este export mezclaba TODAS las líneas
+// de TODOS los trimestres del cliente en una sola hoja — el título fusionado
+// "VENTA Qx" se arma mirando solo el PRIMER mes que aparece
+// (`intdiv($mesesCols[0], 3) + 1`, ver más abajo y en
+// exportar_cuota_categoria_distribuidor.php), pero después dibuja una
+// columna por cada mes distinto sin chequear que todos sean del MISMO
+// trimestre — un cliente con Actas en 2 trimestres distintos (caso real:
+// verificado con JAVIER MALDONADO, Q1 viejo + una Acta nueva de Q2 recién
+// generada desde una Acta Precargada) terminaba con 6 columnas de mes bajo
+// un título que decía "Q1" nada más. Esta hoja replica el archivo real de
+// JW, que SIEMPRE es de un solo trimestre (documentado desde el diseño
+// original, ver comentario arriba) — nunca fue pensada para mezclar
+// períodos, así que la solución correcta es exigir un trimestre puntual acá,
+// no rediseñar el formato para soportar varios a la vez. Esta misma guarda
+// protege también exportar_cuota_categoria_distribuidor.php (hereda
+// $trimestreActivo de acá, nunca parsea $_GET por su cuenta).
+//
+// EXTENDIDO 2026-08-28 (mismo día, misma causa raíz): el chequeo de arriba
+// solo exigía trimestre puntual, pero un índice de mes (0-11) no tiene año
+// — un cliente con Actas en el mismo trimestre pero de 2 años distintos
+// (ej. Q1 2025 y Q1 2026) mezclaría igual de mal con "Todos los años"
+// (anio=0) seleccionado, aunque el trimestre sí esté fijo. Se exige también
+// año puntual por la misma razón exacta.
+if (!$trimestreActivo || !$anio) {
+	http_response_code(400);
+	echo 'Elige un trimestre y un año específicos en el filtro de período antes de descargar el Excel.';
+	exit;
+}
+
 // Canal Distribuidor tiene su propia hoja ("CUOTAS POR CAT -DISTRIBUIDORES",
 // columnas/colores distintos del archivo real) — vive en un archivo aparte
 // para no arriesgar el código de Directa ya probado (ver 2026-08-20).
@@ -76,7 +108,7 @@ if ($canalUsuarioExport === 'distribuidor') {
 // colapsa duplicados de pos_id en el maestro sin perder líneas reales.
 // d.canal <> 'DISTRIBUIDOR': esta hoja es solo para Directa.
 $stmt = $mysqli->prepare(
-	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, l.sector, l.rebate_pct, l.valores_mensuales
+	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.rebate_pct, l.valores_mensuales
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
@@ -116,6 +148,7 @@ foreach ($filas as $f) {
 	$filasFinal[] = [
 		'ejecutivo'  => $f['ejecutivo'] ?? '',
 		'cliente'    => $f['cliente'],
+		'plan'       => $f['canal'] ?? '',
 		'sector'     => $f['sector'],
 		'rebate_pct' => (float) $f['rebate_pct'], // el de ESTA línea, nunca mezclado con otra
 		'valores'    => $valoresPorMes,
@@ -158,6 +191,11 @@ $cl = function ($n) use ($L) { return call_user_func($L, $n); };
 
 $wb = new XlsxWriter();
 $s1 = $wb->agregarHoja('CUOTA CLIENTE - CATEGORÍA');
+// CONCAT es una fórmula (CLIENTE+CATEGORIAS pegados, sin separador) — el
+// "autofit" no puede medir el resultado real de una fórmula, solo adivina
+// un ancho genérico angosto (2026-08-28, pedido explícito del usuario: "al
+// habilitar edición no puedes medir cuánto ocupa, hazlo más ancho").
+$wb->anchoMinimo($s1, $colConcat, 40);
 $s2 = $wb->agregarHoja('CUOTA TOTAL');
 
 // ---------- Hoja 1: encabezados (fila 2, como el archivo real) ----------
@@ -253,7 +291,9 @@ $clientesVistos = []; // para armar la hoja CUOTA TOTAL (únicos), en orden de a
 foreach ($filasFinal as $g) {
 	$wb->celda($s1, $fila, $colCedi, $g['ejecutivo']);
 	$wb->celda($s1, $fila, $colCliente, $g['cliente'], false, null, $bgClienteDato, '000000');
-	// PLAN queda vacío a propósito, ver nota arriba.
+	// PLAN = canal del cliente en el maestro (COBERTURA/MAYORISTA/AUTOSERVICIO),
+	// ver nota arriba — confirmado con el usuario 2026-08-28.
+	$wb->celda($s1, $fila, $colPlan, $g['plan']);
 	$wb->celda($s1, $fila, $colCategorias, $g['sector']);
 	$wb->formula($s1, $fila, $colConcat, 'CONCAT('.$cl($colCliente).$fila.','.$cl($colCategorias).$fila.')');
 	foreach ($mesesCols as $i => $mi) {
@@ -343,6 +383,17 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 		}
 	}
 	$wb->formula($s1, $filaTotal, $colCumplimiento, 'IFERROR('.$cl($colVentaTotal).$filaTotal.'/'.$cl($colTotalQ2).$filaTotal.',0)', true, 'pct');
+	// Bug real reportado por el usuario (2026-08-29): estas columnas nunca
+	// se totalizan (no tiene sentido sumar texto/CONCAT/CARTERA sin dato),
+	// pero al no pasar por celda()/formula() NUNCA tampoco quedaban con
+	// borde/estilo — la fila TOTAL se veía con "huecos" sin pintar. Mismo
+	// arreglo ya aplicado antes a la fila 1 del encabezado (ver más abajo,
+	// "Bug real encontrado y corregido 2026-08-20"): rellenar con celdas
+	// vacías con el mismo estilo (negrita, sin fill especial) que el resto
+	// de la fila TOTAL, solo para que el borde se pinte parejo.
+	foreach ([$colCliente, $colPlan, $colCategorias, $colConcat, $colCartera, $colGanaCategoria, $colGanaTotal] as $col) {
+		$wb->celda($s1, $filaTotal, $col, '', true);
+	}
 }
 
 // ==================== Hoja "VISIBILIDAD" (2026-08-19/20) ====================
@@ -354,10 +405,13 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 // Decisiones confirmadas con el usuario:
 // - CEDI = mismo "ejecutivo" (usuario logueado que creó el Acta) que la
 //   hoja de Cuota/Categoría — no es el CEDI/zona geográfica.
-// - PLAN: investigado también contra `repositorio_locales_dtt2` (tabla
-//   deprecada) a pedido del usuario — tiene un canal "AUTOSERVICIO" pero
-//   solo para cadenas modernas (SUPERMAXI/TÍA/AKI), nada de "SUPER ALIANZA"
-//   ni "AUTOSERVICIO INDEPENDIENTE". Sigue sin poder derivarse, vacío.
+// - **Corregido 2026-08-28 (misma corrección que la hoja "CUOTA CLIENTE -
+//   CATEGORÍA", ver arriba)**: PLAN (columna de ESTA hoja, VISIBILIDAD) =
+//   `d.canal` del cliente. Antes se había investigado también contra
+//   `repositorio_locales_dtt2` (tabla deprecada) buscando el texto exacto
+//   que usa JW ("AUTOSERVICIO INDEPENDIENTE", etc.) — nunca existió tal
+//   cual en la base; `canal` es el valor real más cercano, confirmado por
+//   la analista de JW que administra ese maestro.
 // - **Corregido 2026-08-20**: regla de "línea completa" para CANTIDAD/PAGO
 //   relajada — antes exigía que TODOS los meses tuvieran valor > 0 (una
 //   línea con un solo mes en 0 quedaba totalmente descartada); el usuario
@@ -378,18 +432,24 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 //   el archivo real, no había que inventar hojas nuevas). PAGO TOTAL sigue
 //   siendo una fórmula real (`=G+H+I`, solo referencia celdas de la misma
 //   fila) porque así es como funciona en el archivo real también.
-// - VALIDACIÓN (CABECERA/ISLA/PERCHA) va vacía siempre — la llena JW a mano
-//   después de verificar en campo, no es un dato que tengamos.
+// - **Corregido 2026-08-28**: VALIDACIÓN (CABECERA/ISLA/PERCHA) ya NO va
+//   vacía — se autocompleta con una fórmula real (`IF(CANTIDAD>0,"CUMPLE",
+//   "NO CUMPLE")`, ver más abajo) apenas hay al menos 1 línea real cargada
+//   en esa columna; sigue siendo editable a mano por JW si necesita
+//   corregirlo tras verificar en campo (ej. una línea que sí cumplió pero
+//   no está cargada acá todavía).
 // - R/S/T (columnas sin cabecera de grupo) e IF(...)/TOTAL: fórmulas
 //   idénticas a las del archivo real, traducidas a inglés/coma (ver aviso
-//   en xlsx_writer.php) — quedan en 0 hasta que JW llene VALIDACIÓN a mano.
+//   en xlsx_writer.php) — con VALIDACIÓN ahora autocompletada, estas ya
+//   calculan el pago real solas en cuanto hay datos, sin esperar a que JW
+//   llene nada a mano.
 // - Colores: leídos del archivo real vía Excel COM (`Interior.Color` Y
 //   `DisplayFormat.Interior.Color`, dan exactamente lo mismo, sin tabla de
 //   Excel de por medio) — encabezado `#F5E6F5`, columna Nombres `#EFCEEF`.
 //   El usuario dijo que no son los colores reales — **pendiente de
 //   confirmar con él cuáles son los correctos**, ver CLAUDE.md.
 $stmtVis = $mysqli->prepare(
-	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, l.tipo, l.marca, l.categoria,
+	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.tipo, l.marca, l.categoria,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
@@ -441,6 +501,7 @@ foreach ($filasVis as $f) {
 	if (!isset($porClienteVis[$cliente])) {
 		$porClienteVis[$cliente] = [
 			'ejecutivo' => $f['ejecutivo'] ?? '',
+			'plan'      => $f['canal'] ?? '',
 			'tipos' => [
 				'CABECERA' => ['cantidad' => 0, 'pago' => 0.0, 'textos' => []],
 				'ISLA'     => ['cantidad' => 0, 'pago' => 0.0, 'textos' => []],
@@ -527,8 +588,9 @@ $primeraFilaVis = $filaVisDatos;
 foreach ($porClienteVis as $cliente => $datosCliente) {
 	$wb->celda($s3, $filaVisDatos, $vCedi, $datosCliente['ejecutivo']);
 	$wb->celda($s3, $filaVisDatos, $vNombres, $cliente, false, null, $bgClienteVis, '000000');
-	// PLAN vacío a propósito, ver nota arriba.
-	$wb->celda($s3, $filaVisDatos, $vPlan, '');
+	// PLAN = canal del cliente en el maestro, mismo criterio que la hoja
+	// "CUOTA CLIENTE - CATEGORÍA" (ver nota arriba, corregido 2026-08-28).
+	$wb->celda($s3, $filaVisDatos, $vPlan, $datosCliente['plan']);
 
 	$colCantidad = [$vCantCab, $vCantIsla, $vCantPercha];
 	$colPago = [$vPagoCab, $vPagoIsla, $vPagoPercha];
@@ -544,8 +606,19 @@ foreach ($porClienteVis as $cliente => $datosCliente) {
 	$wb->formula($s3, $filaVisDatos, $vPagoTotal,
 		$cl($vPagoCab).$filaVisDatos.'+'.$cl($vPagoIsla).$filaVisDatos.'+'.$cl($vPagoPercha).$filaVisDatos, false, 'money');
 
-	// VALIDACIÓN: vacía, la llena JW a mano.
-	foreach ([$vValidCab, $vValidIsla, $vValidPercha] as $col) $wb->celda($s3, $filaVisDatos, $col, '');
+	// VALIDACIÓN: autocompletada según CANTIDAD (2026-08-28, pedido
+	// explícito del usuario, confirmado tras aclarar una contradicción en
+	// el ejemplo que dio) — CUMPLE si esa columna tiene al menos 1 línea
+	// real (CANTIDAD > 0), NO CUMPLE si no hay ninguna (CANTIDAD = 0).
+	// Fórmula real (no un valor fijo), referenciando la celda de CANTIDAD
+	// de la misma fila — si JW corrige CANTIDAD a mano en el Excel,
+	// VALIDACIÓN (y con ella el pago real de R/S/T más abajo) se
+	// recalcula sola; sigue siendo editable a mano por JW si necesita
+	// forzar otra cosa.
+	$colValid = [$vValidCab, $vValidIsla, $vValidPercha];
+	foreach ($colCantidad as $i => $colCant) {
+		$wb->formula($s3, $filaVisDatos, $colValid[$i], 'IF('.$cl($colCant).$filaVisDatos.'>0,"CUMPLE","NO CUMPLE")');
+	}
 
 	// R/S/T: IF(VALIDACIÓN="CUMPLE", PAGO, 0) — 0 hasta que JW valide.
 	$wb->formula($s3, $filaVisDatos, $vRCab, 'IF('.$cl($vValidCab).$filaVisDatos.'="CUMPLE",'.$cl($vPagoCab).$filaVisDatos.',0)', false, 'money');
@@ -580,6 +653,16 @@ if ($ultimaFilaVis >= $primeraFilaVis) {
 		$cl($vPagoCab).$filaTotalVis.'+'.$cl($vPagoIsla).$filaTotalVis.'+'.$cl($vPagoPercha).$filaTotalVis, true, 'money');
 	$rangoTotalVis = $cl($vTotal).$primeraFilaVis.':'.$cl($vTotal).$ultimaFilaVis;
 	$wb->formula($s3, $filaTotalVis, $vTotal, 'SUBTOTAL(9,'.$rangoTotalVis.')', true, 'money');
+	// Bug real reportado por el usuario (2026-08-29): CEDI/PLAN/MARCA/
+	// VALIDACIÓN/R-S-T/OBSERVACION nunca se totalizan (así está en el
+	// original, ver nota de arriba) — pero al no pasar por celda()/formula()
+	// tampoco quedaban con borde, dejando "huecos" sin pintar en toda la
+	// fila TOTAL. Mismo arreglo que la fila TOTAL de la hoja 1: celdas
+	// vacías con el mismo estilo (negrita) del resto de la fila, solo para
+	// que el borde se pinte parejo.
+	foreach ([$vCedi, $vPlan, $vMarcaCab, $vMarcaIsla, $vMarcaPercha, $vValidCab, $vValidIsla, $vValidPercha, $vRCab, $vRIsla, $vRPercha, $vObs] as $col) {
+		$wb->celda($s3, $filaTotalVis, $col, '', true);
+	}
 }
 
 // ==================== Hoja "RESUMEN DE PAGOS" (2026-08-23) ====================
@@ -653,6 +736,10 @@ foreach ($clientesResumen as $cliente => $ejecutivo) {
 }
 $ultimaFilaResumen = $filaResumen - 1;
 if ($ultimaFilaResumen >= $primeraFilaResumen) {
+	// CEDI nunca se totaliza acá (mismo criterio que las otras 2 hojas) —
+	// pero sin pasar por celda() quedaba sin borde, dejando la esquina
+	// izquierda de la fila TOTAL sin pintar (bug real reportado 2026-08-29).
+	$wb->celda($sResumen, $filaResumen, $rCedi, '', true);
 	$wb->celda($sResumen, $filaResumen, $rCliente, 'TOTAL', true);
 	foreach ([$rVolumen, $rVisibilidad, $rTotalPago] as $col) {
 		$rango = $cl($col).$primeraFilaResumen.':'.$cl($col).$ultimaFilaResumen;

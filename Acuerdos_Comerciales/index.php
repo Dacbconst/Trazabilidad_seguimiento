@@ -185,7 +185,8 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); },
 			'#sec-liquidacion':      function () { if (window.acLiquidacionRefrescar) window.acLiquidacionRefrescar(); },
 			'#sec-repositorios':     function () { if (window.acRepositoriosRefrescar) window.acRepositoriosRefrescar(); },
-			'#sec-seguimiento':      function () { if (window.acSeguimientoRefrescar) window.acSeguimientoRefrescar(); }
+			'#sec-seguimiento':      function () { if (window.acSeguimientoRefrescar) window.acSeguimientoRefrescar(); },
+			'#sec-cumplimiento':     function () { if (window.acCumplimientoRefrescar) window.acCumplimientoRefrescar(); }
 		};
 
 		document.querySelectorAll('.ac-sidebar-nav a[data-toggle="section"]').forEach(function (link) {
@@ -197,6 +198,14 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 				document.querySelectorAll('.ac-content-panel').forEach(function (panel) { panel.classList.remove('active'); });
 				document.querySelector(href).classList.add('active');
 				if (refrescoPorSeccion[href]) refrescoPorSeccion[href]();
+				// Apaga el pulso/flash/brillo del filtro de período de Historial al
+				// cambiar de módulo (2026-08-28, pedido explícito) — Historial nunca
+				// se destruye al cambiar de pestaña (solo se oculta con CSS), así
+				// que sin esto un pulso `infinite` seguiría animando en segundo
+				// plano para siempre. Mismo criterio que la campanita de abajo: se
+				// llama en CUALQUIER cambio de módulo, no solo al entrar/salir de
+				// Historial puntual.
+				if (window.acHistorialLimpiarResaltadoFiltro) window.acHistorialLimpiarResaltadoFiltro();
 				// Campanita de notificaciones (2026-08-25, pedido explícito): se
 				// refresca en CUALQUIER cambio de módulo, no solo los que ya
 				// tenían su propio hook arriba — a diferencia de esos, esto nunca

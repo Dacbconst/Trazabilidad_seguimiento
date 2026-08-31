@@ -35,7 +35,7 @@ $tabla = $tablasPorTipo[$tipo];
 
 $stmt = $mysqli->prepare("UPDATE $tabla SET eliminado_en = NULL, eliminado_por = NULL WHERE id = ? AND eliminado_en IS NOT NULL");
 if (!$stmt) {
-	responder(false, 'El repositorio todavía no existe en la base, o falta correr la migración de borrado lógico (ver datos/repositorios_schema.sql).');
+	responder(false, 'El repositorio todavía no está disponible. Avisa al equipo técnico.');
 }
 $stmt->bind_param('i', $id);
 $stmt->execute();

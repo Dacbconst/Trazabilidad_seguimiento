@@ -4,6 +4,31 @@ Contexto de negocio y técnico para trabajar en este proyecto. Cliente: Jaboner�
 Wilson S.A. (empresa de Alicorp). Sistema para digitalizar el proceso de Acuerdos
 Comerciales (Acta de Compromiso) con distribuidores/PDV del canal directo.
 
+## ⚠️ Excepción a la regla de solo lectura — SOLO en este proyecto (2026-08-28)
+
+El `CLAUDE.md` raíz del repositorio (fuera de esta carpeta) dice que Claude
+solo puede ejecutar `SELECT`/`SHOW`/`DESCRIBE` en cualquier base de datos
+del repo, sin excepción. **Esa regla raíz NO cambió y sigue aplicando tal
+cual a todos los demás proyectos** (ej. Pintuco). El usuario pidió una
+excepción puntual, **solo para Acuerdos Comerciales**, con este alcance
+exacto — no ampliar más de lo que dice acá:
+
+- **Permitido, y SOLO esto**: `CREATE TABLE` y `ALTER TABLE`.
+- **Requisito obligatorio, sin excepción, para cada ejecución**: antes de
+  correr el `CREATE`/`ALTER`, Claude tiene que mostrarle al usuario el SQL
+  EXACTO que va a ejecutar y esperar una confirmación explícita ("sí" o
+  equivalente claro) para ESE SQL puntual. Nunca ejecutar de entrada, nunca
+  asumir que una aprobación anterior cubre una ejecución nueva o distinta.
+- **Sigue absolutamente prohibido, sin ninguna excepción, igual que
+  siempre**: `DROP TABLE`, `DROP DATABASE`, `DELETE`, `TRUNCATE`, `UPDATE`,
+  `INSERT`, o cualquier otra operación que borre/modifique datos o
+  esquema fuera de `CREATE TABLE`/`ALTER TABLE`. Esto incluye `DROP` como
+  parte de un `ALTER` (ej. `ALTER TABLE ... DROP COLUMN`) — si un `ALTER`
+  necesario incluye un `DROP COLUMN`/`DROP INDEX`, sigue prohibido
+  ejecutarlo Claude; en ese caso, proponer el SQL para que el usuario lo
+  corra él mismo (mismo criterio que ya se usaba para todo antes de esta
+  excepción).
+
 ## Entorno de desarrollo en vivo — Claude puede loguearse ahí (2026-08-25)
 
 El usuario confirmó explícitamente que Claude puede entrar de verdad al
@@ -6029,3 +6054,1436 @@ asignar la Acta en el lado izquierdo. Aplicado tal cual a código real.
   la fila entra completa en ambos anchos, el campo "Se iba a asignar a
   ..." se ve correcto cuando hay dueño identificado y "Sin usuario
   identificado todavía" cuando no. `node --check`/`php -l` limpios.
+
+## Cuotas: SUBCATEGORIA/MARCA opcionales en el Excel → autocompletan y bloquean la Acta Precargada (2026-08-28)
+
+El usuario había pedido en otra sesión agregar columnas SUBCATEGORIA/MARCA
+al Excel de prueba de Cuotas (`datos/repositorio prueba trimestral.xlsx`,
+raíz del repo, NO dentro de `Acuerdos_Comerciales/datos/`) — se agregaron
+los encabezados pero las 60 filas quedaron sin valores (ver sesión de hoy,
+"llenar el Excel de prueba"). Con el archivo ya lleno con combinaciones
+reales del catálogo, pidió conectar esas 2 columnas al pipeline real.
+
+**Antes de esto**: `repositorio_parsear_cuotas()` solo leía CEDI/CLIENTE/
+PLAN/CATEGORIAS + meses. `obtener_precarga_detalle()` resolvía Categoría/
+Marca de la línea de Meta de Compras SOLO reusando el historial del
+cliente (la línea más reciente de una Acta anterior para ese mismo
+pos_id+sector) — si no había historial, quedaban vacías para que el
+asesor las complete a mano.
+
+**Implementado**:
+- `repositorio_parsear_cuotas()` (`includes/repositorio_import.php`): lee
+  SUBCATEGORIA/MARCA si el archivo las trae — **opcional**, mismo criterio
+  que CEDI/PLAN (si no están, `xlsx_col()` da null y el resto sigue
+  exactamente igual que antes; el formato real de JW, hoy, NO las trae).
+- `resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda)`
+  (nueva, `includes/functions.php`) — matchea contra `repositorio_productos`
+  con la MISMA tolerancia plural/singular ya usada por
+  `buscarRebateProducto()` (Rebate, 2026-08-27) — mismo tipo de desajuste de
+  nombres ya documentado (ej. "LIQUIDOS" del Excel vs "LIQUIDO" del
+  catálogo real). Solo devuelve algo si el match es único; si no, `null`.
+- `obtener_precarga_detalle()`: nueva 1ra prioridad — si la fila de Cuota
+  trae subcategoria+marca Y `resolverProductoCuota()` matchea, ESO se usa
+  (dato cierto, vino directo de JW). Si no matchea o el Excel no las trae,
+  cae al criterio viejo (historial del cliente), sin cambios ahí. Segmento
+  también se resuelve del match cuando lo hay (antes solo salía del
+  historial o del "único Segmento posible para ese Sector").
+- `cuotas_guardar.php`: guarda `subcategoria`/`marca` en el UPSERT — con
+  fallback defensivo (si el `ALTER` de abajo no se corrió todavía, cae al
+  INSERT viejo sin esas 2 columnas, no rompe la subida).
+- `repositorios.js`: `CONFIG.cuotas.columnasPreview` — 2 columnas nuevas
+  editables en la previsualización (mismo orden que el Excel real),
+  después de "Categoría" — así el superdesarrollador puede corregir a mano
+  el texto crudo de JW ANTES de guardar si algo no va a matchear bien.
+- **`datos/cuota_cliente_schema.sql`** (raíz del repo) — bloque de
+  migración nuevo al final del archivo (la tabla YA EXISTE en producción,
+  esto es un `ALTER`, no volver a correr el `DROP TABLE`/`CREATE TABLE` de
+  arriba):
+  ```sql
+  ALTER TABLE repositorio_cuota_cliente
+    ADD COLUMN subcategoria VARCHAR(100) NULL AFTER sector,
+    ADD COLUMN marca VARCHAR(100) NULL AFTER subcategoria;
+  ```
+  **✅ EJECUTADO por Claude 2026-08-28** — primer uso real de la excepción
+  puntual a la regla de solo lectura (ver sección "⚠️ Excepción..." al
+  inicio de este archivo): SQL mostrado al usuario, confirmación explícita
+  recibida, `ALTER` corrido, verificado después con `DESCRIBE` de solo
+  lectura (`subcategoria`/`marca`, ambas `varchar(100) NULL`, en la
+  posición correcta). El pipeline ya está activo en producción.
+
+**Probado**: `php -l`/`node --check` limpios en los 5 archivos. `resolverProductoCuota()`
+corrida directo contra el catálogo real (solo lectura) con 6 combos reales
+(incluida la variante plural "LIQUIDOS") — todas resuelven con el
+`segmento` correcto; un combo inventado da `SIN MATCH` sin falsos
+positivos. **No se pudo probar `repositorio_parsear_cuotas()` de punta a
+punta contra el Excel real en esta sesión** — el CLI local de PHP
+(`C:\xampp\php\php.exe`) no tiene la extensión `zip` habilitada
+(`ZipArchive` no existe), a diferencia del servidor real donde la app ya
+lee `.xlsx` sin problema hoy. La lectura de las 2 columnas nuevas es una
+adición mecánica sobre el mismo patrón exacto que ya usan CEDI/PLAN
+(`xlsx_col()`, opcional) — bajo riesgo, pero falta la confirmación real en
+navegador. **Todavía sin probar en navegador real** — falta resubir el
+Excel de prueba ya lleno (con el `ALTER` ya corrido) y confirmar que una
+Acta Precargada nueva sale con Categoría/Marca bloqueadas directo del
+Excel.
+
+## Bug real: Actas Precargadas nunca buscaban Rebate % (siempre quedaba en 0) — corregido (2026-08-28)
+
+Con Categoría/Marca ya resolviéndose bien (ver sección anterior), el
+usuario notó que el Rebate % de esas líneas seguía en 0. Causa real:
+`obtener_precarga_detalle()` tenía `'rebate_pct' => 0` **hardcodeado**,
+nunca llamaba a `buscarRebateProducto()` (la misma función que ya usa la
+búsqueda en vivo de Registrar desde el 2026-08-27) — quedó así desde que
+se construyó Fase 2 (2026-08-25), antes de que Rebate se conectara.
+
+**Corregido**: dentro del mismo bucle que arma cada línea de Meta de
+Compras, se calcula Ciudad/Canal una sola vez (mismo criterio EXACTO que
+`buscarYAplicarRebate()` en `registrar.js`: Ciudad="TODAS" si es
+Distribuidor, si no el CEDI real; Canal=DISTRIBUIDOR/DIRECTA) y se llama a
+`buscarRebateProducto()` con el Sector/Categoría/Marca ya resueltos
+(cualquiera sea el origen: match directo del Excel o historial). Sin
+match, sigue en 0 (editable), igual que la búsqueda en vivo.
+
+**Probado con datos reales de solo lectura** (`obtener_precarga_detalle()`
+no escribe nada, se puede llamar directo): cliente YUCAILLA PADILLA
+(`EPV3329`, Q2 2026) — de sus 4 categorías, 3 resuelven Rebate real
+(CREMA 4%, LIQUIDO 1.5%, POLVO 4%); BARRA da 0 — verificado que es
+correcto: `repositorio_rebate_producto` NO tiene ninguna fila para
+BARRA/LAVAVAJILLAS/LAVA (el Sector BARRA solo tiene Rebate cargado para
+la marca EL MACHO) — dato genuinamente faltante en el repositorio, no un
+bug de matching. **Todavía sin probar en navegador real.**
+
+## Bug real: "Descargar Excel" con "Todos los períodos" mezclaba trimestres distintos en una sola hoja (2026-08-28)
+
+El usuario descargó el Excel de Historial para JAVIER MALDONADO con el
+filtro de período en "Todos los períodos" y el archivo salió con 6 meses
+(ENERO-JUNIO) bajo un título fusionado que decía "VENTA Q1".
+
+**Causa real, confirmada con datos reales**: Javier tenía 4 Actas viejas
+de Q1 (`mes_inicio=0/mes_fin=2`) más una recién generada desde una Acta
+Precargada, correctamente guardada en Q2 (`mes_inicio=3/mes_fin=5`) — la
+primera vez que un cliente tiene Actas en 2 trimestres distintos a la vez
+en este proyecto. `exportar_cuota_categoria.php` arma el título "VENTA Qx"
+mirando SOLO el primer mes de `$mesesCols` (`intdiv($mesesCols[0], 3) + 1`)
+pero dibuja una columna por cada mes distinto sin chequear que todos sean
+del mismo trimestre — con "Todos los períodos" la consulta trae ambos
+grupos de Actas juntos, así que el título quedó mal (decía "Q1" con datos
+de 2 trimestres). Mismo mecanismo afecta a
+`exportar_cuota_categoria_distribuidor.php` (hereda `$trimestreActivo` del
+archivo de Directa, nunca parsea `$_GET` por su cuenta).
+
+**No es un bug de "sumar mal"** — cada línea sigue siendo su propia fila
+con su propio dato real (documentado desde el diseño original, "una fila
+por línea, sin agrupar/sumar"). El problema es puramente el TÍTULO/columnas
+de mes, que asumen un solo trimestre porque este Excel replica el archivo
+real de JW, que SIEMPRE es de un solo trimestre — nunca se diseñó para
+mezclar períodos.
+
+**Corregido con la solución más segura, sin rediseñar el formato**: se
+exige un trimestre puntual (Q1-Q4) para poder descargar —
+`exportar_cuota_categoria.php` rechaza la descarga (código 400, mensaje
+claro) si `trimestre=0` ("Todos"), ANTES de correr cualquier consulta —
+protege también a la variante Distribuidor de yapa, sin tocar ese archivo.
+Del lado del cliente, `historial.js` intercepta el click del link de
+descarga y avisa con un toast si el filtro está en "Todos los períodos",
+para que el usuario ni llegue a recibir el archivo de error.
+
+**De paso, confirmado con el usuario y verificado en el código — sin
+relación de causa, pero se aclaró en la misma conversación**: el Rebate %
+de una Acta se guarda CONGELADO al momento de generarla
+(`guardar_acuerdo.php` línea ~158, toma el valor que venía en el
+formulario, nunca vuelve a consultar el repositorio de Rebate) — un cambio
+posterior al % general en `repositorio_rebate_producto` NUNCA altera
+retroactivamente Actas ya generadas. Esto ya estaba bien implementado
+desde antes (2026-08-18) y los cambios de hoy (conectar Rebate a Actas
+Precargadas) no lo tocan — solo afectan qué se PRE-LLENA en el formulario
+antes de guardar, nunca el guardado en sí.
+
+**Probado**: `php -l`/`node --check` limpios. La causa se confirmó con
+datos reales de solo lectura (Actas de Javier Maldonado en Q1 y Q2
+simultáneas). **Todavía sin probar en navegador real** — falta confirmar
+que "Todos los períodos" ahora bloquea la descarga con el aviso, y que
+eligiendo Q1 o Q2 específico el Excel sale limpio (3 meses cada uno).
+
+**Ronda 2, mismo día — se extendió a Año, se cambió el aviso de toast a
+modal, y el año se autoselecciona por defecto:**
+
+- **El mismo bug puede ocurrir entre AÑOS del mismo trimestre** (un índice
+  de mes 0-11 no tiene año) — no solo entre trimestres distintos con "Todos
+  los períodos". La guarda de `exportar_cuota_categoria.php` ahora exige
+  también `$anio` puntual (`if (!$trimestreActivo || !$anio)`), no solo
+  trimestre — mismo mensaje de error extendido, protege igual a la variante
+  Distribuidor por herencia.
+- **Toast → modal SweetAlert2** (pedido explícito, "la ventanita grandecita
+  que aparece a mitad de pantalla" — mismo componente ya usado en todo el
+  proyecto para confirmaciones/avisos, ver `confirmarYEliminarAcuerdo()`):
+  `exportarCuotaLink` en `historial.js` ahora chequea trimestre Y año, y
+  si falta alguno de los dos muestra `Swal.fire({icon:'warning', ...})`
+  con el mensaje explicando por qué (mismo texto que el error del
+  servidor) y cuál de los dos falta puntual ("el período", "el año", o "el
+  período y el año").
+- **Indicación visual de qué campos corregir, sin usar una captura
+  estática** (el usuario pidió "una captura o indicando qué zona es" — se
+  optó por resaltar el control real en vez de una imagen, para que nunca
+  quede desactualizada si el layout cambia): al cerrar el modal,
+  `resaltarFiltroPeriodo()` hace scroll a la tarjeta de filtros y le
+  agrega un aro pulsante (`.ac-filtro-resaltado`, `style.css`, 2 pulsos de
+  1.3s, respeta `prefers-reduced-motion`) al/los `<select>` que falten —
+  aplicado sobre el wrapper de "select bonito" (`.ac-select-bonito`), no
+  el `<select>` nativo oculto detrás.
+- **Año se autoselecciona al año en curso por defecto** (pedido explícito
+  del usuario) — `components/historial/historial.php`: si no vino
+  `anio` explícito por query, se usa `date('Y')` **solo si ese año
+  realmente tiene Acuerdos del usuario** (`in_array` contra
+  `$aniosDisponibles`, calculado ANTES ahora, se reordenó el archivo para
+  poder usarlo en la decisión); si no, cae a "Todos los años" como antes,
+  para no mostrar una tabla vacía por defecto a alguien sin Actas del año
+  en curso todavía. No se tocó `getters/listar_historial.php` — como el
+  `<select>` de año ya carga con el valor correcto desde el SSR, los
+  refrescos AJAX posteriores (que leen `anioSelect.value`) heredan el
+  mismo default sin cambiar ese getter.
+- **Probado**: `php -l`/`node --check` limpios en los 3 archivos.
+  **Todavía sin probar en navegador real** — falta confirmar que el año en
+  curso queda preseleccionado al entrar a Historial, que el modal aparece
+  con el texto correcto según qué falte, y que el aro pulsante resalta el
+  control correcto en los 3 casos (falta trimestre, falta año, faltan
+  los dos).
+
+## Excel de Historial (canal Directo): VALIDACIÓN de Visibilidad autocompletada según CANTIDAD (2026-08-28)
+
+Pedido explícito, con un ejemplo inicial que se contradecía a sí mismo
+(cabecera=1→CUMPLE, pero isla=9→NO CUMPLE) — se confirmó con el usuario
+vía `AskUserQuestion` antes de tocar código, porque VALIDACIÓN es lo que
+dispara el pago real (columnas R/S/T: `IF(VALIDACIÓN="CUMPLE", PAGO, 0)`).
+**Regla confirmada**: CANTIDAD > 0 → CUMPLE, CANTIDAD = 0 → NO CUMPLE (el
+"9→NO CUMPLE" del ejemplo era un error de tipeo).
+
+- `getters/exportar_cuota_categoria.php` — hoja `VISIBILIDAD `, columnas
+  VALIDACIÓN (Cabecera/Isla/Percha, antes siempre vacías "las llena JW a
+  mano") ahora llevan una **fórmula real**, no un valor fijo:
+  `IF(<celda CANTIDAD de esa columna, misma fila>>0,"CUMPLE","NO CUMPLE")`.
+  Sigue siendo editable a mano por JW (no se protege la celda) — si
+  corrige CANTIDAD o el propio VALIDACIÓN después de verificar en campo,
+  el pago real (R/S/T) se recalcula solo, Excel nativo.
+- **Alcance: SOLO canal Directo**, tal como lo pidió el usuario
+  ("el excel que generamos de canal directo"). **NO se tocó**
+  `getters/exportar_cuota_categoria_distribuidor.php` — su hoja
+  `VISIBILIDAD (2)` sigue con VALIDACIÓN vacía "la llena JW a mano" (línea
+  ~398), mismo patrón que tenía Directo antes de este cambio. Si se pide
+  extenderlo a Distribuidor, es el mismo cambio mecánico ahí (mismas
+  columnas CANTIDAD/VALIDACIÓN Cab/Isla/Percha, mismo criterio).
+- **Probado**: `php -l` limpio. No se pudo generar el `.xlsx` real end-to-end
+  en esta sesión (el CLI local no tiene la extensión `zip`/`xml`
+  habilitada, mismo límite ya documentado en otras partes de este
+  archivo) — el cambio es mecánico sobre el mismo patrón de fórmulas ya
+  usado y probado en las columnas R/S/T de la misma hoja (mismas comillas/
+  sintaxis de `IF`). **Todavía sin probar en navegador real** — falta
+  descargar el Excel real y confirmar que VALIDACIÓN sale con CUMPLE/NO
+  CUMPLE correcto según CANTIDAD, y que el pago (R/S/T) ya no queda en $0
+  esperando que JW llene algo a mano.
+
+## Auditoría de tono en mensajes al usuario — sacar razonamiento interno y voseo inconsistente (2026-08-28)
+
+El usuario objetó el modal de "Elegí el período" (sección de arriba) por
+exponer razonamiento interno de implementación en un mensaje de cara al
+cliente ("esto no debería decírselo al cliente... eso no es un mensaje
+profesional de página, aunque a mí me lo puedas explicar") — y pidió
+barrer TODO el proyecto por el mismo patrón. De paso, corrigió puntual el
+uso de "Elegí" (voseo) — pidió "Elige" en su lugar.
+
+**Regla aplicada de acá en más para mensajes al usuario (toasts, modales
+SweetAlert2, respuestas de getters)**: decir QUÉ hacer, nunca explicar POR
+QUÉ a nivel de implementación (nombre de archivo real de JW, "esto
+generaría un archivo mezclado", nombres de columnas SQL, extensiones de
+PHP, rutas de archivos `.sql`) — ese razonamiento vive en los comentarios
+de código/este CLAUDE.md, no en la pantalla.
+
+**Corregido**:
+- `assets/js/historial.js` — el modal de período (agregado hoy mismo, ver
+  sección de arriba) reescrito sin mencionar a JW ni "archivo mezclado":
+  ahora dice solo "Elige el período antes de descargar" / "Este archivo se
+  genera para un trimestre y año específicos."
+- `getters/exportar_cuota_categoria.php` — mismo mensaje simplificado del
+  lado del servidor (por si se llega a la URL directo sin pasar por el
+  modal): "Elige un trimestre y un año específicos en el filtro de período
+  antes de descargar el Excel."
+- **6 mensajes que exponían rutas de archivo `.sql` o detalles de
+  infraestructura de PHP** (`getters/cuotas_previsualizar_excel.php`,
+  `getters/importar_liquidacion.php`, `getters/repositorio_previsualizar_excel.php`,
+  `getters/cuotas_guardar.php`, `getters/repositorio_guardar.php` ×2,
+  `getters/repositorio_eliminados.php`, `getters/repositorio_eliminar.php`
+  ×2, `getters/repositorio_reactivar.php`) — decían cosas como "falta
+  correr datos/repositorios_schema.sql" o "el servidor no tiene la
+  extensión zip de PHP habilitada". Aunque estas pantallas las usa
+  `superdesarrollador` (un usuario de negocio, no un desarrollador),
+  exponer nombres de archivo/infraestructura interna sigue sin ser
+  profesional — se simplificaron todas a "Avisa al equipo técnico." sin el
+  detalle interno (el detalle real sigue en los comentarios del código
+  para quien sí tenga que diagnosticarlo).
+- **"Elegí" (voseo) → "Elige"**, en los 8 lugares donde aparecía de cara al
+  usuario: el modal y guarda de arriba, `components/liquidacion/liquidacion.php`
+  ("Elige el cliente correcto..."), `assets/js/repositorios.js`
+  ("Elige un año válido."), `components/repositorios/repositorios.php`
+  (hint de match ambiguo — de paso también "buscá"/"descartá" → "busca"/
+  "descarta" en la misma oración, para no dejarla con 2 tiempos verbales
+  mezclados), `getters/liquidacion_resolver_match.php` y
+  `assets/js/liquidacion.js` ("elige cuál es..."), y
+  `assets/js/registrar.js` (validación de spinner sin confirmar — también
+  "hacé" → "haz" en la misma oración, mismo criterio de no mezclar). Las
+  demás apariciones de voseo en el resto del proyecto (ej. "borrá",
+  "corregilo", "usá", "tipeá") **no se tocaron** — fuera del alcance
+  puntual que pidió el usuario (la palabra "Elegí" específicamente), no se
+  reescribió el dialecto completo de la app.
+- **Descartado a propósito, no son el mismo problema**: mensajes con
+  instrucciones operativas para el `superdesarrollador` (ej. "Ese pos_id
+  no tiene ningún Acta generada... usá 'No tiene Acta'", "Ya existe una
+  cuota guardada... borrá la fila vieja") — son instrucciones de qué hacer
+  para un usuario interno de negocio, no exponen razonamiento de
+  implementación, se dejaron igual. Tampoco se tocaron los mensajes de
+  error crudos de MySQL (`$stmt->error`) que se muestran en la subida de
+  Rebate/Participación — son diagnóstico real para quien administra el
+  repositorio, no la misma clase de problema que "explicarle al cliente
+  cómo está armado el Excel".
+- **Probado**: `php -l`/`node --check` limpios en los 12 archivos tocados.
+
+## Excel de Historial (canal Directo): columna PLAN llenada con el "canal" del maestro (2026-08-28)
+
+Última pieza pendiente de este formato de export. Investigado con el
+usuario antes de tocar código (`AskUserQuestion`, dos columnas candidatas
+del maestro tenían "MAYORISTA" como valor real): la analista de JW que
+administra `repositorio_locales_supervisores_cliente` le confirmó al
+usuario que PLAN se llena con la columna **`canal`** del maestro
+(`COBERTURA`/`MAYORISTA`/`AUTOSERVICIO`), no con `tipo_cliente`
+(`A`/`B`/`C`/`D`/`AA`/`AAA`/`PLUS`/`MAYORISTA` — esta también tiene
+"MAYORISTA", pero para el cliente de ejemplo del usuario,
+`DISTRIBUIDORA SUPERALIANZA S.A.S`, da `PLUS`, no "mayorista").
+
+- **Alcance: solo la hoja "CUOTA CLIENTE - CATEGORÍA"** (la que el usuario
+  llamó "hoja de cuota cliente"), no la hoja "VISIBILIDAD" del mismo
+  archivo — esa tiene su propia columna PLAN, separada, que sigue vacía
+  (no se pidió extender el fix ahí; documentado en el comentario del
+  código que probablemente aplicaría el mismo criterio si se pide después).
+- `getters/exportar_cuota_categoria.php`: el `SELECT` agregó `d.canal`
+  (ya hacía `JOIN` a `repositorio_locales_supervisores_cliente`, no hizo
+  falta un JOIN nuevo); `$filasFinal[]` guarda `'plan' => $f['canal'] ??
+  ''`; la celda PLAN (antes literal `''`, "vacía a propósito") ahora
+  escribe `$g['plan']`.
+- **No es el texto exacto que usa JW en su propio Excel** ("AUTOSERVICIO
+  INDEPENDIENTE", etc. — investigado a fondo en 2026-08-18, nunca existió
+  tal cual en la base) — es el valor real más cercano que sí tenemos
+  (`canal`), confirmado como correcto por la analista real de JW, no una
+  traducción textual inventada.
+- **Probado con datos reales de solo lectura** (mismo `SELECT` ya con
+  `d.canal`, corrido contra la base real con las 5 empresas reales que ya
+  tienen Actas Directa generadas): las 15 líneas reales dieron
+  `PLAN=MAYORISTA` en todos los casos — incluido `DISTRIBUIDORA
+  SUPERALIANZA S.A.S`, coincide exacto con lo que el usuario esperaba. `php
+  -l` limpio. **No se pudo generar el `.xlsx` real end-to-end en esta
+  sesión** (el PHP CLI local no tiene la extensión `zip` habilitada,
+  necesaria tanto para leer como para escribir `.xlsx` — mismo límite ya
+  documentado varias veces en este archivo) — la verificación fue sobre la
+  consulta y los datos reales que alimentan la celda, no sobre el archivo
+  final generado. **Todavía sin probar en navegador real** — falta
+  descargar el Excel real y confirmar visualmente que la columna PLAN sale
+  con el valor correcto.
+
+**Ronda 2, mismo día — extendido a la hoja VISIBILIDAD + columna CONCAT
+más ancha:**
+
+- **PLAN también en la hoja "VISIBILIDAD "** (el usuario había pasado por
+  alto que esa hoja tiene su propia columna PLAN, separada de la de "CUOTA
+  CLIENTE - CATEGORÍA") — mismo criterio exacto, `d.canal` agregado al
+  `SELECT` de esa hoja (`$stmtVis`, ya hacía `JOIN` a
+  `repositorio_locales_supervisores_cliente`), guardado en
+  `$porClienteVis[$cliente]['plan']` y escrito en la celda (antes literal
+  `''`, "vacío a propósito"). **Probado con datos reales de solo lectura**:
+  10 líneas reales de Cabecera/Ruma/Percha (mismo cliente de la ronda
+  anterior, `ACOSTA SANTAMARIA EDGAR PATRICIO`/`DISFALEP S.A.S.`) dan
+  `PLAN=MAYORISTA` en las 3 tablas — coincide con la hoja de Cuota.
+- **Columna CONCAT más ancha en "CUOTA CLIENTE - CATEGORÍA"** — el usuario
+  reportó que al abrir el Excel y darle "Habilitar edición", esa columna
+  sale angosta. Causa real, confirmada leyendo `anchoTexto()`/`xmlCols()`
+  en `includes/xlsx_writer.php`: el "autofit" de este escritor mide el
+  ancho real del CONTENIDO de cada celda, pero CONCAT es una **fórmula**
+  (`CONCAT(cliente, categoria)`, sin separador) — el resultado no se
+  conoce hasta que Excel la recalcula al abrir, así que `anchoTexto()`
+  solo puede adivinar un ancho genérico fijo (11 caracteres) para
+  cualquier celda de fórmula sin formato de moneda/porcentaje — muy
+  angosto para un cliente+sector concatenados (fácil 30-50+ caracteres).
+  - **Arreglado con un mecanismo nuevo, reusable, no un parche puntual**:
+    `XlsxWriter::anchoMinimo($hojaIdx, $col, $ancho)` (nuevo método
+    público) guarda un piso de ancho por columna; `xmlCols()` lo aplica
+    ANTES del clamp final, con `max()` contra lo que el autofit ya haya
+    calculado — nunca angosta una columna que el autofit ya midió más
+    ancha por su cuenta, solo garantiza un mínimo cuando el autofit no
+    puede medir (fórmulas). Queda disponible para cualquier otra celda de
+    fórmula de cualquier hoja que tenga el mismo problema en el futuro.
+  - `getters/exportar_cuota_categoria.php`: `$wb->anchoMinimo($s1,
+    $colConcat, 40);` justo después de crear la hoja.
+  - **Probado sin necesitar generar el `.xlsx` real** (la extensión `zip`
+    sigue sin estar habilitada en el PHP CLI local) — se invocó
+    `xmlCols()`/`xmlHoja()` directo vía Reflection (son métodos privados,
+    pero `xmlCols()` es pura generación de string XML, no necesita
+    `ZipArchive`) sobre una hoja de prueba con el mismo patrón exacto
+    (CONCAT como fórmula sin formato + una celda de texto real de 32
+    caracteres) — confirmado en el XML generado: la columna de texto
+    normal midió su ancho real (34, autofit funcionando normal), la
+    columna CONCAT salió en 42 (el piso de 40 + 2 de relleno, en vez del
+    13 que hubiera dado el autofit genérico sin el fix).
+- **Probado**: `php -l` limpio en los 3 archivos tocados (`exportar_cuota_categoria.php`,
+  `includes/xlsx_writer.php`). **Todavía sin probar en navegador real** —
+  falta descargar el Excel real y confirmar visualmente PLAN en
+  VISIBILIDAD y el ancho de CONCAT.
+
+## Resaltado de filtros de Historial: pulso infinito + confirmación verde + brillo del botón (2026-08-28)
+
+Mejora sobre la animación del aro pulsante de la sección de arriba
+("Elige el período") — el usuario dijo que le gustó la animación pero
+pidió 3 cosas más: (1) que el pulso azul siga hasta que el usuario de
+verdad elija un valor (antes se apagaba solo a los 2.6s, aunque el select
+siguiera en "Todos"), (2) que al elegir, el color pase de azul a un verde
+de confirmación, y (3) que el botón "Descargar Excel" también "brille",
+como si se estuviera habilitando.
+
+- `.ac-filtro-resaltado` (`assets/css/style.css`) — animación cambiada de
+  `1.3s ease-out 2` (2 pulsos y para) a `1.3s ease-out infinite`. Ya no se
+  apaga con un `setTimeout` — se apaga desde JS recién cuando el `change`
+  real del select dice que ya no está en "0".
+- **Nueva `.ac-filtro-confirmado`** — flash verde de ~0.7s (mismo verde
+  `#1e5c26` que `.ac-badge-ok`/`.ac-icon-btn-success`, no una paleta
+  nueva): `box-shadow` + fondo tintado que aparecen y se desvanecen.
+  `assets/js/historial.js`, nueva `actualizarEstadoFiltroPeriodo()`
+  (enganchada a `change` de `hist-trimestre`/`hist-anio`): si el select que
+  cambió todavía tenía `.ac-filtro-resaltado` puesto, la saca y pone
+  `.ac-filtro-confirmado` en su lugar — un cambio de filtro NORMAL (que
+  nunca pasó por el aviso) no dispara nada de esto, solo el que sí estaba
+  parpadeando.
+- **Nueva `.ac-excel-brillo`** — barrido de brillo diagonal (`::after` con
+  gradiente, ~0.8s) + un pulso de sombra azul en el botón mismo (~0.5s),
+  aplicado al link "Descargar Excel" (`exportarCuotaLink`) la primera vez
+  que Trimestre Y Año quedan los dos elegidos a la vez (se guarda un
+  booleano `exportCompletoAntes` para que sea justo en la TRANSICIÓN de
+  incompleto→completo, no en cada cambio de filtro una vez que ya estaba
+  completo).
+- **`setTimeout` en vez de `animationend`** para apagar las clases nuevas
+  (700ms/900ms, calcados a mano de la duración real del CSS) — se probó
+  primero con `animationend`, pero `.ac-excel-brillo` anima 2 elementos a
+  la vez (el botón y su `::after`), así que el evento se disparaba 2 veces
+  y la primera en llegar cortaba la animación del otro antes de tiempo.
+- Las 3 animaciones nuevas respetan `prefers-reduced-motion` (mismo
+  criterio que el resto de animaciones del proyecto).
+- **Probado**: `node --check` en `historial.js` limpio, llaves de
+  `style.css` balanceadas (713/713). **Todavía sin probar en navegador
+  real** — falta confirmar que el pulso persiste hasta elegir, que el
+  flash verde se ve bien, y que el brillo del botón se nota sin ser
+  molesto.
+
+**Ronda 2, mismo día — 3 ajustes más pedidos tras ver la 1ra versión:**
+
+1. **El pulso ya no queda "vivo" para siempre al cambiar de módulo** —
+   Historial nunca se destruye al cambiar de pestaña (solo se oculta con
+   CSS, arquitectura de siempre de este proyecto), así que el pulso
+   `infinite` de la ronda 1 seguía animando en segundo plano aunque el
+   usuario se fuera a otro módulo. `assets/js/historial.js` expone
+   `window.acHistorialLimpiarResaltadoFiltro` (saca `.ac-filtro-resaltado`/
+   `.ac-filtro-confirmado` de ambos selects y `.ac-excel-brillo` del botón)
+   — `index.php` la llama en CUALQUIER click de navegación del sidebar,
+   mismo patrón que ya usa `window.acAlertasFirmaRefrescar`.
+2. **Confirmado: elegir "Todos" de nuevo NO pone verde** — ya era el
+   comportamiento real (`actualizarEstadoFiltroPeriodo()` ignora un select
+   en '0'), el usuario solo pidió confirmarlo explícito.
+3. **El campo que YA estaba bien también se confirma en verde en el
+   momento exacto en que se habilita la descarga** (pedido explícito: "para
+   que dé a entender que el año también"): antes, si por ejemplo el año ya
+   venía preseleccionado (con el nuevo default al año en curso) y solo
+   faltaba el trimestre, al elegir el trimestre SOLO ese campo se ponía
+   verde — el año (que nunca pulsó) se quedaba sin ninguna señal. Ahora
+   `actualizarEstadoFiltroPeriodo()` calcula `recienCompleto` (la
+   transición exacta de incompleto→completo, no solo "ya está completo") y
+   confirma en verde a LOS DOS selects en ese momento, aunque uno de los
+   dos nunca haya estado pulsando — junto con el brillo del botón, para que
+   quede claro que ambos campos cuentan, no solo el que se acaba de tocar.
+- **Probado**: `node --check`/`php -l` limpios en los 2 archivos tocados.
+  **Todavía sin probar en navegador real.**
+
+**Ronda 3, mismo día — animaciones más lentas y notorias, "pasa tan
+rápido que ni lo noto":**
+
+- **`.ac-filtro-confirmado`**: de 1 pulso de 0.7s a **2 pulsos de 0.6s
+  (1.2s total)**, color más intenso (opacidad de fondo 0.14→0.28, spread
+  del aro 8px→10px) — un "doble parpadeo" verde se nota mucho más que un
+  solo fundido corto.
+- **`.ac-excel-brillo`**: mismo criterio, de 1 pasada sutil a **2 pasadas
+  de 0.7s (1.4s total)**. 2 cambios más, no solo repetir: (1) el pulso de
+  sombra azul del botón ahora SUMA un tinte de fondo azul real
+  (`background-color`, no solo `box-shadow` — una sombra fina es fácil de
+  perder contra el resto de la página, un cambio de fondo del botón mismo
+  no); (2) el barrido de brillo diagonal se hizo más ancho (40%→55% del
+  ancho del botón) y más opaco (0.85→0.95).
+- `assets/js/historial.js`: los `setTimeout` que sacan estas clases se
+  actualizaron a juego (700→1200ms, 900→1400ms) — tienen que calzar exacto
+  con la duración real del CSS (2 iteraciones × duración de cada una), si
+  no la clase se saca a mitad de la 2da pasada y se corta la animación.
+- **No se tocó el pulso azul de `.ac-filtro-resaltado`** (el aro que pulsa
+  mientras falta elegir) — ese ya es `infinite`, sigue repitiendo solo
+  hasta que el usuario elige, no tenía el problema de "pasa tan rápido".
+- **Probado**: `node --check`/`php -l` limpios, llaves de `style.css`
+  balanceadas (713/713). **Todavía sin probar en navegador real** — falta
+  confirmar que ahora sí se nota el doble parpadeo verde y el brillo del
+  botón.
+
+## Excel de Historial (canal Directo): filas TOTAL sin pintar en 3 hojas + CARTERA sin formato de dólares (2026-08-29)
+
+El usuario reportó, con el archivo real ya descargado, que varias hojas
+tenían "espacios en blanco sin pintar los bordes" — VISIBILIDAD, RESUMEN DE
+PAGOS, y CUOTA CLIENTE - CATEGORÍA. Investigado en el código (no se pudo
+generar el `.xlsx` real localmente, sigue faltando la extensión `zip` en el
+PHP CLI — se auditó columna por columna comparando qué columnas EXISTEN en
+cada hoja contra cuáles reciben de verdad una llamada a `celda()`/
+`formula()` en cada fila).
+
+**Causa real, mismo patrón que el bug ya documentado y corregido una vez
+para la FILA 1 del encabezado (2026-08-20, ver sección "Bug real
+encontrado y corregido" más arriba)**: `XlsxWriter` solo escribe un `<c>`
+(con su `borderId="1"` — el borde fino que ven en pantalla) para celdas
+donde se llamó explícitamente a `celda()`/`formula()`. Las 3 filas TOTAL
+de este export dejan varias columnas deliberadamente SIN sumar (texto,
+CONCAT, columnas que no tiene sentido totalizar) — pero al no pasar por
+ninguna de esas 2 funciones para nada, esas celdas quedaban sin `<c>` en
+absoluto: no solo sin fórmula, sin borde ni fondo tampoco, ahí es donde el
+usuario veía los "huecos". La corrección anterior (2026-08-20) solo cubrió
+la fila 1 fusionada de 2 de las 3 hojas — nunca se revisaron las filas
+TOTAL, que resultó tener el mismo problema en las 3 hojas.
+
+**Columnas agregadas (celda vacía `''`, negrita, sin fill especial — mismo
+estilo que el resto de la fila TOTAL) solo para que el borde se pinte,
+nunca para sumar nada que no tenga sentido de negocio**:
+- Hoja "CUOTA CLIENTE - CATEGORÍA", fila TOTAL: CLIENTE, PLAN, CATEGORIAS,
+  CONCAT, CARTERA, GANA POR CATEGORÍA, GANA TOTAL (7 columnas).
+- Hoja "VISIBILIDAD ", fila TOTAL: CEDI, PLAN, las 3 de MARCA, las 3 de
+  VALIDACIÓN, las 3 de R/S/T (sin cabecera de grupo), OBSERVACION (12
+  columnas).
+- Hoja "RESUMEN DE PAGOS", fila TOTAL: CEDI (1 columna — la única que
+  faltaba, el resto de esa fila ya estaba completa).
+- **Hoja "CUOTA TOTAL" revisada, sin cambios** — las 6 columnas (CEDI...
+  Gana) ya tenían celda en TODAS las filas de su tabla real (encabezado
+  fila 3 + datos); las filas 1-2 en blanco arriba son a propósito (así es
+  el archivo real, no forman parte de ninguna tabla) — si el usuario sigue
+  viendo algo sin pintar ahí después de este fix, confirmar con el Excel
+  real descargado antes de asumir que es el mismo bug.
+
+**CARTERA — formato de número, no de dólares (mismo mensaje del usuario)**:
+revisado a fondo — el código YA escribe esa columna sin ningún `numFmt`
+(`$wb->celda($s1, $fila, $colCartera, '')`, tanto en encabezado como en
+cada fila de datos, y ahora también en la fila TOTAL) — `numFmt=null` en
+`XlsxWriter::estiloId()` resuelve a `numFmtId=0` ("General" real de
+Excel), nunca a moneda (`numFmtId=44`, reservado solo para columnas que sí
+pasan `'money'` explícito, como VENTA/REBATE/etc.). **No hizo falta ningún
+cambio de código para esto** — ya cumplía lo pedido ("sin nada de
+formato"); si en el archivo real se sigue viendo con signo `$`, no es este
+código el que lo está poniendo (revisar si el archivo que se está mirando
+es una versión vieja, ya deployada antes de este fix).
+
+**Probado**: `php -l` limpio. El mecanismo de borde (`borderId="1"` fijo
+en `estiloId()`, ya usado y verificado por la corrección de 2026-08-20)
+se confirmó leyendo `includes/xlsx_writer.php` — cualquier celda que pase
+por `celda()`/`formula()` lo recibe automático, así que agregar estas
+celdas vacías es suficiente para pintar el borde, sin tocar el escritor.
+**No se pudo generar el `.xlsx` real ni regenerar la verificación visual
+en esta sesión** (mismo límite de siempre, falta `zip` en el PHP CLI
+local) — el fix se basó en auditar código columna por columna, no en ver
+el archivo. **Todavía sin probar en navegador real** — falta descargar el
+Excel real y confirmar que las 3 filas TOTAL quedan completamente
+pintadas y que CARTERA sigue sin signo de dólar.
+
+## Participación de Percha — conectada al repositorio con el Excel real (2026-08-30)
+
+JW confirmó y pasó el Excel real que van a subir para este repositorio
+(`datos/PARTICIPACION PERCHA.xlsx`, 11 filas — leído vía Excel COM,
+solo lectura) — **reemplaza por completo el diseño anterior** (solo Marca,
+nunca tuvo filas reales en producción, tabla ni siquiera existía todavía:
+confirmado con `SHOW TABLES`). Mismo patrón que le pasó a Rebate el
+2026-08-27: el primer diseño fue una suposición, el Excel real manda.
+
+**Columnas reales**: `CIUDAD | CATEGORIA | SUBCATEGORIA | MARCA | %`.
+
+**Hallazgo clave, confirmado con el usuario vía `AskUserQuestion` antes de
+tocar el esquema**: las líneas de Percha del Acta
+(`repositorio_acuerdo_lineas`, tipo `percha`) **solo guardan Marca** — a
+diferencia de Meta de Compras, nunca tuvieron cascada de Segmento/
+Categoría/Subcategoría. El Excel real define el % por Ciudad+Categoría+
+Subcategoría+Marca (4 dimensiones), pero solo hay 2 disponibles en una
+línea real del Acta (Ciudad se deriva del cliente, Marca se elige) — no
+hay con qué comparar Categoría/Subcategoría. **Decisión confirmada: la
+clave del repositorio es solo Ciudad+Marca**, ignorando Categoría/
+Subcategoría (se leen del Excel solo para detectar filas vacías, nunca se
+guardan). Con los datos reales de hoy esto no genera ambigüedad práctica
+(ver detalle abajo) — la alternativa (agregar esa cascada a la UI de
+Perchas) se descartó por ser un cambio de UI mucho más grande para un
+problema que hoy no existe de verdad.
+
+**Ciudad SÍ importa — mismo hallazgo que tuvo Rebate**: LAVA (Crema/
+Lavavajilla) tiene 50%/60%/55% según GUAYAQUIL/QUITO/**"RESTO CIUDADES"**
+(valor real y literal del Excel — catch-all para cualquier CEDI que no sea
+Guayaquil ni Quito; en la base real eso es CUENCA/MANABI/SANTO DOMINGO).
+El resto de marcas (GOL, EL MACHO, DON VITTORIO, ALACENA) usan CIUDAD
+**"TODAS"** — sin variación por ciudad. **Sin columna de Canal** (a
+diferencia de Rebate) — el Excel no la trae, se asume que aplica igual
+para Directo y Distribuidor.
+
+**Verificado con los datos reales del Excel, sin ambigüedad práctica hoy**:
+GOL aparece 2 veces (POLVO/DETERGENTE y LIQUIDO/SUAVIZANTE) pero con el
+MISMO % (30%) las 2 veces — Ciudad+Marca solo no pierde información acá.
+DON VITTORIO también se repite 2 veces con el mismo % (25%). **La única
+fila con conflicto real es ALACENA** (SALSAS CLASICA=25% vs SALSAS SALSA
+DE TOMATE=15%, mismo Ciudad=TODAS) — pero ALACENA (como DON VITTORIO) es
+una marca de PASTAS/SALSAS, sectores **ya excluidos del alcance de
+Acuerdos Comerciales** desde el 2026-08-27 (ver "Alcance real de Acuerdos
+Comerciales" más arriba) — no es seleccionable en el spinner de Marca de
+Perchas hoy, así que este conflicto no tiene forma de manifestarse en la
+práctica (el mecanismo de "aviso de duplicado dentro del mismo archivo",
+ya existente en `repositorio_guardar.php`, lo señalaría igual si algún día
+se sube un archivo así — gana el último valor, con aviso, no en silencio).
+
+**Schema — `datos/repositorios_schema.sql` reescrito (la tabla nunca
+existió en producción, así que es un `CREATE TABLE` directo, no un
+`ALTER`)**:
+```sql
+CREATE TABLE repositorio_participacion_percha (
+	id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	ciudad VARCHAR(200) NOT NULL,
+	marca VARCHAR(200) NOT NULL,
+	participacion_pct DECIMAL(5,2) NOT NULL,
+	actualizado_por INT UNSIGNED NULL,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	eliminado_en DATETIME NULL,
+	eliminado_por INT UNSIGNED NULL
+);
+CREATE INDEX idx_participacion_eliminado_en ON repositorio_participacion_percha (eliminado_en);
+CREATE UNIQUE INDEX uq_participacion_ciudad_marca ON repositorio_participacion_percha (ciudad, marca);
+```
+**✅ EJECUTADO por Claude 2026-08-30** — SQL mostrado al usuario, confirmación
+explícita recibida ("ejecutalo"), corrido bajo la excepción puntual de este
+proyecto (ver sección "⚠️ Excepción..." al inicio de este archivo).
+Verificado después con `DESCRIBE`/`SHOW INDEX` de solo lectura: las 9
+columnas exactas (incluidas `ciudad varchar(200) NOT NULL` y
+`marca varchar(200) NOT NULL`), índice único `uq_participacion_ciudad_marca`
+sobre `(ciudad, marca)`, índice `idx_participacion_eliminado_en`, 0 filas
+(tabla recién creada). El pipeline ya está activo en producción — falta
+subir el Excel real desde Repositorios para que tenga datos.
+
+**Código actualizado, todo verificado con `php -l`/`node --check`,
+mismo patrón exacto ya usado y probado para Rebate**:
+- `includes/repositorio_import.php` — `repositorio_parsear_participacion()`
+  reescrita: lee CIUDAD (opcional, con aviso si falta, mismo criterio que
+  Rebate) + la columna de % (acepta el nombre real `"%"` a secas, además de
+  los alias propios del proyecto). Categoría/Subcategoría se leen pero se
+  descartan a propósito. **Probado con los 11 datos reales** (simulados en
+  memoria, sin necesitar `ZipArchive` — sigue sin estar habilitado
+  localmente): las 10 filas de datos parsean con Ciudad/Marca/% correctos,
+  exacto contra lo leído del Excel real vía COM.
+- `buscarParticipacionPercha($mysqli, $ciudad, $marca)` (nueva,
+  `includes/functions.php`) — fallback en 3 pasos: Ciudad exacta → "TODAS"
+  → "RESTO CIUDADES", el primer match gana. `getters/acuerdo_buscar_participacion.php`
+  (nuevo, mismo patrón que `acuerdo_buscar_rebate.php`) la expone a
+  Registrar.
+- `assets/js/registrar.js` — `.v-participacion` (tabla de Perchas) dejó de
+  ser un campo fijo en "50%" siempre-readonly: ahora arranca en "0%"
+  readonly (mismo patrón que `.ac-rebate-input`), y `bindMarcaPerchaCombo()`
+  llama a `buscarYAplicarParticipacion(tr, marca)` al elegir Marca de
+  verdad — bloquea con el % real si hay match (Ciudad resuelta del CEDI del
+  cliente para Directo, o "TODAS" para Distribuidor, mismo criterio que
+  Rebate), o deja el campo editable si no hay match. `sugerir()` (usado por
+  Actas Precargadas/restaurar borrador) sigue silencioso — nunca dispara la
+  búsqueda, respeta el valor histórico ya guardado en la línea.
+- `getters/repositorio_guardar.php` — INSERT/UPSERT con `(ciudad, marca,
+  participacion_pct, actualizado_por)`; validación de campos faltantes
+  incluye Ciudad; clave de duplicado-en-archivo pasó de solo `marca` a
+  `ciudad|marca`.
+- `includes/functions.php` (`listar_repositorio_participacion()`),
+  `getters/repositorio_eliminados.php`, `getters/repositorio_exportar.php`
+  (CSV y `.xlsx`), `assets/js/repositorios.js` (`CONFIG.participacion.columnas`
+  y `columnasEliminados()`) — todos con la columna Ciudad agregada, mismo
+  patrón que ya tenía Rebate.
+- **Probado**: `php -l`/`node --check` limpios en los 8 archivos tocados +
+  1 nuevo. La lógica del parser se verificó con los 11 datos reales del
+  Excel simulados en memoria (sin depender de `ZipArchive`). La tabla ya
+  existe en producción (ver arriba, "EJECUTADO") pero sigue en 0 filas —
+  no se pudo probar `buscarParticipacionPercha()` contra datos reales
+  todavía porque insertar filas requiere subir el Excel real desde la UI
+  (Claude no puede correr `INSERT`, ni siquiera bajo la excepción de este
+  proyecto). **Todavía sin probar en navegador real** —
+  falta subir el Excel real desde Repositorios, y
+  confirmar en Registrar que Participación se autocompleta y bloquea para
+  Marcas reales (LAVA/GOL/EL MACHO, que sí son seleccionables hoy).
+
+### Bug real de la primera subida — faltaba Ciudad al guardar + toast de "guardado" engañoso (2026-08-30, mismo día)
+
+**Primer intento de subida real por el usuario** (`PARTICIPACION PERCHA.xlsx`,
+10 filas detectadas) — las 10 fallaron con "Falta Ciudad" al guardar,
+aunque el código de `CONFIG.participacion.columnas` (ver arriba) ya incluía
+Ciudad. **Causa real, no un bug de código**: el navegador tenía la pestaña
+de Repositorios cargada desde ANTES de que se terminara de editar
+`repositorios.js` en esta misma sesión — el servidor (PHP, se re-evalúa en
+cada request) ya corría el código nuevo (por eso "10 filas detectadas" con
+la columna "%" del Excel real funcionó), pero el navegador seguía con la
+versión vieja de la tabla de previsualización en memoria (sin el input de
+Ciudad), así que al leer los valores editados para guardar, la fila nunca
+mandaba ese campo. **Solución: recargar la página** (el cache-busting
+`?v=<?= filemtime(...) ?>` de `components/repositorios/repositorios.php`
+ya se encarga de traer el archivo nuevo apenas se recarga — no hizo falta
+tocar código para esto).
+
+**Bug real de código encontrado en el camino, sí corregido**: el usuario
+notó que salió la notificación de "guardado" (toast verde) *a pesar* de
+que las 10 filas habían fallado — antes de siquiera lograr guardar una
+sola. Causa: `getters/repositorio_guardar.php` (y el mismo patrón en
+`getters/cuotas_guardar.php`) siempre responde `responder(true, ...)` — el
+`true` refleja que la PETICIÓN se procesó sin errores fatales (nunca que
+algo se haya guardado de verdad), pero `assets/js/repositorios.js` usaba
+ese mismo `data.ok` directo para decidir el color del toast
+(`mostrarMensaje(data.message, data.ok)`) — con `data.guardadas = 0` y
+`data.ok = true`, el toast salía verde/"éxito" igual, aunque el propio
+texto del mensaje dijera "0 fila(s) guardadas... 10 NO se guardaron".
+
+**Corregido en `assets/js/repositorios.js`**, 2 lugares (`guardarFilas()`
+para Rebate/Participación, `guardarCuotas()` para Cuotas — mismo patrón
+en las 2 respuestas del servidor): el toast ahora usa
+`data.ok && data.guardadas > 0` en vez de `data.ok` a secas — `data.ok`
+se sigue usando SIN cambios para el resto del flujo (cerrar el modal,
+refrescar la lista de atrás, decidir si mostrar el detalle de errores/
+avisos) — el fix es puntual al color/mensaje del toast, no toca la lógica
+de qué hacer después de guardar. **No se tocó el backend** (`repositorio_guardar.php`/
+`cuotas_guardar.php` siguen respondiendo `ok:true` siempre que la petición
+se procese sin excepción) — el campo `guardadas` ya venía en la respuesta,
+no hizo falta agregar nada nuevo, solo usarlo del lado correcto.
+
+**Probado**: `node --check` limpio. **Todavía sin probar en navegador
+real** — falta que el usuario recargue la página, resuba el Excel real, y
+confirme que esta vez guarda las 10 filas y el toast refleja el resultado
+real (verde si guardó algo, rojo si no guardó nada).
+
+## Registrar: canal Distribuidor mide en Cajas, no en Dólares — pantalla interactiva nunca se ajustó (2026-08-30)
+
+El usuario mandó 2 capturas (tabla de Cabeceras y de Meta de Compras) que
+parecían mostrar signo "$" en un contexto de "Cajas" — investigado a fondo:
+**el PDF y el Excel export ya diferencian Directo ($) de Distribuidor
+(Cajas) desde el 2026-08-20/24** (`includes/acta_pdf.php`, `$fmt`/`$esDistribuidor`),
+pero **la pantalla interactiva de Registrar nunca se ajustó** — el título
+"1. Meta de Compras en Dólares" estaba fijo en HTML (nunca condicionado por
+canal), y el símbolo "$" de cada input (`.ac-money-field::before`) tampoco
+distinguía canal. Corregido igual, sea o no lo que motivó el reporte
+puntual (ver nota de abajo):
+
+- `components/registrar/registrar.php` — `$canalUsuario` (ya calculado,
+  `canalDeSupervisor()`) agrega la clase `ac-acuerdo-distribuidor` al
+  contenedor raíz cuando corresponde; el título de sección 1 ahora es
+  `Meta de Compras en <?= ... ? 'Cajas' : 'Dólares' ?>`.
+- `assets/css/style.css` — `.ac-acuerdo-distribuidor .ac-money-field::before { content: none; }`
+  (saca el "$") + padding-left normal (8px, igual que cualquier otro input).
+- `assets/js/registrar.js` — `formatCurr()` (usada para Total Período,
+  Valor Estimado a Ganar, Pago Total de Cabeceras/Rumas/Perchas) ahora
+  chequea `CANAL_USUARIO === 'distribuidor'` y formatea número plano en vez
+  de `Intl` moneda USD. Encabezados de mes de Meta de Compras ("ENE ($)") y
+  el título "Pago x Mes x Percha ($)" de Perchas pierden el "($)" para
+  Distribuidor.
+- **No se tocó** "Pago Total Cajas" (Cabeceras/Rumas/Perchas) — esa
+  etiqueta ya está fija para los 2 canales a propósito, decisión explícita
+  de otra sesión (ver "Ronda 7" en la sección de Registrar más arriba, "el
+  usuario pidió que aplique igual para Directo y Distribuidor") — no es el
+  mismo caso que el título/símbolo "$", que sí dependía del canal real.
+
+**Nota importante, investigado con el usuario en la misma conversación**:
+el cliente real de las 2 capturas (`ADAMARI MILLINGALLE`, pos_id
+`EPV15880`) resultó ser **canal COBERTURA (Directo)**, no Distribuidor —
+confirmado con `SELECT` de solo lectura contra
+`repositorio_locales_supervisores_cliente` (el campo se veía etiquetado
+"Distribuidor", no "Local" — la pista correcta era esa, no el símbolo "$").
+Para esa cuenta puntual, "$" y "Dólares" eran lo correcto — el fix de
+arriba no cambia nada en su pantalla (`CANAL_USUARIO` sigue sin ser
+`'distribuidor'`), pero corrige un bug real y latente para cualquier
+usuario que sí sea Distribuidor de verdad, nunca antes ajustado en la
+pantalla interactiva.
+
+**Probado**: `php -l`/`node --check` limpios en los 3 archivos. No se pudo
+probar visualmente con una cuenta real de canal Distribuidor en esta
+sesión. **Todavía sin probar en navegador real.**
+
+## Rebate en 0 en una fila real (Quito/Directa/Líquido/Jabón Tocador/Misty) — investigado, dato SÍ existe (2026-08-30)
+
+El usuario preguntó por qué el Rebate % salía en 0 para esa combinación
+puntual (misma Acta de las capturas de arriba, canal Directo confirmado).
+**Verificado de solo lectura, llamando `buscarRebateProducto()` directo**:
+el dato SÍ existe y matchea — `QUITO / DIRECTA / LIQUIDO / JABON TOCADOR /
+MISTY` → **1.50%** (fila real en `repositorio_rebate_producto`, id 55).
+No es un problema de datos faltantes ni de la tolerancia plural/singular
+(ya la usa: la fila real está guardada como `LIQUIDOS`, la búsqueda con
+`LIQUIDO` singular la encuentra igual).
+
+**No se pudo terminar de diagnosticar en esta sesión** — la causa más
+probable, a confirmar con el usuario, es que esa fila haya llegado al
+formulario vía `sugerir()` (restaurar un borrador guardado antes, o cargar
+una Acta Precargada) en vez de haberse completado recién tipeando en la
+cascada — `sugerir()` es **intencionalmente silencioso** (no llama a
+`buscarYAplicarRebate()`, ver el parámetro `silencioso` documentado en
+`bindCascadaComboConSector()`) para no pisar un `rebate_pct` histórico ya
+guardado en esa línea — si la línea se guardó en algún momento anterior a
+que Rebate quedara conectado (2026-08-27) o antes del fix de Actas
+Precargadas (2026-08-28), se restaura con el 0 que tenía guardado,
+correctamente, sin volver a buscar.
+
+**Pendiente, próxima sesión o con el usuario en vivo**: confirmar si esa
+fila se completó tipeando en la cascada en ese momento (bug real si es
+así, dado que el match sí existe) o si vino de un borrador/precarga vieja
+(comportamiento esperado — se resolvería solo si el usuario borra la fila
+y la vuelve a completar a mano, o corrigiendo el % manualmente ya que el
+campo queda editable en ese caso).
+
+**Confirmado por el usuario: la eligió en vivo, tipeando la cascada recién
+en ese momento** — no vino de un borrador/precarga. Se reprodujo el
+flujo EXACTO (servidor local `php -S`, sesión real de JAVIER MALDONADO —
+dueño real de este cliente, confirmado con `SELECT` — vía un script
+temporal de login que se creó y se borró en la misma verificación, sin
+tocar la base para nada más que leer, mismo patrón ya usado varias veces
+en este proyecto) con Playwright: mismo cliente (`ADAMARI MILLINGALLE`),
+misma cascada Segmento=CUIDADO PERSONAL → Sector=LIQUIDO →
+Categoría=JABON TOCADOR → Marca=MISTY.
+
+**Resultado: NO se reprodujo el bug — el código actual funciona
+correctamente.** La request real capturada:
+`GET acuerdo_buscar_rebate.php?ciudad=QUITO&canal=DIRECTA&sector=LIQUIDO&categoria=JABON+TOCADOR&marca=MISTY`
+→ `{"ok":true,"encontrado":true,"rebate_pct":0.015}` → el campo quedó en
+**1.50, readonly, con el título "Bloqueado — viene del repositorio de
+Rebate."** — exactamente lo esperado.
+
+**Conclusión**: el código en este repositorio (el mismo que corre esta
+sesión) está bien — el bug que el usuario vio en su navegador tiene que
+haber sido por estar corriendo una versión más vieja en ese momento (el
+mismo síntoma de "página no recargada desde el último cambio" que ya pasó
+2 veces antes en esta sesión — ver "Bug real de la primera subida" más
+arriba) o por probar contra el entorno de desarrollo de Azure con un
+posible desfase de sincronización de ese `.php` puntual (ver nota de
+infraestructura, "CSS refleja casi al instante, PHP tarda más", en la
+sección de Responsive/mobile). **No se tocó ningún código** — no había
+nada que corregir, el mecanismo ya funciona. Si vuelve a pasar después de
+recargar la página / confirmar que está en el entorno correcto, ahí sí
+amerita otra vuelta de investigación.
+
+## Auditoría completa de Rebate — las 14 combinaciones reales del spinner x 5 ciudades (2026-08-30, mismo día)
+
+El usuario pidió no seguir probando caso por caso a mano — "hay unos que sí
+sale, otros que no, revisalo vos que respondan y llenen correctamente el
+Rebate". Se armó un script de solo lectura que prueba **`buscarRebateProducto()`
+directo (la misma función que usa la búsqueda en vivo) para las 14
+combinaciones reales que el catálogo ofrece hoy en el spinner de Meta de
+Compras** (los 9 combos Sector+Categoría válidos, ver "Alcance real de
+Acuerdos Comerciales") **x las 5 ciudades reales de canal Directo
+(GUAYAQUIL/QUITO/MANABI/SANTO DOMINGO/CUENCA) + canal Distribuidor
+(ciudad "TODAS")** — 84 casos reales en total, sin inventar ningún dato.
+
+**Resultado: 55 de 84 casos con match correcto, 29 sin match — pero
+prácticamente todos los "sin match" son GENUINAMENTE datos que faltan en
+el repositorio, no un bug de código:**
+
+1. **3 de los 14 productos no tienen NINGÚN Rebate cargado, en ninguna
+   ciudad ni canal** (0 de 6 casos cada uno):
+   - `BARRA / LAVAVAJILLAS / EL ARRANCAGRASA`
+   - `BARRA / LAVAVAJILLAS / LAVA`
+   - `POLVO / DETERGENTE / SAPOLIO`
+   Estos 3 SON seleccionables hoy en el spinner (existen en
+   `repositorio_productos`, dentro de los 9 combos válidos), pero
+   `datos/RABATE.xlsx` nunca trajo una fila para ellos — no es que la
+   búsqueda falle, es que el dato no existe. **Pendiente: pedirle a JW el
+   % de Rebate de estos 3 productos.**
+2. **CUENCA no tiene NINGUNA fila cargada para ningún producto** — el
+   archivo real de Rebate (55 filas, confirmado en su momento) solo trae
+   GUAYAQUIL/QUITO/MANABI/SANTO DOMINGO para canal Directa, nunca Cuenca.
+   Es un vacío real y esperado del archivo fuente, no un bug — si hay
+   clientes reales con CEDI=Cuenca (existe como valor real en el maestro,
+   confirmado antes), su Rebate va a quedar siempre editable hasta que se
+   agregue esa ciudad al repositorio.
+3. **Los otros 11 de 14 productos matchean perfecto en las 4 ciudades
+   reales restantes (Guayaquil/Quito/Manabí/Santo Domingo) y en
+   Distribuidor** — 0 fallas fuera de los 2 casos de arriba. El mecanismo
+   de búsqueda (match exacto → variantes plural/singular → Ciudad+Canal+
+   Sector+Marca sin Categoría) funciona correctamente en el 100% de los
+   casos donde el dato sí está cargado.
+
+**Conclusión para el usuario**: el código de matching de Rebate está bien
+— no hace falta ningún fix. Lo que hace falta es completar el
+repositorio: el % de los 3 productos sin ningún dato, y opcionalmente
+Cuenca como ciudad si hay clientes reales ahí. Ninguna de las 2 cosas se
+puede resolver desde código — son datos que solo JW puede dar.
+
+**Probado**: script de solo lectura, sin tocar la base, corrido contra
+producción real — 84/84 casos ejecutados sin error.
+
+## Bug real: búsqueda de Cuotas no cubría CEDI/Plan/Subcategoría/Marca (2026-08-30, mismo día)
+
+El usuario reportó "no sé si me anda buscando por columna o cómo mismo me
+está buscando" en el módulo Repositorios. Investigado comparando, para
+cada pestaña, qué columnas dice buscar el placeholder contra qué columnas
+de verdad entran en el `WHERE ... LIKE` de `includes/functions.php`:
+
+- **Rebate y Participación ya estaban bien** — probado con 5 términos
+  reales de Rebate (ciudad/canal/sector/categoría/marca) y confirmado que
+  las 5 columnas filtran de verdad, coincide exacto con el placeholder.
+- **Cuotas tenía el bug real**: `listar_repositorio_cuotas()` solo buscaba
+  por `cliente_excel`, `pos_id` y `sector` — pero la tabla visible tiene
+  además CEDI, Plan, Subcategoría y Marca, ninguna de esas 4 entraba en la
+  búsqueda. Confirmado con datos reales: buscar por un CEDI real
+  ("CARLOS PROAÑO") o una Marca real ("EL ARRANCAGRASA") daba **0
+  resultados antes del fix**, aunque existieran filas reales con esos
+  valores — de ahí la sensación de "a veces busca, a veces no".
+
+**Corregido**: `includes/functions.php` — el `WHERE` de Cuotas ahora cubre
+`cedi_excel, cliente_excel, pos_id, plan, sector, subcategoria, marca` (7
+columnas, todas las visibles en la tabla + pos_id aunque no se muestre).
+2 niveles de `prepare()` (con/sin Subcategoría+Marca) por si el `ALTER` de
+esas 2 columnas no se corrió en algún entorno — mismo criterio defensivo
+que ya usaba el `SELECT` de esta misma función (ahora sincronizados: antes
+el `SELECT` tenía 3 niveles de fallback pero el `WHERE` de búsqueda
+siempre usaba las mismas 3 columnas fijas sin importar cuál fallback se
+haya activado). `assets/js/repositorios.js` — placeholder actualizado a
+"Buscar por CEDI, cliente, plan, categoría, subcategoría o marca...".
+
+**Probado con datos reales de solo lectura**: buscar "CARLOS PROAÑO"
+(CEDI real) da 40 resultados (antes 0); buscar "EL ARRANCAGRASA" (Marca
+real) da 4 (antes 0). `php -l`/`node --check` limpios.
+
+## Participación de Percha: qué marcas van a autocompletar una vez subido el Excel (2026-08-30, mismo día)
+
+El usuario pidió el mismo tipo de auditoría que se hizo para Rebate, pero
+para Participación de Percha. **La tabla sigue en 0 filas** (el usuario
+todavía no volvió a subir el Excel después del fix de "Falta Ciudad" — ver
+sección de arriba), así que no se pudo probar el match en vivo contra
+datos reales todavía. En su lugar, se cruzaron las 7 marcas reales del
+spinner de Perchas (`marcas_percha`, ya filtrado a los 9 combos válidos)
+contra las 10 filas reales de `datos/PARTICIPACION PERCHA.xlsx` para
+adelantar exactamente qué va a pasar apenas se suba:
+
+- **3 de 7 marcas SÍ van a autocompletar solas**: `LAVA` (varía por
+  ciudad: 50% Guayaquil/60% Quito/55% resto), `GOL` (30% en cualquier
+  ciudad), `EL MACHO` (30% en cualquier ciudad).
+- **4 de 7 marcas NO tienen ningún dato en este Excel — van a quedar
+  siempre editables**: `CIERTO`, `EL ARRANCAGRASA`, `MISTY`, `SAPOLIO`.
+  Mismo patrón que los 3 productos de Rebate sin dato — no es un bug,
+  simplemente JW no incluyó esas marcas en el archivo. **Pendiente:
+  pedirle a JW el % de estas 4 si corresponde.**
+- **Nota técnica menor, no bloqueante**: para canal Distribuidor + Marca
+  `LAVA` específicamente, `buscarParticipacionPercha()` termina resolviendo
+  por el fallback "RESTO CIUDADES" (55%) en vez de quedar sin match — el
+  Excel no tiene una fila `TODAS/LAVA`, así que el 3er paso del fallback
+  (`RESTO CIUDADES`) es el que responde. Funciona (da un valor usable), pero
+  vale la pena que el usuario sepa que ese 55% viene del "resto de
+  ciudades" de Directo, no de un dato pensado específicamente para
+  Distribuidor — si JW confirma que Distribuidor debería tener su propio
+  valor para LAVA, avisar para agregarlo aparte.
+
+**Pendiente**: en cuanto el usuario suba el Excel real (con el fix de
+Ciudad ya aplicado), spot-check en Registrar con LAVA/GOL/EL MACHO para
+confirmar el comportamiento en vivo — mismo criterio que ya se hizo con
+Rebate.
+
+**Actualización, mismo día — ya subido, confirmado con datos reales**: el
+usuario re-subió el Excel exitosamente. `repositorio_participacion_percha`
+tiene 7 filas activas (TODAS/ALACENA 15%, TODAS/DON VITTORIO 25%,
+TODAS/EL MACHO 30%, TODAS/GOL 30%, GUAYAQUIL/LAVA 50%, QUITO/LAVA 60%,
+RESTO CIUDADES/LAVA 55% — coincide con "gana el último valor" para los 2
+duplicados del archivo, GOL y DON VITTORIO, ambos con el mismo % en sus 2
+filas originales así que no hay pérdida real de información). Probado
+`buscarParticipacionPercha()` de solo lectura contra estos datos reales —
+los 5 casos predichos arriba dieron EXACTO lo esperado: LAVA/Quito=60,
+LAVA/TODAS(Distribuidor, vía fallback RESTO CIUDADES)=55, GOL/Quito=30,
+EL MACHO/Quito=30, MISTY/Quito=null (sin dato, como se predijo). El
+pipeline completo (Excel real subido → repositorio → matching) queda
+confirmado funcionando de punta a punta.
+
+## Modal de subida: alerta roja incluso cuando solo hay avisos (no errores) — corregido (2026-08-30, mismo día)
+
+El usuario reportó, tras la subida real de Participación de arriba
+(que generó un aviso de "duplicado en el mismo archivo" para GOL y DON
+VITTORIO — ambos SÍ se guardaron bien, el aviso es solo informativo): la
+caja de resultado post-guardado (`#repo-preview-errores`,
+`mostrarErroresPreview()` en `assets/js/repositorios.js`) salía **roja
+siempre**, sin importar si eran errores reales (no se guardó nada) o solo
+avisos (sí se guardó, conviene revisar) — "da a entender que hubo error"
+aunque todo se hubiera guardado bien. También reportó que quedaba **mal
+ubicada** — si el usuario ya había scrolleado la tabla, la caja podía
+aparecer fuera de la vista sin que se notara que algo cambió.
+
+**Corregido**:
+- Nueva clase `.ac-alert-warning` (`assets/css/style.css`) — mismo ámbar
+  ya usado para "revisar" en el resto de la app (`.ac-badge-revisar`,
+  `#fff2cc`/`#7a5b00`), no una paleta nueva.
+- `mostrarErroresPreview()` ahora decide el color según el contenido real:
+  **rojo (`.ac-alert-error`) solo si `errores.length > 0`** (algo de
+  verdad no se guardó); **ámbar (`.ac-alert-warning`) si son solo
+  avisos** (todo se guardó, pero conviene revisar). `components/repositorios/repositorios.php`
+  ya no tiene la clase `ac-alert-error` fija en el HTML inicial — el color
+  lo decide JS en cada guardado.
+- `previewErrores.scrollIntoView({ behavior: 'smooth', block: 'nearest' })`
+  al mostrarse — para que la caja de resultado quede visible sin importar
+  qué tan scrolleada estuviera la tabla antes de guardar.
+
+**Probado**: `node --check`/`php -l` limpios en los 3 archivos tocados,
+llaves de `style.css` balanceadas (716/716). **Todavía sin probar en
+navegador real** — falta confirmar que la próxima subida con avisos (sin
+errores reales) sale en ámbar, no en rojo, y que la caja queda visible al
+aparecer.
+
+## Modal de subida seguía sin cerrarse con solo avisos — "parece que no guardó" (2026-08-30, mismo día, ronda 2)
+
+El fix de arriba (rojo→ámbar) no alcanzaba — el usuario probó de nuevo y
+reportó el problema de fondo: con solo avisos (sin errores reales), el
+modal se quedaba abierto mostrando la MISMA tabla de antes, dando la
+impresión de que no había guardado nada, aunque el toast ya dijera que sí
+(mismo síntoma en Rebate, Participación y Cuotas — "los tres repos").
+Causa real: `subirGuardarBtn`'s `onDone` (`assets/js/repositorios.js`)
+trataba errores Y avisos igual — cualquiera de los dos dejaba el modal
+abierto — pero solo los ERRORES reales ameritan quedarse (para corregir
+sin perder el archivo); un aviso solo es informativo, ya se guardó todo.
+
+**Corregido**: el modal ahora se queda abierto SOLO si `data.errores.length`
+> 0. Si son solo avisos, se cierra igual que el caso "nada que revisar" —
+y el detalle de los avisos se muestra en un modal SweetAlert2 aparte
+(`Swal.fire({icon:'info', ...})`, mismo componente que ya usa el resto de
+la app), para no perderlo sin dejar la sensación de que quedó a medias.
+Aplica igual a los 3 tipos de repositorio (Rebate/Participación/Cuotas),
+ya que comparten el mismo botón/handler.
+
+**No se tocó** el aviso que sale ANTES de guardar (al leer el Excel,
+`mostrarErroresPreview([], data.avisos)` justo después de subir el
+archivo) — ese sigue en la caja ámbar de siempre, tiene sentido que se
+quede ahí porque el usuario todavía está editando la previsualización, no
+terminó de guardar nada.
+
+**Probado**: `node --check` limpio. Confirmado que SweetAlert2 está
+cargado globalmente en `index.php` (usado ya en todo el resto de la app).
+**Todavía sin probar en navegador real** — falta confirmar que una subida
+con avisos (sin errores) cierra el modal y muestra el SweetAlert2 con el
+detalle correcto.
+
+## "Duplicado en el mismo archivo": no debería avisar de nuevo si el archivo no cambió (2026-08-30, mismo día, ronda 3)
+
+El usuario probó el SweetAlert2 de arriba (funcionó bien visualmente) pero
+notó algo más de fondo: **re-subió el mismo archivo exacto de Participación
+sin cambiar nada, y le volvió a salir "hay algo para revisar" con GOL/DON
+VITTORIO/ALACENA** — "no debería haber novedad porque no hubo cambios".
+Confirmó que pasa igual en los 3 repositorios.
+
+**Causa real, no era un bug — era una clasificación incorrecta del
+aviso**: el aviso "esta ciudad/marca [o producto, o cliente/categoría] se
+repite más abajo en el mismo archivo" **es una propiedad fija del
+ARCHIVO en sí** (2 filas del Excel apuntan al mismo producto/cliente, ej.
+GOL aparece en POLVO/DETERGENTE Y en LIQUIDO/SUAVIZANTE, pero nuestra
+clave real es solo Ciudad+Marca así que colisionan) — va a salir SIEMPRE
+que se suba ESE archivo, sin importar si algo cambió de verdad en la base.
+No es como los otros avisos (sector que no matchea el catálogo, cuota ya
+usada, cliente sin resolver), que sí son información real que vale la pena
+repetir cada vez. Tratarlo igual que esos —mostrándolo en un modal "algo
+para revisar" cada vez que se guarda— era el error de diseño real.
+
+**Corregido**: los 3 avisos de "se repite más abajo en el mismo archivo"
+(`getters/repositorio_guardar.php` ×2 — Rebate y Participación,
+`getters/cuotas_guardar.php` ×1) ahora llevan `'tipo' => 'duplicado_archivo'`.
+`assets/js/repositorios.js` filtra ese tipo específico ANTES de decidir si
+mostrar el SweetAlert2 — si los ÚNICOS avisos de esa subida son
+`duplicado_archivo`, el modal se cierra en silencio (no hay nada que el
+usuario deba revisar); si hay algún otro aviso genuino (de cualquiera de
+los 3 repos), ese sí sigue mostrando el SweetAlert2 normal. El dato crudo
+de `duplicado_archivo` se sigue devolviendo en la respuesta (no se pierde
+información, solo se deja de usar como disparador de un modal).
+
+**Probado**: `php -l`/`node --check` limpios en los 3 archivos. **Todavía
+sin probar en navegador real** — falta confirmar que re-subir el mismo
+Excel de Participación (con GOL/DON VITTORIO/ALACENA repetidos) ya NO
+dispara el SweetAlert2, y que un aviso genuino (ej. Sector sin match en
+Cuotas) sigue mostrándose.
+
+## Repositorios: mensajes de error/aviso simplificados en los 3 tipos (2026-08-30, mismo día, ronda 4)
+
+El usuario pidió, de nuevo (mismo criterio que la auditoría de tono del
+2026-08-28, ver esa sección más arriba): "no siento nada profesional y
+entendible ese mensaje... mensajes simples, sencillos de entender" —
+explicando el mecanismo interno (upsert, cómo se interpretó un texto, por
+qué se descartó algo) en vez de solo decir qué pasó. Aclaró explícitamente
+que la confirmación de que SÍ se guardó tiene que seguir estando (no se
+tocó esa parte — el mensaje principal "Se guardaron N fila(s)." sigue
+igual en los 2 archivos).
+
+**Simplificados, `getters/repositorio_guardar.php` (Rebate y
+Participación) y `getters/cuotas_guardar.php`**:
+- "Rebate inválido (X) — debe estar entre 0% y 100%" → "El Rebate debe ser
+  un número entre 0% y 100%".
+- "Participación inválida (X) — debe estar entre 0% y 100%" → "La
+  Participación debe ser un número entre 0% y 100%".
+- "Este producto/Esta ciudad-marca/Este cliente-categoría se repite más
+  abajo en el mismo archivo — se guardó el último valor" → "Producto/
+  Marca/Cliente repetido en el archivo — se usó el último valor" (los 3,
+  uno por tipo de repositorio).
+- **"Error al guardar: " + `$stmt->error`** (exponía el mensaje crudo de
+  MySQL) → "No se pudo guardar esta fila" (los 3 lugares, Rebate/
+  Participación/Cuotas) — revierte una decisión anterior de esta misma
+  sesión (2026-08-28, "no es la misma clase de problema que explicarle al
+  cliente cómo está armado el Excel") tras el pedido explícito y repetido
+  del usuario de simplificar TODO mensaje técnico, sin excepción.
+- "La categoría 'X' no coincide con ningún Sector real del catálogo (ni
+  sola ni como Sector+Subcategoría pegados) — se guardó tal cual, revisar
+  con JW" → "No se pudo identificar la categoría 'X' en el catálogo —
+  revisar con JW".
+- "Esta categoría ya generó una Acta real — no se modificó (un archivo
+  nuevo no puede 'revivir' una cuota ya usada)" → "Esta categoría ya se
+  usó en una Acta — no se modificó".
+- "No se encontró un cliente único con ese nombre/CEDI — queda en
+  'Pendientes de Asignar' para resolver a mano" → "No se pudo identificar
+  el cliente — queda en Pendientes de Asignar".
+- "Los 3 montos mensuales deben ser números iguales o mayores a 0" → "Los
+  3 montos mensuales deben ser 0 o más".
+
+**No se tocaron** los avisos de la etapa de PREVISUALIZACIÓN (antes de
+guardar, ej. "Este archivo no trae columna de Ciudad y/o Canal...") — ya
+estaban en un tono claro/instructivo sin exponer mecanismo interno, no
+tenían el mismo problema.
+
+**Probado**: `php -l` limpio en los 2 archivos. **Todavía sin probar en
+navegador real.**
+
+## Repositorios: guion largo "—" fuera de todo mensaje al usuario (2026-08-30, mismo día, ronda 5)
+
+El usuario, mirando el resultado de la ronda anterior, marcó algo más de
+fondo: el guion largo ("—") usado como separador dentro de una misma
+oración ("Texto principal — nota aclaratoria") sigue leyéndose como un
+comentario pegado al final de la frase, no como una oración normal —
+"no lo veo nada profesional... creo que en varios lugares has puesto
+comentarios etc etc en la página viva". Mismo espíritu que la auditoría
+de tono del 2026-08-28 (sacar razonamiento interno), pero ahora apuntado
+a la PUNTUACIÓN en sí, no solo al contenido.
+
+**Barrido completo del módulo Repositorios** (`getters/repositorio_*.php`,
+`getters/cuotas_*.php`, `includes/repositorio_import.php`,
+`assets/js/repositorios.js`, `components/repositorios/repositorios.php`) —
+grep de `—` dentro de comillas (strings reales, no comentarios de código) en
+los 8 archivos. Reemplazado en cada caso por punto y aparte (dos oraciones
+cortas) o, cuando el texto es muy corto para 2 oraciones (badges, tooltips,
+títulos de modal), por coma o dos puntos según lo que se leyera más natural.
+Ejemplos:
+- "Producto repetido en el archivo — se usó el último valor" → "Producto
+  repetido en el archivo. Se usó el valor más reciente." (mismo criterio
+  para las variantes de Participación y Cuotas).
+- "Subir Archivo — Rebate" (título del modal) → "Subir Archivo: Rebate".
+- "10 fila(s) detectada(s) — Q1" → "10 fila(s) detectada(s) (Q1)".
+- "Ya usada — no se puede modificar" (badge) → "Ya usada, no se puede
+  modificar".
+- "El archivo se subió incompleto — probá de nuevo..." → "El archivo se
+  subió incompleto. Probá de nuevo..." (mismo patrón en los 5 mensajes de
+  error de subida, duplicados en `repositorio_previsualizar_excel.php` y
+  `cuotas_previsualizar_excel.php`).
+- Título "Resumen — Cuotas Trimestrales" → "Resumen de Cuotas
+  Trimestrales"; caption "A quién le corresponden — usuarios con cuenta..."
+  → "Usuarios con cuenta y supervisores sin cuenta todavía" (se sacó el
+  lead-in redundante, no solo el guion).
+- Tooltip nativo de la barra del gráfico de Resumen ("Juan — 3 Acta(s)
+  pendiente(s)") → dos puntos ("Juan: 3 Acta(s) pendiente(s)").
+
+**No se tocaron** los guiones largos dentro de comentarios de código (ahí
+son parte de la convención de documentación de este proyecto, no
+user-facing) — solo strings que terminan renderizadas en pantalla.
+
+**Probado**: `php -l`/`node --check` limpios en los 8 archivos. **Todavía
+sin probar en navegador real.**
+
+## "duplicado_archivo" seguía inflando el toast, no solo el SweetAlert2 (2026-08-30, mismo día, ronda 6)
+
+La ronda anterior de "duplicado_archivo" (más arriba, ronda 3) solo sacó
+ese tipo de aviso del SweetAlert2 post-guardado — pero el usuario probó
+subiendo prácticamente el mismo archivo de nuevo y el TOAST seguía
+diciendo "Se guardaron 10 fila(s). 3 fila(s) se guardaron con un aviso.
+Revisá el detalle." — el conteo de avisos que arma el mensaje
+(`$partesMensaje` en `getters/repositorio_guardar.php`/`cuotas_guardar.php`)
+todavía contaba TODOS los avisos, incluidos los `duplicado_archivo`, así
+que la sensación de "algo cambió, hay que revisar" seguía aunque nada
+fuera nuevo. Pedido explícito: "no debería ni salir una alerta, solo
+cuando se modificaría, sea lo obvio".
+
+**Corregido**: en los 2 archivos, `$avisosRelevantes = array_filter($avisos,
+...)` excluye los de tipo `duplicado_archivo` ANTES de decidir si el
+mensaje menciona "con un aviso" — mismo criterio que ya se aplicaba en el
+frontend para el SweetAlert2, ahora también en el texto del toast mismo.
+El array completo de `avisos` (con `duplicado_archivo` incluido) se sigue
+devolviendo en la respuesta, solo se dejó de usar para el CONTEO del
+mensaje.
+
+**Probado**: `php -l` limpio en los 2 archivos. Simulación aislada (sin
+tocar la base) con 2 avisos, ambos `duplicado_archivo`: el mensaje da
+"Se guardaron 10 fila(s)." limpio, sin mencionar avisos — confirma el
+comportamiento esperado. **Todavía sin probar en navegador real.**
+
+## Repositorio de Cuotas: badge "Actualiza" confuso + "guardando eterno" al resubir (2026-08-30, mismo día, ronda 7)
+
+Dos pedidos del usuario sobre este submódulo puntual (pestaña Cuotas del
+módulo Repositorios):
+
+**1. Badge "Actualiza" se leía como una orden, no como una descripción**:
+en la columna "Al guardar" de la previsualización, la fila que ya existe y
+va a actualizarse mostraba el badge "Actualiza" a secas — sin sujeto, en
+español eso lee como imperativo ("[vos] actualizá esto"), no como "esto
+se va a actualizar". Corregido en `assets/js/repositorios.js`
+(`badgeEstadoPreview()`): "Actualiza" → **"Se actualiza"**.
+
+**2. "Guardando…" eterno al resubir prácticamente el mismo Excel** — causa
+real encontrada, no era un cuelgue/bug de JS (revisado el flujo completo
+de `guardarCuotas()`/`ponerGuardarCargando()`, el spinner sí se apaga en
+cualquier resultado, éxito o error): era un problema de RENDIMIENTO real
+en el backend. `resolverPosIdCliente()` y `resolverSectorReal()`
+(`includes/functions.php`) hacen consultas contra
+`repositorio_locales_supervisores_cliente` (~41.000 filas, **sin ningún
+índice útil para esa búsqueda** — decisión ya documentada de no tocar el
+esquema de esa tabla externa, ver "Módulo Liquidación" más arriba) — y
+`getters/cuotas_guardar.php` las llamaba **una vez POR FILA**, sin cache,
+aunque un Excel real de Cuotas trae muchas filas del MISMO cliente (una
+por categoría) y texto de Sector repetido — cada fila volvía a hacer el
+escaneo completo de la tabla entera, aunque ya se hubiera resuelto ese
+mismo cliente/sector antes en la misma subida. Con un archivo de varias
+decenas de filas, esto se traduce en minutos reales de espera, no un
+cuelgue infinito de verdad — pero se siente igual de "eterno" sin ninguna
+barra de progreso que lo explique.
+
+**Corregido con cache dentro de la misma request** (`getters/cuotas_guardar.php`
+y `getters/cuotas_verificar_estado.php`, el chequeo que corre ANTES de
+guardar cada vez que se cambia el Año) — un array `$cacheSector`/
+`$cachePosId` guarda el resultado la primera vez que aparece un
+Sector/Cliente+CEDI puntual, y las filas siguientes con el mismo texto
+reusan el resultado en vez de volver a consultar la base. Es una
+optimización 100% segura (el mismo texto de entrada da siempre el mismo
+resultado dentro de una sola subida, no es una aproximación) — no cambia
+ningún resultado, solo evita repetir consultas idénticas. De paso, en
+`cuotas_verificar_estado.php` el `$stmt` del chequeo "¿ya existe/está
+usada?" pasó de prepararse de nuevo en cada vuelta del loop a prepararse
+una sola vez afuera.
+
+**No se tocó** el esquema de `repositorio_locales_supervisores_cliente`
+(agregar un índice ahí sería la solución "de raíz", pero el usuario ya
+rechazó explícitamente tocar esa tabla externa en otra sesión) — este fix
+reduce cuántas veces se pega contra esa tabla sin índice, no arregla que
+la tabla en sí sea lenta de buscar.
+
+**Probado**: `php -l` limpio en los 2 archivos, `node --check` limpio en
+`repositorios.js`. **Todavía sin probar con un archivo real grande en
+navegador** — falta confirmar que la mejora de tiempo es perceptible con
+el mismo Excel que causó el "guardando eterno".
+
+## Rebate sacado por completo del Repositorio de Cuotas — nunca se pidió (2026-08-30, mismo día, ronda 8)
+
+El usuario aclaró, molesto y explícito: **nunca pidió que Cuotas Trimestrales
+tomara una columna Rebate del Excel** — esto se agregó el 2026-08-28 por
+una mala interpretación de un pedido que en realidad era sobre los Excel
+que se descargan en Historial (Rebate), no sobre el Excel que se sube en
+Repositorios > Cuotas (ver la aclaración del propio usuario documentada en
+ese momento: "nooooo ahí nooooooo era... me decía a los Excel que se
+descargan en Historial"). En su momento se decidió no revertirlo porque no
+parecía dañino — el usuario ahora pidió sacarlo de raíz.
+
+**Sacado por completo**:
+- `includes/repositorio_import.php` — `repositorio_parsear_cuotas()` ya no
+  busca ni lee ninguna columna REBATE/REBATE %/REBATE PCT del Excel de
+  Cuotas (sí se sigue usando esa misma búsqueda para
+  `repositorio_parsear_rebate()`, el Repositorio de Rebate — es una
+  función distinta, no se tocó).
+- `getters/cuotas_guardar.php` — el INSERT/UPSERT volvió a 2 niveles de
+  fallback (con/sin Subcategoría+Marca, igual que antes del 2026-08-28) en
+  vez de 3 (ya no existe el nivel "con Rebate"); se sacó la variable
+  `$rebatePct` y el branch `$conRebate` del `bind_param()`.
+- `includes/functions.php` — `obtener_precarga_detalle()`: la 1ra
+  prioridad "usar el rebate_pct que trajo el Excel" se sacó por completo
+  — ahora el Rebate % de una Acta Precargada sale SIEMPRE de
+  `buscarRebateProducto()` (búsqueda contra el repositorio real, mismo
+  criterio que la búsqueda en vivo de Registrar), sin ninguna excepción.
+  `listar_repositorio_cuotas()` (tabla principal ya guardada) también dejó
+  de seleccionar `rebate_pct`, volvió a 2 niveles de fallback.
+- `assets/js/repositorios.js` — se sacó la columna "Rebate %" de
+  `CONFIG.cuotas.columnasPreview` (previsualización antes de guardar) y de
+  `CONFIG.cuotas.columnas` (tabla principal ya guardada).
+- **No se tocó** la columna `rebate_pct` de la tabla
+  `repositorio_cuota_cliente` en sí (dropear una columna está prohibido
+  para Claude incluso bajo la excepción de este proyecto — solo
+  `CREATE`/`ALTER` con confirmación, nunca `DROP COLUMN`) — sigue
+  existiendo en la base, simplemente el código ya no la lee ni la escribe.
+  Si el usuario quiere limpiarla del todo, puede pedir el `ALTER TABLE ...
+  DROP COLUMN rebate_pct` para correrlo él mismo o confirmarlo puntual.
+- **Tampoco se tocó** el Repositorio de Rebate en sí (pestaña separada,
+  `repositorio_rebate_producto`) ni su conexión con Registrar (Meta de
+  Compras) — eso es una función totalmente distinta que el usuario nunca
+  cuestionó, solo se sacó la mezcla indebida hacia Cuotas.
+
+**Probado con datos reales de solo lectura** (sin escribir nada):
+`obtener_precarga_detalle()` corrida contra 3 clientes reales con Cuotas
+`pendiente_uso` — sin errores, el Rebate % de cada línea sale de la
+búsqueda real (ej. `BARRA/LAVAVAJILLAS/EL ARRANCAGRASA` da 0 porque
+genuinamente no hay dato cargado para ese producto — mismo hallazgo ya
+confirmado en la auditoría completa de Rebate más arriba — el resto de
+combinaciones con dato real sí resuelven bien). `php -l`/`node --check`
+limpios en los 4 archivos. **Todavía sin probar en navegador real.**
+
+## Repositorio de Cuotas: agrupado visual por color pastel + columna "Estado" sacada de la tabla (2026-08-30, mismo día)
+
+El usuario reportó que la alternancia par/impar existente (tinte azul muy
+sutil, 2026-08-25) no alcanzaba para distinguir dónde termina un cliente y
+empieza el siguiente en la tabla principal de Cuotas Trimestrales. Se
+exploró la idea con `design` (Claude Design canvas, 3 conceptos: color
+pastel por grupo, fila de encabezado por cliente, y una combinación de
+ambos) — el usuario eligió el primero ("Main"/Opción A: color pastel por
+cliente, sin fila de encabezado extra).
+
+**Implementado en `assets/js/repositorios.js` (`renderFilas()`) y
+`assets/css/style.css`**: la alternancia par/impar (`.ac-repo-fila-grupo-par`,
+un solo tinte azul parejo) se reemplazó por 3 tonos pastel que rotan por
+GRUPO (nunca por fila) — `.ac-repo-fila-grupo-a/-b/-c`, cada uno con su
+propio fondo + un borde de color de 3px a la izquierda. Colores elegidos
+deliberadamente FUERA de la familia verde/ámbar que ya usan los badges de
+estado (`.ac-badge-ok`/`.ac-badge-revisar`) en el resto de la app, para que
+el color de "a qué cliente pertenece esta fila" nunca se confunda con el
+color de "qué estado tiene esta fila". Aplica solo donde `agruparPor` está
+activo en `CONFIG` (hoy, solo la pestaña Cuotas — Rebate/Participación no
+tienen cliente, no agrupan). Sin cambios en la vista mobile (tarjetas por
+fila, `#repo-tabla-body tr` ya trae su propio fondo blanco fijo con mayor
+especificidad — el tinte de grupo no aplica ahí, cada tarjeta ya muestra su
+propio Cliente en el campo correspondiente).
+
+**Columna "Estado" sacada de la tabla (no solo un ajuste de grouping)**: el
+usuario encontró genuinamente confuso el badge "Pendiente de uso" — su
+razonamiento, verificado como correcto contra el código real
+(`getters/guardar_acuerdo.php` línea ~397-409): una vez que el asesor
+genera el Acuerdo desde una Acta Precargada, TODAS las filas
+`pendiente_uso` de ese cliente+trimestre+año pasan a `usada` juntas en un
+solo `UPDATE` (no hay inconsistencia real fila-por-fila) — pero aun así, el
+badge no aportaba nada accionable para el usuario: la fila "Pendiente de
+uso" simplemente significa "todavía nadie generó el Acuerdo para este
+cliente/trimestre", algo que ya cubre la campanita de alertas ("Actas
+Asignadas") y el modal de Resumen — mostrarlo también acá, por fila, solo
+sumaba ruido sin dar ninguna acción nueva. Se sacó la columna `estado` del
+array `CONFIG.cuotas.columnas` (`repositorios.js`) — **el campo
+`fila.estado` sigue existiendo en los datos y sigue gobernando toda la
+lógica real** (el botón "Descartar"/"Reactivar" ya leía `fila.estado`
+directo del objeto, no de la columna renderizada — confirmado que no se
+rompe nada al sacar la columna), solo se dejó de MOSTRAR en esta tabla.
+
+**Probado**: `node --check` limpio en `repositorios.js`, llaves de
+`style.css` balanceadas (720/720), sin referencias colgantes a
+`ac-repo-fila-grupo-par` en todo el proyecto (`grep` confirmado). **Todavía
+sin probar en navegador real.**
+
+## Modal de avisos post-guardado (Repositorios): agrupado por motivo, no una fila por línea (2026-08-30, mismo día)
+
+El usuario re-subió el mismo Excel de Cuotas y el SweetAlert2 de "Hay algo
+para revisar" salió como una lista angosta y muy alta — un `<li>` completo
+("Cliente / Categoría: motivo") POR CADA fila afectada, y con ~20 avisos
+(14 clientes con Sector "OTRAS CATEGORIAS" sin match + 5 categorías de
+YUCAILLA PADILLA ya usadas en una Acta) el mismo motivo se repetía casi
+palabra por palabra una y otra vez. Pedido explícito: "haciendo más ancho
+el cuadro puedo acomodar bien la info".
+
+**Aclaración de los 2 avisos que vio (no son bugs, es el comportamiento
+esperado)**:
+- **"No se pudo identificar la categoría 'OTRAS CATEGORIAS' en el
+  catálogo"** — Sector genuinamente sin match real (mismo caso ya
+  documentado varias veces en este archivo — JW confirmó que van a dejar
+  de usar esa categoría, ver "Actas precargadas: filas vacías espejo..."
+  más arriba). Va a seguir apareciendo mientras el Excel real siga
+  trayendo filas con ese Sector.
+- **"Esta categoría ya se usó en una Acta. No se modificó."** — las 4-5
+  categorías de YUCAILLA PADILLA ya habían generado un Acuerdo real en
+  pruebas anteriores de esta misma sesión — re-subir el mismo archivo
+  confirma correctamente que esas filas quedaron protegidas, sin pisar el
+  dato ya usado (mismo mecanismo documentado en "Bug real en
+  `cuotas_guardar.php`" — Repositorio de Cuotas: borrado lógico). A
+  diferencia de `duplicado_archivo` (una propiedad fija del archivo en sí,
+  ver ronda 3 más arriba), este aviso SÍ se dejó tal cual, sin suprimir —
+  es información real y distinta cada vez que cambia qué está usado.
+
+**Rediseño del modal (`assets/js/repositorios.js`, el mismo bloque
+`Swal.fire` de "Hay algo para revisar")**: los avisos ahora se agrupan por
+`motivo` ANTES de armar el HTML — el texto del motivo se imprime una sola
+vez por grupo (con un contador, ej. "14"), seguido de las filas afectadas
+como chips que envuelven en horizontal, no una lista vertical de líneas
+completas repetidas. El modal en sí se ensanchó (`width: 720` en el
+`Swal.fire`, SweetAlert2 lo soporta como parámetro directo) y el contenido
+tiene `max-height: 55vh` con scroll propio, para que un archivo con muchos
+avisos no empuje el modal fuera de la pantalla. Clases nuevas en
+`style.css`: `.ac-avisos-lista`/`.ac-avisos-grupo`/`.ac-avisos-grupo-motivo`/
+`.ac-avisos-count`/`.ac-avisos-grupo-filas`/`.ac-avisos-chip` — mismos
+tokens de color/espaciado del resto de la app, nada inventado.
+
+**Probado**: `node --check` limpio, llaves de `style.css` balanceadas
+(727/727, 7 bloques nuevos). **Todavía sin probar en navegador real** —
+falta confirmar que el modal se ve bien con un archivo real de muchos
+avisos (el mismo caso que reportó el usuario) y que el ancho/scroll se
+comportan bien.
+
+## Tabla nueva: `repositorio_cumplimiento_cuota` (2026-08-31)
+
+**Corrida en producción por Claude** bajo la excepción puntual de este
+proyecto (SQL exacto mostrado al usuario, confirmación explícita "sí"
+recibida antes de ejecutar — ver la sección "⚠️ Excepción..." al inicio de
+este archivo). El usuario pasó el `CREATE TABLE` ya diseñado (no se
+discutió el diseño en esta sesión — probablemente viene de la otra sesión
+en paralelo que está trabajando este mismo archivo, ver el aviso del
+usuario "otra sesión también está anotando" en esta misma vuelta). Verificado
+después con `DESCRIBE`/`SHOW INDEX` de solo lectura: las 22 columnas y los
+3 índices (`uq_cumplimiento_cuota` único sobre `pos_id, sector, trimestre,
+anio`, más `idx_cumplimiento_cuota_eliminado_en` e
+`idx_cumplimiento_cuota_periodo`) quedaron exactos al SQL confirmado, 0
+filas (tabla recién creada).
+
+```sql
+CREATE TABLE repositorio_cumplimiento_cuota (
+	id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	pos_id VARCHAR(200) NOT NULL,
+	cliente_excel VARCHAR(300) NOT NULL,
+	cedi_excel VARCHAR(200) NULL,
+	plan_excel VARCHAR(100) NULL,
+	sector VARCHAR(200) NOT NULL,
+	trimestre TINYINT UNSIGNED NOT NULL,
+	anio SMALLINT UNSIGNED NOT NULL,
+	cuota_total DECIMAL(12,2) NOT NULL DEFAULT 0,
+	venta_total DECIMAL(12,2) NOT NULL DEFAULT 0,
+	cumplimiento_pct DECIMAL(7,4) NOT NULL DEFAULT 0,
+	gana_categoria ENUM('gana','no_gana') NOT NULL DEFAULT 'no_gana',
+	gana_categoria_anterior ENUM('gana','no_gana') NULL,
+	gana_total ENUM('gana','no_gana') NOT NULL DEFAULT 'no_gana',
+	rebate_pct DECIMAL(6,4) NULL,
+	pre_rebate DECIMAL(12,2) NULL,
+	rebate_maximo_110 DECIMAL(12,2) NULL,
+	rebate_real_vol DECIMAL(12,2) NOT NULL DEFAULT 0,
+	actualizado_por INT UNSIGNED NULL,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	eliminado_en DATETIME NULL,
+	eliminado_por INT UNSIGNED NULL
+);
+
+CREATE UNIQUE INDEX uq_cumplimiento_cuota ON repositorio_cumplimiento_cuota (pos_id, sector, trimestre, anio);
+CREATE INDEX idx_cumplimiento_cuota_eliminado_en ON repositorio_cumplimiento_cuota (eliminado_en);
+CREATE INDEX idx_cumplimiento_cuota_periodo ON repositorio_cumplimiento_cuota (trimestre, anio);
+```
+
+**Lectura propia de las columnas (inferida por el nombre, NO confirmada con
+el usuario ni con la otra sesión — corregir esta nota si se descubre que
+está mal)**: la clave única `(pos_id, sector, trimestre, anio)` es la misma
+que ya usa `repositorio_cuota_cliente`, y las columnas
+`cuota_total/venta_total/cumplimiento_pct/gana_categoria/gana_total/
+rebate_pct/pre_rebate/rebate_maximo_110/rebate_real_vol` calzan casi
+exacto con las columnas calculadas de la hoja "CUOTA CLIENTE - CATEGORÍA"
+del export de Historial (`getters/exportar_cuota_categoria.php`, ver esa
+sección más arriba) — todo indica que esta tabla es para guardar en la
+base el resultado de venta/cumplimiento/rebate real por cliente+categoría
+(hoy ese cálculo vive solo como fórmulas dentro del `.xlsx` exportado,
+nunca persistido) — probablemente para poder mostrarlo/consultarlo desde
+la app en vez de depender de que JW devuelva el Excel completado. **Nada
+de la lógica que llena esta tabla (importador, cálculo, pantalla) está
+construido todavía** — por ahora solo existe el `CREATE TABLE`. Sin
+código nuevo en este archivo de trabajo (`Claude`) para esta tabla más
+allá de crearla — si la otra sesión ya tiene piezas construidas
+(parser/getter/UI), releer esta sección puede quedar desactualizada apenas
+se fusionen ambas sesiones.

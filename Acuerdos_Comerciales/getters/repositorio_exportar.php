@@ -54,14 +54,15 @@ if ($formato === 'xlsx') {
 			$fila++;
 		}
 	} else {
-		$cols = ['Marca', 'Participación %', 'Actualizado por', 'Última Modificación'];
+		$cols = ['Ciudad', 'Marca', 'Participación %', 'Actualizado por', 'Última Modificación'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
-			$wb->celda($hoja, $fila, 1, $f['marca']);
-			$wb->celda($hoja, $fila, 2, ((float) $f['participacion_pct']) / 100, false, 'pct'); // acá SÍ se guarda como entero (55.00) -> se divide para que 'pct' lo muestre bien.
-			$wb->celda($hoja, $fila, 3, $f['actualizado_por_usuario'] ?? '');
-			$wb->celda($hoja, $fila, 4, $f['updated_at']);
+			$wb->celda($hoja, $fila, 1, $f['ciudad']);
+			$wb->celda($hoja, $fila, 2, $f['marca']);
+			$wb->celda($hoja, $fila, 3, ((float) $f['participacion_pct']) / 100, false, 'pct'); // acá SÍ se guarda como entero (55.00) -> se divide para que 'pct' lo muestre bien.
+			$wb->celda($hoja, $fila, 4, $f['actualizado_por_usuario'] ?? '');
+			$wb->celda($hoja, $fila, 5, $f['updated_at']);
 			$fila++;
 		}
 	}
@@ -91,10 +92,10 @@ if ($tipo === 'rebate') {
 		]);
 	}
 } else {
-	fputcsv($out, ['Marca', 'Participación %', 'Actualizado por', 'Última Modificación']);
+	fputcsv($out, ['Ciudad', 'Marca', 'Participación %', 'Actualizado por', 'Última Modificación']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [
-			$f['marca'], number_format((float) $f['participacion_pct'], 2).'%',
+			$f['ciudad'], $f['marca'], number_format((float) $f['participacion_pct'], 2).'%',
 			$f['actualizado_por_usuario'] ?? '', $f['updated_at'],
 		]);
 	}

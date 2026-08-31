@@ -285,6 +285,46 @@ function resolverSectorReal($mysqli, $sectorCrudo) {
 	return count($sectores) === 1 ? $sectores[0] : null;
 }
 
+// Resuelve Segmento/Categoría/Marca REALES de un producto a partir de las
+// columnas SUBCATEGORIA/MARCA que puede traer el Excel de Cuotas (2026-08-28,
+// opcionales — ver repositorio_parsear_cuotas()) — mismo tipo de desajuste
+// de nombres ya documentado para Rebate (plural/singular, ej. "LIQUIDOS" vs
+// "LIQUIDO" del catálogo real), reusando el mismo criterio que
+// buscarRebateProducto(). Solo devuelve algo si el match es ÚNICO y sin
+// ambigüedad — si no, null, y el llamador (obtener_precarga_detalle()) cae
+// al criterio viejo (reusar el historial del cliente, o dejar editable).
+function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda) {
+	if ($subcategoriaCruda === '' || $marcaCruda === '') return null;
+
+	$stmt = $mysqli->prepare(
+		"SELECT segmento, categoria, marca FROM repositorio_productos
+		 WHERE fabricante = 'JABONERIA WILSON' AND activar = 'SI'
+		   AND UPPER(TRIM(sector)) = UPPER(TRIM(?))
+		   AND UPPER(TRIM(categoria)) = UPPER(TRIM(?))
+		   AND UPPER(TRIM(marca)) = UPPER(TRIM(?))
+		 LIMIT 1"
+	);
+	if (!$stmt) return null;
+
+	$variantes = function ($texto) {
+		$v = [$texto];
+		if (substr($texto, -1) === 'S') $v[] = substr($texto, 0, -1);
+		else $v[] = $texto.'S';
+		return $v;
+	};
+
+	foreach ($variantes($sector) as $sectorProbar) {
+		foreach ($variantes($subcategoriaCruda) as $categoriaProbar) {
+			$stmt->bind_param('sss', $sectorProbar, $categoriaProbar, $marcaCruda);
+			$stmt->execute();
+			$fila = $stmt->get_result()->fetch_assoc();
+			if ($fila) { $stmt->close(); return $fila; }
+		}
+	}
+	$stmt->close();
+	return null;
+}
+
 // Busca un Rebate% en repositorio_rebate_producto tolerando el mismo tipo de
 // desajuste de nombres que resolverSectorReal() (2026-08-27, bug real
 // encontrado probando con datos reales): el Excel de JW guarda "LIQUIDOS"
@@ -347,6 +387,41 @@ function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $ma
 	$stmt->close();
 
 	return count($filas) === 1 ? (float) $filas[0]['rebate_pct'] : null;
+}
+
+// Busca el % de Participación en repositorio_participacion_percha (2026-08-30
+// — Excel real confirmado por el usuario, ver
+// includes/repositorio_import.php::repositorio_parsear_participacion()).
+// A diferencia de Rebate, la clave es solo Ciudad+Marca — las líneas de
+// Percha del Acta (repositorio_acuerdo_lineas, tipo='percha') nunca guardan
+// Categoría/Subcategoría (esa tabla no tiene esa cascada), así que no habría
+// con qué comparar esas 2 columnas del Excel aunque se guardaran (decisión
+// confirmada con el usuario, ver datos/repositorios_schema.sql).
+//
+// Orden de fallback por Ciudad, replicando los 2 patrones reales del Excel:
+//   1. Ciudad exacta (ej. GUAYAQUIL/QUITO — la marca LAVA varía por ciudad).
+//   2. "TODAS" — la mayoría de las marcas no varían por ciudad, así vienen
+//      cargadas en el archivo real (GOL, EL MACHO, etc.).
+//   3. "RESTO CIUDADES" — catch-all real del Excel para cualquier CEDI que
+//      no sea Guayaquil ni Quito (ej. Cuenca, Manabí, Santo Domingo).
+// Devuelve el primer match que aparezca, nunca mezcla ni promedia.
+function buscarParticipacionPercha($mysqli, $ciudad, $marca) {
+	$stmt = $mysqli->prepare(
+		"SELECT participacion_pct FROM repositorio_participacion_percha
+		 WHERE eliminado_en IS NULL
+		   AND UPPER(TRIM(ciudad)) = UPPER(TRIM(?)) AND UPPER(TRIM(marca)) = UPPER(TRIM(?))
+		 LIMIT 1"
+	);
+	if (!$stmt) return null;
+
+	foreach ([$ciudad, 'TODAS', 'RESTO CIUDADES'] as $ciudadProbar) {
+		$stmt->bind_param('ss', $ciudadProbar, $marca);
+		$stmt->execute();
+		$fila = $stmt->get_result()->fetch_assoc();
+		if ($fila) { $stmt->close(); return (float) $fila['participacion_pct']; }
+	}
+	$stmt->close();
+	return null;
 }
 
 // Dado un pos_id ya resuelto, encuentra qué usuario de la app (cuenta
@@ -497,11 +572,25 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 //   - valores_mensuales: viene fijo del repositorio, se marca `bloqueado` para
 //     que registrar.js deje esos inputs de mes en readonly.
 function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
+	// Sin `rebate_pct` (2026-08-30, pedido explícito del usuario: Cuotas
+	// nunca debió tomar Rebate del Excel — ver nota completa más abajo,
+	// donde antes se priorizaba el dato del Excel sobre buscarRebateProducto()).
 	$stmt = $mysqli->prepare(
-		"SELECT id, sector, valores_mensuales FROM repositorio_cuota_cliente
+		"SELECT id, sector, subcategoria, marca, valores_mensuales FROM repositorio_cuota_cliente
 		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
 		 ORDER BY sector"
 	);
+	// Fallback si `subcategoria`/`marca` todavía no existen en la base (falta
+	// correr el ALTER correspondiente, ver CLAUDE.md) — mismo criterio
+	// defensivo que login() con `supervisor`: nunca tumbar toda la Acta
+	// Precargada por columnas nuevas que capaz no se corrieron todavía.
+	if (!$stmt) {
+		$stmt = $mysqli->prepare(
+			"SELECT id, sector, NULL AS subcategoria, NULL AS marca, valores_mensuales FROM repositorio_cuota_cliente
+			 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
+			 ORDER BY sector"
+		);
+	}
 	if (!$stmt) return null;
 	$stmt->bind_param('sii', $posId, $trimestre, $anio);
 	$stmt->execute();
@@ -530,14 +619,45 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		 WHERE fabricante = 'JABONERIA WILSON' AND sector = ? AND activar = 'SI'"
 	);
 
+	// Ciudad/Canal para buscar Rebate — mismo criterio EXACTO que
+	// buscarYAplicarRebate() en registrar.js (búsqueda en vivo): Ciudad =
+	// "TODAS" si es canal Distribuidor, si no el CEDI real del cliente;
+	// Canal = DISTRIBUIDOR/DIRECTA según el mismo dato.
+	$esDistribuidorRebate = ($cliente['canal'] ?? null) === 'DISTRIBUIDOR';
+	$ciudadRebate = $esDistribuidorRebate ? 'TODAS' : ($cliente['cedi'] ?: '');
+	$canalRebate  = $esDistribuidorRebate ? 'DISTRIBUIDOR' : 'DIRECTA';
+
 	$lineasMeta = [];
 	foreach ($filasCuota as $fc) {
 		$segmento = null; $categoria = null; $marca = null;
-		if ($stmtHistorial) {
+
+		// 1ra prioridad (2026-08-28): si el Excel de Cuotas trajo SUBCATEGORIA/
+		// MARCA de verdad (columnas opcionales, ver repositorio_parsear_cuotas()),
+		// resolverlas contra el catálogo real es un dato CIERTO que vino tal
+		// cual de JW — más confiable que "reusar lo que se usó la última vez"
+		// (el historial). Si no matchea (texto raro/sin match único), se cae
+		// al criterio viejo de abajo, nunca se inventa nada.
+		if (!empty($fc['subcategoria']) && !empty($fc['marca'])) {
+			$match = resolverProductoCuota($mysqli, $fc['sector'], $fc['subcategoria'], $fc['marca']);
+			if ($match) {
+				$segmento = $match['segmento'];
+				$categoria = $match['categoria'];
+				$marca = $match['marca'];
+			}
+		}
+
+		// 2da prioridad: historial del cliente (línea de Meta de Compras más
+		// reciente para este pos_id+sector en cualquier Acta anterior) — solo
+		// para lo que la 1ra prioridad no resolvió.
+		if ($categoria === null && $stmtHistorial) {
 			$stmtHistorial->bind_param('ss', $posId, $fc['sector']);
 			$stmtHistorial->execute();
 			$prev = $stmtHistorial->get_result()->fetch_assoc();
-			if ($prev) { $segmento = $prev['segmento']; $categoria = $prev['categoria']; $marca = $prev['marca']; }
+			if ($prev) {
+				if ($segmento === null) $segmento = $prev['segmento'];
+				$categoria = $prev['categoria'];
+				$marca = $prev['marca'];
+			}
 		}
 		if ($segmento === null && $stmtSegmentoPorSector) {
 			$stmtSegmentoPorSector->bind_param('s', $fc['sector']);
@@ -554,13 +674,32 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		// poder sacarla. Se descarta acá, antes de armar la línea, en vez de
 		// dejar que llegue al formulario.
 		if (array_sum($valores) <= 0) continue;
+
+		// Rebate % real — antes quedaba SIEMPRE en 0 acá, sin buscarlo nunca
+		// (bug real reportado por el usuario: "por qué no me sale el rebate
+		// de esos productos", 2026-08-28). Se busca contra
+		// repositorio_rebate_producto (mismo % general que ya usa la
+		// búsqueda en vivo de Registrar) — solo si Categoría+Marca ya se
+		// resolvieron (por match de Subcategoría/Marca del Excel o
+		// historial, arriba). **Corregido 2026-08-30**: antes se priorizaba
+		// una columna REBATE del propio Excel de Cuotas sobre esta búsqueda
+		// — el usuario aclaró que nunca pidió que Cuotas tomara Rebate del
+		// Excel, se sacó esa columna/prioridad por completo (ver
+		// includes/repositorio_import.php y getters/cuotas_guardar.php).
+		// Sin match, sigue en 0 y editable, igual que siempre.
+		$rebatePct = 0;
+		if ($categoria !== null && $marca !== null) {
+			$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $fc['sector'], $categoria, $marca);
+			if ($valorRebate !== null) $rebatePct = $valorRebate;
+		}
+
 		$lineasMeta[] = [
 			'cuota_id'          => (int) $fc['id'],
 			'segmento'          => $segmento,
 			'sector'            => $fc['sector'],
 			'categoria'         => $categoria,
 			'marca'             => $marca,
-			'rebate_pct'        => 0,
+			'rebate_pct'        => $rebatePct,
 			'valores_mensuales' => $valores,
 			'bloqueado'         => true,
 		];
@@ -1318,10 +1457,12 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 	$like   = '%'.$busqueda.'%';
 
 	// eliminado_en IS NULL (2026-08-25, borrado lógico — ver nota en
-	// listar_repositorio_rebate() de arriba, mismo criterio acá).
-	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_participacion_percha WHERE eliminado_en IS NULL AND marca LIKE ?');
+	// listar_repositorio_rebate() de arriba, mismo criterio acá). Ciudad
+	// agregada 2026-08-30 (rediseño con el Excel real, ver
+	// datos/repositorios_schema.sql) — busca/ordena también por Ciudad.
+	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_participacion_percha WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR marca LIKE ?)');
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmtTotal->bind_param('s', $like);
+	$stmtTotal->bind_param('ss', $like, $like);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -1330,15 +1471,15 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
 	$stmt = $mysqli->prepare(
-		"SELECT p.id, p.marca, p.participacion_pct, p.updated_at, u.usuario AS actualizado_por_usuario
+		"SELECT p.id, p.ciudad, p.marca, p.participacion_pct, p.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_participacion_percha p
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = p.actualizado_por
-		 WHERE p.eliminado_en IS NULL AND p.marca LIKE ?
-		 ORDER BY p.marca
+		 WHERE p.eliminado_en IS NULL AND (p.ciudad LIKE ? OR p.marca LIKE ?)
+		 ORDER BY p.ciudad, p.marca
 		 LIMIT ? OFFSET ?"
 	);
 	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmt->bind_param('sii', $like, $porPagina, $offset);
+	$stmt->bind_param('ssii', $like, $like, $porPagina, $offset);
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -1356,12 +1497,31 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
 
+	// Búsqueda cubre TODAS las columnas de texto visibles en la tabla
+	// principal (CEDI/Cliente/Plan/Categoría/Subcategoría/Marca) — antes
+	// solo buscaba por Cliente/pos_id/Categoría, así que tipear un CEDI, un
+	// Plan o una Marca (columnas que sí se ven en pantalla) no filtraba nada
+	// — bug real reportado 2026-08-30 ("no sé si me anda buscando por
+	// columna"). 2 niveles de `prepare()` (con/sin Subcategoría+Marca) por
+	// si el ALTER de esas 2 columnas no se corrió en algún entorno — mismo
+	// criterio defensivo que ya usa el SELECT de más abajo.
 	$stmtTotal = $mysqli->prepare(
 		"SELECT COUNT(*) AS total FROM repositorio_cuota_cliente
-		 WHERE estado <> 'pendiente_match' AND (cliente_excel LIKE ? OR pos_id LIKE ? OR sector LIKE ?)"
+		 WHERE estado <> 'pendiente_match' AND (cedi_excel LIKE ? OR cliente_excel LIKE ? OR pos_id LIKE ? OR plan LIKE ? OR sector LIKE ? OR subcategoria LIKE ? OR marca LIKE ?)"
 	);
+	$conSubMarcaBusqueda = (bool) $stmtTotal;
+	if (!$stmtTotal) {
+		$stmtTotal = $mysqli->prepare(
+			"SELECT COUNT(*) AS total FROM repositorio_cuota_cliente
+			 WHERE estado <> 'pendiente_match' AND (cedi_excel LIKE ? OR cliente_excel LIKE ? OR pos_id LIKE ? OR plan LIKE ? OR sector LIKE ?)"
+		);
+	}
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmtTotal->bind_param('sss', $like, $like, $like);
+	if ($conSubMarcaBusqueda) {
+		$stmtTotal->bind_param('sssssss', $like, $like, $like, $like, $like, $like, $like);
+	} else {
+		$stmtTotal->bind_param('sssss', $like, $like, $like, $like, $like);
+	}
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -1369,16 +1529,46 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	$totalPaginas = max(1, (int) ceil($total / $porPagina));
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
+	// c.subcategoria/c.marca (2026-08-28) — sin esto, la tabla visible de
+	// Cuotas nunca mostraba lo que el Excel trajo en esas columnas nuevas,
+	// aunque ya se guardaran bien en la base (bug real reportado por el
+	// usuario: "no veo que aparezcan las columnas ahí" — faltaba acá, no
+	// solo en el frontend). **Sin `rebate_pct`** (2026-08-30, pedido
+	// explícito del usuario — ver nota completa en obtener_precarga_detalle()).
+	// Mismo criterio de búsqueda de arriba (7 columnas si Subcategoría/Marca
+	// existen, 5 si no) — replicado acá porque este SELECT tiene su propio
+	// fallback de 2 niveles por columnas de RESULTADO (subcategoria/marca),
+	// independiente de si la búsqueda las necesita.
+	$whereConSub = "c.estado <> 'pendiente_match' AND (c.cedi_excel LIKE ? OR c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.plan LIKE ? OR c.sector LIKE ? OR c.subcategoria LIKE ? OR c.marca LIKE ?)";
+	$whereSinSub = "c.estado <> 'pendiente_match' AND (c.cedi_excel LIKE ? OR c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.plan LIKE ? OR c.sector LIKE ?)";
 	$stmt = $mysqli->prepare(
-		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan, c.sector, c.trimestre, c.anio, c.valores_mensuales, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
+		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan, c.sector, c.subcategoria, c.marca, c.trimestre, c.anio, c.valores_mensuales, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_cuota_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = c.actualizado_por
-		 WHERE c.estado <> 'pendiente_match' AND (c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.sector LIKE ?)
+		 WHERE $whereConSub
 		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel, c.sector
 		 LIMIT ? OFFSET ?"
 	);
+	$conSubMarcaResultado = (bool) $stmt;
+	// Fallback si `subcategoria`/`marca` no existieran (entorno viejo sin el
+	// ALTER corrido) — mismo criterio defensivo que el resto del proyecto.
+	if (!$stmt) {
+		$conSubMarcaResultado = false;
+		$stmt = $mysqli->prepare(
+			"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan, c.sector, NULL AS subcategoria, NULL AS marca, c.trimestre, c.anio, c.valores_mensuales, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
+			 FROM repositorio_cuota_cliente c
+			 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = c.actualizado_por
+			 WHERE $whereSinSub
+			 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel, c.sector
+			 LIMIT ? OFFSET ?"
+		);
+	}
 	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmt->bind_param('sssii', $like, $like, $like, $porPagina, $offset);
+	if ($conSubMarcaResultado) {
+		$stmt->bind_param('sssssssii', $like, $like, $like, $like, $like, $like, $like, $porPagina, $offset);
+	} else {
+		$stmt->bind_param('sssssii', $like, $like, $like, $like, $like, $porPagina, $offset);
+	}
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -1593,5 +1783,93 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	}
 	unset($f);
 	return $filas;
+}
+
+// ---------- Módulo "Cumplimiento de Cuota" (2026-08-30) ----------
+// Resolución de dueño: mismo criterio "CEDI del Excel gana sobre el maestro"
+// ya confirmado con el usuario para el Repositorio de Cuotas Trimestrales
+// (ver usuarioIdDeCuota()/listar_actas_precargadas_pendientes() arriba) — es
+// literalmente el mismo Excel/mismo significado de columna CEDI, así que se
+// aplica igual acá, como LEFT JOIN + COALESCE (una sola consulta para todas
+// las filas, no una por fila).
+function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda) {
+	$condiciones = ['c.eliminado_en IS NULL'];
+	$params = [];
+	$tipos = '';
+	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
+	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
+	$busqueda = trim((string) $busqueda);
+	if ($busqueda !== '') {
+		$condiciones[] = "(c.cliente_excel LIKE CONCAT('%', ?, '%') OR COALESCE(u_cedi.usuario, u_master.usuario) LIKE CONCAT('%', ?, '%'))";
+		$params[] = $busqueda;
+		$params[] = $busqueda;
+		$tipos .= 'ss';
+	}
+	$where = implode(' AND ', $condiciones);
+
+	$stmt = $mysqli->prepare(
+		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan_excel, c.sector,
+		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
+		        c.gana_categoria, c.gana_categoria_anterior, c.gana_total,
+		        c.rebate_real_vol, c.updated_at,
+		        COALESCE(u_cedi.id, u_master.id) AS usuario_id,
+		        COALESCE(u_cedi.usuario, u_master.usuario) AS usuario_nombre
+		 FROM repositorio_cumplimiento_cuota c
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN repositorio_locales_supervisores_cliente mst ON mst.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
+		 WHERE $where
+		 ORDER BY usuario_nombre IS NULL, usuario_nombre, c.cliente_excel, c.sector"
+	);
+	if (!$stmt) return [];
+	if ($params) $stmt->bind_param($tipos, ...$params);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	return $filas;
+}
+
+function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio) {
+	$condiciones = ['eliminado_en IS NULL'];
+	$params = [];
+	$tipos = '';
+	if ($trimestre > 0) { $condiciones[] = 'trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
+	if ($anio > 0) { $condiciones[] = 'anio = ?'; $params[] = $anio; $tipos .= 'i'; }
+	$where = implode(' AND ', $condiciones);
+
+	$stmt = $mysqli->prepare(
+		"SELECT
+		    COUNT(DISTINCT pos_id) AS clientes,
+		    COUNT(*) AS categorias,
+		    SUM(gana_categoria = 'gana') AS ganan_categoria,
+		    SUM(gana_categoria = 'no_gana') AS no_ganan_categoria,
+		    AVG(cumplimiento_pct) AS cumplimiento_promedio,
+		    COUNT(DISTINCT CASE WHEN gana_total = 'gana' THEN pos_id END) AS clientes_ganan_total
+		 FROM repositorio_cumplimiento_cuota
+		 WHERE $where"
+	);
+	$vacio = ['clientes' => 0, 'categorias' => 0, 'ganan_categoria' => 0, 'no_ganan_categoria' => 0, 'cumplimiento_promedio' => 0.0, 'clientes_ganan_total' => 0];
+	if (!$stmt) return $vacio;
+	if ($params) $stmt->bind_param($tipos, ...$params);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	if (!$fila) return $vacio;
+	return [
+		'clientes'              => (int) $fila['clientes'],
+		'categorias'            => (int) $fila['categorias'],
+		'ganan_categoria'       => (int) $fila['ganan_categoria'],
+		'no_ganan_categoria'    => (int) $fila['no_ganan_categoria'],
+		'cumplimiento_promedio' => round((float) $fila['cumplimiento_promedio'], 1),
+		'clientes_ganan_total'  => (int) $fila['clientes_ganan_total'],
+	];
+}
+
+function listar_anios_disponibles_cumplimiento($mysqli) {
+	$res = $mysqli->query("SELECT DISTINCT anio FROM repositorio_cumplimiento_cuota WHERE eliminado_en IS NULL ORDER BY anio DESC");
+	if (!$res) return [];
+	return array_map('intval', array_column($res->fetch_all(MYSQLI_ASSOC), 'anio'));
 }
 ?>

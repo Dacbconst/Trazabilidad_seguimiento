@@ -56,11 +56,35 @@ ALTER TABLE repositorio_rebate_producto
 DROP INDEX uq_rebate_producto ON repositorio_rebate_producto;
 CREATE UNIQUE INDEX uq_rebate_producto ON repositorio_rebate_producto (ciudad, canal, sector, categoria, marca);
 
--- Participación de Percha: TODAVÍA PENDIENTE de correr — la estructura de
--- abajo es un diseño inicial, no confirmado con el formato final que va a
--- subir JW (ver CLAUDE.md "Módulo Repositorios").
+-- Participación de Percha — REDISEÑADA 2026-08-30 con el Excel real que JW
+-- confirmó que va a subir (`datos/PARTICIPACION PERCHA.xlsx`, 11 filas: CIUDAD
+-- | CATEGORIA | SUBCATEGORIA | MARCA | %). El diseño original de abajo (solo
+-- marca) fue una suposición, igual que le pasó a Rebate el 2026-08-27 —
+-- **nunca se corrió en producción** (tabla no existe, confirmado con `SHOW
+-- TABLES`), así que este es el CREATE TABLE definitivo, no hace falta ALTER.
+--
+-- Ciudad SÍ importa acá (mismo hallazgo que Rebate): la marca LAVA
+-- (Crema/Lavavajilla) tiene 50%/60%/55% según GUAYAQUIL/QUITO/RESTO CIUDADES
+-- — "RESTO CIUDADES" es un valor real del Excel, catch-all para cualquier
+-- CEDI que no sea GUAYAQUIL o QUITO (CUENCA/MANABI/SANTO DOMINGO en la base
+-- real). El resto de marcas (GOL/EL MACHO/DON VITTORIO/ALACENA) usan CIUDAD
+-- "TODAS" — sin variación por ciudad. Ver buscarParticipacionPercha() en
+-- includes/functions.php para el orden de fallback (ciudad exacta → TODAS →
+-- RESTO CIUDADES).
+--
+-- **A propósito, SIN Categoría/Subcategoría en la clave** — decisión
+-- confirmada con el usuario (2026-08-30): las líneas de Percha del Acta
+-- (repositorio_acuerdo_lineas, tipo='percha') solo guardan Marca, nunca
+-- Categoría/Subcategoría (esa tabla no tiene esa cascada, a diferencia de
+-- Meta de Compras) — no habría con qué comparar esas 2 columnas del Excel
+-- aunque se guardaran. Con los datos reales de hoy esto no genera ambigüedad
+-- (GOL da el mismo % en sus 2 categorías del Excel) — si a futuro una marca
+-- choca entre categorías con % distinto, es un caso a resolver cuando
+-- aparezca, no algo que bloquee esta versión. Sin CANAL tampoco (el Excel no
+-- lo trae) — aplica igual para Directo y Distribuidor.
 CREATE TABLE repositorio_participacion_percha (
 	id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	ciudad VARCHAR(200) NOT NULL,
 	marca VARCHAR(200) NOT NULL,
 	participacion_pct DECIMAL(5,2) NOT NULL,
 	actualizado_por INT UNSIGNED NULL,
@@ -72,7 +96,7 @@ CREATE TABLE repositorio_participacion_percha (
 
 CREATE INDEX idx_participacion_eliminado_en ON repositorio_participacion_percha (eliminado_en);
 
--- Evita duplicados exactos de la misma marca — el getter de guardado hace
--- UPSERT (INSERT ... ON DUPLICATE KEY UPDATE) sobre esta clave, tanto al
+-- Evita duplicados exactos de la misma Ciudad+Marca — el getter de guardado
+-- hace UPSERT (INSERT ... ON DUPLICATE KEY UPDATE) sobre esta clave, tanto al
 -- subir un Excel como al editar una fila desde la tabla.
-CREATE UNIQUE INDEX uq_participacion_marca ON repositorio_participacion_percha (marca);
+CREATE UNIQUE INDEX uq_participacion_ciudad_marca ON repositorio_participacion_percha (ciudad, marca);

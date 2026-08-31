@@ -118,7 +118,7 @@ function repositorio_parsear_rebate($rutaArchivo) {
 	}
 
 	$aviso = ($colCiudad === null || $colCanal === null)
-		? 'Este archivo no trae columna de Ciudad y/o Canal — completalos a mano en cada fila antes de guardar (una fila sin Ciudad o Canal no se va a poder guardar).'
+		? 'Este archivo no trae columna de Ciudad y/o Canal. Completalos a mano en cada fila antes de guardar. Una fila sin Ciudad o Canal no se va a poder guardar.'
 		: null;
 
 	return ['filas' => $resultado, 'aviso' => $aviso];
@@ -176,6 +176,14 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 	$colCliente = xlsx_col($m, 'CLIENTE');
 	$colPlan = xlsx_col($m, 'PLAN');
 	$colCategorias = xlsx_col($m, 'CATEGORIAS');
+	// SUBCATEGORIA/MARCA (2026-08-28, opcional — no todos los archivos de
+	// Cuotas las traen, mismo criterio que CEDI/PLAN arriba): si están, se
+	// usan en resolverProductoCuota() (functions.php) para autocompletar y
+	// BLOQUEAR Categoría/Marca de la Acta Precargada en vez de depender solo
+	// del historial del cliente. Si no están, xlsx_col() devuelve null y el
+	// resto del pipeline sigue exactamente igual que antes.
+	$colSubcategoria = xlsx_col($m, 'SUBCATEGORIA');
+	$colMarca = xlsx_col($m, 'MARCA');
 
 	$resultado = [];
 	$avisos = [];
@@ -187,6 +195,8 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 
 		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
 		$plan = $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '';
+		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
+		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
 
 		$valores = [];
 		foreach ($colesMes as $d) {
@@ -199,6 +209,8 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 			'cedi_excel'    => $cedi,
 			'plan'          => $plan,
 			'sector'        => $sector,
+			'subcategoria'  => $subcategoria,
+			'marca'         => $marca,
 			'mes1'          => $valores[0] ?? 0,
 			'mes2'          => $valores[1] ?? 0,
 			'mes3'          => $valores[2] ?? 0,
@@ -208,6 +220,19 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 	return ['filas' => $resultado, 'avisos' => $avisos, 'trimestre' => $trimestre];
 }
 
+// Formato real confirmado por el usuario 2026-08-30 ("ya nos pasaron el
+// excel... el excel es lo que definieron que piensan subir ahí
+// específicamente" — `datos/PARTICIPACION PERCHA.xlsx`): CIUDAD |
+// CATEGORIA | SUBCATEGORIA | MARCA | %. **CATEGORIA/SUBCATEGORIA se leen
+// solo para detectar filas vacías — NUNCA se guardan** (decisión
+// confirmada con el usuario, ver datos/repositorios_schema.sql: las líneas
+// de Percha del Acta, a diferencia de Meta de Compras, solo guardan Marca
+// — nunca habría con qué comparar esas 2 columnas). CIUDAD sí importa: la
+// misma Marca puede tener % distinto por ciudad (ej. LAVA: 50% Guayaquil,
+// 60% Quito, 55% "RESTO CIUDADES" — un valor real del archivo, catch-all
+// para cualquier CEDI sin fila propia) — el resto de marcas usan CIUDAD
+// "TODAS" (sin variación). Sin columna de Canal (a diferencia de Rebate) —
+// aplica igual para Directo y Distribuidor.
 function repositorio_parsear_participacion($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
@@ -216,24 +241,149 @@ function repositorio_parsear_participacion($rutaArchivo) {
 
 	$enc = xlsx_encontrar_encabezado($filas, ['MARCA']);
 	if (!$enc) return ['error' => 'No se encontró la columna Marca en el archivo.'];
+	$m = $enc['mapa'];
 
+	// "%" a secas es el nombre real de la columna en el archivo de JW — se
+	// aceptan también los nombres propios del proyecto por si se sube un
+	// archivo con otro formato.
 	$colPart = null;
-	foreach (['PARTICIPACION %', 'PARTICIPACION', 'PARTICIPACION PCT'] as $candidato) {
-		if (xlsx_col($enc['mapa'], $candidato) !== null) { $colPart = $candidato; break; }
+	foreach (['%', 'PARTICIPACION %', 'PARTICIPACION', 'PARTICIPACION PCT'] as $candidato) {
+		if (xlsx_col($m, $candidato) !== null) { $colPart = $candidato; break; }
 	}
 	if ($colPart === null) return ['error' => 'No se encontró la columna de Participación % en el archivo.'];
 
-	$m = $enc['mapa'];
+	$colCiudad = xlsx_col($m, 'CIUDAD') !== null ? 'CIUDAD' : null;
+
 	$resultado = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
-		$marca = repositorio_normalizar_texto($fila[xlsx_col($m, 'MARCA')] ?? '');
-		if ($marca === '') continue;
+		$marca  = repositorio_normalizar_texto($fila[xlsx_col($m, 'MARCA')] ?? '');
+		$ciudad = $colCiudad !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCiudad)] ?? '') : '';
+		if ($marca === '' && $ciudad === '') continue; // fila vacía (hueco o fin de hoja)
 		$resultado[] = [
+			'ciudad'            => $ciudad,
 			'marca'             => $marca,
 			'participacion_pct' => round(repositorio_valor_a_porcentaje($fila[xlsx_col($m, $colPart)] ?? 0), 2),
 		];
 	}
-	return ['filas' => $resultado];
+
+	$aviso = $colCiudad === null
+		? 'Este archivo no trae columna de Ciudad. Completala a mano en cada fila antes de guardar. Una fila sin Ciudad no se va a poder guardar.'
+		: null;
+
+	return ['filas' => $resultado, 'aviso' => $aviso];
+}
+
+// Módulo "Cumplimiento de Cuota" (2026-08-30) — parsea el Excel que JW
+// devuelve YA COMPLETADO (venta real + cartera cargadas a mano sobre el
+// mismo archivo que se descarga desde Historial, "Descargar Excel"). A
+// diferencia de todos los demás parsers de este archivo, acá NO se calcula
+// nada — Cumplimiento/Gana por Categoría/Gana Total/Rebate Real Vol son
+// celdas de FÓRMULA (ver getters/exportar_cuota_categoria.php) y este lector
+// solo toma el valor YA CACHEADO por Excel (xlsx_leer_hoja() lee <v>, nunca
+// mira <f> — ver ese archivo), tal como Excel lo calculó al guardar.
+//
+// Alcance de esta primera versión: solo canal Directa (hoja "CUOTA CLIENTE
+// - CATEGORÍA"). El equivalente de Distribuidor ("CUOTAS POR CAT
+// -DISTRIBUIDORES") tiene otro layout de columnas — mismo patrón si se pide
+// después, no construido acá.
+function repositorio_parsear_cumplimiento_cuota($rutaArchivo) {
+	$filas = xlsx_leer_hoja($rutaArchivo, 'CUOTA CLIENTE - CATEGORÍA');
+	if ($filas === null) {
+		// Por si alguna herramienta reescribió el nombre de la pestaña sin tilde.
+		$filas = xlsx_leer_hoja($rutaArchivo, 'CUOTA CLIENTE - CATEGORIA');
+	}
+	if ($filas === null) {
+		return ['error' => 'No se encontró la hoja "CUOTA CLIENTE - CATEGORÍA" en el archivo. Subí el mismo Excel que se descarga desde Historial ("Descargar Excel"), ya completado.'];
+	}
+
+	$enc = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS', 'CUMPLIMIENTO', 'GANA POR CATEGORIA', 'GANA TOTAL', 'REBATE REAL VOL']);
+	if (!$enc) {
+		return ['error' => 'No se encontraron las columnas esperadas en la hoja. ¿Es el mismo archivo que se descarga desde Historial, ya completado con la venta real?'];
+	}
+	$m = $enc['mapa'];
+
+	$colCedi = xlsx_col($m, 'CEDI');
+	$colCliente = xlsx_col($m, 'CLIENTE');
+	$colPlan = xlsx_col($m, 'PLAN');
+	$colCategorias = xlsx_col($m, 'CATEGORIAS');
+	$colRebatePct = xlsx_col($m, 'REBATE A APLICAR %');
+	$colRebateMax110 = xlsx_col($m, 'REBATE MAXIMO 110%');
+	$colCartera = xlsx_col($m, 'CARTERA');
+	$colCumplimiento = xlsx_col($m, 'CUMPLIMIENTO');
+	$colGanaCategoria = xlsx_col($m, 'GANA POR CATEGORIA');
+	$colGanaTotal = xlsx_col($m, 'GANA TOTAL');
+	$colPreRebate = xlsx_col($m, 'PRE REBATE');
+	$colRebateRealVol = xlsx_col($m, 'REBATE REAL VOL');
+
+	// "TOTAL Qx"/"VENTA Qx" llevan el trimestre en el nombre (texto dinámico,
+	// ver exportar_cuota_categoria.php) — no se buscan por texto, se ubican
+	// por posición relativa a columnas estables, exactamente el mismo layout
+	// que arma el escritor: la cuota total va justo antes de "REBATE A
+	// APLICAR %", la venta total justo después de "CARTERA".
+	$colCuotaTotal = ($colRebatePct !== null) ? $colRebatePct - 1 : null;
+	$colVentaTotal = ($colCartera !== null) ? $colCartera + 1 : null;
+
+	if ($colCuotaTotal === null || $colVentaTotal === null || $colPreRebate === null) {
+		return ['error' => 'No se encontraron todas las columnas de resultado esperadas. ¿Es el mismo archivo que se descarga desde Historial, sin columnas movidas o borradas?'];
+	}
+
+	// El trimestre se infiere de qué meses trae el bloque de columnas de mes
+	// (mismo criterio que repositorio_parsear_cuotas()) — nunca del texto
+	// "Qx", que es dinámico y no se busca por nombre acá.
+	$colesMes = xlsx_detectar_columnas_mes($filas[$enc['fila']]);
+	$mesesDetectados = array_values(array_unique(array_map(function ($d) { return $d['mes']; }, $colesMes)));
+	sort($mesesDetectados);
+	$trimestres = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]];
+	$trimestre = null;
+	foreach ($trimestres as $idx => $meses) {
+		if ($mesesDetectados === $meses) { $trimestre = $idx + 1; break; }
+	}
+	if ($trimestre === null) {
+		return ['error' => 'No se pudo determinar el trimestre a partir de las columnas de mes del archivo.'];
+	}
+
+	$aGana = function ($v) {
+		return strtoupper(trim((string) $v)) === 'GANA' ? 'gana' : 'no_gana';
+	};
+	$aNumero = function ($v) {
+		if ($v === null || $v === '') return 0.0;
+		return is_numeric($v) ? (float) $v : (float) str_replace(['$', ',', ' ', '%'], '', (string) $v);
+	};
+
+	$resultado = [];
+	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
+		$fila = $filas[$i];
+		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
+		$sector  = repositorio_normalizar_texto($fila[$colCategorias] ?? '');
+		// Fila vacía (hueco, fin de hoja) O la fila "TOTAL" del pie de tabla
+		// (esa fila solo escribe CEDI='TOTAL' + fórmulas SUBTOTAL — CLIENTE y
+		// CATEGORIAS nunca se llenan ahí, así que ya quedan vacíos acá solos).
+		if ($cliente === '' && $sector === '') continue;
+
+		$resultado[] = [
+			'cliente_excel'     => $cliente,
+			'cedi_excel'        => $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '',
+			'plan_excel'        => $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '',
+			'sector'            => $sector,
+			'cuota_total'       => round($aNumero($fila[$colCuotaTotal] ?? 0), 2),
+			'venta_total'       => round($aNumero($fila[$colVentaTotal] ?? 0), 2),
+			// CUMPLIMIENTO llega como fracción (0.1952, celda de fórmula con
+			// formato 'pct') — se guarda como número de porcentaje (19.52),
+			// más cómodo para mostrar sin multiplicar en el front. Rebate %
+			// SÍ se deja como fracción (0.015), igual que el resto del
+			// proyecto (repositorio_rebate_producto.rebate_pct).
+			'cumplimiento_pct'  => round($aNumero($fila[$colCumplimiento] ?? 0) * 100, 4),
+			'gana_categoria'    => $aGana($fila[$colGanaCategoria] ?? ''),
+			'gana_total'        => $aGana($fila[$colGanaTotal] ?? ''),
+			'rebate_pct'        => $colRebatePct !== null ? round($aNumero($fila[$colRebatePct] ?? 0), 4) : null,
+			'pre_rebate'        => round($aNumero($fila[$colPreRebate] ?? 0), 2),
+			'rebate_maximo_110' => $colRebateMax110 !== null ? round($aNumero($fila[$colRebateMax110] ?? 0), 2) : null,
+			'rebate_real_vol'   => $colRebateRealVol !== null ? round($aNumero($fila[$colRebateRealVol] ?? 0), 2) : 0.0,
+		];
+	}
+
+	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
+	return ['filas' => $resultado, 'trimestre' => $trimestre];
 }
 ?>

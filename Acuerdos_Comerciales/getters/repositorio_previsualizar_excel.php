@@ -36,16 +36,16 @@ if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK)
 	$mensajesError = [
 		UPLOAD_ERR_INI_SIZE   => 'El archivo supera el tamaño máximo permitido por el servidor.',
 		UPLOAD_ERR_FORM_SIZE  => 'El archivo supera el tamaño máximo permitido (10 MB).',
-		UPLOAD_ERR_PARTIAL    => 'El archivo se subió incompleto — probá de nuevo, puede haber sido un corte de conexión.',
+		UPLOAD_ERR_PARTIAL    => 'El archivo se subió incompleto. Probá de nuevo, puede haber sido un corte de conexión.',
 		UPLOAD_ERR_NO_FILE    => 'No se eligió ningún archivo.',
-		UPLOAD_ERR_NO_TMP_DIR => 'El servidor no tiene dónde guardar archivos temporales — avisar al equipo técnico.',
-		UPLOAD_ERR_CANT_WRITE => 'El servidor no pudo escribir el archivo en disco — avisar al equipo técnico.',
-		UPLOAD_ERR_EXTENSION  => 'Una extensión de PHP del servidor bloqueó la subida — avisar al equipo técnico.',
+		UPLOAD_ERR_NO_TMP_DIR => 'El servidor no tiene dónde guardar archivos temporales. Avisá al equipo técnico.',
+		UPLOAD_ERR_CANT_WRITE => 'El servidor no pudo escribir el archivo en disco. Avisá al equipo técnico.',
+		UPLOAD_ERR_EXTENSION  => 'Una extensión de PHP del servidor bloqueó la subida. Avisá al equipo técnico.',
 	];
 	responder(false, $mensajesError[$codigo] ?? 'No se pudo recibir el archivo (error desconocido de subida).');
 }
 if (!xlsx_disponible()) {
-	responder(false, 'El servidor no tiene la extensión "zip" de PHP habilitada — no se puede leer el Excel. Avisar al equipo técnico.');
+	responder(false, 'No se pudo leer el archivo. Avisa al equipo técnico.');
 }
 
 // 2026-08-24: se probó agregar un límite propio de 10MB (mismo patrón que
@@ -60,7 +60,7 @@ $rutaTmp = $_FILES['archivo']['tmp_name'];
 $nombreArchivo = basename($_FILES['archivo']['name']);
 
 if (strtolower(pathinfo($nombreArchivo, PATHINFO_EXTENSION)) !== 'xlsx') {
-	responder(false, 'El archivo tiene que ser .xlsx (Excel) — "'.$nombreArchivo.'" no lo es.');
+	responder(false, 'El archivo tiene que ser .xlsx (Excel). "'.$nombreArchivo.'" no lo es.');
 }
 
 $resultado = $tipo === 'rebate'

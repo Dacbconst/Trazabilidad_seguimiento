@@ -19,7 +19,7 @@ $canalUsuario = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: '
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 ?>
-<div class="ac-acuerdo">
+<div class="ac-acuerdo<?= $canalUsuario === 'distribuidor' ? ' ac-acuerdo-distribuidor' : '' ?>">
 	<div class="ac-users-header ac-acuerdo-header">
 		<div>
 			<h1 class="ac-page-title">Registrar Acuerdo PDV</h1>
@@ -94,7 +94,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 		<div class="ac-card-header ac-card-header-split">
 			<div class="ac-card-header-title">
 				<span class="material-symbols-outlined">shopping_cart</span>
-				<h3>1. Meta de Compras en Dólares</h3>
+				<h3>1. Meta de Compras en <?= $canalUsuario === 'distribuidor' ? 'Cajas' : 'Dólares' ?></h3>
 			</div>
 			<button type="button" class="ac-btn-secondary" id="ac-add-purchase-row">
 				<span class="material-symbols-outlined">add</span> Agregar Fila

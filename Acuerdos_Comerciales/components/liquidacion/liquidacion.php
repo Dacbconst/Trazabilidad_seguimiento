@@ -61,7 +61,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/liquidacion.js') ?: time();
 	<section class="ac-card">
 		<div class="ac-card-header">
 			<h3>Pendientes de Asignar</h3>
-			<p class="ac-field-hint">Elegí el cliente correcto para cada fila que no se pudo vincular a una Acta automáticamente.</p>
+			<p class="ac-field-hint">Elige el cliente correcto para cada fila que no se pudo vincular a una Acta automáticamente.</p>
 		</div>
 		<div class="ac-table-scroll">
 			<table class="ac-table" id="liq-pendientes-tabla">

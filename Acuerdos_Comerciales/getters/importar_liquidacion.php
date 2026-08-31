@@ -34,7 +34,7 @@ if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK)
 	responder(false, 'No se recibió el archivo Excel (o falló la subida).');
 }
 if (!xlsx_disponible()) {
-	responder(false, 'El servidor no tiene la extensión "zip" de PHP habilitada — no se puede leer el Excel. Avisar al equipo técnico.');
+	responder(false, 'No se pudo leer el archivo. Avisa al equipo técnico.');
 }
 
 $rutaTmp = $_FILES['archivo']['tmp_name'];

@@ -252,7 +252,7 @@
 					'<td>' + escapeHtml(f.cliente_o_nombre) + '</td>' +
 					'<td>Cliente OK, Acta ambigua (' + f.actas_candidatas.length + ' posibles)</td>' +
 					'<td>' +
-						'<p class="ac-field-hint">Hay más de un Acta para este cliente en el mismo período — elegí cuál es:</p>' +
+						'<p class="ac-field-hint">Hay más de un Acta para este cliente en el mismo período — elige cuál es:</p>' +
 						'<div class="liq-candidatos">' + actasHtml + '</div>' +
 					'</td>' +
 					'</tr>';

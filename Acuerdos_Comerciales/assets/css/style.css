@@ -260,6 +260,66 @@ body {
 	font-size: 14px;
 	margin-bottom: var(--space-lg);
 }
+/* Mismo cuadro que .ac-alert-error, pero en ámbar (2026-08-30, bug real
+   reportado: "sacás una alerta roja por todo, da a entender que hubo
+   error") — para cuando la subida de un repositorio (Rebate/Participación/
+   Cuotas) tiene solo AVISOS (sí se guardó, conviene revisar — ej. "esta
+   fila se repite en el archivo") y ningún error real. Mismo ámbar ya
+   usado para "revisar" en el resto de la app (.ac-badge-revisar), no una
+   paleta nueva. */
+.ac-alert-warning {
+	background: #fff2cc;
+	color: #7a5b00;
+	border-radius: var(--radius);
+	padding: var(--space-sm) var(--space-md);
+	font-size: 14px;
+	margin-bottom: var(--space-lg);
+}
+
+/* Modal SweetAlert2 de avisos post-guardado en Repositorios (2026-08-30) —
+   antes era una lista <ul> angosta con una línea completa "Cliente: motivo"
+   por fila, que con un archivo grande (varias decenas de avisos) se
+   convertía en "una barra larga de info" difícil de leer. Agrupado por
+   motivo (repositorios.js arma el HTML, agrupando antes de esto) + chips
+   que envuelven en horizontal en vez de una lista vertical — el motivo se
+   lee una sola vez por grupo, no repetido por cada fila afectada. El ancho
+   del modal en sí se controla con el parámetro `width` del propio
+   Swal.fire (no CSS), a juego con este layout más horizontal. */
+.ac-avisos-lista {
+	text-align: left;
+	max-height: 55vh;
+	overflow-y: auto;
+	padding-right: var(--space-xs);
+}
+.ac-avisos-grupo { margin-bottom: var(--space-md); }
+.ac-avisos-grupo:last-child { margin-bottom: 0; }
+.ac-avisos-grupo-motivo {
+	display: flex;
+	align-items: center;
+	gap: var(--space-xs);
+	font-weight: 700;
+	font-size: 13.5px;
+	color: var(--color-on-surface);
+	margin-bottom: var(--space-sm);
+}
+.ac-avisos-count {
+	background: var(--color-surface-container-high);
+	color: var(--color-outline);
+	border-radius: var(--radius-full);
+	padding: 1px 9px;
+	font-size: 11.5px;
+	font-weight: 700;
+	flex-shrink: 0;
+}
+.ac-avisos-grupo-filas { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.ac-avisos-chip {
+	background: var(--color-surface-container-low);
+	border: 1px solid var(--color-outline-variant);
+	border-radius: var(--radius);
+	padding: 3px 10px;
+	font-size: 12.5px;
+	color: var(--color-on-surface-variant);
+}
 
 .ac-footer {
 	text-align: center;
@@ -482,6 +542,61 @@ body {
 	100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .ac-alertas-badge-critico { animation: none; } }
+/* Resalta el/los filtro(s) de Período/Año de Historial tras el modal de
+   "elige el período" (2026-08-28) — reemplaza a "una captura" (pedido
+   literal del usuario) con un aro pulsante sobre el control real, que
+   nunca se desactualiza si el layout cambia. Envuelve el wrapper de
+   "select bonito" (.ac-select-bonito), no el <select> nativo oculto.
+   Pulso INFINITO (2026-08-28, ronda 2, pedido explícito: "que siga
+   parpadeando hasta que el usuario seleccione un período") — se apaga
+   recién cuando ese select cambia a un valor real, ver
+   actualizarEstadoFiltroPeriodo() en historial.js. */
+.ac-filtro-resaltado { animation: ac-filtro-anillo 1.3s ease-out infinite; border-radius: var(--radius); }
+@keyframes ac-filtro-anillo {
+	0% { box-shadow: 0 0 0 0 rgba(0, 40, 142, 0.45); }
+	70% { box-shadow: 0 0 0 6px rgba(0, 40, 142, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(0, 40, 142, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .ac-filtro-resaltado { animation: none; outline: 2px solid var(--color-primary); outline-offset: 2px; } }
+/* Flash verde de confirmación (2026-08-28) — reemplaza al pulso azul de
+   arriba apenas el usuario elige un valor real en el select que estaba
+   parpadeando. Mismo verde que .ac-badge-ok/.ac-icon-btn-success (#1e5c26),
+   no una paleta nueva. Ronda 2 (mismo día, pedido explícito: "pasa tan
+   rápido que ni lo noto") — de 1 pulso de 0.7s a 2 pulsos de 0.6s (1.2s
+   total) con color más intenso, un "doble parpadeo" verde se nota mucho
+   más que un solo fundido corto. */
+.ac-filtro-confirmado { animation: ac-filtro-confirmado .6s ease-in-out 2; border-radius: var(--radius); }
+@keyframes ac-filtro-confirmado {
+	0% { box-shadow: 0 0 0 0 rgba(30, 92, 38, .65); background-color: rgba(30, 92, 38, .28); }
+	60% { box-shadow: 0 0 0 10px rgba(30, 92, 38, 0); background-color: rgba(30, 92, 38, .1); }
+	100% { box-shadow: 0 0 0 0 rgba(30, 92, 38, 0); background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .ac-filtro-confirmado { animation: none; } }
+/* "Descargar Excel" brilla apenas Período Y Año quedan los dos elegidos
+   (2026-08-28) — como si el botón recién se hubiera habilitado. Ronda 2
+   (mismo día, pedido explícito: "el botón azulito sé que parpadea pero
+   aun lo pierdo de vista") — de 1 sola pasada sutil a 2 pasadas más
+   grandes/lentas: el pulso de sombra ahora suma un tinte de fondo azul de
+   verdad (no solo una sombra fina fácil de perder contra el resto de la
+   página) y el barrido de brillo es más ancho y más opaco, cada uno 2
+   veces seguidas — un "doble parpadeo" se nota mucho más que un solo
+   destello corto. */
+.ac-excel-brillo { position: relative; overflow: hidden; animation: ac-excel-pop .7s ease-in-out 2; }
+.ac-excel-brillo::after {
+	content: ''; position: absolute; top: 0; left: -70%; width: 55%; height: 100%;
+	background: linear-gradient(120deg, transparent, rgba(255, 255, 255, .95), transparent);
+	animation: ac-excel-shine .7s ease-in-out 2;
+}
+@keyframes ac-excel-shine {
+	0% { left: -70%; }
+	100% { left: 140%; }
+}
+@keyframes ac-excel-pop {
+	0% { box-shadow: 0 0 0 0 rgba(0, 40, 142, .5); background-color: rgba(0, 40, 142, .14); }
+	60% { box-shadow: 0 0 0 10px rgba(0, 40, 142, 0); background-color: rgba(0, 40, 142, .05); }
+	100% { box-shadow: 0 0 0 0 rgba(0, 40, 142, 0); background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .ac-excel-brillo, .ac-excel-brillo::after { animation: none; } }
 /* 2 bugs reales encontrados en la verificación visual (2026-08-25, captura
    real del usuario mostrando el panel prácticamente en blanco):
    1) `background: var(--color-surface)` era el MISMO color que `body` —
@@ -857,11 +972,19 @@ body {
 }
 .ac-table tbody tr:hover { background: var(--color-surface-container-low); }
 .ac-table tbody tr.ac-row-inactivo { opacity: 0.55; }
-/* Agrupación visual por cliente en el Repositorio de Cuotas (2026-08-25) —
-   tinte más tenue que el hover de arriba a propósito, para que pasar el
-   mouse siga notándose por encima del tinte de grupo. */
-.ac-table tbody tr.ac-repo-fila-grupo-par { background: rgba(0, 40, 142, 0.035); }
-.ac-table tbody tr.ac-repo-fila-grupo-par:hover { background: var(--color-surface-container-low); }
+/* Agrupación visual por cliente en el Repositorio de Cuotas — 3 tonos
+   pastel que rotan por GRUPO (Main.dc.html "Opción A", mockup aprobado por
+   el usuario 2026-08-30; reemplaza el tinte azul parejo de 2026-08-25, que
+   el usuario encontró insuficiente) + un borde de color a la izquierda.
+   Tonos elegidos fuera de la familia verde/ámbar de los badges de estado
+   (.ac-badge-ok/.ac-badge-revisar) para que "grupo" nunca se lea como
+   "estado". El hover sigue notándose por encima de cualquiera de los 3. */
+.ac-table tbody tr.ac-repo-fila-grupo-a { background: #eef1fb; box-shadow: inset 3px 0 0 0 #6b7fc7; }
+.ac-table tbody tr.ac-repo-fila-grupo-a:hover { background: #e4e9f8; }
+.ac-table tbody tr.ac-repo-fila-grupo-b { background: #f4eefb; box-shadow: inset 3px 0 0 0 #a97fd1; }
+.ac-table tbody tr.ac-repo-fila-grupo-b:hover { background: #ede4f7; }
+.ac-table tbody tr.ac-repo-fila-grupo-c { background: #faf3ea; box-shadow: inset 3px 0 0 0 #cf9f5c; }
+.ac-table tbody tr.ac-repo-fila-grupo-c:hover { background: #f5ebdc; }
 .ac-table-empty { text-align: center; color: var(--color-outline); padding: var(--space-xl) !important; }
 .ac-text-right { text-align: right; }
 .ac-mono { font-family: 'Courier New', monospace; color: var(--color-on-surface-variant); white-space: nowrap; }
@@ -1380,6 +1503,17 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	margin: 0;
 }
 .ac-money-field input[type="number"] { -moz-appearance: textfield; }
+/* Canal Distribuidor mide en Cajas, no en Dólares (2026-08-30, bug real
+   reportado con captura: el título de sección ya decía "Meta de Compras en
+   Dólares" siempre, pero además cada input seguía mostrando el símbolo "$"
+   aunque la columna de Pago Total ya dijera "Cajas" — mismo dato en las 4
+   tablas de Registrar, PDF/Excel ya lo hacían bien, la pantalla interactiva
+   nunca se ajustó). `.ac-acuerdo-distribuidor` se agrega server-side en
+   components/registrar/registrar.php según el canal fijo del usuario
+   logueado (canalDeSupervisor()) — nunca cambia según qué cliente puntual
+   se elija dentro del formulario. */
+.ac-acuerdo-distribuidor .ac-money-field::before { content: none; }
+.ac-acuerdo-distribuidor .ac-money-field input { padding-left: 8px !important; }
 /* Meses de Rumas: de solo lectura, el valor se tipea en la mini tabla lateral */
 .ac-mini-input[readonly] { background: var(--color-surface-container-low); color: var(--color-on-surface-variant); cursor: default; }
 .ac-col-highlight { background: var(--color-surface-container-low); }
@@ -2324,4 +2458,113 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 @media (max-width: 600px) {
 	.ac-seg-filtro { flex: 1 1 45%; }
 	.ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { display: none; }
+}
+
+/* ---------- Módulo "Cumplimiento de Cuota" (2026-08-30) ----------
+   JW sube de vuelta el mismo Excel de "Descargar Excel" (Historial), ya
+   completado con venta real — acá solo se LEE lo que el propio archivo ya
+   calculó (Cumplimiento/Gana por Categoría/Gana Total/Rebate Real Vol),
+   nunca se recalcula nada. Mismo wrapper flex-column con gap que
+   .ac-repo/.ac-seguimiento (los hijos directos no necesitan margen propio). */
+.ac-cumpl { display: flex; flex-direction: column; gap: var(--space-lg); }
+
+.ac-cumpl-banner {
+	display: flex; align-items: center; gap: var(--space-sm);
+	background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed);
+	border-radius: var(--radius); padding: 12px var(--space-md); font-size: 13px; line-height: 1.5;
+}
+.ac-cumpl-banner .material-symbols-outlined { flex-shrink: 0; }
+
+.ac-cumpl-buscar-wrap { min-width: 240px; flex: 1 1 240px; }
+
+/* Encabezado de columnas de la tabla y cada fila de categoría comparten el
+   MISMO grid-template-columns — 8 columnas: Categoría, Cumplimiento, Venta
+   real, Cuota, Gana Categoría, Gana Total, Rebate ganado, Acciones. Gana
+   Categoría y Gana Total van adyacentes a propósito (pedido explícito del
+   usuario, 2026-08-30): en el Excel real son 2 columnas seguidas que se
+   comparan de un vistazo — una categoría puede decir NO GANA mientras el
+   cliente completo (todas sus categorías sumadas) sí llega a GANA total. */
+.ac-cumpl-col-header, .ac-cumpl-fila-cat {
+	display: grid;
+	grid-template-columns: 2fr 0.9fr 1fr 0.9fr 1fr 1fr 1fr 44px;
+	gap: var(--space-sm);
+	padding: 10px var(--space-lg);
+	align-items: center;
+	min-width: 0;
+}
+.ac-cumpl-col-header {
+	background: var(--color-surface-container-low);
+	font-size: 11px; font-weight: 700; color: var(--color-on-surface-variant);
+	text-transform: uppercase; letter-spacing: 0.03em;
+	border-bottom: 1px solid var(--color-outline-variant);
+}
+.ac-cumpl-fila-cat { font-size: 13px; border-top: 1px solid var(--color-outline-variant); }
+.ac-cumpl-fila-cat > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.ac-cumpl-cambio { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; }
+.ac-cumpl-cambio-mejora { color: #1e9e5a; }
+.ac-cumpl-cambio-empeora { color: #ba1a1a; }
+
+.ac-cumpl-fila-usuario {
+	display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap;
+	padding: 14px var(--space-lg);
+	background: var(--color-surface-container-low);
+	border-top: 1px solid var(--color-outline-variant); border-bottom: 1px solid var(--color-outline-variant);
+}
+.ac-cumpl-usuario-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ac-cumpl-usuario-nombre { font-weight: 800; font-size: 15px; }
+.ac-cumpl-usuario-resumen { display: flex; align-items: center; gap: var(--space-md); font-size: 12px; flex-shrink: 0; }
+.ac-cumpl-resumen-ok, .ac-cumpl-resumen-no { display: flex; align-items: center; gap: 5px; font-weight: 700; }
+.ac-cumpl-resumen-ok { color: #1e9e5a; }
+.ac-cumpl-resumen-no { color: #ba1a1a; }
+.ac-cumpl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+.ac-cumpl-fila-cliente {
+	display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap;
+	padding: 12px var(--space-lg) 12px calc(var(--space-lg) + 26px);
+	min-width: 0;
+}
+.ac-cumpl-cliente-nombre { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ac-cumpl-cliente-nombre > span:first-child { font-weight: 700; font-size: 14px; }
+.ac-cumpl-cliente-meta { flex-shrink: 0; margin: 0; }
+
+/* Badge "Gana Total" repetido por fila de categoría — con borde en vez de
+   relleno sólido, para que se lea como "resultado heredado del cliente
+   completo" y nunca se confunda con "Gana Categoría" (relleno sólido, el
+   resultado propio de esa fila sola). */
+.ac-cumpl-badge-outline { background: transparent !important; border: 1px solid currentColor; }
+
+/* Grupos pastel por cliente (mismos 3 tonos ya usados en Repositorios >
+   Cuotas Trimestrales, ver .ac-repo-fila-grupo-a/b/c más arriba) — acá se
+   aplican a divs (no filas de tabla), así que necesitan su propia regla,
+   con los MISMOS valores de color para que se lean como el mismo lenguaje
+   visual del resto de la app. */
+/* Tonos subidos de intensidad (2026-08-31, pedido explícito: "están muy
+   pasteles, casi no se notan") — solo acá, en Cumplimiento de Cuota. Los
+   de Repositorios > Cuotas Trimestrales (.ac-table tbody tr.ac-repo-fila-
+   grupo-a/b/c, más arriba en este archivo) NO se tocaron, no se pidió ahí. */
+.ac-cumpl-fila-cliente.ac-repo-fila-grupo-a, .ac-cumpl-fila-cat.ac-repo-fila-grupo-a { background: #dbe2f8; box-shadow: inset 3px 0 0 0 #5a70bd; }
+.ac-cumpl-fila-cliente.ac-repo-fila-grupo-b, .ac-cumpl-fila-cat.ac-repo-fila-grupo-b { background: #e8d9f6; box-shadow: inset 3px 0 0 0 #9668c4; }
+.ac-cumpl-fila-cliente.ac-repo-fila-grupo-c, .ac-cumpl-fila-cat.ac-repo-fila-grupo-c { background: #f1e0c8; box-shadow: inset 3px 0 0 0 #b98a45; }
+
+/* Resumen de la subida en el modal (nombre de archivo + año), previo a la
+   tabla de previsualización. */
+.ac-cumpl-preview-resumen { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
+
+@media (max-width: 900px) {
+	.ac-cumpl-col-header { display: none; }
+	.ac-cumpl-fila-cat {
+		grid-template-columns: 1fr 1fr;
+		grid-template-areas: "sector sector" "cumpl venta" "cuota gana" "ganatotal rebate" "acciones acciones";
+		row-gap: 6px;
+		padding: 10px var(--space-md) 14px calc(var(--space-md) + 20px);
+	}
+	.ac-cumpl-fila-cat > div:nth-child(1) { grid-area: sector; font-weight: 600; }
+	.ac-cumpl-fila-cat > div:nth-child(2) { grid-area: cumpl; }
+	.ac-cumpl-fila-cat > div:nth-child(3) { grid-area: venta; }
+	.ac-cumpl-fila-cat > div:nth-child(4) { grid-area: cuota; }
+	.ac-cumpl-fila-cat > div:nth-child(5) { grid-area: gana; }
+	.ac-cumpl-fila-cat > div:nth-child(6) { grid-area: ganatotal; }
+	.ac-cumpl-fila-cat > div:nth-child(7) { grid-area: rebate; }
+	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
 }

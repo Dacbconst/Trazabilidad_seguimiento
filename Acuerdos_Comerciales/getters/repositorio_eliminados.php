@@ -42,7 +42,7 @@ if ($tipo === 'rebate') {
 	);
 } else {
 	$stmt = $mysqli->prepare(
-		"SELECT p.id, p.marca, p.participacion_pct, p.eliminado_en, u.usuario AS eliminado_por_usuario
+		"SELECT p.id, p.ciudad, p.marca, p.participacion_pct, p.eliminado_en, u.usuario AS eliminado_por_usuario
 		 FROM repositorio_participacion_percha p
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = p.eliminado_por
 		 WHERE p.eliminado_en IS NOT NULL
@@ -52,7 +52,7 @@ if ($tipo === 'rebate') {
 	);
 }
 if (!$stmt) {
-	echo json_encode(['ok' => false, 'message' => 'El repositorio todavía no existe en la base, o falta correr la migración de borrado lógico (ver datos/repositorios_schema.sql).']);
+	echo json_encode(['ok' => false, 'message' => 'El repositorio todavía no está disponible. Avisa al equipo técnico.']);
 	exit;
 }
 $stmt->bind_param('ssss', $desde, $desde, $hasta, $hasta);

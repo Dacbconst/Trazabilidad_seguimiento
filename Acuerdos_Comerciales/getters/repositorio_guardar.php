@@ -68,7 +68,9 @@ function repositorio_identificar_fila($tipo, $fila) {
 		$partes = array_filter([$fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['ciudad'] ?? '', $fila['canal'] ?? '']);
 		return $partes ? implode(' / ', $partes) : '(fila vacía)';
 	}
-	return ($fila['marca'] ?? '') !== '' ? $fila['marca'] : '(fila vacía)';
+	// participacion (2026-08-30): Ciudad + Marca, mismo criterio que Rebate.
+	$partes = array_filter([$fila['marca'] ?? '', $fila['ciudad'] ?? '']);
+	return $partes ? implode(' / ', $partes) : '(fila vacía)';
 }
 
 $mysqli->begin_transaction();
@@ -91,7 +93,7 @@ try {
 			 VALUES (?, ?, ?, ?, ?, ?, ?)
 			 ON DUPLICATE KEY UPDATE rebate_pct = VALUES(rebate_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
 		);
-		if (!$stmt) throw new Exception('El repositorio de Rebate todavía no existe en la base (falta correr datos/repositorios_schema.sql).');
+		if (!$stmt) throw new Exception('El repositorio de Rebate todavía no está disponible. Avisa al equipo técnico.');
 
 		foreach ($filas as $indice => $fila) {
 			$ciudad    = repositorio_normalizar_texto($fila['ciudad'] ?? '');
@@ -117,13 +119,24 @@ try {
 			// dejarlo entrar silencioso a un catálogo que después autocompleta
 			// Actas reales.
 			if ($rebatePct === null || $rebatePct < 0 || $rebatePct > 1) {
-				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Rebate inválido ('.($rebatePct === null ? 'no es un número' : number_format($rebatePct * 100, 1).'%').') — debe estar entre 0% y 100%'];
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'El Rebate debe ser un número entre 0% y 100%'];
 				continue;
 			}
 
 			$clave = $ciudad.'|'.$canal.'|'.$sector.'|'.$categoria.'|'.$marca;
 			if (isset($clavesVistas[$clave])) {
-				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Este producto se repite más abajo en el mismo archivo — se guardó el último valor'];
+				// 'tipo' => 'duplicado_archivo' (2026-08-30): esto es una
+				// propiedad del ARCHIVO en sí (2 filas apuntan al mismo
+				// producto), no un problema de datos — re-subir el mismo
+				// archivo lo va a decir de nuevo siempre, aunque nada haya
+				// cambiado. Se etiqueta distinto para que el frontend no lo
+				// muestre como "algo para revisar" después de guardar (ver
+				// assets/js/repositorios.js) — bug real reportado: "subo el
+				// mismo archivo y me sale la misma alerta, no debería haber
+				// novedad". Mensaje simplificado (2026-08-30, mismo día,
+				// pedido explícito: "mensajes simples, sencillos de
+				// entender") — sin explicar el mecanismo interno del upsert.
+				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Producto repetido en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
 			}
 			$clavesVistas[$clave] = $indice;
 
@@ -131,42 +144,56 @@ try {
 			if ($stmt->execute()) {
 				$guardadas++;
 			} else {
-				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Error al guardar: '.$stmt->error];
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo guardar esta fila'];
 			}
 		}
 		$stmt->close();
 	} else {
 		// eliminado_en/eliminado_por en NULL acá, mismo motivo que Rebate arriba.
+		// Clave (ciudad, marca) — SIN categoría/subcategoría (2026-08-30,
+		// rediseño con el Excel real que confirmó el usuario: las líneas de
+		// Percha del Acta solo guardan Marca, nunca esos 2 campos, ver
+		// datos/repositorios_schema.sql) y SIN canal (el Excel no lo trae,
+		// aplica igual para Directo y Distribuidor).
 		$stmt = $mysqli->prepare(
-			'INSERT INTO repositorio_participacion_percha (marca, participacion_pct, actualizado_por)
-			 VALUES (?, ?, ?)
+			'INSERT INTO repositorio_participacion_percha (ciudad, marca, participacion_pct, actualizado_por)
+			 VALUES (?, ?, ?, ?)
 			 ON DUPLICATE KEY UPDATE participacion_pct = VALUES(participacion_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
 		);
-		if (!$stmt) throw new Exception('El repositorio de Participación todavía no existe en la base (falta correr datos/repositorios_schema.sql).');
+		if (!$stmt) throw new Exception('El repositorio de Participación todavía no está disponible. Avisa al equipo técnico.');
 
 		foreach ($filas as $indice => $fila) {
-			$marca = repositorio_normalizar_texto($fila['marca'] ?? '');
-			$pct   = is_numeric($fila['participacion_pct'] ?? null) ? (float) $fila['participacion_pct'] : null;
+			$ciudad = repositorio_normalizar_texto($fila['ciudad'] ?? '');
+			$marca  = repositorio_normalizar_texto($fila['marca'] ?? '');
+			$pct    = is_numeric($fila['participacion_pct'] ?? null) ? (float) $fila['participacion_pct'] : null;
+			$etiqueta = repositorio_identificar_fila($tipo, $fila);
 
-			if ($marca === '') {
-				$errores[] = ['indice' => $indice, 'fila' => '(fila vacía)', 'motivo' => 'Falta la Marca'];
+			$faltantes = [];
+			if ($ciudad === '') $faltantes[] = 'Ciudad';
+			if ($marca === '') $faltantes[] = 'Marca';
+			if ($faltantes) {
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)];
 				continue;
 			}
 			if ($pct === null || $pct < 0 || $pct > 100) {
-				$errores[] = ['indice' => $indice, 'fila' => $marca, 'motivo' => 'Participación inválida ('.($pct === null ? 'no es un número' : number_format($pct, 1).'%').') — debe estar entre 0% y 100%'];
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'La Participación debe ser un número entre 0% y 100%'];
 				continue;
 			}
 
-			if (isset($clavesVistas[$marca])) {
-				$avisos[] = ['indice' => $clavesVistas[$marca], 'fila' => $marca, 'motivo' => 'Esta marca se repite más abajo en el mismo archivo — se guardó el último valor'];
+			$clave = $ciudad.'|'.$marca;
+			if (isset($clavesVistas[$clave])) {
+				// 'tipo' => 'duplicado_archivo' — ver nota completa en la rama
+				// de Rebate más arriba, mismo criterio acá. Mensaje
+				// simplificado (2026-08-30, mismo pedido).
+				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Marca repetida en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
 			}
-			$clavesVistas[$marca] = $indice;
+			$clavesVistas[$clave] = $indice;
 
-			$stmt->bind_param('sdi', $marca, $pct, $usuarioSesion);
+			$stmt->bind_param('ssdi', $ciudad, $marca, $pct, $usuarioSesion);
 			if ($stmt->execute()) {
 				$guardadas++;
 			} else {
-				$errores[] = ['indice' => $indice, 'fila' => $marca, 'motivo' => 'Error al guardar: '.$stmt->error];
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo guardar esta fila'];
 			}
 		}
 		$stmt->close();
@@ -179,8 +206,17 @@ try {
 }
 
 $omitidas = count($errores);
+// "duplicado_archivo" (ver más arriba) no cuenta para el mensaje — es una
+// propiedad fija del archivo (2 filas apuntan al mismo producto/marca), no
+// algo que haya cambiado en esta subida puntual. Bug real reportado
+// 2026-08-30: subir prácticamente el mismo archivo de nuevo seguía
+// mostrando "X fila(s) con un aviso, revisá el detalle" — daba la
+// impresión de que había algo nuevo que mirar cuando no lo había. Solo se
+// cuentan acá los avisos genuinos (sector sin match, cuota ya usada,
+// cliente sin resolver, etc.).
+$avisosRelevantes = array_filter($avisos, function ($a) { return ($a['tipo'] ?? null) !== 'duplicado_archivo'; });
 $partesMensaje = ["Se guardaron $guardadas fila(s)."];
-if ($omitidas > 0) $partesMensaje[] = "$omitidas fila(s) NO se guardaron — revisá el detalle.";
-if ($avisos) $partesMensaje[] = count($avisos).' fila(s) se guardaron con un aviso — revisá el detalle.';
+if ($omitidas > 0) $partesMensaje[] = "$omitidas fila(s) no se guardaron. Revisá el detalle.";
+if ($avisosRelevantes) $partesMensaje[] = count($avisosRelevantes).' fila(s) se guardaron con un aviso. Revisá el detalle.';
 responder(true, implode(' ', $partesMensaje), ['guardadas' => $guardadas, 'omitidas' => $omitidas, 'errores' => $errores, 'avisos' => $avisos]);
 ?>

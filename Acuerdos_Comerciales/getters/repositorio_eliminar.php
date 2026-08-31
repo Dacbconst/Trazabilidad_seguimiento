@@ -63,14 +63,14 @@ if ($tipo === 'cuotas') {
 		$fila = $stmt->get_result()->fetch_assoc();
 		$stmt->close();
 		if ($fila && $fila['estado'] === 'usada') {
-			responder(false, 'Esta fila ya generó una Acta — no se puede eliminar. Si el dato está mal, corregilo desde la Acta en Historial.');
+			responder(false, 'Esta fila ya generó una Acta. No se puede eliminar. Si el dato está mal, corregilo desde la Acta en Historial.');
 		}
 	}
 
 	$usuarioSesion = $_SESSION['user_id'] ?? null;
 	$stmt = $mysqli->prepare("UPDATE repositorio_cuota_cliente SET estado = 'descartada', actualizado_por = ? WHERE id = ?");
 	if (!$stmt) {
-		responder(false, 'El Repositorio de Cuotas todavía no existe en la base (falta correr datos/cuota_cliente_schema.sql).');
+		responder(false, 'El Repositorio de Cuotas todavía no está disponible. Avisa al equipo técnico.');
 	}
 	$stmt->bind_param('ii', $usuarioSesion, $id);
 	$stmt->execute();
@@ -81,7 +81,7 @@ if ($tipo === 'cuotas') {
 $usuarioSesion = $_SESSION['user_id'] ?? null;
 $stmt = $mysqli->prepare("UPDATE $tabla SET eliminado_en = NOW(), eliminado_por = ? WHERE id = ? AND eliminado_en IS NULL");
 if (!$stmt) {
-	responder(false, 'El repositorio todavía no existe en la base, o falta correr la migración de borrado lógico (ver datos/repositorios_schema.sql).');
+	responder(false, 'El repositorio todavía no está disponible. Avisa al equipo técnico.');
 }
 $stmt->bind_param('ii', $usuarioSesion, $id);
 $stmt->execute();

@@ -143,7 +143,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 		</div>
 
 		<div class="ac-modal-body" id="repo-subir-paso-elegir">
-			<p class="ac-field-hint">El archivo actualiza los registros que coincidan y agrega los que sean nuevos — no borra el resto del repositorio.</p>
+			<p class="ac-field-hint">El archivo actualiza los registros que coincidan y agrega los nuevos. No borra el resto del repositorio.</p>
 			<div class="ac-dropzone" id="repo-dropzone">
 				<span class="material-symbols-outlined">upload_file</span>
 				<p class="ac-dropzone-title">Arrastra tu Excel acá o hacé click para elegirlo</p>
@@ -178,7 +178,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<input type="number" class="ac-input" id="repo-preview-anio" style="max-width:140px;">
 			</div>
 			<p class="ac-field-hint">Así vamos a guardar estos datos. Podés corregir cualquier campo antes de confirmar.</p>
-			<div class="ac-alert-error hidden" id="repo-preview-errores"></div>
+			<!-- Rojo (.ac-alert-error) solo si hubo errores reales, ámbar
+			     (.ac-alert-warning) si son solo avisos — la clase de color la
+			     decide JS en cada guardado, ver mostrarErroresPreview(). -->
+			<div class="hidden" id="repo-preview-errores"></div>
 			<div class="ac-table-scroll ac-preview-table-scroll">
 				<table class="ac-table ac-preview-table" id="repo-preview-tabla">
 					<thead id="repo-preview-tabla-head"></thead>
@@ -216,7 +219,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			</button>
 		</div>
 		<div class="ac-modal-body">
-			<p class="ac-field-hint">El nombre del cliente en el Excel no matcheó solo con ningún cliente único del maestro — elegí uno de los candidatos, buscá el pos_id correcto a mano, o descartá la fila si es un error de tipeo.</p>
+			<p class="ac-field-hint">El nombre del cliente en el Excel no coincidió con un único cliente del maestro. Elige uno de los candidatos, busca el pos_id correcto a mano, o descarta la fila si es un error de tipeo.</p>
 			<div class="ac-table-scroll">
 				<table class="ac-table" id="repo-pendientes-tabla">
 					<thead>
@@ -247,7 +250,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 <div class="ac-modal-overlay" id="repo-resumen-modal-overlay">
 	<div class="ac-modal ac-acta-modal">
 		<div class="ac-modal-header">
-			<h3>Resumen — Cuotas Trimestrales</h3>
+			<h3>Resumen de Cuotas Trimestrales</h3>
 			<button type="button" class="ac-modal-close" id="repo-resumen-modal-close" aria-label="Cerrar">
 				<span class="material-symbols-outlined">close</span>
 			</button>
@@ -255,7 +258,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 		<div class="ac-modal-body">
 			<div class="ac-resumen-stats" id="repo-resumen-stats"></div>
 			<div class="ac-resumen-chart-wrap">
-				<p class="ac-resumen-chart-title">A quién le corresponden — usuarios con cuenta y supervisores sin cuenta todavía</p>
+				<p class="ac-resumen-chart-title">Usuarios con cuenta y supervisores sin cuenta todavía</p>
 				<div id="repo-resumen-chart"></div>
 			</div>
 			<div id="repo-resumen-choque" class="ac-choque-wrap hidden"></div>
@@ -277,7 +280,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			</button>
 		</div>
 		<div class="ac-modal-body">
-			<p class="ac-field-hint">Filas borradas de este repositorio — se pueden reactivar en cualquier momento, no se pierde el dato.</p>
+			<p class="ac-field-hint">Filas borradas de este repositorio. Se pueden reactivar en cualquier momento, no se pierde el dato.</p>
 			<div class="ac-repo-filtros" style="padding:0 0 var(--space-md);">
 				<div class="ac-field ac-field-inline">
 					<label class="ac-field-label" for="repo-eliminados-desde">Borrado desde</label>

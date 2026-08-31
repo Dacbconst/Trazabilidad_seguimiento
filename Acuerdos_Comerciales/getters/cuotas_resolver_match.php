@@ -75,7 +75,7 @@ $stmt->close();
 // el superdesarrollador decide cuál de las dos filas conservar a mano
 // (borrando la vieja desde la tabla principal del repositorio).
 if (!$ok && $mysqli->errno === 1062) {
-	responder(false, 'Ya existe una cuota guardada para ese cliente, categoría y período — borrá la fila vieja en la tabla de Cuotas antes de asignar esta.');
+	responder(false, 'Ya existe una cuota guardada para ese cliente, categoría y período. Borrá la fila vieja en la tabla de Cuotas antes de asignar esta.');
 }
 
 responder((bool) $ok, $ok ? 'Cliente asignado correctamente.' : 'No se pudo guardar.');

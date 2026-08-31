@@ -61,8 +61,18 @@
 		e.returnValue = '';
 	});
 
+	// Canal Distribuidor mide en Cajas, no en Dólares (2026-08-30, bug real
+	// reportado con captura — el PDF/Excel ya distinguía esto, la pantalla
+	// interactiva nunca se ajustó): sin signo "$" ni formato de moneda para
+	// Distribuidor, solo el número. CANAL_USUARIO es fijo por usuario
+	// logueado (ver componentes/registrar/registrar.php), no cambia según
+	// qué cliente puntual se elija en el formulario.
 	var formatCurr = function (val) {
-		return (isNaN(val) ? 0 : val).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+		var num = isNaN(val) ? 0 : val;
+		if (CANAL_USUARIO === 'distribuidor') {
+			return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+		}
+		return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 	};
 
 	// ---------- Selectores ----------
@@ -457,7 +467,10 @@
 			// sin tocar acuerdo_catalogo.php ni el mapeo de datos. Cabeceras/Rumas
 			// no tienen este nivel intermedio, así que ahí "Categoría" queda igual.
 			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Categoría</th><th class="ac-sticky-col ac-sticky-col-3">Subcategoría</th><th class="ac-sticky-col ac-sticky-col-4">Marca</th>' +
-			months.map(function (m) { return '<th class="ac-text-right">' + m + ' ($)</th>'; }).join('') +
+			// "($)" solo en canal Directo — Distribuidor mide en Cajas, no en
+			// dólares (2026-08-30, mismo fix que formatCurr()/el símbolo "$" de
+			// los inputs — ver .ac-acuerdo-distribuidor en style.css).
+			months.map(function (m) { return '<th class="ac-text-right">' + m + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)') + '</th>'; }).join('') +
 			'<th class="ac-text-right ac-col-highlight">Total Período</th><th class="ac-text-right ac-col-highlight">Rebate %</th><th class="ac-text-right ac-col-highlight ac-th-2l">Valor Estimado<br>a Ganar</th><th></th></tr>';
 
 		cabecerasHead.innerHTML =
@@ -477,7 +490,7 @@
 		perchasHead.innerHTML =
 			'<tr><th rowspan="3" class="ac-sticky-col">Marca Perchas</th><th rowspan="1">Participación</th><th rowspan="1">Cantidad</th>' +
 			'<th colspan="' + (count + 1) + '">Pago Mensual</th><th rowspan="3"></th></tr>' +
-			'<tr><th colspan="' + (count + 2) + '">Pago x Mes x Percha ($)</th></tr>' +
+			'<tr><th colspan="' + (count + 2) + '">Pago x Mes x Percha' + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)') + '</th></tr>' +
 			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th class="ac-th-2l">Pago Total<br>Cajas</th></tr>';
 	}
 
@@ -650,10 +663,19 @@
 	}
 
 	// Marca de Perchas: lista plana, sin cascada de Segmento/Categoría.
+	// Participación % conectada al repositorio (2026-08-30, ver
+	// buscarYAplicarParticipacion más abajo) — al elegir Marca de verdad se
+	// busca el % real y se bloquea el campo si hay match. `silencioso=true`
+	// (usado por sugerir(), abajo) lo salta a propósito, mismo criterio que
+	// Rebate: restaurar un borrador/precarga no debe tocar la participación
+	// ya guardada en esa línea.
 	function bindMarcaPerchaCombo(tr) {
 		var marcaInput = tr.querySelector('.marca-input'), marcaHidden = tr.querySelector('.marca-select');
-		function aplicarMarca(value) {
+		function aplicarMarca(value, label, silencioso) {
 			marcaHidden.value = value; marcaInput.value = value;
+			if (silencioso) return;
+			if (value) buscarYAplicarParticipacion(tr, value);
+			else resetearParticipacion(tr);
 		}
 		inicializarCombo(marcaInput, marcaHidden, function () {
 			return catalogo.marcasPercha.map(function (m) { return { value: m, label: m }; });
@@ -662,9 +684,57 @@
 		return {
 			sugerir: function (marca) {
 				if (marcaHidden.value) return;
-				aplicarMarca(marca);
+				aplicarMarca(marca, null, true);
 			}
 		};
+	}
+
+	// Bloquea/desbloquea el campo de Participación de una fila de Perchas —
+	// resetearParticipacion() vuelve a un estado neutral editable (usado al
+	// limpiar/cambiar Marca), buscarYAplicarParticipacion() busca el % real en
+	// repositorio_participacion_percha (2026-08-30, objetivo final ya
+	// aplicado a Rebate el 2026-08-27: "que se autocomplete y bloquee, no se
+	// tipee a mano"). La clave del repositorio es Ciudad+Marca — SIN
+	// Categoría/Subcategoría (la tabla de Perchas del Acta nunca las guarda,
+	// a diferencia de Meta de Compras) y SIN Canal (el Excel real de JW no lo
+	// trae, aplica igual para Directo y Distribuidor). Ciudad se resuelve
+	// igual que Rebate: la Localidad (CEDI) del cliente elegido para canal
+	// Directo, o "TODAS" para Distribuidor (buscarParticipacionPercha(),
+	// includes/functions.php, además prueba "RESTO CIUDADES" como catch-all
+	// si la ciudad real no tiene fila propia — ver ese comentario para el
+	// detalle completo). Si no hay match, el campo queda editable — nunca
+	// bloquea al usuario por falta de datos en un repositorio que se sigue
+	// poblando de a poco.
+	function resetearParticipacion(tr) {
+		var input = tr.querySelector('.v-participacion');
+		if (!input) return;
+		input.value = '0%';
+		input.readOnly = false;
+		input.title = '';
+	}
+	function buscarYAplicarParticipacion(tr, marca) {
+		var input = tr.querySelector('.v-participacion');
+		if (!input) return;
+		var canal = catalogoDistribuidor.canal === 'distribuidor' ? 'DISTRIBUIDOR' : 'DIRECTA';
+		var ciudad = canal === 'DISTRIBUIDOR' ? 'TODAS' : localidadEl.textContent;
+		var params = new URLSearchParams({ ciudad: ciudad || '', marca: marca });
+		fetch('getters/acuerdo_buscar_participacion.php?' + params.toString())
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				// La fila puede haber cambiado de Marca mientras esta consulta
+				// estaba en vuelo (el usuario re-eligió rápido) — solo aplica si
+				// el combo sigue mostrando la misma Marca que se consultó.
+				if (tr.querySelector('.marca-select').value !== marca) return;
+				if (data && data.ok && data.encontrado) {
+					input.value = (Math.round(parseFloat(data.participacion_pct) * 100) / 100) + '%';
+					input.readOnly = true;
+					input.title = 'Bloqueado — viene del repositorio de Participación.';
+				} else {
+					input.readOnly = false;
+					input.title = 'No hay Participación % cargada en el repositorio para esta Ciudad/Marca — escribilo a mano.';
+				}
+			})
+			.catch(function () { /* silencioso: el campo ya quedó editable, el usuario puede seguir tipeando a mano */ });
 	}
 
 	// Al completar Segmento+Categoría+Marca en Meta de Compras, se sugiere la
@@ -883,10 +953,13 @@
 		var tr = document.createElement('tr');
 		var html =
 			'<td class="ac-sticky-col">' + comboCellHtml('marca', 'Marca...', false) + '</td>' +
-			// Participación bloqueada (2026-08-24, mismo pedido/motivo que Rebate
-			// % de Meta de Compras arriba) — también saldría de un repositorio
-			// que sube JW, sin lógica de autorrelleno todavía.
-			'<td><input type="text" class="ac-input ac-mini-input v-participacion" value="50%" readonly></td>' +
+			// Participación conectada al repositorio (2026-08-30, ver
+			// buscarYAplicarParticipacion) — arranca readonly/0% porque la fila
+			// todavía no tiene Marca elegida (mismo patrón que el Rebate % de
+			// Meta de Compras); se bloquea con el valor real si hay match en
+			// repositorio_participacion_percha, o se desbloquea para tipear a
+			// mano si no lo hay (ver resetearParticipacion()).
+			'<td><input type="text" class="ac-input ac-mini-input v-participacion" value="0%" readonly></td>' +
 			'<td><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
 		activeMonthsIndices.forEach(function () {
 			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
@@ -1070,7 +1143,7 @@
 		var sinConfirmar = encontrarSpinnersSinConfirmar();
 		if (sinConfirmar.length) {
 			var campo = sinConfirmar[0];
-			mostrarMensaje('"' + describirCampoCombo(campo) + '" quedó con un valor que no se eligió de la lista ("' + campo.value + '") — hacé click ahí y elegí una opción antes de guardar.', false);
+			mostrarMensaje('"' + describirCampoCombo(campo) + '" quedó con un valor que no se eligió de la lista ("' + campo.value + '") — haz click ahí y elige una opción antes de guardar.', false);
 			campo.focus();
 			campo.classList.add('ac-campo-resaltado');
 			setTimeout(function () { campo.classList.remove('ac-campo-resaltado'); }, 1800);
