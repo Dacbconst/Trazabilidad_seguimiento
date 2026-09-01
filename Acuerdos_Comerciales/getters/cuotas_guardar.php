@@ -1,15 +1,7 @@
 <?php
-// Paso 2 de la subida del Repositorio de Cuotas (guarda de verdad, ver
-// cuotas_previsualizar_excel.php) — mismo espíritu "el sistema se defiende
-// solo" que getters/repositorio_guardar.php: UPSERT fila por fila, nunca
-// aborta todo por un error puntual, reporta errores/avisos con su índice.
-//
-// Diferencia real con Rebate/Participación: acá SÍ hay cliente, así que
-// además de guardar el monto hay que resolver a qué pos_id real corresponde
-// cada fila (resolverPosIdCliente(), includes/functions.php) — si no
-// matchea de forma única, la fila se guarda igual pero con
-// estado='pendiente_match' (pos_id NULL) para resolver a mano en
-// "Pendientes de Asignar" (getters/cuotas_pendientes_asignar.php).
+// Paso 2 de la subida del Repositorio de Cuotas: UPSERT fila por fila, resuelve
+// pos_id (resolverPosIdCliente()); sin match único queda 'pendiente_match' para
+// resolver a mano en "Pendientes de Asignar".
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -54,14 +46,8 @@ $clavesVistas = []; // pos_id|sector -> índice, para avisar de repetidos DENTRO
 
 $mysqli->begin_transaction();
 try {
-	// `subcategoria`/`marca` (2026-08-28, columnas nuevas, opcionales — ver
-	// datos/cuota_cliente_schema.sql): si el ALTER correspondiente todavía
-	// no se corrió, se cae a un INSERT con menos columnas — mismo criterio
-	// defensivo que el resto del proyecto, nunca tumbar toda la subida de
-	// Cuotas por columnas nuevas que capaz faltan. **Sin `rebate_pct`**
-	// (2026-08-30, pedido explícito del usuario: nunca pidió que Cuotas
-	// tomara Rebate del Excel, se sacó — ver nota completa en
-	// obtener_precarga_detalle(), includes/functions.php).
+	// subcategoria/marca son opcionales (fallback si el ALTER no se corrió). Sin
+	// rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
 	$stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cuota_cliente
 		 (pos_id, cliente_excel, cedi_excel, plan, sector, subcategoria, marca, trimestre, anio, valores_mensuales, estado, actualizado_por)
@@ -86,26 +72,11 @@ try {
 	}
 	if (!$stmt) throw new Exception('El Repositorio de Cuotas todavía no está disponible. Avisa al equipo técnico.');
 
-	// mes1/mes2/mes3 son posición dentro del trimestre (ver
-	// repositorio_parsear_cuotas()) — acá se convierten al índice real 0-11
-	// para guardar en el MISMO formato JSON que
-	// repositorio_acuerdo_lineas.valores_mensuales (ej. trimestre=2 ->
-	// mesInicio=3 -> {"3": mes1, "4": mes2, "5": mes3}), así la Fase 2 puede
-	// copiarlo directo a una línea de Meta de Compras sin convertir nada.
+	// mes1/mes2/mes3 -> índice real 0-11, mismo formato JSON que valores_mensuales.
 	$mesInicio = ($trimestre - 1) * 3;
 
-	// Cache dentro de esta misma subida (2026-08-30, bug real reportado: "me
-	// sale un guardando eterno") — resolverSectorReal()/resolverPosIdCliente()
-	// hacen consultas contra tablas SIN índice útil para esa búsqueda
-	// (repositorio_locales_supervisores_cliente tiene ~41.000 filas y ningún
-	// índice más que `id` — decisión ya tomada de no tocar el esquema de esa
-	// tabla externa, ver CLAUDE.md "Módulo Liquidación"). Un Excel de Cuotas
-	// real trae MUCHAS filas del MISMO cliente (una por categoría) y a
-	// menudo el MISMO texto de Sector repetido — sin cache, cada fila volvía
-	// a hacer el escaneo completo aunque ya se hubiera resuelto ese mismo
-	// cliente/sector antes en esta misma subida. El resultado es siempre el
-	// mismo para el mismo texto de entrada dentro de una sola subida, así
-	// que cachear es seguro, no una aproximación.
+	// Cache por subida: resolverSectorReal()/resolverPosIdCliente() escanean
+	// tablas sin índice útil, evita repetir la misma búsqueda por fila.
 	$cacheSector = [];
 	$cachePosId  = [];
 
@@ -129,42 +100,22 @@ try {
 			continue;
 		}
 
-		// "OTRAS CATEGORIAS" se ignora del todo, sin error ni aviso (2026-08-31,
-		// pedido explícito: "solo ignóralo... ya dijimos que no la usaremos") —
-		// JW confirmó que dejaron de trabajar esta categoría (ver CLAUDE.md,
-		// "Repositorio de Cuotas..."), así que no tiene sentido seguir
-		// guardándola sin resolver ni pidiendo revisión de algo que nunca se
-		// va a resolver.
+		// "OTRAS CATEGORIAS" se ignora del todo: JW confirmó que ya no la usa.
 		if ($sector === 'OTRAS CATEGORIAS') continue;
 		if ($mes1 === null || $mes1 < 0 || $mes2 === null || $mes2 < 0 || $mes3 === null || $mes3 < 0) {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Los 3 montos mensuales deben ser 0 o más'];
 			continue;
 		}
 
-		// "CATEGORIAS" del Excel puede no matchear un Sector real (ver
-		// resolverSectorReal(), includes/functions.php) — ej. "POLVO
-		// DETERGENTE" es en realidad Sector "POLVO" + Subcategoría
-		// "DETERGENTE" pegados. Se corrige acá, antes de guardar, para que
-		// el dato guardado sea un Sector real de verdad (Fase 2 lo va a usar
-		// tal cual como `sector` de una línea de Meta de Compras).
+		// "CATEGORIAS" del Excel puede traer Sector+Subcategoría pegados (ver resolverSectorReal()).
 		if (!array_key_exists($sector, $cacheSector)) {
 			$cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
 		}
 		$sectorResuelto = $cacheSector[$sector];
 		if ($sectorResuelto === null) {
-			// Mensaje simplificado (2026-08-30, pedido explícito: mensajes
-			// simples, sin explicar el mecanismo interno de interpretación).
 			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo identificar la categoría "'.$sector.'" en el catálogo. Revisar con JW.'];
 		} elseif ($sectorResuelto !== $sector) {
-			// Interpretación correcta y sin ambigüedad (ej. "POLVO DETERGENTE"
-			// -> Sector "POLVO") — NO se agrega a $avisos (2026-08-28, pedido
-			// explícito: "quítame demasiado ruido visual, esas informativas no
-			// afectan") — con archivos reales esto pasa en casi todas las filas
-			// de un Sector concatenado, y llenaba la lista de "revisá" de avisos
-			// que en realidad no requieren ninguna acción. Sigue visible ANTES
-			// de guardar, como hint chico bajo el badge de cada fila (ver
-			// cuotas_verificar_estado.php/badgeEstadoPreview()) — solo se sacó
-			// de la lista post-guardado.
+			// Interpretación sin ambigüedad, no se agrega a $avisos (ya se ve como hint antes de guardar).
 			$sector = $sectorResuelto;
 			$etiqueta = $clienteExcel.' / '.$sector;
 		}
@@ -176,17 +127,8 @@ try {
 		$posId = $cachePosId[$clavePos];
 		$estado = $posId ? 'pendiente_uso' : 'pendiente_match';
 
-		// Protege una fila ya consumida (Fase 2, repositorio_cuota_cliente.estado
-		// = 'usada') — resubir el mismo trimestre no puede "revivir" una cuota
-		// que ya generó una Acta real, eso rompería el enlace acuerdo_id_generado
-		// y haría reaparecer algo ya hecho en la campanita del asesor. Chequeo
-		// aparte (no ON DUPLICATE KEY UPDATE) para poder avisar la razón exacta.
-		//
-		// Trae también el Acta real (documento_no/usuario/fecha), no solo el
-		// estado (2026-08-31, pedido explícito: "por qué me sale 'esta
-		// categoría' en vez del significado real" — el front ahora arma la
-		// misma tarjeta comparativa ya aprobada en Claude Design para
-		// "Actas en Choque" del Resumen, en vez de un texto genérico).
+		// Protege una fila ya 'usada' (generó una Acta real): chequeo aparte del
+		// UPSERT para poder avisar con el Acta real (documento_no/usuario/fecha).
 		if ($posId) {
 			$stmtCheck = $mysqli->prepare(
 				'SELECT c.estado, a.documento_no, a.created_at, u.usuario
@@ -216,12 +158,7 @@ try {
 
 		$claveRepetido = ($posId ?: $clienteExcel).'|'.$sector;
 		if (isset($clavesVistas[$claveRepetido])) {
-			// 'tipo' => 'duplicado_archivo' (2026-08-30) — es una propiedad
-			// del archivo en sí, no un problema de datos: re-subir el mismo
-			// archivo lo va a decir de nuevo siempre. Etiquetado para que
-			// assets/js/repositorios.js no lo muestre como "algo para
-			// revisar" después de guardar, mismo criterio que Rebate/
-			// Participación (ver getters/repositorio_guardar.php).
+			// 'duplicado_archivo': propiedad del archivo en sí, no se muestra como aviso post-guardado.
 			$avisos[] = ['indice' => $clavesVistas[$claveRepetido], 'fila' => $etiqueta, 'motivo' => 'Cliente repetido en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
 		}
 		$clavesVistas[$claveRepetido] = $indice;
@@ -243,13 +180,7 @@ try {
 		}
 		if ($stmt->execute()) {
 			$guardadas++;
-			// MySQL en INSERT...ON DUPLICATE KEY UPDATE informa cuál pasó vía
-			// affected_rows: 1 = insert nuevo, 2 = update real (cambió algo),
-			// 0 = la fila ya existía con exactamente el mismo dato (resubir el
-			// mismo archivo sin cambios) — 2026-08-25, pedido explícito del
-			// usuario: "el que sube el archivo tiene que entender si está
-			// cargando algo nuevo o modificando algo que ya existía", no
-			// alcanza con un "se guardaron N filas" genérico.
+			// affected_rows: 1=insert nuevo, 2=update real, 0=ya existía igual.
 			if ($stmt->affected_rows === 1) { $nuevas++; }
 			elseif ($stmt->affected_rows === 2) { $actualizadas++; }
 			else { $sinCambios++; }
@@ -266,8 +197,7 @@ try {
 }
 
 $omitidas = count($errores);
-// "duplicado_archivo" no cuenta para el mensaje — ver nota completa en
-// getters/repositorio_guardar.php, mismo criterio acá.
+// "duplicado_archivo" no cuenta para el mensaje, mismo criterio que repositorio_guardar.php.
 $avisosRelevantes = array_filter($avisos, function ($a) { return ($a['tipo'] ?? null) !== 'duplicado_archivo'; });
 $partesDetalle = [];
 if ($nuevas > 0) $partesDetalle[] = "$nuevas fila(s) nueva(s)";

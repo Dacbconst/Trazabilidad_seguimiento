@@ -19,7 +19,7 @@ foreach ($resultado['usuarios'] as $u) {
 	$filas .= renderFilaUsuario($u, $_SESSION['user_id']);
 }
 if (!$resultado['usuarios']) {
-	$filas = '<tr><td colspan="6" class="ac-table-empty">No se encontraron usuarios.</td></tr>';
+	$filas = '<tr><td colspan="7" class="ac-table-empty">No se encontraron usuarios.</td></tr>';
 }
 
 echo json_encode([

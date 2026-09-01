@@ -57,12 +57,28 @@ if (strtolower(pathinfo($nombreArchivo, PATHINFO_EXTENSION)) !== 'xlsx') {
 
 $resultado = repositorio_parsear_cumplimiento_cuota($rutaTmp);
 if (isset($resultado['error'])) {
-	responder(false, $resultado['error']);
+	$extra = [];
+	if (isset($resultado['tipo'])) $extra['tipo'] = $resultado['tipo'];
+	if (isset($resultado['hoja_esperada'])) $extra['hoja_esperada'] = $resultado['hoja_esperada'];
+	if (isset($resultado['columnas_referencia'])) $extra['columnas_referencia'] = $resultado['columnas_referencia'];
+	responder(false, $resultado['error'], $extra);
+}
+
+// El botón "Subir Excel" ya declara qué formato espera (elegido a mano, o
+// heredado de la pastilla de Vista — ver cumplimiento.js) — si el archivo
+// real resulta ser del OTRO canal, se rechaza acá en vez de dejarlo pasar
+// silenciosamente a la previsualización.
+$canalEsperado = in_array($_POST['canal_esperado'] ?? '', ['directo', 'distribuidor'], true) ? $_POST['canal_esperado'] : '';
+$canalDetectado = $resultado['canal_detectado'] ?? '';
+if ($canalEsperado !== '' && $canalDetectado !== '' && $canalEsperado !== $canalDetectado) {
+	$etiquetas = ['directo' => 'Directo', 'distribuidor' => 'Distribuidor'];
+	responder(false, 'Este archivo es de canal '.$etiquetas[$canalDetectado].', no '.$etiquetas[$canalEsperado].'.', ['tipo' => 'canal_no_coincide']);
 }
 
 responder(true, 'Archivo leído correctamente.', [
-	'nombre_archivo' => $nombreArchivo,
-	'filas'          => $resultado['filas'],
-	'trimestre'      => $resultado['trimestre'],
+	'nombre_archivo'   => $nombreArchivo,
+	'filas'            => $resultado['filas'],
+	'trimestre'        => $resultado['trimestre'],
+	'canal_detectado'  => $resultado['canal_detectado'] ?? null,
 ]);
 ?>

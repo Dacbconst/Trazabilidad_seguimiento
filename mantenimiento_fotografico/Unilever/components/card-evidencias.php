@@ -1,21 +1,5 @@
 <?php
-/**
- * COMPONENTE: card-evidencias.php
- * Card con dos fotos: Antes y Después (vi_evidencias y reportes similares).
- *
- * Variables requeridas (deben estar en scope al hacer include):
- *   $id           int|string — ID del registro
- *   $fecha        string     — fecha
- *   $hora         string     — hora
- *   $merc         string     — nombre del mercaderista
- *   $city         string     — ciudad
- *   $pos_name     string     — nombre del local
- *   $address      string     — dirección
- *   $srcAntes     string     — URL foto antes
- *   $srcDespues   string     — URL foto después
- *   $status       string     — comentario/status
- *   $tipo         string     — tipo de registro
- */
+/* card-evidencias.php: card Antes/Después (vi_evidencias). Requiere en scope: id, fecha, hora, merc, city, pos_name, address, srcAntes, srcDespues, status, tipo. */
 ?>
 <td id="<?= $id ?>" name="<?= $id ?>" class="text-center" style="padding:1.2%; vertical-align:top; width:33.33%;">
 <div class="card evid-card" style="border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.12);">

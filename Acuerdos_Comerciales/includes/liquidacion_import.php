@@ -1,23 +1,12 @@
 <?php
-// Parseo de los Excel de seguimiento/liquidación de JW (Directa / Distribuidor,
-// frecuencia no confirmada — el período de cada importación se detecta del
-// propio archivo, no se asume) + matching
-// contra repositorio_locales_supervisores_cliente y repositorio_acuerdos.
-// Ver CLAUDE.md sección "Módulo Liquidación" para el contexto de negocio
-// completo (por qué hay dos formatos, por qué el match no siempre es 1 a 1).
+// Parseo de Excel de liquidacion de JW (Directa/Distribuidor) + matching contra
+// repositorio_locales_supervisores_cliente y repositorio_acuerdos. Ver CLAUDE.md "Modulo Liquidacion".
 require_once __DIR__.'/xlsx_reader.php';
 require_once __DIR__.'/dinero.php';
 
-// ---------- Parseo: hoja Cuota/Venta/Rebate por categoría ----------
-// Devuelve ['filas' => [...], 'mes_inicio' => 0-11, 'mes_fin' => 0-11] listas
-// para insertar en repositorio_liquidacion_cuota_categoria (menos
-// importacion_id/acuerdo_id) — el período NO lo elige el usuario al subir el
-// archivo, se detecta leyendo directamente qué columnas de mes trae la hoja
-// (ver xlsx_detectar_columnas_mes en xlsx_reader.php). Esto es a propósito:
-// no hay ninguna confirmación de que JW suba esto trimestral ni mensual ni
-// con ninguna frecuencia fija — el archivo real es la única fuente de verdad
-// de qué período cubre cada vez.
-// $canal: 'directa' o 'distribuidor' — cada uno tiene su propia hoja/columnas.
+// ---------- Parseo: hoja Cuota/Venta/Rebate por categoria ----------
+// Detecta el periodo leyendo las columnas de mes reales de la hoja (no asume frecuencia fija).
+// $canal: 'directa' o 'distribuidor', cada uno con su propia hoja/columnas.
 function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 	if ($canal === 'directa') {
 		$nombreHoja = 'CUOTA CLIENTE - CATEGORÍA';
@@ -30,29 +19,21 @@ function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
 	if ($filas === null) return ['error' => "No se encontró la hoja \"$nombreHoja\" en el archivo."];
 
-	// Columnas requeridas para reconocer la fila de encabezados — a propósito
-	// SIN nombres de mes acá (ver comentario de arriba): un archivo que
-	// reporte Enero-Marzo, o un solo mes, tiene que reconocerse igual que uno
-	// que reporte Abril-Junio.
+	// Columnas requeridas para reconocer encabezados, sin nombres de mes (el periodo varia).
 	$enc = xlsx_encontrar_encabezado($filas, [
 		$colCedi, $colCliente, $colCategoria, 'REBATE $', 'REBATE MAXIMO 110%',
 	]);
 	if (!$enc) return ['error' => "No se pudo identificar la fila de encabezados en \"$nombreHoja\". ¿Cambió el formato del Excel?"];
 
-	// El nombre exacto de esta columna varía entre hojas ("REBATE A APLICAR %"
-	// en Directa, "REBATE" en Distribuidor) — se busca por lo que hay, no por
-	// un nombre fijo, tolerando la diferencia.
+	// Nombre de columna varia entre hojas ("REBATE A APLICAR %" en Directa, "REBATE" en Distribuidor).
 	$colRebatePct = null;
 	foreach (['REBATE A APLICAR %', 'REBATE'] as $candidato) {
 		if (xlsx_col($enc['mapa'], $candidato) !== null) { $colRebatePct = $candidato; break; }
 	}
 	if ($colRebatePct === null) return ['error' => "No se encontró la columna de % de rebate en \"$nombreHoja\"."];
 
-	// Detecta qué meses trae la hoja mirando los nombres de columna reales —
-	// el bloque se repite dos veces (cuota pactada, después venta real), en
-	// el mismo orden de meses las dos veces (confirmado con los 2 archivos
-	// reales de datos/). Se parte a la mitad: primera mitad = cuota, segunda
-	// mitad = venta.
+	// El bloque de meses se repite 2 veces en la hoja (cuota pactada, luego venta real), mismo orden.
+	// Se parte la lista a la mitad: primera mitad = cuota, segunda mitad = venta.
 	$columnasMes = xlsx_detectar_columnas_mes($filas[$enc['fila']]);
 	if (count($columnasMes) < 2 || count($columnasMes) % 2 !== 0) {
 		return ['error' => "No se pudieron detectar los meses de la hoja \"$nombreHoja\" (se esperaba el mismo bloque de meses repetido 2 veces: cuota y venta real)."];
@@ -81,10 +62,8 @@ function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 		// Filas vacías (huecos entre secciones, o el final de la hoja) — se saltan.
 		if ($cedi === '' || $cliente === '' || $categoria === '') continue;
 
-		// Se suman los valores mensuales detectados en vez de leer una columna
-		// "TOTAL"/"CUOTA Q2" fija — ese nombre de columna también es
-		// específico de trimestre y no se puede asumir. dinero_sumar() en vez
-		// de + / array_sum nativo: esto es plata (ver includes/dinero.php).
+		// Se suman los meses detectados en vez de leer una columna "TOTAL" fija (el nombre varia por periodo).
+		// dinero_sumar() en vez de +/array_sum nativo, es plata (ver includes/dinero.php).
 		$valoresCuota = array_map(function ($c) use ($fila) { return $fila[$c['col']] ?? 0; }, $colsCuota);
 		$valoresVenta = array_map(function ($c) use ($fila) { return $fila[$c['col']] ?? 0; }, $colsVenta);
 
@@ -122,10 +101,7 @@ function liquidacion_parsear_visibilidad($rutaArchivo, $canal) {
 	if (!$enc) return ['error' => "No se pudo identificar la fila de encabezados en \"$nombreHoja\". ¿Cambió el formato del Excel?"];
 
 	$m = $enc['mapa'];
-	// CABECERA/ISLA/PERCHA se repiten 2 o 3 veces (CANTIDAD, luego PAGO, a
-	// veces un tercer grupo de validación) — la 1ra ocurrencia es siempre
-	// cantidad, la 2da siempre pago, en ambos formatos (confirmado leyendo
-	// los dos archivos reales de datos/).
+	// CABECERA/ISLA/PERCHA se repiten 2-3 veces en la hoja: 1ra ocurrencia = cantidad, 2da = pago.
 	$resultado = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
@@ -155,26 +131,8 @@ function liquidacion_parsear_visibilidad($rutaArchivo, $canal) {
 }
 
 // ---------- Matching: fila del Excel -> pos_id(s) candidato(s) ----------
-// Devuelve la lista de pos_id candidatos (0, 1, o más de 1 — más de 1 es el
-// caso "ARBOLEDA VACA": nombre truncado que matchea a más de un cliente real,
-// ver CLAUDE.md). El llamador decide qué hacer con cada caso (1 = match
-// automático, !=1 = a la cola de "pendientes de asignar").
-//
-// LIKE con el nombre del Excel + '%' porque el Excel trunca el nombre
-// (columna angosta) — nunca al revés (nunca $posName LIKE excel%excel, el
-// Excel es siempre un PREFIJO del nombre real, confirmado con datos reales).
-//
-// IMPORTANTE — por qué el CEDI/DISTRIBUIDOR NO es un filtro obligatorio acá:
-// probado con los datos reales de datos/*.xlsx, ~50% de las filas de una
-// muestra real no matcheaban filtrando por supervisor exacto, aunque el
-// pos_name coincidía EXACTO — el motivo es que el supervisor/territorio de
-// un cliente puede cambiar con el tiempo (reasignación), y el Excel refleja
-// el supervisor de cuando se hizo, no el actual. El pos_name es un
-// identificador mucho más estable que el CEDI. Por eso el match primario es
-// por pos_name solo; el CEDI/DISTRIBUIDOR se usa como DESEMPATE únicamente
-// cuando el pos_name truncado matchea a más de un cliente real (el caso que
-// sí es genuinamente ambiguo, ej. dos "ARBOLEDA VACA ..." con distinto
-// segundo nombre truncados al mismo prefijo).
+// Match primario por pos_name LIKE 'excel%' (el Excel trunca el nombre, siempre es prefijo).
+// CEDI/DISTRIBUIDOR NO filtra el match (el supervisor de un cliente cambia con el tiempo, pos_name es mas estable); solo desempata cuando el prefijo matchea a mas de un cliente.
 function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $clienteONombre) {
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -188,12 +146,8 @@ function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $cli
 
 	if (count($posIds) <= 1) return $posIds;
 
-	// Más de un pos_id posible: intentar desempatar por CEDI (supervisor) o
-	// DISTRIBUIDOR (tipo_distribuidor), según canal — con una 2da consulta
-	// (no en PHP) para seguir aprovechando la collation de MySQL, que ya
-	// ignora tildes/mayúsculas sola (confirmado con datos reales). Si eso
-	// deja exactamente un pos_id, se usa ese; si no, se devuelven todos los
-	// candidatos tal cual (sigue siendo ambiguo, va a "pendientes de asignar").
+	// Desempate por CEDI/DISTRIBUIDOR via una 2da consulta SQL (aprovecha la collation de MySQL,
+	// ignora tildes/mayusculas). Si no deja exactamente 1 pos_id, se devuelven todos (sigue ambiguo).
 	$campo = $canal === 'directa' ? 'supervisor' : 'tipo_distribuidor';
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -207,20 +161,9 @@ function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $cli
 	return count($desempatados) === 1 ? $desempatados : $posIds;
 }
 
-// ---------- Matching: pos_id -> acuerdo_id (Acta cuyo período se solapa) ----------
-// "Se solapa" y no "es exactamente igual" porque el período del Excel
-// (detectado del propio archivo, ver liquidacion_parsear_cuota_categoria())
-// puede no calzar 1 a 1 con el mes_inicio/mes_fin de la Acta (una Acta puede
-// cubrir un rango distinto) — mismo criterio de solape que ya
-// usa listar_historial_acuerdos(). $mesInicio/$mesFin en 0-11 (0=Enero).
-// $anio filtra también por repositorio_acuerdos.anio (2026-08-20, decisión
-// del usuario) — antes solo se filtraba por mes_inicio/mes_fin, así que un
-// mismo cliente con Acta del mismo trimestre en dos años distintos (ej. Q1
-// 2025 y Q1 2026) daba 2 candidatos y cualquiera de los dos caía a
-// "pendiente" aunque el Año ya se elige en el formulario de subida — ahora
-// se usa ese dato para no pedir resolución manual de algo que ya se sabe.
-// Si hay más de un acuerdo_id posible para ese pos_id+período+año, también se
-// considera "sin match único" — no hay forma de saber cuál corresponde.
+// ---------- Matching: pos_id -> acuerdo_id (Acta cuyo periodo se solapa) ----------
+// Se solapa, no es exactamente igual, porque el periodo del Excel puede no calzar 1 a 1
+// con mes_inicio/mes_fin de la Acta. Tambien filtra por anio, para no confundir el mismo trimestre de anios distintos.
 function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin, $anio) {
 	$stmt = $mysqli->prepare(
 		"SELECT id FROM repositorio_acuerdos
@@ -235,10 +178,8 @@ function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin,
 	return array_column($filas, 'id');
 }
 
-// Combina los dos pasos de match (Excel -> pos_id -> acuerdo_id) en uno.
-// Devuelve ['acuerdo_id' => int, 'estado_match' => 'matcheado'] si hay
-// exactamente un candidato en cada paso, o ['acuerdo_id' => null,
-// 'estado_match' => 'sin_match'|'pendiente'] si no.
+// Combina los 2 pasos de match (Excel -> pos_id -> acuerdo_id): 'matcheado' si hay
+// exactamente 1 candidato en cada paso, si no 'sin_match'/'pendiente'.
 function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $clienteONombre, $mesInicio, $mesFin, $anio) {
 	$posIds = liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $clienteONombre);
 	if (count($posIds) !== 1) {
@@ -252,15 +193,8 @@ function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $cliente
 }
 
 // ---------- Resumen de Pagos: junta rebate real + visibilidad por cliente ----------
-// Agrupa por (cedi_o_distribuidor, cliente_o_nombre) — misma clave que usa a
-// mano la hoja "RESUMEN DE PAGOS" del Excel real de JW (Volumen + Visibilidad
-// = Total). NO filtra por estado_match: se muestran todos los clientes de la
-// importación, con un indicador `estado` ('ok'/'revisar') según si algo de
-// ese cliente quedó sin resolver en cualquiera de las 2 tablas — nunca se
-// ocultan filas solo porque el match no esté completo todavía.
-// SUM() de MySQL sobre columnas DECIMAL ya es aritmética exacta (a diferencia
-// de sumar floats en PHP) — dinero_sumar() solo hace falta acá para el paso
-// final (volumen + visibilidad), que sí se combina en PHP.
+// Agrupa por (cedi_o_distribuidor, cliente_o_nombre). No filtra por estado_match: siempre
+// muestra todos los clientes, con `estado` ('ok'/'revisar') si algo quedo sin resolver.
 function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	$porCliente = [];
 
@@ -319,8 +253,7 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	}
 	$stmt->close();
 
-	// documento_no de la Acta vinculada, para trazabilidad — una sola consulta
-	// con IN() en vez de una por cliente.
+	// documento_no de la Acta vinculada (una sola consulta con IN(), no una por cliente).
 	$acuerdoIds = array_values(array_unique(array_filter(array_column($porCliente, 'acuerdo_id'))));
 	$documentos = [];
 	if ($acuerdoIds) {
@@ -345,39 +278,17 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	return $resultado;
 }
 
-// ---------- Resumen de Pagos UNIFICADO por canal (2026-08-20) ----------
-// Antes el Resumen de Pagos estaba atado a una sola importación — cada
-// Excel trimestral que subía JW quedaba en su propia pantalla aislada, sin
-// ninguna forma de ver "todo lo que llevamos" sin ir importación por
-// importación (el usuario lo marcó explícitamente como un gap real, ver
-// CLAUDE.md "Resumen de Pagos unificado por canal"). El usuario confirmó
-// que no sabía cuál era la mejor forma de sumar montos entre trimestres
-// (puede pasar que suban un Excel que mezcle pagos nuevos y viejos) — la
-// decisión tomada, más segura dado eso: NUNCA sumar montos de trimestres
-// distintos en un solo número. Esta función junta TODAS las importaciones
-// completadas de un canal (opcionalmente filtradas por trimestre/año) en
-// una sola lista, pero cada fila queda etiquetada con SU PROPIO período
-// (`importacion_id`/`anio`/`mes_inicio`/`mes_fin`/`nombre_archivo`) — un
-// mismo cliente que aparece en 2 trimestres da 2 filas separadas, nunca 1
-// fila con el total de los dos sumado. Si en algún momento se quiere
-// también un total acumulado de por vida, es un cálculo APARTE que se
-// arma sobre esta misma lista (sumar por cliente ignorando período), no
-// algo que esta función deba decidir por sí sola.
-// $trimestre: 0 = todos, 1-4 = Q1-Q4 (mismo mapeo que trimestreABounds()
-// en functions.php, que ya tiene que estar cargado por el archivo que
-// llama a esta función). $anio: 0 = todos.
+// ---------- Resumen de Pagos UNIFICADO por canal ----------
+// Junta todas las importaciones completadas de un canal; cada fila mantiene SU PROPIO periodo,
+// nunca se suman montos de trimestres distintos. $trimestre: 0=todos, 1-4=Q1-Q4. $anio: 0=todos.
 function liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio) {
 	$bounds = trimestreABounds($trimestre);
 	$trimestreActivo = $bounds ? 1 : 0;
 	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
 	$mesFinFiltro = $bounds ? $bounds[1] : -1;
 
-	// Solape, no igualdad exacta: a diferencia de las Actas (siempre
-	// trimestre fijo), las importaciones de Liquidación pueden cubrir
-	// cualquier rango de meses (se detecta del propio Excel, no hay
-	// frecuencia fija confirmada con JW, ver liquidacion_parsear_cuota_categoria())
-	// — un filtro "Q1" tiene que encontrar también una importación que
-	// cubra, por ejemplo, solo Febrero.
+	// Solape, no igualdad exacta: una importacion puede cubrir cualquier rango de meses,
+	// un filtro "Q1" debe encontrar tambien una que cubra, por ejemplo, solo Febrero.
 	$stmt = $mysqli->prepare(
 		"SELECT id, anio, mes_inicio, mes_fin, nombre_archivo FROM repositorio_liquidacion_importaciones
 		 WHERE canal = ? AND estado = 'completado'

@@ -47,18 +47,7 @@ function rastreo_reporte_new($fechaInicio, $fechaFin, $mysqli)
 				$hora
 			) or die($sql->error);
 			
-			//$img_url = "https://webecuador.azurewebsites.net/App/AppExhibicionesKC/Inserts/";
-			# Comenzamos en la fila 2
-			/*$numeroDeFila = 2;
-			while ($sql->fetch()) {
-				# Escribir registros en el documento
-				$hojaDeProductos->setCellValueByColumnAndRow(1, $numeroDeFila, $usuario);
-				$hojaDeProductos->setCellValueByColumnAndRow(2, $numeroDeFila, $fecha);
-				$hojaDeProductos->setCellValueByColumnAndRow(3, $numeroDeFila, $hora);
-				$hojaDeProductos->setCellValueByColumnAndRow(4, $numeroDeFila, $latitud);
-				$hojaDeProductos->setCellValueByColumnAndRow(5, $numeroDeFila, $longitud);
-				$numeroDeFila++;
-			}*/
+			# Escritura de filas deshabilitada (código muerto)
 			# Crear un "escritor"
 			$writer = new Xlsx($documento);
 			# Le pasamos la ruta de guardado

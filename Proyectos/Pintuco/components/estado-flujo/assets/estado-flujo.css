@@ -1,16 +1,5 @@
-/* ========================================================
-   ESTADO DE FLUJO — Kanban de agendamientos por fase
-   Paleta: la misma del resto del proyecto (var(--brand-light) etc.,
-   definidas en Proyectos/style.css y ya cargadas globalmente) — no una
-   paleta propia, para no dar la sensación de estar en otro módulo/sitio.
-
-   El semáforo de días es un código funcional (verde/ámbar/rojo) — no
-   forma parte de la paleta de marca, se mantiene tal cual.
-
-   El tab "Por Promotor" (+ panel de auditoría/financiamiento) que vivía
-   acá se separó a components/factura/assets/factura.css (2026-07-13,
-   pedido explícito del usuario).
-   ======================================================== */
+/* Kanban de agendamientos por fase. El semáforo de días (verde/ámbar/rojo) es
+   código funcional, no forma parte de la paleta de marca. */
 
 #estadoFlujoApp { color: #1f2d3d; }
 
@@ -162,10 +151,7 @@
     overflow: hidden;
     border-top: 3px solid transparent;
 }
-/* Acento de cierre — fase 5 (facturado) se lee como logro, no como una
-   fila más de datos; rechazada/cerrada (fase 4 terminal) se lee como
-   cierre negativo. Hallazgo del consejo 2026-07-16: la card no
-   distinguía visualmente un cierre de un estado "en curso". */
+/* Acento de cierre: fase 5 (facturado) se lee como logro, cerrada como negativo. */
 .ef-detalle-card.is-exito   { border-top-color: #1e7a45; }
 .ef-detalle-card.is-cerrada { border-top-color: #b3261e; }
 .ef-detalle-header {
@@ -208,10 +194,7 @@
     margin-bottom: 2px;
 }
 .ef-detalle-linea { font-size: 12.5px; color: #33415c; line-height: 1.4; }
-/* Bloque "Monto" en fase 5 — mismo formato de 2 columnas que ya usa el
-   panel de Facturas (.ef-fin-resumen en factura.css) para Cotización
-   Inicial / Monto Facturado, pedido explícito del usuario 2026-07-16 para
-   que ambos se vean iguales. */
+/* Bloque "Monto" en fase 5: mismo formato de 2 columnas que .ef-fin-resumen en factura.css. */
 .ef-detalle-monto-titulo {
     font-size: 10px;
     font-weight: 700;

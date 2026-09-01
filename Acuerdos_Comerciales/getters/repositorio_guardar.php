@@ -1,32 +1,7 @@
 <?php
-// Paso 2 de la subida (guarda de verdad, ver repositorio_previsualizar_excel.php)
-// y también el guardado de una fila editada a mano desde la tabla — mismo
-// endpoint para los dos casos, la única diferencia es cuántas filas manda el
-// cliente. UPSERT (INSERT ... ON DUPLICATE KEY UPDATE) sobre la clave única
-// de cada tabla (ver datos/repositorios_schema.sql): un producto/marca que ya
-// existe se ACTUALIZA, uno nuevo se agrega — nunca se borra el resto del
-// repositorio al subir un archivo.
-//
-// "El sistema tiene que poder defenderse solo" (pedido explícito 2026-08-24):
-// esto es lo que hoy detecta y reporta SIN bloquear al usuario ni romper con
-// un error mudo:
-//   - Campos vacíos -> se omite esa fila, se dice cuál campo falta.
-//   - Rebate/Participación fuera de rango (negativo, >100%) -> se omite,
-//     se dice el valor recibido — nunca se guarda un número sin sentido en
-//     silencio (esto va a autocompletar Actas reales más adelante).
-//   - Mismo producto repetido 2+ veces DENTRO del mismo archivo -> SÍ se
-//     guarda (gana el último valor, mismo criterio que un upsert normal),
-//     pero se avisa — para que no sea una sorpresa por qué el número final
-//     no es el que esperaban de una fila más arriba.
-//   - Texto normalizado (mayúsculas + espacios colapsados) ANTES de
-//     comparar/guardar — sin esto, "Lavavajillas" y "LAVAVAJILLAS " crean 2
-//     filas en vez de una, porque la clave única de la tabla es exacta.
-// Reporte por fila: $errores (no se guardó) y $avisos (se guardó, pero
-// revisar) van en la respuesta con su `indice` (posición dentro del array
-// que mandó el cliente) para que el frontend lo pueda mostrar ubicado.
-// mysqli_report(MYSQLI_REPORT_OFF) (ver db_connect.php) hace que execute()
-// devuelva bool en vez de tirar excepción — así se puede seguir con la fila
-// siguiente sin abortar todo el guardado por un error puntual de una sola.
+// Paso 2 de la subida (y también el guardado de una fila editada a mano): UPSERT
+// sobre la clave única de cada tabla, nunca se borra el resto del repositorio.
+// Reporta por fila $errores (no se guardó) y $avisos (se guardó, revisar) sin abortar todo por un error puntual.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -76,18 +51,8 @@ function repositorio_identificar_fila($tipo, $fila) {
 $mysqli->begin_transaction();
 try {
 	if ($tipo === 'rebate') {
-		// eliminado_en/eliminado_por se limpian acá a propósito (2026-08-25,
-		// borrado lógico — ver repositorio_eliminar.php): si el UPSERT
-		// encuentra una fila que estaba borrada (misma ciudad/canal/sector/
-		// categoría/marca, el UNIQUE la sigue ocupando aunque esté borrada),
-		// re-subir el Excel la reactiva sola — sin esto, la fila quedaría
-		// actualizada pero seguiría invisible en el listado normal.
-		//
-		// Clave (ciudad, canal, sector, categoria, marca) — NO segmento
-		// (2026-08-27, rediseño: la primera versión con segmento nunca tuvo
-		// filas reales; el Excel real de JW no tiene esa columna, pero SÍ
-		// tiene Ciudad y Canal, que cambian el % del mismo producto — ver
-		// datos/repositorios_schema.sql).
+		// eliminado_en/eliminado_por se limpian acá: re-subir revive una fila borrada lógicamente.
+		// Clave (ciudad, canal, sector, categoria, marca), sin segmento: el Excel real de JW no lo tiene.
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_rebate_producto (ciudad, canal, sector, categoria, marca, rebate_pct, actualizado_por)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -114,10 +79,7 @@ try {
 				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)];
 				continue;
 			}
-			// Rango sano: 0%-100%. Un rebate negativo o mayor al 100% de la
-			// compra no tiene sentido de negocio — mejor frenarlo acá que
-			// dejarlo entrar silencioso a un catálogo que después autocompleta
-			// Actas reales.
+			// Rango sano 0%-100%: frena acá antes de que autocomplete Actas reales.
 			if ($rebatePct === null || $rebatePct < 0 || $rebatePct > 1) {
 				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'El Rebate debe ser un número entre 0% y 100%'];
 				continue;
@@ -125,17 +87,7 @@ try {
 
 			$clave = $ciudad.'|'.$canal.'|'.$sector.'|'.$categoria.'|'.$marca;
 			if (isset($clavesVistas[$clave])) {
-				// 'tipo' => 'duplicado_archivo' (2026-08-30): esto es una
-				// propiedad del ARCHIVO en sí (2 filas apuntan al mismo
-				// producto), no un problema de datos — re-subir el mismo
-				// archivo lo va a decir de nuevo siempre, aunque nada haya
-				// cambiado. Se etiqueta distinto para que el frontend no lo
-				// muestre como "algo para revisar" después de guardar (ver
-				// assets/js/repositorios.js) — bug real reportado: "subo el
-				// mismo archivo y me sale la misma alerta, no debería haber
-				// novedad". Mensaje simplificado (2026-08-30, mismo día,
-				// pedido explícito: "mensajes simples, sencillos de
-				// entender") — sin explicar el mecanismo interno del upsert.
+				// 'duplicado_archivo': propiedad del archivo en sí, no se muestra como aviso post-guardado.
 				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Producto repetido en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
 			}
 			$clavesVistas[$clave] = $indice;
@@ -149,12 +101,8 @@ try {
 		}
 		$stmt->close();
 	} else {
-		// eliminado_en/eliminado_por en NULL acá, mismo motivo que Rebate arriba.
-		// Clave (ciudad, marca) — SIN categoría/subcategoría (2026-08-30,
-		// rediseño con el Excel real que confirmó el usuario: las líneas de
-		// Percha del Acta solo guardan Marca, nunca esos 2 campos, ver
-		// datos/repositorios_schema.sql) y SIN canal (el Excel no lo trae,
-		// aplica igual para Directo y Distribuidor).
+		// eliminado_en/eliminado_por en NULL, mismo motivo que Rebate.
+		// Clave (ciudad, marca): sin categoría/subcategoría (Percha del Acta solo guarda Marca) ni canal.
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_participacion_percha (ciudad, marca, participacion_pct, actualizado_por)
 			 VALUES (?, ?, ?, ?)
@@ -182,9 +130,7 @@ try {
 
 			$clave = $ciudad.'|'.$marca;
 			if (isset($clavesVistas[$clave])) {
-				// 'tipo' => 'duplicado_archivo' — ver nota completa en la rama
-				// de Rebate más arriba, mismo criterio acá. Mensaje
-				// simplificado (2026-08-30, mismo pedido).
+				// 'duplicado_archivo', mismo criterio que la rama de Rebate arriba.
 				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Marca repetida en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
 			}
 			$clavesVistas[$clave] = $indice;
@@ -206,14 +152,7 @@ try {
 }
 
 $omitidas = count($errores);
-// "duplicado_archivo" (ver más arriba) no cuenta para el mensaje — es una
-// propiedad fija del archivo (2 filas apuntan al mismo producto/marca), no
-// algo que haya cambiado en esta subida puntual. Bug real reportado
-// 2026-08-30: subir prácticamente el mismo archivo de nuevo seguía
-// mostrando "X fila(s) con un aviso, revisá el detalle" — daba la
-// impresión de que había algo nuevo que mirar cuando no lo había. Solo se
-// cuentan acá los avisos genuinos (sector sin match, cuota ya usada,
-// cliente sin resolver, etc.).
+// "duplicado_archivo" no cuenta para el mensaje: es propiedad fija del archivo, no algo nuevo en esta subida.
 $avisosRelevantes = array_filter($avisos, function ($a) { return ($a['tipo'] ?? null) !== 'duplicado_archivo'; });
 $partesMensaje = ["Se guardaron $guardadas fila(s)."];
 if ($omitidas > 0) $partesMensaje[] = "$omitidas fila(s) no se guardaron. Revisá el detalle.";

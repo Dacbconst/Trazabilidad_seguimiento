@@ -1,34 +1,11 @@
 <?php
-// Escritor de XLSX propio, sin librería externa — mismo motivo que
-// includes/xlsx_reader.php (sin Composer en la máquina de desarrollo,
-// PhpSpreadsheet complicaría el deploy manual por FTP, ver CLAUDE.md).
-// Un .xlsx es un ZIP con XML adentro; esto arma el mínimo válido según el
-// spec de OOXML: Content_Types, rels, workbook.xml, styles.xml y una hoja
-// XML por cada hoja agregada.
-//
-// OJO — cosas NO obvias de OOXML, todas ya mordieron una vez (acá o en
-// xlsx_reader.php):
-//   1) Las fórmulas SIEMPRE se guardan en inglés y con COMA como separador
-//      de argumentos en el XML crudo, sin importar el idioma de Excel de
-//      quien abre el archivo — Excel traduce a SI/SUMA/BUSCARV/; para
-//      mostrar, pero el archivo en sí nunca lleva español. Por eso
-//      xlsx_formula() recibe fórmulas ya en inglés/coma (ver
-//      exportar_cuota_categoria.php, donde se tradujeron a mano las
-//      fórmulas en español que dio el usuario).
-//   2) No hace falta escribir el valor calculado de una fórmula (`<v>`) —
-//      Excel la recalcula sola al abrir. Se probó así contra Excel real
-//      (COM) y abre sin pedir reparar el archivo.
-//   3) `<fills>` en styles.xml SIEMPRE arranca con 2 fills reservados por el
-//      spec (index 0 = "none", index 1 = "gray125") antes de cualquier
-//      color custom — si no se respetan esos 2 primeros, Excel corrige solo
-//      pero es más seguro declararlos explícitos.
+// Escritor de XLSX propio, sin librería externa (sin Composer en desarrollo).
+// Fórmulas siempre en inglés/coma; fills 0 y 1 son "none"/"gray125" por spec OOXML.
 
 class XlsxWriter {
 	private $hojas = []; // idx => ['nombre','celdas'=>[fila][col]=>spec,'merges'=>[...]]
 
-	// Registro de fonts/fills/estilos, deduplicado — cada combinación
-	// negrita+colorFuente+colorFondo+numFmt genera UN solo cellXf, reusado
-	// por todas las celdas que pidan exactamente esa combinación.
+	// Registro deduplicado: cada combinación negrita+color+numFmt genera un solo cellXf.
 	private $fonts = [['negrita' => false, 'color' => null]]; // 0 = default
 	private $fills = ['none', 'gray125']; // 0 y 1 reservados por el spec, ver aviso 3
 	private $estilos = [['fontIdx' => 0, 'fillIdx' => 0, 'numFmtId' => 0]]; // 0 = default
@@ -50,19 +27,13 @@ class XlsxWriter {
 		return count($this->hojas) - 1;
 	}
 
-	// Combina un rango de celdas (ej. "M1:O1") — para títulos de grupo como
-	// "VENTA Q2 2026" arriba de los 3 meses, igual que el archivo real de JW.
+	// Combina un rango de celdas (ej. "M1:O1"), para títulos de grupo fusionados.
 	public function combinarCeldas($hojaIdx, $rangoRef) {
 		$this->hojas[$hojaIdx]['merges'][] = $rangoRef;
 	}
 
-	// Fuerza un piso de ancho para una columna puntual (2026-08-28) — el
-	// "autofit" de anchoTexto()/xmlCols() de abajo no puede medir el
-	// resultado real de una celda de FÓRMULA (ej. CONCAT), solo adivina un
-	// ancho genérico fijo (11) según el tipo — insuficiente para un CONCAT
-	// de cliente+categoría, que suele salir mucho más largo. Nunca angosta
-	// una columna que el autofit ya calculó más ancha por su cuenta (ver
-	// max() en xmlCols()), solo garantiza un mínimo.
+	// Fuerza un piso de ancho para una columna: el autofit no puede medir el
+	// resultado real de una celda de fórmula, solo garantiza un mínimo.
 	public function anchoMinimo($hojaIdx, $col, $ancho) {
 		$this->hojas[$hojaIdx]['anchosMinimos'][$col] = $ancho;
 	}
@@ -85,8 +56,7 @@ class XlsxWriter {
 		return count($this->fills) - 1;
 	}
 
-	// $numFmt: null (general) / 'money' (numFmtId 44) / 'pct' (numFmtId 10) —
-	// ambos son ids builtin de Excel, no hace falta declarar numFmts custom.
+	// $numFmt: null (general) / 'money' (numFmtId 44) / 'pct' (numFmtId 10), ambos builtin de Excel.
 	private function estiloId($negrita, $numFmt, $bgHex, $fontColorHex, $centrado = false) {
 		$numFmtId = $numFmt === 'money' ? 44 : ($numFmt === 'pct' ? 10 : 0);
 		$clave = ($negrita ? 1 : 0).'|'.$numFmtId.'|'.($bgHex ?: '').'|'.($fontColorHex ?: '').'|'.($centrado ? 1 : 0);
@@ -103,9 +73,7 @@ class XlsxWriter {
 	}
 
 	// $bg / $fontColor: hex sin "#" (ej. "FFC000") o null para el default.
-	// $centrado: true = texto centrado horizontal (para títulos de grupo
-	// combinados tipo "CANTIDAD"/"PAGO", que por default OOXML alinea a la
-	// izquierda aunque la celda esté fusionada en un rango ancho).
+	// $centrado: centra horizontal/vertical (OOXML alinea a la izquierda por default en celdas fusionadas).
 	public function celda($hojaIdx, $fila, $col, $valor, $negrita = false, $numFmt = null, $bg = null, $fontColor = null, $centrado = false) {
 		$this->hojas[$hojaIdx]['celdas'][$fila][$col] = [
 			'tipo' => is_numeric($valor) ? 'n' : 's',
@@ -114,13 +82,8 @@ class XlsxWriter {
 		];
 	}
 
-	// Funciones agregadas después de Excel 2007 (el "piso" del formato OOXML)
-	// necesitan el prefijo interno _xlfn. en el XML crudo o Excel las muestra
-	// como #NAME? — no hace falta para IF/SUM/SUBTOTAL/VLOOKUP/AND/IFERROR
-	// (esas ya estaban en 2007), pero CONCAT sí (es de Excel 2016, reemplaza
-	// a CONCATENATE que es la vieja y no necesita el prefijo). Confirmado
-	// probando contra Excel real vía COM: sin este prefijo, CONCAT() daba
-	// #NAME? aunque el resto de fórmulas (IF, SUBTOTAL) funcionaban bien.
+	// Funciones posteriores a Excel 2007 (ej. CONCAT) necesitan el prefijo _xlfn.
+	// en el XML o Excel muestra #NAME?; IF/SUM/SUBTOTAL/VLOOKUP/AND/IFERROR no lo necesitan.
 	private static $funcionesModernas = ['CONCAT'];
 
 	private function prefijarFuncionesModernas($formula) {
@@ -143,17 +106,11 @@ class XlsxWriter {
 		return htmlspecialchars((string) $texto, ENT_QUOTES | ENT_XML1, 'UTF-8');
 	}
 
-	// Ancho de columna "autofit" — Excel no lo calcula solo en un archivo
-	// generado por código (a diferencia de cuando lo escribe una persona a
-	// mano), así que sin esto todas las columnas salen con el ancho default
-	// angosto, sin importar qué tan largo sea el contenido real.
-	// Aproximación estándar de "caracteres del texto + relleno", clampeada
-	// para que un nombre de cliente larguísimo no deje una columna gigante
-	// ni una columna vacía quede en cero.
+	// Ancho de columna "autofit": Excel no lo calcula solo en un archivo generado
+	// por código, así que se estima por caracteres del texto, clampeado en xmlCols().
 	private function anchoTexto($spec) {
 		if ($spec['tipo'] === 'f') {
-			// No se conoce el resultado de una fórmula sin evaluarla — se usa
-			// un ancho razonable según el formato esperado.
+			// Resultado de fórmula desconocido sin evaluarla: se usa un ancho razonable por formato.
 			if ($spec['numFmtId'] === 44) return 13; // moneda: "$1,234,567.89"
 			if ($spec['numFmtId'] === 10) return 9;  // porcentaje: "123.45%"
 			return 11;
@@ -175,11 +132,7 @@ class XlsxWriter {
 				if (!isset($anchos[$c]) || $len > $anchos[$c]) $anchos[$c] = $len;
 			}
 		}
-		// Piso manual por columna (ver anchoMinimo()) — se aplica ANTES del
-		// clamp final, así una columna con piso 40 pero autofit calculado más
-		// angosto (ej. CONCAT, ver nota en anchoMinimo()) sale ancha de
-		// verdad, y una columna que el autofit ya calculó más ancha que su
-		// piso no se angosta.
+		// Piso manual por columna (ver anchoMinimo()), aplicado antes del clamp final.
 		foreach (($hoja['anchosMinimos'] ?? []) as $c => $minimo) {
 			if (!isset($anchos[$c]) || $minimo > $anchos[$c]) $anchos[$c] = $minimo;
 		}
@@ -219,9 +172,7 @@ class XlsxWriter {
 			}
 			$xml .= '</sheetData>';
 		}
-		// mergeCells va DESPUÉS de sheetData en el orden que exige el schema
-		// de OOXML (sheetData, sheetCalcPr, ..., mergeCells, ...) — un orden
-		// distinto y Excel pide reparar el archivo.
+		// mergeCells va después de sheetData: el schema OOXML lo exige, si no Excel pide reparar.
 		if (!empty($hoja['merges'])) {
 			$xml .= '<mergeCells count="'.count($hoja['merges']).'">';
 			foreach ($hoja['merges'] as $m) {
@@ -263,8 +214,7 @@ class XlsxWriter {
 			$apply = ($e['numFmtId'] !== 0) ? ' applyNumberFormat="1"' : '';
 			$centrado = !empty($e['centrado']);
 			$applyAlign = $centrado ? ' applyAlignment="1"' : '';
-			// borderId="1" siempre (fino en los 4 lados) — todo lo que arma
-			// este escritor son tablas, no hace falta un caso "sin borde".
+			// borderId="1" siempre (fino en los 4 lados): este escritor solo arma tablas.
 			$xml .= '<xf numFmtId="'.$e['numFmtId'].'" fontId="'.$e['fontIdx'].'" fillId="'.$e['fillIdx'].'" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"'.$apply.$applyAlign.'>';
 			if ($centrado) $xml .= '<alignment horizontal="center" vertical="center"/>';
 			$xml .= '</xf>';
@@ -272,8 +222,7 @@ class XlsxWriter {
 		return $xml.'</cellXfs>';
 	}
 
-	// Devuelve el .xlsx completo como string binario (para header+echo directo
-	// o para file_put_contents, según necesite el getter que lo use).
+	// Devuelve el .xlsx completo como string binario (header+echo o file_put_contents).
 	public function generar() {
 		$tmpFile = tempnam(sys_get_temp_dir(), 'xlsx_');
 		$zip = new ZipArchive();
@@ -324,10 +273,7 @@ class XlsxWriter {
 			'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.
 			$this->xmlFonts().
 			$this->xmlFills().
-			// borderId 0 = sin borde, 1 = fino negro en los 4 lados (mismo
-			// estilo "thin"/indexed 64 que usa el archivo real de JW en
-			// prácticamente todas sus celdas de tabla) — 2026-08-20, pedido
-			// explícito del usuario ("agrégale bordes a las tablas").
+			// borderId 0 = sin borde, 1 = fino negro en los 4 lados.
 			'<borders count="2"><border/><border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right><top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border></borders>'.
 			'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0"/></cellStyleXfs>'.
 			$this->xmlCellXfs().

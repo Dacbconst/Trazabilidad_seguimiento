@@ -1,16 +1,6 @@
 <?php
-// TEMPORAL — SOLO PARA PROBAR "Vencimiento de firma" (2026-08-25).
-// Retrocede fecha_generacion de UN Acta propia para simular el paso del
-// tiempo, sin esperar 20 días reales — el usuario no tiene permiso de
-// escritura en su cuenta personal de HeidiSQL (confirmado), así que esto
-// vive acá para que lo dispare él mismo desde la UI (mismo mecanismo que
-// ya usan eliminar_acuerdo.php/subir_acta_firmada.php: el backend de la
-// app escribe con las credenciales de config.php, nunca Claude directo).
-// Incluye un modo "revertir" para deshacer la simulación sobre la misma
-// fila (sin esto, una vez probado "vencido" no habría forma de destestearlo
-// sin permiso de escritura). Borrar este archivo + su botón en Historial
-// (renderFilaHistorial()) + el handler de historial.js una vez terminada
-// la prueba — ver CLAUDE.md, "Vencimiento de firma".
+// TEMPORAL: retrocede fecha_generacion de un Acta propia para probar el vencimiento sin esperar 20 días.
+// Borrar este archivo + su botón en Historial cuando termine la prueba.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -26,8 +16,7 @@ $acuerdoId = (int) ($_POST['id'] ?? 0);
 $modo      = $_POST['modo'] ?? '';
 $usuarioId = $_SESSION['user_id'] ?? null;
 
-// $dias whitelisteado a propósito (no un número libre desde el cliente) —
-// esto es una herramienta de prueba puntual, no un "set any date" genérico.
+// $dias whitelisteado a propósito, no un número libre desde el cliente.
 $diasPorModo = ['aviso' => 16, 'vencido' => 21, 'revertir' => 0];
 if ($acuerdoId <= 0 || !isset($diasPorModo[$modo])) {
 	echo json_encode(['ok' => false, 'message' => 'Parámetros inválidos.']);
@@ -35,8 +24,7 @@ if ($acuerdoId <= 0 || !isset($diasPorModo[$modo])) {
 }
 $dias = $diasPorModo[$modo];
 
-// Mismo criterio de propiedad que el resto de acciones de Historial: nadie
-// simula el vencimiento de un Acuerdo ajeno adivinando el id.
+// Mismo criterio de propiedad que el resto de Historial: solo el dueño.
 $stmt = $mysqli->prepare('SELECT creado_por, estado FROM repositorio_acuerdos WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();
@@ -47,9 +35,7 @@ if (!$fila || (int) $fila['creado_por'] !== (int) $usuarioId) {
 	echo json_encode(['ok' => false, 'message' => 'Acuerdo no encontrado.']);
 	exit;
 }
-// "revertir" además acepta 'vencido' (para deshacer el propio efecto de
-// esta herramienta) — "aviso"/"vencido" solo tienen sentido sobre algo
-// todavía en pie, no ya vencido de antes.
+// "revertir" además acepta 'vencido'; "aviso"/"vencido" solo sobre algo vigente.
 $estadosPermitidos = $modo === 'revertir' ? ['generado', 'enviado', 'vencido'] : ['generado', 'enviado'];
 if (!in_array($fila['estado'], $estadosPermitidos, true)) {
 	echo json_encode(['ok' => false, 'message' => 'Este Acuerdo no está en un estado válido para esta prueba.']);
@@ -57,9 +43,7 @@ if (!in_array($fila['estado'], $estadosPermitidos, true)) {
 }
 
 if ($modo === 'revertir') {
-	// Deja el Acuerdo como recién generado hoy — no se puede recuperar la
-	// fecha_generacion original exacta, pero para efectos de seguir
-	// probando (o de dejar de "vencerlo") alcanza con esto.
+	// Deja el Acuerdo como recién generado hoy; no recupera la fecha original.
 	$stmt = $mysqli->prepare("UPDATE repositorio_acuerdos SET fecha_generacion = CURDATE(), estado = 'generado' WHERE id = ?");
 	$stmt->bind_param('i', $acuerdoId);
 } else {

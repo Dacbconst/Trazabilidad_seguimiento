@@ -1,14 +1,5 @@
-// Feedback de carga reusable a nivel proyecto (2026-08-25) — pedido
-// explícito tras reportar que "Actualizar" en Historial no daba ninguna
-// señal visible de que algo estaba pasando. 2 utilidades chicas, sin
-// dependencias, pensadas para llamarse desde CUALQUIER fetch() de
-// cualquier módulo (no solo Historial):
-//   acBotonCargando(btn, true/false) — ícono del botón gira (.ac-spin) y
-//     el botón se deshabilita mientras carga.
-//   acMostrarCargando(contenedor) / acOcultarCargando(contenedor) —
-//     overlay semitransparente con spinner centrado sobre CUALQUIER
-//     contenedor con position:relative (todas las .ac-card ya lo tienen,
-//     ver style.css).
+// Feedback de carga reusable: acBotonCargando(btn, bool) gira el ícono y deshabilita el botón; acMostrarCargando()/acOcultarCargando()
+// ponen un overlay con spinner sobre cualquier contenedor con position:relative.
 (function () {
 	window.acBotonCargando = function (btn, cargando) {
 		if (!btn) return;
@@ -36,15 +27,7 @@
 		if (overlay) overlay.remove();
 	};
 
-	// Overlay centrado en la PANTALLA, no en un contenedor (2026-08-31,
-	// pedido explícito: "Previsualización" en Registrar deja el formulario
-	// blanquecino sin ningún mensaje, porque acMostrarCargando() centra el
-	// spinner dentro de acuerdoContainer — un formulario mucho más alto que
-	// la pantalla, así que el spinner quedaba fuera de vista mientras se
-	// generaba el PDF). `position:fixed` sobre `document.body`, con un
-	// mensaje real (no solo un ícono) y puntos suspensivos animados — pensado
-	// para reusarse en cualquier acción larga de cualquier módulo, no solo
-	// Registrar.
+	// Overlay centrado en la pantalla (no en un contenedor): acMostrarCargando() queda fuera de vista en formularios más altos que la pantalla.
 	window.acMostrarCargandoPantalla = function (mensaje) {
 		if (document.querySelector('.ac-cargando-pantalla')) return;
 		var overlay = document.createElement('div');

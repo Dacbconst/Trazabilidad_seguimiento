@@ -1,18 +1,5 @@
-/**
- * COMPONENTE: pptx-slide-evidencias.php
- * Genera slides de contenido para reportes de tipo Antes / Después.
- * Agrupa por local (igual que Exhibiciones): 1 slide divisor con el logo
- * del local + 1 slide de contenido por card.
- *
- * Expone:
- *   pptxBuildEvidencias(pptx, grupos, gruposOrder, repVal) → Promise
- *     - grupos      : { local: [jQuery wrapper de .card, ...] }
- *     - gruposOrder : string[] — orden de aparición de los locales
- *     - repVal      : string — valor del select de reporte (ej: "vi_evidencias")
- *
- * Requiere: pptx-base.php (showToast, pptxPreloadImages)
- *           pptx-slide-exhibiciones.php (LOGO_MAP, multiphotoFindLogo)
- */
+/* pptx-slide-evidencias.php: slides Antes/Después agrupados por local (1 divisor con logo + 1 slide por card).
+   Requiere pptx-base.php y pptx-slide-exhibiciones.php (LOGO_MAP, multiphotoFindLogo). */
 <script>
 function pptxEvidenciaSrc(card) {
     return {

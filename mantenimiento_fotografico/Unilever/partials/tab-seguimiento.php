@@ -175,9 +175,7 @@ function segCargarDetalle($contenedor, gestor, fecha_iso, supervisor) {
                     '<td style="text-align:center;">' + (tieneRelevo ? '<span class="seg-foto-si">&#10003;</span>' : '') + '</td>' +
                 '</tr>';
 
-                /* Panel de detalle con las fotos (Antes/Después + Exhibiciones) — desactivado
-                   a pedido del cliente, se deja comentado por si se vuelve a pedir a futuro.
-
+                /* Panel de fotos desactivado a pedido del cliente, se deja comentado por si se reactiva.
                 var fotosContent;
                 if (!d.tiene_antes && !d.tiene_despues && !d.tiene_exh) {
                     fotosContent = '<span style="color:#aaa;">Sin fotos registradas para este PDV</span>';
@@ -231,9 +229,7 @@ function segCargarDetalle($contenedor, gestor, fecha_iso, supervisor) {
     });
 }
 
-/* Toggle del panel de detalle de fotos por PDV — desactivado junto con el panel (ver
-   segCargarDetalle). Se deja comentado por si se vuelve a pedir a futuro.
-
+/* Toggle del panel de fotos, desactivado junto con segCargarDetalle. Se deja comentado por si se reactiva.
 $(document).off('click', '.seg-pdv-row').on('click', '.seg-pdv-row', function() {
     var $fila  = $(this);
     var $det   = $fila.next('.seg-pdv-detail-row');

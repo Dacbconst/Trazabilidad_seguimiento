@@ -1,18 +1,4 @@
-/**
- * COMPONENTE: pptx-base.php
- * Funciones compartidas de PowerPoint: toast de progreso, init del objeto PPT,
- * slide de portada y guardado del archivo.
- *
- * Expone:
- *   showToast(msg, type)                     — toast esquina superior derecha
- *   pptxCreateBase(config) → pptx            — crea el objeto PptxGenJS + portada + masters
- *   pptxSave(pptx, filename) → Promise       — guarda el archivo
- *   pptxPreloadImages(urls) → Promise<map>   — precarga imágenes remotas como base64
- *
- * config = { author, company, title, subject,
- *            finiciofinal, ffinalfinal,
- *            supervisor, mercaderista, ciudad }
- */
+/* pptx-base.php: funciones compartidas de PowerPoint (toast, init de PptxGenJS, portada, guardado, precarga de imágenes). */
 <script>
 // ── Toast de progreso ─────────────────────────────────────────────────────────
 var _toastInterval = null;
@@ -122,11 +108,7 @@ function pptxSave(pptx, filename) {
 }
 
 // ── Precarga de imágenes remotas como base64 ───────────────────────────────────
-// Evita insertar URLs remotas directamente en el PPT (PptxGenJS no puede
-// reincrustarlas y PowerPoint termina mostrando "se encontró un problema con
-// el contenido"). Devuelve un mapa { url: dataURI } — si una imagen falla
-// (CORS/404), simplemente no aparece en el mapa y el caller debe usar la URL
-// original como 'path' (fallback de PptxGenJS).
+// URLs remotas sin precargar rompen el PPT (PptxGenJS no las reincrusta). Si falla (CORS/404), el caller usa 'path' como fallback.
 function pptxPreloadImages(urls) {
     var imgCache   = {};
     var totalImgs  = urls.length;

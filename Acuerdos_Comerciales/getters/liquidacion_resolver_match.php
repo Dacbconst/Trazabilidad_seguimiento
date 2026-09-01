@@ -1,26 +1,9 @@
 <?php
-// Resuelve a mano una fila de "Pendientes de Asignar", de dos formas:
-//   - accion=matchear (default): recibe el pos_id que el superdesarrollador
-//     eligió (de los candidatos sugeridos o de una búsqueda libre) y busca
-//     el acuerdo_id correspondiente (mismo criterio de solape de
-//     mes_inicio/mes_fin+año que el match automático, ver
-//     liquidacion_candidatos_acuerdo_id() en includes/liquidacion_import.php).
-//   - accion=sin_acta: marca la fila como "confirmado que no tiene Acta en
-//     el sistema" — para datos históricos de antes de que existiera esta
-//     plataforma (JW va a subir liquidaciones viejas que nunca van a poder
-//     vincularse a una Acta digital, porque esa Acta nunca se creó acá).
-//     Es un estado FINAL, no un "sin_match" que sigue esperando resolución.
-//
-// Agregado 2026-08-20 — ambigüedad de ACTA (mismo cliente, 2+ Actas cuyo
-// período+año se solapan, ej. dos Actas generadas para el mismo lugar en el
-// mismo trimestre): antes esto era un callejón sin salida (error fijo "revisar
-// en Historial", sin forma de resolverlo desde acá). Ahora, si viene
-// $_POST['acuerdo_id'], y ESE id está entre los candidatos legítimos
-// recalculados para ese pos_id+período+año (nunca se confía en el id tal
-// cual venga del cliente, siempre se valida contra la lista real), se guarda
-// directo sin volver a chocar con la ambigüedad — es lo que arma
-// getters/liquidacion_pendientes.php cuando detecta este caso y
-// assets/js/liquidacion.js cuando el usuario hace click en la Acta correcta.
+// Resuelve a mano una fila de "Pendientes de Asignar": accion=matchear (pos_id
+// elegido -> busca el acuerdo_id por solape de período) o accion=sin_acta
+// (estado final, para históricos que nunca van a tener Acta digital). Si viene
+// $_POST['acuerdo_id'] (caso de 2+ Actas candidatas), se valida contra la
+// lista real recalculada, nunca se confía en el id tal cual.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -93,9 +76,7 @@ if ($accion === 'sin_acta') {
 	if (count($acuerdoIds) === 1) {
 		$acuerdoId = $acuerdoIds[0];
 	} elseif ($acuerdoIdElegido > 0 && in_array($acuerdoIdElegido, $acuerdoIds, true)) {
-		// El cliente eligió a mano cuál Acta es (ver liquidacion_pendientes.php,
-		// que arma esta lista de candidatos) — se valida contra los candidatos
-		// reales de nuevo acá, nunca se confía en el id tal cual venga del POST.
+		// Elegido a mano, revalidado contra los candidatos reales.
 		$acuerdoId = $acuerdoIdElegido;
 	} else {
 		responder(false, 'Ese cliente tiene más de una Acta para el período — elige cuál es de la lista.', ['acuerdo_ids_candidatos' => $acuerdoIds]);

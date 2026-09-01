@@ -26,10 +26,7 @@
         return Math.floor((new Date() - new Date(f + 'T00:00:00')) / 86400000);
     }
     function fmtDias(d) { return d === null ? '—' : (d < 0 ? '0d' : d + 'd'); }
-    // Umbral: neutro <=3 días, ámbar 4-7, rojo 8+. Antes <=3 era verde, pero
-    // "verde" comunica "está bien" — y un agendamiento recién llegado a su
-    // fase no está ni bien ni mal, solo no lleva tiempo todavía. Sin señal
-    // positiva: el pill queda neutro hasta que empieza a demorarse de verdad.
+    // Umbral: neutro <=3 días, ámbar 4-7, rojo 8+. Nunca verde: recién llegado no es "bien".
     function clsDias(d) {
         if (d === null) return '';
         if (d <= 3) return 'is-neutro';
@@ -42,10 +39,7 @@
         if (p.foto_factura || p.estado_proforma === 'aprobado') return 5;
         if (p.estado_proforma === 'rechazado') return 4;
         if (p.id) return 4;
-        // no_requiere_visita: el promotor marcó desde el móvil que este
-        // contacto no necesita visita técnica — no hay agendamiento que
-        // esperar, el siguiente paso real es que suba la foto directo, así
-        // que cae en fase 3 (mismo criterio que proforma.js/factura.js).
+        // Sin visita requerida, el siguiente paso es subir la foto directo: cae en fase 3.
         if (p.no_requiere_visita === 'SI') return 3;
         if (p.hora && p.tecnico) return 2;
         return 1;
@@ -97,10 +91,7 @@
 
     function renderTarjetaKanban(p) {
         var dias = diasDesde(refFechaFase(p));
-        // Hallazgo del consejo 2026-07-16: la mini-card de "Vista rápida" ya
-        // avisa de un plan de pago cerrado, pero la tarjeta chica del kanban
-        // (lo único que se ve sin hacer clic) no tenía ninguna señal — un
-        // plan sano y uno truncado se veían idénticos hasta abrir el detalle.
+        // La tarjeta chica del kanban también marca un plan de pago cerrado.
         var planCerrado = p.estado_pago === 'cerrado';
         return '<div class="ef-card' + (planCerrado ? ' is-plan-cerrado' : '') + '" data-agendamiento-id="' + esc(p.agendamiento_id) + '">'
             + '<div class="ef-card-empresa">' + esc(p.empresa || '—') + '</div>'
@@ -130,10 +121,7 @@
     }
 
     // ── Vista rápida (clic en una tarjeta) ─────────────────────────────
-    // Contenido validado con el usuario: solo datos que YA vienen en el
-    // fetch de proformas_listar.php (cero llamadas nuevas al abrir), y
-    // recortado a "qué está pasando" — el detalle de auditoría/cuotas
-    // completo se queda en el botón "Ver más" hacia el módulo dueño.
+    // Solo datos que ya vienen en el fetch de proformas_listar.php; "Ver más" va al módulo dueño.
     var ESTADOS_AGENDA_LABEL = {
         pendiente: 'Pendiente técnico',
         confirmado: 'Agendado',
@@ -159,10 +147,7 @@
         return allRows.filter(function (r) { return String(r.agendamiento_id) === String(agendamientoId) && !!r.id; });
     }
 
-    // Rondas de cotización = ciclos con monto_validado, orden ascendente
-    // (mismo criterio que agruparCiclosCotizacion en contactados.js).
-    // Mostrar solo "monto cotizado" sin esto escondía que ya se había
-    // vuelto a cotizar más de una vez — hallazgo del consejo 2026-07-15.
+    // Rondas de cotización: ciclos con monto_validado, orden ascendente (ver contactados.js).
     function infoRondas(agendamientoId) {
         var conMonto = ciclosDe(agendamientoId)
             .filter(function (c) { return c.monto_validado !== null && c.monto_validado !== '' && c.monto_validado !== undefined; })
@@ -201,13 +186,8 @@
         if (f === 5) cardEl.classList.add('is-exito');
         else if (p.estado_proforma === 'rechazado') cardEl.classList.add('is-cerrada');
 
-        // El badge de estado_agenda describe la VISITA TÉCNICA de fase 2 —
-        // una vez pasada esa fase es un dato histórico, no el estado del
-        // proceso actual (hallazgo del consejo 2026-07-16: se veía
-        // "Completada" en fase 4/Negociación como si el proceso ya hubiera
-        // terminado). Se muestra siempre en fase 1-2 (ahí sí es el dato
-        // principal) y, en fases posteriores, solo si quedó una anomalía
-        // que sigue siendo relevante de notar (cancelada/vencida).
+        // El badge de estado_agenda es el dato principal en fase 1-2; en fases posteriores
+        // solo se muestra si quedó una anomalía relevante (cancelada/vencida).
         var estadoAgendaAnomalo = p.estado_agenda === 'cancelada' || p.estado_agenda === 'vencida';
         var filas = (f <= 2 || estadoAgendaAnomalo) ? [badgeEstadoAgenda(p)] : [];
 
@@ -238,9 +218,7 @@
         if (f === 5) {
             var plazoMeses = parseInt(p.plazo_meses, 10) || 0;
             var rondas5 = infoRondas(p.agendamiento_id);
-            // Mismo formato "2 columnas" que ya usa el panel de Facturas
-            // (Cotización Inicial / Monto Facturado) — pedido explícito del
-            // usuario 2026-07-16 para que se vea igual acá.
+            // Mismo formato "2 columnas" que el panel de Facturas (Cotización/Facturado).
             filas.push(
                 '<div class="ef-detalle-monto-titulo">Monto</div>'
                 + '<div class="ef-detalle-monto-box">'
@@ -251,13 +229,7 @@
             );
             if (plazoMeses > 0) {
                 var estadoPagoLabel = { pendiente: 'Pendiente', en_proceso: 'En proceso', completado: 'Completado', cerrado: 'Cerrado' }[p.estado_pago] || 'Pendiente';
-                // El plan puede cerrarse desde la web (motivo_cierre_pago
-                // propio) o desde el propio flujo "Cierre Factura" del
-                // móvil (estado_pago='cerrado', sin motivo — ese campo es
-                // local del móvil, no sincroniza) — contrato Android
-                // confirmado 2026-07-16, ver update_proforma.php. Antes acá
-                // solo se detectaba el cierre si venía motivo_cierre_pago,
-                // así que un cierre hecho desde el celular no se mostraba.
+                // Cierre desde la web trae motivo_cierre_pago; desde el móvil solo estado_pago='cerrado'.
                 var planCerrado = !!p.motivo_cierre_pago || p.estado_pago === 'cerrado';
                 filas.push('<div class="ef-detalle-linea"><span class="ef-detalle-label">Plan de pago</span>'
                     + plazoMeses + ' meses · <span class="ef-detalle-estado-pago' + (p.estado_pago === 'completado' ? ' is-completo' : '') + '">' + esc(estadoPagoLabel) + '</span></div>');
@@ -282,11 +254,7 @@
         document.getElementById('efDetalleOverlay').classList.remove('is-abierto');
     }
 
-    // PDV y Empresa: antes un solo cuadro de texto con match por substring
-    // contra pdv/empresa/codigo_pdv junto; ahora dos desplegables
-    // independientes (con buscador propio) que comparan contra el valor
-    // exacto elegido — pedido explícito del usuario (2026-07-16: "separa
-    // pdv empresa ponle como tenemos" [en Agendamientos]).
+    // PDV y Empresa: desplegables independientes que comparan contra el valor exacto.
     function matchPdv(p, valor) {
         return !valor || (p.pdv || '') === valor;
     }
@@ -294,10 +262,7 @@
         return !valor || (p.empresa || '') === valor;
     }
 
-    // Selector de Periodo con meses reales (mismo mecanismo que
-    // poblarSelectorPeriodo en factura.js, pedido explícito del usuario:
-    // a este módulo le faltaba el filtro de Periodo que Factura ya tiene).
-    // Clave = "YYYY-MM" (o "todos" para sin filtro).
+    // Selector de Periodo con meses reales (mismo mecanismo que factura.js). Clave = "YYYY-MM".
     var NOMBRES_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
         'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -320,10 +285,7 @@
         return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + partes[0];
     }
 
-    // Arma las opciones a partir de los meses que realmente tienen datos
-    // (fecha_agendamiento, con contacto_fecha_registro de respaldo — mismo
-    // criterio que refFechaFase) + el mes actual (siempre presente).
-    // Respeta el mes ya elegido al refrescar.
+    // Opciones: meses con datos (mismo criterio que refFechaFase) + el mes actual.
     function poblarSelectorPeriodo() {
         var select = document.getElementById('efFiltroPeriodo');
         var valorPrevio = select.value;
@@ -379,15 +341,7 @@
     }
 
     // ── Filtros: Promotor / PDV / Empresa ──────────────────────────────
-    // Los 3 salen de allRows — solo lo que YA existe registrado en este
-    // módulo, nunca el catálogo completo del canal (ese catálogo,
-    // get_promotores.php/get_pdvs.php, es solo para "Crear visita" en
-    // Agendamientos, donde sí hace falta ofrecer promotores/PDV sin
-    // registro previo) — pedido explícito del usuario (2026-07-16: "aca
-    // nomas es con lo existente en los tres modulos"). Los 3 usan el
-    // combobox con buscador compartido con Agendamientos
-    // (habilitarComboBuscador en agenda-crear.js, ver
-    // window.AgendaHabilitarComboBuscador).
+    // Salen de allRows (solo lo ya registrado en este módulo, no el catálogo completo).
     function poblarSelectDistinct(selectId, rows, campo, etiquetaTodos) {
         var select = document.getElementById(selectId);
         var valorPrevio = select.value;
@@ -463,10 +417,7 @@
     document.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape' && document.getElementById('efDetalleOverlay').classList.contains('is-abierto')) cerrarDetalle();
     });
-    // "Ver más": reusa el mismo mecanismo de navegación del sidebar (ver
-    // index.php) simulando el clic en el link real, en vez de reimplementar
-    // el toggle de secciones acá — así hereda gratis el auto-refresco de la
-    // sección destino y el manejo de "activo" del sidebar.
+    // "Ver más": simula el clic en el link real del sidebar en vez de reimplementar el toggle.
     document.getElementById('efDetalleBtnVerMas').addEventListener('click', function (ev) {
         ev.preventDefault();
         var destino = this.dataset.target;
@@ -475,12 +426,8 @@
         var link = document.querySelector('.sidebar-nav a[href="' + destino + '"]');
         if (link) link.click();
 
-        // No alcanza con solo cambiar de sección: cada módulo destino expone
-        // su propio "abrir este agendamiento puntual" (mismo patrón que ya
-        // usa agenda-crear.js al guardar una visita nueva —
-        // Recargar().then(Abrir) — para no apuntar a datos viejos de antes
-        // de refrescar) y así el analista cae directo en el registro
-        // correcto en vez de tener que buscarlo a mano entre todos los demás.
+        // Cada módulo destino expone su propio Recargar().then(Abrir) para caer directo
+        // en el registro correcto, no en datos viejos de antes de refrescar.
         if (!p) return;
         if (destino === '#sec-agendamientos' && window.AgendaRecargar && window.AgendaResaltar) {
             window.AgendaRecargar().then(function () {

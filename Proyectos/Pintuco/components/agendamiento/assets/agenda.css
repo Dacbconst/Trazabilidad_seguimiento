@@ -1,15 +1,6 @@
-/* =====================================================
-   AGENDA — estilos propios del módulo Agendamientos.
-   Vive aquí (y no en el style.css global) porque solo esta
-   sección los usa; depende de las variables de marca
-   (--brand, --brand-light, etc.) definidas en /Proyectos/style.css,
-   que ya está cargado por index.php antes de este archivo.
-   ===================================================== */
+/* Estilos del módulo Agendamientos. Depende de variables de marca de /Proyectos/style.css. */
 
-/* ---------------------------------------------------
-   Leyenda (contadores por estado debajo de los filtros)
-   El wrapper usa .mod-filtros-extra (ver style.css global).
------------------------------------------------------ */
+/* Leyenda (contadores por estado debajo de los filtros). */
 .agenda-legend {
     display: flex;
     align-items: center;
@@ -39,22 +30,11 @@
 .agenda-legend-dot.is-cancelada { background: #d93025; }
 .agenda-legend-dot.is-completada { background: #0b8043; }
 
-/* Ancho mínimo garantizado por columna de filtro — ver nota en .agenda-combo
-   más abajo sobre por qué el combo solo, sin esto, puede terminar más
-   angosto de lo que se ve y recortar el texto de sus opciones. No aplica al
-   botón "Buscar": ese debe quedarse en su ancho natural (ver abajo). */
+/* Ancho mínimo por columna de filtro; no aplica al botón "Buscar" (ancho natural). */
 #agendaFiltros .filter-group:not(.agenda-filtro-buscar-wrap) { min-width: 180px; }
 
-/* Botón "Buscar" al final de la fila de filtros: .btn-actualizar (global,
-   style.css) trae margin-left:auto para cuando vive solo en
-   .mod-filtros-extra empujado a la derecha — acá está entre los demás
-   filtros, así que se anula para que quede pegado al de Estado en vez de
-   saltar al extremo derecho de la barra. .filter-group es flex-column con
-   align-items:stretch (heredado del default), así que el botón — al ser el
-   único hijo sin el ancho fijo de los <select>/combo — se estiraba a lo
-   ancho de toda la columna; align-self lo saca de ese estirado y lo deja en
-   su ancho de contenido, alineado abajo (con la label vacía) igual que los
-   demás campos. */
+/* Anula el margin-left:auto global de .btn-actualizar (pegado al de Estado acá)
+   y su estirado por align-items:stretch, para que quede en su ancho natural. */
 .agenda-filtro-buscar-wrap .btn-actualizar {
     margin-left: 0;
     align-self: flex-end;
@@ -70,10 +50,7 @@
     min-height: 540px;
 }
 
-/* ---------------------------------------------------
-   Sidebar estilo Google Calendar (Crear, mini-calendario,
-   Agendas pendientes)
------------------------------------------------------ */
+/* Sidebar estilo Google Calendar (Crear, mini-calendario, Agendas pendientes). */
 .gcal-sidebar {
     width: 230px;
     min-width: 230px;
@@ -219,10 +196,8 @@
 .gcal-mini-yearpicker-month:hover { background: #e7eaf0; }
 .gcal-mini-yearpicker-month.is-actual { background: var(--brand-light); color: #fff; }
 
-/* Barra propia para colapsar el mini-calendario y dejarle el espacio a
-   "Agendas pendientes" (el panel que el analista realmente necesita ver).
-   Va SIEMPRE separada, arriba del widget de FullCalendar — nunca encima de
-   sus propios botones prev/next, para no competir por el mismo espacio. */
+/* Barra para colapsar el mini-calendario y dejar espacio a "Agendas pendientes".
+   Va separada, arriba del widget, para no competir con sus botones prev/next. */
 .gcal-mini-header-bar {
     display: flex;
     align-items: center;
@@ -374,9 +349,7 @@
     padding: 4px;
 }
 
-/* ---------------------------------------------------
-   Calendario principal + mapa
------------------------------------------------------ */
+/* Calendario principal + mapa */
 /* Calendario principal: cabecera de días en mayúsculas, como Google Calendar */
 .agenda-calendar-wrap .fc-col-header-cell-cushion { text-transform: uppercase; font-size: 11px; color: #8a93a3; font-weight: 700; }
 .agenda-calendar-wrap .fc-daygrid-day-number,
@@ -455,11 +428,7 @@
 .agenda-map-toggle.collapsed .glyphicon { transform: rotate(180deg); }
 
 .agenda-map-panel {
-    /* position+z-index crea un contexto de apilamiento propio: Leaflet usa
-       z-index hasta 1000 para sus controles internos (zoom, atribución), y
-       sin esto ese z-index se escapaba por encima de nuestro botón aunque
-       este tuviera el suyo. Con esto, TODO lo de adentro (sin importar qué
-       z-index use Leaflet) queda topeado a "1" frente a lo de afuera. */
+    /* Contexto de apilamiento propio para topear el z-index alto de Leaflet. */
     position: relative;
     z-index: 1;
     width: 340px;
@@ -537,30 +506,21 @@
     white-space: nowrap;
 }
 
-/* ---------------------------------------------------
-   Modal "Gestionar visita"
------------------------------------------------------ */
+/* Modal "Gestionar visita" */
 .agenda-edit-overlay {
     display: none;
     position: fixed;
     inset: 0;
     background: rgba(20,30,50,.45);
-    /* El navbar superior (Bootstrap .navbar-fixed-top) usa z-index:1030 por
-       defecto — con el overlay en 1000 quedaba DEBAJO del navbar, así que
-       la franja de arriba de cualquier modal alto (la "Nueva visita" sobre
-       todo, por su mapa) se veía tapada/chocando con el header en vez de
-       cubrirlo como debe ser un modal de pantalla completa. */
+    /* z-index sobre el navbar de Bootstrap (1030), que tapaba modales altos. */
     z-index: 1040;
     align-items: center;
     justify-content: center;
 }
 .agenda-edit-overlay.active { display: flex; }
 
-/* Maquetación fluida: el card nunca excede el viewport (max-height/width en
-   vh/%, no px fijos). header/footer quedan fijos vía flex-column y el
-   scroll, si hace falta, ocurre SOLO dentro de .agenda-edit-body — así la
-   cabecera y los botones de acción siempre quedan visibles aunque el
-   contenido del medio no quepa (laptop 1366x768, zoom > 100%, etc.). */
+/* Card nunca excede el viewport; el scroll ocurre solo en .agenda-edit-body,
+   así cabecera y botones de acción quedan siempre visibles. */
 .agenda-edit-card {
     position: relative;
     background: #fff;
@@ -810,16 +770,8 @@
     margin: 14px 0;
 }
 
-/* ---------------------------------------------------
-   Modal "Nueva visita" — card ancha de 2 columnas (pedida
-   así por el usuario: 26 campos no entraban bien en una
-   sola columna angosta como el modal de edición).
------------------------------------------------------ */
-/* Maquetación fluida (laptop 1366x768 / zoom > 100%): nunca un alto/ancho
-   fijo en px para el card. header y footer quedan fijos vía flex-column;
-   el scroll, si el contenido no entra en 90vh, ocurre SOLO dentro de
-   .agenda-crear-body (form + mapa), nunca se pierde la cabecera ni el
-   botón Guardar del footer. */
+/* Modal "Nueva visita": card ancha de 2 columnas, 26 campos no entran en una angosta.
+   El scroll ocurre solo dentro de .agenda-crear-body, cabecera y footer quedan fijos. */
 .agenda-crear-card {
     position: relative;
     background: #fff;
@@ -852,17 +804,8 @@
     margin-top: 4px;
 }
 
-/* BODY: 2 columnas — formulario flexible a la izquierda, mapa de ancho
-   fijo a la derecha. `align-items: stretch` (default de flex) es lo que
-   hace que el mapa termine exactamente igual de alto que la columna de
-   campos, sin fijar un alto a mano que se pueda desincronizar.
-   El scroll NO va aquí (en la fila completa): con el cuerpo a altura fija
-   (flex:1) y stretch activo, el navegador recorta el contenido de la
-   columna de campos en vez de dejarlo accesible por scroll. El scroll se
-   pone directo en `.agenda-crear-form-col` (ver más abajo) — así esa
-   columna se vuelve su propio contenedor de scroll (comportamiento de
-   overflow estándar y confiable) y el mapa, al ser más corto, nunca
-   necesita scrollear. */
+/* BODY: 2 columnas, formulario a la izquierda y mapa de ancho fijo a la derecha.
+   El scroll va en .agenda-crear-form-col, no en la fila completa. */
 .agenda-crear-body {
     display: flex;
     gap: 28px;
@@ -894,10 +837,7 @@
     margin: 18px 0;
 }
 
-/* Panel del mapa: ancho fijo, no se encoge, fondo gris muy suave para
-   distinguirlo del formulario. Columna flex propia para que el mapa
-   (flex:1) absorba todo el alto disponible — igualándolo al de la
-   columna de campos sin necesidad de medirlo en JS. */
+/* Panel del mapa: ancho fijo, columna flex propia para igualar su alto al de campos. */
 .agenda-crear-mapa-col {
     width: 380px;
     flex-shrink: 0;
@@ -945,10 +885,7 @@
     gap: 5px;
     min-width: 0;
 }
-/* Dirección (y otros campos que necesitan su propio espacio, como Correo
-   o Técnico) ocupan la fila completa en vez de competir por media fila —
-   así no quedan huecos vacíos cuando un bloque tiene un número impar de
-   campos pareados. */
+/* Campos como Dirección/Correo/Técnico ocupan la fila completa, no media fila. */
 .agenda-crear-campo-full { grid-column: 1 / -1; }
 
 .agenda-crear-campo label {
@@ -988,19 +925,8 @@
 }
 .agenda-crear-mail-chip:hover { background: #dfe9f8; }
 
-/* ---------------------------------------------------
-   Combobox con buscador (Promotor / PDV) — el <select> real queda oculto
-   y sigue siendo la fuente de verdad; esto es solo la piel encima.
------------------------------------------------------ */
-/* width:100% explícito: sin esto, en un contenedor flex-column como
-   .filter-group, este div (con el <select> real oculto adentro, que no
-   aporta ancho porque está en display:none) queda con ancho "auto" sin
-   ninguna base real de la que estirarse — el trigger de adentro pide
-   width:100% de ESTE div, así que si este div no tiene un ancho propio
-   quedan los dos compitiendo por un ancho indefinido y el navegador puede
-   terminar angostando todo el combo (trigger + panel + texto de la lista)
-   mucho más de lo que se ve — pedido explícito del usuario 2026-07-16
-   ("sale recortado"). */
+/* Combobox con buscador: el <select> real queda oculto, sigue siendo la fuente de verdad.
+   width:100% explícito, si no el div sin ancho propio angosta todo el combo. */
 .agenda-combo { position: relative; width: 100%; box-sizing: border-box; }
 
 .agenda-combo-select-oculto { display: none; }
@@ -1095,11 +1021,7 @@
     color: #98a1b3;
 }
 
-/* Campos autorrellenados con datos del contacto en el flujo de
-   reagendamiento desde Contactados — bloqueados y en gris para que quede
-   claro que no se editan ahí (mismo gris ya usado en .agenda-crear-mapa-col,
-   no se introduce un tono nuevo). Solo aplica cuando agenda-crear.js abre
-   el modal con datos precargados; el resto de la card queda intacta. */
+/* Campos autorrellenados desde Contactados: bloqueados y en gris, no editables ahí. */
 .agenda-crear-input-bloqueado {
     background: #f7f8fa !important;
     color: #5b6577;
@@ -1122,10 +1044,8 @@
     overflow: hidden;
 }
 
-/* El pin fijo del centro: no es un marcador de Leaflet, es un ícono
-   puesto encima del mapa con CSS — por eso nunca se "pierde" al alejar
-   el zoom, es el mapa el que se mueve debajo de él. La punta del ícono
-   (no su centro) es el punto exacto que se confirma. */
+/* Pin fijo del centro: ícono CSS encima del mapa, no marcador de Leaflet; su punta
+   (no su centro) es el punto que se confirma. */
 .agenda-crear-mapa-pin-fijo {
     position: absolute;
     top: 50%;
@@ -1430,11 +1350,8 @@
 .agenda-edit-hora-item:hover { background: #f0f4ff; }
 .agenda-edit-hora-item.is-actual { background: rgba(51,122,183,.12); font-weight: 700; }
 
-/* Switch único de edición — reemplaza el lápiz por-campo de antes: un solo
-   control decide si Empresa/Correo/Celular/Dirección/Convencional + mapa se
-   pueden tocar (Promotor/Local quedan siempre fuera; fecha/hora/técnico
-   quedan siempre editables sin importar el switch). El texto alterna
-   "Modo edición" / "Editando" vía JS (ver setModoEdicion en agenda.js). */
+/* Switch único: decide si Empresa/Correo/Celular/Dirección + mapa se pueden tocar.
+   Promotor/Local quedan siempre fuera; fecha/hora/técnico siempre editables. */
 .agenda-edit-mode-switch {
     display: flex;
     align-items: center;
@@ -1536,10 +1453,7 @@
 .agenda-edit-actions-left { display: flex; align-items: center; gap: 16px; }
 .agenda-edit-actions-right { display: flex; gap: 10px; }
 
-/* "Guardar" queda fijo en pantalla siempre (nunca aparece/desaparece) —
-   arranca apagado y solo se enciende cuando hay un cambio real que guardar
-   (ver actualizarVisibilidadGuardar en agenda.js), mismo criterio que
-   .ctc-btn-descarga.is-seleccion en contactados.css. */
+/* "Guardar" queda fijo, arranca apagado y se enciende solo con un cambio real. */
 #agendaEditGuardar {
     background: var(--ed-line);
     border-color: var(--ed-border);

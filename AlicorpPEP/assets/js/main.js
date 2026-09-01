@@ -217,17 +217,7 @@ for (const perfectStore in groupedByPerfectStore) {
 
 
 
-                // FUNCIONALIDAD DE QUE SE DESLIZE SOLITO HACIA ABAJO
-                ///////////////////////////////////////////////////////////////////
-                // const container = document.querySelector(`#preguntas-container-${posId}`);
-
-                // // Espera un pequeño momento para garantizar que el DOM se haya actualizado antes de hacer el scroll
-                // setTimeout(() => {
-                //     // Solo hacer scroll si el contenedor existe
-                //     if (container) {
-                //         container.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                //     }
-                // }, 200);
+                // Scroll automático deshabilitado
 
 
 
@@ -373,18 +363,7 @@ document.querySelector('.btn_custom').addEventListener('click', async function (
 });
 
 
-                /*
-                                document.getElementById("btn-cerrar").addEventListener("click",()=>{
-                                    const modalEl = document.getElementById(`modal-${posId}`);
-                                    const modal = new bootstrap.Modal(modalEl);
-                                    console.log(modal);
-                
-                                });
-                */
-                //////////////////////////////////////////////////////////////////////
-
-
-                ///////Activar el input dinámico cuando se selecciona el check de "No"/////////
+                // Activa el input dinámico al seleccionar el check "No"
                 data.forEach(preg => {
                     document.querySelectorAll(`input[name="respuesta_${preg.id}"]`).forEach(radio => {
                         radio.addEventListener('change', function () {
@@ -409,230 +388,7 @@ document.querySelector('.btn_custom').addEventListener('click', async function (
 });
 
 
-// document.querySelectorAll('[data-pos-id]').forEach(button => {
-//     button.addEventListener('click', function () {
-//         const posId = this.dataset.posId;
-//         const posName = this.dataset.posName;
-//         const formularioNovedades = document.getElementById("formNovedades");
-
-//         //  console.log("POS ID obtenido:", posId);
-//         //  console.log("POS Nombre:", posName);
-
-//         // Insertar datos en el modal
-//         document.getElementById('modalPosId').textContent = posId;
-//         document.getElementById('modalPosName').textContent = posName;
-//         const selectNovedad = document.getElementById("select-novedad");
-
-
-//         for (let i = 0; i < arrNovedades.length; i++) {
-//             let novedad = arrNovedades[i];           
-//             const option = document.createElement('option');
-//             option.value = novedad;
-//             option.textContent = novedad;
-//             selectNovedad.appendChild(option);
-//         }
-
-//         // Mostrar modal (si es necesario)
-//         const modal = new bootstrap.Modal(document.getElementById(`novedadesModal-${posId}`));
-//         modal.show();
-
-
-//         formularioNovedades.addEventListener("submit",(event)=>{
-//             event.preventDefault();
-
-//             let str_novedad = selectNovedad.value;
-
-//             console.log(selectNovedad.value);
-//         })
-
-
-
-
-//     });
-// });
-
-
-
-
-
-
-
-
-// Debounce con parámetro adicional
-
-
-
-
-
-// Manejar apertura del modal
-
-// function abrirModalNovedades() {
-
-//     const modalNovedades = document.getElementById('novedadesModal');
-
-
-//     modalNovedades.addEventListener('show.bs.modal', (event) => {
-
-//         console.log('Elemento que disparó el modal:', event.target);
-
-//         if (event.relatedTarget) {
-//             const boton = event.relatedTarget;
-//             // Verifica los dataset
-//             console.log('Dataset del botón:', boton.dataset);
-
-//             // Usa los nombres correctos de los atributos
-//             const pdvId = boton.dataset.posId; // Para data-pdv-id
-//             const pdvNombre = boton.dataset.posName; // Para data-pdv-name
-//             const selectNovedad = document.getElementById("select-novedad");
-//             let divComentario = document.getElementById("comentario-container");
-//             let txtComentario = document.getElementById("comentario-novedad");
-//             let novedad = '';
-
-//             if (selectNovedad.options.length === 1) {
-//                 for (let i = 0; i < arrNovedades.length; i++) {
-//                     let novedad = arrNovedades[i];
-//                     const option = document.createElement('option');
-//                     option.value = novedad;
-//                     option.textContent = novedad;
-//                     selectNovedad.appendChild(option);
-//                 }
-//             }
-
-//             selectNovedad.addEventListener("change", (e) => {
-//                 novedad = e.target.value;
-
-//                 if (novedad == "OTRAS") {
-//                     divComentario.style.display = "block";
-//                     txtComentario.style.display = "block";
-//                     txtComentario.setAttribute("required", "");
-//                 } else {
-//                     divComentario.style.display = "none";
-//                     txtComentario.style.display = "none";
-//                     txtComentario.removeAttribute("required");
-//                 }
-//             })
-
-
-//             // Actualizar contenido del modal
-//             document.getElementById('modalPosId').textContent = pdvId;
-//             document.getElementById('modalPosName').textContent = pdvNombre;
-
-//             console.log('ID obtenido:', pdvId);
-//             console.log('Nombre obtenido:', pdvNombre);
-
-
-//             document.getElementById("formNovedad").addEventListener("submit", (e) => {
-//                 e.preventDefault();
-
-//                 const { fecha, hora } = obtenerFechaHoraActual();
-
-//                 const inputArchivoNovedad = document.getElementById(`inputArchivo_novedad`);
-
-//                 let foto_novedad = 'NO_FOTO';
-//                 if (inputArchivoNovedad && inputArchivoNovedad.files.length > 0) {
-//                     foto_novedad = convertirImgBase64('novedad');
-//                 }
-
-//                 if (novedad == "OTRAS") {
-//                     novedad = novedad + ": " + txtComentario.value;
-//                 }
-
-
-
-//                 // Envio de datos 
-//                 // Datos a enviar (ejemplo)
-//                 const data = {
-//                     pos_id: pdvId,
-//                     pos_name: pdvNombre,
-//                     user: usuario,
-//                     fecha,
-//                     hora,
-//                     causal: novedad,
-//                     foto: foto_novedad
-//                 };
-
-//                 fetch(URL_INSERT_NOVEDAD, {
-//                     method: 'POST',
-//                     headers: {
-//                         'Content-Type': 'application/json',
-//                     },
-//                     body: JSON.stringify(data)
-//                 })
-
-//                     .then(response => response.json())
-//                     .then(data => {
-//                         if (data.estado === '1') {
-//                             Swal.fire({
-//                                 icon: 'success',
-//                                 title: '¡Éxito!',
-//                                 text: data.mensaje,
-//                                 timer: 3000, // 2 segundos
-//                                 showConfirmButton: false
-//                             }).then(() => {
-//                                 // Cierra el modal 
-//                                 const modalNovedad = document.getElementById('novedadesModal'); // Reemplaza con tu ID
-//                                 const modal = bootstrap.Modal.getInstance(modalNovedad);
-//                                 if (modal) {
-//                                     modal.hide();
-//                                 }
-
-//                                 // Opcional: Resetear formulario
-//                                 document.getElementById('formNovedad').reset(); // Reemplaza con tu ID
-//                                 location.reload(); // Se ejecutará después del timer
-//                             });
-
-//                         } else {
-//                             console.error('Error:', data.mensaje);
-//                         }
-//                     })
-//                     .catch(error => {
-//                         console.error('Error de red:', error);
-//                     });
-
-
-//             });
-
-
-
-
-
-
-//         } else {
-//             console.warn('El modal no fue abierto por un botón con datos');
-//         }
-
-
-
-//         //   // Resetear validación
-//         //     const formulario = document.getElementById('formNovedades');
-//         //     formulario.classList.remove('was-validated');
-//         //     document.getElementById('selectNovedad').classList.remove('is-invalid');
-
-
-//     });
-
-//     // Escuchar evento de cierre
-//     modalNovedades.addEventListener('hidden.bs.modal', (event) => {
-//         // Limpiar formulario
-//         document.getElementById('formNovedad').reset();
-//         let imgVistaPrevia = document.getElementById('imagenPrevisualizacion_novedad');
-//         imgVistaPrevia.style.display = "none";
-//         imgVistaPrevia.value = '';
-//         let divComentario = document.getElementById("comentario-container");
-//         let txtComentario = document.getElementById("comentario-novedad");
-//         divComentario.style.display = "none";
-//         txtComentario.style.display = "none";
-//         txtComentario.removeAttribute("required");
-
-
-
-
-//         // Opcional: Remover mensajes de error
-//         // const errores = document.querySelectorAll('.error-message');
-//         // errores.forEach(e => e.remove());
-//     });
-
-// }
+// Implementación previa de novedades, reemplazada por abrirModalNovedades() debajo
 
 function abrirModalNovedades() {
     const modalNovedades = document.getElementById('novedadesModal');
@@ -858,25 +614,7 @@ function previsualizarImagen(id) {
     previsualizacion.src = objectURL;
     previsualizacion.style.display = "block";
 }
-/////////
-
-
-// function convertirImgBase64(pregId) {
-//     return new Promise((resolve, reject) => {
-//         const input = document.getElementById(`inputArchivo_${pregId}`);
-//         if (input.files.length > 0) {
-//             const file = input.files[0];
-//             const reader = new FileReader();
-//             reader.onload = () => resolve(reader.result.split(',')[1]); // Solo la parte base64
-//             reader.onerror = error => reject(error);
-//             reader.readAsDataURL(file);
-//         } else {
-//             resolve('NO_FOTO');
-//         }
-//     });
-// }
-
-
+// Versión previa sin compresión, reemplazada por la de abajo
 
 function convertirImgBase64(pregId, calidad = 0.50) {
     return new Promise((resolve, reject) => {
@@ -944,15 +682,6 @@ function obtenerPdvsRelevados() {
                 pintarPdvsRelevados(pdvsRelevados);
 
 
-                // console.log("Pdv's relevados en el mes: " + pdvsRelevados.length);
-                // pdvsRelevados.forEach(pdv => {
-                //     const codigo = pdv.codigo.trim(); // Asegúrate de que la propiedad sea "codigo"
-                //     const btn = document.getElementById(`btn-pdv-${codigo.trim()}`);
-                //     console.log(codigo.trim());
-                //     if (btn) {
-                //         btn.classList.add("pdv_disabled");
-                //     }
-                // });
 
             }
 
@@ -2037,13 +1766,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-// document.getElementById("buscar").addEventListener('input', (e) => {
-//     let value = e.target.value;
-//     console.log(value);
-    
-//     if (value === '') {
-//         e.target.value = ''; // Establece el valor del input como vacío
-//         // También puedes agregar aquí otras acciones si necesitas resetear algo más
-//         location.reload();
-//     }
-// });

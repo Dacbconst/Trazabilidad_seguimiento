@@ -7799,3 +7799,208 @@ latente corregido de paso**: `canalFiltroActual` arrancaba hardcodeado en
 leyendo la pastilla `.ac-seg-pill-activo` real del DOM al cargar.
 **Probado**: `node --check` limpio. **Todavía sin probar en navegador
 real.**
+
+## Cumplimiento de Cuota: aclarado que solo soporta el formato Directo (aún no Distribuidor) (2026-08-31)
+
+El usuario preguntó, antes de que se implementara nada, si el Excel que se
+descarga para canal Distribuidor también lo iba a aceptar el importador de
+Cumplimiento de Cuota (`repositorio_parsear_cumplimiento_cuota()`). **No**
+— confirmado leyendo el código: hoy solo reconoce el formato de Directo, a
+propósito (el comentario de esa función ya lo decía desde que se construyó:
+"Alcance de esta primera versión: solo canal Directa"). Motivos concretos,
+no solo el nombre de hoja distinto:
+- Hoja `"CUOTAS POR CAT -DISTRIBUIDORES"` (Distribuidor) vs `"CUOTA CLIENTE
+  - CATEGORÍA"` (Directo) — nombre distinto de pestaña.
+- Columnas de identidad distintas: `DISTRIBUIDOR/CIUDAD/NOMBRE/CATEGORIA`
+  (Distribuidor) vs `CEDI/CLIENTE/CATEGORIAS` (Directo).
+- Sin columna `CARTERA` en Distribuidor (el parser la usa como ancla
+  posicional para ubicar `VENTA TOTAL`).
+- `"REBATE"` (Distribuidor) vs `"REBATE A APLICAR %"` (Directo) — nombre de
+  columna distinto.
+- `"GANA TOTAL Q"` (Distribuidor) vs `"GANA TOTAL"` (Directo) — nombre de
+  columna distinto.
+- Sin fila `TOTAL` al final.
+- Unidad: Distribuidor mide en Cajas, no Dólares.
+**No implementado todavía** — queda pendiente si el usuario pide construir
+el branch de Distribuidor (mismo patrón, un segundo parser de hoja).
+
+### Nombre de pestaña tolerante en `xlsx_leer_hoja()` (2026-08-31, mismo día)
+
+Pregunta de seguimiento del usuario: ¿cómo detecta el sistema qué hoja es
+la de "Cuota Categoría" — solo busca por nombre? **Confirmado que sí**, y
+que la búsqueda del NOMBRE de la pestaña (a diferencia de los encabezados
+de columna, que ya normalizaban mayúsculas/tildes desde el diseño
+original, ver `xlsx_normalizar_encabezado()`) era una comparación EXACTA
+(`isset($mapaHojas[$nombreHoja])`) — una pestaña tipeada en minúsculas, sin
+tilde, o con un espacio de más rompía la búsqueda entera, aunque a simple
+vista fuera "la misma hoja". El usuario pidió 2 cosas: que el sistema
+tolere esas variaciones solo, y que el mensaje de error (cuando de verdad
+no la encuentra) le diga al usuario que revise el nombre de la pestaña.
+
+**Corregido en `includes/xlsx_reader.php`** (afecta a TODO lector de hoja
+por nombre del proyecto, no solo Cumplimiento — mismo mecanismo compartido
+que usa Liquidación):
+- `xlsx_normalizar_nombre_hoja($texto)` (nueva) — mismo criterio que
+  `xlsx_normalizar_encabezado()` (mayúsculas, sin tildes) más colapsar
+  espacios de más a uno solo (`"Cuota  Cliente"` → `"Cuota Cliente"`) — algo
+  que no hacía falta para encabezados de columna (celdas sueltas) pero sí
+  es común en el nombre de una pestaña retipeada a mano.
+- `xlsx_leer_hoja()` — el lookup exacto por clave del array se reemplazó
+  por una comparación normalizada contra cada nombre real de pestaña del
+  archivo — sigue devolviendo el path XML real de la hoja que matchea, solo
+  cambió CÓMO se decide el match. Es puramente más permisivo (nunca deja de
+  encontrar algo que antes sí encontraba), así que no hay riesgo de romper
+  ningún importador existente.
+- `repositorio_parsear_cumplimiento_cuota()` — se sacó el 2do intento
+  manual "sin tilde" (ya no hace falta, la tolerancia ahora vive en
+  `xlsx_leer_hoja()` mismo) y el mensaje de error se amplió: "Revisá el
+  nombre de la pestaña en Excel: no importan mayúsculas, tildes ni
+  espacios de más, pero el texto tiene que ser el mismo."
+- **Probado**: `php -l` limpio en los 2 archivos. La normalización en sí se
+  probó aislada (sin `ZipArchive`, que no está habilitado en el PHP CLI
+  local — mismo límite ya documentado varias veces en este archivo): 5
+  variantes del nombre de la hoja (con tilde, sin tilde, minúsculas, con
+  espacio de más, con espacio al inicio) normalizan todas al mismo texto.
+  **No se pudo probar `xlsx_leer_hoja()` de punta a punta contra un
+  archivo `.xlsx` real** en esta sesión por el mismo límite del CLI local
+  — el cambio es una generalización directa de un patrón ya usado y
+  probado (`xlsx_normalizar_encabezado()`), bajo riesgo, pero falta la
+  confirmación real en navegador/servidor.
+
+**Ajuste, mismo día**: el error de "hoja no encontrada" salía como toast
+(desaparece antes de leerlo) — pasó a modal (`Swal.fire`, `mostrarErrorArchivo()`
+en `cumplimiento.js`), con un mini combo de texto copiable + botón (nombre
+de hoja esperado, `Clipboard API`) para pegarlo directo en Excel. Backend
+manda `hoja_esperada` como campo aparte del mensaje. Mensaje acortado.
+CSS nuevo: `.ac-copiable*`. `php -l`/`node --check` limpios, CSS balanceado
+(797/797). Sin probar en navegador.
+
+**Ajuste, mismo día — sin voseo + modal "inteligente" por tipo de error**:
+mensaje tenía "Subí"/"Revisá" (voseo, corregido a "sube"/"revisa" — ver
+`feedback_sin_voseo_texto_visual` en memoria, nunca más). Además, el
+usuario preguntó si reordenar columnas cerca de "REBATE A APLICAR %"/
+"CARTERA" podía romper la lectura en silencio (esas 2 se ubican por
+posición, no por nombre, ver más arriba) — **sí podía**, así que se agregó
+una validación nueva: el encabezado real en esa posición debe empezar con
+"TOTAL Q"/"VENTA Q" (dinámico por trimestre); si no, `repositorio_parsear_cumplimiento_cuota()`
+devuelve `tipo: 'columnas_movidas'` en vez de seguir con datos erróneos.
+El modal (`mostrarErrorArchivo()`) ahora arma su contenido según
+`data.tipo` (`hoja_no_encontrada`/`columnas_movidas`/`columnas_faltantes`/
+`trimestre_no_determinado`) — cada uno con su propia pista corta, no un
+texto genérico. `cajaCopiable()` generalizada para soportar más de una caja
+por modal. Probado aislado (regex de detección con 6 casos reales/
+inventados) sin `.xlsx` real (mismo límite del CLI local de siempre).
+Sin probar en navegador.
+
+## Cumplimiento de Cuota: soporte para canal Distribuidor (2026-08-31)
+
+`repositorio_parsear_cumplimiento_cuota()` ahora prueba las 2 hojas (Directo
+"CUOTA CLIENTE - CATEGORÍA", Distribuidor "CUOTAS POR CAT -DISTRIBUIDORES")
+y delega a una función propia por canal — mismo criterio de "columnas
+movidas" (posición + regex de sanity-check) ya usado en Directo, con sus
+propios anclas (Distribuidor no tiene CARTERA: cuota total = antes de
+"REBATE", venta total = antes de "CUMPLIMIENTO"). Si no encuentra ninguna
+hoja, el modal ahora muestra las 2 pestañas esperadas con botón de copiar
+cada una. Probado con datos sintéticos (sin `.xlsx` real, límite de
+siempre): layout normal OK, columna insertada cerca de REBATE detectada
+como `columnas_movidas` con las columnas de referencia correctas.
+
+Confirmado (solo lectura): Seguimiento de Equipo YA incluye Actas de los 2
+canales sin cambios — sus queries nunca filtran por canal.
+
+Voseo corregido en 5 lugares más de este módulo ("Subí"→"Sube", "hacé
+click"→"haz click", "revisá"→"revisa" ×2, "Revisá"→"Revisa").
+
+**Pendiente, con mockup ya publicado para revisar**: agregar la pastilla
+Total/Directo/Distribuidor a la UI de Cumplimiento (como en Historial) +
+badge de canal por cliente + "cajas" sin "$" en filas de Distribuidor —
+2 opciones de dónde va el badge, ninguna construida todavía.
+
+## Gestión de Usuarios — columna Canal + roles renombrados a Usuario/Administrador (2026-08-31)
+
+Pedido explícito, 3 partes:
+
+1. **Combo "Nuevo Usuario"/"Editar Perfil" ya no muestra los supervisores de
+   prueba de Alicorp** — encontrados con datos reales:
+   `repositorio_locales_supervisores_cliente` tiene `PRUEBA DISTRIBUIDOR`,
+   `PRUEBA AUTOSERVICIO`, `PRUEBA MAYORISTA`, `PRUEBA COBERTURA` mezclados
+   con los supervisores reales. `listar_supervisores_disponibles()`
+   (`includes/functions.php`) ahora filtra `supervisor NOT LIKE 'PRUEBA %'`
+   — por prefijo, no una lista fija de 4, para cubrir cualquier otra
+   "PRUEBA X" que Alicorp agregue después sin tocar este código de nuevo.
+2. **Columna nueva "Canal" en la tabla de Usuarios Registrados** — Directo/
+   Distribuidor/"—" (sin resolver, ej. la cuenta "Admin" sin supervisor)
+   por usuario, resuelto en vivo con la misma `canalDeSupervisor()` que usa
+   el resto de la app, nunca guardado. Calculado en PHP dentro de
+   `listar_usuarios_acuerdos()` (no en SQL — la lista pagina de a 8, no
+   vale la pena una subquery por fila), mostrado en `renderFilaUsuario()`.
+   Mismo cambio en la tabla inicial (`gestion-usuarios.php`) y el refresco
+   AJAX (`getters/tabla_usuarios.php`) — colspan del "no encontrados"
+   actualizado de 6 a 7 en los 2 lugares.
+3. **Roles renombrados en pantalla: "Desarrollador" → "Usuario",
+   "Superdesarrollador" → "Administrador"** — SOLO la etiqueta visible,
+   mismo criterio que el rename "Local"/"Distribuidor" en Registrar (ver
+   sección de arriba): el valor real de columna/ENUM (`desarrollador`/
+   `superdesarrollador`) y toda la lógica de permisos (`rolPermitido()`,
+   `includes/secciones.php`, roles de cada getter) siguen exactamente
+   igual, sin tocar. Cambiado en un solo punto para los badges/header
+   (`rolEtiqueta()`, `includes/functions.php`) — usado tanto en la tabla de
+   Gestión de Usuarios como en el label de rol del header
+   (`index.php`, junto al nombre de usuario) — más los 2 `<select>` de rol
+   en `components/gestion-usuarios/gestion-usuarios.php` (Nuevo Usuario y
+   Editar Perfil), que tenían el texto de las `<option>` hardcodeado, no
+   vía `rolEtiqueta()`. **No se tocó** "Desarrollador de Mercado" en
+   `includes/acta_pdf.php` — es la etiqueta de firma del Acta de
+   Distribuidor, coincide la palabra pero es un concepto totalmente
+   distinto (puesto real en el documento impreso, no el rol de la app).
+
+**Pregunta aparte del usuario, respondida sin tocar código**: por qué no
+hay una cuenta de Michelle (JW) si las reuniones decían que ella tendría
+acceso — confirmado con datos reales que su nombre no existe en
+`repositorio_locales_supervisores_cliente.supervisor` (tiene sentido, es
+personal de JW, no una asesora de Alicorp con cartera). Impacto de crear
+su cuenta igual: bajo — `supervisor` es NULLABLE y **la cuenta "Admin"
+(id=1) ya funciona hoy exactamente así** (rol Administrador, sin
+supervisor), mismo patrón que necesitaría ella. Con supervisor vacío,
+`canalDeSupervisor()` devuelve `null` sin romper nada (ya manejado en
+`acuerdo_distribuidores.php` con `?: 'directo'`) — el único efecto real es
+que el dropdown de "Local" en Registrar le quedaría vacío, esperable
+porque ella no genera Actas. Con rol Administrador vería los módulos que
+las reuniones describían para ella (Repositorios, Seguimiento de Equipo,
+Cumplimiento de Cuota, Gestión de Usuarios). Queda pendiente que el
+usuario la cree él mismo desde "Nuevo Usuario" — Claude no puede.
+
+**Probado**: `php -l` limpio en los 3 archivos tocados;
+`listar_usuarios_acuerdos()` corrida contra la base real confirma
+`rolEtiqueta()` da "Usuario"/"Administrador" y `canal` resuelve correcto
+por fila (Carlos Proaño/Javier/Franklin=directo, Adrián=distribuidor,
+Admin=NULL→"—"). Verificado visualmente con Playwright (servidor local +
+sesión falsa) contra la tabla real: columna Canal presente con los valores
+esperados, badges de rol y el label del header ya muestran "USUARIO"/
+"ADMINISTRADOR".
+
+## Cumplimiento de Cuota: pastilla Vista + "Subir Excel" con formato + Cajas (2026-08-31)
+
+Mockup Opción A aprobado, implementado: pastilla Total/Directo/Distribuidor
+(igual a Historial), sobre `listar_cumplimiento_cuota()`/
+`resumen_cumplimiento_cuota()` — mismo filtro EXISTS-based canónico que ya
+usa Historial (`condicionCanalCumplimiento()`, nueva, reusada en las 2).
+Verificado con datos reales: directo(9)+distribuidor(3)=total(12), exacto.
+
+- Badge de canal por cliente (`.ac-badge-canal-*`, igual que Historial)
+  **solo con Vista="Total"** — con un canal ya filtrado, se oculta (pedido
+  explícito, sería redundante).
+- "Subir Excel" ahora es un `.ac-repo-exportar` (mismo mecanismo que
+  "Descargar Excel" en Historial): con Vista="Total" se expande a 2
+  opciones (Directo/Distribuidor); con un canal ya filtrado, salta el
+  picker y abre directo para ese formato.
+- El formato elegido (a mano o heredado de la Vista) se manda como
+  `canal_esperado` junto al archivo — `cumplimiento_previsualizar_excel.php`
+  rechaza el archivo si el canal real detectado no coincide (`tipo:
+  'canal_no_coincide'`), antes de mostrar la previsualización.
+- Filas de Distribuidor pierden el "$" (`cajas()`/`valorMonetario()` en
+  `cumplimiento.js`) — número entero + tag "cajas".
+
+**Probado**: `php -l`/`node --check` limpios, CSS balanceado (798/798),
+canal-filter verificado con datos reales de solo lectura (arriba). Sin
+probar en navegador real.

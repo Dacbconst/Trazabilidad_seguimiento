@@ -14,21 +14,8 @@ function iniciar_sesion() {
 	}
 }
 
-// Decisión explícita: login simple, sin password_hash/password_verify.
-// El prepared statement solo protege la consulta contra inyección SQL,
-// la contraseña se compara tal cual está guardada en la tabla.
-//
-// Devuelve TRUE (login ok), FALSE (usuario/contraseña incorrectos), o el
-// string 'bloqueado' (demasiados intentos fallidos seguidos, cuenta
-// bloqueada temporalmente) — procesar_acceso.php distingue los 3 casos
-// para mostrar el mensaje correcto en login.php.
-//
-// Fuerza bruta (2026-08-24, pedido explícito tras revisión de seguridad):
-// 5 intentos fallidos seguidos bloquean la cuenta 15 minutos
-// (`intentos_fallidos`/`bloqueado_hasta`, columnas nuevas — ver CLAUDE.md).
-// Si todavía no se corrió ese ALTER, cae al login de siempre SIN bloqueo
-// (mismo criterio de fallback que ya usaba esta función para `supervisor`)
-// — nunca se rompe el acceso mientras el usuario corre el SQL.
+// Login simple sin password_hash — la contraseña se compara tal cual está guardada (decisión explícita del cliente).
+// Devuelve true/false/'bloqueado' (5 intentos fallidos bloquean 15 min); sin el ALTER de intentos_fallidos, cae al login de siempre sin bloqueo.
 function login($usuario, $password, $mysqli) {
 	$stmt = $mysqli->prepare(
 		"SELECT id, usuario, rol, supervisor, contrasena, intentos_fallidos, bloqueado_hasta
@@ -66,8 +53,7 @@ function login($usuario, $password, $mysqli) {
 			return false;
 		}
 
-		// Contraseña correcta: si venía con intentos fallidos previos, se
-		// resetea el contador — un login exitoso limpia la pizarra.
+		// Login exitoso: resetea el contador de intentos fallidos si tenía alguno.
 		if ((int) $row['intentos_fallidos'] > 0) {
 			$stmtReset = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?');
 			$stmtReset->bind_param('i', $row['id']);
@@ -84,8 +70,7 @@ function login($usuario, $password, $mysqli) {
 	}
 
 	// ---------- Fallback: columnas de fuerza bruta todavía no existen ----------
-	// Mismo login de siempre, sin bloqueo — y dentro de este fallback, el
-	// fallback ORIGINAL para `supervisor` (por si tampoco existe esa).
+	// Mismo login de siempre sin bloqueo (con fallback anidado si tampoco existe `supervisor`).
 	$stmt = $mysqli->prepare(
 		"SELECT id, usuario, rol, supervisor FROM repositorio_usuarios_acuerdos
 		 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
@@ -117,40 +102,33 @@ function login_check() {
 	return isset($_SESSION['user_id'], $_SESSION['rol']);
 }
 
-// El acceso por módulo NO es una jerarquía (admin tiene menos acceso que
-// desarrollador: no ve Historial). Cada sección define su lista explícita de
-// roles permitidos en includes/secciones.php y se valida por pertenencia simple.
+// El acceso por módulo NO es jerárquico — cada sección define su propia lista de roles permitidos en includes/secciones.php.
 function rolPermitido(array $rolesPermitidos) {
 	return isset($_SESSION['rol']) && in_array($_SESSION['rol'], $rolesPermitidos, true);
 }
 
+// Etiqueta visible solo — el valor real de columna/ENUM sigue siendo 'desarrollador'/'superdesarrollador' en toda la app.
 function rolEtiqueta($rol) {
 	$etiquetas = [
-		'desarrollador'      => 'Desarrollador',
-		'superdesarrollador' => 'Superdesarrollador',
+		'desarrollador'      => 'Usuario',
+		'superdesarrollador' => 'Administrador',
 	];
 	return isset($etiquetas[$rol]) ? $etiquetas[$rol] : $rol;
 }
 
 // ---------- Canal (Directo / Distribuidor) vía supervisor ----------
-// repositorio_locales_supervisores_cliente es un maestro externo de Alicorp
-// (NO se modifica su esquema, solo se consulta) con una columna `canal` que
-// solo puede ser DISTRIBUIDOR/COBERTURA/MAYORISTA/AUTOSERVICIO, y una columna
-// `supervisor` que ES la lista real de personas que usan la plataforma
-// (confirmado por el cliente en llamada, 2026-07-26). El canal de un usuario
-// de Acuerdos_Comerciales NUNCA se guarda: se deriva en vivo mirando qué
-// canal(es) tienen los clientes de SU supervisor, cada vez que hace falta.
+// repositorio_locales_supervisores_cliente es un maestro externo de Alicorp (nunca se modifica su esquema).
+// El canal NUNCA se guarda: se deriva en vivo mirando el canal de los clientes del supervisor.
 
 function listar_supervisores_disponibles($mysqli) {
 	$supervisores = [];
+	// Excluye los supervisores de prueba del maestro de Alicorp ("PRUEBA X") — filtro por prefijo, no una lista fija.
 	$res = $mysqli->query(
 		"SELECT DISTINCT supervisor FROM repositorio_locales_supervisores_cliente
-		 WHERE supervisor IS NOT NULL AND supervisor <> '' ORDER BY supervisor"
+		 WHERE supervisor IS NOT NULL AND supervisor <> '' AND supervisor NOT LIKE 'PRUEBA %'
+		 ORDER BY supervisor"
 	);
-	// $res puede venir en false si la tabla no existe/no es accesible — no
-	// asumir que siempre hay resultado (esto fue justamente lo que rompió el
-	// login el 2026-07-26: un nombre de tabla mal escrito hizo que las
-	// consultas a este maestro fallaran silenciosamente en cascada).
+	// $res puede venir en false si la tabla no existe/no es accesible — no asumir que siempre hay resultado.
 	if (!$res) return $supervisores;
 	while ($row = $res->fetch_assoc()) {
 		$supervisores[] = $row['supervisor'];
@@ -158,14 +136,8 @@ function listar_supervisores_disponibles($mysqli) {
 	return $supervisores;
 }
 
-// Un supervisor = la persona real que usa la cuenta, así que no tiene sentido
-// que dos logins compartan el mismo supervisor (ver canalDeSupervisor()) —
-// esto arma el mapa [supervisor => usuario] de quién ya lo tiene, para que
-// gestion-usuarios.php pueda ocultarlo del combo "Nuevo Usuario" y
-// crear_usuario.php/actualizar_usuario.php lo puedan rechazar si igual llega
-// por API directa. Solo cuenta usuarios 'activo': si se desactiva una cuenta,
-// su supervisor queda libre para reasignar. $excluirId permite que, al editar
-// un usuario, su propio supervisor actual no cuente como "ya tomado por otro".
+// Arma el mapa [supervisor => usuario] de quién ya lo tiene (1 supervisor = 1 cuenta activa).
+// $excluirId permite que, al editar un usuario, su propio supervisor no cuente como "ya tomado".
 function supervisores_asignados_activos($mysqli, $excluirId = 0) {
 	$asignados = [];
 	$stmt = $mysqli->prepare(
@@ -184,15 +156,11 @@ function supervisores_asignados_activos($mysqli, $excluirId = 0) {
 	return $asignados;
 }
 
-// Ningún supervisor real mezcla DISTRIBUIDOR con COBERTURA/MAYORISTA (ver
-// investigación de datos) — por eso alcanza con mirar si DISTRIBUIDOR está
-// presente. Caso borde sin resolver: un supervisor exclusivamente MAYORISTA
-// (no existe hoy en la data) caería como 'directo' por este orden de checks.
+// Ningún supervisor real mezcla DISTRIBUIDOR con COBERTURA/MAYORISTA.
+// Caso borde sin resolver: un supervisor exclusivamente MAYORISTA caería como 'directo'.
 //
-// Esta función se llama SIN CONDICIÓN en cada carga de Registrar (el tab por
-// defecto tras el login) — por eso nunca debe poder tirar un fatal error acá,
-// pase lo que pase con la tabla externa: devuelve null (-> 'directo' por
-// defecto donde se usa) en vez de romper el login para todo el mundo.
+// Se llama sin condición en cada carga de Registrar — nunca debe tirar fatal error;
+// devuelve null (-> 'directo' por defecto) en vez de romper el login para todos.
 function canalDeSupervisor($mysqli, $supervisor) {
 	if (!$supervisor) return null;
 	$stmt = $mysqli->prepare(
@@ -209,18 +177,9 @@ function canalDeSupervisor($mysqli, $supervisor) {
 	return null;
 }
 
-// ---------- Repositorio de Cuotas trimestrales (2026-08-25) ----------
-// Mismo criterio de matching ya probado en Liquidación
-// (liquidacion_candidatos_pos_id(), includes/liquidacion_import.php): match
-// primario por nombre (pos_name LIKE 'cliente%'), desempate por CEDI del
-// Excel = supervisor (canal directa, único canal visto hasta ahora en los
-// Excel de Cuotas — si algún día llega un Excel de canal Distribuidor,
-// ajustar el campo de desempate a tipo_distribuidor igual que Liquidación).
-// A diferencia de Liquidación (que puede dejar varios candidatos para que
-// el usuario elija a mano en "Pendientes de Asignar" viendo más contexto),
-// acá se necesita UN solo pos_id para poder guardar la fila — 0 o más de 1
-// candidato después del desempate se resuelve como "sin match" (pos_id
-// NULL, estado pendiente_match en el repositorio).
+// ---------- Repositorio de Cuotas trimestrales ----------
+// Match por nombre (pos_name LIKE), desempate por CEDI=supervisor (canal directa).
+// A diferencia de Liquidación, acá se necesita UN solo pos_id; 0 o más de 1 candidato tras el desempate cae a "sin match".
 function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -248,18 +207,8 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
 	return count($desempatados) === 1 ? $desempatados[0] : null;
 }
 
-// Corrige el texto de "CATEGORIAS" del Excel de Cuotas contra el catálogo
-// real de productos (2026-08-25, hallazgo real probando con datos reales):
-// "POLVO DETERGENTE" no existe como Sector — es Sector "POLVO" + Subcategoría
-// "DETERGENTE" pegados en el mismo texto (confirmado: sector=POLVO tiene una
-// única categoria real, "DETERGENTE"). Se busca en 2 pasos:
-//   1. ¿El texto matchea directo con un Sector real? -> se usa tal cual.
-//   2. ¿Es "Sector Subcategoría" pegados (CONCAT(sector,' ',categoria) exacto)
-//      contra una única combinación real? -> se separa, se usa solo el Sector.
-// Si ninguno de los dos matchea (ej. "OTRAS CATEGORIAS" — hay 3 Subcategorías
-// reales bajo sector=OTROS, ninguna "encaja" en el texto, genuinamente
-// ambiguo), se devuelve null — el valor crudo se guarda igual (nunca se
-// inventa un Sector), pero queda para que cuotas_guardar.php avise.
+// Corrige "CATEGORIAS" del Excel de Cuotas contra el catálogo real: puede ser un Sector directo, o "Sector Subcategoría" pegados en el mismo texto.
+// Si no matchea ninguno de los 2 (genuinamente ambiguo), devuelve null — nunca inventa un Sector.
 function resolverSectorReal($mysqli, $sectorCrudo) {
 	$stmt = $mysqli->prepare(
 		"SELECT 1 FROM repositorio_productos WHERE fabricante = 'JABONERIA WILSON' AND sector = ? AND activar = 'SI' LIMIT 1"
@@ -285,14 +234,8 @@ function resolverSectorReal($mysqli, $sectorCrudo) {
 	return count($sectores) === 1 ? $sectores[0] : null;
 }
 
-// Resuelve Segmento/Categoría/Marca REALES de un producto a partir de las
-// columnas SUBCATEGORIA/MARCA que puede traer el Excel de Cuotas (2026-08-28,
-// opcionales — ver repositorio_parsear_cuotas()) — mismo tipo de desajuste
-// de nombres ya documentado para Rebate (plural/singular, ej. "LIQUIDOS" vs
-// "LIQUIDO" del catálogo real), reusando el mismo criterio que
-// buscarRebateProducto(). Solo devuelve algo si el match es ÚNICO y sin
-// ambigüedad — si no, null, y el llamador (obtener_precarga_detalle()) cae
-// al criterio viejo (reusar el historial del cliente, o dejar editable).
+// Resuelve Segmento/Categoría/Marca reales desde SUBCATEGORIA/MARCA del Excel de Cuotas (opcionales), tolerando plural/singular.
+// Solo devuelve algo si el match es único; si no, null y el llamador cae al historial del cliente.
 function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda) {
 	if ($subcategoriaCruda === '' || $marcaCruda === '') return null;
 
@@ -325,16 +268,8 @@ function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda
 	return null;
 }
 
-// Busca un Rebate% en repositorio_rebate_producto tolerando el mismo tipo de
-// desajuste de nombres que resolverSectorReal() (2026-08-27, bug real
-// encontrado probando con datos reales): el Excel de JW guarda "LIQUIDOS"
-// (plural) y "DETERGENTE" para EL MACHO, pero el cascade real de Registrar
-// (repositorio_productos) ofrece "LIQUIDO" (singular) y "ROPA" — una
-// búsqueda exacta contra lo que el asesor elige de verdad NUNCA matchea esas
-// filas (confirmado: ~32 de 55 filas reales, todo el bloque LIQUIDO, más
-// BARRA+EL MACHO). En vez de re-guardar los datos ya subidos, se prueban
-// variantes ACÁ, en el momento de buscar — no se toca
-// repositorio_rebate_producto ni repositorio_productos.
+// Busca Rebate% tolerando desajustes de nombre entre el Excel de JW y el catálogo real (ej. "LIQUIDOS" plural vs "LIQUIDO").
+// Las variantes se prueban en el momento de buscar, sin tocar los datos ya guardados.
 function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca) {
 	$stmtBase = $mysqli->prepare(
 		"SELECT rebate_pct FROM repositorio_rebate_producto
@@ -370,10 +305,7 @@ function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $ma
 	}
 	$stmtBase->close();
 
-	// Última opción: ¿Ciudad+Canal+Sector+Marca (ignorando Categoría, que es
-	// el campo que más varía de nombre entre JW y el catálogo real, ver caso
-	// EL MACHO/ROPA) determinan una única fila? Si hay más de una, no se
-	// adivina — se devuelve null como cualquier "sin match" real.
+	// Último recurso: Ciudad+Canal+Sector+Marca (sin Categoría, el campo que más varía de nombre) — solo si da una única fila.
 	$stmt = $mysqli->prepare(
 		"SELECT rebate_pct FROM repositorio_rebate_producto
 		 WHERE eliminado_en IS NULL
@@ -389,22 +321,8 @@ function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $ma
 	return count($filas) === 1 ? (float) $filas[0]['rebate_pct'] : null;
 }
 
-// Busca el % de Participación en repositorio_participacion_percha (2026-08-30
-// — Excel real confirmado por el usuario, ver
-// includes/repositorio_import.php::repositorio_parsear_participacion()).
-// A diferencia de Rebate, la clave es solo Ciudad+Marca — las líneas de
-// Percha del Acta (repositorio_acuerdo_lineas, tipo='percha') nunca guardan
-// Categoría/Subcategoría (esa tabla no tiene esa cascada), así que no habría
-// con qué comparar esas 2 columnas del Excel aunque se guardaran (decisión
-// confirmada con el usuario, ver datos/repositorios_schema.sql).
-//
-// Orden de fallback por Ciudad, replicando los 2 patrones reales del Excel:
-//   1. Ciudad exacta (ej. GUAYAQUIL/QUITO — la marca LAVA varía por ciudad).
-//   2. "TODAS" — la mayoría de las marcas no varían por ciudad, así vienen
-//      cargadas en el archivo real (GOL, EL MACHO, etc.).
-//   3. "RESTO CIUDADES" — catch-all real del Excel para cualquier CEDI que
-//      no sea Guayaquil ni Quito (ej. Cuenca, Manabí, Santo Domingo).
-// Devuelve el primer match que aparezca, nunca mezcla ni promedia.
+// Busca % de Participación por Ciudad+Marca (Percha no guarda Categoría/Subcategoría, a diferencia de Rebate).
+// Fallback: Ciudad exacta -> "TODAS" -> "RESTO CIUDADES"; devuelve el primer match, nunca mezcla.
 function buscarParticipacionPercha($mysqli, $ciudad, $marca) {
 	$stmt = $mysqli->prepare(
 		"SELECT participacion_pct FROM repositorio_participacion_percha
@@ -424,12 +342,8 @@ function buscarParticipacionPercha($mysqli, $ciudad, $marca) {
 	return null;
 }
 
-// Dado un pos_id ya resuelto, encuentra qué usuario de la app (cuenta
-// 'activo') es su responsable — vía el mismo supervisor real del cliente
-// (ver supervisores_asignados_activos()). Null si el cliente no tiene
-// supervisor asignado en el maestro, o si ese supervisor todavía no tiene
-// una cuenta activa creada en Gestión de Usuarios (caso real: JW asigna
-// supervisores en su base antes de que Diego cree el usuario acá).
+// Dado un pos_id resuelto, encuentra el usuario responsable vía su supervisor real.
+// Null si no tiene supervisor asignado o ese supervisor aún no tiene cuenta activa.
 function usuarioIdDePosId($mysqli, $posId) {
 	$stmt = $mysqli->prepare(
 		"SELECT u.id FROM repositorio_locales_supervisores_cliente c
@@ -444,25 +358,8 @@ function usuarioIdDePosId($mysqli, $posId) {
 	return $fila ? (int) $fila['id'] : null;
 }
 
-// Dueño real de UNA fila de Cuotas — CEDI del Excel manda SIEMPRE sobre el
-// maestro de Alicorp (2026-08-28, pedido explícito del usuario, con
-// evidencia real: el cliente EPV3329/"YUCAILLA PADILLA RENE WILFRIDO"
-// aparece con venta REAL bajo JAVIER MALDONADO en el Excel real de
-// Liquidación de JW — datos/LIQUIDACION ACUERDOS COMERCIALES Q2 DIRECTA
-// 2026.xlsx —, pero el maestro `repositorio_locales_supervisores_cliente`
-// dice `supervisor=FRANKLIN SALCEDO, canal=MAYORISTA` para ese mismo
-// pos_id — un choque real entre las 2 fuentes, no un bug de lectura. El
-// usuario decidió: para el caso puntual de Actas Precargadas/Asignadas
-// (este repositorio), confiar en el CEDI que trae el Excel de JW — es el
-// documento de negocio real que ya usan para pagos, más confiable acá que
-// el campo `supervisor` del maestro de Alicorp (que puede representar otra
-// cosa, ej. ruta de reparto, o estar desactualizado). **Alcance acotado a
-// propósito**: NO se tocó `usuarioIdDePosId()` (arriba, sigue siendo
-// puramente maestro) ni `canalDeSupervisor()`/el resto del proyecto — esta
-// función es SOLO para resolver a quién le corresponde una Acta Precargada
-// de Cuotas. Si el CEDI no matchea ningún usuario activo real (typo, o el
-// supervisor todavía no tiene cuenta creada), cae al maestro como
-// respaldo — nunca deja sin dueño una fila que el maestro sí puede resolver.
+// Dueño real de una fila de Cuotas — el CEDI del Excel manda siempre sobre el maestro de Alicorp (pueden diverger entre sí).
+// Alcance acotado a Actas Precargadas de Cuotas; si el CEDI no matchea ningún usuario activo, cae al maestro como respaldo.
 function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 	$stmt = $mysqli->prepare(
 		"SELECT cedi_excel FROM repositorio_cuota_cliente WHERE pos_id = ? AND trimestre = ? AND anio = ? LIMIT 1"
@@ -492,20 +389,9 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 	return usuarioIdDePosId($mysqli, $posId);
 }
 
-// ---------- Actas Precargadas (Fase 2 del Repositorio de Cuotas, 2026-08-25) ----------
-// Resolución EN VIVO, nunca guardada — a propósito (ver CLAUDE.md, "Repositorio
-// de Cuotas trimestrales + Actas precargadas"): si a un supervisor le crean la
-// cuenta de usuario DESPUÉS de que sus cuotas ya estaban subidas, las ve solas
-// en la próxima consulta (cada 5 min, cuando la campanita de alertas hace
-// polling), sin que nadie tenga que resubir el Excel. Agrupa por
-// (pos_id, trimestre, anio) — varias filas de sector de un mismo cliente son
-// UNA sola Acta precargada, no una por sector.
-// Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota() (arriba,
-// 2026-08-28) — acá como JOIN porque se necesita para TODAS las filas
-// pendientes a la vez, no una consulta puntual. `u_cedi` matchea directo
-// contra `c.cedi_excel`; si no hay match real ahí, `u_master` cae al
-// mismo camino de siempre (maestro de Alicorp) — `COALESCE` se queda con
-// el primero que exista.
+// ---------- Actas Precargadas (Repositorio de Cuotas) ----------
+// Resolución en vivo, nunca guardada. Agrupa por (pos_id, trimestre, anio) — varias filas de sector de un cliente son UNA sola Acta.
+// Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota(), acá como JOIN para todas las filas pendientes a la vez.
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
 	$stmt = $mysqli->prepare(
@@ -525,25 +411,8 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	$filasCrudas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
-	// Se cuenta en PHP, no en SQL (2026-08-26, corregido: el contador decía
-	// "5 categorías" pero la Acta armaba 4 — categorías en $0 se descartan
-	// en obtener_precarga_detalle(), este conteo tiene que coincidir exacto
-	// con lo que el asesor va a ver de verdad, sumar JSON en SQL directo es
-	// más frágil que traer las filas y sumar acá).
-	// `actualizado_en` = el `updated_at` MÁS RECIENTE entre las filas del
-	// grupo (2026-08-27, bug real reportado por el usuario: subió Cuotas
-	// para un cliente, se movió entre módulos, y la campanita NO marcó la
-	// Acta como nueva/sin ver). Causa real: el "visto" de la campanita
-	// (assets/js/alertas-firma.js) se guarda en localStorage con clave
-	// `pos_id+trimestre+año` únicamente — si ESE mismo cliente+trimestre ya
-	// se había visto alguna vez antes (confirmado con datos reales: este
-	// cliente puntual ya se usó en una prueba de otra sesión, un día antes),
-	// el navegador lo recuerda como "visto" para siempre, aunque las filas
-	// de la base sean completamente nuevas. Se manda `actualizado_en` para
-	// que la clave de "visto" en JS incluya esta marca de tiempo — si el
-	// cliente se resube/reasigna, la clave cambia y vuelve a marcarse como
-	// no visto, sin perder el criterio de "ya lo vi" para lo que de verdad
-	// no cambió desde la última vez.
+	// Se cuenta en PHP, no en SQL, para coincidir exacto con lo que ve el asesor (categorías en $0 se descartan en obtener_precarga_detalle()).
+	// `actualizado_en` = updated_at más reciente del grupo — así la clave de "visto" de la campanita cambia si el cliente se resube/reasigna.
 	$grupos = [];
 	foreach ($filasCrudas as $f) {
 		// "OTRAS CATEGORIAS" se ignora acá también (2026-08-31, ver
@@ -562,23 +431,10 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	return array_values($grupos);
 }
 
-// Arma el detalle de una Acta precargada para poblar Registrar — misma forma
-// que obtener_acuerdo_detalle() pero sin id/documento_no/estado (todavía no
-// existe el Acuerdo real, se crea recién cuando el asesor guarda). Cada fila
-// de repositorio_cuota_cliente (una por sector) se convierte en una línea de
-// Meta de Compras:
-//   - Segmento/Subcategoría/Marca: se reusa la línea de Meta de Compras MÁS
-//     RECIENTE de ese mismo pos_id+sector en cualquier Acta anterior
-//     (continuidad real del cliente) — si no hay historial, Categoría queda
-//     vacía y Subcategoría/Marca también, para que el asesor los complete a
-//     mano con el combo normal (guardar_acuerdo.php ya descarta filas
-//     incompletas, no hace falta validación nueva acá).
-//   - valores_mensuales: viene fijo del repositorio, se marca `bloqueado` para
-//     que registrar.js deje esos inputs de mes en readonly.
+// Arma el detalle de una Acta precargada para poblar Registrar (aún no existe el Acuerdo real, se crea al guardar).
+// Segmento/Categoría/Marca se resuelven del Excel o, si falta, de la línea más reciente de ese pos_id+sector en Actas anteriores.
 function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
-	// Sin `rebate_pct` (2026-08-30, pedido explícito del usuario: Cuotas
-	// nunca debió tomar Rebate del Excel — ver nota completa más abajo,
-	// donde antes se priorizaba el dato del Excel sobre buscarRebateProducto()).
+	// Sin `rebate_pct` — Cuotas nunca debió tomar Rebate del Excel (se busca abajo vía buscarRebateProducto()).
 	$stmt = $mysqli->prepare(
 		"SELECT id, sector, subcategoria, marca, valores_mensuales FROM repositorio_cuota_cliente
 		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
@@ -623,29 +479,19 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		 WHERE fabricante = 'JABONERIA WILSON' AND sector = ? AND activar = 'SI'"
 	);
 
-	// Ciudad/Canal para buscar Rebate — mismo criterio EXACTO que
-	// buscarYAplicarRebate() en registrar.js (búsqueda en vivo): Ciudad =
-	// "TODAS" si es canal Distribuidor, si no el CEDI real del cliente;
-	// Canal = DISTRIBUIDOR/DIRECTA según el mismo dato.
+	// Ciudad/Canal para buscar Rebate — mismo criterio que buscarYAplicarRebate() en registrar.js.
 	$esDistribuidorRebate = ($cliente['canal'] ?? null) === 'DISTRIBUIDOR';
 	$ciudadRebate = $esDistribuidorRebate ? 'TODAS' : ($cliente['cedi'] ?: '');
 	$canalRebate  = $esDistribuidorRebate ? 'DISTRIBUIDOR' : 'DIRECTA';
 
 	$lineasMeta = [];
 	foreach ($filasCuota as $fc) {
-		// "OTRAS CATEGORIAS" (2026-08-31, pedido explícito del usuario): JW va
-		// a dejar de usar ese cajón genérico sin desglosar — se ignora al
-		// pregenerar, nunca entra a la Acta Precargada, aunque traiga monto.
+		// "OTRAS CATEGORIAS" se ignora al pregenerar (JW dejó de usar ese cajón genérico), aunque traiga monto.
 		if (strtoupper(trim($fc['sector'])) === 'OTRAS CATEGORIAS') continue;
 
 		$segmento = null; $categoria = null; $marca = null;
 
-		// 1ra prioridad (2026-08-28): si el Excel de Cuotas trajo SUBCATEGORIA/
-		// MARCA de verdad (columnas opcionales, ver repositorio_parsear_cuotas()),
-		// resolverlas contra el catálogo real es un dato CIERTO que vino tal
-		// cual de JW — más confiable que "reusar lo que se usó la última vez"
-		// (el historial). Si no matchea (texto raro/sin match único), se cae
-		// al criterio viejo de abajo, nunca se inventa nada.
+		// 1ra prioridad: si el Excel trajo SUBCATEGORIA/MARCA reales, resolverlas contra el catálogo es más confiable que el historial.
 		if (!empty($fc['subcategoria']) && !empty($fc['marca'])) {
 			$match = resolverProductoCuota($mysqli, $fc['sector'], $fc['subcategoria'], $fc['marca']);
 			if ($match) {
@@ -655,9 +501,7 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 			}
 		}
 
-		// 2da prioridad: historial del cliente (línea de Meta de Compras más
-		// reciente para este pos_id+sector en cualquier Acta anterior) — solo
-		// para lo que la 1ra prioridad no resolvió.
+		// 2da prioridad: historial del cliente (línea más reciente de ese pos_id+sector) para lo que la 1ra no resolvió.
 		if ($categoria === null && $stmtHistorial) {
 			$stmtHistorial->bind_param('ss', $posId, $fc['sector']);
 			$stmtHistorial->execute();
@@ -676,26 +520,11 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		}
 		$valores = $fc['valores_mensuales'] !== null ? json_decode($fc['valores_mensuales'], true) : [];
 		$valores = is_array($valores) ? $valores : [];
-		// Categoría con $0 en los 3 meses (2026-08-25, pedido explícito: "llegó
-		// vacía, ni para qué incluirla") — no tiene sentido meterla en la
-		// Acta: como Meta de Compras ya no deja eliminar filas de una
-		// precarga, una fila en $0 quedaría atrapada ahí para siempre sin
-		// poder sacarla. Se descarta acá, antes de armar la línea, en vez de
-		// dejar que llegue al formulario.
+		// Categoría con $0 en los 3 meses se descarta acá — Meta de Compras no deja eliminar filas de una precarga, quedaría atrapada.
 		if (array_sum($valores) <= 0) continue;
 
-		// Rebate % real — antes quedaba SIEMPRE en 0 acá, sin buscarlo nunca
-		// (bug real reportado por el usuario: "por qué no me sale el rebate
-		// de esos productos", 2026-08-28). Se busca contra
-		// repositorio_rebate_producto (mismo % general que ya usa la
-		// búsqueda en vivo de Registrar) — solo si Categoría+Marca ya se
-		// resolvieron (por match de Subcategoría/Marca del Excel o
-		// historial, arriba). **Corregido 2026-08-30**: antes se priorizaba
-		// una columna REBATE del propio Excel de Cuotas sobre esta búsqueda
-		// — el usuario aclaró que nunca pidió que Cuotas tomara Rebate del
-		// Excel, se sacó esa columna/prioridad por completo (ver
-		// includes/repositorio_import.php y getters/cuotas_guardar.php).
-		// Sin match, sigue en 0 y editable, igual que siempre.
+		// Rebate % real se busca en repositorio_rebate_producto (mismo criterio que la búsqueda en vivo de Registrar), solo si Categoría+Marca se resolvieron.
+		// Sin match, sigue en 0 y editable.
 		$rebatePct = 0;
 		if ($categoria !== null && $marca !== null) {
 			$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $fc['sector'], $categoria, $marca);
@@ -731,11 +560,8 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 	];
 }
 
-// Resumen para el superdesarrollador (2026-08-25, pedido explícito: "¿a
-// quién le estoy mandando qué?") — 4 números de panorama general +
-// desglose por usuario para el gráfico. "Actas" acá siempre significa un
-// grupo (pos_id, trimestre, anio), nunca una fila suelta de sector — el
-// mismo criterio de agrupación que listar_actas_precargadas_pendientes().
+// Resumen para el superdesarrollador: 4 números de panorama + desglose por usuario.
+// "Actas" = grupo (pos_id, trimestre, anio), no fila de sector, mismo criterio de listar_actas_precargadas_pendientes().
 function resumen_cuotas($mysqli) {
 	$agrupador = "CONCAT(c.pos_id, '|', c.trimestre, '|', c.anio)";
 
@@ -751,18 +577,8 @@ function resumen_cuotas($mysqli) {
 	$r = $mysqli->query("SELECT COUNT(DISTINCT c.cliente_excel, c.trimestre, c.anio) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_match'");
 	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
 
-	// Lista ÚNICA (2026-08-26, reemplaza el número suelto "Sin usuario
-	// asignado" — el usuario lo encontró confuso sin poder ver A QUIÉN
-	// correspondía) — usuarios reales CON cuenta activa, más los
-	// supervisores del maestro que tienen cuotas pendientes pero todavía no
-	// tienen una cuenta creada en Gestión de Usuarios (`tiene_cuenta: false`,
-	// el frontend los muestra con una marca pasiva en vez de ocultarlos).
-	// Mismo criterio "CEDI del Excel gana" (2026-08-28, ver usuarioIdDeCuota()
-	// más arriba) — `dueno_id`/`dueno_nombre` se resuelven con CEDI primero,
-	// maestro de Alicorp como respaldo si el CEDI no matchea ningún usuario
-	// real. Sin esto, este resumen podía mostrar un nombre distinto al que
-	// realmente le llega la Acta por la campanita (listar_actas_precargadas_pendientes()) —
-	// las 2 consultas ahora usan la misma lógica de dueño.
+	// Lista única: usuarios con cuenta activa + supervisores del maestro sin cuenta todavía (`tiene_cuenta: false`).
+	// Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota() — coincide con a quién le llega la Acta por la campanita.
 	$stmt = $mysqli->prepare(
 		"SELECT COALESCE(u_cedi.usuario, u_master.usuario) AS nombre,
 		        COUNT(DISTINCT $agrupador) AS actas_pendientes,
@@ -796,14 +612,8 @@ function resumen_cuotas($mysqli) {
 		unset($fila);
 	}
 
-	// Actas precargadas que YA NO se van a poder generar — el Local ya tiene
-	// un Acuerdo activo en el mismo Período (misma regla de
-	// getters/guardar_acuerdo.php, "solo un Acta activa por Local+Período",
-	// 2026-08-23). Sin este aviso el superdesarrollador solo se enteraba
-	// cuando el asesor intentaba generar y el guardado se rechazaba en
-	// silencio para él — acá se detecta ANTES, con los mismos datos que
-	// hacen falta para decidir qué hacer (2026-08-28, pedido explícito:
-	// "que se vea como un cuadro comparativo" en el modal de Resumen).
+	// Actas precargadas que ya no se van a poder generar (el Local ya tiene un Acuerdo activo en el mismo Período).
+	// Se detecta antes de que el asesor intente generar y el guardado se rechace en silencio.
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT c.pos_id, c.trimestre, c.anio FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_uso'"
 	);
@@ -914,6 +724,12 @@ function listar_usuarios_acuerdos($mysqli, $busqueda = '', $pagina = 1, $porPagi
 	$usuarios = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
+	// Canal por fila, misma resolución en vivo que canalDeSupervisor() — en PHP, no SQL (pagina de a 8, no vale una subquery).
+	foreach ($usuarios as &$u) {
+		$u['canal'] = canalDeSupervisor($mysqli, $u['supervisor'] ?? null);
+	}
+	unset($u);
+
 	return [
 		'usuarios'      => $usuarios,
 		'total'         => $total,
@@ -942,6 +758,10 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 	$usuarioAttr = htmlspecialchars($u['usuario'], ENT_QUOTES);
 	$rolAttr     = htmlspecialchars($u['rol'], ENT_QUOTES);
 	$supervisorAttr = htmlspecialchars($u['supervisor'] ?? '', ENT_QUOTES);
+	// Canal ya viene resuelto desde listar_usuarios_acuerdos() (array_key_exists porque puede ser null de verdad, no solo faltante).
+	$canalTexto  = array_key_exists('canal', $u)
+		? ($u['canal'] === 'distribuidor' ? 'Distribuidor' : ($u['canal'] === 'directo' ? 'Directo' : '—'))
+		: '—';
 
 	return '
 	<tr data-id="'.(int) $u['id'].'" class="'.$claseFila.'">
@@ -953,6 +773,7 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 		</td>
 		<td><span class="ac-badge '.$rolClase.'">'.htmlspecialchars($rolLabel).'</span></td>
 		<td>'.htmlspecialchars($u['supervisor'] ?: '—').'</td>
+		<td>'.htmlspecialchars($canalTexto).'</td>
 		<td class="ac-mono">'.htmlspecialchars($fecha).'</td>
 		<td>
 			<label class="ac-switch">
@@ -983,13 +804,7 @@ function mesCorto($mes) {
 	return isset($meses[$mes]) ? $meses[$mes] : '';
 }
 
-// "Q1 (Ene-Mar)" para períodos que son un trimestre exacto (mismo texto que
-// ya usa el filtro de Historial, ver historial.php) — 2026-08-23, pedido
-// explícito para que la columna "Periodo" de la tabla combine con el
-// filtro. Un Acuerdo viejo con un rango que no calza con ningún trimestre
-// (de antes de que el período se volviera fijo, ver CLAUDE.md) cae al
-// formato anterior sin "Qx", nunca inventa un trimestre que no le
-// corresponde.
+// "Q1 (Ene-Mar)" para períodos que son un trimestre exacto (mismo texto que el filtro de Historial); un rango irregular cae al formato anterior sin "Qx".
 function periodoCorto($mesInicio, $mesFin) {
 	if ($mesInicio % 3 === 0 && $mesFin === $mesInicio + 2) {
 		$trimestre = intdiv($mesInicio, 3) + 1;
@@ -999,10 +814,7 @@ function periodoCorto($mesInicio, $mesFin) {
 	return mesCorto($mesInicio).' - '.mesCorto($mesFin);
 }
 
-// Devuelve [mesInicio, mesFin] (0-11) del trimestre 1-4, o null si no es un
-// trimestre válido — el Período del Acuerdo es siempre un trimestre fijo
-// desde el 2026-08-18 (ver CLAUDE.md), así que filtrar por trimestre exacto
-// alcanza (ya no hace falta un filtro de rango "se solapa con").
+// Devuelve [mesInicio, mesFin] (0-11) del trimestre 1-4, o null si no es válido.
 function trimestreABounds($trimestre) {
 	$trimestre = (int) $trimestre;
 	if ($trimestre < 1 || $trimestre > 4) return null;
@@ -1010,19 +822,8 @@ function trimestreABounds($trimestre) {
 	return [$inicio, $inicio + 2];
 }
 
-// Vencimiento de firma (2026-08-25): un Acta 'generado'/'enviado' que pasa
-// 20 días desde fecha_generacion sin volver firmada pasa a 'vencido' — deja
-// de poder subírsele la firma (ver subir_acta_firmada.php) y desaparece de
-// Historial, mismo criterio que 'anulado' (ver listar_historial_acuerdos()
-// y las demás consultas de abajo que ya excluían 'anulado'). Sin cron en
-// este proyecto (hosting compartido, sin job runner) — en vez de eso, este
-// "barrido" corre cada vez que se listan Actas o se calculan las alertas de
-// la campanita, así los datos quedan consistentes sin depender de un
-// proceso en segundo plano. `query()` (no `prepare()`) porque no hay
-// parámetros de usuario — con MYSQLI_REPORT_OFF (ver db_connect.php) esto
-// simplemente devuelve false y no hace nada si el ENUM todavía no tiene
-// 'vencido' (falta correr el ALTER TABLE, ver CLAUDE.md), mismo patrón
-// defensivo que el resto de columnas nuevas de este archivo.
+// Un Acta 'generado'/'enviado' con 20+ días desde fecha_generacion pasa a 'vencido' (bloquea subir firma, desaparece de Historial).
+// Sin cron: corre cada vez que se listan Actas o se calculan alertas; sin el ALTER de 'vencido' en el ENUM, no hace nada.
 function barrer_actas_vencidas($mysqli) {
 	$mysqli->query(
 		"UPDATE repositorio_acuerdos
@@ -1033,11 +834,7 @@ function barrer_actas_vencidas($mysqli) {
 	);
 }
 
-// Actas propias por vencer (2026-08-25): alimenta "Mis Actas" de la
-// campanita del header — 'generado'/'enviado' sin firmar, con
-// $diasUmbral días o menos para cumplirse el plazo de 20 días. Corre el
-// barrido primero para no mostrar como "por vencer" algo que en realidad
-// ya venció (y para que la próxima carga de Historial no lo vuelva a ver).
+// Actas propias por vencer, alimenta "Mis Actas" de la campanita — 'generado'/'enviado' sin firmar con $diasUmbral días o menos.
 function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 	if (!$usuarioId) return [];
 	barrer_actas_vencidas($mysqli);
@@ -1059,14 +856,8 @@ function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 	return $filas;
 }
 
-// $usuarioId filtra a "solo los acuerdos que ESTE usuario creó"
-// (repositorio_acuerdos.creado_por, guardado por guardar_acuerdo.php al
-// insertar). Antes se inferÃ­a indirectamente vÃ­a supervisor/territorio; ahora
-// es el dato real, así que sigue siendo correcto aunque un supervisor cambie
-// de territorio o dos usuarios lo compartan.
-// $trimestre: 1-4, o 0/inválido = "Todos los períodos". $anio: 0 = "Todos los años".
-// $filtroFirma: 'todos' (default) | 'firmadas' | 'pendientes' — activado
-// desde los stat tiles de arriba de la tabla (2026-08-21), no un <select>.
+// $usuarioId filtra por repositorio_acuerdos.creado_por (dato real, no inferido por supervisor/territorio).
+// $trimestre: 1-4 o 0="Todos". $anio: 0="Todos". $filtroFirma: 'todos'|'firmadas'|'pendientes' (activado desde los stat tiles, no un <select>).
 function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $filtroFirma = 'todos', $pagina = 1, $usuarioId = null, $porPagina = 10, $rol = null, $canal = 'total') {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
@@ -1078,45 +869,20 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	$mesInicioFiltro  = $bounds ? $bounds[0] : -1;
 	$mesFinFiltro     = $bounds ? $bounds[1] : -1;
 
-	// Sin user_id (no debería pasar si ya hizo login, pero por las dudas) no
-	// hay forma de saber qué acuerdos "son suyos" — vacío, no mostrar los de
-	// todo el mundo.
+	// Sin user_id no hay forma de saber qué acuerdos "son suyos" — vacío, nunca mostrar los de todo el mundo.
 	if (!$usuarioId) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	}
 
-	// Barrido de vencimiento de firma (2026-08-25) — corre acá para que
-	// Historial nunca muestre un Acta que ya debería estar vencida solo
-	// porque nadie visitó esta pantalla desde que se cumplieron los 20 días.
+	// Corre el barrido de vencimiento acá para que Historial nunca muestre un Acta que ya debería estar vencida.
 	barrer_actas_vencidas($mysqli);
 
-	// "Ver todo" (2026-08-31, pedido explícito): el superdesarrollador ya no
-	// se limita a lo que ÉL generó — con un solo superdesarrollador en total,
-	// necesita ver las Actas de TODOS los asesores, de los 2 canales, para
-	// poder exportar el Excel real de cada uno. `? = 1 OR a.creado_por = ?`
-	// mantiene el conteo de parámetros FIJO sin importar el rol (evita tener
-	// que armar bind_param con una cantidad variable de placeholders) — con
-	// $verTodos=1 el lado izquierdo del OR siempre es verdadero y el filtro
-	// de creador queda anulado; con $verTodos=0 (desarrollador normal) se
-	// comporta exactamente igual que antes.
+	// "Ver todo": el superdesarrollador ve Actas de TODOS los asesores, no solo las propias.
+	// `? = 1 OR a.creado_por = ?` mantiene el conteo de parámetros fijo sin importar el rol (evita bind_param variable).
 	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
 
-	// Filtro de Canal (2026-08-31) — "directo"/"distribuidor"/"total". Se arma
-	// como texto literal (no placeholder) porque $canal ya viene validado
-	// contra una whitelist fija en el caller (historial.php/listar_historial.php).
-	// Sin efecto para un desarrollador normal (siempre ve un solo canal de
-	// todos modos, vía su propio supervisor).
-	// EXISTS, no un simple `d.canal = 'DISTRIBUIDOR'` sobre el JOIN de arriba
-	// (bug real encontrado verificando este cambio contra datos reales,
-	// solo lectura): un mismo pos_id puede tener 2+ filas en el maestro con
-	// `canal` DISTINTO entre sí (confirmado: EPVD15130/"ACOSTA SANTAMARIA
-	// EDGAR PATRICIO" — Acuerdo real #41 — tiene una fila DISTRIBUIDOR y
-	// otra MAYORISTA) — con un filtro directo sobre `d.canal`, ESE Acuerdo
-	// calzaba en las 2 consultas (Directo Y Distribuidor) a la vez, y la
-	// suma de ambas pastillas superaba a "Total". EXISTS resuelve el canal
-	// UNA sola vez por Acuerdo (gana DISTRIBUIDOR si existe cualquier fila
-	// así para ese pos_id) — mutuamente excluyente de verdad, y coincide con
-	// el mismo criterio que ya usa el SELECT de abajo para `es_distribuidor`.
+	// Filtro de Canal ($canal ya viene validado contra whitelist en el caller). EXISTS, no `d.canal = 'DISTRIBUIDOR'` directo sobre el JOIN:
+	// un pos_id puede tener 2+ filas de canal distinto en el maestro, así que un filtro directo duplicaba el Acuerdo entre pastillas.
 	$condicionCanal = '';
 	if ($canal === 'directo') {
 		$condicionCanal = " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
@@ -1124,17 +890,8 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		$condicionCanal = " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
 	}
 
-	// El JOIN es solo para mostrar pos_name/cedi/canal — repositorio_locales_
-	// supervisores_cliente puede tener varias filas con el mismo pos_id bajo
-	// distintos supervisores (~1,116 duplicados detectados), por eso el
-	// GROUP BY a.id de abajo, para que un mismo Acuerdo no se duplique en el
-	// listado por esas filas repetidas.
-	// Condición de firma directo en el texto del SQL (no placeholder): si
-	// `acta_firmada_archivo` todavía no existiera, esto rompería prepare()
-	// igual que el resto de columnas nuevas de esta función — mismo
-	// fallback de abajo ya cubre ese caso (cae a la query sin firma en
-	// absoluto, que ignora este filtro; aceptable porque esa columna ya
-	// está corrida en producción, ver CLAUDE.md).
+	// El JOIN es solo para pos_name/cedi/canal; GROUP BY a.id evita duplicar el Acuerdo por los ~1,116 pos_id repetidos en el maestro.
+	// Condición de firma en texto plano (no placeholder); si acta_firmada_archivo no existiera, cae al mismo fallback sin firma de abajo.
 	$condicionFirma = '';
 	if ($filtroFirma === 'firmadas') $condicionFirma = ' AND a.acta_firmada_archivo IS NOT NULL';
 	elseif ($filtroFirma === 'pendientes') $condicionFirma = ' AND a.acta_firmada_archivo IS NULL';
@@ -1149,11 +906,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		  $condicionFirma
 		  $condicionCanal";
 
-	// Este componente se renderiza SIEMPRE (visible u oculto) en cada login de
-	// desarrollador/superdesarrollador, sea cual sea la pestaña activa (ver
-	// index.php: incluye el PHP de todas las secciones visibles, no solo la
-	// activa) — por eso, igual que canalDeSupervisor(), esta función nunca
-	// debe poder tirar un fatal error si el JOIN externo falla por lo que sea.
+	// Se renderiza siempre en cada login (todas las secciones se incluyen, no solo la activa) — nunca debe tirar fatal error si el JOIN externo falla.
 	$stmtTotal = $mysqli->prepare("SELECT COUNT(DISTINCT a.id) AS total $sqlBase");
 	if (!$stmtTotal) {
 		return ['acuerdos' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
@@ -1169,16 +922,8 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		$offset = ($pagina - 1) * $porPagina;
 	}
 
-	// (a.acta_firmada_archivo IS NOT NULL): si todavía no se corrió el ALTER
-	// que agrega esa columna (ver CLAUDE.md, "Subir Acta firmada"), prepare()
-	// da false acá — mismo fallback que ya usa login() para `supervisor`, sin
-	// esto Historial entero se rompería mientras el usuario corre el SQL.
-	// Canal canónico (2026-08-31): el mismo `d.canal` crudo del JOIN es
-	// ambiguo para un pos_id con filas duplicadas de canal distinto (ver el
-	// comentario de $condicionCanal más arriba) — la badge de Canal de cada
-	// fila tiene que coincidir con el MISMO criterio que ya decide en qué
-	// pastilla (Directo/Distribuidor) cae ese Acuerdo, si no la fila podría
-	// mostrar "Directo" estando filtrada bajo "Distribuidor" o viceversa.
+	// Sin el ALTER de acta_firmada_archivo, prepare() da false acá — mismo fallback que login() para `supervisor`.
+	// Canal canónico: el `d.canal` crudo del JOIN es ambiguo con pos_id duplicados; usa el mismo EXISTS que decide la pastilla, para que el badge nunca contradiga el filtro.
 	$canalCanonico = "(CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR') THEN 'DISTRIBUIDOR' ELSE 'OTRO' END) AS canal";
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
@@ -1216,11 +961,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	];
 }
 
-// Stat tiles de arriba de la tabla de Historial (2026-08-21) — respetan
-// búsqueda/trimestre/año (el mismo alcance que ya filtra la tabla), pero NO
-// el filtro de firma (esos 3 números son justo lo que decide ese filtro).
-// 'pendiente_mas_antigua' es la fecha_generacion más vieja entre las
-// pendientes, para el "más antigua: DD/MM" del tile.
+// Stat tiles de Historial — respetan búsqueda/trimestre/año pero NO el filtro de firma (esos números son lo que decide ese filtro).
 function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId, $rol = null, $canal = 'total') {
 	$vacio = ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'pendiente_mas_antigua' => null];
 	if (!$usuarioId) return $vacio;
@@ -1231,10 +972,7 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 	$trimestreActivo = $bounds ? 1 : 0;
 	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
 	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
-	// Mismo criterio de "ver todo" y filtro de Canal que listar_historial_acuerdos()
-	// (2026-08-31, ver ese comentario para el detalle completo, incluido por
-	// qué es EXISTS y no un `d.canal = ...` directo) — los stat tiles tienen
-	// que reflejar el mismo alcance que la tabla de abajo.
+	// Mismo criterio "ver todo" y filtro de Canal que listar_historial_acuerdos() — los stat tiles reflejan el mismo alcance que la tabla.
 	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
 	$condicionCanal = '';
 	if ($canal === 'directo') {
@@ -1276,10 +1014,7 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 // para poblar el filtro "Año" de Historial sin inventar un rango fijo.
 function listar_anios_disponibles($mysqli, $usuarioId, $rol = null) {
 	if (!$usuarioId) return [];
-	// "Ver todo" (2026-08-31) — mismo criterio que listar_historial_acuerdos():
-	// el superdesarrollador ve los años de TODOS los Acuerdos, no solo los
-	// propios. Sin filtrar por canal a propósito (simplicidad): el selector de
-	// año no necesita reducirse según qué pastilla de canal esté activa.
+	// "Ver todo": el superdesarrollador ve años de TODOS los Acuerdos. Sin filtrar por canal a propósito (el selector de año no depende de la pastilla).
 	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT anio FROM repositorio_acuerdos
@@ -1393,25 +1128,10 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	</tr>';
 }
 
-// Cabecera + las 4 tablas de líneas de un acuerdo puntual, para el detalle/
-// Acta imprimible que se abre desde Historial (Ver Detalles / Descargar PDF).
+// Cabecera + las 4 tablas de líneas de un acuerdo puntual, para el detalle/Acta imprimible de Historial.
 function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
-	// LIMIT 1 alcanza aunque repositorio_locales_supervisores_cliente tenga
-	// pos_id duplicados (~1,116 detectados) — cualquiera de las filas
-	// duplicadas tiene el mismo pos_name/cedi para ese pos_id.
-	// LEFT JOIN (no JOIN normal) a usuarios_acuerdos: acuerdos viejos con
-	// creado_por=NULL (huérfanos, ver CLAUDE.md) no deben tirar todo el
-	// detalle abajo — simplemente el Acta sale sin nombre de Ejecutivo
-	// Comercial (vuelve a la línea en blanco de siempre, ver acta_pdf.php).
-	// d.canal: mismo maestro externo de arriba, esta vez para saber si ESTE
-	// pos_id puntual es DISTRIBUIDOR — decide qué formato de Acta usar (ver
-	// generar_acta_html()). Se lee del cliente real, no del supervisor de la
-	// sesión que lo generó (que puede cambiar con el tiempo).
-	// d.tipo_distribuidor: la "Empresa Distribuidora" del cliente (columna que
-	// YA existía en el maestro, usada también por acuerdo_distribuidores.php
-	// para la cascada Empresa->Cliente) — en el Acta de canal Distribuidor va
-	// en "Estimado(a)", separado del nombre del Local (`pos_name`), que sigue
-	// yendo en la frase "Jabonería Wilson y ..." (ver acta_pdf.php, 2026-08-20).
+	// LIMIT 1 alcanza pese a pos_id duplicados en el maestro (misma pos_name/cedi). LEFT JOIN a usuarios_acuerdos: acuerdos huérfanos (creado_por=NULL) no rompen el detalle.
+	// d.canal decide el formato de Acta (Directo/Distribuidor); d.tipo_distribuidor es la Empresa Distribuidora, va en "Estimado(a)" separado del Local.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por, a.sin_visibilidad,
 		        d.pos_name, d.cedi, d.canal, d.tipo_distribuidor, u.usuario AS ejecutivo_comercial
@@ -1474,10 +1194,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	];
 }
 
-// Borradores propios del usuario logueado (estado='borrador' AND creado_por),
-// para la lista "Mis Borradores" de Registrar Acuerdo PDV — mismo criterio de
-// scoping por creador que listar_historial_acuerdos(), nunca los de otro
-// usuario aunque comparta supervisor/territorio.
+// Borradores propios del usuario logueado, para "Mis Borradores" — mismo scoping por creador que listar_historial_acuerdos().
 function listar_borradores_usuario($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
 	$stmt = $mysqli->prepare(
@@ -1497,22 +1214,15 @@ function listar_borradores_usuario($mysqli, $usuarioId) {
 	return $filas;
 }
 
-// ---------- Módulo Repositorios (2026-08-24) ----------
-// Dos catálogos self-service (Rebate, Participación de Percha) que autocompletan
-// y bloquean esos campos en el Acta — ver CLAUDE.md "Módulo Repositorios".
-// Mismo patrón de paginación/búsqueda que listar_historial_acuerdos()/
-// listar_usuarios_acuerdos(). $stmt puede venir null si todavía no se corrió
-// datos/repositorios_schema.sql — se devuelve vacío en vez de un fatal error,
-// mismo criterio que el fallback de listar_usuarios_acuerdos() para `supervisor`.
+// ---------- Módulo Repositorios ----------
+// Dos catálogos self-service (Rebate, Participación de Percha) que autocompletan y bloquean esos campos en el Acta.
+// $stmt puede venir null si no se corrió el schema — se devuelve vacío en vez de fatal error, mismo criterio que `supervisor`.
 function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
 
-	// eliminado_en IS NULL (2026-08-25, borrado lógico — regla base, ver
-	// datos/repositorios_schema.sql y repositorio_eliminar.php): el listado
-	// normal nunca muestra filas borradas, esas viven en "Eliminados" (ver
-	// listar_repositorio_rebate_eliminados() más abajo).
+	// eliminado_en IS NULL (borrado lógico) — el listado normal nunca muestra filas borradas, esas viven en "Eliminados".
 	$stmtTotal = $mysqli->prepare(
 		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto
 		 WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR canal LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)"
@@ -1548,10 +1258,7 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
 
-	// eliminado_en IS NULL (2026-08-25, borrado lógico — ver nota en
-	// listar_repositorio_rebate() de arriba, mismo criterio acá). Ciudad
-	// agregada 2026-08-30 (rediseño con el Excel real, ver
-	// datos/repositorios_schema.sql) — busca/ordena también por Ciudad.
+	// eliminado_en IS NULL (borrado lógico, mismo criterio que listar_repositorio_rebate()). Busca/ordena también por Ciudad.
 	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_participacion_percha WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR marca LIKE ?)');
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	$stmtTotal->bind_param('ss', $like, $like);
@@ -1579,24 +1286,14 @@ function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, 
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 
-// Cuotas resueltas (pos_id encontrado) — 'pendiente_match' vive aparte en
-// listar_repositorio_cuotas_pendientes_match(), mismo concepto visual que
-// "Pendientes de Asignar" de Liquidación, para no mezclar "cliente
-// identificado, cuota lista para usarse" con "todavía no sabemos de quién
-// es esta fila" en la misma tabla.
+// Cuotas resueltas (pos_id encontrado) — 'pendiente_match' vive aparte en listar_repositorio_cuotas_pendientes_match(), mismo concepto que "Pendientes de Asignar" de Liquidación.
 function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
 
-	// Búsqueda cubre TODAS las columnas de texto visibles en la tabla
-	// principal (CEDI/Cliente/Plan/Categoría/Subcategoría/Marca) — antes
-	// solo buscaba por Cliente/pos_id/Categoría, así que tipear un CEDI, un
-	// Plan o una Marca (columnas que sí se ven en pantalla) no filtraba nada
-	// — bug real reportado 2026-08-30 ("no sé si me anda buscando por
-	// columna"). 2 niveles de `prepare()` (con/sin Subcategoría+Marca) por
-	// si el ALTER de esas 2 columnas no se corrió en algún entorno — mismo
-	// criterio defensivo que ya usa el SELECT de más abajo.
+	// Búsqueda cubre todas las columnas visibles (CEDI/Cliente/Plan/Categoría/Subcategoría/Marca) — antes solo Cliente/pos_id/Categoría, otros campos no filtraban nada.
+	// 2 niveles de prepare() (con/sin Subcategoría+Marca) por si ese ALTER no se corrió en algún entorno.
 	$stmtTotal = $mysqli->prepare(
 		"SELECT COUNT(*) AS total FROM repositorio_cuota_cliente
 		 WHERE estado <> 'pendiente_match' AND (cedi_excel LIKE ? OR cliente_excel LIKE ? OR pos_id LIKE ? OR plan LIKE ? OR sector LIKE ? OR subcategoria LIKE ? OR marca LIKE ?)"
@@ -1621,16 +1318,8 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	$totalPaginas = max(1, (int) ceil($total / $porPagina));
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
-	// c.subcategoria/c.marca (2026-08-28) — sin esto, la tabla visible de
-	// Cuotas nunca mostraba lo que el Excel trajo en esas columnas nuevas,
-	// aunque ya se guardaran bien en la base (bug real reportado por el
-	// usuario: "no veo que aparezcan las columnas ahí" — faltaba acá, no
-	// solo en el frontend). **Sin `rebate_pct`** (2026-08-30, pedido
-	// explícito del usuario — ver nota completa en obtener_precarga_detalle()).
-	// Mismo criterio de búsqueda de arriba (7 columnas si Subcategoría/Marca
-	// existen, 5 si no) — replicado acá porque este SELECT tiene su propio
-	// fallback de 2 niveles por columnas de RESULTADO (subcategoria/marca),
-	// independiente de si la búsqueda las necesita.
+	// c.subcategoria/c.marca: sin esto la tabla no mostraba lo que el Excel trajo en esas columnas, aunque ya estuvieran guardadas. Sin `rebate_pct` (ver obtener_precarga_detalle()).
+	// Mismo fallback de 2 niveles que la búsqueda de arriba, pero para las columnas de resultado, independiente de si la búsqueda las necesita.
 	$whereConSub = "c.estado <> 'pendiente_match' AND (c.cedi_excel LIKE ? OR c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.plan LIKE ? OR c.sector LIKE ? OR c.subcategoria LIKE ? OR c.marca LIKE ?)";
 	$whereSinSub = "c.estado <> 'pendiente_match' AND (c.cedi_excel LIKE ? OR c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.plan LIKE ? OR c.sector LIKE ?)";
 	$stmt = $mysqli->prepare(
@@ -1665,9 +1354,7 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
-	// mysqli no decodifica columnas JSON solo — sin esto, json_encode() de la
-	// respuesta completa lo manda como STRING escapado en vez de objeto (ver
-	// mismo criterio en obtener_acuerdo_detalle()/valores_mensuales).
+	// mysqli no decodifica JSON solo — sin esto, json_encode() manda un string escapado en vez de objeto.
 	foreach ($filas as &$fila) {
 		$fila['valores_mensuales'] = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
 	}
@@ -1676,10 +1363,7 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 
-// Cola de resolución manual — filas donde resolverPosIdCliente() no encontró
-// exactamente un cliente (0 o más de 1 candidato). Se muestran junto con los
-// candidatos posibles (mismo nombre, sin filtrar por CEDI) para que el
-// superdesarrollador elija a mano, igual que liquidacion_pendientes.php.
+// Cola de resolución manual — filas donde resolverPosIdCliente() no encontró exactamente un cliente, con candidatos para elegir a mano (igual que liquidacion_pendientes.php).
 function listar_repositorio_cuotas_pendientes_match($mysqli) {
 	$stmt = $mysqli->prepare(
 		"SELECT id, cliente_excel, cedi_excel, plan, sector, trimestre, anio, valores_mensuales
@@ -1716,30 +1400,10 @@ function listar_repositorio_cuotas_pendientes_match($mysqli) {
 }
 
 // ---------- Seguimiento de Equipo (repositorio_acuerdos, TODOS los usuarios) ----------
-// Rediseño 2026-08-27 (misma fecha, sesión de diseño con Claude Design):
-// reemplaza el primer intento (tiles + tabla con acordeón) por un
-// maestro-detalle con UN SOLO filtro de estado (Todas/Firmadas/Pendientes/
-// Vencidas) que controla a la vez la lista de "Equipo" y el detalle — ver el
-// mockup aprobado, link en CLAUDE.md. Sin bucket de "Sin usuario asignado"
-// (pedido explícito del usuario: no mostrarlo) — este módulo solo cuenta
-// Actas con un usuario real vinculado (`creado_por`), por diseño, no es un
-// bug si el total no coincide con el total crudo de `repositorio_acuerdos`.
-//
-// Arquitectura: los getters devuelven JSON crudo (no HTML pre-armado como el
-// resto del proyecto) — mismo patrón ya usado en resumen_cuotas()/
-// cuotas_resumen.php (el gráfico de barras de Repositorios también arma su
-// DOM en JS a partir de JSON). Se eligió acá porque cambiar de filtro/
-// buscar tiene que sentirse instantáneo (sin ida y vuelta al servidor por
-// cada click), y el dataset por equipo es chico.
-//
-// Única pantalla del proyecto donde superdesarrollador ve Actas de OTROS
-// usuarios (todo lo demás filtra siempre por creado_por de la sesión) —
-// reforzar el chequeo de rol en los getters, no alcanza con que el módulo
-// esté oculto del sidebar para los demás roles.
+// Maestro-detalle con un filtro de estado (Todas/Firmadas/Pendientes/Vencidas). Solo cuenta Actas con creado_por real, sin bucket "Sin usuario asignado".
+// Los getters devuelven JSON crudo (el frontend arma el DOM) para que filtrar se sienta instantáneo. Única pantalla donde superdesarrollador ve Actas de otros — reforzar el chequeo de rol.
 
-// Años con al menos un Acuerdo real de CUALQUIER usuario — a diferencia de
-// listar_anios_disponibles() (que filtra por creado_por), este filtro de
-// Seguimiento es a nivel de todo el equipo.
+// Años con al menos un Acuerdo real de cualquier usuario — a diferencia de listar_anios_disponibles(), este es a nivel de todo el equipo.
 function listar_anios_disponibles_equipo($mysqli) {
 	$anios = [];
 	$r = $mysqli->query(
@@ -1750,11 +1414,7 @@ function listar_anios_disponibles_equipo($mysqli) {
 	return $anios;
 }
 
-// Stats globales (4 números) + un array por usuario con sus 4 conteos
-// (total/firmadas/pendientes/vencidas) más `dias_mas_proxima` (la Acta
-// pendiente más urgente de ese usuario, null si no tiene ninguna) — de acá
-// el frontend deriva las 4 vistas filtradas sin pedir nada más al servidor.
-// $trimestre 1-4 (0 = todos), $anio 0 = todos.
+// Stats globales + array por usuario (total/firmadas/pendientes/vencidas + dias_mas_proxima) — el frontend deriva las 4 vistas filtradas sin pedir más al servidor.
 function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 	barrer_actas_vencidas($mysqli);
 
@@ -1796,11 +1456,7 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 		$u['pendientes']       = (int) $u['pendientes'];
 		$u['vencidas']         = (int) $u['vencidas'];
 		$u['dias_mas_proxima'] = $u['dias_mas_proxima'] !== null ? (int) $u['dias_mas_proxima'] : null;
-		// Calculado acá (misma función que usa Gestión de Usuarios) para que
-		// el frontend nunca tenga su propia versión — antes seguimiento.js
-		// reimplementaba esto con una regex más simple (solo espacios) que
-		// daba mal las iniciales de un usuario con punto en el nombre
-		// (ej. "javier.maldonado"), divergiendo del resto de la app.
+		// Calculado acá (misma función que Gestión de Usuarios) para que el frontend nunca tenga su propia versión divergente.
 		$u['iniciales']        = inicialesUsuario($u['nombre']);
 		$stats['total']      += $u['total'];
 		$stats['firmadas']   += $u['firmadas'];
@@ -1884,7 +1540,22 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 // literalmente el mismo Excel/mismo significado de columna CEDI, así que se
 // aplica igual acá, como LEFT JOIN + COALESCE (una sola consulta para todas
 // las filas, no una por fila).
-function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda) {
+// $canal (2026-08-31): 'total'/'directo'/'distribuidor', mismo criterio
+// EXISTS-based ya usado en listar_historial_acuerdos() — un pos_id puede
+// tener 2+ filas en el maestro con canal distinto entre sí, así que un
+// filtro directo sobre `canal` no sería mutuamente excluyente (ver el
+// comentario completo en esa función, includes/functions.php).
+function condicionCanalCumplimiento($canal, $columnaPosId) {
+	if ($canal === 'directo') {
+		return "NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = $columnaPosId AND d2.canal = 'DISTRIBUIDOR')";
+	}
+	if ($canal === 'distribuidor') {
+		return "EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = $columnaPosId AND d2.canal = 'DISTRIBUIDOR')";
+	}
+	return '';
+}
+
+function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal = 'total') {
 	$condiciones = ['c.eliminado_en IS NULL'];
 	$params = [];
 	$tipos = '';
@@ -1897,15 +1568,22 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda) {
 		$params[] = $busqueda;
 		$tipos .= 'ss';
 	}
+	$condicionCanal = condicionCanalCumplimiento($canal, 'c.pos_id');
+	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
+	// `canal` acá es el mismo criterio canónico de arriba, resuelto una vez
+	// por fila — el frontend lo usa para mostrar el badge de canal SOLO
+	// cuando la Vista está en "Total" (con un canal puntual ya filtrado, el
+	// badge sería redundante en cada fila).
 	$stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan_excel, c.sector,
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
 		        c.gana_categoria, c.gana_categoria_anterior, c.gana_total,
 		        c.rebate_real_vol, c.updated_at,
 		        COALESCE(u_cedi.id, u_master.id) AS usuario_id,
-		        COALESCE(u_cedi.usuario, u_master.usuario) AS usuario_nombre
+		        COALESCE(u_cedi.usuario, u_master.usuario) AS usuario_nombre,
+		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.pos_id = c.pos_id AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal
 		 FROM repositorio_cumplimiento_cuota c
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
@@ -1923,12 +1601,14 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda) {
 	return $filas;
 }
 
-function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio) {
+function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total') {
 	$condiciones = ['eliminado_en IS NULL'];
 	$params = [];
 	$tipos = '';
 	if ($trimestre > 0) { $condiciones[] = 'trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
 	if ($anio > 0) { $condiciones[] = 'anio = ?'; $params[] = $anio; $tipos .= 'i'; }
+	$condicionCanal = condicionCanalCumplimiento($canal, 'pos_id');
+	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
 	$stmt = $mysqli->prepare(

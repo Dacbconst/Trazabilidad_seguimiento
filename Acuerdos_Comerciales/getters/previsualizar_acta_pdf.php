@@ -1,21 +1,7 @@
 <?php
-// Vista previa del Acta SIN guardar nada en la base (2026-08-18, pedido
-// explícito: la versión anterior guardaba un borrador en silencio detrás de
-// escena, el usuario pidió sacar eso). Arma el $detalle directo desde lo que
-// hay en pantalla ahora mismo (recolectarLineas() del JS, mandado por POST) y
-// llama al MISMO renderizador (generar_acta_pdf_binario) que usa todo el
-// resto del sistema — no hay una segunda plantilla de PDF que mantener
-// sincronizada, solo se duplica acá el armado/normalización de las líneas
-// (mucho más chico y menos riesgoso que duplicar el render de Dompdf).
-//
-// A propósito NO se valida pos_id contra repositorio_locales_supervisores_cliente
-// como sí hace guardar_acuerdo.php — nada de esto se persiste, es solo una
-// previsualización visual para el usuario que la pide, no tiene consecuencia
-// real si el nombre mostrado no calzara exactamente.
-// config.php (NO db_connect.php — a propósito, este endpoint nunca abre
-// conexión a la base) define la constante SECURE que iniciar_sesion()
-// necesita — sin esto sería un Error fatal en PHP 8, no un warning (ver
-// includes/functions.php y el gotcha ya documentado en CLAUDE.md/memoria).
+// Vista previa del Acta sin guardar nada en la base. Arma $detalle desde lo
+// que hay en pantalla y llama al mismo renderizador (generar_acta_pdf_binario)
+// que usa el resto del sistema — nunca abre conexión a la base.
 require_once __DIR__.'/../config.php';
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/acta_pdf.php';
@@ -51,10 +37,7 @@ if ($posId === '' || $mesInicio < 0 || $mesInicio > 11 || $mesFin < $mesInicio |
 
 $cantidadMeses = $mesFin - $mesInicio + 1;
 
-// Modo permisivo (sin abortar por validaciones que ya corrió registrar.js del
-// lado del cliente antes de llegar acá) — esto es solo para PREVISUALIZAR,
-// nada se persiste, así que no hace falta responder(false,...) como en
-// guardar_acuerdo.php.
+// Modo permisivo: solo previsualiza, nada se persiste, no hace falta responder(false,...).
 function pv_normalizar_valores(array $valores, $cantidadMeses, $mesInicio) {
 	$out = [];
 	for ($i = 0; $i < $cantidadMeses; $i++) {
@@ -132,16 +115,9 @@ $detalle = [
 	'distribuidor'        => $distribuidor !== '' ? $distribuidor : '—',
 	'localidad'           => $localidad !== '' ? $localidad : '—',
 	'ejecutivo_comercial' => $_SESSION['username'] ?? '',
-	// Mandado por el cliente (catalogoDistribuidor.canal, ya cargado al inicio
-	// de Registrar) — este endpoint nunca abre conexión a la base, así que no
-	// puede derivarlo solo desde pos_id como sí hace obtener_acuerdo_detalle().
+	// Mandado por el cliente, no se puede derivar de la base (sin conexión acá).
 	'es_distribuidor'    => !empty($body['es_distribuidor']),
-	// Switch "Visibilidad y Espacios" de Registrar — mismo motivo que
-	// es_distribuidor arriba, este endpoint nunca abre conexión a la base así
-	// que no puede leer sin_visibilidad de repositorio_acuerdos.
 	'sin_visibilidad'    => !empty($body['sin_visibilidad']),
-	// "Empresa Distribuidora" (campo "Distribuidor" en la UI, ver
-	// acta_pdf.php) — mismo motivo, no se puede leer de la base acá.
 	'empresa_distribuidora' => trim($body['empresa_distribuidora'] ?? ''),
 	'lineas'              => $lineasNormalizadas,
 ];

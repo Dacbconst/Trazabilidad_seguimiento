@@ -11,10 +11,7 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 $anioActual = (int) date('Y');
 $anios      = range($anioActual - 1, $anioActual + 2);
 
-// Canal del usuario logueado: se deriva EN VIVO de su `supervisor` contra
-// repositorio_locales_supervisores_cliente, nunca se guarda (ver
-// canalDeSupervisor() en functions.php). null (sin supervisor asignado) se
-// trata como 'directo' por defecto — no bloquea el formulario.
+// Canal derivado en vivo del supervisor (canalDeSupervisor()), nunca se guarda.
 $canalUsuario = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
@@ -31,12 +28,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>';</script>
 
 	<!-- Filtros -->
-	<!-- Renombrado en pantalla (2026-08-20), IDs/variables internas SIN
-	     cambiar para no tocar más de lo necesario: el campo "Empresa
-	     Distribuidora" (ac-empresa-*) ahora se muestra como "Distribuidor", y
-	     el campo "Distribuidor" (ac-distribuidor-*, el pos_id real) ahora se
-	     muestra como "Local". Ver también registrar.js (mismos nombres de
-	     variable, ej. distribuidorSearch sigue siendo el campo "Local"). -->
+	<!-- Labels renombrados en pantalla; IDs/variables internas sin cambiar. -->
 	<section class="ac-card ac-acuerdo-filtros-card">
 		<div class="ac-acuerdo-filtros">
 			<div class="ac-field <?= $canalUsuario === 'distribuidor' ? '' : 'hidden' ?>" id="ac-empresa-field">
@@ -47,12 +39,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 				</div>
 			</div>
 			<div class="ac-field" id="ac-distribuidor-field">
-				<!-- Etiqueta dinámica (2026-08-24, pedido explícito): en canal
-				     Directo este campo vuelve a decir "Distribuidor" (como
-				     antes del rename de 2026-08-20) — Distribuidor sigue
-				     diciendo "Local" para no pisar el otro campo de esa
-				     pantalla ("Distribuidor" = la empresa). IDs/variables
-				     internas SIN cambiar, mismo criterio que aquel rename. -->
+				<!-- Etiqueta condicional por canal; IDs/variables internas sin cambiar. -->
 				<label class="ac-field-label" for="ac-distribuidor-search"><?= $canalUsuario === 'distribuidor' ? 'Local' : 'Distribuidor' ?></label>
 				<div class="ac-combo" id="ac-distribuidor-combo">
 					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="<?= $canalUsuario === 'distribuidor' ? 'Buscar local...' : 'Buscar distribuidor...' ?>" autocomplete="off">
@@ -65,8 +52,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			</div>
 			<div class="ac-field">
 				<label class="ac-field-label" for="ac-periodo-select">Periodo del Acuerdo</label>
-				<!-- Los meses se manejan en trimestres fijos (Q1-Q4), ya no rango
-				     libre — pedido explícito 2026-08-18, ver CLAUDE.md. -->
+				<!-- Trimestres fijos (Q1-Q4), no rango libre de meses. -->
 				<select class="ac-select ac-select-bonito-auto" id="ac-periodo-select">
 					<option value="0" selected>Q1 (Enero - Marzo)</option>
 					<option value="1">Q2 (Abril - Junio)</option>
@@ -110,17 +96,8 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 	</section>
 
 	<!-- 2. Visibilidad y Espacios -->
-	<!-- Numeración 2./2.a/2.b/2.c (2026-08-24, antes 3./3.a/3.b/3.c): alineada
-	     con includes/acta_pdf.php y con los Excel reales del cliente
-	     ("FORMATO DTS CON/SIN VISIBILIDAD.xlsx", que numeran "1. Meta de
-	     Compras" seguido directo de "2. Visibilidad") — para que el número
-	     que ve el analista acá sea el mismo que sale impreso en el Acta.
-	     Switch "Visibilidad y Espacios": al desactivarlo bloquea visualmente
-	     (y limpia) las 3 tablas de abajo — con eso, el Acta sale en el
-	     formato "sin visibilidad" (sin Cabeceras ni Rumas&Perchas, ver
-	     includes/acta_pdf.php $sinVisibilidad); activado (default) es el
-	     formato de siempre. Reusa el mismo componente .ac-switch/.ac-slider
-	     de Gestión de Usuarios (ver includes/functions.php). -->
+	<!-- Numeración alineada con includes/acta_pdf.php. El switch oculta/limpia
+	     las 3 tablas de abajo (Acta "sin visibilidad", ver $sinVisibilidad). -->
 	<div class="ac-acuerdo-section-title ac-acuerdo-section-title-split">
 		<div class="ac-card-header-title">
 			<span class="material-symbols-outlined" id="ac-visibilidad-icon">visibility</span>
@@ -205,11 +182,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 	</div>
 </div>
 
-<!-- Modal: Previsualización del Acta. Al abrir NO se guarda nada en la base
-     (getters/previsualizar_acta_pdf.php arma el PDF al vuelo desde lo que hay
-     en pantalla) — recién "Generar PDF" guarda de verdad (estado='generado')
-     y habilita "Descargar PDF", que en ese momento pasa a apuntar al PDF real
-     persistido (getters/generar_acta_pdf.php). -->
+<!-- Modal de Previsualización: no guarda nada hasta "Generar PDF" (estado='generado'). -->
 <div class="ac-modal-overlay ac-acta-modal-overlay" id="ac-acta-modal-overlay">
 	<div class="ac-modal ac-acta-modal">
 		<div class="ac-acta-modal-bar no-print">

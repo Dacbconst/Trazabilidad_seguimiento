@@ -1,16 +1,4 @@
-/**
- * COMPONENTE: pptx-slide-multiphoto.php
- * Genera slides de contenido para reportes con múltiples fotos por local
- * (Exhibiciones, etc.). Agrupa por brand/cadena, una slide de divisor
- * por grupo y slides de 2 fotos por fila.
- *
- * Expone:
- *   pptxBuildMultiphoto(pptx, grupos, gruposOrder) → Promise
- *     - grupos      : { brand: [{src, tipo, local, gestor, fecha, hora}] }
- *     - gruposOrder : string[] — orden de aparición de brands
- *
- * Requiere: pptx-base.php (showToast, updatePct via pptx-bar / pptx-pct)
- */
+/* pptx-slide-exhibiciones.php (pptx-slide-multiphoto): slides de fotos múltiples agrupadas por brand, 1 divisor por grupo + slides de 2 fotos por fila. Requiere pptx-base.php. */
 <script>
 // ── Mapa de logos por brand ───────────────────────────────────────────────────
 var LOGO_MAP = {

@@ -1,41 +1,6 @@
 <?php
-// Hoja "CUOTAS POR CAT -DISTRIBUIDORES" del Excel real de JW para canal
-// Distribuidor (datos/LIQUIDACION DE ACUERDO COMERCIALES DISTRIBUIDORES Q2
-// 2026.xlsx) — mismo propósito que exportar_cuota_categoria.php (canal
-// Directa) pero con columnas/colores propios, así que va en un archivo aparte
-// para no arriesgar el código de Directa ya probado. Incluido desde
-// exportar_cuota_categoria.php cuando el usuario logueado es canal
-// distribuidor; $mysqli, $usuarioId, $like, $mesIdx, $wb-helpers ($cl) ya
-// están definidos por el archivo que hace el include.
-//
-// Layout, colores y fórmulas leídos EXACTOS del archivo real vía Excel COM
-// (Interior.Color/Font.Color, BGR→RGB) el 2026-08-20, confirmados con datos
-// reales fila por fila (no adivinados):
-// - DISTRIBUIDOR = d.tipo_distribuidor (empresa distribuidora — el mismo
-//   campo que ahora se muestra como "Distribuidor" en Registrar/el PDF, ver
-//   functions.php obtener_acuerdo_detalle()).
-// - CIUDAD = d.cedi (confirmado: valores como SANTO DOMINGO/RIOBAMBA calzan
-//   con los `cedi` reales de repositorio_locales_supervisores_cliente para
-//   canal DISTRIBUIDOR).
-// - NOMBRE = d.pos_name (el "Local" de la Acta — mismo campo que CLIENTE en
-//   la hoja de Directa).
-// - CATEGORIA = l.sector (mismo campo que CATEGORIAS en Directa).
-// - **Sin columnas CODIGO / RUC** (2026-08-20, pedido explícito): el
-//   archivo real SÍ las tiene (confirmado leyendo D2/E2 vía Excel COM,
-//   celdas propias sin fusionar), pero el usuario decidió no incluirlas acá
-//   porque no hay fuente real de esos datos en la base
-//   (repositorio_locales_supervisores_cliente no tiene columnas `ruc` ni
-//   `codigo`) y prefiere no mostrar 2 columnas siempre vacías.
-// - Sin columna CARTERA (no existe en el archivo real de Distribuidor).
-// - Sin fila TOTAL al final (el archivo real no tiene una — confirmado:
-//   UsedRange termina justo en la última fila de datos).
-// - Bloque CUOTA (meses+total+rebate%+rebate$+rebate max) va SIN color de
-//   fondo en las filas de datos (blanco), a diferencia de Directa que sí
-//   usa un verde ahí — así está en el archivo real, no es un error de copia.
-// - CUMPLIMIENTO real usa `=R/K` sin IFERROR; acá se envuelve en IFERROR por
-//   seguridad (mismo criterio ya aplicado en la hoja de Directa) — el valor
-//   mostrado es idéntico cuando K≠0, solo evita #DIV/0! si una Acta quedara
-//   con cuota en 0.
+// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php
+// cuando el canal es distribuidor. Sin CODIGO/RUC/CARTERA ni fila TOTAL (no existen en el archivo real).
 
 $stmtD = $mysqli->prepare(
 	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
@@ -54,10 +19,7 @@ if (!$stmtD) {
 	echo 'Error preparando la consulta.';
 	exit;
 }
-// Sin filtro de creado_por (2026-08-31, "ver todo" — mismo criterio que
-// exportar_cuota_categoria.php, ver la nota completa ahí): el
-// superdesarrollador único exporta las Actas de TODOS los asesores de este
-// canal, no solo las que él mismo generó.
+// Sin filtro de creado_por: exporta las Actas de todos los asesores del canal.
 $stmtD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 $stmtD->execute();
 $filasD = $stmtD->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -81,10 +43,7 @@ foreach ($filasD as $f) {
 		'ciudad'       => $f['ciudad'] ?? '',
 		'cliente'      => $f['cliente'],
 		'sector'       => $f['sector'],
-		// Subcategoría/Marca (2026-08-31, mismo pedido que Directa, ver
-		// exportar_cuota_categoria.php) — mismo par elegido en la cascada
-		// de Meta de Compras, puede venir vacío si la línea quedó
-		// ambigua sin resolver del todo.
+		// Subcategoría/Marca de la cascada; puede venir vacío si la línea quedó sin resolver.
 		'categoria'    => $f['categoria'] ?? '',
 		'marca'        => $f['marca'] ?? '',
 		'rebate_pct'   => (float) $f['rebate_pct'],
@@ -105,10 +64,7 @@ usort($filasFinalD, function ($a, $b) {
 });
 
 // ---------- Layout de columnas ----------
-// SUBCATEGORIA/MARCA (2026-08-31, pedido explícito, mismo criterio que
-// Directa) van justo a la derecha de CATEGORIA, antes de CONCAT — este
-// formato no tiene columna PLAN, así que "a la derecha de Plan" se traduce
-// acá a "a la derecha de Categoria", la misma posición relativa.
+// SUBCATEGORIA/MARCA van a la derecha de CATEGORIA (sin columna PLAN acá).
 $colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCategoria = 4;
 $colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
 $colCuotaInicio = 8;
@@ -174,9 +130,7 @@ if ($MD > 1) {
 $wbD->celda($sD1, 1, $colVentaInicio, $tituloVentaGrupo, true, null, $bgVentaD, $fontVentaD);
 $wbD->combinarCeldas($sD1, XlsxWriter::colLetra($colVentaInicio).'1:'.XlsxWriter::colLetra($colVentaTotal).'1');
 
-// Mismo bug ya encontrado y corregido en la hoja de Directa (ver
-// exportar_cuota_categoria.php, 2026-08-20): las columnas de fila 1 que no
-// caen dentro de ninguna fusión no tienen NINGUNA celda — quedan sin pintar.
+// Columnas de fila 1 fuera de la fusión necesitan celda propia o quedan sin pintar.
 foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCategoria, $colSubcategoria, $colMarca, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110] as $c) {
 	$wbD->celda($sD1, 1, $c, '', false, null, $bgEncD, $fontEncD);
 }
@@ -262,40 +216,9 @@ if ($ultimaFilaD2 >= $primeraFilaD2) {
 	}
 }
 
-// ==================== Hoja "VISIBILIDAD (2)" (2026-08-20) ====================
-// Replica la hoja VISIBILIDAD (2) del archivo real de Distribuidor
-// (datos/LIQUIDACION DE ACUERDO COMERCIALES DISTRIBUIDORES Q2 2026.xlsx).
-// Layout/colores/fórmulas leídos EXACTOS vía XML crudo + resolución manual
-// de color de tema (mismo método que Directa — ver CLAUDE.md "Colores,
-// corregido 2026-08-20" para por qué no se confía en Excel COM a ciegas).
-//
-// Decisiones confirmadas con el usuario (2026-08-20):
-// - Mapeo de línea → columna, mismo criterio que Directa: `cabecera` →
-//   CABECERA, `ruma` → ISLA, `percha` → PERCHA. Un renglón por cliente.
-// - CANTIDAD: mismo criterio que Directa — cuenta una línea si su total
-//   (suma de meses, o el valor único en `ruma`) es > 0.
-// - **PAGO = CANTIDAD × 6, FÓRMULA real** (no valores sumados de la Acta
-//   como en Directa) — verificado contra 15+ filas reales del archivo de
-//   Distribuidor, el patrón es ×6 sin excepción para las 3 columnas
-//   (cabecera/isla/percha). El usuario confirmó explícitamente: acá el
-//   número de PAGO no es un monto pactado por línea como en Directa, así
-//   que se replica la fórmula tal cual está en el archivo real en vez de
-//   sumar `valores_mensuales`.
-// - Sin grupo MARCA/CATEGORÍA (el archivo real de Distribuidor no lo tiene
-//   en esta hoja, a diferencia de Directa).
-// - El archivo real tiene 2 bugs de plantilla que NO se replican: (1) la
-//   fila 2 dice "CANTIDAD" arriba del grupo VALIDACIÓN (debería decir
-//   VALIDACIÓN, la fila 1 sí lo dice bien — se usa el nombre correcto acá);
-//   (2) una columna "total" dentro de ese mismo grupo hace `SUM()` sobre
-//   texto CUMPLE/NO CUMPLE (siempre da 0, no aporta nada) — se omite. Ídem
-//   3 columnas finales (Cabecera/Isla/Percha) sin encabezado de grupo ni
-//   datos en ninguna fila de ejemplo — columnas muertas, se omiten (mismo
-//   criterio que la "KP" de Directa).
-// - Colores de encabezado: 2 zonas, igual que la hoja de Cuota de este
-//   mismo archivo — gris `#747474`/letra blanca (identidad + CANTIDAD +
-//   PAGO) y negro `#000000`/letra blanca (VALIDACIÓN + bloque final +
-//   OBSERVACIONES). Columna NOMBRE en datos: rosa `#F2CEEF` (mismo que
-//   CLIENTE en Directa y NOMBRE en la hoja de Cuota de Distribuidor).
+// ==================== Hoja "VISIBILIDAD (2)" ====================
+// cabecera->CABECERA, ruma->ISLA, percha->PERCHA, un renglón por cliente.
+// PAGO = CANTIDAD x 6 (fórmula real del archivo, no suma de la Acta como en Directa).
 $stmtVisD = $mysqli->prepare(
 	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.tipo, l.marca,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
@@ -426,23 +349,8 @@ foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 }
 $ultimaFilaVisD = $filaVisDatosD - 1;
 
-// ==================== Hoja "RESUMEN DE PAGOS" (2026-08-23) ====================
-// Mismo concepto que la de Directa (ver exportar_cuota_categoria.php,
-// misma fecha, y CLAUDE.md "⚠️ REPLANTEO 2026-08-23" para el porqué) — el
-// archivo real de Distribuidor NO tiene una hoja con este nombre exacto
-// (tiene "PRESUPUESTO UTILIZADO", que es otra cosa, fuera de alcance de
-// esta vuelta), pero el usuario pidió el mismo concepto para paridad entre
-// los dos exports: un renglón por cliente, con fórmulas reales, mismo
-// propósito (que el asesor tenga el resumen de pago en el mismo Excel, sin
-// depender de que JW suba nada de vuelta).
-// Encabezados DISTRIBUIDOR/NOMBRE (no CEDI/CLIENTE como en Directa) — así
-// se llaman esas mismas columnas en el resto de este archivo (hojas de
-// Cuota y Visibilidad de Distribuidor), para quedar consistente puertas
-// adentro de este workbook. VOLUMEN sale de REBATE REAL VOL (hoja de
-// Cuota, mismo criterio que Directa: lo realmente ganado, no un techo
-// teórico). VISIBILIDAD sale del total final de "VISIBILIDAD (2)"
-// (columna PAGO CAJAS TOTAL, ya filtrado por VALIDACIÓN="CUMPLE" — mismo
-// criterio que la columna TOTAL de Visibilidad en Directa).
+// ==================== Hoja "RESUMEN DE PAGOS" ====================
+// Un renglón por cliente: VOLUMEN de REBATE REAL VOL, VISIBILIDAD del total de "VISIBILIDAD (2)".
 $sResumenD = $wbD->agregarHoja('RESUMEN DE PAGOS');
 $rdDistribuidor = 1; $rdNombre = 2; $rdVolumen = 3; $rdVisibilidad = 4; $rdTotalPago = 5;
 $wbD->celda($sResumenD, 1, $rdDistribuidor, 'DISTRIBUIDOR', true, null, $bgEncD, $fontEncD);

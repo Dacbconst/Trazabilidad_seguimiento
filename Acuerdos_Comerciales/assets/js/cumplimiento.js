@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	var statNoGanan = document.getElementById('cumpl-stat-no-ganan');
 	var statPromedio = document.getElementById('cumpl-stat-promedio');
 
-	var estado = { trimestre: 0, anio: 0, busqueda: '' };
+	var estado = { trimestre: 0, anio: 0, busqueda: '', canal: 'total' };
 	var listaReqId = 0;
 
 	function escapeHtml(str) {
@@ -24,7 +24,61 @@ document.addEventListener('DOMContentLoaded', function () {
 		return div.innerHTML;
 	}
 	function mostrarMensaje(texto, ok) { mostrarToast(texto, ok ? 'success' : 'error'); }
+	// Caja de texto copiable, botón de copiar (Clipboard API) — sin id fijo,
+	// puede repetirse más de una vez en el mismo modal.
+	function cajaCopiable(texto) {
+		return '<div class="ac-copiable" data-copiar="' + escapeHtml(texto) + '">' +
+			'<span class="ac-copiable-texto">' + escapeHtml(texto) + '</span>' +
+			'<button type="button" class="ac-copiable-btn" title="Copiar"><span class="material-symbols-outlined">content_copy</span></button></div>';
+	}
+	function activarBotonesCopiar() {
+		Array.prototype.forEach.call(document.querySelectorAll('.ac-copiable'), function (caja) {
+			var btn = caja.querySelector('.ac-copiable-btn');
+			var texto = caja.getAttribute('data-copiar');
+			btn.addEventListener('click', function () {
+				navigator.clipboard.writeText(texto).then(function () {
+					var icono = btn.querySelector('.material-symbols-outlined');
+					icono.textContent = 'check';
+					setTimeout(function () { icono.textContent = 'content_copy'; }, 1200);
+				});
+			});
+		});
+	}
+	// Error al leer el Excel: modal, no toast — el toast desaparece antes de
+	// que el usuario termine de leer qué corregir. El contenido cambia según
+	// `data.tipo` (ver includes/repositorio_import.php) — cada problema real
+	// tiene su propia pista, no un mensaje genérico para todos los casos.
+	function mostrarErrorArchivo(data) {
+		var html = '<p style="margin:0 0 8px;">' + escapeHtml(data.message || 'Ocurrió un error.') + '</p>';
+		if (data.tipo === 'hoja_no_encontrada' && data.hoja_esperada) {
+			var hojas = Array.isArray(data.hoja_esperada) ? data.hoja_esperada : [data.hoja_esperada];
+			html += '<p style="margin:0 0 6px; font-size:13px; color:var(--color-on-surface-variant);">' +
+				(hojas.length > 1 ? 'Revisa que la hoja tenga uno de estos nombres (Directo o Distribuidor):' : 'Revisa que la hoja tenga este nombre:') + '</p>';
+			html += hojas.map(cajaCopiable).join('');
+		} else if (data.tipo === 'columnas_movidas') {
+			var refs = data.columnas_referencia || ['REBATE A APLICAR %', 'CARTERA'];
+			html += '<p style="margin:0 0 6px; font-size:13px; color:var(--color-on-surface-variant);">Revisa que estas 2 columnas sigan en su lugar original:</p>';
+			html += refs.map(cajaCopiable).join('');
+		} else if (data.tipo === 'columnas_faltantes') {
+			html += '<p style="margin:0; font-size:13px; color:var(--color-on-surface-variant);">Revisa que no falten ni estén renombradas columnas del archivo.</p>';
+		} else if (data.tipo === 'trimestre_no_determinado') {
+			html += '<p style="margin:0; font-size:13px; color:var(--color-on-surface-variant);">Revisa que las columnas de mes estén completas.</p>';
+		}
+		Swal.fire({
+			icon: 'error',
+			title: 'No se pudo leer el archivo',
+			html: html,
+			confirmButtonText: 'Entendido',
+			confirmButtonColor: '#00288e',
+			didOpen: activarBotonesCopiar
+		});
+	}
 	function moneda(v) { return '$' + (parseFloat(v) || 0).toFixed(2); }
+	// Distribuidor mide en Cajas, no en Dólares (mismo criterio ya resuelto
+	// en Meta de Compras de Registrar) — sin signo "$", con un tag chico
+	// para no confundir con Directo cuando la Vista está en "Total".
+	function cajas(v) { return Math.round(parseFloat(v) || 0) + '<span class="ac-cumpl-cajas-tag">cajas</span>'; }
+	function valorMonetario(v, canalCliente) { return canalCliente === 'distribuidor' ? cajas(v) : moneda(v); }
 	function pctTexto(v) { return (parseFloat(v) || 0).toFixed(2) + '%'; }
 
 	// Mini donut de Cumplimiento (2026-08-31, pedido explícito: "no me
@@ -49,6 +103,22 @@ document.addEventListener('DOMContentLoaded', function () {
 		var clase = esGana ? 'ac-badge-ok' : 'ac-badge-critico';
 		return '<span class="ac-badge ' + clase + (outline ? ' ac-cumpl-badge-outline' : '') + '">' + (esGana ? 'GANA' : 'NO GANA') + '</span>';
 	}
+
+	// ---------- Vista por canal (2026-08-31) ----------
+	// "total" | "directo" | "distribuidor" — mismo mecanismo que la pastilla
+	// de Canal en Historial: filtra la lista Y decide, más abajo, qué
+	// formato de Excel acepta "Subir Excel".
+	var canalGroup = document.getElementById('cumpl-canal-group');
+	Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
+		btn.addEventListener('click', function () {
+			if (btn.dataset.canal === estado.canal) return;
+			estado.canal = btn.dataset.canal;
+			Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (b) {
+				b.classList.toggle('ac-seg-pill-activo', b === btn);
+			});
+			cargarLista();
+		});
+	});
 
 	// ---------- Filtros ----------
 	Array.prototype.forEach.call(trimestreGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
@@ -85,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	var GRUPO_CLASES = ['ac-repo-fila-grupo-a', 'ac-repo-fila-grupo-b', 'ac-repo-fila-grupo-c'];
 
-	function filaCategoria(cat, grupoClase) {
+	function filaCategoria(cat, grupoClase, canalCliente) {
 		var cambioHtml = '';
 		if (cat.cambio === 'mejora') {
 			cambioHtml = '<div class="ac-cumpl-cambio ac-cumpl-cambio-mejora">' +
@@ -103,8 +173,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		return '<div class="ac-cumpl-fila-cat ' + grupoClase + '">' +
 			'<div>' + escapeHtml(cat.sector) + cambioHtml + '</div>' +
 			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
-			'<div>' + moneda(cat.venta_total) + '</div>' +
-			'<div>' + moneda(cat.cuota_total) + '</div>' +
+			'<div>' + valorMonetario(cat.venta_total, canalCliente) + '</div>' +
+			'<div>' + valorMonetario(cat.cuota_total, canalCliente) + '</div>' +
 			'<div>' + badgeGana(cat.gana_categoria, false) + '</div>' +
 			// Gana Total al lado de Gana Categoría, en la MISMA fila — mismo
 			// pedido explícito del usuario tras confundirse con el mockup
@@ -113,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			// que se lea como "resultado heredado del cliente" y no se
 			// confunda con el resultado propio de esta categoría.
 			'<div>' + badgeGana(cat.gana_total, true) + '</div>' +
-			'<div>' + (cat.gana_categoria === 'gana' ? moneda(cat.rebate_real_vol) : '<span class="ac-field-hint">' + moneda(cat.rebate_real_vol) + '</span>') + '</div>' +
+			'<div>' + (cat.gana_categoria === 'gana' ? valorMonetario(cat.rebate_real_vol, canalCliente) : '<span class="ac-field-hint">' + valorMonetario(cat.rebate_real_vol, canalCliente) + '</span>') + '</div>' +
 			'<div><button type="button" class="ac-icon-btn ac-icon-btn-danger ac-cumpl-eliminar" data-id="' + cat.id + '" title="Eliminar"><span class="material-symbols-outlined">delete</span></button></div>' +
 			'</div>';
 	}
@@ -132,15 +202,24 @@ document.addEventListener('DOMContentLoaded', function () {
 		// información dos veces seguidas sin aportar nada nuevo.
 		var actualizado = cliente.actualizado_en ? new Date(cliente.actualizado_en.replace(' ', 'T')) : null;
 		var actualizadoTexto = actualizado ? 'Actualizado ' + actualizado.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) : '';
+		// Badge de canal solo con la Vista en "Total" (2026-08-31, pedido
+		// explícito) — con un canal puntual ya filtrado, mostrarlo en CADA
+		// fila es redundante (todas son de ese mismo canal).
+		var badgeCanal = '';
+		if (estado.canal === 'total' && cliente.canal) {
+			var esDistribuidor = cliente.canal === 'distribuidor';
+			badgeCanal = ' <span class="ac-badge ac-badge-canal-' + (esDistribuidor ? 'distribuidor' : 'directo') + '">' + (esDistribuidor ? 'Distribuidor' : 'Directo') + '</span>';
+		}
 		var header = '<div class="ac-cumpl-fila-cliente ' + grupoClase + '" data-grupo="' + idGrupo + '">' +
 			'<div class="ac-cumpl-cliente-nombre">' +
 			'<span class="material-symbols-outlined ac-cumpl-chevron">chevron_right</span>' +
 			'<span class="ac-cumpl-cliente-nombre-texto">' + escapeHtml(cliente.cliente) + '</span>' +
 			(cliente.cedi ? '<span class="ac-field-hint">' + escapeHtml(cliente.cedi) + (cliente.plan ? ' &middot; ' + escapeHtml(cliente.plan) : '') + '</span>' : '') +
+			badgeCanal +
 			'</div>' +
 			(actualizadoTexto ? '<span class="ac-field-hint ac-cumpl-cliente-meta">' + actualizadoTexto + '</span>' : '') +
 			'</div>';
-		var filas = cliente.categorias.map(function (cat) { return filaCategoria(cat, grupoClase); }).join('');
+		var filas = cliente.categorias.map(function (cat) { return filaCategoria(cat, grupoClase, cliente.canal); }).join('');
 		return header + '<div class="hidden" id="' + idGrupo + '">' + filas + '</div>';
 	}
 
@@ -226,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function cargarLista() {
 		var miReqId = ++listaReqId;
 		if (window.acMostrarCargando) acMostrarCargando(root.closest('.ac-card') || root);
-		var params = new URLSearchParams({ trimestre: estado.trimestre, anio: estado.anio, q: estado.busqueda });
+		var params = new URLSearchParams({ trimestre: estado.trimestre, anio: estado.anio, q: estado.busqueda, canal: estado.canal });
 		fetch('getters/cumplimiento_listar.php?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -249,7 +328,15 @@ document.addEventListener('DOMContentLoaded', function () {
 	cargarLista();
 
 	// ---------- Modal "Subir Excel" ----------
+	var subirWrap = document.getElementById('cumpl-subir-wrap');
 	var subirBtn = document.getElementById('cumpl-subir-btn');
+	// Formato que se espera del archivo (2026-08-31) — elegido a mano en el
+	// picker (Vista=Total) o heredado directo de la pastilla de Vista
+	// (Directo/Distribuidor ya filtrado, ver más abajo). Se manda al
+	// servidor junto con el archivo; si no coincide con lo que el Excel
+	// resulta ser de verdad, se rechaza en la previsualización (mismo
+	// criterio "el sistema se defiende solo" del resto del proyecto).
+	var canalEsperadoActual = null;
 	var subirOverlay = document.getElementById('cumpl-subir-modal-overlay');
 	var subirModal = subirOverlay.querySelector('.ac-repo-subir-modal');
 	var pasoElegir = document.getElementById('cumpl-subir-paso-elegir');
@@ -288,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				errores.map(function (e) { return '<li>' + escapeHtml(e.fila) + ': ' + escapeHtml(e.motivo) + '</li>'; }).join('') + '</ul>';
 		}
 		if (avisos.length) {
-			html += '<p' + (errores.length ? ' style="margin-top:8px;"' : '') + '>' + avisos.length + ' fila(s) se guardaron, pero revisá:</p><ul>' +
+			html += '<p' + (errores.length ? ' style="margin-top:8px;"' : '') + '>' + avisos.length + ' fila(s) se guardaron, pero revisa:</p><ul>' +
 				avisos.map(function (a) { return '<li>' + escapeHtml(a.fila) + ': ' + escapeHtml(a.motivo) + '</li>'; }).join('') + '</ul>';
 		}
 		previewErrores.innerHTML = html;
@@ -325,7 +412,32 @@ document.addEventListener('DOMContentLoaded', function () {
 		ocultarErroresPreview();
 	}
 
-	subirBtn.addEventListener('click', abrirModalSubir);
+	// Picker de formato (2026-08-31, mismo mecanismo que "Descargar Excel" en
+	// Historial) — con la Vista ya filtrada a un canal puntual, el botón
+	// salta el picker y abre el modal directo para ESE formato. Solo con
+	// "Total" (canal ambiguo) sigue abriendo el picker de 2 opciones.
+	subirBtn.addEventListener('click', function () {
+		if (estado.canal === 'directo' || estado.canal === 'distribuidor') {
+			canalEsperadoActual = estado.canal;
+			abrirModalSubir();
+			return;
+		}
+		subirWrap.classList.add('ac-repo-exportar-abierto');
+	});
+	var cerrarPickerSubir = function () { subirWrap.classList.remove('ac-repo-exportar-abierto'); };
+	document.addEventListener('click', function (e) {
+		if (!subirWrap.contains(e.target)) cerrarPickerSubir();
+	});
+	document.getElementById('cumpl-subir-directo').addEventListener('click', function () {
+		cerrarPickerSubir();
+		canalEsperadoActual = 'directo';
+		abrirModalSubir();
+	});
+	document.getElementById('cumpl-subir-distribuidor').addEventListener('click', function () {
+		cerrarPickerSubir();
+		canalEsperadoActual = 'distribuidor';
+		abrirModalSubir();
+	});
 	document.getElementById('cumpl-subir-modal-close').addEventListener('click', cerrarModalSubir);
 	document.getElementById('cumpl-subir-cancelar').addEventListener('click', cerrarModalSubir);
 	document.getElementById('cumpl-subir-atras').addEventListener('click', mostrarPasoElegir);
@@ -358,6 +470,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function previsualizarArchivo(archivo) {
 		var formData = new FormData();
 		formData.append('archivo', archivo);
+		formData.append('canal_esperado', canalEsperadoActual || '');
 
 		mostrarProgresoCarga();
 		var xhr = new XMLHttpRequest();
@@ -372,14 +485,16 @@ document.addEventListener('DOMContentLoaded', function () {
 			ocultarProgresoCarga();
 			var data;
 			try { data = JSON.parse(xhr.responseText); } catch (err) {
-				mostrarMensaje('Respuesta inválida del servidor al leer el archivo.', false);
+				mostrarErrorArchivo({ message: 'Respuesta inválida del servidor.' });
 				return;
 			}
-			if (!data.ok) { mostrarMensaje(data.message, false); return; }
+			if (!data.ok) { mostrarErrorArchivo(data); return; }
 			filasPreview = data.filas;
 			trimestrePreview = data.trimestre || null;
 			previewNombreArchivo.textContent = data.nombre_archivo;
-			previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)' + (trimestrePreview ? ' (Q' + trimestrePreview + ')' : '');
+			var etiquetaCanal = data.canal_detectado === 'distribuidor' ? 'Distribuidor' : (data.canal_detectado === 'directo' ? 'Directo' : '');
+			var detalle = [etiquetaCanal, trimestrePreview ? 'Q' + trimestrePreview : ''].filter(Boolean).join(', ');
+			previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)' + (detalle ? ' (' + detalle + ')' : '');
 			estadosPreview = null;
 			previewAnioInput.value = new Date().getFullYear();
 			renderPreviewTabla();
@@ -388,7 +503,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 		xhr.addEventListener('error', function () {
 			ocultarProgresoCarga();
-			mostrarMensaje('Error de conexión al leer el archivo.', false);
+			mostrarErrorArchivo({ message: 'Error de conexión.' });
 		});
 		xhr.send(formData);
 	}

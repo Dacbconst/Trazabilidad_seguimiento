@@ -1,14 +1,11 @@
 <?php
-// Arma el HTML del Acta (compatible con Dompdf: tablas, no flexbox/grid) a
-// partir de un $detalle con la forma de obtener_acuerdo_detalle(). Separado
-// de getters/generar_acta_pdf.php para poder probarlo con datos de prueba
-// sin sesión ni base de datos real.
+// Arma el HTML del Acta (compatible con Dompdf: tablas, no flexbox/grid).
+// Separado de getters/generar_acta_pdf.php para poder probarlo sin sesión ni base real.
 
 function h($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); }
 function moneda($v) { return '$' . number_format((float) $v, 2); }
-// Distribuidor mide todo en cajas, no dólares (confirmado 2026-08-24 contra
-// los Excel reales "FORMATO DTS CON/SIN VISIBILIDAD" — ver generar_acta_html,
-// $fmt) — mismo formato numérico que moneda() pero sin el signo "$".
+// Distribuidor mide en cajas, no dólares (ver $fmt en generar_acta_html) —
+// mismo formato que moneda() sin el signo "$".
 function numero($v) { return number_format((float) $v, 2); }
 
 function valores_por_mes(array $linea, array $mesesActivos) {
@@ -17,14 +14,8 @@ function valores_por_mes(array $linea, array $mesesActivos) {
 	}, $mesesActivos);
 }
 
-// Dompdf IGNORA <colgroup>/<col> por completo en table-layout:fixed — se
-// comprobó en el código fuente (Cellmap.php): el ancho de columna fijo solo
-// se lee del estilo `width` puesto en las CELDAS (th/td) de la PRIMERA fila,
-// nunca de <col>. Por eso el ancho va directo en cada <th> del encabezado.
-// IMPORTANTE: probado en el PDF real — table-layout:fixed + ancho en PX en
-// <th> se ignora (Dompdf lo trata como si no tuviera ancho), pero + ancho en
-// % SÍ lo respeta. Por eso esto da "%", no píxeles, aunque el cálculo interno
-// de fuente_una_linea()/ancho_columna_categoria() siga siendo en px.
+// Dompdf ignora <colgroup>/<col> con table-layout:fixed — el ancho de columna
+// solo se lee del `width` en % puesto en cada <th> (px no funciona).
 function ancho_style($pct) { return 'width:'.round($pct, 2).'%'; }
 
 // Tablas de 2.a/2.b: solo Marca (sin Segmento/Categoría, igual que el preview del navegador).
@@ -48,24 +39,16 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 		return '<th class="num" style="'.ancho_style($anchoMesPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
 	$marcaHead = '<th style="'.ancho_style($anchoMarcaPct).'">Marca</th>';
-	// "Pago Total Cajas" (2026-08-25, pedido explícito, solo Distribuidor —
-	// $fmt='numero' es la misma marca que ya distingue el canal en toda esta
-	// función): Directo se queda con "Pago Total" a secas, ya mide en $.
+	// Distribuidor dice "Pago Total Cajas", Directo se queda con "Pago Total"
+	// ($fmt distingue el canal).
 	$totalHead = '<th style="'.ancho_style($anchoTotalPct).'">'.($fmt === 'numero' ? 'Pago Total Cajas' : 'Pago Total').'</th>';
 	return [$rows, $marcaHead, $mesesHead, $totalHead];
 }
 
 function px($n, $escala) { return round($n * $escala, 2) . 'px'; }
 
-// Data URI en vez de ruta relativa: evita depender de cómo Dompdf resuelve
-// rutas de archivo en el servidor (más robusto, ya vimos que acá los
-// problemas de "no llegó tal cual al servidor" son reales). El logo original
-// es .webp (Dompdf no lo soporta bien) — se convirtió una vez a PNG.
-//
-// Dompdf necesita la extensión GD de PHP para insertar CUALQUIER imagen — sin
-// ella, no solo no sale el logo, se cae toda la generación del PDF (probado:
-// "The PHP GD extension is required, but is not installed."). Si no está
-// disponible en el servidor, se omite el logo en vez de romper el acta entera.
+// Data URI evita depender de cómo Dompdf resuelve rutas en el servidor.
+// Sin la extensión GD de PHP se cae todo el PDF, así que se omite el logo si no está disponible.
 function logo_base64() {
 	static $cache = null;
 	if ($cache === null) {
@@ -80,10 +63,8 @@ function logo_base64() {
 
 if (!defined('ACTA_ANCHO_UTIL_PX')) define('ACTA_ANCHO_UTIL_PX', (210 - 24) * 96 / 25.4);
 
-// Mide el ancho REAL del texto con el propio motor de fuentes de Dompdf (nada
-// de un ratio de caracter "inventado" — eso fue lo que falló antes: subestimaba
-// el ancho real de mayúsculas y el texto terminaba recortado por
-// overflow:hidden, que además Dompdf no siempre respeta bien dentro de <td>).
+// Mide el ancho real del texto con el motor de fuentes de Dompdf, no un ratio
+// de caracter inventado.
 function crear_medidor_texto() {
 	$options = new \Dompdf\Options();
 	$options->set('isRemoteEnabled', false);
@@ -93,19 +74,14 @@ function crear_medidor_texto() {
 	return function ($texto, $tamanoFuente) use ($fontMetrics, $font) {
 		if ($texto === '') return 0;
 		$ancho = $font ? $fontMetrics->getTextWidth($texto, $font, $tamanoFuente) : 0;
-		// Si el medidor real falla (ej. faltan archivos de fuente en el
-		// servidor: vendor/dompdf/dompdf/lib/fonts pesa 8.4MB y puede subir
-		// incompleta por WinSCP), NO confiar en un 0 falso — eso haría creer
-		// que el texto no necesita ensanchar ni achicar nada. Se usa el
-		// estimado anterior como red de seguridad en ese caso.
+		// Si el medidor real falla (fuentes incompletas en el servidor) no
+		// confiar en un 0 falso; usa el estimado por caracter como red de seguridad.
 		if ($ancho <= 0) $ancho = mb_strlen($texto) * $tamanoFuente * 0.66;
 		return $ancho;
 	};
 }
 
-// *1.25 de margen de seguridad amplio: como no se puede verificar visualmente
-// el PDF acá, se prefiere dejar bastante colchón a que quede "justo" y el
-// texto se recorte de nuevo (ya pasó dos veces con márgenes más chicos).
+// *1.25 de margen de seguridad amplio para no arriesgar que el texto se recorte de nuevo.
 function fuente_una_linea($texto, $fuenteBasePx, $anchoColPct, $medirTexto, $paddingPx = 10) {
 	$anchoDisponible = (ACTA_ANCHO_UTIL_PX * $anchoColPct / 100 - $paddingPx) / 1.25;
 	$anchoTexto = $medirTexto($texto, $fuenteBasePx);
@@ -114,11 +90,8 @@ function fuente_una_linea($texto, $fuenteBasePx, $anchoColPct, $medirTexto, $pad
 	return $fuenteBasePx * ($anchoDisponible / $anchoTexto);
 }
 
-// Ensancha la columna Categoría según el nombre más largo de la tabla (en vez
-// de achicar la letra contra un ancho fijo) — le resta ese % a las columnas
-// de meses/totales, que necesitan mucho menos ancho para "$700.00" que para
-// un nombre de categoría. anchoMinPct/anchoMaxPct limitan cuánto puede crecer
-// para no dejar sin espacio a las demás columnas.
+// Ensancha la columna Categoría según el nombre más largo, restando ese % a
+// meses/totales. anchoMinPct/anchoMaxPct limitan cuánto puede crecer.
 function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anchoMinPct = 22, $anchoMaxPct = 48, $paddingPx = 10) {
 	$anchoMaxTextoPx = 0;
 	foreach ($textos as $t) $anchoMaxTextoPx = max($anchoMaxTextoPx, $medirTexto($t, $fuenteBasePx));
@@ -128,44 +101,21 @@ function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anc
 	return max($anchoMinPct, min($anchoMaxPct, $pct));
 }
 
-// OJO: "Sector" (Meta de Compras) y "% Participación" (Perchas) se ven en la
-// vista previa del navegador pero no se guardan en repositorio_acuerdo_lineas
-// (no existe esa columna) — por eso este PDF no las muestra.
-//
-// $escala reduce fuentes/espaciados en bloque (título, condiciones, firmas,
-// párrafos — todo menos las tablas) para que quepa en 1 hoja A4 con márgenes
-// de 2.5cm/3cm. $escalaTabla (2026-08-31, pedido explícito: "no afectar el
-// tamaño de letra de otras zonas, solo tocar lo de las tablas") es un factor
-// APARTE que solo reduce fuente/padding/margen de las celdas de tabla (th/td,
-// legend-box, y el margen alrededor de cada tabla) — así generar_acta_pdf_binario()
-// puede achicar SOLO las tablas primero (para que entren más filas, ej. 4 por
-// tabla) antes de tocar el texto general como último recurso. Ambas escalas
-// son independientes entre sí — 1.0/1.0 es el tamaño de siempre.
+// Sector/% Participación no se guardan en repositorio_acuerdo_lineas, por eso este PDF no las muestra.
+// $escala reduce texto general (título/condiciones/firmas); $escalaTabla reduce solo las celdas de tabla, independiente entre sí.
 function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $escalaTabla = 1.0) {
 	if ($medirTexto === null) $medirTexto = crear_medidor_texto();
 
-	// Formato Distribuidor (2026-08-20, ver datos/FORMATO Distribuidor.pdf;
-	// ampliado 2026-08-24 con datos/FORMATO DTS CON/SIN VISIBILIDAD.xlsx —
-	// ver CLAUDE.md sección "Distribuidor con/sin visibilidad" para el
-	// detalle completo verificado contra esos Excel reales): título "Acuerdo
-	// Comercial Canal Distribuidores", C.I. además de Razón Social en blanco
-	// en la firma del cliente, firma izquierda "Desarrollador de Mercado" (no
-	// "Ejecutivo Comercial"), y Meta de Compras + Visibilidad medidos en
-	// CAJAS (no Dólares, ver $fmt más abajo) con una fórmula de "Estimado a
-	// Ganar" distinta (Total × Rebate%, no Total × (1+Rebate%) como Directo).
+	// Formato Distribuidor: título/firma distintos, C.I. en la firma del cliente, mide en Cajas (ver $fmt),
+	// y "Estimado a Ganar" = Total x Rebate% (Directo usa Total x (1+Rebate%)).
 	$esDistribuidor = !empty($detalle['es_distribuidor']);
 
-	// "Sin visibilidad" (2026-08-24): eje INDEPENDIENTE del canal — el switch
-	// "Visibilidad y Espacios" de Registrar (registrar.php/registrar.js) deja
-	// bloqueada esa zona del formulario y esto oculta las mismas 2 tablas
-	// (2.a Cabeceras, 2.b Rumas&Perchas). Aplica IGUAL para Directo y
-	// Distribuidor — ambos canales arman su combinación con/sin visibilidad
-	// a partir del mismo switch, nada de esto queda atado al canal.
+	// "Sin visibilidad" es independiente del canal (switch de Registrar) —
+	// oculta 2.a/2.b para Directo y Distribuidor por igual.
 	$sinVisibilidad = !empty($detalle['sin_visibilidad']);
 	$ocultarVisibilidad = $sinVisibilidad;
 
-	// Distribuidor mide Meta de Compras y Visibilidad en CAJAS, no en
-	// Dólares — mismo formato numérico salvo el signo "$" (ver numero()).
+	// Distribuidor mide en cajas, no dólares (ver numero()).
 	$fmt = $esDistribuidor ? 'numero' : 'moneda';
 
 	$logo = logo_base64();
@@ -182,20 +132,12 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$categoriaTextos = array_map(function ($linea) {
 		return trim($linea['segmento'].' '.$linea['categoria'].' '.$linea['marca']);
 	}, $detalle['lineas']['meta_compra']);
-	// anchoMaxPct bajado de 48 a 38 (2026-08-24, pedido explícito): con
-	// categorías largas (ej. "CABELLO DE ANGEL LARGOS DON VITTORIO") esa
-	// columna llegaba al tope de 48% y dejaba muy poco resto para Rebate —
-	// "REBATE" (encabezado) terminaba partido en 2 líneas. Recortar el
-	// máximo de Categoría le da más aire al resto sin tocar el mínimo de
-	// abajo (22%, sigue evitando que se vea demasiado angosta con nombres
-	// cortos).
+	// Tope de Categoría en 38% (no 48%) para dejar suficiente ancho al
+	// encabezado "REBATE" en 1 línea.
 	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escalaTabla, $medirTexto, 22, 38), 2);
 	$restoPct = 100 - $categoriaPct;
-	// Pesos re-balanceados (2026-08-24): Rebate pasa de 8 a 16 (el doble) —
-	// era el más angosto de los 4 y el único con problema real de wrap en el
-	// encabezado ("REBATE" no es un nombre largo, pero con tan poco % de
-	// tabla ancha no entraba en 1 línea). Se le resta a Total Período y
-	// Estimado a Ganar (16→12 cada uno) para no cambiar el denominador (74).
+	// Rebate pesa 16 (doble de Total Período/Estimado a Ganar, 12 cada uno)
+	// para que "REBATE" entre en 1 línea; denominador 74 sin cambios.
 	$mesesPct    = round(34 * $restoPct / 74, 2);
 	$totalPct    = round(12 * $restoPct / 74, 2);
 	$rebatePct   = round(16 * $restoPct / 74, 2);
@@ -207,11 +149,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		foreach ($valores as $j => $v) $metaSums[$j] += $v;
 		$total  = array_sum($valores);
 		$rebate = (float) $linea['rebate_pct'];
-		// Distribuidor: "Cajas Estimadas a Ganar" = solo el bono (Total ×
-		// Rebate%) — Directo: "Estimado a Ganar" = valor total del trato
-		// incluyendo el bono (Total × (1+Rebate%)). Verificado contra 4 filas
-		// reales del Excel "FORMATO DTS ... VISIBILIDAD" (ej. 124.37×1.5%=
-		// 1.87 ✓) — no es solo un cambio de palabra, es una fórmula distinta.
+		// Distribuidor: Total x Rebate% (solo el bono). Directo: Total x
+		// (1+Rebate%) (valor total del trato).
 		$est    = $esDistribuidor ? ($total * $rebate) : ($total * (1 + $rebate));
 		$metaGrandTotal += $total; $metaGrandEst += $est;
 
@@ -249,16 +188,13 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	}
 	if ($rumaLegendRows === '') $rumaLegendRows = '<tr><td colspan="2" class="vacio">Sin datos</td></tr>';
 
-	// Sin subtítulo propio a propósito: va bajo el título combinado "2.b.
-	// Espacio en Perchas & Rumas" (el usuario pidió sacar el título "3.c",
-	// no la tabla).
+	// Sin subtítulo propio a propósito: va bajo el título combinado "2.b. Espacio en Perchas & Rumas".
 	$anchoMesPerchaPct = $cantidadMeses > 0 ? 38 / $cantidadMeses : 0;
 	$perchaRows = ''; $mesesHeadPercha = implode('', array_map(function ($m) use ($mesesCorto, $anchoMesPerchaPct) {
 		return '<th class="num" style="'.ancho_style($anchoMesPerchaPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
 	// Mismo encabezado de 3 filas (rowspan/colspan) que la tabla de Perchas del
-	// formulario interactivo — columna "eliminar fila" del form excluida (no
-	// aplica a un documento impreso).
+	// formulario interactivo, sin la columna "eliminar fila".
 	$perchaHeadRow1 = '<tr>'
 		.'<th rowspan="3" style="'.ancho_style(18).'">Marca Perchas</th>'
 		.'<th style="'.ancho_style(14).'">Participación</th>'
@@ -290,20 +226,14 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
-	// Nombre del Ejecutivo Comercial: quien generó el acuerdo (creado_por),
-	// no una línea en blanco para llenar a mano — la firma abajo sigue siendo
-	// física siempre, esto solo imprime el nombre. Si no se pudo determinar
-	// (acuerdo huérfano sin creado_por, ver CLAUDE.md) cae a la línea en
-	// blanco de siempre.
+	// Nombre del Ejecutivo Comercial = quien generó el acuerdo (creado_por); la firma sigue siendo física siempre.
+	// Sin creado_por (acuerdo huérfano) cae a la línea en blanco de siempre.
 	$nombreEjecutivoHtml = ($detalle['ejecutivo_comercial'] ?? '') !== ''
 		? 'Nombre: '.h($detalle['ejecutivo_comercial'])
 		: 'Nombre: ________________________________________';
 
-	// Dompdf toma el <title> del HTML fuente y lo usa como metadato /Title del
-	// PDF — el visor de PDF integrado del navegador (Chrome/Edge) prioriza ese
-	// título sobre el nombre de archivo para la pestaña, así que sin esto la
-	// pestaña mostraba literalmente "generar_acta_pdf.php" (el script, no el
-	// documento).
+	// Dompdf usa el <title> del HTML como metadato /Title del PDF; sin esto la
+	// pestaña del navegador mostraba el nombre del script, no el documento.
 	$html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.h($detalle['documento_no']).'</title><style>
 @page { size: A4; margin: 1cm 1.2cm; }
 * { box-sizing: border-box; }
@@ -311,22 +241,10 @@ p, h1, ul { margin: 0 0 '.px(3.5, $escala).'; }
 body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(21, $escala).'; color: #000000; line-height: 1.35; }
 h1 { font-size: '.px(28, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; padding-right: '.px(150, $escala).'; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-/* Las celdas de tabla fijan SU PROPIO tamaño acá (no heredan de `body`) — a
-   propósito, para que subir el texto general (párrafos/etiquetas/condiciones)
-   no arrastre también los datos de las tablas, que ya están en un tamaño que
-   funciona bien y no se quiere tocar (pedido explícito 2026-08-19). */
-/* th/td/legend-box/márgenes de tabla usan $escalaTabla, NUNCA $escala
-   (2026-08-31, pedido explícito: "achica un poco el tamaño del contenido de
-   las tablas... ni afectar los tamaños de letras de otras zonas") — así
-   generar_acta_pdf_binario() puede achicar SOLO esto primero (para que
-   entren más filas por tabla, ej. 4) sin tocar título/condiciones/firmas/
-   párrafos, que siguen atados a $escala (solo se toca como último recurso,
-   igual que siempre). */
+/* Las celdas de tabla fijan su propio tamaño (no heredan de body) para que subir el texto general no arrastre los datos de tabla. */
+/* th/td/legend-box/márgenes de tabla usan $escalaTabla, nunca $escala, para poder achicar solo las tablas primero. */
 th { padding: '.px(7, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px(18.5, $escalaTabla).'; }
-/* Filas de datos con menos padding vertical que el encabezado (2026-08-24,
-   pedido explícito: "se ve muy alta de arriba a abajo") — antes compartían
-   el mismo padding que th (7px), quedaban más altas de lo necesario para
-   solo 1 línea de números. Padding horizontal sin tocar. */
+/* Filas de datos con menos padding vertical que el encabezado; antes compartían el mismo padding y quedaban más altas de lo necesario. */
 td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px(18.5, $escalaTabla).'; }
 .num { text-align: right; }
 .ctr { text-align: center; }
@@ -334,10 +252,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 .doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(15.5, $escala).'; color: #000000; }
 .doc-no strong { display: block; font-size: '.px(22, $escala).'; }
 .meta-tabla { margin: '.px(6, $escalaTabla).' 0 '.px(5, $escalaTabla).'; }
-/* "Un enter de más" después de la tabla de Meta de Compras (2026-08-24,
-   pedido explícito, mismo espíritu que el margin-bottom extra que ya tiene
-   el párrafo antes de las firmas) — solo esta tabla, no las de
-   Cabeceras/Rumas/Perchas (comparten .meta-tabla, no se tocaron). */
+/* Margen extra solo bajo la tabla de Meta de Compras, no Cabeceras/Rumas/Perchas. */
 .meta-tabla-compras { margin-bottom: '.px(14, $escalaTabla).'; }
 .meta-tabla td, .meta-tabla th { border: 1px solid #c4c5d5; }
 .meta-tabla thead th { background: #eeedf7; }
@@ -373,15 +288,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 <p class="hint">'.($esDistribuidor ? 'Cajas compradas por categoría sin considerar cajas a título gratuito por bonificación/descuentos.' : 'Dólares comprados por categoría sin considerar bonificación/descuentos.').'</p>
 <table class="meta-tabla meta-tabla-compras">
 	<thead>
-	<!-- Fila extra "Meta en Dólares"/"Meta en Cajas" (2026-08-24, pedido
-	     explícito — primero solo Directo, extendido después a Distribuidor
-	     con el mismo texto que ya usa esta tabla para la unidad, ver $fmt
-	     más arriba) — rowspan/colspan sobre las columnas de mes+Total
-	     Período, mismo patrón ya probado en la tabla de Perchas más abajo
-	     (el ancho por columna va en la fila que SÍ tiene una celda por
-	     columna, acá la 2da; la celda combinada de arriba no necesita width
-	     propio, Dompdf igual reparte bien — confirmado en el render real de
-	     Perchas). Misma estructura para los 2 canales, solo cambia el texto. -->
+	<!-- Fila combinada "Meta en Dólares"/"Meta en Cajas": rowspan/colspan sobre mes+Total Período; el ancho va en la 2da fila (celda por columna). -->
 	<tr>
 		<th rowspan="2" style="'.ancho_style($categoriaPct).'">Categoría</th>
 		<th colspan="'.($cantidadMeses + 1).'">'.($esDistribuidor ? 'Meta en Cajas' : 'Meta en Dólares').'</th>
@@ -453,18 +360,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 
 <div class="firmas-footer">
 '.($esDistribuidor && $sinVisibilidad ? '
-<!-- Layout de 2 firmas (Distribuidor + sin visibilidad únicamente,
-     confirmado con el usuario 2026-08-24 contra una captura real del
-     formato físico) — Distribuidor CON visibilidad y Directo siguen con
-     las 2 firmas de siempre, más abajo, pero acá la etiqueta derecha es
-     distinta ("Asesor Comercial (distribuidor)", no "Jefe Comercial").
-     2026-08-25, pedido explícito: se sacó el "OBLIGATORIO" de cada línea y
-     la 3ra firma (Jefe Comercial) que tenía este layout al inicio — ahora
-     coincide en cantidad de firmas con el resto de formatos (2 acá + Firma
-     del Cliente más abajo = 3 en total en todo el documento). La izquierda
-     mantiene el nombre real autocompletado de quién generó el Acta (ya
-     existía, se mantiene); la derecha queda en blanco para llenar a mano,
-     no hay de dónde autocompletarla. -->
+<!-- Layout de 2 firmas exclusivo de Distribuidor+sin visibilidad: misma estructura que el resto, pero etiqueta derecha "Asesor Comercial (distribuidor)" en vez de "Jefe Comercial". -->
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>
@@ -509,12 +405,8 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	return $html;
 }
 
-// Renderiza el Acta completa a bytes de PDF (Dompdf) — usado tanto por
-// guardar_acuerdo.php (guarda el snapshot en pdf_documento al generar) como
-// por getters/generar_acta_pdf.php (fallback en vivo para acuerdos viejos sin
-// snapshot todavía). El caller debe haber hecho require de vendor/autoload.php
-// antes de llamar esto (acá no se hace, para no romper la premisa de este
-// archivo de poder cargarse sin dependencias — ver comentario al inicio).
+// Renderiza el Acta completa a bytes de PDF (Dompdf), usada por guardar_acuerdo.php y generar_acta_pdf.php (fallback).
+// El caller debe hacer require de vendor/autoload.php antes de llamar esto.
 function generar_acta_pdf_binario(array $detalle) {
 	$medirTexto = crear_medidor_texto();
 
@@ -528,27 +420,8 @@ function generar_acta_pdf_binario(array $detalle) {
 		return $dompdf;
 	};
 
-	// Prueba a tamaño normal (escala 1/1) y solo si no entra en 1 hoja va
-	// reduciendo — nunca achica más de lo necesario. (Se probó también un
-	// modo "agrandar si sobra espacio" — se sacó: con Actas de contenido
-	// medio/largo el margen reservado para las firmas no alcanzaba y se
-	// pisaban con la tabla de arriba. El usuario confirmó que el
-	// aprovechamiento de espacio de este esquema original ya era bueno, solo
-	// pidió subir el tamaño de letra base — ver los valores en px() de más
-	// abajo.)
-	//
-	// 2026-08-31, pedido explícito ("que entren 4 filas por tabla en 1 sola
-	// hoja... sin afectar el tamaño de letra de otras zonas, solo tocar lo de
-	// las tablas"): el achicado ahora es en 2 pasadas. 1ra pasada — SOLO
-	// $escalaTabla (fuente/padding/margen de las 4 tablas del Acta, ver
-	// includes/acta_pdf.php CSS) baja de a poco hasta un piso de 0.55; título,
-	// condiciones, hints, párrafos y firmas se quedan siempre a tamaño
-	// completo ($escala=1) mientras esta pasada sola alcance para entrar en 1
-	// hoja — que es el caso típico de "faltaban unas pocas filas". 2da
-	// pasada — solo si ni con las tablas al piso entra (Actas con MUCHO
-	// contenido real, caso extremo), recién ahí se recurre al $escala general
-	// de siempre, como último recurso — mismo comportamiento que existía
-	// antes de este cambio.
+	// Prueba a escala 1.0 y solo si no entra en 1 hoja va reduciendo, nunca más de lo necesario.
+	// 2 pasadas: primero solo $escalaTabla (hasta piso 0.55) sin tocar texto general; recién si eso no alcanza, baja $escala general como último recurso.
 	$escala = 1.0;
 	$escalaTabla = 1.0;
 	$dompdf = $renderizar($escala, $escalaTabla);

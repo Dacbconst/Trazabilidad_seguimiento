@@ -5,11 +5,8 @@
 
     var DOMINIOS_COMUNES = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com'];
 
-    // Campos que llegan prellenados con datos del CONTACTO ya existente
-    // cuando el modal se abre desde Contactados ("Registrar nuevo
-    // agendamiento") — se bloquean visualmente (solo en ese flujo) para
-    // que quede claro que no son editables ahí; promotor/PDV/fecha/hora/
-    // técnico son las reglas de la visita nueva y siempre quedan libres.
+    // Campos prellenados con datos del contacto cuando se abre desde Contactados,
+    // se bloquean visualmente ahí. Promotor/PDV/fecha/hora/técnico siempre quedan libres.
     var CAMPOS_AUTORELLENADOS = [
         'agendaCrearContacto', 'agendaCrearEmpresa', 'agendaCrearMail',
         'agendaCrearDireccion', 'agendaCrearCelular', 'agendaCrearConvencional'
@@ -22,9 +19,7 @@
     var coordenadas = null; // { lat, lng } del centro del mapa al confirmar
     var toastTimer = null;
 
-    // ---------------------------------------------------------------
     // Helpers de UI
-    // ---------------------------------------------------------------
     function hoyFormateado() {
         var hoy = new Date();
         return String(hoy.getDate()).padStart(2, '0') + '/' +
@@ -42,10 +37,7 @@
         return String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0');
     }
 
-    // Si la fecha elegida es HOY, la hora mínima seleccionable es la hora
-    // actual (no tiene sentido agendar "hoy a las 10am" si ya son las 2pm)
-    // — pedido explícito del usuario. Cualquier fecha futura no tiene
-    // restricción de hora.
+    // Si la fecha elegida es hoy, la hora mínima es la hora actual; fechas futuras sin restricción.
     function actualizarMinHora() {
         var fecha = document.getElementById('agendaCrearFechaAgenda').value;
         document.getElementById('agendaCrearHora').min = (fecha === hoyISO()) ? horaActualHHMM() : '';
@@ -87,10 +79,7 @@
         });
     }
 
-    // Borde rojo + mensaje EN VIVO mientras se escribe (no solo al enviar
-    // el formulario) — mientras el campo está vacío no molesta con "es
-    // obligatorio" (eso solo se ve al salir del campo o al guardar);
-    // apenas hay algo escrito, valida formato de inmediato.
+    // Valida en vivo mientras se escribe; "obligatorio" solo se muestra al salir del campo.
     function vigilarValidacionEnVivo(idCampo, idError, validador, requerido) {
         var input = document.getElementById(idCampo);
         function validar(mostrarRequerido) {
@@ -105,11 +94,7 @@
         input.addEventListener('blur', function () { validar(true); });
     }
 
-    // ---------------------------------------------------------------
-    // Selects: Promotor (get_promotores.php) y PDV (get_pdvs.php) — ambos
-    // se piden una sola vez por carga de página y se reusan en cada
-    // apertura del modal, ninguno de los dos cambia mientras se trabaja.
-    // ---------------------------------------------------------------
+    // Promotor y PDV se piden una sola vez por carga de página y se reusan.
     function poblarPromotores() {
         var select = document.getElementById('agendaCrearPromotor');
 
@@ -131,9 +116,7 @@
         fetch(GETTERS_BASE + 'get_promotores.php')
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
-                // Un promotor puede tener varias filas (una por PDV/ciudad
-                // asignados en lvi_rutero) — se agrupan todas sus ciudades
-                // en un Set para el filtro de PDV (ver filtrarPdvsPorPromotor).
+                // Un promotor puede tener varias filas (una por ciudad); se agrupan en un Set.
                 ciudadesPorPromotor = {};
                 (json.data || []).forEach(function (fila) {
                     var nombre = fila.mercaderista;
@@ -170,19 +153,12 @@
             .then(function (resp) { return resp.json(); })
             .then(function (json) {
                 pdvsCache = json.data || [];
-                // filtrarPdvsPorPromotor() ya cae a pintarPdvs(pdvsCache) sin
-                // promotor elegido — pero si el analista ya eligió promotor
-                // antes de que esta respuesta llegara, respeta ese filtro en
-                // vez de pisarlo con la lista completa.
+                // Respeta el promotor ya elegido si el analista lo seleccionó antes de esta respuesta.
                 filtrarPdvsPorPromotor();
             });
     }
 
-    // Al elegir un promotor, el PDV se acota a las ciudades donde ese
-    // promotor tiene rutero asignado — pedido explícito del usuario
-    // ("elijo a Pepito de Guayaquil, no me muestre PDV de Quito").
-    // Sin promotor elegido (o sin ciudad registrada para ese promotor) se
-    // ven todos los PDV, igual que antes.
+    // Al elegir un promotor, el PDV se acota a las ciudades de su rutero asignado.
     function filtrarPdvsPorPromotor() {
         if (!pdvsCache) return; // todavía cargando
         var promotor = document.getElementById('agendaCrearPromotor').value;
@@ -203,14 +179,8 @@
         pintarPdvs(filtrados);
     }
 
-    // ---------------------------------------------------------------
-    // Combobox con buscador DENTRO del desplegable — pedido explícito del
-    // usuario, para Promotor (182 opciones) y PDV. Envuelve el <select> ya
-    // existente en un widget con un trigger + panel con buscador; el
-    // <select> original queda oculto pero sigue siendo la fuente de verdad
-    // (value, dataset, evento 'change') para no tocar validación/guardado
-    // ni el filtro de PDV por ciudad, que siguen leyendo el <select> normal.
-    // ---------------------------------------------------------------
+    // Combobox con buscador que envuelve el <select> original (oculto pero fuente de
+    // verdad de value/dataset/change) sin tocar validación ni el filtro por ciudad.
     function habilitarComboBuscador(selectId) {
         var select = document.getElementById(selectId);
         if (select.dataset.comboListo) return;
@@ -243,9 +213,7 @@
         var triggerTexto = trigger.querySelector('.agenda-combo-trigger-texto');
 
         function opcionesReales() {
-            // Respeta las opciones que el <select> tenga EN ESE MOMENTO
-            // (ya filtradas por ciudad si aplica), solo descarta el
-            // placeholder ("Seleccione...", value="").
+            // Respeta las opciones actuales del <select> (ya filtradas por ciudad), sin el placeholder.
             return Array.prototype.slice.call(select.options).filter(function (o) { return o.value !== ''; });
         }
 
@@ -261,10 +229,7 @@
             lista.innerHTML = '';
             var q = (filtro || '').toLowerCase().trim();
 
-            // "Todos"/"Todas" (value="") siempre arriba y sin filtrar por el
-            // buscador — sin esto, una vez elegido algo específico no había
-            // forma de volver a "ver todo" desde el propio desplegable, solo
-            // recargando la página. Pedido explícito del usuario (2026-07-16).
+            // "Todos"/"Todas" siempre arriba y sin filtrar, para poder volver a ver todo.
             var todos = document.createElement('div');
             todos.className = 'agenda-combo-item agenda-combo-item-todos';
             todos.textContent = placeholder;
@@ -303,21 +268,8 @@
         function abrirPanel() {
             if (select.disabled || !opcionesReales().length) return;
 
-            // El panel vivía con position:absolute contra .agenda-combo, que
-            // no siempre tiene un ancho propio bien definido (columna flex
-            // con el <select> real oculto adentro) — en la barra de filtros
-            // de agenda.js eso hacía que el panel terminara más angosto de
-            // lo que se veía el trigger y el texto de sus opciones saliera
-            // recortado. Mismo arreglo que ya usa el dropdown de hora
-            // (agendaEditHoraLista en agenda.js): medir el trigger con
-            // getBoundingClientRect() y fijar el panel con position:fixed
-            // en píxeles exactos, así deja de depender de ese ancho
-            // ambiguo — pedido explícito del usuario (2026-07-16).
-            // Ancho mínimo propio de 280px, más ancho que el trigger si hace
-            // falta (nunca más angosto) — pedido explícito del usuario
-            // (2026-07-16): "dale más ancho". Si la lista queda más angosta
-            // que la pantalla completa se recorta contra el borde derecho
-            // del viewport en vez de salirse.
+            // position:fixed medido con getBoundingClientRect (no absolute) para que el panel
+            // no herede un ancho ambiguo del trigger. Mínimo 280px, nunca más angosto.
             var rect = trigger.getBoundingClientRect();
             var ancho = Math.max(rect.width, 280);
             var izquierda = Math.min(rect.left, window.innerWidth - ancho - 12);
@@ -349,9 +301,7 @@
             if (!wrap.contains(ev.target)) cerrarPanel();
         });
 
-        // El <select> se repinta desde afuera (poblarPromotores, pintarPdvs,
-        // filtrarPdvsPorPromotor, limpiarFormulario) — hay que reflejar eso
-        // en el trigger, y en la lista si el panel está abierto.
+        // El <select> se repinta desde afuera, hay que reflejar eso en el trigger.
         select.addEventListener('change', actualizarTrigger);
         new MutationObserver(function () {
             actualizarTrigger();
@@ -361,19 +311,10 @@
         actualizarTrigger();
     }
 
-    // agenda.js reusa este mismo combobox para los <select> de la barra de
-    // filtros (Promotor/Técnico/PDV/Empresa) — mismo widget que acá, sin
-    // duplicar la lógica de trigger+panel+buscador (pedido explícito del
-    // usuario 2026-07-16: "pon ese buscador... como lo tiene crear
-    // agendamiento"). agenda.js carga antes que este archivo en
-    // agendamientos.php, así que solo puede llamarlo desde su propio
-    // DOMContentLoaded (que corre después de que este script ya definió
-    // window.AgendaHabilitarComboBuscador).
+    // agenda.js reusa este mismo combobox para los <select> de la barra de filtros.
     window.AgendaHabilitarComboBuscador = habilitarComboBuscador;
 
-    // ---------------------------------------------------------------
     // Abrir / cerrar / limpiar
-    // ---------------------------------------------------------------
     function limpiarFormulario() {
         document.getElementById('agendaCrearFechaRegistro').textContent = 'Registro: ' + hoyFormateado();
         document.getElementById('agendaCrearContacto').value = '';
@@ -392,15 +333,8 @@
         reiniciarPin();
     }
 
-    // El modal vive normalmente dentro del section-pane de Agendamientos
-    // (display:none cuando esa sección no está activa, lo que oculta a
-    // TODOS sus descendientes sin importar su position:fixed). Para poder
-    // abrirlo desde otro módulo (ver Contactados → "Registrar nuevo
-    // agendamiento") se "teletransporta" una sola vez como hijo directo de
-    // <body> — mismo nodo, mismos listeners ya enlazados, misma clase
-    // agenda-edit-overlay (con sus variables --ed-* propias, así que el
-    // estilo no se rompe al moverlo). Abrir el modal desde su botón
-    // original dentro de Agendamientos sigue funcionando igual.
+    // Mueve el modal a <body> una sola vez para poder abrirlo desde otros módulos
+    // (Contactados), sin que el display:none del section-pane lo oculte.
     function asegurarModalEnBody() {
         var overlay = document.getElementById('agendaCrearOverlay');
         if (overlay && overlay.parentElement !== document.body) {
@@ -418,10 +352,8 @@
         });
     }
 
-    // prefill (opcional): datos del contacto ya conocido con el que se abre
-    // el formulario — se usa desde Contactados. Promotor, PDV, fecha, hora
-    // y técnico quedan SIEMPRE vacíos (pedido explícito): son reglas del
-    // nuevo agendamiento en sí, no datos del contacto.
+    // prefill: datos del contacto ya conocido (desde Contactados). Promotor, PDV, fecha,
+    // hora y técnico quedan siempre vacíos: son reglas del agendamiento, no del contacto.
     function abrirModal(prefill) {
         asegurarModalEnBody();
         limpiarFormulario();
@@ -442,9 +374,7 @@
         document.getElementById('agendaCrearOverlay').classList.add('active');
         inicializarMapaPin();
         if (coordenadas) {
-            // Centra el mapa en el pin que ya tenía confirmado el contacto,
-            // sin volver a geocodificar (la dirección ya vino prellenada y
-            // no se debe pisar con la respuesta de Mapbox).
+            // Centra el mapa en el pin ya confirmado sin volver a geocodificar.
             setTimeout(function () {
                 if (pinMap) pinMap.setView([coordenadas.lat, coordenadas.lng], 16);
             }, 90);
@@ -455,9 +385,7 @@
         document.getElementById('agendaCrearOverlay').classList.remove('active');
     }
 
-    // ---------------------------------------------------------------
     // Normalización en vivo: mayúsculas + sin espacios dobles
-    // ---------------------------------------------------------------
     function normalizarMayusculas(input) {
         input.addEventListener('input', function () {
             var inicio = input.selectionStart;
@@ -468,17 +396,8 @@
         });
     }
 
-    // ---------------------------------------------------------------
-    // Mapa con pin FIJO al centro (Leaflet + OpenStreetMap, sin
-    // restricción de país — se quitó porque bloqueaba búsquedas
-    // válidas). El pin no se arrastra: es un ícono puesto con CSS
-    // encima del mapa (ver .agenda-crear-mapa-pin-fijo) que nunca se
-    // mueve de ahí — es el MAPA el que se desplaza por debajo al
-    // navegar/hacer zoom, así el pin nunca "se pierde" de la vista
-    // mientras el analista busca su ubicación. Mapbox solo se consulta
-    // UNA vez, al hacer clic en "Confirmar pin" (geocodificación
-    // inversa con las coordenadas del centro), no en cada movimiento.
-    // ---------------------------------------------------------------
+    // Mapa con pin fijo al centro (Leaflet + OSM); el mapa se mueve debajo, el pin no.
+    // Mapbox solo se consulta una vez al confirmar el pin, no en cada movimiento.
     var PUNTO_INICIAL = [-2.170998, -79.922359];
 
     function inicializarMapaPin() {
@@ -500,20 +419,15 @@
         if (pinMap) pinMap.setView(PUNTO_INICIAL, 13);
     }
 
-    // Un Plus Code de Google ("PRR7+GCR") no es una dirección legible —
-    // se rechaza si llega a ser lo único que la geocodificación inversa
-    // devuelve, o si el analista lo escribe a mano en el campo de texto.
+    // Un Plus Code de Google ("PRR7+GCR") no es una dirección legible, se rechaza.
     var PATRON_PLUS_CODE = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
 
     function esPlusCode(texto) {
         return PATRON_PLUS_CODE.test((texto || '').trim());
     }
 
-    // ÚNICA consulta a Mapbox de este flujo: se dispara solo al hacer clic
-    // en "Confirmar pin", nunca mientras se navega el mapa. Las
-    // coordenadas ya son válidas apenas se confirma (vienen del centro
-    // del mapa, no de la respuesta); la geocodificación inversa solo
-    // sirve para autocompletar el texto.
+    // Única consulta a Mapbox del flujo: solo al confirmar pin, la geocodificación
+    // inversa solo autocompleta el texto, las coordenadas ya son válidas antes.
     function confirmarPin() {
         var pos = pinMap.getCenter();
         coordenadas = { lat: pos.lat, lng: pos.lng };
@@ -546,9 +460,7 @@
             });
     }
 
-    // ---------------------------------------------------------------
     // Sugerencias de dominio de correo
-    // ---------------------------------------------------------------
     function vigilarSugerenciasMail() {
         var input = document.getElementById('agendaCrearMail');
         var contenedor = document.getElementById('agendaCrearMailSugerencias');
@@ -574,10 +486,7 @@
         });
     }
 
-    // ---------------------------------------------------------------
-    // Validación (mismas reglas que ya usa la app móvil del lado de
-    // datos — contacto/empresa/mail/dirección/teléfonos/fecha).
-    // ---------------------------------------------------------------
+    // Validación: mismas reglas que ya usa la app móvil del lado de datos.
     var RE_CONTACTO = /^[A-Za-zÁÉÍÓÚÑáéíóúñ' -]+$/;
     var RE_EMPRESA = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\-&' ]+$/;
     var RE_SOLO_DIGITOS = /^\d+$/;
@@ -598,9 +507,7 @@
         return true;
     }
 
-    // El celular puede empezar con cualquier dígito (no se exige el "09"
-    // de antes) — lo único que de verdad importa es que sean solo números
-    // y que no se guarde con menos de 10 dígitos.
+    // El celular puede empezar con cualquier dígito, solo importa que sean 10 dígitos numéricos.
     function errorCelular(valor) {
         if (!/^\d+$/.test(valor)) return 'Solo se permiten números.';
         if (valor.length < 10) return 'Debe tener 10 dígitos (van ' + valor.length + ').';
@@ -705,9 +612,7 @@
         return ok;
     }
 
-    // ---------------------------------------------------------------
     // Guardar
-    // ---------------------------------------------------------------
     function guardar() {
         if (!validarFormulario()) return;
 
@@ -755,10 +660,7 @@
                         });
                     }
                 } else if (json.conflicto && window.AgendaMostrarConflicto) {
-                    // El modal de creación se queda abierto (igual que hace
-                    // guardarEdicion() en agenda.js) — el analista solo
-                    // cierra el diálogo de conflicto y cambia la hora, sin
-                    // perder el resto de los datos ya escritos.
+                    // El modal queda abierto para que el analista cambie la hora sin perder datos.
                     window.AgendaMostrarConflicto(json.conflicto, fechaGuardada);
                 } else {
                     mostrarToast(json.message || 'No se pudo registrar la visita.', true);

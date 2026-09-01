@@ -1,29 +1,8 @@
 <?php
-// Elimina una fila de un repositorio.
-//
-// Rebate/Participación: BORRADO LÓGICO (2026-08-25, regla base — antes era
-// DELETE físico real; mismo caso real que motivó el cambio de Cuotas más
-// abajo: "si por error borro algo, ¿cómo lo recupero?"). "Eliminar" pasa a
-// ser un UPDATE que llena `eliminado_en`/`eliminado_por` (columnas nuevas,
-// ver datos/repositorios_schema.sql) — la fila sigue existiendo, sale del
-// listado normal (listar_repositorio_rebate()/_participacion() en
-// functions.php ya filtran `eliminado_en IS NULL`) y se puede reactivar
-// desde "Eliminados" (getters/repositorio_eliminados.php +
-// getters/repositorio_reactivar.php) filtrando por fecha si hace falta
-// ubicar "qué se borró y cuándo".
-//
-// Cuotas es distinto en 2 sentidos (2026-08-25, pedido explícito del
-// usuario tras un caso real: "si por error borro algo, ¿cómo lo recupero?"):
-//   - Si ya está 'usada' (generó una Acta real) el borrado se BLOQUEA del
-//     todo — corregir eso es trabajo de Historial (anular el Acuerdo), no
-//     de este repositorio.
-//   - Para el resto (pendiente_match/pendiente_uso) "Eliminar" pasó a ser
-//     borrado LÓGICO (`estado='descartada'`, no `DELETE`) — recuperable con
-//     "Reactivar" (getters/cuotas_reactivar.php), y queda `updated_at` para
-//     poder filtrar/ubicar "qué se descartó y cuándo" si después hay que
-//     deshacerlo. `descartada` ya se mostraba en la tabla con su propio
-//     badge (ver assets/js/repositorios.js), esto solo cambia CÓMO se llega
-//     a ese estado.
+// Elimina una fila de un repositorio, siempre borrado lógico (nunca DELETE físico).
+// Rebate/Participación: llena eliminado_en/eliminado_por, recuperable desde "Eliminados".
+// Cuotas: 'usada' bloquea el borrado del todo; el resto pasa a estado='descartada',
+// recuperable con "Reactivar".
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

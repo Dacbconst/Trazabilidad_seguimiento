@@ -1,21 +1,7 @@
 <?php
-// Filas de una importación que quedaron sin resolver (estado_match distinto
-// de 'matcheado'), de las 2 tablas juntas, para la pantalla "Pendientes de
-// Asignar". Para las que tienen candidatos ambiguos (más de un pos_id
-// posible), se resuelve el pos_name de cada candidato para mostrarlo — el
-// superdesarrollador elige a mano cuál es.
-//
-// Agregado 2026-08-20 — ambigüedad de ACTA (no de cliente): puede pasar que
-// el nombre resuelva a UN SOLO pos_id (cliente sin ambigüedad) pero ese
-// cliente tenga 2+ Actas que se solapan con el período+año de esta
-// importación (ver liquidacion_candidatos_acuerdo_id() en
-// includes/liquidacion_import.php) — antes de esto, esa fila quedaba
-// mostrando "1 candidato" (se veía resuelta) pero en realidad estaba
-// trabada en el segundo paso del match, y recién al intentar confirmarla
-// salía un error sin ninguna forma de elegir cuál Acta es desde acá. Ahora,
-// cuando el pos_id resuelve a 1 solo, se recalculan también las Actas
-// candidatas y se devuelven (documento_no/fecha/estado) para que el
-// frontend pueda mostrar un selector de Acta en vez de un callejón sin salida.
+// Filas sin resolver de una importación (las 2 tablas juntas), para "Pendientes
+// de Asignar" — trae candidatos de pos_id y, si el cliente resuelve único pero
+// hay 2+ Actas superpuestas en el período, también las Actas candidatas.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -64,10 +50,7 @@ $pendientes = array_merge(
 	liquidacion_filas_pendientes_de($mysqli, 'repositorio_liquidacion_visibilidad', $importacionId, 'visibilidad')
 );
 
-// Para cada fila, recalcular los candidatos de pos_id (no se guardaron en su
-// momento, solo el resultado del match) y traer su pos_name para mostrarlos
-// — es una consulta liviana, y esta pantalla no se usa con tanta frecuencia
-// como para justificar guardar los candidatos aparte.
+// Recalcula candidatos de pos_id al vuelo (no se guardaron, solo el resultado del match).
 foreach ($pendientes as &$fila) {
 	$posIds = liquidacion_candidatos_pos_id($mysqli, $canal, $fila['cedi_o_distribuidor'], $fila['cliente_o_nombre']);
 	$candidatos = [];
@@ -84,9 +67,7 @@ foreach ($pendientes as &$fila) {
 	}
 	$fila['candidatos'] = $candidatos;
 
-	// Cliente sin ambigüedad (1 solo pos_id) — recalcular si el segundo paso
-	// del match (pos_id -> Acta) también está resuelto, o si es ahí donde
-	// está trabada la fila (ver nota arriba).
+	// Cliente sin ambigüedad: recalcular si el 2do paso (pos_id -> Acta) también resuelve.
 	$fila['pos_id_resuelto'] = null;
 	$fila['actas_candidatas'] = [];
 	if (count($posIds) === 1) {

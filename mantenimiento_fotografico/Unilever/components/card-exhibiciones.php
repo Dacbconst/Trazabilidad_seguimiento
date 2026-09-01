@@ -1,26 +1,6 @@
 <?php
-/**
- * COMPONENTE: multiphoto-card.php
- * Card con galería de múltiples fotos: thumbnails + visor + zoom + selección por foto.
- *
- * Variables requeridas (deben estar en scope al hacer include):
- *   $card_id          string  — ID único de la card  (ej: "exh_0")
- *   $fotos_json       string  — JSON array de URLs de fotos
- *   $tipos_limpio     string  — pipe-separated tipos de exhibición
- *   $categorias_limpio string — pipe-separated categorías por foto
- *   $subcats_limpio   string  — pipe-separated subcategorías por foto
- *   $pos_name         string  — nombre del local
- *   $city             string  — ciudad
- *   $first_foto       string  — URL de la primera foto (para el checkbox value)
- *   $fecha            string  — fecha de la visita
- *   $hora             string  — hora de la visita
- *   $mercaderista_r   string  — nombre del mercaderista
- *   $cat_inicial      string  — categoría de la primera foto
- *   $scat_inicial     string  — subcategoría de la primera foto
- *   $tipo_exh         string  — tipo de exhibición
- *   $address          string  — dirección del local
- *   $td_width         string  — ancho de la celda (ej: "33.33%")
- */
+/* card-exhibiciones.php (multiphoto-card): galería de fotos con thumbnails, visor, zoom y selección por foto.
+   Requiere en scope: card_id, fotos_json, tipos_limpio, categorias_limpio, subcats_limpio, pos_name, city, first_foto, fecha, hora, mercaderista_r, cat_inicial, scat_inicial, tipo_exh, address, td_width. */
 ?>
 <td style="padding:1.2%; vertical-align:top; width:<?= $td_width ?>;">
 <div class="card exh-card" id="<?= $card_id ?>"

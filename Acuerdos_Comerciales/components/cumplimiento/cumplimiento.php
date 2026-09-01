@@ -22,10 +22,40 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 			<h1 class="ac-page-title">Cumplimiento de Cuota</h1>
 			<p class="ac-page-subtitle">Resultado real por asesor, cliente y categoría — leído directo del Excel que Jabonería Wilson devuelve con la venta ya cargada.</p>
 		</div>
-		<button type="button" class="ac-btn-primary" id="cumpl-subir-btn">
-			<span class="material-symbols-outlined">upload_file</span>
-			Subir Excel
-		</button>
+		<!-- "Subir Excel" ahora deja elegir el formato (2026-08-31, mismo
+		     mecanismo que "Descargar Excel" en Historial — .ac-repo-exportar,
+		     cero CSS/animación nueva). Con la pastilla de Vista en Directo o
+		     Distribuidor, el botón salta el picker (ver cumplimiento.js). -->
+		<div class="ac-repo-exportar" id="cumpl-subir-wrap">
+			<button type="button" class="ac-btn-primary ac-btn-inline ac-repo-exportar-btn" id="cumpl-subir-btn">
+				<span class="material-symbols-outlined">upload_file</span>
+				Subir Excel
+			</button>
+			<div class="ac-repo-exportar-opciones-outer">
+				<div class="ac-repo-exportar-opciones">
+					<button type="button" class="ac-repo-exportar-opcion" id="cumpl-subir-directo">
+						<span class="material-symbols-outlined">store</span>
+						Directo
+					</button>
+					<button type="button" class="ac-repo-exportar-opcion" id="cumpl-subir-distribuidor">
+						<span class="material-symbols-outlined">local_shipping</span>
+						Distribuidor
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Vista por canal (2026-08-31) — misma pastilla que ya usa Historial de
+	     Acuerdos, mismo criterio: filtra la lista Y decide qué formato de
+	     Excel acepta "Subir Excel" (ver cumplimiento.js). -->
+	<div class="ac-seg-periodo" style="margin-bottom: var(--space-sm);">
+		<span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--color-on-surface-variant);">Vista</span>
+		<div class="ac-seg-pill-group" id="cumpl-canal-group">
+			<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-canal="total">Total</button>
+			<button type="button" class="ac-seg-pill" data-canal="directo">Directo</button>
+			<button type="button" class="ac-seg-pill" data-canal="distribuidor">Distribuidor</button>
+		</div>
 	</div>
 
 	<div class="ac-seg-periodo">
@@ -106,10 +136,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 		</div>
 
 		<div class="ac-modal-body" id="cumpl-subir-paso-elegir">
-			<p class="ac-field-hint">Subí el mismo Excel que se descarga desde Historial ("Descargar Excel"), ya completado con la venta real y la cartera. No hace falta calcular nada: se lee directo el resultado que el propio archivo ya calculó.</p>
+			<p class="ac-field-hint">Sube el mismo Excel que se descarga desde Historial ("Descargar Excel"), ya completado con la venta real y la cartera. No hace falta calcular nada: se lee directo el resultado que el propio archivo ya calculó.</p>
 			<div class="ac-dropzone" id="cumpl-dropzone">
 				<span class="material-symbols-outlined">upload_file</span>
-				<p class="ac-dropzone-title">Arrastra tu Excel acá o hacé click para elegirlo</p>
+				<p class="ac-dropzone-title">Arrastra tu Excel acá o haz click para elegirlo</p>
 				<p class="ac-dropzone-sub">.xlsx</p>
 			</div>
 			<div class="ac-progreso-carga hidden" id="cumpl-subir-progreso">

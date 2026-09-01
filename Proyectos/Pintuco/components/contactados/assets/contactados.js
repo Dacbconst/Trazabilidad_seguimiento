@@ -18,9 +18,7 @@
         return { fecha: fecha, hora: partes[1].slice(0, 5) };
     }
 
-    // Consolida las filas del JOIN: puede llegar 1 fila por ciclo de proforma.
-    // Se queda con la de mayor proforma_id por contacto (igual que ultimosCiclos
-    // en estado-flujo.js), manteniendo el orden original de fecha_registro DESC.
+    // El JOIN puede traer 1 fila por ciclo de proforma; se queda con la de mayor proforma_id.
     function consolidarContactos(rows) {
         var mapa = {};
         var orden = [];
@@ -51,17 +49,10 @@
         var vencido = r.estado_agenda === 'vencida';
         if (r.foto_factura)   return { label: 'Facturado',   cls: 'is-facturado',   vencido: vencido };
         if (r.monto_validado) return { label: 'Negociando',  cls: 'is-negociando',  vencido: vencido };
-        // fecha_agendamiento llega de MySQL como '0000-00-00' (no NULL)
-        // cuando no se ha agendado nada — mismo chequeo que ya usan
-        // estado-flujo.js, principal.js, factura.js y proforma.js; sin él,
-        // ese string no vacío se evalúa como truthy y marcaba "Agendado"
-        // contactos que en realidad nunca tuvieron visita ni técnico.
+        // fecha_agendamiento llega de MySQL como '0000-00-00' (no NULL) sin agendar.
         if (r.proforma_id || (r.fecha_agendamiento && r.fecha_agendamiento !== '0000-00-00') || r.tecnico)
                               return { label: 'Agendado',    cls: 'is-agendado',    vencido: vencido };
-        // El promotor marcó desde el móvil que este contacto no necesita
-        // visita técnica — para el analista cuenta igual como "ya pasó por
-        // agendamiento" (mismo criterio que ya usa proforma.js/factura.js
-        // en su timeline de auditoría), con su propia etiqueta.
+        // El promotor marcó desde el móvil que no necesita visita técnica.
         if (r.no_requiere_visita === 'SI')
                               return { label: 'No requirió visita', cls: 'is-no-requiere', vencido: vencido };
         return { label: 'Sin agendar', cls: 'is-sin-agendar', vencido: vencido };
@@ -81,11 +72,7 @@
         return td;
     }
 
-    // Ícono de coordenada al inicio del texto de la dirección — sin
-    // consumir ninguna API: el link de Google Maps con "?q=lat,lng" abre
-    // el mapa directo en esas coordenadas usando lo que ya está guardado
-    // en la BD, gratis. Si el contacto no tiene lat/lng todavía (no se le
-    // confirmó pin en Agendamientos), no se pinta el ícono, solo el texto.
+    // Ícono con link a Google Maps ("?q=lat,lng") usando lat/lng ya guardados, sin API.
     function celdaDireccion(r) {
         var td = document.createElement('td');
         var wrap = document.createElement('div');
@@ -212,20 +199,13 @@
         return tr;
     }
 
-    // ---------------------------------------------------------------
-    // Modal "Gestión de Contacto": historial de cotizaciones (todos los
-    // ciclos de proforma del agendamiento) + monto facturado por ciclo
-    // (suma de insert_pago_factura por id_proforma, mismo patrón que
-    // agruparPagosPorAgendamiento en estado-flujo.js).
-    // ---------------------------------------------------------------
+    // Modal "Gestión de Contacto": historial de cotizaciones + monto facturado por ciclo.
     function fmtMonedaModal(v) {
         var n = parseFloat(v) || 0;
         return '$' + n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // Selector de periodo del historial: mes actual por defecto, con opción
-    // de elegir otro mes (con su año, para no confundir "julio" de un año
-    // con el de otro) o "Todos los meses" — pedido explícito del usuario.
+    // Selector de periodo: mes actual por defecto, o cualquier mes con su año, o "Todos".
     var NOMBRES_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
         'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -252,9 +232,7 @@
         return claveMes(fechaBase.proforma_fecha_registro || fechaBase.fecha_proforma);
     }
 
-    // Arma las opciones del selector a partir de los meses que realmente
-    // tienen datos + el mes actual (siempre presente, aunque esté vacío,
-    // para que el default pedido tenga dónde caer), más reciente primero.
+    // Opciones del selector: meses con datos + el mes actual, más reciente primero.
     function poblarSelectorMes(grupos) {
         var select = document.getElementById('ctcGestionMes');
         var actual = claveMesActual();
@@ -281,17 +259,8 @@
         return grupos.filter(function (g) { return claveDelGrupo(g) === valor; });
     }
 
-    // Cada "ronda" real de negociación queda partida en 2+ filas de
-    // insert_proforma: una o varias con monto_validado (en_proceso, el
-    // promotor puede corregir el monto antes de cerrar) y luego una sin
-    // monto (realizado, con foto_factura) donde queda enganchado el pago —
-    // confirmado contra BD 2026-07-09. Se agrupan en una sola fila por
-    // ronda: el monto vigente es el último con monto_validado ANTES de que
-    // aparezca la primera fila de factura de esa ronda; todas las filas de
-    // factura que sigan (pueden ser varias cuotas) se suman como facturado
-    // de esa misma ronda. Igual criterio que "ciclosConMonto"/"ultimaFactura"
-    // en estado-flujo.js, aplicado aquí a TODO el historial en vez de solo
-    // la ronda vigente.
+    // Agrupa en una fila por ronda: monto vigente = último monto_validado antes de la
+    // primera factura de esa ronda; las facturas que siguen se suman como facturado.
     function agruparCiclosCotizacion(ciclosOrdenAsc) {
         var grupos = [];
         var actual = null;
@@ -364,12 +333,8 @@
             fetch(GETTERS_BASE + 'proformas_listar.php?id_agendamiento=' + encodeURIComponent(r.id)).then(function (resp) { return resp.json(); }),
             fetch(GETTERS_BASE + 'get_pagos_factura.php').then(function (resp) { return resp.json(); })
         ]).then(function (resultados) {
-            // Filas del LEFT JOIN sin proforma (p.id null) se descartan: no
-            // son un ciclo de cotización, son solo el agendamiento base.
-            // Se trae TODO el historial (no se filtra acá) — agrupar por
-            // ronda necesita ver la secuencia completa para emparejar bien
-            // monto↔factura aunque caigan en meses distintos; el filtro de
-            // periodo se aplica después, solo sobre qué se muestra.
+            // Descarta filas sin proforma; trae TODO el historial, el filtro de
+            // periodo se aplica después solo sobre qué se muestra.
             var ciclos = (resultados[0].data || []).filter(function (c) { return !!c.id; });
             var pagos = resultados[1].data || [];
 
@@ -379,10 +344,7 @@
                 facturadoPorProforma[pid] = (facturadoPorProforma[pid] || 0) + (parseFloat(p.monto_pago) || 0);
             });
 
-            // Orden ascendente por id para agrupar rondas correctamente
-            // (agruparCiclosCotizacion necesita ver primero el monto y
-            // después su factura); se invierte al final para mostrar la
-            // ronda más reciente primero, igual que el mockup pedido.
+            // Orden ascendente para agrupar bien; se invierte al final (más reciente primero).
             ciclos.sort(function (a, b) { return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0); });
             var grupos = agruparCiclosCotizacion(ciclos).reverse();
 
@@ -399,11 +361,8 @@
         document.getElementById('ctcGestionOverlay').classList.remove('is-abierto');
     }
 
-    // Abre la misma card "Visita Técnica" del módulo de Agendamiento
-    // (agenda-crear.js), prellenada con los datos de este contacto.
-    // Promotor, PDV, fecha de agendamiento, hora y técnico quedan libres
-    // — pedido explícito del usuario, son datos de la NUEVA visita, no del
-    // contacto ya existente.
+    // Abre la card "Visita Técnica" de Agendamiento prellenada con este contacto.
+    // Promotor/PDV/fecha/hora/técnico quedan libres: son datos de la nueva visita.
     function registrarNuevoAgendamiento() {
         if (!contactoGestionActual || !window.AgendaAbrirCrear) return;
         var r = contactoGestionActual;
@@ -420,11 +379,7 @@
         });
     }
 
-    // Filtro "Periodo" de la lista principal — arranca en "Mes actual" pero
-    // deja elegir CUALQUIER mes/año con contactos registrados, o "Todos"
-    // (pedido explícito del usuario). Mismo mecanismo de mes+año que
-    // poblarSelectorMes/claveDelGrupo del historial de cotizaciones (ver
-    // más abajo), aplicado acá sobre fecha_registro de cada contacto.
+    // Filtro "Periodo": mes actual por defecto, cualquier mes/año con datos, o "Todos".
     function poblarSelectorPeriodoPrincipal() {
         var select = document.getElementById('contactadosPeriodo');
         var valorPrevio = select.value;
@@ -479,13 +434,7 @@
         });
     }
 
-    // ---------------------------------------------------------------
-    // Selección + descarga: "Descargar selección" queda siempre visible
-    // (nunca aparece/desaparece), solo cambia de apagado a activo. El
-    // check del header selecciona/deselecciona TODO lo filtrado (no solo
-    // la página visible), para que "descargar selección" con el filtro
-    // puesto equivalga a "descargar todo lo que ves en ese filtro".
-    // ---------------------------------------------------------------
+    // El check del header selecciona/deselecciona todo lo filtrado, no solo la página visible.
     function actualizarBarraSeleccion() {
         var ids = Object.keys(selectedIds);
         var count = ids.length;
@@ -516,18 +465,14 @@
         renderizar();
     }
 
-    // Cambiar cualquier filtro resetea la selección: mezclar selección de
-    // un filtro anterior con uno nuevo es más confuso que útil, y evita el
-    // caso de "tengo 5 marcados pero ya no veo 2 de ellos en pantalla".
+    // Cambiar cualquier filtro resetea la selección, para no mezclar selecciones.
     function resetearSeleccionYRenderizar() {
         selectedIds = {};
         paginaActual = 1;
         renderizar();
     }
 
-    // ---------------------------------------------------------------
     // Paginación (client-side)
-    // ---------------------------------------------------------------
     function renderizarPaginacion(totalFilas) {
         var totalPaginas = Math.max(1, Math.ceil(totalFilas / FILAS_POR_PAGINA));
         if (paginaActual > totalPaginas) paginaActual = totalPaginas;
@@ -651,9 +596,7 @@
         exportarExcel(filas, 'contactados_seleccion_');
     }
 
-    // "Descargar todo": todo lo que hay en el filtro actual, sin importar
-    // qué esté marcado con checkbox (mismo comportamiento que el botón
-    // único de antes, ahora separado de "Descargar selección").
+    // "Descargar todo": todo el filtro actual, sin importar el checkbox marcado.
     function descargarTodo() {
         exportarExcel(filasFiltradas(), 'contactados_');
     }

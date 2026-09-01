@@ -27,9 +27,10 @@ set_exception_handler(function ($e) {
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
 $anio      = (int) ($_GET['anio'] ?? 0);
 $busqueda  = trim((string) ($_GET['q'] ?? ''));
+$canal     = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 
-$filas = listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda);
-$stats = resumen_cumplimiento_cuota($mysqli, $trimestre, $anio);
+$filas = listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal);
+$stats = resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal);
 $anios = listar_anios_disponibles_cumplimiento($mysqli);
 
 // ---------- Agrupar Asesor -> Cliente -> Categoría ----------
@@ -54,6 +55,7 @@ foreach ($filas as $f) {
 			'cliente'       => $f['cliente_excel'],
 			'cedi'          => $f['cedi_excel'],
 			'plan'          => $f['plan_excel'],
+			'canal'         => $f['canal'],
 			'gana_total'    => $f['gana_total'],
 			'actualizado_en' => $f['updated_at'],
 			'categorias'    => [],

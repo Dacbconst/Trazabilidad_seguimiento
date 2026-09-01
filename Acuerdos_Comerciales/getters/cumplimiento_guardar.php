@@ -1,14 +1,7 @@
 <?php
-// Paso 2 de la subida de Cumplimiento de Cuota (guarda de verdad, ver
-// cumplimiento_previsualizar_excel.php) — mismo espíritu "el sistema se
-// defiende solo" que getters/cuotas_guardar.php: UPSERT fila por fila, nunca
-// aborta todo por un error puntual, reporta errores/avisos con su índice.
-//
-// UPSERT por (pos_id, sector, trimestre, anio) — resubir el mismo trimestre
-// actualiza en vez de duplicar (nunca se borra el resto del repositorio), y
-// limpia eliminado_en/eliminado_por si la fila estaba borrada lógicamente
-// (mismo criterio que Rebate/Participación/Cuotas: re-subir revive una fila
-// que se había borrado).
+// Paso 2 de la subida de Cumplimiento de Cuota: UPSERT fila por fila sobre
+// (pos_id, sector, trimestre, anio), nunca aborta todo por un error puntual.
+// Re-subir revive una fila borrada lógicamente (limpia eliminado_en/eliminado_por).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php'; // repositorio_normalizar_texto()
 require_once __DIR__.'/../db_connect.php';
@@ -21,13 +14,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-// Cualquier warning/notice de PHP que se imprima antes del JSON (ej. un
-// aviso de deprecación del servidor) rompe el parseo del lado del cliente
-// (fetch().then(r => r.json()) tira excepción con "unexpected token", que
-// el front interpreta como "Error de conexión" — un mensaje engañoso que no
-// dice la causa real). Se bufferea toda la salida y responder() la
-// descarta siempre antes de imprimir el JSON real, así la respuesta nunca
-// se mezcla con nada que no sea el JSON esperado.
+// Bufferea la salida para que un warning de PHP no rompa el JSON de respuesta.
 ob_start();
 
 function responder($ok, $message, $extra = []) {
@@ -36,10 +23,7 @@ function responder($ok, $message, $extra = []) {
 	exit;
 }
 
-// Cubre tanto Exception como Error (TypeError, etc.) — un error real de PHP
-// a mitad de este script, sin este catch, imprimía la página de error
-// nativa de PHP en vez de JSON, mismo síntoma de "Error de conexión" del
-// lado del cliente.
+// Cubre Exception y Error: sin esto, un fallo real imprimía HTML en vez de JSON.
 set_exception_handler(function ($e) { responder(false, 'No se pudo guardar: '.$e->getMessage()); });
 
 $body      = json_decode(file_get_contents('php://input'), true);
@@ -68,11 +52,8 @@ $avisos  = []; // [{indice, fila, motivo}, ...] — SÍ se guardaron, pero convi
 
 $mysqli->begin_transaction();
 try {
-	// El orden de las asignaciones en el SET importa: MySQL las evalúa de
-	// izquierda a derecha dentro de un mismo UPDATE — "gana_categoria_anterior
-	// = gana_categoria" lista ANTES de "gana_categoria = VALUES(gana_categoria)"
-	// captura el valor de la fila TAL COMO ESTABA antes de este guardado (ver
-	// nota completa en datos/cumplimiento_cuota_schema.sql).
+	// Orden del SET importa: MySQL evalúa izquierda a derecha, así "gana_categoria_anterior"
+	// captura el valor previo antes de que "gana_categoria" se pise (ver datos/cumplimiento_cuota_schema.sql).
 	$stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cumplimiento_cuota
 		 (pos_id, cliente_excel, cedi_excel, plan_excel, sector, linea, trimestre, anio,
@@ -92,7 +73,7 @@ try {
 	);
 	if (!$stmt) throw new Exception('El módulo de Cumplimiento de Cuota todavía no está disponible. Avisa al equipo técnico.');
 
-	$cacheSector = []; // mismo criterio de cache-por-subida que cuotas_guardar.php
+	$cacheSector = []; // cache por subida, mismo criterio que cuotas_guardar.php
 	$cachePosId  = [];
 
 	foreach ($filas as $indice => $fila) {
@@ -100,12 +81,8 @@ try {
 		$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
 		$plan         = repositorio_normalizar_texto($fila['plan_excel'] ?? '');
 		$sectorCrudo  = repositorio_normalizar_texto($fila['sector'] ?? '');
-		// Un cliente puede traer 2+ filas con el mismo Sector (ver
-		// repositorio_parsear_cumplimiento_cuota() — "linea") — sin este
-		// dato, ya calculado al parsear, la 2da fila pisaría a la 1ra acá
-		// mismo (bug real 2026-08-31). `?: 1` es solo para archivos viejos
-		// previsualizados con una versión anterior del front, nunca debería
-		// hacer falta con un parseo fresco.
+		// "linea" distingue 2+ filas del mismo cliente+Sector (ver
+		// repositorio_parsear_cumplimiento_cuota()); `?: 1` solo por compatibilidad vieja.
 		$linea        = is_numeric($fila['linea'] ?? null) ? (int) $fila['linea'] : 1;
 		$cuotaTotal   = is_numeric($fila['cuota_total'] ?? null) ? round((float) $fila['cuota_total'], 2) : 0.0;
 		$ventaTotal   = is_numeric($fila['venta_total'] ?? null) ? round((float) $fila['venta_total'], 2) : 0.0;
@@ -145,13 +122,7 @@ try {
 			continue;
 		}
 
-		// Con `linea` ya diferenciando cada renglón (ver arriba), 2 filas
-		// del mismo cliente+Sector son casos reales y legítimos, no un
-		// duplicado accidental — a diferencia de Cuotas Trimestrales, acá NO
-		// se avisa "se usó el valor más reciente" porque ya no se descarta
-		// nada. Si alguna vez llegaran 2 filas con la misma clave completa
-		// (mismo posId+sector+linea), el UPSERT las trata como una sola
-		// igual — correcto para ese caso.
+		// `linea` ya diferencia cada renglón: 2 filas del mismo cliente+Sector son legítimas, no duplicado.
 		$stmt->bind_param(
 			'sssssiiidddssddddi',
 			$posId, $clienteExcel, $cediExcel, $plan, $sector, $linea, $trimestre, $anio,
@@ -181,8 +152,8 @@ if ($nuevas > 0) $partesDetalle[] = "$nuevas fila(s) nueva(s)";
 if ($actualizadas > 0) $partesDetalle[] = "$actualizadas actualizada(s)";
 if ($sinCambios > 0) $partesDetalle[] = "$sinCambios sin cambios (ya existían igual)";
 $partesMensaje = [$partesDetalle ? 'Se guardaron '.implode(', ', $partesDetalle).'.' : 'No se guardó ninguna fila nueva.'];
-if ($omitidas > 0) $partesMensaje[] = "$omitidas fila(s) no se guardaron. Revisá el detalle.";
-if ($avisos) $partesMensaje[] = count($avisos).' fila(s) necesitan revisión. Revisá el detalle.';
+if ($omitidas > 0) $partesMensaje[] = "$omitidas fila(s) no se guardaron. Revisa el detalle.";
+if ($avisos) $partesMensaje[] = count($avisos).' fila(s) necesitan revisión. Revisa el detalle.';
 responder(true, implode(' ', $partesMensaje), [
 	'guardadas' => $guardadas, 'nuevas' => $nuevas, 'actualizadas' => $actualizadas, 'sin_cambios' => $sinCambios,
 	'omitidas' => $omitidas, 'errores' => $errores, 'avisos' => $avisos,

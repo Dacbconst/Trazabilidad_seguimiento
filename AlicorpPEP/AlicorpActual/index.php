@@ -348,21 +348,6 @@ while ($row = $result->fetch_assoc()) { //el result contiende los datos devuelyo
 
                 <?php foreach ($pdvs as $pdv): ?>
 
-                    <!-- <div class="row align-items-center border-bottom py-2">
-                        <div class="col-6 col-md-3"><?php echo htmlspecialchars($pdv['pos_id']); ?></div>
-                        <div class="col-12 col-md-4"><?php echo htmlspecialchars($pdv['pos_name']); ?></div>
-                        <div class="col-6 col-md-3"><?php echo htmlspecialchars($pdv['cedi']); ?></div>
-                        <div class="col-6 col-md-2 text-md-end">
-                            <button class=" btn btn-info btn-abrir-novedad"
-                                data-bs-toggle="modal"
-                                data-bs-target="#novedadesModal"
-                                data-pos-id="<?php echo $pdv['pos_id']; ?>" data-pos-name="<?php echo htmlspecialchars($pdv['pos_name']); ?>">
-                                Novedad
-                            </button>
-                        </div>
-                    </div>  -->
-
-
                     <div id="btn-pdv-<?php echo $pdv['pos_id']; ?>" class="row align-items-center border-bottom py-2" data-bs-toggle="modal" data-bs-target="#modal-<?php echo $pdv['pos_id']; ?>" style="cursor: pointer;">
                         <div class="col-6 col-md-3 mb-1"> <?php echo break_number(htmlspecialchars($pdv['pos_id'])); ?> </div>
                         <div class="col-12 col-md-4 mb-1"><?php echo htmlspecialchars($pdv['pos_name']); ?></div>
@@ -376,39 +361,6 @@ while ($row = $result->fetch_assoc()) { //el result contiende los datos devuelyo
                             </button>
                         </div>
                     </div>
-
-
-
-                    <!-- <div class="row align-items-center border-bottom py-2">
-
-                        <div id="btn-pdv-<?php echo $pdv['pos_id']; ?>"
-                            class="col-12 col-md-10"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modal-<?php echo $pdv['pos_id']; ?>"
-                            style="cursor: pointer;">
-                            <div class="row">
-                                <div class="col-6 col-md-3"><?php echo break_number(htmlspecialchars($pdv['pos_id'])); ?></div>
-                                <div class="col-12 col-md flex-grow-1"><?php echo htmlspecialchars($pdv['pos_name']); ?></div>
-                                <div class="col-6 col-md-3"><?php echo htmlspecialchars($pdv['cedi']); ?></div>
-                            </div>
-                        </div>
-
-
-                       
-                        <div class="col-4 col-md-2 text-end">
-                            <button class=" btn btn-info btn-abrir-novedad"
-                                data-bs-toggle="modal"
-                                data-bs-target="#novedadesModal"
-                                data-pos-id="<?php echo $pdv['pos_id']; ?>" data-pos-name="<?php echo htmlspecialchars($pdv['pos_name']); ?>">
-                                Novedad
-                            </button>
-                        </div>
-                    </div> -->
-
-
-
-
-
 
                     <!-- Modal -->
                     <div class="modal fade" id="modal-<?php echo $pdv['pos_id']; ?>" tabindex="-1"

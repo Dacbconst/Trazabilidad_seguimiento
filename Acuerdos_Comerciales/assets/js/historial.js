@@ -9,13 +9,7 @@
 	var anioSelect      = document.getElementById('hist-anio');
 	var buscarBtn       = document.getElementById('hist-buscar-btn');
 
-	// "Descargar Excel" ahora es un botón que se expande a 2 formatos
-	// (2026-08-31, pedido explícito, mockup "Opción A" aprobado por el
-	// usuario) — solo existe para superdesarrollador (ver
-	// components/historial/historial.php), así que estos 4 elementos son
-	// `null` para un desarrollador normal. Todo lo que los usa queda
-	// guardado con `if (exportarWrap)` — el resto del archivo (búsqueda,
-	// filtros, tabla, paginación) sigue funcionando igual sin este bloque.
+	// "Descargar Excel" solo existe para superdesarrollador — estos 4 elementos son null para un desarrollador normal (ver if (exportarWrap)).
 	var exportarWrap = document.getElementById('hist-exportar-wrap');
 	var exportarBtn = document.getElementById('hist-exportar-btn');
 	var exportarDirectoLink = document.getElementById('hist-exportar-directo');
@@ -23,18 +17,7 @@
 	var exportarLinks = [exportarDirectoLink, exportarDistribuidorLink].filter(Boolean);
 
 	if (exportarWrap) {
-		// Mismo botón-que-se-expande-en-2-opciones que ya usa "Exportar" en
-		// Repositorios (.ac-repo-exportar, animación 100% CSS, cero JS/CSS
-		// nuevo para el mecanismo en sí) — abre al hacer click, cierra al
-		// elegir un formato o al hacer click afuera.
-		// Descarga directa cuando ya hay un canal elegido (2026-08-31, pedido
-		// explícito: "si ya filtré por directa ahí ya no tendría la doble
-		// opción... sino que ya saldría solo la descarga directa") — con la
-		// pastilla de Vista en Directo/Distribuidor, el formato ya no es
-		// ambiguo, así que el click dispara la descarga de ESE link (con la
-		// misma validación de período/año de siempre, ver el listener de
-		// exportarLinks más abajo) en vez de abrir el desplegable de 2
-		// opciones. Solo con "Total" (canal ambiguo) sigue abriendo el picker.
+		// Mismo mecanismo que "Exportar" en Repositorios (.ac-repo-exportar). Con un canal ya elegido, descarga directo sin abrir el picker.
 		exportarBtn.addEventListener('click', function () {
 			if (canalFiltroActual === 'directo' && exportarDirectoLink) {
 				exportarDirectoLink.click();
@@ -51,18 +34,7 @@
 			if (!exportarWrap.contains(e.target)) cerrarExportar();
 		});
 
-		// Aviso ANTES de descargar (2026-08-28, bug real reportado por el
-		// usuario) — con "Todos los períodos"/"Todos los años" elegido, el
-		// Excel replica el formato real de JW, que siempre es de UN solo
-		// trimestre de UN solo año; mezclar varios daba un archivo con meses de
-		// períodos distintos bajo un título que solo decía uno (el año se sumó
-		// al mismo chequeo por el mismo motivo exacto — un índice de mes 0-11
-		// tampoco distingue año). El getter ya lo rechaza del lado del servidor
-		// (getters/exportar_cuota_categoria.php) — esto es solo para avisar
-		// ANTES del click, con un modal en vez de un toast (pedido explícito:
-		// más visible, y que indique dónde corregirlo), en vez de que el
-		// usuario reciba un archivo de error en su carpeta de Descargas.
-		// Aplica a los 2 formatos por igual (2026-08-31, antes era un solo link).
+		// Aviso ANTES de descargar: con "Todos los períodos/años" el Excel mezclaría trimestres — el getter ya lo rechaza, esto avisa antes del click.
 		exportarLinks.forEach(function (link) {
 			link.addEventListener('click', function (e) {
 				var faltaTrimestre = trimestreSelect.value === '0';
@@ -84,15 +56,8 @@
 		});
 	}
 
-	// Sube el scroll hasta la tarjeta de filtros y le agrega un aro
-	// pulsante (CSS puro, ver .ac-filtro-resaltado en style.css) al/los
-	// select(es) puntuales que faltan elegir — reemplaza a "una captura"
-	// (pedido literal del usuario) con algo que nunca se desactualiza si el
-	// layout cambia, mismo criterio ya usado para el resaltado de "campo sin
-	// confirmar" de Registrar. El pulso ya NO se apaga solo con un timeout
-	// (2026-08-28, pedido explícito: "que siga parpadeando hasta que el
-	// usuario seleccione un período") — sigue hasta que el propio `change`
-	// del select lo apague (ver actualizarEstadoFiltroPeriodo() más abajo).
+	// Sube el scroll a la tarjeta de filtros y agrega un aro pulsante (.ac-filtro-resaltado) al/los select que faltan — sigue hasta el
+	// change real (ver actualizarEstadoFiltroPeriodo() más abajo), no se apaga solo con timeout.
 	function resaltarFiltroPeriodo(marcarTrimestre, marcarAnio) {
 		var filtrosCard = document.querySelector('.ac-hist-filtros-card');
 		if (filtrosCard && filtrosCard.scrollIntoView) {
@@ -100,34 +65,18 @@
 		}
 		[marcarTrimestre ? trimestreSelect : null, marcarAnio ? anioSelect : null].forEach(function (select) {
 			if (!select) return;
-			// "Select bonito" envuelve el <select> real (que queda oculto) en
-			// un .ac-select-bonito — hay que resaltar el wrapper visible, no
-			// el <select> nativo invisible.
+			// "Select bonito" envuelve el <select> real oculto — hay que resaltar el wrapper visible, no el nativo invisible.
 			var objetivo = select.closest('.ac-select-bonito') || select;
 			objetivo.classList.remove('ac-filtro-confirmado');
 			objetivo.classList.remove('ac-filtro-resaltado');
-			// Forzar reflow para poder reiniciar la animación si el usuario
-			// clickea "Descargar Excel" dos veces seguidas sin corregir nada.
+			// Forzar reflow para reiniciar la animación si se clickea "Descargar Excel" dos veces seguidas sin corregir nada.
 			void objetivo.offsetWidth;
 			objetivo.classList.add('ac-filtro-resaltado');
 		});
 	}
 
-	// Apaga el pulso azul del select que se acaba de completar y lo
-	// reemplaza por un flash verde de confirmación (2026-08-28) — y, apenas
-	// período Y año quedan los dos elegidos a la vez, hace "brillar" el
-	// botón de Descargar Excel una vez, como si recién se hubiera
-	// habilitado. Si un select vuelve a "Todos" (0) después de estar
-	// confirmado, NO se pone verde de nuevo — se ignora en silencio (pedido
-	// explícito del usuario: "obviamente si elige el todos de nuevo no se
-	// cambiaría a verde").
-	// Duraciones calcadas de las animaciones CSS (ver style.css, ronda 2: 2
-	// pulsos de .6s/.7s cada uno = 1200/1400ms totales — más lento y con 2
-	// "parpadeos" a propósito, pedido explícito del usuario: "pasa tan
-	// rápido que ni lo noto") — setTimeout en vez de "animationend" porque
-	// .ac-excel-brillo anima 2 elementos a la vez (el botón + su ::after de
-	// brillo) y el evento se dispararía 2 veces, cortando la 2da animación
-	// si se sacara la clase con la primera.
+	// Apaga el pulso azul y lo reemplaza por flash verde de confirmación; al completar período+año, brilla "Descargar Excel". Volver a
+	// "Todos" no vuelve a poner verde. setTimeout (no "animationend") porque .ac-excel-brillo anima 2 elementos y el evento se duplicaría.
 	var exportCompletoAntes = trimestreSelect.value !== '0' && anioSelect.value !== '0';
 	function actualizarEstadoFiltroPeriodo() {
 		var completoAhora = trimestreSelect.value !== '0' && anioSelect.value !== '0';

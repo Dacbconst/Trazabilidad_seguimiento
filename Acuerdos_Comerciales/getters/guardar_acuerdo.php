@@ -35,11 +35,7 @@ $mesFin     = (int) ($body['mes_fin'] ?? -1);
 $estado     = $body['estado'] ?? 'borrador';
 $sinVisibilidad = !empty($body['sin_visibilidad']);
 $lineas     = is_array($body['lineas'] ?? null) ? $body['lineas'] : [];
-// Fase 2 del Repositorio de Cuotas (2026-08-25): si este Acuerdo se generó
-// desde una Acta precargada, registrar.js manda de dónde salió — se valida
-// que el pos_id coincida con el que se está guardando (nunca se confía en
-// el origen tal cual llega) antes de marcar esas filas como consumidas, ver
-// más abajo, después del commit.
+// Si viene de una Acta precargada, se valida que el pos_id coincida antes de marcar esas filas como consumidas.
 $origenPrecarga = is_array($body['origen_precarga'] ?? null) ? $body['origen_precarga'] : null;
 
 $estadosPermitidosDesdeForm = ['borrador', 'generado', 'enviado'];
@@ -76,17 +72,8 @@ $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Segunda vía de propiedad — CEDI del Excel de Cuotas (2026-08-28, bug real
-// encontrado: el maestro de Alicorp y el Excel real de Liquidación de JW
-// discrepan en casi la mitad de los clientes de canal Directo — ver
-// CLAUDE.md "Actas Asignadas: CEDI del Excel gana..."). Sin esto, un
-// asesor con una Acta Precargada real (usuarioIdDeCuota() ya lo dejó pasar
-// en la campanita/obtener_acta_precargada.php) llegaba hasta acá y el
-// GUARDADO se rechazaba igual, porque este chequeo seguía mirando solo el
-// maestro — la Acta quedaba visible pero imposible de completar. Solo
-// aplica cuando el guardado viene realmente marcado como originado en ESA
-// precarga puntual (mismo pos_id) — nunca abre la puerta a guardar
-// cualquier pos_id con cualquier origen_precarga inventado en el POST.
+// Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()), solo si el
+// guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
 if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
 	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
@@ -102,15 +89,8 @@ if (!$existePos) {
 	responder(false, 'El Local seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
 }
 
-// Regla de negocio (2026-08-23): solo puede haber UN Acta activa (no
-// borrador, no anulada) por Local+Período — evita que dos analistas
-// generen la misma Acta al mismo tiempo. "El primero que llega, gana": el
-// segundo que intente guardar/generar (cualquier $estado distinto de
-// 'borrador') para el mismo Local+Período se bloquea acá con un mensaje
-// específico (`duplicado: true`) para que el frontend lo muestre con
-// SweetAlert2, no el toast genérico de error. Los borradores quedan
-// exentos a propósito — se puede seguir armando uno en paralelo, recién
-// se bloquea al intentar generarlo de verdad.
+// Solo un Acta activa por Local+Período: "el primero que llega, gana". Los
+// borradores quedan exentos, se bloquea recién al intentar generar de verdad.
 if ($estado !== 'borrador') {
 	$stmtDup = $mysqli->prepare(
 		"SELECT d.pos_name FROM repositorio_acuerdos a
@@ -134,9 +114,7 @@ if ($estado !== 'borrador') {
 $cantidadMeses = $mesFin - $mesInicio + 1;
 
 // ---------- Validación y normalización de las 4 tablas ----------
-// max(0, ...): el cliente ya clampa montos negativos al tipear, esto es
-// defensa adicional del lado del servidor (el guardado es por fetch(), no un
-// submit nativo, así que nada obliga a pasar por esa validación de JS).
+// max(0, ...): defensa del servidor, el guardado es por fetch() y no pasa siempre por la validación de JS.
 function normalizarValores(array $valores, $cantidadMeses, $mesInicio) {
 	$out = [];
 	for ($i = 0; $i < $cantidadMeses; $i++) {
@@ -156,10 +134,7 @@ foreach (['meta_compra', 'cabecera'] as $tipo) {
 		if ($segmento === '' || $categoria === '' || $marca === '') continue; // fila incompleta, se ignora
 		$valores = is_array($fila['valores'] ?? null) ? $fila['valores'] : [];
 		$rebate = $tipo === 'meta_compra' ? max(0, (float) ($fila['rebate_pct'] ?? 0)) : null;
-		// Sector: solo Meta de Compras (2026-08-18, ver CLAUDE.md) — es el
-		// nivel al que Trade MKT aprueba y rastrea el rebate de verdad
-		// (BARRA/CREMA/LIQUIDO/POLVO), confirmado comparando contra el Excel
-		// real de JW. Cabecera/Ruma/Percha no lo tienen, igual que Segmento.
+		// Sector: solo Meta de Compras, es el nivel donde Trade MKT rastrea el rebate real.
 		$sector = $tipo === 'meta_compra' ? (trim($fila['sector'] ?? '') ?: null) : null;
 		$filasNormalizadas[$tipo][] = [
 			'segmento' => $segmento,
@@ -194,10 +169,7 @@ foreach (($lineas['percha'] ?? []) as $orden => $fila) {
 	if ($cantidadMaxPercha < 0 || $cantidadMaxPercha > 5) {
 		responder(false, 'La cantidad máxima de perchas por marca no puede superar 5.');
 	}
-	// Participación es texto libre en la UI (ej. "50%") pero igual debe ser un
-	// número real y no negativo — mismo criterio que ya se valida en el
-	// cliente (registrar.js), repetido acá porque el guardado es por fetch(),
-	// no un submit nativo que fuerce pasar por esa validación.
+	// Participación es texto libre (ej. "50%") pero debe ser número real y no negativo.
 	$participacion = trim($fila['participacion'] ?? '');
 	$participacionNum = str_replace('%', '', $participacion);
 	if ($participacion === '' || !is_numeric($participacionNum) || (float) $participacionNum < 0) {
@@ -214,20 +186,14 @@ foreach (($lineas['percha'] ?? []) as $orden => $fila) {
 	];
 }
 
-// Switch "Visibilidad y Espacios" (2026-08-24): si el usuario lo desactivó en
-// el formulario, la zona queda bloqueada en pantalla y no debería mandar
-// nada — esto es defensa adicional del lado del servidor (mismo motivo que
-// normalizarValores() de arriba), por si llega algo igual por un estado
-// stale del cliente.
+// Switch "Visibilidad y Espacios" desactivado: defensa del servidor por si llega algo igual por un estado stale.
 if ($sinVisibilidad) {
 	$filasNormalizadas['cabecera'] = [];
 	$filasNormalizadas['ruma'] = [];
 	$filasNormalizadas['percha'] = [];
 }
 
-// Un acuerdo completamente vacío solo se permite como borrador (work-in-
-// progress) — mismo criterio que ya valida registrar.js del lado del
-// cliente, repetido acá por si acaso.
+// Un acuerdo completamente vacío solo se permite como borrador.
 if ($estado !== 'borrador'
 	&& !$filasNormalizadas['meta_compra'] && !$filasNormalizadas['cabecera']
 	&& !$filasNormalizadas['ruma'] && !$filasNormalizadas['percha']) {
@@ -253,13 +219,7 @@ try {
 			$fechaGeneracion = date('Y-m-d');
 		}
 
-		// updated_at = NOW() explícito: el ON UPDATE CURRENT_TIMESTAMP de la
-		// columna solo se dispara si ALGUNA otra columna de esta fila cambia de
-		// valor — pero editar un borrador normalmente solo toca las 4 tablas
-		// (repositorio_acuerdo_lineas, aparte), así que la cabecera se vuelve a
-		// guardar con los mismos valores de siempre y MySQL nunca actualizaba
-		// la fecha. "Actualizado" en Mis Borradores debe reflejar el último
-		// guardado real, edite lo que edite.
+		// updated_at = NOW() explícito: editar solo las 4 tablas de líneas no dispara el ON UPDATE de la cabecera.
 		$stmt = $mysqli->prepare(
 			'UPDATE repositorio_acuerdos
 			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, sin_visibilidad = ?, updated_at = NOW()
@@ -273,9 +233,7 @@ try {
 		$documentoNo = $actual['documento_no'];
 	} else {
 		$fechaGeneracion = $estado !== 'borrador' ? date('Y-m-d') : null;
-		// creado_por se guarda UNA sola vez, al crear — nunca se pisa en el
-		// UPDATE de arriba, así conserva quién lo hizo originalmente aunque
-		// después lo edite/regenere otro usuario con permisos.
+		// creado_por se guarda una sola vez al crear, nunca se pisa en el UPDATE.
 		$creadoPor = $_SESSION['user_id'] ?? null;
 
 		// documento_no autogenerado ADN-{anio}-{secuencia}; reintenta si choca con el UNIQUE.
@@ -387,13 +345,8 @@ try {
 	responder(false, 'No se pudo guardar el acuerdo: '.$e->getMessage());
 }
 
-// Consumir la Acta precargada de origen (Fase 2, 2026-08-25): las filas de
-// repositorio_cuota_cliente que la generaron pasan a 'usada' + quedan
-// enlazadas al Acuerdo real — desaparecen de la campanita de alertas y
-// quedan protegidas de "Eliminar" en el Repositorio de Cuotas (ver
-// getters/repositorio_eliminar.php). No aborta el guardado si esto falla —
-// el Acuerdo ya quedó bien guardado, en el peor caso la precarga sigue
-// apareciendo en la campanita (molesto, no destructivo).
+// Consumir la Acta precargada de origen: pasa a 'usada', enlazada al Acuerdo real.
+// No aborta el guardado si esto falla (la precarga solo sigue apareciendo en la campanita).
 if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
 	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
@@ -410,11 +363,8 @@ if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	}
 }
 
-// Snapshot del PDF: solo al generar (no en cada guardado de borrador), para
-// que Historial sirva siempre "el documento tal como se generó", aunque
-// después alguien edite las líneas del acuerdo. Si el render falla acá no se
-// aborta la respuesta — el acuerdo ya quedó guardado bien; el próximo intento
-// de verlo simplemente vuelve a caer al render en vivo de generar_acta_pdf.php.
+// Snapshot del PDF: solo al generar, para que Historial sirva "el documento tal como se generó".
+// Si el render falla acá no se aborta la respuesta, el próximo intento cae al render en vivo.
 if ($estado === 'generado') {
 	try {
 		$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);

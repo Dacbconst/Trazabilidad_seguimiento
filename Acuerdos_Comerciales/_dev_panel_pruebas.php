@@ -1,21 +1,6 @@
 <?php
-// TEMPORAL — panel de prueba de "Vencimiento de firma" (2026-08-25).
-// Página autónoma, fuera del index.php normal, para que el usuario pueda
-// simular el paso de los 20 días sobre SUS PROPIOS Acuerdos sin necesitar
-// permiso de escritura en su cuenta personal de HeidiSQL (confirmado que no
-// lo tiene) — el UPDATE lo corre esta página con las credenciales de
-// config.php, mismo mecanismo que ya usan eliminar_acuerdo.php/
-// subir_acta_firmada.php, nunca Claude directo.
-//
-// Muestra TODOS los Acuerdos propios en 'generado'/'enviado'/'vencido'
-// (Historial ya no muestra los 'vencido' a propósito, por eso este panel
-// no depende de esa vista) con botones para:
-//   - Aviso (16 días atrás)     -> probar la campanita
-//   - Vencido (21 días atrás)   -> probar el bloqueo + que desaparezca
-//   - Revertir (vuelve a 'generado', fecha = hoy) -> deshacer la prueba
-//
-// Borrar este archivo + getters/_dev_simular_vencimiento.php cuando se
-// termine de probar — ver CLAUDE.md, "Vencimiento de firma".
+// TEMPORAL: panel para simular el vencimiento de firma (20 días) sin esperar de verdad.
+// Borrar este archivo + getters/_dev_simular_vencimiento.php cuando termine la prueba.
 require_once __DIR__.'/includes/functions.php';
 require_once __DIR__.'/db_connect.php';
 iniciar_sesion();

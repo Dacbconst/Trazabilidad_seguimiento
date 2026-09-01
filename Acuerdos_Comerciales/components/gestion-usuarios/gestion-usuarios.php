@@ -6,7 +6,7 @@ require_once __DIR__.'/../../db_connect.php';
 iniciar_sesion();
 
 if (!login_check() || !rolPermitido(['superdesarrollador'])) {
-	echo '<div class="ac-placeholder">Acceso restringido al rol Superdesarrollador.</div>';
+	echo '<div class="ac-placeholder">Acceso restringido al rol Administrador.</div>';
 	return;
 }
 
@@ -56,8 +56,8 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 				<div class="ac-field">
 					<label class="ac-field-label" for="nu-rol">Rol del Usuario</label>
 					<select class="ac-select ac-select-bonito-auto" id="nu-rol" name="rol" required>
-						<option value="desarrollador">Desarrollador</option>
-						<option value="superdesarrollador">Superdesarrollador</option>
+						<option value="desarrollador">Usuario</option>
+						<option value="superdesarrollador">Administrador</option>
 					</select>
 				</div>
 
@@ -105,6 +105,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 							<th>Usuario</th>
 							<th>Rol</th>
 							<th>Supervisor</th>
+							<th>Canal</th>
 							<th>Fecha de Creación</th>
 							<th>Estado</th>
 							<th class="ac-text-right">Acciones</th>
@@ -116,7 +117,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 								<?= renderFilaUsuario($u, $_SESSION['user_id']) ?>
 							<?php endforeach; ?>
 						<?php else: ?>
-							<tr><td colspan="6" class="ac-table-empty">No se encontraron usuarios.</td></tr>
+							<tr><td colspan="7" class="ac-table-empty">No se encontraron usuarios.</td></tr>
 						<?php endif; ?>
 					</tbody>
 				</table>

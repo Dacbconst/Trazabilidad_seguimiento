@@ -106,12 +106,27 @@ function xlsx_leer_hoja($rutaArchivo, $nombreHoja) {
 	$strings = xlsx_leer_shared_strings($zip);
 	$mapaHojas = xlsx_mapa_hojas($zip);
 
-	if (!isset($mapaHojas[$nombreHoja])) {
+	// Match tolerante del NOMBRE de la pestaña (2026-08-31, pedido explícito):
+	// antes era `isset($mapaHojas[$nombreHoja])`, una comparación exacta —
+	// alguien que tipeó la pestaña en minúsculas, sin tilde, o con un espacio
+	// de más ("Cuota Cliente - Categoria ") hacía fallar la búsqueda entera,
+	// aunque el nombre fuera "el mismo" a simple vista. Mismo criterio que ya
+	// usa xlsx_encontrar_encabezado() para los ENCABEZADOS de columna (ver
+	// xlsx_normalizar_nombre_hoja() más abajo) — acá se aplica igual al
+	// nombre de la hoja en sí.
+	$rutaXml = null;
+	foreach ($mapaHojas as $nombreReal => $ruta) {
+		if (xlsx_normalizar_nombre_hoja($nombreReal) === xlsx_normalizar_nombre_hoja($nombreHoja)) {
+			$rutaXml = $ruta;
+			break;
+		}
+	}
+	if ($rutaXml === null) {
 		$zip->close();
 		return null;
 	}
 
-	$sheetXml = $zip->getFromName($mapaHojas[$nombreHoja]);
+	$sheetXml = $zip->getFromName($rutaXml);
 	$zip->close();
 	if ($sheetXml === false) return null;
 
@@ -173,6 +188,17 @@ function xlsx_normalizar_encabezado($texto) {
 	$texto = mb_strtoupper($texto, 'UTF-8');
 	$texto = str_replace(['Á', 'É', 'Í', 'Ó', 'Ú'], ['A', 'E', 'I', 'O', 'U'], $texto);
 	return $texto;
+}
+
+// Mismo criterio que xlsx_normalizar_encabezado() (mayúsculas, sin tildes),
+// pero para el NOMBRE DE LA PESTAÑA en sí (usado por xlsx_leer_hoja()) — acá
+// además colapsa espacios de más ("Cuota  Cliente" -> "Cuota Cliente"), algo
+// que no hacía falta para encabezados de columna (celdas sueltas, casi nunca
+// con doble espacio) pero sí es común en el nombre de una pestaña retipeado
+// a mano.
+function xlsx_normalizar_nombre_hoja($texto) {
+	$texto = xlsx_normalizar_encabezado($texto);
+	return preg_replace('/\s+/', ' ', $texto);
 }
 
 // $mapa[NOMBRE] es un ARRAY de índices (no un solo índice): los reportes de

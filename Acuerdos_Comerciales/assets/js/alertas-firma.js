@@ -1,17 +1,5 @@
-// Campanita de notificaciones (2026-08-25) — widget global del header,
-// visible en cualquier módulo (mismo espíritu que assets/js/lightbox.js).
-// Rediseño a 2 pestañas (mismo día, pedido explícito: "esa mecánica de
-// seguimiento de equipo quitémosla" + "usa el mismo diseño y mecánica" de
-// "diseños ideas/code.html", tomando SOLO esa parte del mockup, no cómo
-// armaron el resto de esa página de referencia — ver CLAUDE.md):
-// - "Actas Asignadas" (activity feed): Actas precargadas del Repositorio
-//   de Cuotas pendientes de completar.
-// - "Actas Por Firmar" (cajas de alerta con franja de color): plazo de 20
-//   días desde fecha_generacion, ver getters/alertas_firma.php.
-// Sin conexión en tiempo real (sin Firebase ni similar, pedido explícito
-// del usuario) — la "sensación de en vivo" la da el botón de refrescar del
-// panel + el refresco automático en cada cambio de módulo (ver el listener
-// de .ac-sidebar-nav en index.php), no un push real.
+// Campanita de notificaciones: "Actas Asignadas" (precargadas pendientes) y "Actas Por Firmar" (plazo de 20 días, ver alertas_firma.php).
+// Sin tiempo real (sin Firebase): la sensación de en vivo la da el refresco manual + el automático en cada cambio de módulo.
 (function () {
 	var btn = document.getElementById('acAlertasBtn');
 	var badge = document.getElementById('acAlertasBadge');
@@ -23,9 +11,7 @@
 	var bodyFirmar = document.getElementById('acAlertasBodyFirmar');
 	if (!btn || !panel || !bodyAsignadas || !bodyFirmar) return;
 
-	// "Vence en N días" no decía QUÉ vence (podía leerse como que se cae el
-	// acuerdo comercial, no que es la ventana para subir la firma) — ver
-	// CLAUDE.md, concepto "Sala de Alertas" (2026-08-25).
+	// "Vence en N días" no decía QUÉ vence (podía leerse como que se cae el acuerdo, no que es la ventana para subir la firma).
 	function diasCortos(dias) {
 		dias = parseInt(dias, 10);
 		if (dias <= 0) return 'hoy';
@@ -36,17 +22,7 @@
 		return 'Subí la firma — ' + diasCortos(dias);
 	}
 
-	// ---------- Vistas (2026-08-26, pedido explícito: "un puntito al lado
-	// de la que está pendiente de ver, que coincida con los numeritos, así
-	// ya marco que la vi") — sin backend real para esto (no hay tabla de
-	// "leídos" ni Firebase, mismo motivo que el resto de la campanita), se
-	// guarda en localStorage: por eso es un estado POR NAVEGADOR, no por
-	// usuario de verdad (si el mismo usuario entra desde otra compu, ve todo
-	// como no visto de nuevo) — aceptable para lo pedido, no hay infra para
-	// más. Clave por ítem: los "Por Firmar" tienen `id` propio; los
-	// "Asignados" no (vienen de un GROUP BY en SQL, ver
-	// listar_actas_precargadas_pendientes()), así que se arma con
-	// pos_id+trimestre+año, su identidad real. ----------
+	// Vistas: sin backend real, se guarda en localStorage — estado por navegador, no por usuario. Clave: id real o pos_id+trimestre+año.
 	var VISTAS_KEY = 'ac_notif_vistas';
 	var vistas = {};
 	(function cargarVistas() {
@@ -59,25 +35,12 @@
 		try { localStorage.setItem(VISTAS_KEY, JSON.stringify(Object.keys(vistas))); } catch (e) {}
 	}
 	function claveFirmar(a) { return 'firmar:' + a.id; }
-	// Incluye `actualizado_en` (2026-08-27, bug real: sin esto, un cliente
-	// que ya se había visto una vez en la campanita quedaba "visto" para
-	// siempre en este navegador, aunque se le resubiera/reasignara una
-	// Acta completamente nueva más adelante — el usuario reportó justo este
-	// caso, verificado con datos reales) — si el cliente/trimestre se
-	// resube o reasigna, `actualizado_en` cambia y la clave completa
-	// cambia con él, volviendo a marcarlo como no visto.
+	// Incluye actualizado_en: si el cliente/trimestre se resube o reasigna, la clave cambia y vuelve a marcarse como no visto.
 	function claveAsignada(p) { return 'asignadas:' + p.pos_id + ':' + p.trimestre + ':' + p.anio + ':' + p.actualizado_en; }
-	// Último fetch en memoria — hace falta fuera de cargarAlertas() para que
-	// marcarTodoVisto() (se llama al abrir el panel) sepa qué había sin
-	// pedir la data de nuevo.
+	// Último fetch en memoria: marcarTodoVisto() lo necesita sin pedir la data de nuevo.
 	var ultimasMias = [];
 	var ultimasPrecargadas = [];
-	// Evita que una respuesta vieja pise a una más nueva — la campanita se
-	// puede refrescar por 3 caminos a la vez (botón manual, cambio de
-	// módulo, sondeo de 5 min); si dos se superponen y el más viejo
-	// responde después, sin esto pisaba el badge/panel ya actualizado con
-	// datos desactualizados. Mismo bug ya encontrado y corregido en
-	// Seguimiento de Equipo/Historial/Gestión de Usuarios/Repositorios.
+	// Evita que una respuesta vieja pise a una más nueva (3 caminos de refresco a la vez pueden superponerse).
 	var alertasReqId = 0;
 
 	function irAHistorial(id) {
@@ -86,11 +49,7 @@
 		cerrarPanel();
 	}
 
-	// Actas Precargadas (Fase 2 del Repositorio de Cuotas) — a diferencia de
-	// "Actas Por Firmar" (que solo lleva a Historial, el usuario elige qué
-	// hacer ahí), acá el click va DIRECTO a Registrar con el formulario ya
-	// cargado — no tiene sentido un paso intermedio para algo que todavía no
-	// existe como Acuerdo real.
+	// Actas Precargadas: a diferencia de "Actas Por Firmar", el click va directo a Registrar con el formulario ya cargado.
 	function irARegistrarConPrecarga(posId, trimestre, anio) {
 		var link = document.querySelector('.ac-sidebar-nav a[href="#sec-registrar"]');
 		if (link) link.click();
@@ -160,20 +119,10 @@
 	tabAsignadas.addEventListener('click', function () { activarTab('asignadas'); });
 	tabFirmar.addEventListener('click', function () { activarTab('firmar'); });
 
-	// Notificación al iniciar sesión (2026-08-25, del concepto "Sala de
-	// Alertas") — reusa el toast global del proyecto (assets/js/toast.js,
-	// ya usado en Registrar/Gestión de Usuarios/etc.) en vez de inventar un
-	// componente de notificación aparte. Se dispara UNA sola vez, en la
-	// primera carga de esta sesión de navegador (no en cada refresco — eso
-	// sería spam, no una alerta de inicio de sesión) — como este proyecto
-	// renderiza todos los módulos una sola vez al loguearse, alcanza con un
-	// flag booleano, sin necesidad de sessionStorage.
+	// Notificación al iniciar sesión: reusa el toast global (toast.js), se dispara una sola vez con un flag booleano en memoria.
 	var primeraCarga = true;
 	function avisarAlInicio(mias, precargadas) {
-		// 2 toasts separados (no un mensaje combinado) porque son 2 acciones
-		// distintas con contexto distinto — mezclarlas en una sola frase
-		// quedaría confuso. El de precargadas primero: es la más nueva/
-		// desconocida de las dos, conviene que no quede tapada.
+		// 2 toasts separados (no combinados): son acciones distintas. El de precargadas va primero, es la más nueva de las dos.
 		if (precargadas.length && window.mostrarToast) {
 			var mensajePrecarga = precargadas.length === 1
 				? '1 Acta asignada por completar — ' + precargadas[0].cliente_excel
@@ -189,9 +138,7 @@
 		if (window.mostrarToast) window.mostrarToast(mensaje, hayCritico ? 'error' : 'warning');
 	}
 
-	// El badge cuenta NO VISTOS, no el total — un ítem ya marcado como visto
-	// sigue apareciendo en su pestaña, solo deja de sumar acá y pierde el
-	// puntito (pedido explícito: "que coincida con los numeritos").
+	// El badge cuenta NO VISTOS, no el total — un ítem visto sigue en su pestaña, solo deja de sumar y pierde el puntito.
 	function actualizarBadge() {
 		var noVistos = ultimasMias.filter(function (a) { return !vistas[claveFirmar(a)]; });
 		var noVistasPrecarga = ultimasPrecargadas.filter(function (p) { return !vistas[claveAsignada(p)]; });
@@ -202,19 +149,12 @@
 		} else {
 			badge.hidden = true;
 		}
-		// Pulso si hay al menos una Acta NO VISTA en el nivel más urgente de
-		// vencimiento (0-1 día) O al menos una Acta asignada NO VISTA — a
-		// diferencia del vencimiento, una asignación no tiene un plazo que la
-		// escale sola con los días, así que se trata como urgente desde que
-		// existe (y hasta que se vea).
+		// Pulso si hay Acta no vista en nivel crítico (0-1 día) o Acta asignada no vista (esta última es urgente desde que existe).
 		var hayCritico = noVistos.some(function (a) { return parseInt(a.dias_restantes, 10) <= 1; }) || noVistasPrecarga.length > 0;
 		badge.classList.toggle('ac-alertas-badge-critico', hayCritico);
 	}
 
-	// Se llama al abrir el panel — marca TODO lo que hay ahora mismo cargado
-	// (las 2 pestañas, no solo la activa) como visto de una, mismo criterio
-	// simple que pidió el usuario ("ya marco que la vi" al abrir, no al
-	// cambiar de pestaña ítem por ítem).
+	// Se llama al abrir el panel: marca todo lo cargado (las 2 pestañas, no solo la activa) como visto de una vez.
 	function marcarTodoVisto() {
 		var cambio = false;
 		ultimasMias.forEach(function (a) { var k = claveFirmar(a); if (!vistas[k]) { vistas[k] = true; cambio = true; } });
@@ -252,10 +192,7 @@
 			});
 	}
 
-	// El panel es `position:fixed` (ver style.css — escapa del
-	// `overflow:hidden` de .ac-header-inner) así que no se puede anclar por
-	// CSS puro con top/right relativos al botón; se calcula acá cada vez
-	// que se abre, a partir del rect real del botón en pantalla.
+	// El panel es position:fixed (escapa del overflow:hidden de .ac-header-inner), se posiciona acá con el rect real del botón.
 	function posicionarPanel() {
 		var r = btn.getBoundingClientRect();
 		panel.style.top = (r.bottom + 8) + 'px';
@@ -284,12 +221,8 @@
 	if (refrescarBtn) refrescarBtn.addEventListener('click', function (e) { e.stopPropagation(); cargarAlertas(); });
 
 	cargarAlertas();
-	// Sondeo cada 5 minutos como respaldo (sin conexión en tiempo real, ver
-	// comentario de arriba) — se suma al refresco explícito (botón + cambio
-	// de módulo), no lo reemplaza.
+	// Sondeo cada 5 minutos como respaldo, se suma al refresco explícito (botón + cambio de módulo), no lo reemplaza.
 	setInterval(cargarAlertas, 5 * 60 * 1000);
-	// Expuesto para que index.php refresque la campanita en CUALQUIER
-	// cambio de módulo (pedido explícito), mismo patrón que
-	// window.acHistorialRefrescar/etc.
+	// Expuesto para que index.php refresque la campanita en cualquier cambio de módulo, mismo patrón que window.acHistorialRefrescar.
 	window.acAlertasFirmaRefrescar = cargarAlertas;
 })();

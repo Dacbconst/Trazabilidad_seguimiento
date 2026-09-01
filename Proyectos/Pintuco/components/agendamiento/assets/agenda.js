@@ -12,10 +12,7 @@
     var DURACION_APROX_MIN = 45;
     var estadosPorFecha = {}; // { 'YYYY-MM-DD': { agendada: true, ... } } — para los puntitos del mini-calendario
 
-    // Mapa de la card de edición (switch "Editar") — mismo patrón de pin fijo
-    // + reverse-geocode Mapbox que ya usa agenda-crear.js, duplicado con IDs
-    // propios para no chocar con el modal de creación (self-contenido, mismo
-    // criterio que ya sigue este proyecto entre agenda.js/agenda-crear.js).
+    // Mapa de la card de edición: mismo patrón de agenda-crear.js, IDs propios para no chocar.
     var editMapaPin = null;
     var editCoordenadas = null; // { lat, lng } — arranca con la ubicación ya guardada de la visita
     var editSnapshot = null; // foto de los campos al abrir, para saber si hay algo que guardar
@@ -23,9 +20,7 @@
     var PATRON_PLUS_CODE_EDICION = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
     var RE_EMPRESA_EDICION = /^[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ.\-&' ]+$/;
 
-    // Mismo helper que ya usa agenda-crear.js — fecha local en formato
-    // "YYYY-MM-DD" (no toISOString(), que corre por UTC y puede desfasar un
-    // día según la hora).
+    // Fecha local en formato YYYY-MM-DD (no toISOString, que corre por UTC).
     function hoyISO() {
         var h = new Date();
         return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
@@ -40,9 +35,7 @@
         });
     }
 
-    // Puntito bajo el número del día, igual que Google Calendar marca los
-    // días con eventos. Se repinta tanto al cambiar de mes en el mini-
-    // calendario (las celdas son nuevas) como al recargar/filtrar datos.
+    // Puntito bajo el día con eventos, igual que Google Calendar.
     function pintarPuntosMiniCalendario() {
         document.querySelectorAll('#agendaMiniCalendar .fc-daygrid-day').forEach(function (cell) {
             var anterior = cell.querySelector('.gcal-mini-day-dots');
@@ -112,15 +105,11 @@
         document.getElementById('agendaMiniYearPicker').classList.remove('active');
     }
 
-    // Contrato de estados acordado con la app móvil (Constantes.java /
-    // AdapterAgenda.java): la app lee esta misma tabla directo por sync, así
-    // que estado_agenda debe ser SIEMPRE uno de estos 6 valores literales —
-    // cualquier otro string lo muestra la app sin color (fallback inerte).
+    // Contrato de estados con la app móvil (Constantes.java): estado_agenda debe ser
+    // siempre uno de estos 6 valores, cualquier otro string lo muestra la app sin color.
     var ESTADOS_VALIDOS = ['pendiente', 'confirmado', 'reagendada', 'vencida', 'cancelada', 'completada'];
 
-    // Ya no se re-deriva el estado a partir de hora/técnico: el backend
-    // (update_agenda.php) y el cron de "vencida" en get_agenda.php son la
-    // única fuente de verdad. Un valor legado o desconocido cae a "pendiente".
+    // El backend (update_agenda.php / get_agenda.php) es la única fuente de verdad del estado.
     function estadoVisual(r) {
         return ESTADOS_VALIDOS.indexOf(r.estado_agenda) !== -1 ? r.estado_agenda : 'pendiente';
     }
@@ -145,9 +134,7 @@
                 // fecha_agendamiento ya llega en formato ISO (YYYY-MM-DD) desde el getter.
                 if (!r.fecha_agendamiento) return null;
                 var start = r.hora ? (r.fecha_agendamiento + 'T' + r.hora) : r.fecha_agendamiento;
-                // No registramos duración real: se asume un fin aproximado de
-                // DURACION_APROX_MIN para que el bloque y la hora de fin se vean
-                // en el calendario (marcado como "(aprox)" en el card).
+                // No registramos duración real: se asume DURACION_APROX_MIN para el fin.
                 var end = r.hora ? new Date(new Date(start).getTime() + DURACION_APROX_MIN * 60000) : null;
                 return {
                     id: String(r.id),
@@ -182,9 +169,7 @@
         }
     }
 
-    // Solo se lista lo que de verdad requiere acción del analista: nunca se
-    // le asignó técnico/hora ('pendiente'), o su fecha ya venció sin
-    // reagendarse ('vencida' — la pone get_agenda.php automáticamente).
+    // Solo lista lo que requiere acción: sin técnico/hora ('pendiente') o vencida.
     function motivoPendiente(r) {
         if (estadoVisual(r) === 'pendiente') return { texto: 'PENDIENTE TÉCNICO', clase: 'is-pendiente' };
         return { texto: 'VENCIDA', clase: 'is-vencida' };
@@ -231,13 +216,8 @@
                 } else {
                     hiddenIds[r.id] = true;
                 }
-                // refrescarEventos/indexarEstadosPorFecha ya descartan los
-                // hiddenIds internamente (ver buildEvents) — no hace falta
-                // filtrar la lista antes de pasarla.
+                // refrescarEventos/indexarEstadosPorFecha ya descartan hiddenIds internamente.
                 refrescarEventos(currentRows);
-                // Los puntitos del mini-calendario también deben dejar de
-                // marcar un día si la única visita de ese día se ocultó
-                // desde este checkbox — no solo cuando se recarga de la BD.
                 indexarEstadosPorFecha(currentRows);
                 pintarPuntosMiniCalendario();
             });
@@ -292,11 +272,7 @@
         buildEvents(rows).forEach(function (ev) { calendar.addEvent(ev); });
     }
 
-    // "Pendientes" y "Vencidas" salen de pendientesRows (ignora el filtro de
-    // Estado, ver cargarAgenda) para que este contador nunca contradiga a la
-    // lista de "Agendas pendientes" de al lado — Confirmadas/Reagendadas/
-    // Canceladas sí reflejan el Estado elegido, son solo un resumen de lo
-    // que se está viendo en el calendario principal.
+    // "Pendientes"/"Vencidas" ignoran el filtro de Estado, igual que "Agendas pendientes".
     function pintarLeyenda(rows, pendientes) {
         var c = { confirmado: 0, reagendada: 0, cancelada: 0 };
         rows.forEach(function (r) { var e = estadoVisual(r); if (e in c) c[e]++; });
@@ -319,12 +295,7 @@
     }
 
     // ── Filtros: Promotor / Técnico / PDV / Empresa / Estado ───────────
-    // Los 4 primeros viajan como parámetros reales de get_agenda.php (AND
-    // entre sí) — antes Técnico se aplicaba solo en el cliente sobre lo que
-    // ya hubiera cargado, así que si esa visita no venía en el lote (por
-    // ejemplo, porque ya estaba "completada" y por defecto el getter no la
-    // trae) el filtro no tenía nada que mostrar, aunque el técnico sí
-    // tuviera agendamientos. Pedido explícito del usuario (2026-07-16).
+    // Los 4 primeros viajan como parámetros reales de get_agenda.php (AND entre sí).
     function paramsFiltros(incluirEstado) {
         var params = new URLSearchParams();
         var promotor = document.getElementById('agendaFiltroPromotor').value;
@@ -339,11 +310,7 @@
         if (incluirEstado && estado) {
             params.set('estado_agenda', estado);
         } else if (promotor || tecnico || pdv || empresa) {
-            // Buscando algo puntual (cualquiera de estos 4 filtros activo)
-            // sin haber tocado Estado: también se incluyen las visitas
-            // "completada". Sin esto, filtrar por un técnico/PDV/empresa
-            // cuyas visitas ya se completaron parecía no traer nada — pedido
-            // explícito del usuario (2026-07-16).
+            // Con algún filtro activo pero sin Estado, incluye también las visitas "completada".
             params.set('incluir_completadas', '1');
         }
         return params;
@@ -351,14 +318,10 @@
 
     function cargarAgenda() {
         var paramsPrincipal  = paramsFiltros(true);
-        // Ignora a propósito el filtro de Estado: "Agendas pendientes" (y su
-        // contador en la leyenda) debe seguir viéndose sin importar qué
-        // Estado tenga elegido el analista para el calendario principal.
+        // Ignora a propósito el filtro de Estado para "Agendas pendientes".
         var paramsPendientes = paramsFiltros(false);
 
-        // Se retorna la promesa para poder encadenar acciones que necesitan
-        // esperar a que el calendario ya tenga los eventos repintados (p.ej.
-        // navegar y resaltar la visita recién guardada).
+        // Retorna la promesa para encadenar navegar+resaltar tras guardar.
         return Promise.all([
             fetch(GETTERS_BASE + 'get_agenda.php?' + paramsPrincipal.toString()).then(function (r) { return r.json(); }),
             fetch(GETTERS_BASE + 'get_agenda.php?' + paramsPendientes.toString()).then(function (r) { return r.json(); })
@@ -372,10 +335,7 @@
         });
     }
 
-    // Universo completo de agendamientos (todos los estados, incluida
-    // 'completada', sin ningún filtro) — fuente para los desplegables de
-    // Promotor y Empresa, que deben mostrar SIEMPRE todo lo que existe, no
-    // solo lo que el calendario principal decide traer por defecto.
+    // Universo completo sin filtros: fuente de los desplegables de Promotor y Empresa.
     var opcionesBaseCache = null;
     function cargarOpcionesBase() {
         if (opcionesBaseCache) return Promise.resolve(opcionesBaseCache);
@@ -406,19 +366,12 @@
             opt.textContent = v;
             select.appendChild(opt);
         });
-        // Antes se perdía en silencio: al cambiar Promotor, cargarOpcionesTecnico
-        // repuebla este mismo select y el Técnico ya elegido se reseteaba a
-        // "Todos" aunque siguiera siendo válido para el nuevo promotor
-        // (hallazgo del consejo 2026-07-16). Mismo patrón que ya usaba
-        // poblarSelectDistinct en factura.js.
+        // Preserva el técnico elegido si sigue siendo válido para el nuevo promotor.
         if (valorPrevio && valores.indexOf(valorPrevio) !== -1) select.value = valorPrevio;
     }
 
-    // Sin promotor elegido: todos los técnicos que han tenido agendamiento.
-    // Con promotor elegido: solo los técnicos que han trabajado con ese
-    // promotor — en ambos casos contando todos los estados (incluida
-    // 'completada'), el filtro de Estado no debe acotar esta lista. Se
-    // vuelve a llamar cada vez que cambia Promotor (ver DOMContentLoaded).
+    // Técnicos con agendamiento (con o sin promotor); cuenta todos los estados,
+    // el filtro de Estado no debe acotar esta lista.
     function cargarOpcionesTecnico(promotor) {
         var params = new URLSearchParams();
         params.set('incluir_completadas', '1');
@@ -430,46 +383,20 @@
             });
     }
 
-    // Antes este filtro usaba el mismo catálogo que "Crear visita"
-    // (get_pdvs.php / lvi_rutero) — pero ese catálogo viene limitado a
-    // subchannel LIKE 'COMERCIAL KYWI S.A.' (ver get_pdvs.php), así que
-    // cualquier PDV de otro subchannel/empresa nunca aparecía como opción
-    // aunque sí tuviera agendamientos reales, y quedaba imposible de
-    // filtrar (hallazgo del consejo 2026-07-16, confirmado por el usuario:
-    // el filtro debe mostrar solo PDV que YA tengan agendamiento — mismo
-    // criterio ya aplicado a Promotor/Empresa acá y a los 3 filtros de
-    // Proforma/Factura/Estado de Flujo). Reemplazado: se puebla junto con
-    // Promotor/Empresa desde cargarOpcionesBase() (universo real de
-    // insert_proyectos_contacto), no desde el catálogo externo. Ese
-    // catálogo (get_pdvs.php) se sigue usando tal cual en "Crear visita"
-    // (agenda-crear.js), donde sí hace falta ofrecer PDV sin agendamiento
-    // previo — no se tocó ese flujo.
+    // El filtro de PDV se puebla desde el universo real de insert_proyectos_contacto
+    // (solo PDV con agendamiento), no desde el catálogo externo get_pdvs.php.
+    // Ese catálogo se sigue usando tal cual en "Crear visita" (agenda-crear.js).
 
-    // Para que agenda-crear.js pueda recargar el calendario después de
-    // guardar una visita nueva, sin que ese archivo conozca nada de cómo
-    // funciona internamente cargarAgenda(). AgendaResaltar es la misma
-    // navegación+resalto que ya usa guardarEdicion() — sin esto, una visita
-    // creada para una fecha fuera de la semana/día que se está viendo en
-    // ese momento queda guardada en la BD pero invisible hasta navegar
-    // manualmente hasta ahí (esto era el bug: "se guardó pero no apareció").
+    // Expuesto para que agenda-crear.js recargue/resalte el calendario tras guardar,
+    // sin conocer la implementación interna de cargarAgenda().
     window.AgendaRecargar = cargarAgenda;
-    // El calendario vive montado en el DOM todo el tiempo (esta app no
-    // recarga la página al cambiar de sección) — si el analista dejó la
-    // vista parqueada en otra semana/mes (por ejemplo, abrió una visita
-    // agendada a futuro) y se va a otra sección, al volver a Agendamientos
-    // seguía ahí parqueado, obligando a apretar "Hoy" a mano cada vez.
-    // index.php llama esto (en vez de AgendaRecargar a secas) específicamente
-    // al hacer clic en el link de Agendamientos del sidebar — pedido
-    // explícito del usuario (2026-07-16).
+    // Vuelve el calendario a "Hoy" al entrar a la sección desde el sidebar.
     window.AgendaEntrar = function () {
         if (calendar) calendar.today();
         return cargarAgenda();
     };
     window.AgendaResaltar = function (id, fecha, hora) { resaltarVisita(id, fecha, hora); };
-    // Reusado por agenda-crear.js: el modal de "Nueva visita" pega contra el
-    // mismo endpoint/misma regla de conflicto (DURACION_APROX_MIN por
-    // técnico) y quiere el mismo diálogo detallado, no un toast genérico que
-    // desaparece solo — así el analista ve claramente CON QUÉ visita choca.
+    // Reusado por agenda-crear.js: mismo diálogo de conflicto que "Editar visita".
     window.AgendaMostrarConflicto = mostrarConflicto;
 
     // El locale 'es' formatea AM/PM como "a. m."/"p. m."; lo normalizamos a
@@ -535,11 +462,8 @@
         return minutos >= 6 * 60 && minutos <= 23 * 60;
     }
 
-    // Panel propio con alto fijo y scroll interno (no un <select> nativo):
-    // un <select> con 69 opciones (cada 15 min, 6 AM-11 PM) hace que el
-    // navegador despliegue una lista gigante sin límite de alto — eso es
-    // justo lo que Google Calendar/Outlook evitan usando un panel propio en
-    // vez del control nativo. El valor real vive en data-value del wrapper.
+    // Panel propio con scroll interno, no <select> nativo (69 opciones desplegaría
+    // una lista gigante). El valor real vive en data-value del wrapper.
     var HORA_OPCION_PASO = 15;
 
     function getHora() {
@@ -577,13 +501,8 @@
         var actualValor = getHora();
         var lista = document.getElementById('agendaEditHoraLista');
 
-        // El panel de hora vivía con position:absolute dentro de
-        // .agenda-edit-body, que tiene overflow-y:auto — si la fila de
-        // hora quedaba cerca del borde inferior visible, el navegador
-        // recortaba la lista ahí mismo (se "ocultaba" dentro del card).
-        // Posicionarlo con fixed, calculado a mano contra el trigger,
-        // hace que escape de ese recorte porque ya no se mide contra el
-        // contenedor con scroll, sino contra el viewport.
+        // position:fixed contra el trigger para escapar del overflow-y:auto del card,
+        // que recortaba la lista si la fila de hora quedaba cerca del borde inferior.
         var rect = document.getElementById('agendaEditHoraTrigger').getBoundingClientRect();
         lista.style.position = 'fixed';
         lista.style.top = (rect.bottom + 4) + 'px';
@@ -598,9 +517,7 @@
         if (actual) {
             actual.scrollIntoView({ block: 'center' });
         } else {
-            // El panel no se recrea entre aperturas — sin esto, si quedó
-            // scrolleado de una vez anterior, abre donde quedó en vez de
-            // arrancar arriba cuando todavía no hay hora elegida.
+            // El panel no se recrea entre aperturas, hay que resetear el scroll a mano.
             lista.scrollTop = 0;
         }
     }
@@ -609,10 +526,8 @@
         document.getElementById('agendaEditHora').classList.remove('abierto');
     }
 
-    // Switch único de edición: reemplaza el lápiz por-campo de antes. La
-    // clase is-editando en la card decide en CSS qué se ve — texto o
-    // input/mapa — para todos los campos editables a la vez (Promotor y
-    // Local quedan fuera de este mecanismo, siempre son solo texto).
+    // La clase is-editando decide en CSS qué se ve (texto o input/mapa); Promotor
+    // y Local quedan fuera, siempre son solo texto.
     function setModoEdicion(activo) {
         document.getElementById('agendaEditCard').classList.toggle('is-editando', activo);
         document.getElementById('agendaEditModoEdicion').checked = activo;
@@ -620,16 +535,8 @@
         if (activo) inicializarMapaEdicion();
     }
 
-    // "Guardar" queda fijo en pantalla siempre (nunca aparece/desaparece,
-    // mismo criterio que .ctc-btn-descarga.is-seleccion en contactados.css)
-    // — solo cambia de apagado a activo cuando hay un cambio real que
-    // guardar, comparado contra la foto tomada al abrir la card
-    // (tomarSnapshotEdicion, llamada al final de abrirEdicion). Nota:
-    // "modoEdicion" queda fuera de esta foto a propósito — activar el
-    // switch por sí solo no es un cambio, así que no enciende el botón;
-    // recién se enciende cuando de verdad se toca un campo, y si ese campo
-    // vuelve a quedar igual que como llegó, se apaga otra vez (pedido
-    // explícito del usuario 2026-07-15).
+    // "Guardar" queda fijo en pantalla, solo se activa cuando hay un cambio real contra
+    // este snapshot. "modoEdicion" queda fuera a propósito: activar el switch solo no cuenta.
     function tomarSnapshotEdicion() {
         return {
             fecha: document.getElementById('agendaEditFecha').value,
@@ -656,11 +563,8 @@
         btn.classList.toggle('is-activo', hayCambios);
     }
 
-    // Mismo patrón de mapa que agenda-crear.js (Leaflet + pin fijo, sin
-    // arrastre — el mapa se desplaza debajo). Arranca centrado en la
-    // ubicación YA guardada de la visita (editCoordenadas, seteado en
-    // abrirEdicion) en vez del punto por defecto, para no obligar al
-    // analista a rebuscar la ubicación si solo va a corregir otro campo.
+    // Mismo patrón de mapa que agenda-crear.js; arranca centrado en la ubicación ya
+    // guardada de la visita (editCoordenadas) en vez del punto por defecto.
     function inicializarMapaEdicion() {
         var centro = editCoordenadas ? [editCoordenadas.lat, editCoordenadas.lng] : PUNTO_INICIAL_EDICION;
         if (editMapaPin) {
@@ -728,12 +632,8 @@
         document.getElementById('agendaEditBadgeTexto').textContent = ESTADO_LABEL[estado];
         badge.className = 'agenda-edit-badge is-' + estado;
 
-        // Motivo de una reagendación YA guardada (solo lectura) — se
-        // guardaba desde 2026-07-14 pero nunca se volvía a mostrar en
-        // ningún lado, ni siquiera acá al reabrir la misma visita
-        // (reportado 2026-07-16). Distinto del textarea de más abajo, que
-        // arranca vacío a propósito porque es para el motivo de una
-        // reagendación nueva, no para repetir el de una anterior.
+        // Motivo de una reagendación ya guardada (solo lectura); distinto del textarea
+        // de más abajo, que arranca vacío porque es para una reagendación nueva.
         var motivoPrevioWrap = document.getElementById('agendaEditMotivoPrevioWrap');
         if (estado === 'reagendada' && props.motivo_reagendacion) {
             document.getElementById('agendaEditMotivoPrevioTexto').textContent = props.motivo_reagendacion;
@@ -745,11 +645,7 @@
         var registro = formatFechaHoraRegistro(props.fecha_registro);
         document.getElementById('agendaEditRegistro').textContent = registro ? ('Registrado: ' + registro) : '';
 
-        // Mientras nunca se confirmó (estado "pendiente"), la fecha que
-        // llegó del lado móvil es solo una sugerencia inicial — la fecha
-        // real recién se fija cuando el analista la confirma por primera
-        // vez aquí en la web (cualquier cambio después de eso ya cuenta
-        // como "reagendada", no como ajustar una sugerencia).
+        // En "pendiente" la fecha del lado móvil es solo sugerencia inicial, no confirmada.
         document.getElementById('agendaEditFechaLabel').textContent =
             estado === 'pendiente' ? 'Sugerido' : 'Fecha agendada';
 
@@ -760,9 +656,7 @@
         document.getElementById('agendaEditEmpresaTexto').textContent = props.empresa || '—';
         document.getElementById('agendaEditEmpresa').value = props.empresa || '';
 
-        // Un correo es una sola "palabra" sin espacios: sin esto, el navegador
-        // lo corta donde quiera (a mitad de "hotmail.com") en una columna
-        // angosta — se le da un punto de corte sensato justo tras el "@".
+        // Punto de corte tras el "@" para que el navegador no parta el correo a mitad de palabra.
         var mailTexto = document.getElementById('agendaEditMailTexto');
         mailTexto.textContent = '';
         if (props.mail) {
@@ -792,39 +686,24 @@
         document.getElementById('agendaEditConvencionalTexto').textContent = props.telefono_convencional || 'No registrado';
         document.getElementById('agendaEditConvencional').value = props.telefono_convencional || '';
 
-        // Arranca centrado en la ubicación ya guardada — si el analista
-        // activa el switch sin tocar el mapa, esta misma coordenada se
-        // reenvía tal cual (no se pierde por no haber confirmado un pin).
+        // Si el analista activa el switch sin tocar el mapa, esta coordenada se reenvía tal cual.
         var lat = parseFloat(props.latitud), lng = parseFloat(props.longitud);
         editCoordenadas = (!isNaN(lat) && !isNaN(lng)) ? { lat: lat, lng: lng } : null;
 
         document.getElementById('agendaEditFecha').value = props.fecha_agendamiento || '';
-        // La BD guarda "HH:MM:SS"; el panel usa "HH:MM". Si la hora real no
-        // cae en un slot de 15 min (datos legado, como el caso "00:00" que
-        // encontramos), el botón la muestra igual tal cual es.
+        // La BD guarda "HH:MM:SS"; el panel usa "HH:MM", aunque no caiga en un slot de 15 min.
         setHora(props.hora ? props.hora.slice(0, 5) : '');
         document.getElementById('agendaEditTecnico').value = props.tecnico || '';
 
-        // "Pendiente técnico" nunca tuvo nada confirmado todavía — el
-        // switch "ver vs editar" no debería ni aparecer ahí. Ojo: esto es
-        // SOLO ocultar el switch, no activar modo edición (eso trae el
-        // layout ancho + mapa, que no se pidió) — la card se queda exactamente
-        // igual que siempre (modo vista, campos de agendar ya editables como
-        // ya eran). Pedido explícito del usuario (2026-07-13).
+        // "Pendiente técnico" oculta el switch ver/editar; no activa modo edición.
         document.getElementById('agendaEditModeSwitchWrap').style.display =
             (estado === 'pendiente') ? 'none' : '';
         setModoEdicion(false);
 
-        // get_agenda.php ya marca 'vencida' en la BD cuando la fecha pactada
-        // pasó sin reagendarse; aquí solo se le pide al analista que la
-        // reagende ahora mismo en vez de dejarlo pasar desapercibido.
+        // get_agenda.php ya marca 'vencida' en la BD; aquí se le pide al analista reagendar.
         var alerta = document.getElementById('agendaEditAlerta');
-        // Sombreado del campo de fecha: mientras esté vencida, queda marcado
-        // en rojo (mismo color que la alerta de arriba) como lo que hay que
-        // tocar antes de poder guardar. Se quita al reabrir la card ya
-        // reagendada. Pedido explícito del usuario (2026-07-15): antes se
-        // podía guardar el motivo solo, sin tocar la fecha, y quedaba
-        // "reagendada" con la fecha todavía vencida.
+        // El campo de fecha queda en rojo mientras esté vencida, para forzar a tocarla
+        // antes de guardar (antes se podía guardar solo el motivo y quedaba vencida).
         var campoFecha = document.querySelector('.agenda-edit-agendar-campo[data-campo="fecha"]');
         campoFecha.classList.toggle('is-invalid', estado === 'vencida');
         if (estado === 'vencida') {
@@ -835,19 +714,14 @@
             alerta.style.display = 'none';
         }
 
-        // Motivo de reagendación: solo aparece (y solo se exige) cuando esta
-        // visita estaba Vencida — es la ÚNICA situación que hoy cuenta como
-        // reagendamiento real (ver update_agenda.php). Siempre arranca vacío:
-        // es el motivo de ESTA reagendación, no el de una anterior.
+        // Motivo de reagendación: solo aparece y se exige cuando la visita estaba Vencida.
         var motivoInput = document.getElementById('agendaEditMotivo');
         motivoInput.value = '';
         motivoInput.classList.remove('is-invalid');
         document.getElementById('agendaEditErrMotivo').textContent = '';
         document.getElementById('agendaEditMotivoWrap').style.display = (estado === 'vencida') ? 'block' : 'none';
 
-        // Foto de "cómo llegó" la card, tomada al final de abrirEdicion ya con
-        // todos los campos cargados — a partir de acá cualquier diferencia
-        // contra esta foto es lo que decide si "Guardar" se enciende.
+        // Foto de "cómo llegó" la card; cualquier diferencia contra esto activa "Guardar".
         editSnapshot = tomarSnapshotEdicion();
         actualizarEstadoGuardar();
 
@@ -867,25 +741,16 @@
         document.getElementById('agendaEditOverlay').classList.remove('active');
     }
 
-    // Después de guardar, el analista puede estar viendo un mes/semana
-    // distinto al de la visita (por estar navegando el calendario "de
-    // curioso"). Se lo lleva directo a la fecha y hora exactas donde quedó
-    // insertada, y se resalta el bloque para que no tenga que buscarlo ni
-    // scrollear a ciegas para encontrar la hora.
+    // Navega directo a la fecha/hora de la visita guardada y resalta el bloque.
     function resaltarVisita(id, fecha, hora) {
         if (!fecha) return;
         var fechaObjetivo = new Date(fecha + 'T' + (hora || '00:00'));
-        // Si ya estaba viendo semana, se queda en semana (solo navega dentro
-        // de ella); cualquier otro caso (día o mes) usa día, porque mes no
-        // muestra horas y no tendría sentido "mantenerse" ahí.
+        // Se queda en semana si ya estaba ahí; mes/día caen a día, mes no muestra horas.
         var vistaDestino = calendar.view.type === 'timeGridWeek' ? 'timeGridWeek' : 'timeGridDay';
         calendar.changeView(vistaDestino, fechaObjetivo);
         if (hora) calendar.scrollToTime(hora + ':00');
 
-        // Defensivo: renderizar() ya repintó los puntitos con datos frescos
-        // antes de llegar aquí, pero si el changeView de arriba navega el
-        // mini-calendario a un mes que no estaba montado en ese momento, se
-        // vuelve a pintar ahora que sus celdas ya existen en el DOM.
+        // Defensivo: repinta por si changeView montó celdas nuevas del mini-calendario.
         pintarPuntosMiniCalendario();
 
         setTimeout(function () {
@@ -900,8 +765,7 @@
     function mostrarConflicto(conflicto, fecha) {
         document.getElementById('agendaConflictoMiniFecha').textContent = formatDiaCorto(fecha);
 
-        // Misma clase de color que usa el evento real en el calendario
-        // grande (agenda-evt-confirmado/reagendada/vencida/...).
+        // Misma clase de color que usa el evento real en el calendario grande.
         document.getElementById('agendaConflictoMiniEvento').className =
             'agenda-conflicto-mini-evento agenda-evt-' + estadoVisual(conflicto);
 
@@ -925,8 +789,7 @@
         var fechaGuardada = document.getElementById('agendaEditFecha').value;
         var horaGuardada = getHora();
 
-        // El panel ya solo ofrece horas de 6 AM-11 PM, pero se valida igual
-        // por si quedó una hora legado fuera de ese rango sin tocar.
+        // Se valida el rango igual por si quedó una hora legado sin tocar.
         if (!horaEnRango(horaGuardada)) {
             var alertaHora = document.getElementById('agendaEditAlerta');
             document.getElementById('agendaEditAlertaTexto').textContent =
@@ -936,9 +799,7 @@
             return;
         }
 
-        // El campo de motivo solo está visible cuando esta visita estaba
-        // Vencida (ver abrirEdicion) — ahí sí es obligatorio, en cualquier
-        // otro guardado ni se pide ni se manda.
+        // El motivo solo es visible/obligatorio cuando la visita estaba Vencida.
         var motivoWrap = document.getElementById('agendaEditMotivoWrap');
         var reagendandoVencida = motivoWrap.style.display !== 'none';
         var motivoReagendacion = document.getElementById('agendaEditMotivo').value.trim();
@@ -949,11 +810,7 @@
             return;
         }
 
-        // Reagendar de verdad exige una fecha nueva (hoy o futura) — el
-        // input ya viene pre-cargado con la fecha vieja (ver abrirEdicion),
-        // así que sin este chequeo se podía guardar solo el motivo y dejar
-        // la visita "reagendada" con la misma fecha vencida. Mismo criterio
-        // que valida update_agenda.php del lado servidor.
+        // Exige fecha nueva (hoy o futura); mismo criterio que valida update_agenda.php.
         if (reagendandoVencida && (!fechaGuardada || fechaGuardada < hoyISO())) {
             var campoFechaInvalido = document.querySelector('.agenda-edit-agendar-campo[data-campo="fecha"]');
             campoFechaInvalido.classList.add('is-invalid');
@@ -972,13 +829,7 @@
         if (reagendandoVencida) {
             body.set('motivo_reagendacion', motivoReagendacion);
         }
-        // El lugar se sincroniza con la dirección guardada y el estado
-        // (confirmado/reagendada) lo decide el backend.
-
-        // Los campos del switch solo se mandan (y validan) si el switch
-        // estuvo activo — si el analista solo reagenda fecha/hora/técnico
-        // sin haber tocado "Editar", el guardado se comporta exactamente
-        // como antes, sin arriesgar datos legado que no pasen estas reglas.
+        // Los campos del switch solo se mandan y validan si el switch estuvo activo.
         if (document.getElementById('agendaEditModoEdicion').checked) {
             var empresa = document.getElementById('agendaEditEmpresa').value.trim();
             var mail = document.getElementById('agendaEditMail').value.trim();
@@ -1013,10 +864,7 @@
                 } else if (json.conflicto) {
                     mostrarConflicto(json.conflicto, fechaGuardada);
                 } else if (json.requiere_motivo) {
-                    // El servidor detectó que esta visita ya está 'vencida'
-                    // aunque el panel se abrió antes de eso, así que el campo
-                    // nunca se mostró — se revela ahora para que el analista
-                    // pueda completarlo y reintentar guardar.
+                    // El servidor detectó 'vencida' aunque el panel se abrió antes; se revela el campo.
                     document.getElementById('agendaEditMotivoWrap').style.display = 'block';
                     document.getElementById('agendaEditMotivo').classList.add('is-invalid');
                     document.getElementById('agendaEditErrMotivo').textContent = json.message || 'El motivo de la reagendación es obligatorio.';
@@ -1098,11 +946,7 @@
                 titulo.textContent = arg.event.title;
                 wrap.appendChild(titulo);
 
-                // El bloque solo tiene altura real para 2 líneas (lo mide la
-                // duración de 45 min contra el rango 6am-11pm — una 3ra línea
-                // se corta por overflow). Para que quepan las 3 cosas (título,
-                // empresa, hora) sin que nada se corte, empresa y hora
-                // comparten la 2da línea en vez de ir cada una en la suya.
+                // El bloque solo tiene altura para 2 líneas; empresa y hora comparten la 2da.
                 var empresa = arg.event.extendedProps.empresa;
                 var horaTexto = arg.timeText ? (formatoHora12(arg.timeText) + (arg.event.end ? ' (aprox)' : '')) : '';
                 var subtitulo = [empresa, horaTexto].filter(Boolean).join(' · ');
@@ -1187,10 +1031,7 @@
             pintarYearGrid();
         });
 
-        // zoomControl en 'topright': el control propio de Leaflet por defecto
-        // se pone en la esquina superior izquierda, exactamente donde vive
-        // nuestro botón hamburguesa de mostrar/ocultar el mapa — se mueve a
-        // la derecha para que nunca choquen entre sí.
+        // zoomControl en 'topright' para no chocar con el botón hamburguesa del mapa.
         map = L.map('agendaMap', { zoomControl: false }).setView([-2.170998, -79.922359], 12);
         L.control.zoom({ position: 'topright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1200,9 +1041,7 @@
 
         construirOpcionesHora();
 
-        // Universo completo (Promotor/PDV/Empresa) se pide una sola vez;
-        // Técnico se recalcula acá para el estado inicial (sin promotor =>
-        // todos) y de nuevo cada vez que cambie Promotor.
+        // Universo completo se pide una sola vez; Técnico se recalcula al cambiar Promotor.
         cargarOpcionesBase().then(function (base) {
             poblarSelectDistinct('agendaFiltroPromotor', base, 'usuario', 'Todos');
             poblarSelectDistinct('agendaFiltroPdv', base, 'pdv', 'Todos');
@@ -1211,20 +1050,15 @@
         cargarOpcionesTecnico('');
         cargarAgenda();
 
-        // Combo con buscador dentro del desplegable — mismo widget que ya
-        // usa "Crear visita" (agenda-crear.js), reutilizado tal cual acá.
+        // Mismo widget de combo con buscador que "Crear visita" (agenda-crear.js).
         ['agendaFiltroPromotor', 'agendaFiltroTecnico', 'agendaFiltroPdv', 'agendaFiltroEmpresa'].forEach(function (id) {
             window.AgendaHabilitarComboBuscador(id);
         });
 
         document.getElementById('agendaBtnActualizar').addEventListener('click', cargarAgenda);
         document.getElementById('agendaBtnBuscar').addEventListener('click', cargarAgenda);
-        // Elegir un filtro YA NO recarga solo — recarga únicamente al
-        // apretar "Buscar" (o "Actualizar"), pedido explícito del usuario
-        // (2026-07-16: "la búsqueda del filtro se aplicaba solo si le doy a
-        // buscar"). Promotor es la única excepción: solo recalcula las
-        // opciones de Técnico (no trae datos), así el desplegable ya está
-        // acotado para cuando el analista apriete Buscar.
+        // Elegir un filtro no recarga solo, solo al apretar "Buscar"/"Actualizar".
+        // Promotor es la excepción: recalcula las opciones de Técnico sin traer datos.
         document.getElementById('agendaFiltroPromotor').addEventListener('change', function () {
             cargarOpcionesTecnico(this.value);
         });
@@ -1242,10 +1076,7 @@
         });
         document.getElementById('agendaEditConfirmarPin').addEventListener('click', confirmarPinEdicion);
 
-        // "Guardar" solo se activa si algo cambió respecto a como se abrió
-        // la card (ver actualizarEstadoGuardar) — un input por cada
-        // campo que se puede tocar, fecha/hora/técnico siempre y los de
-        // contacto solo visibles en modo edición pero igual escuchados acá.
+        // "Guardar" solo se activa si algo cambió; se escucha cada campo tocable.
         ['agendaEditFecha', 'agendaEditTecnico', 'agendaEditEmpresa', 'agendaEditMail',
             'agendaEditDireccion', 'agendaEditCelular', 'agendaEditConvencional'].forEach(function (id) {
             document.getElementById(id).addEventListener('input', actualizarEstadoGuardar);
@@ -1265,20 +1096,14 @@
             if (wrapper.contains(ev.target)) return;
             cerrarHoraDropdown();
         });
-        // El panel ahora se posiciona con fixed calculado a mano (ver
-        // abrirHoraDropdown) — si el body del modal se scrollea mientras
-        // está abierto, esas coordenadas quedan desactualizadas. Más
-        // simple y confiable cerrarlo que andar recalculando en cada
-        // evento de scroll.
+        // El panel usa fixed calculado a mano; más simple cerrarlo al scrollear que recalcular.
         document.querySelector('.agenda-edit-body').addEventListener('scroll', function () {
             if (document.getElementById('agendaEditHora').classList.contains('abierto')) {
                 cerrarHoraDropdown();
             }
         });
 
-        // El botón "Crear" abre su propio modal — lógica completa en
-        // agenda-crear.js (insert_contacto.php, selects de Promotor/PDV,
-        // búsqueda de dirección con Mapbox).
+        // El botón "Crear" abre su propio modal, lógica completa en agenda-crear.js.
 
         document.getElementById('agendaMapToggle').addEventListener('click', function () {
             document.getElementById('agendaMapPanel').classList.toggle('collapsed');

@@ -16,13 +16,7 @@
     // checkbox, a nivel de promotor completo o de fila suelta del detalle.
     var agendamientosSeleccionados = new Set();
 
-    // ── Punto azul "hay un cambio sin atender" — misma mecánica que
-    // proforma.js (localStorage por navegador/analista, namespace propio
-    // para no mezclarse con la de Proforma). "Cambio" acá también incluye
-    // el monto facturado (llegó un pago/cuota nueva), a diferencia de
-    // Proforma — es justo lo que este módulo vigila. Se marca visto al
-    // abrir el panel de Auditoría de ese agendamiento (ver abrirAuditoria).
-    // ---------------------------------------------------------------
+    // Punto azul "cambio sin atender": localStorage por analista, incluye monto facturado.
     var VISTO_KEY_PREFIX = 'pintuco_factura_visto_';
 
     function firmaFila(p) {
@@ -73,10 +67,7 @@
         if (p.foto_factura || p.estado_proforma === 'aprobado') return 5;
         if (p.estado_proforma === 'rechazado') return 4;
         if (p.id) return 4;
-        // no_requiere_visita: el promotor marcó desde el móvil que este
-        // contacto no necesita visita técnica — no hay agendamiento que
-        // esperar, el siguiente paso real es que suba la foto directo, así
-        // que cae en fase 3 (mismo criterio que proforma.js/estado-flujo.js).
+        // Sin visita requerida, el siguiente paso es subir la foto directo: cae en fase 3.
         if (p.no_requiere_visita === 'SI') return 3;
         if (p.hora && p.tecnico) return 2;
         return 1;
@@ -122,29 +113,15 @@
         return ciclos.filter(function (c) { return !!c.id; });
     }
 
-    // Regla de negocio: la ÚLTIMA proforma CON MONTO REGISTRADO (mayor id
-    // entre las que ya tienen monto_validado) es la que cuenta para
-    // cualquier suma/total, sin importar su estado — cuenta aunque esté
-    // rechazada. OJO: no basta con "el ciclo de mayor id" a secas — cada
-    // "Guardar" cierra la ronda actual con su monto y abre una ronda nueva
-    // VACÍA esperando la próxima foto (ver update_proforma.php), así que la
-    // fila de mayor id casi siempre no tiene monto todavía. Por eso se
-    // filtra por monto_validado antes de tomar la última.
+    // La última proforma CON monto_validado cuenta para cualquier suma/total (aunque esté
+    // rechazada); el ciclo de mayor id a secas casi siempre está vacío esperando la próxima foto.
     function ultimaProformaDe(agendamientoId) {
         var conMonto = ciclosRealesDe(agendamientoId).filter(function (c) { return !!c.monto_validado; });
         return conMonto.length ? conMonto[conMonto.length - 1] : null;
     }
 
-    // plazo_meses no siempre vive en la misma fila que foto_factura — el
-    // celular abre una fila vacía nueva por cada cuota y a veces el plazo
-    // queda ahí, no en la fila final que trae la foto de factura (confirmado
-    // contra datos reales 2026-07-14: agendamiento con plan a 3 meses cuya
-    // fila con foto_factura tenía plazo_meses NULL). Se prioriza el
-    // plazo_meses de la PROPIA fila de factura (cada ciclo de factura puede
-    // tener su propio plan); si viene vacío, se usa el mayor plazo_meses
-    // entre los demás ciclos del agendamiento como respaldo, para no
-    // clasificar ese ciclo como "Pago Directo" solo porque esa fila puntual
-    // quedó vacía.
+    // plazo_meses no siempre vive en la fila con foto_factura (puede quedar en otra fila
+    // del ciclo); si la propia fila viene vacío, cae al mayor plazo_meses de sus ciclos.
     function plazoMesesDe(factura, ciclos) {
         var propio = parseInt(factura.plazo_meses, 10);
         if (!isNaN(propio) && propio > 0) return propio;
@@ -154,35 +131,14 @@
         }, 0);
     }
 
-    // "Monto Facturado" (corregido 2026-07-14 tras confirmar el contrato real
-    // con el usuario y con el equipo Android): monto_total_factura es la
-    // META cotizada fija (se copia una sola vez de monto_validado al pasar a
-    // "a plazos" o al facturar directo), NO un acumulador.
-    //   - Pago Directo (una sola factura): "Monto Facturado" = esa misma
-    //     meta fija (monto_total_factura) — coincide con la Cotización
-    //     Inicial, es la misma factura única.
-    //   - A plazos: se acumula cada factura PARCIAL que el promotor teclea a
-    //     mano (primera cuota al activar "a plazos" + cada cuota siguiente
-    //     desde el módulo Facturas de la app), una fila propia en
-    //     insert_pago_factura por cada una, agrupadas por id_proforma = la
-    //     fila "factura" a la que corresponden. Ese agrupamiento ya existe
-    //     en pagosPorProforma (ver agruparPagosPorProforma), la misma fuente
-    //     que pinta las tarjetas del panel de Financiamiento.
-    //
-    // Se suma sobre CADA ciclo con foto_factura del agendamiento, no solo el
-    // más reciente — una re-negociación puede abrir un segundo ciclo de
-    // factura (id_proforma distinto) sin que los pagos ya cobrados bajo el
-    // ciclo anterior dejen de contar para el total.
+    // monto_total_factura es la meta cotizada fija, no un acumulador. Pago Directo usa esa
+    // meta tal cual; a plazos suma cada cuota de insert_pago_factura vía pagosPorProforma.
     function sumarFacturadoDe(agendamientoId, periodoClave) {
         var ciclos = ciclosRealesDe(agendamientoId);
         var facturas = ciclos.filter(function (c) { return !!c.foto_factura; });
         return facturas.reduce(function (total, factura) {
             if (plazoMesesDe(factura, ciclos) <= 0) {
-                // Pago Directo: todavía no existe fecha_factura en
-                // insert_proforma (pendiente ALTER TABLE, ver
-                // proformas_listar.php) — se usa proforma_fecha_registro del
-                // ciclo con foto_factura como proxy de "fecha de
-                // facturación". Migrar a fecha_factura en cuanto exista.
+                // Pago Directo: sin fecha_factura todavía, se usa proforma_fecha_registro como proxy.
                 if (periodoClave && !fechaEnPeriodo(factura.proforma_fecha_registro, periodoClave)) return total;
                 return total + (parseFloat(factura.monto_total_factura) || 0);
             }
@@ -198,18 +154,13 @@
         return sumarFacturadoDe(agendamientoId, null);
     }
 
-    // Igual criterio que totalFacturadoDe, pero restringido a lo que cayó
-    // DENTRO del periodo seleccionado — usar SOLO en las vistas de reporte
-    // mensual (lista/detalle de promotor, Excel). periodoClave === '' o
-    // 'todos' delega en totalFacturadoDe.
+    // Igual que totalFacturadoDe pero restringido al periodo; '' o 'todos' delega en totalFacturadoDe.
     function montoFacturadoEnPeriodo(agendamientoId, periodoClave) {
         if (!periodoClave || periodoClave === 'todos') return totalFacturadoDe(agendamientoId);
         return sumarFacturadoDe(agendamientoId, periodoClave);
     }
 
-    // Mismos pagos, agrupados por id_proforma (la fila de factura puntual,
-    // no el agendamiento) y ordenados por numero_cuota — para dibujar la
-    // cuadrícula de cuotas del panel de Financiamiento.
+    // Pagos agrupados por id_proforma y ordenados por numero_cuota, para el panel de Financiamiento.
     function agruparPagosPorProforma(pagos) {
         var mapa = {};
         pagos.forEach(function (pg) {
@@ -240,12 +191,8 @@
         return total;
     }
 
-    // Suma de "Monto Facturado" (pagos reales de insert_pago_factura, ver
-    // totalFacturadoDe/montoFacturadoEnPeriodo) de TODOS los agendamientos de
-    // un promotor — mismo patrón que totalAcumuladoPromotor pero con los
-    // pagos, no la cotización. periodoClave === '' ("Todos") suma el
-    // histórico completo, vía montoFacturadoEnPeriodo delegando en
-    // totalFacturadoDe.
+    // Suma de "Monto Facturado" de todos los agendamientos de un promotor, mismo
+    // patrón que totalAcumuladoPromotor pero con pagos reales, no cotización.
     function totalFacturadoPromotorEnPeriodo(usuario, idsPermitidos, periodoClave) {
         var total = 0;
         Object.keys(porAgendamiento).forEach(function (agId) {
@@ -289,12 +236,7 @@
         return { label: 'Enviada', cls: 'is-enviada' }; // pendiente | en_proceso | en_negociacion | realizado
     }
 
-    // PDV y Empresa: antes era un solo cuadro de texto con match por
-    // substring contra pdv/empresa/codigo_pdv junto; ahora son dos
-    // desplegables independientes (con buscador propio, ver
-    // habilitarFiltros) que comparan contra el valor exacto elegido —
-    // pedido explícito del usuario (2026-07-16: "separa pdv empresa ponle
-    // como tenemos" [en Agendamientos]).
+    // PDV y Empresa: desplegables independientes que comparan contra el valor exacto.
     function matchPdv(p, valor) {
         return !valor || (p.pdv || '') === valor;
     }
@@ -338,10 +280,7 @@
         return nombre.charAt(0).toUpperCase() + nombre.slice(1) + ' ' + partes[0];
     }
 
-    // Mismo criterio que coincidePeriodo, pero como helper standalone
-    // reusable por montoFacturadoEnPeriodo — para poder comparar la fecha
-    // de un PAGO puntual (no solo la fecha de visita/contacto) contra la
-    // clave de Periodo seleccionada. clave === '' o 'todos' no filtra nada.
+    // Helper standalone de coincidePeriodo, reusado para comparar la fecha de un pago puntual.
     function fechaEnPeriodo(fechaStr, clave) {
         if (!clave || clave === 'todos') return true;
         var propia = claveMes(fechaStr);

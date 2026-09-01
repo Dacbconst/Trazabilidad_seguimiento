@@ -65,23 +65,12 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 					<div class="ac-alertas-panel" id="acAlertasPanel" hidden>
 						<div class="ac-alertas-panel-header">
 							<h3 class="ac-alertas-panel-titulo">Notificaciones</h3>
-							<!-- Botón de refrescar manual (2026-08-25, pedido explícito: "dar
-							     la sensación que está en vivo la página siempre") — sin
-							     conexión en tiempo real (Firebase o similar) de verdad, este
-							     botón + el refresco automático en cada cambio de módulo (ver
-							     index.php más abajo) son el sustituto: nunca hay push real,
-							     pero nunca hace falta recargar toda la página para ver algo
-							     nuevo tampoco. -->
+							<!-- Sin push real (no hay Firebase); esto + el refresco por módulo simulan "en vivo". -->
 							<button type="button" class="ac-alertas-refrescar" id="acAlertasRefrescarBtn" title="Actualizar notificaciones">
 								<span class="material-symbols-outlined">refresh</span>
 							</button>
 						</div>
-						<!-- 2 pestañas — diseño tomado de "diseños ideas/code.html" (mockup
-						     de referencia): "Actas Asignadas" (precargadas del Repositorio
-						     de Cuotas, formato activity feed) y "Actas Por Firmar" (plazo de
-						     20 días, formato de caja de alerta con franja de color). Por
-						     firmar arranca activa (mismo default que el mockup: es la más
-						     urgente de las 2). -->
+						<!-- 2 pestañas: Actas Asignadas (activity feed) y Por Firmar (alerta de vencimiento, arranca activa). -->
 						<div class="ac-alertas-tabs">
 							<button type="button" class="ac-alertas-tab" id="acAlertasTabAsignadas" data-tab="asignadas">Actas Asignadas</button>
 							<button type="button" class="ac-alertas-tab ac-alertas-tab-activa" id="acAlertasTabFirmar" data-tab="firmar">Actas Por Firmar</button>
@@ -118,13 +107,7 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 		</main>
 	</div>
 
-	<!-- Lightbox de imágenes, reusable a nivel proyecto (2026-08-25): un solo
-	     overlay global, cualquier módulo lo abre llamando
-	     window.acAbrirLightbox(srcDeLaImagen) — ver assets/js/lightbox.js.
-	     No hace zoom "a mano": el viewport de la app nunca deshabilita el
-	     pinch-zoom nativo (sin user-scalable=no/maximum-scale), así que el
-	     zoom real lo hace el propio navegador sobre esta imagen a pantalla
-	     completa. -->
+	<!-- Overlay global reusable: cualquier módulo lo abre con window.acAbrirLightbox(src). -->
 	<div class="ac-lightbox-overlay" id="acLightboxOverlay">
 		<button type="button" class="ac-lightbox-close" id="acLightboxClose" aria-label="Cerrar">
 			<span class="material-symbols-outlined">close</span>
@@ -143,10 +126,7 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 			acSidebar.classList.add('collapsed');
 		}
 
-		// Colapso a rail de íconos — SOLO desktop (≥900px). En mobile la
-		// sidebar es un drawer (abierta/cerrada, ver abrirDrawer/cerrarDrawer
-		// más abajo) — las dos lógicas de clase (.collapsed vs .open) nunca
-		// deben pisarse, por eso este toggle chequea el viewport primero.
+		// Colapso a rail de íconos solo en desktop; en mobile es un drawer (.collapsed vs .open nunca se pisan).
 		acSidebarToggle.addEventListener('click', function () {
 			if (mqMobile.matches) {
 				cerrarDrawer();
@@ -156,9 +136,7 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 			localStorage.setItem('ac_sidebar_colapsado', acSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
 
-		// Drawer mobile (2026-08-25): no se persiste en localStorage a
-		// propósito (a diferencia del colapso desktop) — siempre arranca
-		// cerrado, patrón estándar de drawer.
+		// Drawer mobile: nunca se persiste (a diferencia del colapso desktop), siempre arranca cerrado.
 		function abrirDrawer() {
 			acSidebar.classList.add('open');
 			acSidebarBackdrop.classList.add('open');
@@ -170,16 +148,9 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 		acHeaderMenuBtn.addEventListener('click', abrirDrawer);
 		acSidebarBackdrop.addEventListener('click', cerrarDrawer);
 
-		// Cada módulo se renderiza UNA sola vez al cargar la página (todas las
-		// secciones van incluidas de entrada, ver el foreach de arriba) — cambiar
-		// de módulo es solo mostrar/ocultar con CSS, nunca una navegación real.
-		// Eso significa que si un módulo cambia datos en el servidor (ej. creás
-		// un Acuerdo en Registrar), el HTML de Historial ya renderizado se queda
-		// desactualizado. Por eso cada módulo con datos "vivos" expone su propia
-		// función de refresco global (window.ac*Refrescar) y acá se llama sola
-		// al entrar a esa sección. "Registrar Acuerdo PDV" NO tiene hook a
-		// propósito: refrescarlo destruiría el formulario en progreso del
-		// usuario, justo lo que no debe pasar al solo cambiar de pestaña.
+		// Cada módulo se renderiza una sola vez (mostrar/ocultar con CSS, no navegación real),
+		// así que cada uno con datos vivos expone su propio window.ac*Refrescar. Registrar no
+		// tiene hook a propósito: refrescarlo destruiría el formulario en progreso del usuario.
 		var refrescoPorSeccion = {
 			'#sec-historial':        function () { if (window.acHistorialRefrescar) window.acHistorialRefrescar(); },
 			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); },
@@ -198,22 +169,11 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 				document.querySelectorAll('.ac-content-panel').forEach(function (panel) { panel.classList.remove('active'); });
 				document.querySelector(href).classList.add('active');
 				if (refrescoPorSeccion[href]) refrescoPorSeccion[href]();
-				// Apaga el pulso/flash/brillo del filtro de período de Historial al
-				// cambiar de módulo (2026-08-28, pedido explícito) — Historial nunca
-				// se destruye al cambiar de pestaña (solo se oculta con CSS), así
-				// que sin esto un pulso `infinite` seguiría animando en segundo
-				// plano para siempre. Mismo criterio que la campanita de abajo: se
-				// llama en CUALQUIER cambio de módulo, no solo al entrar/salir de
-				// Historial puntual.
+				// Apaga el pulso infinito del filtro de período de Historial (nunca se destruye al cambiar de pestaña).
 				if (window.acHistorialLimpiarResaltadoFiltro) window.acHistorialLimpiarResaltadoFiltro();
-				// Campanita de notificaciones (2026-08-25, pedido explícito): se
-				// refresca en CUALQUIER cambio de módulo, no solo los que ya
-				// tenían su propio hook arriba — a diferencia de esos, esto nunca
-				// destruye nada en pantalla (Registrar incluido), solo vuelve a
-				// pedir la data de alertas.
+				// Campanita: se refresca en cualquier cambio de módulo, sin destruir nada en pantalla.
 				if (window.acAlertasFirmaRefrescar) window.acAlertasFirmaRefrescar();
-				// En mobile, elegir una sección cierra el drawer — si no, el menú
-				// se queda tapando la pantalla recién abierta.
+				// En mobile, elegir una sección cierra el drawer.
 				if (mqMobile.matches) cerrarDrawer();
 			});
 		});

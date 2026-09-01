@@ -1,16 +1,6 @@
 <?php
 /**
- * COMPONENTE: agendamiento/agendamientos.php
- * Agenda de visitas estilo Google Calendar: sidebar (Crear + mini-calendario +
- * Agendas pendientes) y calendario semanal a la derecha, con mapa colapsable
- * que empuja el layout (no se sobrepone) al desplegarse.
- * Datos reales de insert_proyectos_contacto vía Pintuco/getters/get_agenda.php
- * y Pintuco/getters/update_agenda.php. $cuenta_dir/$cuenta_actual vienen del
- * index.php que incluye este componente.
- *
- * El markup vive separado en partials/ (filtros, sidebar, calendario, modal)
- * y la lógica de UI en assets/agenda.js — este archivo solo arma la página
- * y pasa la base de los getters al JS vía data-attribute.
+ * Agenda de visitas estilo Google Calendar. Markup en partials/, lógica en assets/agenda.js.
  */
 $modulo_base = basename((string) $cuenta_dir);
 $agenda_dir = __DIR__;

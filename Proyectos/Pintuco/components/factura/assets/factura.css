@@ -1,17 +1,5 @@
-/* ========================================================
-   FACTURA — Seguimiento de facturación por promotor + Auditoría
-   Paleta: la misma del resto del proyecto (var(--brand-light) etc.,
-   definidas en Proyectos/style.css y ya cargadas globalmente) — no una
-   paleta propia, para no dar la sensación de estar en otro módulo/sitio.
-
-   Antes era el tab "Por Promotor" dentro de Estado de Flujo — se separó
-   a su propia sección del sidebar (2026-07-13, pedido explícito del
-   usuario), estos estilos se movieron tal cual desde estado-flujo.css.
-
-   El semáforo de días y los badges de estado de proforma son códigos
-   funcionales (verde/ámbar/rojo, verde/rojo/azul) — no forman parte de
-   la paleta de marca, se mantienen tal cual.
-   ======================================================== */
+/* Seguimiento de facturación por promotor + Auditoría. El semáforo de días y los
+   badges de estado son código funcional, no forman parte de la paleta de marca. */
 
 #facturaApp { color: #1f2d3d; }
 
@@ -242,10 +230,7 @@
    validado) — texto neutro, igual que el resto de montos de la tabla. */
 .ef-monto-cotizacion { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #33415c; }
 
-/* Monto Facturado: suma de monto_total_factura de las filas con
-   foto_factura (ver totalFacturadoDe en factura.js) — en rojo mientras
-   todavía falte por facturar respecto a la cotización; en negro/oscuro en
-   cuanto lo facturado alcanza o supera lo cotizado (.is-completo). */
+/* Monto Facturado: rojo mientras falte facturar vs. cotización, oscuro al alcanzarla. */
 .ef-monto-facturado { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #c0392b; }
 .ef-monto-facturado.is-completo { color: #1f2d3d; }
 
@@ -437,10 +422,7 @@
 }
 .ef-fin-btn-cerrar-plan:hover { background: #fbeaea; border-color: #f3c6c2; color: #b3261e; }
 
-/* Modal de confirmación — a diferencia del de Proforma (scoped a un panel
-   que puede tener varias filas abiertas), acá cubre toda la pantalla como
-   el resto de modales de este módulo (pago/lightbox), porque solo hay UN
-   panel de auditoría abierto a la vez. */
+/* Modal de confirmación cubre toda la pantalla: solo hay un panel de auditoría abierto a la vez. */
 .ef-fin-cierre-modal-overlay {
     position: fixed;
     inset: 0;
@@ -513,11 +495,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    /* Sin esto, un grid item no se achica por debajo del min-content de su
-       texto interno (ej. la observación larga de un pago) y empuja la fila
-       del grid más ancha que el panel, causando scroll horizontal y
-       cortando la última tarjeta — con min-width:0 el elipsis de
-       .ef-fin-card-obs sí puede actuar. */
+    /* min-width:0 para que el grid item se achique bajo el min-content del texto interno. */
     min-width: 0;
 }
 .ef-fin-card.is-pagada { border: 1px solid #c9e6d3; cursor: pointer; transition: box-shadow .12s, border-color .12s; }

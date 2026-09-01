@@ -44,30 +44,14 @@ body {
 	background: var(--color-surface);
 }
 
-/* Scrollbar delgado, sin las flechitas nativas de subir/bajar de Windows
-   (2026-08-24, pedido explícito) — Chrome/Edge en Windows muestra por
-   default un scrollbar clásico con botones de flecha en cada extremo si el
-   sitio no lo customiza; acá se saca ese botón y se deja solo el thumb,
-   redondeado y con los tokens de color del proyecto. Global (no solo en
-   Repositorios) porque cualquier área con scroll — la página completa, una
-   tabla ancha, un modal largo — tiene el mismo problema. `scrollbar-width:
-   thin` cubre Firefox (que no soporta los pseudo-elementos `::-webkit-*` y
-   nunca mostró flechitas para empezar, pero adelgaza el track igual). */
+/* Scrollbar delgado sin las flechitas nativas de Chrome/Edge en Windows. Global, cualquier área con scroll comparte el problema. */
 * { scrollbar-width: thin; scrollbar-color: var(--color-outline-variant) transparent; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: var(--radius-full); border: 2px solid transparent; background-clip: padding-box; }
 *::-webkit-scrollbar-thumb:hover { background: var(--color-outline); background-clip: padding-box; }
 *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
-/* Refuerzo 2026-08-25 — el usuario reportó las flechitas de vuelta (esta vez
-   en el scroll vertical de la página, no visto antes porque con solo 2
-   pestañas cortas en Repositorios la página no llegaba a necesitar scroll
-   vertical propio; con Cuotas Trimestrales sí). La regla de arriba
-   (`::-webkit-scrollbar-button { display: none }`) ya estaba, pero algunas
-   versiones de Chrome/Edge en Windows solo obedecen esto si también se
-   apunta la variante `:single-button` (la que realmente dibuja el
-   triángulo) — sin este selector más específico, el `display:none` genérico
-   puede quedar sin efecto en el scrollbar raíz de `html`. */
+/* Refuerzo: algunas versiones de Chrome/Edge solo obedecen display:none si se apunta también la variante :single-button. */
 *::-webkit-scrollbar-button:single-button { display: none; width: 0; height: 0; }
 *::-webkit-scrollbar-corner { background: transparent; }
 
@@ -93,23 +77,13 @@ body {
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 var(--space-lg);
-	/* Red de seguridad (2026-08-25): justify-content:space-between separa
-	   los 2 grupos SOLO si sobra espacio — si el contenido real llega a
-	   pesar más que el ancho disponible en algún instante (ej. un reflow a
-	   mitad de un cambio de fuente en una conexión lenta), flexbox no evita
-	   que se superpongan, solo los reparte. overflow:hidden acá no arregla
-	   la causa (el min-width:0 + flex-shrink de abajo ya la arregla en el
-	   caso estable), pero garantiza que un estado transitorio se vea
-	   recortado en vez de con texto superpuesto ilegible. */
+	/* Red de seguridad: evita texto superpuesto si algún reflow transitorio deja el contenido sin espacio. */
 	overflow: hidden;
 }
 .ac-header-brand-group { display: flex; align-items: center; }
 .ac-brand { display: flex; align-items: center; padding: 0 var(--space-xl); }
 .ac-brand-logo { height: 48px; width: auto; max-width: 195px; display: block; }
-/* Hamburguesa del drawer mobile (2026-08-25, ver "Sidebar mobile" más abajo)
-   — oculta en desktop, solo aparece bajo 900px junto al breakpoint del
-   drawer. Mismo look que .ac-sidebar-toggle para no sumar un patrón visual
-   nuevo. */
+/* Hamburguesa del drawer mobile, oculta en desktop. Mismo look que .ac-sidebar-toggle. */
 .ac-header-menu-btn {
 	display: none;
 	flex-shrink: 0;
@@ -159,17 +133,7 @@ body {
 .ac-login-title { font-size: 24px; font-weight: 700; margin: 0 0 var(--space-xs); }
 .ac-login-subtitle { font-size: 14px; color: var(--color-secondary); margin: 0; }
 
-/* min-width:0 (2026-08-24, bug real reportado a 100% de zoom): sin esto, un
-   .ac-field dentro de un grid (ej. .ac-acuerdo-filtros) hereda el
-   min-width:auto por default de todo ítem de grid/flex — el ítem se niega a
-   encogerse por debajo del ancho intrínseco de su contenido (ej. el texto
-   "ENERO-FEBRERO-MARZO" de Meses Incluidos), así que se desborda de su
-   columna en vez de dejar que el overflow:hidden/text-overflow:ellipsis de
-   adentro (.ac-input-readonly) haga su trabajo. A 75% de zoom el navegador
-   redondea distinto y el desborde real quedaba oculto por casualidad — a
-   100% (el zoom por default) se ve. Sin efecto en los .ac-field que NO están
-   dentro de un grid (la mayoría del resto de la app, ej. formularios
-   apilados) — min-width solo aplica a ítems de flex/grid. */
+/* min-width:0: sin esto un .ac-field dentro de un grid no se encoge por debajo del ancho de su contenido y se desborda de la columna. */
 .ac-field { margin-bottom: var(--space-lg); min-width: 0; }
 .ac-field-label {
 	display: block;
@@ -218,9 +182,7 @@ body {
 	justify-content: center;
 }
 .ac-input-toggle:hover { color: var(--color-on-surface); }
-/* El ícono heredaría "position:absolute; left:12px" de la regla genérica de arriba
-   (pensada para el ícono izquierdo del campo) si no se sobreescribe aquí con más
-   especificidad — por eso el ojito se iba fuera del campo. */
+/* Sin sobreescribir esto, el ojito hereda position:absolute del ícono izquierdo genérico y se va fuera del campo. */
 .ac-input-wrap .ac-input-toggle .material-symbols-outlined {
 	position: static;
 	color: inherit;
@@ -243,10 +205,7 @@ body {
 	transition: opacity 0.15s;
 }
 .ac-btn-primary:hover { opacity: 0.9; }
-/* Ícono girando dentro de un botón mientras espera una respuesta del
-   servidor (2026-08-25, pedido explícito: "pon una pantalla de carga
-   mientras responde") — genérico, cualquier botón puede usarlo agregando
-   .ac-btn-cargando y cambiando su ícono a "progress_activity". */
+/* Ícono girando dentro de un botón en espera. Genérico: agregar .ac-btn-cargando y usar ícono "progress_activity". */
 .ac-btn-cargando { opacity: 0.75; cursor: wait; pointer-events: none; }
 .ac-btn-cargando .material-symbols-outlined { animation: ac-girar 0.8s linear infinite; }
 @keyframes ac-girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -260,13 +219,7 @@ body {
 	font-size: 14px;
 	margin-bottom: var(--space-lg);
 }
-/* Mismo cuadro que .ac-alert-error, pero en ámbar (2026-08-30, bug real
-   reportado: "sacás una alerta roja por todo, da a entender que hubo
-   error") — para cuando la subida de un repositorio (Rebate/Participación/
-   Cuotas) tiene solo AVISOS (sí se guardó, conviene revisar — ej. "esta
-   fila se repite en el archivo") y ningún error real. Mismo ámbar ya
-   usado para "revisar" en el resto de la app (.ac-badge-revisar), no una
-   paleta nueva. */
+/* Mismo cuadro que .ac-alert-error pero en ámbar, para cuando solo hay avisos (no errores) al subir un repositorio. */
 .ac-alert-warning {
 	background: #fff2cc;
 	color: #7a5b00;
@@ -276,15 +229,7 @@ body {
 	margin-bottom: var(--space-lg);
 }
 
-/* Modal SweetAlert2 de avisos post-guardado en Repositorios (2026-08-30) —
-   antes era una lista <ul> angosta con una línea completa "Cliente: motivo"
-   por fila, que con un archivo grande (varias decenas de avisos) se
-   convertía en "una barra larga de info" difícil de leer. Agrupado por
-   motivo (repositorios.js arma el HTML, agrupando antes de esto) + chips
-   que envuelven en horizontal en vez de una lista vertical — el motivo se
-   lee una sola vez por grupo, no repetido por cada fila afectada. El ancho
-   del modal en sí se controla con el parámetro `width` del propio
-   Swal.fire (no CSS), a juego con este layout más horizontal. */
+/* Modal SweetAlert2 de avisos post-guardado en Repositorios: agrupado por motivo (repositorios.js), chips en vez de una línea por fila. */
 .ac-avisos-lista {
 	text-align: left;
 	max-height: 55vh;
@@ -343,12 +288,7 @@ body {
 	padding: var(--space-lg) var(--space-sm);
 	transition: width 0.2s ease;
 	overflow-x: hidden;
-	/* Sin esto, .ac-sidebar es un item flex normal de .ac-shell — cuando
-	   .ac-content es muy alto (ej. el formulario largo de Registrar Acuerdo
-	   PDV), .ac-shell se estira a esa altura y el sidebar entero (incluido
-	   "Cerrar Sesión" al fondo) se va con el scroll de la página en vez de
-	   quedarse a la vista. sticky lo clava debajo del header (80px) y le da
-	   su propio alto/scroll acotado al viewport. */
+	/* sticky clava el sidebar debajo del header con su propio alto/scroll, en vez de estirarse con el contenido largo del formulario. */
 	position: sticky;
 	top: 80px;
 	height: calc(100vh - 80px);
@@ -443,14 +383,7 @@ body {
 	margin: 0;
 }
 
-/* ---------- Sidebar mobile: drawer off-canvas (2026-08-25) ----------
-   Bajo 900px la sidebar deja de ser un item flex de .ac-shell (que hoy
-   simplemente la empuja/angosta) y pasa a un drawer fixed que entra desde
-   la izquierda — mismo breakpoint que .ac-users-grid (línea 362) y el
-   modal de Firma, para no sumar un breakpoint nuevo al proyecto. El toggle
-   de colapso a íconos (.collapsed, arriba) queda solo para desktop — en
-   mobile la sidebar usa .open/.ac-sidebar-backdrop en su lugar (ver JS de
-   index.php, que decide cuál de los dos con matchMedia). */
+/* Sidebar mobile: drawer off-canvas fixed desde la izquierda, bajo 900px. El colapso a íconos (.collapsed) queda solo para desktop. */
 @media (max-width: 900px) {
 	.ac-header-menu-btn { display: flex; }
 	.ac-sidebar {
@@ -463,10 +396,7 @@ body {
 		box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
 	}
 	.ac-sidebar.open { left: 0; }
-	/* Si el drawer se abre mientras venía colapsado de una sesión de
-	   escritorio previa (mismo localStorage), igual se ve completo — el
-	   colapso a íconos no tiene sentido en un drawer que ya se abre/cierra
-	   entero. */
+	/* El drawer se ve siempre completo aunque venga .collapsed de una sesión de escritorio previa. */
 	.ac-sidebar.collapsed { width: 280px; }
 	.ac-sidebar.collapsed .ac-sidebar-brand-row h2,
 	.ac-sidebar.collapsed .ac-sidebar-version,
@@ -504,8 +434,7 @@ body {
 }
 .ac-header-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Campanita de alertas de firma (2026-08-25) — widget global del header,
-   mismo criterio de posicionamiento que el resto de .ac-header-user. */
+/* Campanita de alertas de firma — widget global del header. */
 .ac-alertas-wrap { position: relative; }
 .ac-alertas-btn {
 	position: relative;
@@ -525,16 +454,9 @@ body {
 	font-size: 10px; font-weight: 700; line-height: 1;
 	border: 1px solid var(--color-surface);
 }
-/* Sin esto, el `display:flex` de arriba pisa el `display:none` que el
-   navegador aplica por default al atributo `hidden` (misma especificidad,
-   la regla de autor gana) — el badge se quedaba visible con "0" adentro
-   aunque el JS ya le hubiera puesto `hidden` (encontrado en la
-   verificación visual real, 2026-08-25). */
+/* Sin esto, display:flex de arriba pisa el display:none que el navegador aplica al atributo hidden. */
 .ac-alertas-badge[hidden] { display: none; }
-/* Anillo pulsante solo cuando hay al menos 1 Acta en el nivel crítico
-   (0-1 día) — del concepto "Sala de Alertas" (2026-08-25). Mismo criterio
-   de restricción que .ac-badge-critico: escala con el plazo real, no
-   parpadea desde el primer día de aviso (evita fatiga de alerta). */
+/* Anillo pulsante solo cuando hay al menos 1 Acta en nivel crítico (0-1 día) — escala con el plazo real, evita fatiga de alerta. */
 .ac-alertas-badge-critico { animation: ac-alertas-anillo 1.8s ease-out infinite; }
 @keyframes ac-alertas-anillo {
 	0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.55); }
@@ -542,15 +464,7 @@ body {
 	100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .ac-alertas-badge-critico { animation: none; } }
-/* Resalta el/los filtro(s) de Período/Año de Historial tras el modal de
-   "elige el período" (2026-08-28) — reemplaza a "una captura" (pedido
-   literal del usuario) con un aro pulsante sobre el control real, que
-   nunca se desactualiza si el layout cambia. Envuelve el wrapper de
-   "select bonito" (.ac-select-bonito), no el <select> nativo oculto.
-   Pulso INFINITO (2026-08-28, ronda 2, pedido explícito: "que siga
-   parpadeando hasta que el usuario seleccione un período") — se apaga
-   recién cuando ese select cambia a un valor real, ver
-   actualizarEstadoFiltroPeriodo() en historial.js. */
+/* Aro pulsante infinito sobre el filtro de Período/Año hasta elegir un valor real (ver actualizarEstadoFiltroPeriodo() en historial.js). */
 .ac-filtro-resaltado { animation: ac-filtro-anillo 1.3s ease-out infinite; border-radius: var(--radius); }
 @keyframes ac-filtro-anillo {
 	0% { box-shadow: 0 0 0 0 rgba(0, 40, 142, 0.45); }
@@ -558,13 +472,7 @@ body {
 	100% { box-shadow: 0 0 0 0 rgba(0, 40, 142, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .ac-filtro-resaltado { animation: none; outline: 2px solid var(--color-primary); outline-offset: 2px; } }
-/* Flash verde de confirmación (2026-08-28) — reemplaza al pulso azul de
-   arriba apenas el usuario elige un valor real en el select que estaba
-   parpadeando. Mismo verde que .ac-badge-ok/.ac-icon-btn-success (#1e5c26),
-   no una paleta nueva. Ronda 2 (mismo día, pedido explícito: "pasa tan
-   rápido que ni lo noto") — de 1 pulso de 0.7s a 2 pulsos de 0.6s (1.2s
-   total) con color más intenso, un "doble parpadeo" verde se nota mucho
-   más que un solo fundido corto. */
+/* Flash verde (doble pulso) al confirmar un valor real en el select que estaba parpadeando. Mismo verde que .ac-badge-ok. */
 .ac-filtro-confirmado { animation: ac-filtro-confirmado .6s ease-in-out 2; border-radius: var(--radius); }
 @keyframes ac-filtro-confirmado {
 	0% { box-shadow: 0 0 0 0 rgba(30, 92, 38, .65); background-color: rgba(30, 92, 38, .28); }
@@ -572,15 +480,7 @@ body {
 	100% { box-shadow: 0 0 0 0 rgba(30, 92, 38, 0); background-color: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .ac-filtro-confirmado { animation: none; } }
-/* "Descargar Excel" brilla apenas Período Y Año quedan los dos elegidos
-   (2026-08-28) — como si el botón recién se hubiera habilitado. Ronda 2
-   (mismo día, pedido explícito: "el botón azulito sé que parpadea pero
-   aun lo pierdo de vista") — de 1 sola pasada sutil a 2 pasadas más
-   grandes/lentas: el pulso de sombra ahora suma un tinte de fondo azul de
-   verdad (no solo una sombra fina fácil de perder contra el resto de la
-   página) y el barrido de brillo es más ancho y más opaco, cada uno 2
-   veces seguidas — un "doble parpadeo" se nota mucho más que un solo
-   destello corto. */
+/* "Descargar Excel" brilla (doble barrido) apenas Período Y Año quedan los dos elegidos, como si recién se habilitara. */
 .ac-excel-brillo { position: relative; overflow: hidden; animation: ac-excel-pop .7s ease-in-out 2; }
 .ac-excel-brillo::after {
 	content: ''; position: absolute; top: 0; left: -70%; width: 55%; height: 100%;
@@ -597,19 +497,7 @@ body {
 	100% { box-shadow: 0 0 0 0 rgba(0, 40, 142, 0); background-color: transparent; }
 }
 @media (prefers-reduced-motion: reduce) { .ac-excel-brillo, .ac-excel-brillo::after { animation: none; } }
-/* 2 bugs reales encontrados en la verificación visual (2026-08-25, captura
-   real del usuario mostrando el panel prácticamente en blanco):
-   1) `background: var(--color-surface)` era el MISMO color que `body` —
-      corregido a blanco puro (`--color-surface-container-lowest`).
-   2) `.ac-header-inner` tiene `overflow:hidden` a propósito (red de
-      seguridad contra superposición de texto, ver ese selector más arriba)
-      — con `position:absolute` el panel quedaba recortado por ese overflow
-      apenas se salía de los 80px de alto del header, así que la mayor
-      parte del dropdown ni se pintaba. `position:fixed` (posicionado por
-      JS en `alertas-firma.js` según el rect real del botón al abrir)
-      escapa de cualquier `overflow:hidden` de sus ancestros — mismo
-      resultado visual de "cuelga debajo del botón", sin depender de que
-      ningún padre en el medio tenga overflow visible. */
+/* Fondo blanco puro (no el mismo que body) + position:fixed (posicionado por JS en alertas-firma.js) para escapar del overflow:hidden del header. */
 .ac-alertas-panel {
 	position: fixed;
 	width: 380px; max-width: 90vw; max-height: 75vh;
@@ -618,14 +506,7 @@ body {
 	border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(20,20,40,0.28);
 	z-index: 500; overflow: hidden;
 }
-/* Mismo bug ya encontrado una vez con .ac-alertas-badge (2026-08-25): un
-   `display` puesto "a secas" en la clase pisa el `display:none` que el
-   navegador aplica por default al atributo `hidden` (misma especificidad,
-   la regla de autor gana) — el panel quedaba "cerrado" en el DOM
-   (`panel.hidden === true`) pero seguía pintado en pantalla, imposible de
-   cerrar de verdad (reportado por el usuario, 2026-08-26: "no puedo
-   cerrar"). Mismo arreglo: forzar `display:none` cuando el atributo está
-   presente. */
+/* Mismo bug que .ac-alertas-badge: un display "a secas" pisaba el hidden nativo y el panel no se podía cerrar de verdad. */
 .ac-alertas-panel[hidden] { display: none; }
 .ac-alertas-panel-header {
 	display: flex; align-items: center; justify-content: space-between;
@@ -635,9 +516,7 @@ body {
 	flex-shrink: 0;
 }
 .ac-alertas-panel-titulo { margin: 0; font-weight: 700; font-size: 15px; }
-/* Botón de refrescar manual (2026-08-25) — mismo mecanismo que
-   acBotonCargando() ya usa "Actualizar" en Historial (gira el ícono +
-   deshabilita mientras carga), reusado acá tal cual, no una variante nueva. */
+/* Botón de refrescar manual — mismo mecanismo que acBotonCargando() ya usa en "Actualizar" de Historial. */
 .ac-alertas-refrescar {
 	width: 32px; height: 32px; border: none; background: transparent; border-radius: var(--radius-full);
 	color: var(--color-on-surface-variant); cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -647,9 +526,7 @@ body {
 .ac-alertas-refrescar .material-symbols-outlined { font-size: 18px; }
 .ac-alertas-refrescar:disabled { opacity: 0.6; cursor: default; }
 
-/* Pestañas — diseño tomado de "diseños ideas/code.html" (mockup de
-   referencia): borde inferior de 2px que se colorea al activarse, sin
-   fondo propio (el contraste lo da el borde + el color de texto). */
+/* Pestañas: borde inferior de 2px que se colorea al activarse, sin fondo propio. */
 .ac-alertas-tabs {
 	display: flex; gap: var(--space-md); padding: 0 var(--space-md);
 	background: var(--color-surface-container-lowest);
@@ -669,9 +546,7 @@ body {
 .ac-alertas-panel-body { padding: var(--space-sm); overflow-y: auto; flex: 1 1 auto; }
 .ac-alertas-vacio { font-size: 13px; color: var(--color-on-surface-variant); margin: var(--space-sm); }
 
-/* "Actas Asignadas" — activity feed (mismo patrón del mockup: ícono
-   circular + texto, separadores finos entre filas, sin fondo propio salvo
-   al hover). */
+/* "Actas Asignadas" — activity feed: ícono circular + texto, separadores finos entre filas. */
 .ac-activity-item {
 	display: flex; align-items: center; gap: var(--space-sm);
 	padding: var(--space-sm); border-radius: var(--radius);
@@ -687,21 +562,12 @@ body {
 }
 .ac-activity-icon .material-symbols-outlined { font-size: 18px; }
 .ac-activity-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-/* Puntito de "no visto" (2026-08-26, pedido explícito) — un solo color en
-   las 2 pestañas (no varía por severidad): es un indicador de lectura, una
-   señal aparte de la urgencia que ya dan los colores de ac-alertbox. Se
-   guarda en localStorage (ver alertas-firma.js, `vistas`) — sin backend
-   real para esto, es estado por navegador, no por usuario. */
+/* Puntito de "no visto" — indicador de lectura, aparte de la urgencia de ac-alertbox. Estado en localStorage, por navegador no por usuario. */
 .ac-notif-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); margin-right: 6px; vertical-align: middle; }
 .ac-activity-titulo { font-size: 13px; font-weight: 600; color: var(--color-on-surface); }
 .ac-activity-meta { font-size: 12px; color: var(--color-on-surface-variant); }
 
-/* "Actas Por Firmar" — cajas de alerta con franja de color a la izquierda
-   (mismo patrón del mockup: border-left grueso coloreado por severidad,
-   fondo tintado suave, esquinas redondeadas solo del lado derecho). Mismos
-   2 niveles/colores que ya usan ac-badge-urgente/ac-badge-critico en el
-   resto de la app (fila de Historial, banner) — un solo lenguaje visual de
-   urgencia en toda la app, no una paleta nueva para esta caja. */
+/* "Actas Por Firmar" — cajas con franja de color por severidad, mismos 2 niveles que ac-badge-urgente/ac-badge-critico en toda la app. */
 .ac-alertbox {
 	display: flex; align-items: flex-start; gap: var(--space-sm);
 	padding: var(--space-sm) var(--space-sm) var(--space-sm) 10px;
@@ -720,17 +586,7 @@ body {
 .ac-alertbox-urgente .ac-alertbox-desc { color: #802a00; }
 .ac-alertbox-critica .ac-alertbox-desc { color: var(--color-on-error-container); }
 
-/* Header angosto: con la hamburguesa nueva a la izquierda del logo, el
-   padding grande de .ac-brand (pensado para desktop sin ese botón) sobra;
-   y el nombre+rol completo puede no entrar junto al avatar en un celular
-   chico — se oculta el rol primero (el nombre solo ya identifica a quién
-   está logueado). Bug real encontrado en vivo (2026-08-25): sin
-   min-width:0 en toda la cadena .ac-header-user->.ac-header-user-info, el
-   nombre ("JAVIER MALDONADO") no se encogía ni truncaba — se pegaba
-   directo contra el logo (sin espacio) y encima se partía en 2 líneas.
-   .ac-header-brand-group con flex-shrink:0 para que la marca/hamburguesa
-   nunca se compriman — si algo cede espacio, que sea el nombre (con "…"),
-   no el logo. */
+/* Header angosto: se oculta el rol primero. min-width:0 en toda la cadena .ac-header-user para que el nombre trunque en vez de pegarse al logo. */
 @media (max-width: 900px) {
 	.ac-header-inner { padding: 0 var(--space-md); gap: var(--space-md); }
 	.ac-brand { padding: 0; }
@@ -741,14 +597,7 @@ body {
 		white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 	}
 }
-/* 3ra vuelta (2026-08-25, pedido explícito): en vez de truncar el nombre
-   con "…" (perdés info real — no ves el apellido completo), bajo 480px
-   (donde el rol ya se oculta) el nombre pasa a envolver en 2 líneas. Con
-   el rol oculto sobra alto de sobra dentro de la fila de 80px del header
-   (2 líneas de 14px ≈ 34-40px), así que no hace falta agrandar
-   .ac-header-inner (su altura fija de 80px la asume TODO el resto del
-   layout — .ac-sidebar usa top:80px/height:calc(100vh - 80px), tocarla acá
-   rompería eso). */
+/* Bajo 480px el nombre envuelve en 2 líneas en vez de truncar con "…" (para no perder info real del apellido). */
 @media (max-width: 480px) {
 	.ac-header-user-info .rol { display: none; }
 	.ac-header-user-info .nombre {
@@ -761,22 +610,12 @@ body {
 		line-height: 1.25;
 	}
 }
-/* 2da vuelta (2026-08-25): a 320-380px el gap entre el logo y el nombre
-   quedaba en el mínimo técnico (8px, el "gap" de .ac-header-inner) — sin
-   overlap real (confirmado midiendo con getBoundingClientRect en el sitio
-   real, no solo mirando), pero visualmente se lee apretado/pegado. Achicar
-   el logo (nunca se encogía, flex-shrink:0) en este rango deja aire de
-   verdad en vez de pelear por el mínimo posible. */
+/* A 320-380px el gap entre logo y nombre se leía apretado — se achica el logo en vez de pelear por el mínimo de espacio. */
 @media (max-width: 380px) {
 	.ac-brand-logo { height: 34px; }
 }
 
-/* .ac-content es flex:1 dentro de .ac-shell — sin overflow-x:hidden, un ítem
-   flex nunca se encoge más allá del ancho de su contenido más ancho (acá, la
-   tabla de Meta de Compras con muchos meses), así que toda la página se
-   ensanchaba y aparecía scroll horizontal en el body en vez de quedar
-   contenido dentro de .ac-table-scroll — mismo patrón de bug que ya
-   arreglamos antes en la leyenda de Rumas y el combobox de Distribuidor. */
+/* Sin overflow-x:hidden, .ac-content no se encoge más allá del ancho de la tabla más ancha y desborda scroll horizontal al body. */
 .ac-content { flex: 1; min-width: 0; overflow-x: hidden; padding: var(--space-xl); }
 .ac-content-panel { display: none; }
 .ac-content-panel.active { display: block; }
@@ -812,10 +651,7 @@ body {
 	border: 1px solid var(--color-outline-variant);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
-	/* position:relative para poder anclar .ac-cargando-overlay (ver más
-	   abajo) dentro de cualquier card sin tener que acordarse de agregarlo
-	   card por card — no cambia el layout de nada, solo establece el
-	   contexto de posicionamiento. */
+	/* position:relative para anclar .ac-cargando-overlay en cualquier card sin agregarlo card por card. */
 	position: relative;
 }
 .ac-card-header {
@@ -848,14 +684,7 @@ body {
 }
 .ac-select:focus { border-color: var(--color-primary); }
 
-/* Toasts — reemplazan al viejo .ac-form-msg (texto inline arriba del
-   formulario) en todo el proyecto, ver assets/js/toast.js.
-   `top` bajado de var(--space-lg) a debajo de .ac-header (80px de alto,
-   position:sticky, siempre visible) — encontrado en la verificación visual
-   real (2026-08-25) con el toast de vencimiento de firma: al ser el primer
-   toast que dispara SOLO al cargar la página (todos los demás del proyecto
-   disparan como respuesta a una acción, con el header ya "fuera de foco"),
-   quedaba superpuesto/ilegible sobre el nombre de usuario y la campanita. */
+/* Toasts, ver assets/js/toast.js. top queda debajo de .ac-header (sticky, 80px) para no superponerse al nombre de usuario/campanita. */
 .ac-toast-container {
 	position: fixed; top: calc(80px + var(--space-md)); right: var(--space-lg);
 	z-index: 1000;
@@ -868,12 +697,7 @@ body {
 	background: var(--color-surface-container-lowest);
 	border-radius: var(--radius-md);
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
-	/* Padding subido de "space-sm space-md" (8px 16px) a "space-md" parejo
-	   (2026-08-25, pedido explícito: "se me hace muy flaquito") — se notaba
-	   sobre todo con mensajes de 2 líneas (ej. el toast de vencimiento de
-	   firma), donde el padding vertical angosto de antes dejaba muy poco
-	   aire arriba/abajo del texto. Afecta a TODOS los toasts del proyecto
-	   (componente compartido), no solo al de vencimiento. */
+	/* Padding parejo (no solo space-sm vertical) para que los mensajes de 2 líneas tengan aire arriba/abajo. Afecta a todos los toasts. */
 	padding: var(--space-md);
 	overflow: hidden;
 	animation: ac-toast-in 0.25s ease-out;
@@ -904,16 +728,7 @@ body {
 .ac-toast-info .ac-toast-bar { background: #1976d2; }
 @keyframes ac-toast-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
-/* ---------- Feedback de carga, reusable a nivel proyecto (2026-08-25) ----------
-   El usuario reportó "le doy Actualizar y no pasa nada" en Historial — el
-   fetch() de verdad tarda (más en 3G/4G), pero no había NINGUNA señal
-   visible de que algo estaba pasando. assets/js/cargando.js expone
-   acBotonCargando(btn, true/false) (ícono con .ac-spin + botón
-   deshabilitado mientras carga) y acMostrarCargando(contenedor)/
-   acOcultarCargando(contenedor) (overlay semitransparente con spinner
-   centrado, ancla sobre cualquier .ac-card gracias al position:relative de
-   arriba) — pensado para reusarse en cualquier fetch() de cualquier
-   módulo, no solo Historial. */
+/* Feedback de carga reusable: assets/js/cargando.js expone acBotonCargando()/acMostrarCargando()/acOcultarCargando() para cualquier fetch(). */
 @keyframes ac-spin { to { transform: rotate(360deg); } }
 .ac-spin { animation: ac-spin 0.8s linear infinite; display: inline-flex; }
 .ac-cargando-overlay {
@@ -924,12 +739,7 @@ body {
 }
 .ac-cargando-overlay .material-symbols-outlined { font-size: 32px; color: var(--color-primary); }
 
-/* Overlay centrado en la pantalla completa (2026-08-31, ver
-   acMostrarCargandoPantalla() en cargando.js) — a diferencia de
-   .ac-cargando-overlay (ancla dentro de un .ac-card puntual, se pierde de
-   vista si ese contenedor es más alto que la pantalla), este cubre todo el
-   viewport con position:fixed y muestra una tarjeta con mensaje real +
-   puntos animados, siempre centrada sin importar el scroll. */
+/* Overlay de pantalla completa (ver acMostrarCargandoPantalla() en cargando.js) — a diferencia de .ac-cargando-overlay, siempre centrado sin importar el scroll. */
 .ac-cargando-pantalla {
 	position: fixed; inset: 0;
 	background: rgba(26, 27, 34, 0.5);
@@ -961,15 +771,7 @@ body {
 .ac-search-input { padding: 10px 16px 10px 40px; border-radius: var(--radius-full); font-size: 14px; }
 
 .ac-table-scroll { overflow-x: auto; }
-/* Pista visual de "hay más columnas para el lado" en mobile (2026-08-25,
-   pase de responsividad) — receta CSS-only de "scroll shadows" (2
-   gradientes con background-attachment:local que se mueven con el
-   contenido, tapando la sombra fija de atrás salvo en los extremos donde
-   todavía hay algo para scrollear). Beneficia a TODAS las tablas anchas de
-   la app por igual (Registrar, Historial, Gestión de Usuarios, Liquidación,
-   Repositorios) porque comparten esta misma clase contenedora. Solo bajo
-   900px — en desktop las tablas ya se ven completas o el usuario ya conoce
-   el patrón de scroll horizontal, no hace falta la pista. */
+/* Pista visual de "hay más columnas" en mobile (scroll shadows CSS-only). Beneficia a todas las tablas anchas de la app por igual. */
 @media (max-width: 900px) {
 	.ac-table-scroll {
 		background:
@@ -1005,13 +807,7 @@ body {
 }
 .ac-table tbody tr:hover { background: var(--color-surface-container-low); }
 .ac-table tbody tr.ac-row-inactivo { opacity: 0.55; }
-/* Agrupación visual por cliente en el Repositorio de Cuotas — 3 tonos
-   pastel que rotan por GRUPO (Main.dc.html "Opción A", mockup aprobado por
-   el usuario 2026-08-30; reemplaza el tinte azul parejo de 2026-08-25, que
-   el usuario encontró insuficiente) + un borde de color a la izquierda.
-   Tonos elegidos fuera de la familia verde/ámbar de los badges de estado
-   (.ac-badge-ok/.ac-badge-revisar) para que "grupo" nunca se lea como
-   "estado". El hover sigue notándose por encima de cualquiera de los 3. */
+/* Agrupación visual por cliente en Cuotas — 3 tonos pastel que rotan por grupo, fuera de la familia verde/ámbar de los badges de estado. */
 .ac-table tbody tr.ac-repo-fila-grupo-a { background: #eef1fb; box-shadow: inset 3px 0 0 0 #6b7fc7; }
 .ac-table tbody tr.ac-repo-fila-grupo-a:hover { background: #e4e9f8; }
 .ac-table tbody tr.ac-repo-fila-grupo-b { background: #f4eefb; box-shadow: inset 3px 0 0 0 #a97fd1; }
@@ -1024,15 +820,7 @@ body {
 
 .ac-user-cell { display: flex; align-items: center; gap: var(--space-md); }
 .ac-avatar-initials {
-	/* border-radius: var(--radius) (2026-08-27, bug real encontrado con
-	   Seguimiento de Equipo) daba un cuadrado con esquinas apenas
-	   redondeadas (--radius = 4px), no un círculo — invisible en la mayoría
-	   de los usos (Gestión de Usuarios, etc., donde el avatar flota solo),
-	   pero se notaba fuerte en el anillo de estado nuevo (.ac-seg-avatar-ring),
-	   que SÍ es un círculo perfecto alrededor: el avatar cuadrado adentro se
-	   veía roto/desalineado contra el aro redondo. "Avatar circular" era
-	   la intención documentada siempre, nunca el 4px — corregido acá, en el
-	   componente compartido, para que todos los usos existentes se vean bien. */
+	/* border-radius:50% (no var(--radius), que daba un cuadrado casi sin redondear) — se notaba roto contra el aro de Seguimiento de Equipo. */
 	width: 32px; height: 32px; border-radius: 50%;
 	background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed);
 	display: flex; align-items: center; justify-content: center;
@@ -1056,29 +844,16 @@ body {
 .ac-badge-superdesarrollador { background: #ffdbce; color: #802a00; }
 .ac-badge-ok { background: #d7f2db; color: #1e5c26; }
 .ac-badge-revisar { background: #fff2cc; color: #7a5b00; }
-/* Más urgente que ".ac-badge-revisar" (amarillo) — mismo naranja que ya
-   usaba ".ac-alertas-item-urgente" en la campanita (2026-08-25), ahora
-   reusable también en las filas de Historial ("Vence hoy"/"Vence en 1
-   día"). */
+/* Más urgente que .ac-badge-revisar — mismo naranja de la campanita, reusable en Historial. */
 .ac-badge-urgente { background: #ffdbce; color: #802a00; }
-/* Nivel más urgente todavía (0-1 día de plazo) — reusa los tokens de error
-   que ya existen en el proyecto (--color-error-container/
-   --color-on-error-container), no un rojo inventado aparte. */
+/* Nivel más urgente (0-1 día) — reusa los tokens de error existentes. */
 .ac-badge-critico { background: var(--color-error-container); color: var(--color-on-error-container); }
-/* Respiración sutil solo en el nivel más urgente (2026-08-25, del concepto
-   "Sala de Alertas") — a propósito NO se anima ".ac-badge-urgente"
-   (2-5 días): la urgencia visual debe escalar junto con el plazo real, no
-   parpadear todo por igual desde el primer día de aviso. */
+/* Respiración sutil solo en el nivel más urgente, escala con el plazo real, evita fatiga de alerta. */
 .ac-badge-critico { animation: ac-badge-respirar 2s ease-in-out infinite; }
 @keyframes ac-badge-respirar { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
 @media (prefers-reduced-motion: reduce) { .ac-badge-critico { animation: none; } }
 
-/* Franja lateral de urgencia en la fila de Historial (2026-08-25, del
-   concepto "Sala de Alertas") — inset box-shadow en vez de border-left:
-   funciona igual en el <tr> de escritorio (fila de tabla) que en la
-   "tarjeta" de mobile (grid con su propio border-radius, ver
-   #hist-tabla-body tr más abajo) sin pelear con el box model de ninguno de
-   los 2 layouts ni robarle padding a las celdas. */
+/* Franja lateral de urgencia: inset box-shadow (no border-left) para funcionar igual en fila desktop y tarjeta mobile. */
 .hist-fila.ac-fila-urgente { box-shadow: inset 4px 0 0 0 #c8531d; }
 .hist-fila.ac-fila-critica { box-shadow: inset 4px 0 0 0 var(--color-error); }
 
@@ -1091,11 +866,7 @@ body {
 .ac-switch input:disabled + .ac-slider { cursor: not-allowed; opacity: 0.5; }
 
 .ac-row-actions { display: flex; justify-content: flex-end; gap: var(--space-xs); }
-/* El texto del botón principal de fila (hoy solo "Subir/Ver Firma" en
-   Historial) va oculto en desktop — ahí es un ícono más entre varios, todos
-   del mismo tamaño. En mobile se muestra (ver rediseño de tarjetas de
-   Historial más abajo), porque ahí SÍ es el botón que más importa de la
-   fila. */
+/* Texto del botón principal de fila oculto en desktop (un ícono más entre varios), visible en mobile como acción principal. */
 .ac-row-actions-primary-label { display: none; }
 .ac-icon-btn {
 	width: 36px; height: 36px;
@@ -1105,26 +876,17 @@ body {
 	transition: background 0.15s;
 }
 .ac-icon-btn:hover { background: var(--color-surface-container-high); }
-/* Botón deshabilitado (2026-08-25) — usado para "Agregar Fila"/"Eliminar"
-   en Meta de Compras cuando la Acta viene de una precarga (ver
-   bloquearFilasPrecargadas(), registrar.js): sin esto, un <button>
-   disabled con estos estilos custom no se ve visualmente distinto del
-   habilitado (el navegador no aplica su dimming nativo a botones sin
-   estilo nativo). */
+/* Botón disabled con estilos custom: sin esto no se ve distinto del habilitado, el navegador no aplica dimming nativo. */
 .ac-icon-btn:disabled, .ac-btn-outline:disabled, .ac-btn-primary:disabled, .ac-btn-secondary:disabled {
 	opacity: 0.4; cursor: not-allowed; pointer-events: none;
 }
 .ac-icon-btn-danger:hover { color: var(--color-error); background: var(--color-error-container); }
-/* Verde persistente (no solo al hover) — usado en "Ver Acta Firmada" cuando
-   ya hay un archivo subido, mismo verde que .ac-badge-ok para que el ícono
-   y el badge de estado se lean como la misma señal. */
+/* Verde persistente para "Ver Acta Firmada" ya subida, mismo verde que .ac-badge-ok. */
 .ac-icon-btn-success { color: #1e5c26; }
 .ac-icon-btn-success:hover { background: #d7f2db; }
 .ac-btn-clave { color: var(--color-primary); }
 
-/* Fila que se está eliminando (Mis Borradores, etc.) — fade + slide antes de
-   sacarla del DOM (animarYQuitarFila() en historial.js), en vez de que
-   desaparezca de golpe. */
+/* Fila que se está eliminando: fade + slide antes de sacarla del DOM (animarYQuitarFila() en historial.js). */
 .ac-fila-eliminando {
 	transition: opacity 0.28s ease, transform 0.28s ease, background-color 0.28s ease;
 	opacity: 0;
@@ -1139,9 +901,7 @@ body {
 	background: var(--color-surface-container-low);
 	border-top: 1px solid var(--color-outline-variant);
 }
-/* Paginación arriba de la tabla (2026-08-25) — mismo bloque que la de abajo,
-   pero el divisor va del lado contrario: separa de lo que sigue (la tabla),
-   no de lo que ya pasó. */
+/* Paginación arriba: mismo bloque que abajo, pero el divisor va del lado contrario (separa de la tabla, no de lo ya pasado). */
 .ac-pagination-top { border-top: none; border-bottom: 1px solid var(--color-outline-variant); }
 .ac-pagination-info { font-size: 14px; line-height: 20px; color: var(--color-on-surface-variant); }
 .ac-pagination-btns { display: flex; gap: var(--space-xs); }
@@ -1182,12 +942,7 @@ body {
 .ac-modal-header h3 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
 .ac-modal-close { border: none; background: none; cursor: pointer; color: var(--color-on-surface-variant); padding: var(--space-xs); }
 .ac-modal-usuario { font-size: 16px; line-height: 24px; font-weight: 700; margin: 0 0 var(--space-md); }
-/* .ac-modal-body/.ac-modal-footer nunca habían tenido estilo propio (el
-   resto de los modales de la app ponen el padding a mano en un div/form
-   hijo, ej. liq-form-subir) — el modal de subida de Repositorios sí confió
-   en estas 2 clases genéricas, así que su contenido quedaba pegado a los
-   bordes del modal, sin espacio entre el texto de ayuda y el dropzone.
-   2026-08-24. */
+/* Padding propio para .ac-modal-body/.ac-modal-footer: el modal de subida de Repositorios confiaba en estas clases sin estilo. */
 .ac-modal-body { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
 .ac-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-sm); padding: var(--space-lg); border-top: 1px solid var(--color-outline-variant); }
 
@@ -1196,10 +951,7 @@ body {
 	.ac-page-title { font-size: 24px; }
 	.ac-search-wrap { max-width: none; }
 	.ac-card-header-split { flex-direction: column; align-items: stretch; }
-	/* .ac-acuerdo-section-title-split es una clase distinta de
-	   .ac-card-header-split (título + switch "Visibilidad y Espacios" de
-	   Registrar, línea 761) y no heredaba este stacking — gap encontrado
-	   2026-08-25 haciendo el pase de responsividad del proyecto. */
+	/* .ac-acuerdo-section-title-split no heredaba este stacking de .ac-card-header-split. */
 	.ac-acuerdo-section-title-split { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
 }
 
@@ -1208,17 +960,9 @@ body {
 .ac-text-center { text-align: center; }
 .ac-tabular { font-variant-numeric: tabular-nums; }
 
-/* position:relative (2026-08-24): ancla acá el overlay de carga de
-   "Previsualización" (ver acMostrarCargando() en registrar.js) — sin esto,
-   el overlay position:absolute se posiciona contra el ancestro posicionado
-   más cercano que encuentre (probablemente .ac-content o el body), no
-   contra el formulario completo. */
+/* position:relative ancla el overlay de carga de "Previsualización" (ver acMostrarCargando() en registrar.js) contra el formulario completo. */
 .ac-acuerdo { display: flex; flex-direction: column; gap: var(--space-lg); position: relative; }
-/* .ac-card trae overflow:hidden (para recortar esquinas redondeadas) — pero
-   esta card específica contiene el popover del período y el panel del
-   combobox de Distribuidor, que necesitan "flotar" por encima del resto del
-   formulario. Si no se anula aquí, el popover/panel queda cortado en el
-   borde de la card en vez de sobresalir. */
+/* Anula el overflow:hidden de .ac-card: esta card contiene el popover del período y el panel de combobox, que necesitan flotar por encima. */
 .ac-acuerdo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
 /* Agrupa varios botones/badges a un costado de un header (Registrar,
    Historial) sin repetir el mismo flex+gap en cada uno. */
@@ -1227,20 +971,11 @@ body {
 /* Bandera de Canal (Directo / Distribuidor) — solo lectura, deuda técnica ver registrar.js */
 .ac-badge-canal-directo { background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed); }
 .ac-badge-canal-distribuidor { background: var(--color-surface-container-high); color: var(--color-on-surface-variant); }
-/* Más grande que un ".ac-badge" normal (2026-08-24, pedido explícito) — solo
-   este, no el ".ac-badge" compartido con roles/Historial/etc., que se
-   queda en su tamaño de siempre. */
+/* Más grande que un .ac-badge normal, solo este — el compartido con roles/Historial se queda en su tamaño de siempre. */
 #ac-canal-badge { font-size: 13px; padding: 6px 16px; }
 
 .ac-acuerdo-filtros-card { padding: var(--space-lg); overflow: visible; }
-/* Flexbox en vez de grid parejo (2026-08-24, pedido explícito: "Distribuidor
-   más ancho, Meses Incluidos y Año más angostos") — con
-   grid-template-columns: repeat(auto-fit, minmax(...,1fr)) todos los campos
-   se repartían el espacio en partes IGUALES, sin forma limpia de darle más
-   peso a uno que a otro. flex-grow sí lo permite directo: cada .ac-field
-   reparte el espacio sobrante proporcional a su peso, no en partes iguales.
-   flex-wrap sigue bajando a la fila siguiente en pantallas angostas, mismo
-   comportamiento que el auto-fit de antes. */
+/* Flexbox en vez de grid parejo: flex-grow permite dar más peso a Distribuidor sobre Meses/Año, algo que el grid parejo no permitía. */
 .ac-acuerdo-filtros {
 	display: flex;
 	flex-wrap: wrap;
@@ -1248,29 +983,13 @@ body {
 	align-items: end;
 }
 .ac-acuerdo-filtros .ac-field { flex: 1 1 180px; }
-/* Distribuidor/Local y la Empresa Distribuidora (canal Distribuidor): el
-   combo de búsqueda por nombre es el que más texto real necesita mostrar
-   (razones sociales largas) — bastante más peso Y una base de arranque más
-   grande (no solo el grow ratio) para que la diferencia se note de verdad,
-   no unos pocos px. */
+/* Distribuidor/Local y Empresa Distribuidora: más peso y base de arranque, muestran razones sociales largas. */
 #ac-empresa-field, #ac-distribuidor-field { flex: 2.5 1 260px; }
-/* Año: el contenido es siempre 4 dígitos ("2026") — no tiene sentido que
-   compita por el mismo espacio que un combo de texto, pero el trigger de
-   "select bonito" (padding + ícono de flecha, ver select-bonito.js) necesita
-   más que el ancho crudo del texto — 90px lo dejaba cortando "2026" a "2…". */
+/* Año son siempre 4 dígitos, pero el trigger de "select bonito" necesita más que el ancho crudo del texto — 90px cortaba "2026". */
 #ac-anio-field { flex: 0.5 1 115px; }
-/* Meses Incluidos: antes tenía grid-column:span 2 (doble ancho fijo) porque
-   con el grid parejo de antes era el más apretado de los 5 — ahora que
-   Distribuidor/Año ya no compiten por partes iguales, le alcanza con un
-   poco más que el peso base (el peor caso, "JULIO-AGOSTO-SEPTIEMBRE",
-   sigue entrando cómodo, probado con Playwright a 1280/1366/1440px con las
-   4 combinaciones de trimestre). */
+/* Meses Incluidos: peso apenas mayor al base, el peor caso "JULIO-AGOSTO-SEPTIEMBRE" entra cómodo. */
 .ac-field-meses { flex: 1.5 1 210px; }
-/* Ya NO se trunca con "…" (2026-08-24, pedido explícito: "que se vea bien",
-   el ancho ajustado a mano en la ronda anterior no alcanzaba con el sidebar
-   real ocupando espacio) — se deja pasar a una 2da línea en vez de cortar
-   el texto. Más específico que ".ac-input-readonly" (selector por #id) para
-   ganarle a ese `white-space:nowrap` compartido con las celdas de tabla. */
+/* Ya no se trunca con "…" — pasa a una 2da línea. Selector por #id para ganarle al white-space:nowrap compartido con las celdas. */
 #ac-months-display { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
 .ac-input-readonly {
 	display: flex; align-items: center;
@@ -1280,22 +999,12 @@ body {
 	min-height: 20px;
 }
 
-/* Combobox genérico (Distribuidor + Segmento/Categoría/Marca en las 4 tablas).
-   El panel es UN SOLO elemento compartido, posicionado por JS con
-   position:fixed (ver registrar.js) — por eso aquí NO se define top/left/
-   position: el navegador siempre respeta el estilo inline por encima de
-   cualquier regla de esta hoja para esas propiedades. Fixed además evita que
-   cualquier ancestro con overflow distinto de "visible" (tablas con scroll,
-   cards) lo recorte, sin importar en qué celda de qué tabla esté el input. */
+/* Combobox genérico: el panel es un solo elemento compartido, posicionado por JS con position:fixed (ver registrar.js) para no recortarse. */
 .ac-combo { position: relative; }
 .ac-combo-input { width: 100%; }
-/* readonly (no disabled): sigue siendo clickeable para abrir el panel, solo
-   no se puede tipear/pegar texto — cursor pointer para que se note que es
-   un spinner, no un campo de texto libre trabado. */
+/* readonly, no disabled: sigue clickeable para abrir el panel, solo no se puede tipear texto. */
 .ac-combo-input:read-only:not(:disabled) { cursor: pointer; background: var(--color-surface); }
-/* Resalte momentáneo cuando la validación de guardado encuentra un campo sin
-   confirmar (ver describirCampoCombo() en registrar.js) — red de seguridad,
-   no debería dispararse con los campos ya readonly. */
+/* Resalte momentáneo cuando la validación de guardado encuentra un campo sin confirmar (ver describirCampoCombo() en registrar.js). */
 .ac-campo-resaltado { outline: 2px solid var(--color-error); outline-offset: 1px; }
 .ac-combo-panel {
 	max-height: 280px; overflow-y: auto;
@@ -1306,42 +1015,17 @@ body {
 }
 .ac-combo-option {
 	padding: 10px var(--space-md); font-size: 14px; cursor: pointer;
-	/* Antes truncaba con "..." (nowrap+ellipsis) — con nombres largos (ej.
-	   empresas distribuidoras) se perdía info real. Ahora salta de línea en
-	   vez de cortar: el panel comparte ancho mínimo de 220px (ver
-	   posicionarPanelCombo en registrar.js) así que nunca queda ilegible. */
+	/* Antes truncaba con "…" y perdía info real en nombres largos — ahora salta de línea (panel con ancho mínimo de 220px). */
 	white-space: normal; overflow-wrap: break-word; word-break: break-word; line-height: 1.3;
 }
 .ac-combo-option:hover { background: var(--color-surface-container-high); }
 .ac-combo-option-activa { background: var(--color-surface-container-high); font-weight: 700; color: var(--color-primary); }
 .ac-combo-empty { padding: 10px var(--space-md); font-size: 13px; color: var(--color-outline); }
 
-/* ---------- "Select bonito": reemplazo del <select> nativo (2026-08-25) ----------
-   El dropdown ABIERTO de un <select> nativo es UI del sistema operativo
-   (Android/iOS) — no se puede restylear con CSS, así que un select con
-   pocas opciones cortas termina viéndose enorme/desproporcionado en
-   mobile (reportado con captura real). assets/js/select-bonito.js
-   reemplaza la INTERACCIÓN (no el dato: el <select> real sigue existiendo,
-   oculto, como única fuente de verdad — su .value cambia y dispara
-   'change' real, así que todo el código que ya escucha 'change' sobre el
-   select sigue funcionando sin tocarlo) por un trigger + panel con el
-   mismo look que el combobox de Registrar (reusa .ac-combo-panel/
-   .ac-combo-option de arriba, cero CSS nuevo para el panel en sí). */
+/* "Select bonito": reemplaza la interacción del <select> nativo (el dropdown abierto es UI del SO, ilegible en mobile) sin tocar el dato real. */
 .ac-select-bonito { position: relative; }
 .ac-select-bonito select { display: none; }
-/* Bug real encontrado en vivo con el barrido de anchos (2026-08-25): el
-   wrapper hereda TODAS las clases del <select> original (select-bonito.js),
-   incluida ".ac-select" — necesaria para que herede layout como
-   "grid-area" en los filtros de Historial, pero ".ac-select" TAMBIÉN trae
-   padding/borde/fondo visuales (pensados para un select real). Con eso el
-   wrapper terminaba siendo una caja completa (padding 12px/16px + borde)
-   ENVOLVIENDO al trigger, que adentro vuelve a tener su propia caja — el
-   trigger quedaba angosto por el padding duplicado del wrapper, en vez de
-   ocupar el ancho completo que el grid ya le había asignado (confirmado:
-   el label del select terminaba con 19-65px de ancho real en vez de los
-   ~140px esperados). Esta regla desarma el visual del wrapper (que solo
-   debe aportar layout) dejando el look real del select únicamente en
-   `.ac-select-bonito-trigger`. */
+/* El wrapper hereda .ac-select (para el layout) pero su padding/borde visual duplicaba el del trigger — se desarma acá. */
 .ac-select-bonito.ac-select { padding: 0; border: none; background: none; }
 .ac-select-bonito-trigger {
 	display: flex; align-items: center; justify-content: space-between;
@@ -1356,10 +1040,7 @@ body {
 .ac-select-bonito-trigger-abierto .ac-select-bonito-chevron { transform: rotate(180deg); }
 .ac-select-bonito-trigger-abierto { border-color: var(--color-primary); }
 
-/* Celdas de Segmento/Categoría/Marca dentro de las 4 tablas: el texto elegido
-   NUNCA debe ensanchar la columna (ya fijamos su ancho exacto en
-   .ac-sticky-col/-2/-3) — si el valor es largo, se trunca con "…" en vez de
-   crecer el campo o desordenar la tabla. */
+/* El texto elegido nunca debe ensanchar la columna (ancho fijo en .ac-sticky-col/-2/-3) — se trunca con "…" si es largo. */
 .ac-combo-cell { width: 100%; }
 .ac-combo-cell .ac-combo-input,
 .ac-input-readonly,
@@ -1374,11 +1055,7 @@ body {
 .ac-acuerdo-section-title h2 { font-size: 20px; line-height: 28px; font-weight: 600; margin: 0; }
 .ac-acuerdo-section-title .material-symbols-outlined { color: var(--color-primary); }
 .ac-acuerdo-section-title-split { justify-content: space-between; }
-/* Switch "Visibilidad y Espacios" (2026-08-24): mismo look que el switch
-   deshabilitado de Gestión de Usuarios (.ac-switch input:disabled), para que
-   "bloqueada" se lea igual en toda la app. pointer-events:none en vez de
-   deshabilitar cada input suelto — más simple, y cubre filas que se agregan
-   dinámicamente sin tener que volver a aplicarlo. */
+/* Mismo look que el switch deshabilitado de Gestión de Usuarios. pointer-events:none cubre filas agregadas dinámicamente. */
 #ac-visibilidad-zona.ac-zona-bloqueada { opacity: 0.5; pointer-events: none; }
 
 .ac-btn-secondary {
@@ -1408,13 +1085,7 @@ body {
 
 .ac-acuerdo-footer { display: flex; justify-content: flex-end; gap: var(--space-md); flex-wrap: wrap; }
 
-/* Tabla densa de las 4 secciones.
-   width:auto + min-width:100% (en vez del width:100% fijo de .ac-table) deja
-   que la tabla crezca más allá del contenedor cuando el contenido lo exige
-   (muchos meses, textos largos de Segmento) en vez de comprimir columnas de
-   forma desigual — el scroll horizontal del .ac-table-scroll padre se
-   encarga del resto. table-layout:auto (default) reparte el ancho según el
-   contenido real de cada columna. */
+/* Tabla densa de las 4 secciones: width:auto+min-width:100% deja crecer la tabla en vez de comprimir columnas, con scroll del padre. */
 .ac-table-acuerdo { width: auto; min-width: 100%; table-layout: auto; }
 .ac-table-acuerdo thead th {
 	padding: var(--space-sm) var(--space-md);
@@ -1423,23 +1094,13 @@ body {
 	vertical-align: middle;
 }
 .ac-table-acuerdo tbody td { padding: var(--space-xs) var(--space-sm); vertical-align: middle; }
-/* Encabezados de 2 líneas con <br> explícito (2026-08-25, pedido explícito):
-   con table-layout:auto + thead th en nowrap, un encabezado largo en una
-   sola línea ("Valor Estimado a Ganar", "Pago Total Cajas") empujaba el
-   ancho de esa columna (y de la tabla entera) — un <br> fuerza el salto de
-   línea SIN pelear con nowrap (nowrap solo suprime el wrap automático por
-   espacios, no bloquea un <br> literal), así la columna se queda con el
-   ancho de la línea más larga de las 2, no con el texto completo junto. */
+/* Encabezados de 2 líneas con <br> explícito: evita que un texto largo ("Valor Estimado a Ganar") empuje el ancho de la columna. */
 .ac-table-acuerdo thead th.ac-th-2l { line-height: 1.25; }
 .ac-table-bordered { border: 1px solid var(--color-outline-variant); }
 .ac-table-bordered th, .ac-table-bordered td { border: 1px solid var(--color-outline-variant); text-align: center; }
 .ac-table-bordered thead th { background: var(--color-surface-container-low); }
 
-/* Columnas "de identidad" (Segmento/Categoría/Marca) fijas al hacer scroll
-   horizontal, con ancho EXACTO (width = min-width = max-width) para que el
-   offset de left coincida siempre con el ancho real de la columna anterior
-   — si no calzan exacto, las columnas quedan desalineadas o se comprimen de
-   forma desigual (el bug original). */
+/* Columnas de identidad fijas al hacer scroll: ancho exacto (width=min-width=max-width) para que el offset de left no se desalinee. */
 .ac-sticky-col, .ac-sticky-col-2, .ac-sticky-col-3, .ac-sticky-col-4 {
 	position: sticky; z-index: 2; background: inherit;
 	box-sizing: border-box;
@@ -1454,17 +1115,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-3,
 .ac-table-acuerdo tbody tr:hover .ac-sticky-col-4 { background: var(--color-surface-container-low); }
 
-/* Campos bloqueados — Rebate % de Meta de Compras (conectado al repositorio
-   2026-08-27, ver buscarYAplicarRebate() en registrar.js: readonly SOLO
-   cuando hay match real en repositorio_rebate_producto, editable si no hay
-   match cargado todavía) y Participación de Perchas (sigue fijo en 0,
-   pendiente de que exista repositorio_participacion_percha, ver CLAUDE.md) —
-   gris marcado (no la lavanda sutil de --color-surface-container-high,
-   pedido explícito "que se note más") + cursor "no permitido", pero el
-   número se deja bien oscuro/legible encima, sin opacity ni texto gris que
-   lo apague. Selector puntual (no ".ac-mini-input:read-only" genérico) para
-   no pisar el estilo propio que ya tiene ".ac-combo-input" si algún día
-   vuelve a haber un combo readonly por otro motivo. */
+/* Campos bloqueados (Rebate/Participación/mes con match del repositorio): gris marcado, número oscuro/legible, sin opacity. */
 .ac-rebate-input:read-only, .v-participacion:read-only, .month-input:read-only {
 	background: #d7d5dc;
 	border-color: #b8b5c2;
@@ -1474,12 +1125,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	-webkit-text-fill-color: #1a1b22; /* Safari/iOS: sin esto, un input:read-only puede mostrar el texto más pálido que su color: real. */
 }
 
-/* Combos de identidad (Segmento/Categoría) bloqueados por una Acta
-   precargada (Fase 2 del Repositorio de Cuotas, 2026-08-25) — mismo gris
-   marcado que arriba, pero clase propia en vez de ".ac-combo-input:disabled"
-   genérico: ese selector también matchea el bloqueo TEMPORAL normal de la
-   cascada (ej. Categoría antes de elegir Segmento), que no debe verse igual
-   a "esto viene fijo de un repositorio". */
+/* Combos bloqueados por una Acta precargada: clase propia (no .ac-combo-input:disabled genérico) para no confundirse con el bloqueo temporal de la cascada. */
 .ac-combo-input-precargado {
 	background: #d7d5dc !important;
 	border-color: #b8b5c2 !important;
@@ -1496,30 +1142,19 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	border-radius: var(--radius-sm);
 	box-sizing: border-box;
 }
-/* Bug real de tipeo en mobile (2026-08-25, pedido explícito del usuario):
-   font-size < 16px en un input dispara zoom automático de iOS Safari al
-   enfocarlo — con 13px, tocar cualquier celda de Meta de Compras/Cabeceras/
-   Rumas/Perchas hacía que la página entera saltara de zoom. Se sube a 16px
-   SOLO bajo 900px (no se toca la densidad ya aprobada en desktop) y se
-   agranda un poco el padding para que el dedo tenga un target más cómodo. */
+/* font-size < 16px dispara zoom automático de iOS Safari al enfocar — se sube a 16px solo bajo 900px. */
 @media (max-width: 900px) {
 	.ac-mini-select, .ac-mini-input {
 		font-size: 16px;
 		padding: 8px 10px;
 	}
 }
-/* Apuntaba a .ac-mini-select (de cuando estas celdas eran <select> nativos);
-   desde que son comboboxes de texto (.ac-combo-input) esta regla ya no
-   coincidía con nada y el min-width:130px genérico de .ac-mini-input hacía
-   que el input se saliera de columnas más angostas como sticky-col-3/4. */
+/* Sin esto, el min-width:130px genérico de .ac-mini-input hace que el input se salga de columnas angostas como sticky-col-3/4. */
 .ac-sticky-col .ac-combo-input, .ac-sticky-col-2 .ac-combo-input,
 .ac-sticky-col-3 .ac-combo-input, .ac-sticky-col-4 .ac-combo-input { min-width: 0; }
 .ac-table-acuerdo input.ac-mini-input[type="number"] { min-width: 90px; text-align: right; }
 
-/* Campos de monto en dólares: prefijo "$" siempre visible + sin las flechitas
-   nativas del input number (no aportan nada para tipear montos, solo restan
-   espacio). El valor real del input no cambia — solo la presentación — así
-   que todo el cálculo (parseFloat) en registrar.js sigue funcionando igual. */
+/* Prefijo "$" visible + sin flechitas nativas del input number. Solo presentación, el cálculo (parseFloat) sigue igual. */
 .ac-money-field { position: relative; }
 .ac-money-field::before {
 	content: "$";
@@ -1536,15 +1171,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	margin: 0;
 }
 .ac-money-field input[type="number"] { -moz-appearance: textfield; }
-/* Canal Distribuidor mide en Cajas, no en Dólares (2026-08-30, bug real
-   reportado con captura: el título de sección ya decía "Meta de Compras en
-   Dólares" siempre, pero además cada input seguía mostrando el símbolo "$"
-   aunque la columna de Pago Total ya dijera "Cajas" — mismo dato en las 4
-   tablas de Registrar, PDF/Excel ya lo hacían bien, la pantalla interactiva
-   nunca se ajustó). `.ac-acuerdo-distribuidor` se agrega server-side en
-   components/registrar/registrar.php según el canal fijo del usuario
-   logueado (canalDeSupervisor()) — nunca cambia según qué cliente puntual
-   se elija dentro del formulario. */
+/* Canal Distribuidor mide en Cajas, no Dólares — se saca el "$" que la pantalla interactiva nunca ajustaba (PDF/Excel ya lo hacían bien). */
 .ac-acuerdo-distribuidor .ac-money-field::before { content: none; }
 .ac-acuerdo-distribuidor .ac-money-field input { padding-left: 8px !important; }
 /* Meses de Rumas: de solo lectura, el valor se tipea en la mini tabla lateral */
@@ -1554,11 +1181,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-totales-row td { border-color: var(--color-primary); }
 .ac-remove-row:hover { color: var(--color-error); background: var(--color-error-container); }
 
-/* Tabla + leyenda en la misma fila. min-width:0 explícito (no confiar en que
-   el navegador lo infiera solo por overflow-x:auto) es el único ajuste que
-   de verdad impide que la tabla reclame su ancho de contenido y empuje la
-   leyenda fuera de la tarjeta — flex-basis:0% para que el cálculo inicial
-   ignore el contenido por completo y reparta el espacio disponible real. */
+/* Tabla + leyenda en la misma fila: min-width:0 explícito para que la tabla no reclame su ancho de contenido y empuje la leyenda afuera. */
 .ac-acuerdo-rumas-layout {
 	display: flex;
 	flex-wrap: wrap;
@@ -1578,16 +1201,11 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	max-width: 100%;
 	overflow-x: auto;
 }
-/* La tabla de la leyenda NO tiene la clase .ac-table-acuerdo, así que sin
-   esto hereda min-width:640px de la regla genérica .ac-table (pensada para
-   tablas grandes) y se sale de su propia caja de 300px — la card la corta
-   con su overflow:hidden y por eso "desaparecía". */
+/* Sin esto, la tabla hereda min-width:640px de .ac-table genérica y se sale de su caja de 300px. */
 .ac-acuerdo-rumas-legend table { width: 100%; min-width: 0; }
 .ac-acuerdo-rumas-legend th { font-size: 10px; text-transform: uppercase; }
 .ac-acuerdo-rumas-legend td { font-size: 13px; }
-/* Bajo 900px .ac-acuerdo-rumas-layout ya envuelve (flex-wrap) y la leyenda
-   pasa a su propia fila — pero seguía angosta a 300px fijos en vez de
-   aprovechar el ancho disponible de esa fila completa. */
+/* Bajo 900px la leyenda pasa a su propia fila pero seguía angosta a 300px fijos. */
 @media (max-width: 900px) {
 	.ac-acuerdo-rumas-legend { flex-basis: 100%; width: 100%; }
 }
@@ -1595,9 +1213,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 #ac-purchase-container, #ac-cabeceras-container, #ac-perchas-container { padding: var(--space-lg); }
 .ac-acuerdo-percha-hint { padding: 0 var(--space-lg) var(--space-lg); margin: 0; }
 
-/* Picker de meses: removido (2026-08-18), el periodo ahora es un <select>
-   simple de trimestres fijos Q1-Q4 (#ac-periodo-select en registrar.php),
-   usa .ac-select como cualquier otro combo — no necesita CSS propio. */
+/* Picker de meses removido: el período es un <select> de trimestres Q1-Q4, usa .ac-select como cualquier combo. */
 .ac-link-btn { background: none; border: none; color: var(--color-primary); font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
 .ac-link-btn:hover { text-decoration: underline; }
 
@@ -1613,34 +1229,20 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-acta-zoom-controls { display: flex; align-items: center; gap: var(--space-xs); }
 .ac-acta-zoom-label { font-size: 13px; color: var(--color-on-surface-variant); min-width: 40px; text-align: center; }
 .ac-acta-modal-actions { display: flex; align-items: center; gap: var(--space-sm); margin-left: auto; }
-/* Un <a> no soporta el atributo disabled real — pointer-events:none bloquea
-   el click y la opacidad lo marca visualmente inerte hasta que Generar PDF
-   lo habilita (ver registrar.js). */
+/* Un <a> no soporta disabled real — pointer-events:none + opacidad hasta que Generar PDF lo habilita (ver registrar.js). */
 .ac-btn-disabled { opacity: 0.5; pointer-events: none; cursor: not-allowed; }
 .ac-acta-pdf-frame { flex: 1 1 auto; width: 100%; border: none; }
-/* El PDF en sí (generado server-side con Dompdf, página A4 fija) no puede
-   reflowar para mobile — eso es una limitación real del formato, no un bug
-   (se sigue viendo con scroll/pinch-zoom nativo del visor de PDF del
-   navegador). Lo que sí se ajusta es la barra de controles: en un celular
-   angosto, zoom-controls + Generar/Descargar + cerrar no entran en una sola
-   fila — se envuelve en 2 líneas en vez de comprimirse hasta ilegible. */
+/* El PDF (A4 fijo, Dompdf) no puede reflowar en mobile, limitación real del formato. La barra de controles sí se envuelve en 2 líneas. */
 @media (max-width: 600px) {
 	.ac-acta-modal-bar { flex-wrap: wrap; row-gap: var(--space-sm); }
-	/* order (no cambia el HTML): fila 1 = zoom + cerrar (ambos auto-width,
-	   space-between los separa), fila 2 = los botones de acción a 100% de
-	   ancho — sin esto, el botón cerrar (último en el DOM) quedaba solo en
-	   una 3ra fila en vez de acompañar al zoom arriba. */
+	/* order (no cambia el HTML): fila 1 = zoom + cerrar, fila 2 = botones de acción, para que cerrar acompañe al zoom. */
 	.ac-acta-zoom-controls { order: 1; }
 	.ac-modal-close { order: 2; }
 	.ac-acta-modal-actions { order: 3; margin-left: 0; width: 100%; }
 	.ac-acta-modal-actions .ac-btn-secondary, .ac-acta-modal-actions .ac-btn-primary { flex: 1 1 auto; justify-content: center; }
 }
 
-/* Antes max-width:640px con .ac-table forzada a min-width:0 (la tabla
-   necesita min-width:640px por la regla genérica, y con el padding del modal
-   ni siquiera entraba esa base — de ahí que se viera recortada, sobre todo
-   la columna Distribuidor con nombres largos). Modal más ancho + scroll
-   horizontal propio como red de seguridad, en vez de forzar la tabla angosta. */
+/* Antes se forzaba la tabla a min-width:0 y se recortaba (col. Distribuidor). Ahora modal más ancho + scroll horizontal propio. */
 .ac-modal.ac-borradores-modal { max-width: 820px; width: 95vw; }
 .ac-borradores-modal-body { padding: var(--space-lg); }
 .ac-borradores-modal-body .ac-table-scroll { overflow-x: auto; }
@@ -1671,24 +1273,10 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-link-id:hover { text-decoration: underline; }
 
 .ac-historial-preview { display: flex; flex-direction: column; }
-/* #hist-pdf-frame no vive dentro de un modal de altura fija como el de
-   Registrar (.ac-acta-modal) — sin una altura explícita, flex:1 1 auto de
-   .ac-acta-pdf-frame no tiene de dónde crecer y el iframe queda con la
-   altura default del navegador (~150px). */
+/* Sin altura explícita, flex:1 1 auto no tiene de dónde crecer y el iframe queda con la altura default del navegador. */
 #hist-pdf-frame { height: 80vh; }
 
-/* Filtros de Historial en mobile: rediseño real, no el formulario de
-   desktop apilado (2026-08-25, 2da vuelta — el usuario lo marcó
-   explícito: "no lo veo bien para ser una versión móvil"). El buscador
-   ya dispara sola al tipear (debounce 350ms, historial.js línea ~154) y
-   los selects de Período/Año ya disparan solos en "change" — el botón
-   "Buscar" es 100% redundante en cualquier tamaño de pantalla, así que en
-   mobile (donde cada fila cuesta espacio) se oculta directamente en vez de
-   ocupar una fila entera para algo que no hace falta tocar. Período/Año
-   pasan de 2 filas completas a una sola fila de 2 columnas (son selects
-   cortos, no necesitan todo el ancho). "Descargar Excel" es una acción
-   secundaria (no es filtro) — se separa visualmente como pill angosto en
-   vez de un botón ancho igual de pesado que el resto. */
+/* Filtros de Historial en mobile: "Buscar" se oculta (redundante, ya dispara solo). Período/Año en una fila, Excel como pill angosto. */
 @media (max-width: 600px) {
 	.ac-hist-filtros {
 		display: grid;
@@ -1698,11 +1286,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 			"periodo  anio";
 		gap: var(--space-sm);
 	}
-	/* Fila "exportar" solo si el botón existe (2026-08-31: ahora es
-	   #hist-exportar-wrap, solo se renderiza para superdesarrollador, ver
-	   historial.php) — sin :has() acá, un desarrollador normal (sin ese
-	   div) quedaría con una fila vacía reservada de más por el
-	   grid-template-areas de 3 filas de siempre. */
+	/* Fila "exportar" solo si el botón existe (superdesarrollador) — sin :has(), un desarrollador normal queda con una fila vacía de más. */
 	.ac-hist-filtros:has(#hist-exportar-wrap) {
 		grid-template-areas:
 			"search   search"
@@ -1724,15 +1308,9 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	}
 }
 
-/* ---------- Historial: stat tiles = también filtro (2026-08-21, rediseñadas) ----------
-   Base blanca + borde fino para las 3 (no un fondo lavanda uniforme, que las
-   hacía verse idénticas) — el color de estado vive en el ícono, el número/%
-   y la barra, no en todo el fondo de la tarjeta. Al estar activa (filtro
-   aplicado) recién ahí se agrega un fondo tintado suave, para que "elegida"
-   se lea distinto de "disponible". */
-/* Banner de vencimiento (2026-08-25, del concepto "Sala de Alertas") — 2
-   niveles de urgencia, mismos tonos que ac-badge-urgente/ac-badge-critico
-   para que se lea como la misma señal en toda la pantalla. */
+/* ---------- Historial: stat tiles = también filtro ----------
+   Base blanca + borde fino; el color de estado vive en el ícono/número/barra, no en todo el fondo de la tarjeta. */
+/* Banner de vencimiento — 2 niveles de urgencia, mismos tonos que ac-badge-urgente/ac-badge-critico. */
 .ac-hist-banner {
 	display: flex; align-items: center; gap: var(--space-sm);
 	padding: var(--space-sm) var(--space-md); border-radius: var(--radius-lg);
@@ -1785,49 +1363,21 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-hist-stat-ok.ac-hist-stat-activo { border-color: #1e9e5a; background: #f2fbf6; }
 .ac-hist-stat-warn.ac-hist-stat-activo { border-color: #e8a33d; background: #fffaf0; }
 
-/* ---------- Historial: rediseño mobile completo (2026-08-25) ----------
-   El usuario lo marcó explícitamente como "desordenado" en celular y pidió
-   un rediseño de verdad, no solo parches — porque la mayoría de las subidas
-   de Acta firmada (la tarea principal de este módulo) van a pasar desde el
-   celular. 3 cambios, todos solo bajo 700px (mismo breakpoint que ya usaban
-   los stat tiles):
-   1) Botones del header: "Actualizar"/"Mis Borradores" se compactan a solo
-      ícono (con su texto ya envuelto en .ac-btn-text para poder ocultarlo),
-      "Nuevo Acuerdo" queda como el único botón de ancho completo — antes
-      eran 3 botones de texto completo apilados, mucho espacio vertical
-      antes de llegar a ver un solo acuerdo.
-   2) Stat tiles: de 3 tarjetas altas apiladas a una fila compacta de 3
-      "chips" (mismo dato, mucho menos alto).
-   3) La tabla de 7 columnas (que obligaba a scroll horizontal para llegar
-      al botón de acción) pasa a una lista de tarjetas — cada <tr> se
-      reordena visualmente con CSS Grid (grid-template-areas, el DOM/orden
-      de <td> no cambia, así que no hace falta tocar la paginación ni el
-      refresco por AJAX de historial.js, que solo reemplaza el innerHTML
-      del <tbody>). El botón de Firma queda como acción principal con texto
-      visible, a lo ancho, en vez de un ícono más entre 4 del mismo tamaño. */
+/* ---------- Historial: rediseño mobile completo, bajo 700px ----------
+   Header a solo ícono + "Nuevo Acuerdo" ancho completo, stat tiles a chips, tabla de 7 columnas a lista de tarjetas (CSS Grid, DOM sin tocar). */
 @media (max-width: 700px) {
 	.ac-hist-header .ac-btn-group { width: 100%; }
-	/* 2da vuelta (2026-08-25): el usuario pidió que se mantengan en la misma
-	   fila PERO con su nombre visible, mitad y mitad — no ícono pelado. */
+	/* Se mantienen en la misma fila con su nombre visible, mitad y mitad. */
 	#hist-actualizar, #hist-abrir-borradores { flex: 1 1 0; min-width: 0; justify-content: center; }
 	#hist-actualizar .ac-btn-text, #hist-abrir-borradores .ac-btn-text {
 		display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 	}
 	#hist-nuevo-acuerdo { flex-basis: 100%; justify-content: center; }
 
-	/* min-width:0 en los 3 items del grid: mismo patrón de bug que ya se
-	   repitió varias veces en este archivo — un item de grid/flex no se
-	   encoge por debajo del ancho de su contenido si no se lo decís
-	   explícito, así que sin esto las 3 tiles podían terminar de tamaños
-	   desiguales o la 3ra empujada fuera de la fila (reportado 2026-08-25,
-	   pedido explícito: "del mismo tamaño... en una sola fila las tres"). */
+	/* min-width:0 en los 3 items: un item de grid no se encoge por debajo del ancho de su contenido si no se lo decís explícito. */
 	.ac-hist-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
 	.ac-hist-stat { flex-direction: column; align-items: flex-start; gap: 6px; padding: var(--space-sm) var(--space-sm); min-width: 0; }
-	/* align-items:flex-start de arriba (necesario para que el ícono no se
-	   estire) también hace que .ac-hist-stat-body deje de estirarse al
-	   ancho completo de la tarjeta (tomaba el ancho natural del texto en vez
-	   de encogerse) — sin width:100% acá, la etiqueta se salía del borde de
-	   la tarjeta en vez de truncarse con "…". */
+	/* align-items:flex-start hace que .ac-hist-stat-body deje de estirarse — sin width:100% la etiqueta se sale del borde. */
 	.ac-hist-stat-body { width: 100%; }
 	.ac-hist-stat-icon { width: 26px; height: 26px; }
 	.ac-hist-stat-icon .material-symbols-outlined { font-size: 15px; }
@@ -1837,13 +1387,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-hist-stat-activo { padding: calc(var(--space-sm) - 1px); }
 
 	#hist-tabla thead { display: none; }
-	/* min-width:0 explícito: sin esto, .ac-table (regla genérica,
-	   min-width:640px, pensada para que las tablas anchas fuercen su propio
-	   scroll horizontal) seguía aplicando acá y forzaba la tarjeta entera a
-	   640px, empujando "Periodo" y el badge de Firma fuera de la pantalla —
-	   mismo patrón de bug ya documentado en .ac-content/.ac-acuerdo-rumas-layout
-	   más arriba en este archivo (un contenedor no se encoge más allá del
-	   min-width/min-content de su contenido si no se lo decís explícito). */
+	/* min-width:0 explícito: sin esto .ac-table (min-width:640px genérica) fuerza la tarjeta entera a 640px y desborda contenido. */
 	#hist-tabla, #hist-tabla tbody { display: block; width: 100%; min-width: 0; }
 	#hist-tabla-body {
 		display: flex; flex-direction: column; gap: var(--space-sm);
@@ -1863,9 +1407,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 		border-radius: var(--radius-lg);
 		padding: var(--space-md);
 	}
-	/* Fila especial de "Cargando..."/"No se encontraron acuerdos" (un solo
-	   <td colspan="7">, no 7 columnas reales) — no tiene que forzarse al
-	   grid de tarjeta de arriba. */
+	/* Fila especial de "Cargando.../No se encontraron" (un solo td colspan) — no se fuerza al grid de tarjeta. */
 	#hist-tabla-body tr:has(td[colspan]) { display: block; grid-template-columns: none; padding: var(--space-lg); text-align: center; }
 	#hist-tabla-body tr:has(td[colspan]) td { grid-area: unset; }
 
@@ -1895,13 +1437,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	#hist-tabla-body .ac-row-actions-primary.ac-icon-btn-success { border-color: #1e9e5a; }
 	#hist-tabla-body .ac-row-actions-primary-label { display: inline; }
 
-	/* Fila con columna Canal extra (2026-08-31, solo superdesarrollador — ver
-	   renderFilaHistorial()) — un <td> de más ANTES de Periodo corre todos los
-	   nth-child() de arriba en 1, así que la fila lleva su propia clase
-	   (.hist-fila-con-canal) con el mismo mapeo re-numerado; una clase extra
-	   en el selector le gana en especificidad a las reglas base de arriba, sin
-	   tocarlas — una fila SIN esta clase (desarrollador normal) sigue usando
-	   exactamente el layout de siempre. */
+	/* Fila con columna Canal extra (solo superdesarrollador): un <td> de más corre los nth-child(), esta clase remapea sin tocar la base. */
 	#hist-tabla-body tr.hist-fila-con-canal {
 		grid-template-areas:
 			"doc      badge"
@@ -1943,10 +1479,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	overflow: hidden;
 }
 .ac-firma-panel { display: flex; flex-direction: column; min-height: 0; background: var(--color-surface-container-lowest); position: relative; }
-/* Botón "Ampliar" (2026-08-25, pedido explícito): las 2 previsualizaciones
-   del modal de Firma son chicas por diseño (van lado a lado) — hace falta
-   una forma de verlas grandes de verdad, con zoom, sobre todo en celular.
-   Ver .ac-lightbox-* más abajo y assets/js/lightbox.js. */
+/* Botón "Ampliar": las 2 previsualizaciones del modal de Firma son chicas, hace falta ver grande con zoom. Ver .ac-lightbox-* y lightbox.js. */
 .ac-firma-panel-ampliar {
 	position: absolute; top: var(--space-sm); right: var(--space-sm);
 	width: 32px; height: 32px;
@@ -1955,11 +1488,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 }
 .ac-firma-panel-ampliar:hover { background: rgba(26, 27, 34, 0.75); }
 
-/* ---------- Lightbox de imágenes, reusable a nivel proyecto (2026-08-25) ----------
-   Overlay único global (vive en index.php) — no reinventa el pinch-zoom:
-   el viewport de la app nunca tuvo user-scalable=no/maximum-scale, así que
-   alcanza con mostrar la imagen grande y dejar que el zoom nativo del
-   navegador haga el resto. */
+/* ---------- Lightbox de imágenes, overlay único global (vive en index.php) ----------
+   No reinventa el pinch-zoom: solo muestra la imagen grande, el zoom nativo del navegador hace el resto. */
 .ac-lightbox-overlay {
 	display: none;
 	position: fixed; inset: 0;
@@ -2020,11 +1550,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 }
 
 /* ---------- Resumen de Pagos (Liquidación): stat tiles, filtros, gráfico ----------
-   .ac-card no trae padding propio (el padding vive en .ac-card-header, o en
-   las celdas de .ac-table para el caso de tablas) — estos 3 bloques son
-   contenido libre (no tabla, no header) directamente dentro de .ac-card, así
-   que sin margen horizontal propio quedaban pegados al borde de la tarjeta
-   (reportado 2026-08-24, "muy pegado a los bordes"). */
+   .ac-card no trae padding propio — estos 3 bloques son contenido libre y necesitan su propio margen horizontal. */
 .ac-resumen-stats {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -2054,21 +1580,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-on-surface-variant); }
 .ac-chart-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 
-/* Filas del "Top clientes" en Resumen de Pagos — HTML/CSS en vez de SVG a
-   mano (2026-08-20): la etiqueta del cliente vive en su propia columna
-   flex, nunca comparte espacio con la barra, así que un nombre largo se
-   trunca con "…" real del navegador (nunca queda tapado a la mitad por la
-   barra) y el nombre completo siempre está en el `title` (tooltip nativo).
-   Corregido (misma sesión): el track NO lleva fondo/caja — esto es un
-   ranking de magnitud entre clientes (bar chart normal, barra crece desde
-   una base y listo), no un medidor de "% usado de una capacidad fija"; un
-   fondo gris detrás de cada barra corta hacía parecer que faltaba llenar
-   algo, cuando en realidad esa barra ya es el 100% de su propio valor —
-   la única razón de que no llegue al borde derecho es que hay una barra
-   más grande en la lista (el ancho es relativo al máximo del grupo, no a
-   una capacidad). Columna de nombre ensanchada (180px → 220px) — los
-   nombres reales de JW rondan 25-33 caracteres y quedaban recortados de
-   más incluso con el "…" funcionando bien. */
+/* Filas del "Top clientes" — HTML/CSS en vez de SVG: el nombre nunca comparte espacio con la barra, trunca con "…" real y tooltip nativo.
+   El track no lleva fondo/caja: es un ranking de magnitud (barra = 100% de su propio valor), no un medidor de capacidad fija. */
 .ac-chart-rows { display: flex; flex-direction: column; gap: 10px; }
 .ac-chart-row { display: flex; align-items: center; gap: var(--space-sm); }
 .ac-chart-row-label {
@@ -2090,13 +1603,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-chart-row-value { flex-basis: 70px; }
 }
 
-/* "A quién le corresponden" del Resumen de Cuotas (2026-08-26) — lista con
-   avatar, agrupada en 2 secciones (con cuenta de usuario / sin cuenta
-   todavía) en vez de un badge chico al lado del nombre: separar
-   espacialmente los 2 grupos se distingue de un vistazo. Maquetado primero
-   en Claude Design, aprobado por el usuario, pasado a código acá — mismos
-   tokens reales del proyecto que .ac-avatar-initials/--color-primary, no
-   colores inventados. */
+/* "A quién le corresponden" del Resumen de Cuotas — lista con avatar, agrupada en 2 secciones (con cuenta / sin cuenta todavía). */
 .ac-resumen-grupo-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 var(--space-sm); }
 .ac-resumen-grupo-titulo-activo { color: var(--color-primary); }
 .ac-resumen-grupo-titulo-inactivo { color: var(--color-outline); }
@@ -2118,14 +1625,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-resumen-nota { display: flex; align-items: center; gap: 6px; margin: var(--space-xs) 0 0; font-size: 12px; color: var(--color-outline); }
 .ac-resumen-nota svg { flex-shrink: 0; }
 
-/* "Actas que no se van a poder generar" — cuadro comparativo dentro del
-   modal Resumen — Cuotas Trimestrales (2026-08-28), diseñado primero en
-   Claude Design y aprobado por el usuario. Detecta ANTES de que el asesor
-   intente generar que el Local ya tiene un Acuerdo activo en el mismo
-   Período (misma regla que guardar_acuerdo.php) — ver resumen_cuotas() en
-   functions.php. Se oculta con la clase `.hidden` genérica de arriba (no
-   con el atributo `hidden` — esta clase nunca declara `display` propio,
-   así que no hay ningún conflicto de especificidad que resolver acá). */
+/* "Actas que no se van a poder generar": detecta antes de generar que el Local ya tiene un Acuerdo activo en el período (ver resumen_cuotas()). */
 .ac-choque-wrap { border-top: 1px solid var(--color-outline-variant); padding-top: var(--space-md); margin-top: var(--space-md); }
 .ac-choque-title-row { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
 .ac-choque-title-row .material-symbols-outlined { font-size: 18px; color: #b45f00; }
@@ -2176,10 +1676,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo { display: flex; flex-direction: column; gap: var(--space-lg); }
 .ac-repo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
 
-/* overflow-x:auto (no wrap): en desktop las 2 pestañas entran solas y esto
-   no cambia nada visualmente — en un celular angosto "Participación de
-   Percha" + "Rebate" no entran en una fila, y sin esto se recortaban en vez
-   de poder deslizarse (mismo patrón ya usado en .ac-table-scroll). */
+/* overflow-x:auto: en celular angosto las 2 pestañas no entran en una fila, sin esto se recortaban en vez de poder deslizarse. */
 .ac-repo-tabs { display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); overflow-x: auto; }
 .ac-repo-tab {
 	display: flex; align-items: center; gap: var(--space-sm);
@@ -2202,10 +1699,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo-filtros .ac-input-wrap { flex: 1 1 260px; min-width: 220px; }
 .ac-repo-actions { display: flex; align-items: center; gap: var(--space-sm); margin-left: auto; flex-wrap: wrap; }
 
-/* "Exportar" morfa in-place a CSV/Excel (2026-08-24) — sin modal, sin
-   dropdown flotante: el botón se encoge y las 2 opciones crecen en su
-   lugar, animado con CSS puro (grid-template-columns 0fr->1fr para el
-   ancho, sin medir nada por JS). */
+/* "Exportar" morfa in-place a CSV/Excel, sin modal ni dropdown: el botón se encoge y las 2 opciones crecen en su lugar (CSS puro). */
 .ac-repo-exportar { position: relative; display: inline-flex; align-items: center; }
 .ac-repo-exportar-btn {
 	overflow: hidden; white-space: nowrap; max-width: 200px;
@@ -2238,19 +1732,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo-editar .ac-btn-text, .ac-repo-eliminar .ac-btn-text { display: none; } /* icon-only en desktop, ver mobile más abajo */
 
 /* ---------- Repositorios: tarjetas en mobile (2026-08-24) ----------
-   Mismo criterio que el rediseño mobile de Historial (ver esa sección más
-   arriba): la tabla de columnas obligaba a scroll horizontal para llegar al
-   botón de Editar/Eliminar en pantalla chica. Acá no se puede copiar la
-   técnica de Historial nth-child tal cual — Rebate y Participación de
-   Percha tienen distinta cantidad de columnas (5 vs 2, ver CONFIG en
-   repositorios.js) — así que el layout se arma por `data-key`/`data-label`
-   (agregados en cada <td> desde JS) en vez de posición fija de columna:
-   Marca queda como identificador prominente arriba a la izquierda, el %
-   (Rebate o Participación, cualquiera de los dos) como badge arriba a la
-   derecha en la MISMA fila (posiciones explícitas de grid), y el resto de
-   columnas de datos (Segmento/Sector/Categoría en Rebate, ninguna en
-   Participación) se acomodan solas debajo, una por fila, sin importar
-   cuántas haya. */
+   Rebate y Participación tienen distinta cantidad de columnas — el layout se arma por data-key/data-label (no posición fija). Marca
+   queda arriba-izquierda, el % como badge arriba-derecha, el resto de columnas debajo, una por fila. */
 @media (max-width: 700px) {
 	#repo-tabla thead { display: none; }
 	#repo-tabla, #repo-tabla tbody { display: block; width: 100%; min-width: 0; }
@@ -2264,12 +1747,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 		border-radius: var(--radius-lg);
 		padding: var(--space-md);
 	}
-	/* Fila especial de "Cargando.../Sin registros" (un <td colspan>, no N
-	   columnas reales) — no se le aplica el grid de tarjeta. Los selectores
-	   de "columna de datos" de abajo llevan `:not([colspan])` a propósito —
-	   sin eso, esta celda (sin data-key) igual matcheaba ese selector y el
-	   `::before` agregaba un ": " suelto antes de "Sin registros." (bug real
-	   encontrado con Playwright, ver screenshot). */
+	/* Fila especial de "Cargando.../Sin registros": :not([colspan]) evita que el ::before de abajo le agregue un ": " suelto. */
 	#repo-tabla-body tr:has(td[colspan]) { display: block; grid-template-columns: none; padding: var(--space-lg); text-align: center; }
 	#repo-tabla-body tr:has(td[colspan]) td { grid-column: auto; }
 
@@ -2280,9 +1758,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 		align-self: center;
 	}
 	#repo-tabla-body td[data-key$="_pct"] { grid-row: 1; grid-column: 2; justify-self: end; align-self: center; }
-	/* Cualquier otra columna de datos (ni Marca ni el %) — ocupa el ancho
-	   completo, una debajo de otra; el orden de colocación automática de
-	   Grid respeta el orden real de columnas de cada tipo. */
+	/* Cualquier otra columna de datos ocupa el ancho completo, una debajo de otra, respetando el orden real de columnas. */
 	#repo-tabla-body td:not([data-key="marca"]):not([data-key$="_pct"]):not([data-key="acciones"]):not([colspan]) {
 		grid-column: 1 / -1;
 		font-size: 13px; color: var(--color-on-surface-variant);
@@ -2296,9 +1772,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 		border-top: 1px solid var(--color-outline-variant);
 	}
 
-	/* Editar/Eliminar: de iconos angostos apretados a la derecha, a 2
-	   botones de ancho completo con su nombre visible — mismo criterio que
-	   los botones del header de Historial en mobile ("no ícono pelado"). */
+	/* Editar/Eliminar: de iconos apretados a la derecha, a 2 botones de ancho completo con su nombre visible. */
 	#repo-tabla-body .ac-row-actions { justify-content: stretch; }
 	#repo-tabla-body .ac-row-actions .ac-icon-btn {
 		flex: 1 1 0; width: auto; height: 40px;
@@ -2312,18 +1786,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 
 /* Modal "Subir Archivo": paso 1 (elegir) vs paso 2 (previsualización editable) */
 .ac-repo-subir-modal { max-width: 480px; width: 95vw; }
-/* Ancho REACTIVO a la cantidad de columnas (2026-08-25, pedido explícito:
-   "que dependiendo la cantidad de columnas también se haga de ancho") —
-   antes era un `max-width: 1100px` fijo, así que Participación (2
-   columnas: Marca + Participación %) se veía con un montón de espacio
-   vacío al costado, reservando el mismo ancho que Cuotas (hasta 7
-   columnas). `width: fit-content` hace que el modal se ajuste al ancho
-   REAL de su contenido (la tabla, que ya mide sus columnas por contenido
-   real desde el fix anterior — ver sección de arriba) en vez de siempre
-   estirarse al máximo. `min-width` evita que una tabla angosta (2
-   columnas cortas) quede incómodamente apretada; `max-width: min(1300px,
-   95vw)` sigue siendo el techo — nunca más ancho que la pantalla, y una
-   tabla que lo supera igual cae al scroll horizontal interno de siempre. */
+/* Ancho reactivo a la cantidad de columnas: width:fit-content ajusta el modal al ancho real de la tabla, min/max-width son piso y techo. */
 .ac-repo-subir-modal.ac-repo-subir-modal-ancho {
 	width: fit-content;
 	min-width: 480px;
@@ -2341,9 +1804,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-dropzone-title { font-size: 14px; font-weight: 600; margin: 0; }
 .ac-dropzone-sub { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; }
 
-/* Barra de carga real (% de bytes subidos, vía XHR upload.onprogress, no un
-   spinner indeterminado) — pedido explícito 2026-08-24: no limitar el
-   tamaño de subida, pero sí mostrar progreso si el archivo es pesado. */
+/* Barra de carga real (% de bytes subidos vía XHR upload.onprogress), sin límite de tamaño de subida. */
 .ac-progreso-carga { display: flex; flex-direction: column; gap: var(--space-xs); }
 .ac-progreso-carga-texto { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; text-align: center; }
 .ac-progreso-carga-track { height: 8px; border-radius: var(--radius-full); background: var(--color-surface-container-high); overflow: hidden; }
@@ -2354,35 +1815,12 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-archivo-chip-nombre { font-size: 13px; font-weight: 600; }
 .ac-archivo-chip-detalle { font-size: 12px; color: var(--color-on-surface-variant); }
 
-/* Sin resaltado de error a propósito (pedido explícito 2026-08-24): las
-   celdas de la previsualización son inputs simples editables, sin bordes
-   rojos ni mensajes de validación por campo. */
+/* Sin resaltado de error a propósito: las celdas de previsualización son inputs simples, sin bordes rojos por campo. */
 .ac-preview-table-scroll { border: 1px solid var(--color-outline-variant); border-radius: var(--radius); }
-/* Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito:
-   "que pueda con el mouse mover la tabla sosteniendo y moviendo" — ver
-   activarArrastreScroll() en repositorios.js). Cursor de "mano abierta" en
-   reposo, "mano cerrada" mientras arrastra; sin selección de texto durante
-   el arrastre (si no, cada drag seleccionaría el contenido de las celdas
-   en vez de mover la tabla). */
+/* Arrastre horizontal con mouse tipo touch (ver activarArrastreScroll() en repositorios.js). Sin selección de texto durante el arrastre. */
 .ac-preview-table-scroll { cursor: grab; }
 .ac-preview-table-scroll.ac-arrastrando { cursor: grabbing; user-select: none; }
-/* Grilla estilo Excel, ancho REAL por auto-ajuste (2026-08-25, 2da vuelta —
-   la 1ra con `anchoPct`/`table-layout:fixed` fue un porcentaje adivinado a
-   mano que no se adaptaba si cambiaba la cantidad de columnas, y encima
-   recortaba texto igual: "esto no es nada inteligente"). Ahora NO se fuerza
-   ningún ancho por CSS — la tabla queda en `table-layout: auto` (el default
-   del navegador) y cada `<input>` lleva el atributo HTML `size` (calculado
-   en JS del largo real de SU valor, ver `tamanoInput()`/`renderPreviewTabla()`
-   en repositorios.js) en vez de `width`. Con `size`, el motor de layout de
-   tablas mide el ancho natural de cada input como lo haría con cualquier
-   texto — y ensancha la columna entera hasta la celda más ancha (`<th>`
-   incluido, que se mide solo) — es EXACTAMENTE el mecanismo que usa Excel
-   para autoajustar una columna a su contenido, no una aproximación. `min-width:
-   0` sigue pisando el `min-width: 640px` de `.ac-table` genérica (acá no
-   hace falta, la tabla ya se ajusta sola al ancho real de sus datos).
-   Padding de celda y de input, los dos, se ajustaron más angostos — antes
-   se sumaban (padding de la celda + padding del input) y eso era la altura
-   de fila de más que se pidió reducir. */
+/* Grilla estilo Excel: table-layout:auto + atributo HTML size en cada input (ver tamanoInput() en repositorios.js), no un % adivinado. */
 .ac-preview-table { min-width: 0; }
 .ac-preview-table th, .ac-preview-table td {
 	padding: 4px var(--space-xs);
@@ -2396,11 +1834,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 }
 .ac-preview-input:focus { border-color: var(--color-primary); background: var(--color-surface-container-lowest); }
 
-/* Fila entera pintada según "Al guardar" en la previsualización de Cuotas
-   (2026-08-25, pedido explícito: "esperaba que se pintaran las filas
-   también", no solo el badge chico) — mismos tonos que .ac-badge-ok/
-   -revisar/-urgente. Hay que pisar el fondo propio de .ac-preview-input
-   (si no, el <tr> pintado no se ve — el input tapa casi toda la celda). */
+/* Fila entera pintada según "Al guardar" (no solo el badge) — mismos tonos que .ac-badge-ok/-revisar/-urgente. Pisa el fondo del input. */
 tr.ac-preview-fila-nueva { background: #d7f2db; }
 tr.ac-preview-fila-nueva .ac-preview-input { background: #d7f2db; }
 tr.ac-preview-fila-actualiza { background: #fff2cc; }
@@ -2408,21 +1842,14 @@ tr.ac-preview-fila-actualiza .ac-preview-input { background: #fff2cc; }
 tr.ac-preview-fila-usada { background: #ffdbce; }
 tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 
-/* Resumen de errores post-guardado (2026-08-24) — no es validación DENTRO de
-   la tabla (eso el usuario lo pidió explícitamente afuera): es el resultado
-   real después de intentar guardar, en una caja aparte arriba de la tabla. */
+/* Resumen de errores post-guardado, en una caja aparte arriba de la tabla (no validación dentro de la tabla). */
 #repo-preview-errores { font-size: 13px; margin-bottom: var(--space-md); }
 #repo-preview-errores p { margin: 0 0 var(--space-xs); font-weight: 700; }
 #repo-preview-errores ul { margin: 0; padding-left: var(--space-lg); }
 #repo-preview-errores li { margin-bottom: 2px; }
 
 /* ---------- Seguimiento de Equipo (2026-08-27, rediseño maestro-detalle con Claude Design) ---------- */
-/* Contenedor raíz: mismo patrón que .ac-historial (flex column + gap entre
-   TODAS las secciones — header, filtros, línea "Vista actual", grid). Sin
-   esto, cada sección cae con márgenes propios inconsistentes/ninguno — bug
-   real reportado por el usuario (secciones pegadas/solapadas, el margen
-   negativo de .ac-seg-viendo, pensado para este gap, chocaba contra los
-   botones de arriba porque el gap nunca existió). */
+/* Contenedor raíz: mismo patrón que .ac-historial (flex column + gap entre todas las secciones). */
 .ac-seguimiento { display: flex; flex-direction: column; gap: var(--space-lg); }
 
 /* Header: mismo patrón que .ac-hist-header, pero el bloque de la derecha es
@@ -2439,11 +1866,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 .ac-seg-pill-activo, .ac-seg-pill-activo:hover { background: var(--color-primary); color: var(--color-on-primary); }
 .ac-seg-anio { border-radius: var(--radius-full); padding: 8px 32px 8px 14px; font-size: 13px; font-weight: 600; min-width: 0; width: auto; }
 
-/* Filtro único de estado — Todas/Firmadas/Pendientes/Vencidas. Controla a
-   la vez la lista de Equipo y el detalle (un solo mecanismo, no dos
-   haciendo cosas parecidas — feedback explícito sobre la 1ra versión).
-   Cada botón trae su color en data-color; el JS pinta background/color
-   inline solo cuando está activo (ver actualizarBotonesFiltro()). */
+/* Filtro único de estado — controla a la vez la lista de Equipo y el detalle. Cada botón trae su color en data-color (ver actualizarBotonesFiltro()). */
 .ac-seg-filtros { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
 .ac-seg-filtro {
 	flex: 1 1 150px; min-width: 150px; text-align: left; border: none; cursor: pointer;
@@ -2460,9 +1883,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 .ac-seg-viendo .material-symbols-outlined { font-size: 14px; }
 .ac-seg-viendo strong { color: var(--color-on-surface-variant); }
 
-/* Maestro-detalle: lista fija a la izquierda, detalle ocupa el resto — en
-   pantallas angostas cae a una columna (lista arriba, detalle abajo) para
-   ocupar bien el espacio en vez de forzar 2 columnas apretadas. */
+/* Maestro-detalle: lista fija a la izquierda, detalle ocupa el resto; en pantallas angostas cae a una columna. */
 .ac-seg-grid { display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: var(--space-lg); align-items: start; }
 @media (max-width: 900px) { .ac-seg-grid { grid-template-columns: 1fr; } }
 
@@ -2487,9 +1908,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 .ac-seg-fila-info .ac-user-name { margin: 0; }
 .ac-seg-fila-meta { margin: 2px 0 0; font-size: 12px; color: var(--color-outline); }
 
-/* Anillo de estado alrededor del avatar (conic-gradient inline via JS) —
-   verde = proporción firmada, naranja/rojo = urgencia de lo pendiente. El
-   aro blanco intermedio separa visualmente el anillo del avatar. */
+/* Anillo de estado (conic-gradient inline vía JS): verde = proporción firmada, naranja/rojo = urgencia de lo pendiente. */
 .ac-seg-avatar-ring { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .ac-seg-avatar-ring-lg { width: 56px; height: 56px; }
 .ac-seg-avatar-gap { width: 86%; height: 86%; border-radius: 50%; background: var(--color-surface-container-lowest); display: flex; align-items: center; justify-content: center; }
@@ -2532,23 +1951,13 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { display: none; }
 }
 
-/* ---------- Módulo "Cumplimiento de Cuota" (2026-08-30) ----------
-   JW sube de vuelta el mismo Excel de "Descargar Excel" (Historial), ya
-   completado con venta real — acá solo se LEE lo que el propio archivo ya
-   calculó (Cumplimiento/Gana por Categoría/Gana Total/Rebate Real Vol),
-   nunca se recalcula nada. Mismo wrapper flex-column con gap que
-   .ac-repo/.ac-seguimiento (los hijos directos no necesitan margen propio). */
+/* ---------- Módulo "Cumplimiento de Cuota" ----------
+   JW sube de vuelta el Excel de Historial ya completado con venta real — acá solo se lee lo que el archivo ya calculó, nunca se recalcula. */
 .ac-cumpl { display: flex; flex-direction: column; gap: var(--space-lg); }
 
 .ac-cumpl-buscar-wrap { min-width: 240px; flex: 1 1 240px; }
 
-/* Encabezado de columnas de la tabla y cada fila de categoría comparten el
-   MISMO grid-template-columns — 8 columnas: Categoría, Cumplimiento, Venta
-   real, Cuota, Gana Categoría, Gana Total, Rebate ganado, Acciones. Gana
-   Categoría y Gana Total van adyacentes a propósito (pedido explícito del
-   usuario, 2026-08-30): en el Excel real son 2 columnas seguidas que se
-   comparan de un vistazo — una categoría puede decir NO GANA mientras el
-   cliente completo (todas sus categorías sumadas) sí llega a GANA total. */
+/* Encabezado y fila comparten el mismo grid-template-columns. Gana Categoría/Gana Total van adyacentes: se comparan de un vistazo. */
 .ac-cumpl-col-header, .ac-cumpl-fila-cat {
 	display: grid;
 	grid-template-columns: 2fr 0.9fr 1fr 1fr 1fr 44px;
@@ -2565,11 +1974,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 }
 .ac-cumpl-fila-cat { font-size: 13px; border-top: 1px solid var(--color-outline-variant); }
 .ac-cumpl-fila-cat > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* Columnas "Cuota" (4to hijo) y "Rebate ganado" (7mo hijo) ocultas a pedido
-   explícito del usuario (2026-08-31) — encabezado y datos siguen
-   generándose desde PHP/JS tal cual (el dato no se tocó), display:none
-   solo las saca de la vista. El grid de arriba bajó de 8 a 6 columnas para
-   que el resto se acomode sin dejar huecos vacíos. */
+/* Columnas "Cuota" y "Rebate ganado" ocultas — el dato sigue generándose, display:none solo las saca de la vista. */
 .ac-cumpl-col-header > div:nth-child(4),
 .ac-cumpl-fila-cat > div:nth-child(4),
 .ac-cumpl-col-header > div:nth-child(7),
@@ -2577,13 +1982,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	display: none;
 }
 
-/* Mini donut de Cumplimiento (2026-08-31, ver donutCumplimiento() en
-   cumplimiento.js) — círculo chico con "agujero" al centro (mismo truco
-   conic-gradient + capa interior que ya usa .ac-seg-avatar-ring/
-   .ac-seg-avatar-gap de Seguimiento de Equipo, a escala de fila de tabla en
-   vez de avatar). Verde = cumplido, rosa claro = lo que falta — mismos 2
-   colores que ya usa ringDeUsuario() en este mismo módulo, no una paleta
-   nueva. */
+/* Mini donut de Cumplimiento (ver donutCumplimiento() en cumplimiento.js) — mismo truco de .ac-seg-avatar-ring, a escala de fila. */
 .ac-cumpl-donut-wrap { display: inline-flex; align-items: center; gap: 6px; }
 .ac-cumpl-donut { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; position: relative; }
 .ac-cumpl-donut::before {
@@ -2604,9 +2003,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	cursor: pointer;
 }
 .ac-cumpl-fila-usuario:hover { background: var(--color-surface-container); }
-/* Chevron de expandir/colapsar (2026-08-31) — rota 90° al abrir, misma
-   transición corta que ya usa el resto de la app para micro-interacciones
-   (ver .ac-select-bonito-chevron). */
+/* Chevron de expandir/colapsar: rota 90° al abrir, misma transición corta que .ac-select-bonito-chevron. */
 .ac-cumpl-chevron { font-size: 20px; color: var(--color-on-surface-variant); flex-shrink: 0; transition: transform 0.15s ease; }
 .ac-cumpl-chevron-abierto { transform: rotate(90deg); }
 .ac-cumpl-usuario-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -2625,28 +2022,18 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 }
 .ac-cumpl-fila-cliente:hover { filter: brightness(0.97); }
 .ac-cumpl-cliente-nombre { display: flex; align-items: center; gap: 10px; min-width: 0; }
-/* Clase dedicada, no ":first-child" (2026-08-31) — con el chevron nuevo
-   como primer hijo, ":first-child" le pegaba este estilo al ícono en vez
-   de al nombre, y encima le pisaba su propio font-size con más
-   especificidad. */
+/* Clase dedicada, no ":first-child" — con el chevron como primer hijo, ese selector le pegaba el estilo al ícono en vez de al nombre. */
 .ac-cumpl-cliente-nombre-texto { font-weight: 700; font-size: 14px; }
 .ac-cumpl-cliente-meta { flex-shrink: 0; margin: 0; }
 
-/* Badge "Gana Total" repetido por fila de categoría — con borde en vez de
-   relleno sólido, para que se lea como "resultado heredado del cliente
-   completo" y nunca se confunda con "Gana Categoría" (relleno sólido, el
-   resultado propio de esa fila sola). */
+/* "Gana Total" con borde (no relleno sólido) para leerse como heredado del cliente, distinto de "Gana Categoría". */
 .ac-cumpl-badge-outline { background: transparent !important; border: 1px solid currentColor; }
 
-/* Grupos pastel por cliente (mismos 3 tonos ya usados en Repositorios >
-   Cuotas Trimestrales, ver .ac-repo-fila-grupo-a/b/c más arriba) — acá se
-   aplican a divs (no filas de tabla), así que necesitan su propia regla,
-   con los MISMOS valores de color para que se lean como el mismo lenguaje
-   visual del resto de la app. */
-/* Tonos subidos de intensidad (2026-08-31, pedido explícito: "están muy
-   pasteles, casi no se notan") — solo acá, en Cumplimiento de Cuota. Los
-   de Repositorios > Cuotas Trimestrales (.ac-table tbody tr.ac-repo-fila-
-   grupo-a/b/c, más arriba en este archivo) NO se tocaron, no se pidió ahí. */
+/* Cajas (canal Distribuidor): sin signo "$", tag chico al lado para no confundir con Directo en Vista "Total". */
+.ac-cumpl-cajas-tag { font-size: 9px; font-weight: 700; color: var(--color-outline); text-transform: uppercase; margin-left: 3px; }
+
+/* Grupos pastel por cliente, mismo lenguaje visual que .ac-repo-fila-grupo-a/b/c de Repositorios, pero acá aplicados a divs, no filas.
+   Tonos más intensos solo acá — los de Repositorios no se tocaron. */
 .ac-cumpl-fila-cliente.ac-repo-fila-grupo-a, .ac-cumpl-fila-cat.ac-repo-fila-grupo-a { background: #dbe2f8; box-shadow: inset 3px 0 0 0 #5a70bd; }
 .ac-cumpl-fila-cliente.ac-repo-fila-grupo-b, .ac-cumpl-fila-cat.ac-repo-fila-grupo-b { background: #e8d9f6; box-shadow: inset 3px 0 0 0 #9668c4; }
 .ac-cumpl-fila-cliente.ac-repo-fila-grupo-c, .ac-cumpl-fila-cat.ac-repo-fila-grupo-c { background: #f1e0c8; box-shadow: inset 3px 0 0 0 #b98a45; }
@@ -2666,10 +2053,15 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-cumpl-fila-cat > div:nth-child(1) { grid-area: sector; font-weight: 600; }
 	.ac-cumpl-fila-cat > div:nth-child(2) { grid-area: cumpl; }
 	.ac-cumpl-fila-cat > div:nth-child(3) { grid-area: venta; }
-	/* nth-child(4)=Cuota y nth-child(7)=Rebate ganado, ya ocultas con
-	   display:none arriba (fuera de este media query) — sin mapeo de
-	   grid-area acá, no ocupan lugar. */
+	/* nth-child(4)/(7) = Cuota/Rebate ganado, ya ocultas arriba, sin mapeo de grid-area acá. */
 	.ac-cumpl-fila-cat > div:nth-child(5) { grid-area: gana; }
 	.ac-cumpl-fila-cat > div:nth-child(6) { grid-area: ganatotal; }
 	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
 }
+
+/* Texto copiable con botón — modal de error de Excel. */
+.ac-copiable { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-sm); padding: 8px 10px; border: 1px solid var(--color-outline-variant); border-radius: var(--radius); background: var(--color-surface-container-low); }
+.ac-copiable-texto { flex: 1; min-width: 0; font-family: monospace; font-size: 13px; color: var(--color-on-surface); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-copiable-btn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: var(--radius); background: transparent; color: var(--color-primary); cursor: pointer; }
+.ac-copiable-btn:hover { background: rgba(0, 40, 142, 0.08); }
+.ac-copiable-btn .material-symbols-outlined { font-size: 18px; }
