@@ -1349,6 +1349,18 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-hist-stat-icon .material-symbols-outlined { font-size: 22px; }
 .ac-hist-stat-ok .ac-hist-stat-icon { background: #d7f2db; color: #1e9e5a; }
 .ac-hist-stat-warn .ac-hist-stat-icon { background: #fff2cc; color: #d98c1f; }
+/* Rojo/error, mismos tokens que .ac-badge-critico — para tarjetas KPI que
+   necesitan el 3er color de estado (ok/warn ya cubrían Historial; acá
+   "No ganan" en Cumplimiento de Cuota, 2026-08-31, necesita el rojo). */
+.ac-hist-stat-bad .ac-hist-stat-icon { background: var(--color-error-container); color: var(--color-on-error-container); }
+/* Tarjetas KPI que reusan el look de .ac-hist-stat pero no filtran nada al
+   click (Cumplimiento de Cuota, 2026-08-31, pedido explícito de reusar
+   "el mismo estilo de card" de Historial) — se les saca el cursor de
+   botón y el hover/active de "esto se puede apretar", todo lo demás
+   (bordes, ícono en círculo, tipografía) queda igual. */
+.ac-hist-stat-static { cursor: default; }
+.ac-hist-stat-static:hover { border-color: var(--color-outline-variant); box-shadow: none; }
+.ac-hist-stat-static:active { transform: none; }
 
 .ac-hist-stat-body { flex: 1 1 auto; min-width: 0; }
 .ac-stat-label { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-on-surface-variant); }

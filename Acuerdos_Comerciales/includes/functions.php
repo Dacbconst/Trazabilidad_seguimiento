@@ -1545,12 +1545,29 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 // tener 2+ filas en el maestro con canal distinto entre sí, así que un
 // filtro directo sobre `canal` no sería mutuamente excluyente (ver el
 // comentario completo en esa función, includes/functions.php).
-function condicionCanalCumplimiento($canal, $columnaPosId) {
+//
+// Corregido 2026-08-31 (bug real reportado por el usuario): la primera
+// versión chequeaba el canal directo sobre `pos_id` contra el maestro
+// (`repositorio_locales_supervisores_cliente`) — pero el DUEÑO real de la
+// fila ya se resuelve con el criterio de arriba ("CEDI del Excel gana
+// sobre el maestro"), y el maestro puede decir una cosa totalmente
+// distinta de con quién trabaja Alicorp en la práctica (mismo fenómeno ya
+// documentado para Actas Asignadas: Javier Maldonado es Directo de
+// verdad, pero sus clientes en el maestro caen como MAYORISTA). Filtrar el
+// canal por el `pos_id` crudo, ignorando a quién se le asignó la fila,
+// hacía que un usuario Directo apareciera clasificado como Distribuidor
+// (o al revés) según lo que diga el maestro, no según quién es. Ahora
+// recibe la expresión SQL del SUPERVISOR ya resuelto (`COALESCE(u_cedi.
+// supervisor, u_master.supervisor)`, ver los JOIN en las 2 funciones de
+// abajo) y compara canal contra ESE supervisor — el mismo criterio que ya
+// usa `canalDeSupervisor()` en el resto de la app, solo que expresado como
+// SQL para poder filtrar/agrupar sin una consulta por fila.
+function condicionCanalCumplimiento($canal, $columnaSupervisor) {
 	if ($canal === 'directo') {
-		return "NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = $columnaPosId AND d2.canal = 'DISTRIBUIDOR')";
+		return "NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.supervisor = $columnaSupervisor AND d2.canal = 'DISTRIBUIDOR')";
 	}
 	if ($canal === 'distribuidor') {
-		return "EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = $columnaPosId AND d2.canal = 'DISTRIBUIDOR')";
+		return "EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.supervisor = $columnaSupervisor AND d2.canal = 'DISTRIBUIDOR')";
 	}
 	return '';
 }
@@ -1568,14 +1585,16 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		$params[] = $busqueda;
 		$tipos .= 'ss';
 	}
-	$condicionCanal = condicionCanalCumplimiento($canal, 'c.pos_id');
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_cedi.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
 	// `canal` acá es el mismo criterio canónico de arriba, resuelto una vez
 	// por fila — el frontend lo usa para mostrar el badge de canal SOLO
 	// cuando la Vista está en "Total" (con un canal puntual ya filtrado, el
-	// badge sería redundante en cada fila).
+	// badge sería redundante en cada fila). Se deriva del SUPERVISOR ya
+	// resuelto (CEDI del Excel gana sobre el maestro), no del `pos_id`
+	// crudo — ver el comentario de `condicionCanalCumplimiento()`.
 	$stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan_excel, c.sector,
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
@@ -1583,7 +1602,7 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		        c.rebate_real_vol, c.updated_at,
 		        COALESCE(u_cedi.id, u_master.id) AS usuario_id,
 		        COALESCE(u_cedi.usuario, u_master.usuario) AS usuario_nombre,
-		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.pos_id = c.pos_id AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal
+		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal
 		 FROM repositorio_cumplimiento_cuota c
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
@@ -1602,24 +1621,34 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 }
 
 function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total') {
-	$condiciones = ['eliminado_en IS NULL'];
+	$condiciones = ['c.eliminado_en IS NULL'];
 	$params = [];
 	$tipos = '';
-	if ($trimestre > 0) { $condiciones[] = 'trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
-	if ($anio > 0) { $condiciones[] = 'anio = ?'; $params[] = $anio; $tipos .= 'i'; }
-	$condicionCanal = condicionCanalCumplimiento($canal, 'pos_id');
+	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
+	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
+	// Mismo criterio que listar_cumplimiento_cuota() (2026-08-31, bug real
+	// corregido) — el canal se resuelve por el SUPERVISOR del usuario
+	// dueño real de la fila (CEDI del Excel gana sobre el maestro), no por
+	// el `pos_id` crudo — necesita los mismos 2 LEFT JOIN de esa función
+	// para poder resolver ese dueño acá también.
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_cedi.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
 	$stmt = $mysqli->prepare(
 		"SELECT
-		    COUNT(DISTINCT pos_id) AS clientes,
+		    COUNT(DISTINCT c.pos_id) AS clientes,
 		    COUNT(*) AS categorias,
-		    SUM(gana_categoria = 'gana') AS ganan_categoria,
-		    SUM(gana_categoria = 'no_gana') AS no_ganan_categoria,
-		    AVG(cumplimiento_pct) AS cumplimiento_promedio,
-		    COUNT(DISTINCT CASE WHEN gana_total = 'gana' THEN pos_id END) AS clientes_ganan_total
-		 FROM repositorio_cumplimiento_cuota
+		    SUM(c.gana_categoria = 'gana') AS ganan_categoria,
+		    SUM(c.gana_categoria = 'no_gana') AS no_ganan_categoria,
+		    AVG(c.cumplimiento_pct) AS cumplimiento_promedio,
+		    COUNT(DISTINCT CASE WHEN c.gana_total = 'gana' THEN c.pos_id END) AS clientes_ganan_total
+		 FROM repositorio_cumplimiento_cuota c
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN repositorio_locales_supervisores_cliente mst ON mst.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
 		 WHERE $where"
 	);
 	$vacio = ['clientes' => 0, 'categorias' => 0, 'ganan_categoria' => 0, 'no_ganan_categoria' => 0, 'cumplimiento_promedio' => 0.0, 'clientes_ganan_total' => 0];

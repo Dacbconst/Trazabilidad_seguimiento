@@ -603,7 +603,13 @@
 		function resetearRebate() {
 			if (!rebateInput) return;
 			rebateInput.value = 0;
-			rebateInput.readOnly = false;
+			// Bloqueado siempre (2026-08-31, pedido explícito del usuario: "no
+			// dejes campos editables, eso rompe lo que me pidieron que esos
+			// campos deben estar bloqueados") — este campo nunca se tipea a
+			// mano, ni mientras se espera a que se complete la fila ni cuando
+			// el repositorio no tiene el dato todavía (ver buscarYAplicarRebate
+			// más abajo, mismo criterio en su rama "sin match").
+			rebateInput.readOnly = true;
 			rebateInput.title = '';
 			updatePurchaseRow(tr);
 		}
@@ -709,7 +715,8 @@
 		var input = tr.querySelector('.v-participacion');
 		if (!input) return;
 		input.value = '0%';
-		input.readOnly = false;
+		// Bloqueado siempre, mismo criterio que resetearRebate() (2026-08-31).
+		input.readOnly = true;
 		input.title = '';
 	}
 	function buscarYAplicarParticipacion(tr, marca) {
@@ -730,11 +737,14 @@
 					input.readOnly = true;
 					input.title = 'Bloqueado — viene del repositorio de Participación.';
 				} else {
-					input.readOnly = false;
-					input.title = 'No hay Participación % cargada en el repositorio para esta Ciudad/Marca — escribilo a mano.';
+					// Bloqueado igual sin match (2026-08-31, mismo pedido explícito
+					// que Rebate — nunca editable a mano, ni siquiera mientras el
+					// repositorio no tiene el dato todavía).
+					input.readOnly = true;
+					input.title = 'Bloqueado — todavía no hay Participación % cargada en el repositorio para esta Ciudad/Marca.';
 				}
 			})
-			.catch(function () { /* silencioso: el campo ya quedó editable, el usuario puede seguir tipeando a mano */ });
+			.catch(function () { /* silencioso: el campo se queda bloqueado en 0 (resetearParticipacion), nunca editable a mano */ });
 	}
 
 	// Al completar Segmento+Categoría+Marca en Meta de Compras, se sugiere la
@@ -794,12 +804,17 @@
 					rebateInput.readOnly = true;
 					rebateInput.title = 'Bloqueado — viene del repositorio de Rebate.';
 				} else {
-					rebateInput.readOnly = false;
-					rebateInput.title = 'No hay Rebate % cargado en el repositorio para esta combinación — escribilo a mano.';
+					// Bloqueado igual sin match (2026-08-31, pedido explícito —
+					// antes se dejaba editable para no trabar el flujo mientras el
+					// repositorio se sigue poblando, pero el usuario corrigió: el
+					// campo debe quedar SIEMPRE bloqueado, sin excepción, aunque
+					// falte el dato). Se queda en 0, sin poder tipearse a mano.
+					rebateInput.readOnly = true;
+					rebateInput.title = 'Bloqueado — todavía no hay Rebate % cargado en el repositorio para esta combinación.';
 				}
 				updatePurchaseRow(tr);
 			})
-			.catch(function () { /* silencioso: el campo ya quedó editable (resetearRebate), el usuario puede seguir tipeando a mano */ });
+			.catch(function () { /* silencioso: el campo se queda bloqueado en 0 (resetearRebate), nunca editable a mano */ });
 	}
 
 	// ---------- Meta de Compras ----------
@@ -1205,7 +1220,26 @@
 					acuerdoId = data.acuerdo_id;
 					documentoNo = data.documento_no;
 					formSucio = false;
-					origenPrecarga = null; // ya se consumió, no reenviar en un guardado siguiente (ej. borrador -> generado)
+					// Bug real reportado 2026-08-31 (caso real: Carlos Proaño / ROBERT
+					// - PONCE COMPANY, Acta ADN-2026-0058 — confirmado contra la base:
+					// el Acuerdo se generó bien, pero repositorio_cuota_cliente se
+					// quedó en 'pendiente_uso' para siempre, así que nunca desapareció
+					// de "Actas Asignadas"). Causa: acá se limpiaba `origenPrecarga`
+					// apenas CUALQUIER guardado exitoso, incluido un "Guardar
+					// Borrador" intermedio — si el asesor guarda como borrador antes
+					// de terminar de completar Subcategoría/Marca y recién más tarde
+					// (misma sesión) le da "Generar PDF", ese guardado final ya
+					// mandaba `origen_precarga: null`, así que
+					// guardar_acuerdo.php nunca marcaba las filas como 'usada' (ver
+					// el bloque "Consumir la Acta precargada de origen" en ese
+					// archivo). Solo tiene sentido limpiarlo acá cuando el guardado
+					// que SÍ se consolidó es el final ('generado') — y ni siquiera
+					// hace falta: limpiarFormularioParaNuevoAcuerdo() (llamada desde
+					// el onOk de "Generar PDF") ya lo deja en null como parte del
+					// reset completo para el próximo Acuerdo. Un "Guardar Borrador"
+					// intermedio ya NO lo toca — origenPrecarga sobrevive intacto
+					// hasta el guardado final que de verdad lo consume.
+					if (estado === 'generado') origenPrecarga = null;
 					if (onOk) onOk();
 				}
 			})

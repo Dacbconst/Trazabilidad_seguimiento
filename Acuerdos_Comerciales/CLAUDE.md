@@ -2731,61 +2731,38 @@ pedir reparar, 3 hojas presentes.
       realmente hace falta, o si el ciclo trimestral normal se resuelve
       100% con "Descargar Excel" sin que JW suba nada de vuelta — ver
       sección "⚠️ REPLANTEO 2026-08-23" dentro de "Módulo Liquidación" más
-      abajo para el análisis completo. Pendiente confirmar con JW.
-- [x]/[ ] (Del mismo replanteo) repositorio de REBATE por
+      abajo para el análisis completo. **Parado, no confirmar con JW por
+      ahora** — el usuario pidió explícito 2026-08-31 "Liquidación se
+      deja [como está]", no seguir insistiendo en esto — ver "Decisiones
+      del usuario sobre varios pendientes abiertos" más abajo. No borrar
+      el análisis de arriba, solo dejarlo sin prioridad.
+- [x] ~~(Del mismo replanteo) repositorio de REBATE por
       segmento/sector/categoría/marca y repositorio de PARTICIPACIÓN de
-      percha — **el CRUD del repositorio en sí ya se construyó 2026-08-24**
-      (módulo "Repositorios", ver esa sección más abajo), pero **falta la
-      parte que de verdad pidió Michelle**: que estos valores autocompleten
-      y BLOQUEEN los campos `rebate_pct`/`participacion` en Registrar
-      Acuerdo PDV — hoy siguen siendo tipeados a mano y editables ahí, el
-      repositorio nuevo todavía no está conectado a ese formulario.
-      - **⚠️ Bloqueador real encontrado 2026-08-25**: la tabla
-        `repositorio_rebate_producto` (y `repositorio_participacion_percha`)
-        **todavía NO existen en producción** — están en el código (los
-        getters de `Repositorios` ya las consultan) y en
-        `datos/repositorios_schema.sql`, pero el `CREATE TABLE` nunca se
-        corrió en la base real (confirmado con `DESCRIBE` de solo lectura:
-        error "no existe"). Coincide con que la pantalla de Repositorios
-        muestra "0" en ambas pestañas. Nada de lo de abajo se puede
-        verificar contra datos reales hasta que esto se resuelva.
-- [ ] (Ídem) repositorio de CUOTAS trimestrales que Michelle subiría para
+      percha — falta la parte que de verdad pidió Michelle: que estos
+      valores autocompleten y BLOQUEEN los campos `rebate_pct`/
+      `participacion` en Registrar Acuerdo PDV.~~ **Resuelto por completo**:
+      Rebate conectado y bloqueando desde 2026-08-27 ("Rebate % conectado
+      al repositorio" + rondas de matching tolerante), Participación desde
+      2026-08-30 ("Participación de Percha — conectada al repositorio con
+      el Excel real"). Ambos ajustados 2026-08-31 para quedar SIEMPRE
+      bloqueados, incluso sin match (ver "Rebate % y Participación % —
+      bloqueados SIEMPRE, sin excepción" más abajo) — ya no queda ningún
+      caso donde el asesor pueda tipear un % a mano.
+- [x] ~~(Ídem) repositorio de CUOTAS trimestrales que Michelle subiría para
       que Meta de Compras salga ya lleno/bloqueado al elegir cliente en
-      Registrar Acuerdo PDV — pieza grande, no construida.
-      - **Análisis de factibilidad 2026-08-25** (solo planificación, nada
-        implementado — pedido explícito del usuario de no tocar código
-        todavía): la idea que surgió es que Michelle suba directo la hoja
-        "CUOTA CLIENTE - CATEGORÍA" (la misma que ya generamos nosotros en
-        `getters/exportar_cuota_categoria.php`) y que el sistema arme el
-        Acta sola. **Se puede autollenar Cliente (match por nombre, reusando
-        `liquidacion_candidatos_pos_id()` de Liquidación), Período (mismo
-        detector de columnas de mes ya usado), Sector/Categoría, cuota
-        mensual y Rebate %** — todos vienen directo en esa hoja. **Lo que NO
-        se puede autollenar: la Marca.** Esa hoja nunca tuvo columna de
-        Marca — la columna "CATEGORIAS" ahí es el Sector, no la Marca, y una
-        línea de Meta de Compras necesita Segmento+Categoría+Marca para ser
-        válida (`registrar.js` la descarta si falta cualquiera de las 3).
-        - **Idea para resolver la Marca (no implementada, depende del
-          bloqueador de arriba)**: matchear Sector + Rebate% de la fila
-          subida contra el repositorio de Rebate (`repositorio_rebate_producto`,
-          que mapea Segmento/Sector/Categoría/Marca → % fijo) — si dentro de
-          un mismo Sector cada Marca tiene un % distinto (lo cual parece
-          cierto por el caso ya documentado de "PASTAS 4%/3% = 2 líneas
-          reales distintas"), el % sería suficiente para resolver la Marca
-          real, no una sugerencia — un dato cierto. **No se pudo verificar
-          si el % es realmente único por Sector** porque el repositorio
-          está vacío (ver bloqueador de arriba) — falta esa verificación
-          antes de construir esto.
-        - **Diseño acordado si se construye**: Cliente/Período/Sector/Cuota/
-          Rebate% quedan BLOQUEADOS (vienen directo del archivo, sin
-          ambigüedad). La Marca, aunque se resuelva por match, quedaría
-          PRE-LLENADA PERO EDITABLE, no bloqueada — a diferencia de los
-          demás campos, es algo que nosotros inferimos, no un dato que vino
-          tal cual del archivo; bloquearla sería mostrar más certeza de la
-          que realmente hay.
-        - Cabeceras/Rumas/Perchas quedan 100% fuera de esto — esa hoja no
-          trae ningún dato de visibilidad, se seguirían llenando a mano
-          igual que hoy.
+      Registrar Acuerdo PDV — pieza grande, no construida.~~ **Resuelto por
+      completo** — ver "Repositorio de Cuotas trimestrales + Actas
+      precargadas" más abajo (Fase 1+2, construido 2026-08-25 en adelante,
+      en uso real en producción) y sus muchas rondas de fixes posteriores
+      hasta 2026-08-31 (la más reciente: "Actas Asignadas: bug real —
+      'Guardar Borrador' intermedio rompía el marcado de 'usada'"). La
+      duda original de la Marca (esa hoja no la trae) también se resolvió:
+      2026-08-28 se agregaron columnas opcionales SUBCATEGORIA/MARCA al
+      Excel de Cuotas ("Cuotas: SUBCATEGORIA/MARCA opcionales en el Excel
+      → autocompletan y bloquean la Acta Precargada") — cuando el Excel
+      las trae y matchean, quedan bloqueadas; si no, caen al fallback de
+      continuidad con Actas anteriores del cliente o quedan editables,
+      exactamente el diseño que se había acordado acá.
 - [ ] (Ídem) revisar si el formato `'money'` de "VISIBILIDAD (2)"
       (Distribuidor) es correcto — la reunión confirma que Distribuidor se
       paga en CAJAS, no en dólares.
@@ -2804,12 +2781,32 @@ pedir reparar, 3 hojas presentes.
       tanto, mostrar el catálogo completo es la opción segura (filtrar contra
       una tabla vacía mostraría cero opciones, peor problema). Preguntar al
       cliente quién/con qué frecuencia se llenaría esa tabla antes de usarla.
-- [ ] Nombre exacto de la columna de rebate que se va a agregar a
-      `repositorio_productos`.
+- [x] ~~Nombre exacto de la columna de rebate que se va a agregar a
+      `repositorio_productos`.~~ **Obsoleto/superado** — ese plan original
+      (agregar una columna de rebate al catálogo de productos) se
+      abandonó cuando Rebate pasó a ser su propio repositorio
+      (`repositorio_rebate_producto`, ver "Rebate: rediseño — Ciudad+Canal
+      reemplazan a Segmento" y siguientes) — nunca se agregó ninguna
+      columna a `repositorio_productos`, ni hace falta.
 - [ ] Si la cuota del Acta se conecta o no a un archivo/proceso de BI (Trade
       MKT). Respuesta actual del cliente: "no estoy seguro".
-- [ ] Columna `CARTERA` (cartera vencida) mencionada en las Condiciones del
-      Acta — detectada en el Excel real, todavía sin definir dónde se guarda.
+- [x] ~~Columna `CARTERA` (cartera vencida) mencionada en las Condiciones
+      del Acta — detectada en el Excel real, todavía sin definir dónde se
+      guarda.~~ **Resuelto 2026-08-31**: JW la completa ellos mismos, no es
+      un dato que este sistema calcule ni guarde — ver sección "Decisiones
+      del usuario sobre varios pendientes abiertos" más abajo.
+- [x] ~~Paso 5 del proceso original (envío de preliminar al área comercial
+      para verificación)~~ **CANCELADO 2026-08-31**, no se construye, ver
+      "Decisiones del usuario sobre varios pendientes abiertos" más abajo.
+- [x] ~~Si Liquidación debe avisar cuando el rebate de una Acta ya no
+      coincide con el valor actual del repositorio de Rebate~~ **Resuelto
+      2026-08-31: NO hace falta avisar.** El usuario confirmó explícito que
+      el comportamiento actual (congelar el % al generar la Acta, nunca
+      compararlo después) es el correcto, con su propio ejemplo: si un
+      producto se negoció con cierto Rebate en Q1 y el repositorio cambió
+      ese % para Q2, el Q1 ya cerrado no debe verse afectado — es la lógica
+      esperada, no un caso a alertar. Ver "Decisiones del usuario sobre
+      varios pendientes abiertos" más abajo.
 - [x] ~~Si el presupuesto se maneja por PDV individual o por distribuidor
       completo — afecta el diseño de la tabla de liquidación.~~ Resuelto al
       diseñar el schema real de Liquidación (2026-08-17/18, ver sección
@@ -8004,3 +8001,266 @@ Verificado con datos reales: directo(9)+distribuidor(3)=total(12), exacto.
 **Probado**: `php -l`/`node --check` limpios, CSS balanceado (798/798),
 canal-filter verificado con datos reales de solo lectura (arriba). Sin
 probar en navegador real.
+
+## Cumplimiento de Cuota: bug real de canal — se derivaba del `pos_id`, no del usuario dueño (2026-08-31)
+
+El usuario reportó, con datos reales: filtrando la pastilla en "Directo"
+Javier Maldonado (Directo confirmado) no aparecía — todo caía en
+"Distribuidor". Preguntó explícito: "¿quién definía que era directo o
+distribuidor no era el usuario? por qué me lo pones en las Actas?" —
+razonamiento correcto, y ya había un comentario en el propio código
+(`condicionCanalCumplimiento()`) documentando el criterio correcto
+("CEDI del Excel gana sobre el maestro") sin aplicarlo al canal.
+
+**Causa real, confirmada leyendo el código**: `listar_cumplimiento_cuota()`/
+`resumen_cumplimiento_cuota()` ya resolvían el DUEÑO de cada fila con el
+criterio correcto (CEDI del Excel → usuario real, con fallback al maestro
+solo si no matchea), pero el CANAL se seguía calculando aparte, mirando
+directo si el `pos_id` de esa fila tenía alguna entrada `DISTRIBUIDOR` en
+`repositorio_locales_supervisores_cliente` — el mismo maestro que ya se
+sabe no refleja con quién trabaja Alicorp en la práctica (mismo fenómeno
+ya documentado para Actas Asignadas: los clientes reales de Javier caen
+como `MAYORISTA` en el maestro aunque él sea Directo de verdad).
+
+**Corregido en `includes/functions.php`**: `condicionCanalCumplimiento()`
+ahora recibe la expresión SQL del SUPERVISOR ya resuelto
+(`COALESCE(u_cedi.supervisor, u_master.supervisor)`, mismos 2 `LEFT JOIN`
+que ya arma `listar_cumplimiento_cuota()`) en vez del `pos_id` crudo, y
+compara canal contra ESE supervisor — mismo criterio que ya usa
+`canalDeSupervisor()` en el resto de la app. `resumen_cumplimiento_cuota()`
+no tenía esos 2 `LEFT JOIN` para nada (operaba directo sobre la tabla sin
+resolver dueño) — se le agregaron, mismos alias `u_cedi`/`mst`/`u_master`.
+
+**Probado con datos reales de solo lectura**: las 15 filas de Javier
+Maldonado (usuario real, confirmado por CEDI) daban `canal=distribuidor`
+ANTES del fix — con el fix, las 15 dan `canal=directo`, filtro "Directo"
+las trae las 15, filtro "Distribuidor" trae 0 — exacto lo que el usuario
+esperaba. `php -l` limpio.
+
+## Cumplimiento de Cuota: KPI con el mismo estilo de card que Historial (2026-08-31)
+
+Pedido explícito: "usa el mismo estilo de card para los KPI de Historial
+de Acuerdos, así como están bonitos allá". Las 3 tarjetas visibles
+(Clientes evaluados / Ganan la categoría / No ganan) pasaron de
+`.ac-stat-tile` (el tile plano lavanda de Liquidación) a `.ac-hist-stat`
+(el de Historial: base blanca + borde fino + ícono en círculo, el color
+de estado vive solo en el ícono) — reusado TAL CUAL, sin duplicar CSS.
+
+- `components/cumplimiento/cumplimiento.php`: markup calcado del de
+  Historial (`.ac-hist-stat > .ac-hist-stat-icon + .ac-hist-stat-body`),
+  íconos `storefront`/`trending_up`/`trending_down`. La tarjeta oculta de
+  "Cumplimiento promedio" se mantiene oculta con el mismo mecanismo
+  (`display:none`, el JS le sigue escribiendo el valor sin romper nada).
+- Nuevas 2 clases chicas en `style.css`: `.ac-hist-stat-bad` (rojo, mismos
+  tokens que `.ac-badge-critico` — `--color-error-container`/
+  `--color-on-error-container` — para "No ganan", el 3er color de estado
+  que Historial no necesitaba) y `.ac-hist-stat-static` (saca
+  `cursor:pointer`/hover/active — estas 3 tarjetas son informativas, no
+  filtran nada al click, a diferencia de las de Historial).
+- **Probado**: `php -l` limpio, CSS balanceado. Sin probar en navegador
+  real.
+
+## Actas Asignadas: bug real — "Guardar Borrador" intermedio rompía el marcado de "usada" (2026-08-31)
+
+El usuario reportó un caso real: completó y generó el PDF de una Acta
+Precargada (cliente asignado a Carlos Proaño), pero los campos del
+formulario no se limpiaron y el cliente siguió apareciendo en "Actas
+Asignadas". **Confirmado contra la base real, con datos concretos**: el
+Acuerdo SÍ se generó bien (`repositorio_acuerdos` id=64, `ADN-2026-0058`,
+`estado='generado'`, `creado_por=9` = Carlos Proaño) — pero las 4 filas de
+`repositorio_cuota_cliente` de ese mismo cliente (`EPV13260`, Q2 2026)
+seguían en `estado='pendiente_uso'`, `acuerdo_id_generado=NULL`, como si
+nunca se hubiera consumido la precarga.
+
+**Causa real**: `guardarAcuerdo()` (`assets/js/registrar.js`) limpiaba la
+variable `origenPrecarga` apenas CUALQUIER guardado exitoso, incluido un
+"Guardar Borrador" intermedio (el botón no pasa `onOk`, pero el `.then()`
+de éxito corre igual y nuleaba `origenPrecarga` sin que nada lo
+reconstruyera después). Si el asesor guarda como borrador antes de
+terminar de completar Subcategoría/Marca (flujo real y común con varias
+categorías por cliente) y recién más tarde, en la misma sesión, aprieta
+"Generar PDF", ese guardado final ya mandaba `origen_precarga: null` —
+`guardar_acuerdo.php` nunca llega al bloque "Consumir la Acta precargada
+de origen" (`if ($origenPrecarga && ...)`), así que las filas de
+`repositorio_cuota_cliente` quedan huérfanas en `pendiente_uso` para
+siempre, aunque el Acuerdo real ya exista. Esto también explica por qué
+los campos "no se limpiaron" desde la perspectiva del usuario: el cliente
+sigue en Actas Asignadas, así que un click de nuevo ahí vuelve a
+precargar los mismos datos en el formulario.
+
+**Corregido**: `origenPrecarga` ya NO se limpia después de un "Guardar
+Borrador" — solo se limpia cuando el guardado que se consolidó es el
+final (`estado === 'generado'`), y ni siquiera hace falta ahí porque
+`limpiarFormularioParaNuevoAcuerdo()` (llamada por el `onOk` de "Generar
+PDF") ya lo deja en `null` como parte del reset completo para el próximo
+Acuerdo — se dejó explícito de todos modos, por claridad. Un "Guardar
+Borrador" intermedio ya no rompe el enlace con la precarga de origen.
+
+**El caso ya roto (Carlos Proaño / `EPV13260`, Acuerdo id=64) sigue sin
+corregirse en la base** — el fix de código previene que esto vuelva a
+pasar, pero no repara datos ya huérfanos, y Claude no puede ejecutar el
+`UPDATE` necesario (prohibido incluso bajo la excepción de este proyecto,
+que solo cubre `CREATE`/`ALTER`). **Camino más simple para el usuario**:
+en Repositorios > Cuotas Trimestrales, buscar esas 4 filas
+(`EPV13260`/ROBERT - PONCE COMPANY) y usar el botón "Descartar" — las saca
+de "Actas Asignadas" de inmediato (mismo filtro `estado='pendiente_uso'`
+que usa la campanita). Alternativa más precisa si el usuario prefiere que
+quede enlazada al Acuerdo real en vez de "descartada": correr él mismo
+`UPDATE repositorio_cuota_cliente SET estado='usada', acuerdo_id_generado=64
+WHERE pos_id='EPV13260' AND trimestre=2 AND anio=2026 AND estado='pendiente_uso';`
+desde HeidiSQL.
+
+**Probado**: `node --check` limpio en `registrar.js`. La causa se confirmó
+con datos reales de solo lectura (el `id=64`/`ADN-2026-0058` real, las 4
+filas huérfanas reales). **Todavía sin probar en navegador real** — falta
+que el usuario repita el flujo completo (precarga → guardar borrador →
+completar → generar PDF) con un cliente nuevo y confirme que esta vez sí
+desaparece de Actas Asignadas y el formulario se limpia.
+
+## Rebate % y Participación % — bloqueados SIEMPRE, sin excepción (2026-08-31)
+
+Corrige una decisión de diseño anterior (2026-08-27/30, ver "Rebate %
+conectado al repositorio" y "Participación de Percha — conectada al
+repositorio" más arriba): cuando la búsqueda contra el repositorio no
+encuentra match, el campo se dejaba **editable** ("no bloquear el flujo
+de Registrar por falta de datos en un repositorio que se sigue poblando
+de a poco"). **El usuario corrigió esto de raíz**: "no dejes campos
+editables, rompe eso que me pidieron que esos campos deben estar
+bloqueados" — el requisito real es que el asesor NUNCA pueda tipear un %
+a mano en estos 2 campos, con match o sin él.
+
+**Corregido en `assets/js/registrar.js`, 4 lugares** (los únicos 4 puntos
+del archivo que ponían `readOnly = false`): `resetearRebate()`,
+`resetearParticipacion()`, y la rama "sin match" de
+`buscarYAplicarRebate()`/`buscarYAplicarParticipacion()` — las 4 ahora
+dejan `readOnly = true` siempre. Sin match, el campo se queda en 0
+(Rebate) / "0%" (Participación), bloqueado, con un `title` que explica
+que falta el dato en el repositorio (ya no dice "escribilo a mano"). El
+estilo visual de campo bloqueado (`.ac-rebate-input:read-only`,
+`.v-participacion:read-only`, fondo apagado + `cursor:not-allowed`) ya
+existía, no hizo falta CSS nuevo.
+
+**Consecuencia práctica**: los 3 productos de Rebate y las 4 marcas de
+Participación sin porcentaje cargado (ver auditorías completas más
+arriba, "Auditoría completa de Rebate" y "Participación de Percha: qué
+marcas van a autocompletar") quedan con el campo en 0% BLOQUEADO hasta
+que JW complete esos datos en el repositorio — el asesor ya no tiene
+forma de poner un valor a mano para esos casos, tiene que esperar a que
+se cargue el dato real. Esto es a propósito, confirmado explícito por el
+usuario — no es un caso a "arreglar" completando el catálogo desde acá,
+es responsabilidad de JW.
+
+**Probado**: `node --check` limpio. **Todavía sin probar en navegador
+real** — falta confirmar visualmente que un producto sin match (ej.
+`BARRA/LAVAVAJILLAS/EL ARRANCAGRASA`) queda con el Rebate% bloqueado en 0
+en vez de editable.
+
+## Decisiones del usuario sobre varios pendientes abiertos (2026-08-31)
+
+El usuario repasó varios ítems de la lista de "Pendientes / decisiones
+abiertas" (al inicio de este archivo) y contestó cada uno:
+
+- **Paso 5 del proceso original ("envío de preliminar al área comercial
+  para verificación")**: **cancelado, no se construye.** El usuario lo
+  confirmó explícito ("eso no lo haremos, ya no va"). Queda fuera de
+  alcance del proyecto — si en el futuro se pregunta por este paso del
+  correo original, la respuesta es que se descartó a pedido del cliente,
+  no que sigue pendiente.
+- **Módulo Liquidación**: **se deja como está** ("liquidación se deja") —
+  sigue oculto del sidebar (ver "⚠️ REPLANTEO 2026-08-23" y la nota de
+  2026-08-25 que lo ocultó), sin más trabajo por ahora. No se retoma el
+  análisis de si el mecanismo de subida+matching hace falta de verdad —
+  esa pregunta queda parada, no resuelta ni descartada, simplemente sin
+  prioridad.
+- **Columna `CARTERA`** (cartera vencida, mencionada en las Condiciones
+  del Acta): **JW la completa ellos mismos** ("el dato de cartera ellos
+  lo ponen") — no es un dato que este sistema calcule, guarde ni
+  necesite resolver. Cierra la pregunta abierta desde el diseño del
+  export de Historial (la celda sigue en blanco/sin formato en el Excel,
+  eso ya estaba bien — ver "Excel de Historial: filas TOTAL sin pintar..."
+  más arriba).
+- **"Avisar si el Rebate de una Acta no coincide con el Excel de JW"**: el
+  usuario preguntó qué significaba este pendiente — explicado en el
+  chat, resumen acá para que quede documentado. Contexto: el `rebate_pct`
+  de una línea de Meta de Compras se CONGELA en el momento de generar el
+  Acta (nunca se vuelve a consultar el repositorio después, ver
+  "Excel de Historial... rebate congelado" más arriba) — si JW sube
+  después un Excel de Rebate con un % distinto para ese mismo producto
+  (Trade MKT revisa/actualiza), la Acta vieja se queda con el valor
+  histórico, a propósito. La pregunta sin resolver es si el sistema
+  debería, en algún reporte, avisar activamente cuando el % que quedó
+  congelado en una Acta ya no coincide con el valor ACTUAL del
+  repositorio (ej. "esta Acta se firmó con 2.5%, pero el repositorio hoy
+  dice 4% para este producto — revisar si corresponde") — o si eso no
+  aporta nada y alcanza con que cada Acta sea un acuerdo cerrado, sin
+  comparar contra el presente. **Resuelto 2026-08-31: NO hace falta.** El
+  usuario confirmó explícito que el comportamiento actual es el
+  correcto, con su propio ejemplo de negocio: si un producto se negoció
+  con cierto Rebate en Q1 y para Q2 el repositorio cambió ese %,
+  obviamente el Q1 ya cerrado no debe verse afectado — eso es exactamente
+  lo que ya hace el sistema (congelar al generar, nunca recomparar
+  después), así que no hay nada para construir acá. Cierra
+  definitivamente esta pregunta (antes el cliente había contestado "ni
+  idea", ver "Módulo Liquidación", "Dos rebate distintos, no confundir").
+- **Qué ve `superdesarrollador` en Historial**: el usuario confirmó "esto
+  ya está bien como se ve ahora" — ya implementado (ver "Historial por
+  Canal + Excel por formato + 'Ver todo' del superdesarrollador",
+  2026-08-31, más arriba) y ya estaba marcado como resuelto en la lista
+  de Pendientes. Sin cambios, solo confirmación.
+- **Completar los catálogos de Rebate/Participación (3 productos/4
+  marcas sin %)**: el usuario RECHAZÓ la solución descrita ("esos campos
+  quedan editables a mano") — ver sección de arriba, "Rebate % y
+  Participación % — bloqueados SIEMPRE, sin excepción", ya corregido.
+
+## Excel de Distribuidor: hoja "VISIBILIDAD (2)" corregida a Cajas, sin "$" (2026-08-31)
+
+Cerraba el pendiente "revisar si el formato 'money' de VISIBILIDAD (2)
+(Distribuidor) es correcto" — confirmado que NO era correcto: las
+columnas PAGO (Cabecera/Isla/Percha/Total) y PAGO (CAJAS) (las mismas 4
+después de aplicar VALIDACIÓN) tenían formato `'money'` (signo `$`) en
+`getters/exportar_cuota_categoria_distribuidor.php`, contradiciendo su
+propio encabezado — la celda de grupo en fila 1 literalmente dice
+**"PAGO (CAJAS)"**, prueba de que el signo `$` era un descuido, no una
+decisión.
+
+**Corregido**: las 8 llamadas a `celda()`/`formula()` de esas columnas
+(`$vdPagoCab/Isla/Percha/Total`, `$vdFinCab/Isla/Percha/Total`) perdieron
+el 5to parámetro `'money'` — `XlsxWriter` sin ese parámetro usa formato
+general (número plano), igual que ya se corrigió para la pantalla
+interactiva de Registrar el 2026-08-30 ("canal Distribuidor mide en
+Cajas, no en Dólares"). CANTIDAD (Cabecera/Isla/Percha/Total) no se tocó
+— ya era número plano, nunca tuvo el problema.
+
+**Hallazgo aparte, NO corregido a propósito (fuera del pedido puntual)**:
+la hoja "RESUMEN DE PAGOS" de este mismo archivo sigue con formato
+`'money'` en su columna "VISIBILIDAD" — que ahora, después de este fix,
+referencia (via `VLOOKUP`) un número que ya no es dinero, es una cuenta
+de Cajas. Peor aún: esa misma hoja SUMA esa "VISIBILIDAD" (Cajas) con
+"VOLUMEN" (que sí es dinero real, viene de `REBATE REAL VOL`) en una
+columna "TOTAL" — mezclando 2 unidades distintas en una sola suma, algo
+que ya era cuestionable ANTES de este fix y sigue siéndolo después. No se
+tocó porque el pedido puntual era solo "VISIBILIDAD (2)" y arreglar esto
+bien requiere una decisión de negocio (¿tiene sentido sumar $ + Cajas en
+un "Total"? ¿debería la columna VISIBILIDAD de este resumen mostrarse
+aparte, sin sumarse?) que no corresponde asumir. Queda como hallazgo para
+la próxima vez que se toque "RESUMEN DE PAGOS" de Distribuidor.
+
+**Probado**: `php -l` limpio. No se pudo generar el `.xlsx` real en esta
+sesión (falta la extensión `zip` en el PHP CLI local, límite ya
+documentado varias veces en este archivo). **Todavía sin probar en
+navegador real.**
+
+## Aclaración: `repositorio_portafolio_prioritario` NO es una tabla de este proyecto — no tocar (2026-08-31)
+
+El usuario preguntó si esa tabla (mencionada en el pendiente "Portafolio
+por distribuidor") la creamos nosotros. **Confirmado con `grep`: no
+existe ningún `CREATE TABLE repositorio_portafolio_prioritario` ni
+`lvi_portafolio_prioritario` en todo el proyecto** (ni en
+`datos/*.sql`, ni en ningún getter — de hecho ningún getter la consulta
+tampoco, solo se menciona en este CLAUDE.md como hallazgo de una
+investigación). Es un maestro externo de Alicorp que ya existía en la
+base (mismo tipo de tabla que `repositorio_locales_supervisores_cliente`/
+`repositorio_productos`) — Claude la encontró en algún momento
+revisando qué tablas había, nunca la creó ni la usó. **Confirmado con el
+usuario: no tocarla** — sigue como "no usar hasta que alguien la llene",
+sin ningún plan de construir sobre ella por ahora.

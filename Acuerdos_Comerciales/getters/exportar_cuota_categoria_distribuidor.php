@@ -330,19 +330,24 @@ foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 		XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD);
 
 	// PAGO = CANTIDAD * 6, fórmula real (ver nota arriba, confirmado con el usuario).
-	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoCab, XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'*6', false, 'money');
-	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoIsla, XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'*6', false, 'money');
-	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoPercha, XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD.'*6', false, 'money');
+	// Sin formato 'money' (2026-08-31, bug real confirmado y corregido — el
+	// propio encabezado de este grupo ya decía "PAGO (CAJAS)" pero la celda
+	// se pintaba con signo $, contradiciendo su propio título; Distribuidor
+	// se paga en Cajas, no en Dólares, mismo criterio ya aplicado a la
+	// pantalla interactiva de Registrar el 2026-08-30).
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoCab, XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'*6');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoIsla, XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'*6');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoPercha, XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD.'*6');
 	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoTotal,
-		XlsxWriter::colLetra($vdPagoCab).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdPagoIsla).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdPagoPercha).$filaVisDatosD, false, 'money');
+		XlsxWriter::colLetra($vdPagoCab).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdPagoIsla).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdPagoPercha).$filaVisDatosD);
 
 	// VALIDACIÓN vacía, la llena JW a mano.
 	foreach ([$vdValidCab, $vdValidIsla, $vdValidPercha] as $col) $wbD->celda($sVisD, $filaVisDatosD, $col, '');
 
-	$wbD->formula($sVisD, $filaVisDatosD, $vdFinCab, 'IF('.XlsxWriter::colLetra($vdValidCab).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoCab).$filaVisDatosD.',0)', false, 'money');
-	$wbD->formula($sVisD, $filaVisDatosD, $vdFinIsla, 'IF('.XlsxWriter::colLetra($vdValidIsla).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoIsla).$filaVisDatosD.',0)', false, 'money');
-	$wbD->formula($sVisD, $filaVisDatosD, $vdFinPercha, 'IF('.XlsxWriter::colLetra($vdValidPercha).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoPercha).$filaVisDatosD.',0)', false, 'money');
-	$wbD->formula($sVisD, $filaVisDatosD, $vdFinTotal, 'SUM('.XlsxWriter::colLetra($vdFinCab).$filaVisDatosD.':'.XlsxWriter::colLetra($vdFinPercha).$filaVisDatosD.')', false, 'money');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinCab, 'IF('.XlsxWriter::colLetra($vdValidCab).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoCab).$filaVisDatosD.',0)');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinIsla, 'IF('.XlsxWriter::colLetra($vdValidIsla).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoIsla).$filaVisDatosD.',0)');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinPercha, 'IF('.XlsxWriter::colLetra($vdValidPercha).$filaVisDatosD.'="CUMPLE",'.XlsxWriter::colLetra($vdPagoPercha).$filaVisDatosD.',0)');
+	$wbD->formula($sVisD, $filaVisDatosD, $vdFinTotal, 'SUM('.XlsxWriter::colLetra($vdFinCab).$filaVisDatosD.':'.XlsxWriter::colLetra($vdFinPercha).$filaVisDatosD.')');
 	$wbD->celda($sVisD, $filaVisDatosD, $vdObs, '');
 
 	$filaVisDatosD++;
