@@ -394,13 +394,18 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 // Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota(), acá como JOIN para todas las filas pendientes a la vez.
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
+	// Subquery en vez de JOIN directo por pos_id (2026-09-02, mismo bug real
+	// ya corregido en listar_cumplimiento_cuota()/resumen_cumplimiento_cuota() —
+	// `repositorio_locales_supervisores_cliente.pos_id` NO es único, un JOIN
+	// directo duplicaría esta Acta Precargada en la campanita si el cliente
+	// tiene 2+ filas en el maestro real).
 	$stmt = $mysqli->prepare(
 		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.sector, c.valores_mensuales, c.updated_at
 		 FROM repositorio_cuota_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
 		 WHERE c.estado = 'pendiente_uso' AND COALESCE(u_cedi.id, u_master.id) = ?
 		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel"
@@ -587,7 +592,7 @@ function resumen_cuotas($mysqli) {
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
 		 WHERE c.estado = 'pendiente_uso' AND COALESCE(u_cedi.id, u_master.id) IS NOT NULL
 		 GROUP BY COALESCE(u_cedi.id, u_master.id), nombre
@@ -597,7 +602,7 @@ function resumen_cuotas($mysqli) {
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN repositorio_locales_supervisores_cliente m ON m.pos_id = c.pos_id
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
 		 WHERE c.estado = 'pendiente_uso' AND u_cedi.id IS NULL AND u_master.id IS NULL
 		 GROUP BY COALESCE(m.supervisor, c.cedi_excel)
@@ -1595,6 +1600,21 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 	// badge sería redundante en cada fila). Se deriva del SUPERVISOR ya
 	// resuelto (CEDI del Excel gana sobre el maestro), no del `pos_id`
 	// crudo — ver el comentario de `condicionCanalCumplimiento()`.
+	//
+	// Bug real corregido (2026-09-02, reportado por el usuario: "por qué se
+	// duplicó ACOSTA SANTAMARIA y NOVOA no"): `repositorio_locales_supervisores_cliente.pos_id`
+	// NO es único (confirmado con datos reales — EPVD15130/ACOSTA SANTAMARIA
+	// tiene 2 filas en el maestro, una con supervisor PATRICIO PASPUEZAN
+	// canal MAYORISTA y otra GARRY SAINT canal DISTRIBUIDOR; NOVOA/SUPERALIANZA
+	// tienen 1 sola fila cada uno, por eso no se duplicaban). Un
+	// `LEFT JOIN ... ON mst.pos_id = c.pos_id` directo multiplica cada fila
+	// de Cumplimiento por la cantidad de filas que tenga ese pos_id en el
+	// maestro — acá pasaba de 1 a 2, y con 3 categorías reales se veían 6.
+	// La subquery `(SELECT pos_id, MIN(supervisor)... GROUP BY pos_id)`
+	// fuerza como máximo 1 fila por pos_id antes del JOIN, sin importar
+	// cuántas tenga el maestro real — mismo criterio a aplicar en cualquier
+	// otro JOIN nuevo contra esta tabla por `pos_id` (ver también
+	// `listar_actas_precargadas_pendientes()`, corregida igual el mismo día).
 	$stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan_excel, c.sector,
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
@@ -1607,7 +1627,7 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN repositorio_locales_supervisores_cliente mst ON mst.pos_id = c.pos_id
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) mst ON mst.pos_id = c.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
 		 WHERE $where
 		 ORDER BY usuario_nombre IS NULL, usuario_nombre, c.cliente_excel, c.sector"
@@ -1647,7 +1667,7 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN repositorio_locales_supervisores_cliente mst ON mst.pos_id = c.pos_id
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) mst ON mst.pos_id = c.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
 		 WHERE $where"
 	);

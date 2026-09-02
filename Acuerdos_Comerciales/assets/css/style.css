@@ -1950,11 +1950,20 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 }
 .ac-seg-detalle-fila { padding: 14px var(--space-lg); border-bottom: 1px solid var(--color-surface-container); }
 .ac-seg-detalle-fila:last-child { border-bottom: none; }
-.ac-seg-detalle-thead > span:nth-child(1), .ac-seg-detalle-fila > span:nth-child(1) { flex: 1.5; }
+/* `:nth-child(1)` sin filtro de tag (no "span:nth-child") — la 1ra columna
+   de .ac-seg-detalle-fila pasó de <span> a <a> (2026-09-02, ver .ac-seg-doc-link)
+   y "span:nth-child(1)" ya no matchea un <a> en esa posición, aunque sea el
+   primer hijo. */
+.ac-seg-detalle-thead > span:nth-child(1), .ac-seg-detalle-fila > :nth-child(1) { flex: 1.5; }
 .ac-seg-detalle-thead > span:nth-child(2), .ac-seg-detalle-fila > span:nth-child(2) { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { flex: 1; }
 .ac-seg-detalle-thead > span:nth-child(4), .ac-seg-detalle-fila > span:nth-child(4) { width: 130px; }
 .ac-seg-doc { font-weight: 700; color: var(--color-primary); }
+/* Ahora es un <a> real que descarga el PDF (2026-09-02) — mismo criterio
+   visual que .ac-link-id (Historial): sin subrayado en reposo, subrayado
+   solo al pasar el mouse, para que se lea como link sin verse "azul feo". */
+.ac-seg-doc-link { text-decoration: none; cursor: pointer; }
+.ac-seg-doc-link:hover { text-decoration: underline; }
 
 .ac-seg-cargando { padding: var(--space-xl); text-align: center; color: var(--color-outline); font-size: 13px; }
 

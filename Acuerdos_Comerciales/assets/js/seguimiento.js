@@ -232,8 +232,13 @@
 		var filasHtml = actas.length
 			? actas.map(function (a) {
 				var b = badgeParaActa(a);
+				// Hipervínculo directo al PDF real (2026-09-02, pedido explícito) —
+				// mismo endpoint que ya usa toda la app (getters/generar_acta_pdf.php),
+				// con `download` para que baje el archivo de una, sin pasar por el
+				// modal de previsualización de Historial (acá el superdesarrollador
+				// solo quiere el archivo rápido, no editar/imprimir la propia Acta).
 				return '<div class="ac-seg-detalle-fila">' +
-					'<span class="ac-seg-doc">#' + escapeHtml(a.documento_no) + '</span>' +
+					'<a class="ac-seg-doc ac-seg-doc-link" href="getters/generar_acta_pdf.php?id=' + encodeURIComponent(a.id) + '" download title="Descargar PDF">#' + escapeHtml(a.documento_no) + '</a>' +
 					'<span>' + escapeHtml(a.pos_name || '—') + '</span>' +
 					'<span class="ac-text-right ac-tabular">' + escapeHtml(formatearFecha(a.fecha_generacion)) + '</span>' +
 					'<span class="ac-text-center">' + badgeHtml(b.className, b.text) + '</span>' +

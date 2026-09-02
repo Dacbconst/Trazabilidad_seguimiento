@@ -20,21 +20,36 @@ function ancho_style($pct) { return 'width:'.round($pct, 2).'%'; }
 
 // Tablas de 2.a/2.b: solo Marca (sin Segmento/Categoría, igual que el preview del navegador).
 // $fmt: 'moneda' (Directo) o 'numero' (Distribuidor, sin signo "$" — ver generar_acta_html).
-function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct, $fmt = 'moneda') {
-	$rows = '';
+function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct, $fmt = 'moneda', $fuenteBasePx = 20, $medirTexto = null) {
+	$filas = [];
 	foreach ($lineas as $linea) {
 		if ($linea['marca'] === '' || $linea['marca'] === null) continue;
 		$valores = $valorFn($linea, $mesesActivos);
-		$total = array_sum($valores);
-		$rows .= '<tr><td>'.h($linea['marca']).'</td>';
-		foreach ($valores as $v) $rows .= '<td class="num">'.$fmt($v).'</td>';
-		$rows .= '<td class="num">'.$fmt($total).'</td></tr>';
+		$filas[] = ['marca' => $linea['marca'], 'valores' => $valores, 'total' => array_sum($valores)];
+	}
+	$anchoMesPct = count($mesesActivos) > 0 ? $anchoMesesPct / count($mesesActivos) : 0;
+	// Mide el valor más ancho de cada columna (meses/total) entre todas las
+	// filas reales, para que ningún número se corte a la mitad al envolver.
+	$fuenteMeses = $fuenteBasePx; $fuenteTotal = $fuenteBasePx;
+	if ($medirTexto !== null && $filas) {
+		$mesesTextos = []; $totalTextos = [];
+		foreach ($filas as $f) {
+			foreach ($f['valores'] as $v) $mesesTextos[] = $fmt($v);
+			$totalTextos[] = $fmt($f['total']);
+		}
+		$fuenteMeses = fuente_columna_valores($mesesTextos, $fuenteBasePx, $anchoMesPct, $medirTexto);
+		$fuenteTotal = fuente_columna_valores($totalTextos, $fuenteBasePx, $anchoTotalPct, $medirTexto);
+	}
+	$rows = '';
+	foreach ($filas as $f) {
+		$rows .= '<tr><td>'.h($f['marca']).'</td>';
+		foreach ($f['valores'] as $v) $rows .= '<td class="num" style="font-size:'.round($fuenteMeses, 2).'px;">'.$fmt($v).'</td>';
+		$rows .= '<td class="num" style="font-size:'.round($fuenteTotal, 2).'px;">'.$fmt($f['total']).'</td></tr>';
 	}
 	if ($rows === '') {
 		$colspanVacio = 1 + count($mesesActivos) + 1;
 		$rows = '<tr><td colspan="'.$colspanVacio.'" class="vacio">Sin datos</td></tr>';
 	}
-	$anchoMesPct = count($mesesActivos) > 0 ? $anchoMesesPct / count($mesesActivos) : 0;
 	$mesesHead = implode('', array_map(function ($m) use ($mesesCorto, $anchoMesPct) {
 		return '<th class="num" style="'.ancho_style($anchoMesPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
@@ -46,6 +61,22 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 }
 
 function px($n, $escala) { return round($n * $escala, 2) . 'px'; }
+
+// Igual criterio que ancho_columna_categoria()/fuente_una_linea(), pero para
+// una columna de VALORES numéricos: mide el más ancho entre todos los que van
+// a aparecer ahí (cada fila + el total, si lo hay) para que ningún número
+// quede cortado a la mitad al envolver — antes solo la columna Categoría
+// tenía esta protección, los números confiaban en que el % fijo de columna
+// alcanzara siempre, y con sumas grandes (Total Período, Estimado a Ganar)
+// no alcanzaba.
+function fuente_columna_valores(array $textos, $fuenteBasePx, $anchoColPct, $medirTexto, $paddingPx = 10) {
+	$anchoMax = 0;
+	foreach ($textos as $t) $anchoMax = max($anchoMax, $medirTexto($t, $fuenteBasePx));
+	if ($anchoMax === 0) return $fuenteBasePx;
+	$anchoDisponible = (ACTA_ANCHO_UTIL_PX * $anchoColPct / 100 - $paddingPx) / 1.25;
+	if ($anchoMax <= $anchoDisponible) return $fuenteBasePx;
+	return $fuenteBasePx * ($anchoDisponible / $anchoMax);
+}
 
 // Data URI evita depender de cómo Dompdf resuelve rutas en el servidor.
 // Sin la extensión GD de PHP se cae todo el PDF, así que se omite el logo si no está disponible.
@@ -115,6 +146,21 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$sinVisibilidad = !empty($detalle['sin_visibilidad']);
 	$ocultarVisibilidad = $sinVisibilidad;
 
+	// "Con visibilidad" (Directo y Distribuidor) ya está aprobado — no tocar
+	// estos valores. Con menos contenido (sin las tablas 2.a/2.b), "sin
+	// visibilidad" deja el documento con demasiado espacio en blanco y
+	// letras desproporcionadas — pedido explícito: SOLO ahí la letra
+	// general baja un poco más y la de las tablas sube un poco.
+	$fGeneral = $sinVisibilidad ? 13.5 : 24;
+	$fH1 = $sinVisibilidad ? 19 : 31;
+	$fDocNo = $sinVisibilidad ? 10.5 : 17;
+	$fDocNoStrong = $sinVisibilidad ? 14.5 : 25;
+	$fHintExtra = $sinVisibilidad ? 12.5 : 27;
+	// Tablas: base normal (18.5/16.5) en "con visibilidad" (ya aprobado, sin
+	// tocar); más grande SOLO en "sin visibilidad".
+	$tablaFuenteBase = $sinVisibilidad ? 22 : 18.5;
+	$legendFuenteBase = $sinVisibilidad ? 20 : 16.5;
+
 	// Distribuidor mide en cajas, no dólares (ver numero()).
 	$fmt = $esDistribuidor ? 'numero' : 'moneda';
 
@@ -134,7 +180,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	}, $detalle['lineas']['meta_compra']);
 	// Tope de Categoría en 38% (no 48%) para dejar suficiente ancho al
 	// encabezado "REBATE" en 1 línea.
-	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, 18.5 * $escalaTabla, $medirTexto, 22, 38), 2);
+	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, $tablaFuenteBase * $escalaTabla, $medirTexto, 22, 38), 2);
 	$restoPct = 100 - $categoriaPct;
 	// Rebate pesa 16 (doble de Total Período/Estimado a Ganar, 12 cada uno)
 	// para que "REBATE" entre en 1 línea; denominador 74 sin cambios.
@@ -143,7 +189,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$rebatePct   = round(16 * $restoPct / 74, 2);
 	$estimadoPct = round(12 * $restoPct / 74, 2);
 
-	$metaRows = ''; $metaSums = array_fill(0, $cantidadMeses, 0.0); $metaGrandTotal = 0.0; $metaGrandEst = 0.0;
+	$anchoMesMetaPct = $cantidadMeses > 0 ? $mesesPct / $cantidadMeses : 0;
+	$metaFilas = []; $metaSums = array_fill(0, $cantidadMeses, 0.0); $metaGrandTotal = 0.0; $metaGrandEst = 0.0;
 	foreach ($detalle['lineas']['meta_compra'] as $i => $linea) {
 		$valores = valores_por_mes($linea, $mesesActivos);
 		foreach ($valores as $j => $v) $metaSums[$j] += $v;
@@ -153,31 +200,48 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		// (1+Rebate%) (valor total del trato).
 		$est    = $esDistribuidor ? ($total * $rebate) : ($total * (1 + $rebate));
 		$metaGrandTotal += $total; $metaGrandEst += $est;
+		$metaFilas[] = ['categoria' => $categoriaTextos[$i], 'valores' => $valores, 'total' => $total, 'rebate' => $rebate, 'est' => $est];
+	}
 
-		$categoriaTexto = $categoriaTextos[$i];
-		$fuenteCategoria = fuente_una_linea($categoriaTexto, 18.5 * $escalaTabla, $categoriaPct, $medirTexto);
+	// Los números también necesitan medirse: si el valor más ancho de la
+	// columna (incluida la fila Total) no entra a esta fuente, se corta a la
+	// mitad al envolver en vez de quedarse en 1 línea — mismo criterio que
+	// Categoría, ahora aplicado a meses/Total Período/Estimado a Ganar.
+	$mesesTextos = []; $totalTextos = [$fmt($metaGrandTotal)]; $estTextos = [$fmt($metaGrandEst)];
+	foreach ($metaFilas as $fila) {
+		foreach ($fila['valores'] as $v) $mesesTextos[] = $fmt($v);
+		$totalTextos[] = $fmt($fila['total']);
+		$estTextos[] = $fmt($fila['est']);
+	}
+	foreach ($metaSums as $s) $mesesTextos[] = $fmt($s);
+	$fuenteMesesMeta = fuente_columna_valores($mesesTextos, $tablaFuenteBase * $escalaTabla, $anchoMesMetaPct, $medirTexto);
+	$fuenteTotalMeta = fuente_columna_valores($totalTextos, $tablaFuenteBase * $escalaTabla, $totalPct, $medirTexto);
+	$fuenteEstMeta   = fuente_columna_valores($estTextos, $tablaFuenteBase * $escalaTabla, $estimadoPct, $medirTexto);
+
+	$metaRows = '';
+	foreach ($metaFilas as $fila) {
+		$fuenteCategoria = fuente_una_linea($fila['categoria'], $tablaFuenteBase * $escalaTabla, $categoriaPct, $medirTexto);
 		// Una sola línea horizontal SIEMPRE (requisito explícito, sin excepción):
 		// nowrap fuerza 1 línea y el tamaño ya viene calculado para que quepa.
-		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($categoriaTexto).'</td>';
-		foreach ($valores as $v) $metaRows .= '<td class="num">'.$fmt($v).'</td>';
-		$metaRows .= '<td class="num">'.$fmt($total).'</td>';
-		$metaRows .= '<td class="ctr rebate-cell">'.number_format($rebate * 100, 1).'%</td>';
-		$metaRows .= '<td class="num">'.$fmt($est).'</td></tr>';
+		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($fila['categoria']).'</td>';
+		foreach ($fila['valores'] as $v) $metaRows .= '<td class="num" style="font-size:'.round($fuenteMesesMeta, 2).'px;">'.$fmt($v).'</td>';
+		$metaRows .= '<td class="num" style="font-size:'.round($fuenteTotalMeta, 2).'px;">'.$fmt($fila['total']).'</td>';
+		$metaRows .= '<td class="ctr rebate-cell">'.number_format($fila['rebate'] * 100, 1).'%</td>';
+		$metaRows .= '<td class="num" style="font-size:'.round($fuenteEstMeta, 2).'px;">'.$fmt($fila['est']).'</td></tr>';
 	}
 	if ($metaRows === '') {
 		$colspanMeta = 1 + $cantidadMeses + 3;
 		$metaRows = '<tr><td colspan="'.$colspanMeta.'" class="vacio">Sin datos</td></tr>';
 	}
-	$anchoMesMetaPct = $cantidadMeses > 0 ? $mesesPct / $cantidadMeses : 0;
 	$mesesHeadHtml = implode('', array_map(function ($m) use ($mesesCorto, $anchoMesMetaPct) {
 		return '<th class="num" style="'.ancho_style($anchoMesMetaPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
 
 	$cabecerasValorFn = function ($linea, $mesesActivos) { return valores_por_mes($linea, $mesesActivos); };
-	list($cabecerasRows, $marcaHeadCab, $mesesHeadCab, $totalHeadCab) = tabla_marca_html($detalle['lineas']['cabecera'], $mesesActivos, $mesesCorto, $cabecerasValorFn, 20, 62, 18, $fmt);
+	list($cabecerasRows, $marcaHeadCab, $mesesHeadCab, $totalHeadCab) = tabla_marca_html($detalle['lineas']['cabecera'], $mesesActivos, $mesesCorto, $cabecerasValorFn, 20, 62, 18, $fmt, $tablaFuenteBase * $escalaTabla, $medirTexto);
 
 	$rumaValorFn = function ($linea, $mesesActivos) { return array_fill(0, count($mesesActivos), (float) $linea['valor_mensual_unico']); };
-	list($rumasRows, $marcaHeadRuma, $mesesHeadRuma, $totalHeadRuma) = tabla_marca_html($detalle['lineas']['ruma'], $mesesActivos, $mesesCorto, $rumaValorFn, 20, 62, 18, $fmt);
+	list($rumasRows, $marcaHeadRuma, $mesesHeadRuma, $totalHeadRuma) = tabla_marca_html($detalle['lineas']['ruma'], $mesesActivos, $mesesCorto, $rumaValorFn, 20, 62, 18, $fmt, $tablaFuenteBase * $escalaTabla, $medirTexto);
 
 	$rumaLegendRows = '';
 	$marcasVistas = [];
@@ -210,13 +274,28 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		.$mesesHeadPercha
 		.'<th style="'.ancho_style(20).'">'.($esDistribuidor ? 'Pago Total Cajas' : 'Pago Total').'</th>'
 		.'</tr>';
+	$perchaFilas = [];
 	foreach ($detalle['lineas']['percha'] as $linea) {
 		if ($linea['marca'] === '') continue;
 		$valores = valores_por_mes($linea, $mesesActivos);
-		$total = array_sum($valores);
-		$perchaRows .= '<tr><td>'.h($linea['marca']).'</td><td class="ctr">'.h($linea['participacion'] !== '' ? $linea['participacion'] : '—').'</td><td class="ctr">'.(int) $linea['cantidad_max_percha'].'</td>';
-		foreach ($valores as $v) $perchaRows .= '<td class="num">'.$fmt($v).'</td>';
-		$perchaRows .= '<td class="num">'.$fmt($total).'</td></tr>';
+		$perchaFilas[] = ['marca' => $linea['marca'], 'participacion' => $linea['participacion'], 'cantidad_max_percha' => $linea['cantidad_max_percha'], 'valores' => $valores, 'total' => array_sum($valores)];
+	}
+	// Mismo criterio de medición que Meta de Compras/Cabeceras/Rumas: el valor
+	// más ancho de meses/Pago Total decide la fuente de toda la columna.
+	$fuenteMesesPercha = $tablaFuenteBase * $escalaTabla; $fuenteTotalPercha = $tablaFuenteBase * $escalaTabla;
+	if ($perchaFilas) {
+		$mesesTextosPercha = []; $totalTextosPercha = [];
+		foreach ($perchaFilas as $f) {
+			foreach ($f['valores'] as $v) $mesesTextosPercha[] = $fmt($v);
+			$totalTextosPercha[] = $fmt($f['total']);
+		}
+		$fuenteMesesPercha = fuente_columna_valores($mesesTextosPercha, $tablaFuenteBase * $escalaTabla, $anchoMesPerchaPct, $medirTexto);
+		$fuenteTotalPercha = fuente_columna_valores($totalTextosPercha, $tablaFuenteBase * $escalaTabla, 20, $medirTexto);
+	}
+	foreach ($perchaFilas as $f) {
+		$perchaRows .= '<tr><td>'.h($f['marca']).'</td><td class="ctr">'.h($f['participacion'] !== '' ? $f['participacion'] : '—').'</td><td class="ctr">'.(int) $f['cantidad_max_percha'].'</td>';
+		foreach ($f['valores'] as $v) $perchaRows .= '<td class="num" style="font-size:'.round($fuenteMesesPercha, 2).'px;">'.$fmt($v).'</td>';
+		$perchaRows .= '<td class="num" style="font-size:'.round($fuenteTotalPercha, 2).'px;">'.$fmt($f['total']).'</td></tr>';
 	}
 	if ($perchaRows === '') {
 		$colspanPercha = 3 + $cantidadMeses + 1;
@@ -225,6 +304,20 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
+
+	// Nombres de cliente largos (ej. "ACONDA SIMBANA MARGARITA DE LOURDES")
+	// envuelven a 2 líneas dentro del 34% de la columna — se ven "chicos"
+	// frente a Localidad/Fecha (misma letra, solo que partida en 2 líneas se
+	// percibe más densa/chica en una miniatura). Forzar 1 sola línea aquí
+	// (como en Categoría) NO es viable: incluso a un ancho de columna mucho
+	// mayor, un nombre así de largo seguiría sin entrar, y forzarlo igual
+	// dejaría una letra microscópica — peor que el problema original. En vez
+	// de eso, se le da más ancho a esta columna (34%→44%, a costa de
+	// Localidad/Fecha) para que la mayoría de los nombres reales entren en 1
+	// línea sin necesidad de achicar nada; los pocos casos extremos que
+	// igual envuelvan a 2 líneas lo hacen al MISMO tamaño que Localidad/Fecha
+	// (nunca más chico).
+	$estimadoTexto = $esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor'];
 
 	// Nombre del Ejecutivo Comercial = quien generó el acuerdo (creado_por); la firma sigue siendo física siempre.
 	// Sin creado_por (acuerdo huérfano) cae a la línea en blanco de siempre.
@@ -238,19 +331,19 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 @page { size: A4; margin: 1cm 1.2cm; }
 * { box-sizing: border-box; }
 p, h1, ul { margin: 0 0 '.px(3.5, $escala).'; }
-body { font-family: "DejaVu Sans", sans-serif; font-size: '.px(21, $escala).'; color: #000000; line-height: 1.35; }
-h1 { font-size: '.px(28, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; padding-right: '.px(150, $escala).'; }
+body { font-family: "DejaVu Sans", sans-serif; font-size: '.px($fGeneral, $escala).'; color: #000000; line-height: 1.35; }
+h1 { font-size: '.px($fH1, $escala).'; text-align: center; text-transform: uppercase; margin: '.px(3, $escala).' 0 '.px(5.5, $escala).'; padding-right: '.px(150, $escala).'; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 /* Las celdas de tabla fijan su propio tamaño (no heredan de body) para que subir el texto general no arrastre los datos de tabla. */
 /* th/td/legend-box/márgenes de tabla usan $escalaTabla, nunca $escala, para poder achicar solo las tablas primero. */
-th { padding: '.px(7, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px(18.5, $escalaTabla).'; }
+th { padding: '.px(7, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px($tablaFuenteBase, $escalaTabla).'; }
 /* Filas de datos con menos padding vertical que el encabezado; antes compartían el mismo padding y quedaban más altas de lo necesario. */
-td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px(18.5, $escalaTabla).'; }
+td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break-word; font-size: '.px($tablaFuenteBase, $escalaTabla).'; }
 .num { text-align: right; }
 .ctr { text-align: center; }
 .vacio { text-align: center; color: #000000; padding: '.px(7, $escalaTabla).' !important; }
-.doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px(15.5, $escala).'; color: #000000; }
-.doc-no strong { display: block; font-size: '.px(22, $escala).'; }
+.doc-no { position: fixed; top: '.px(14, $escala).'; right: '.px(14, $escala).'; text-align: right; font-size: '.px($fDocNo, $escala).'; color: #000000; }
+.doc-no strong { display: block; font-size: '.px($fDocNoStrong, $escala).'; }
 .meta-tabla { margin: '.px(6, $escalaTabla).' 0 '.px(5, $escalaTabla).'; }
 /* Margen extra solo bajo la tabla de Meta de Compras, no Cabeceras/Rumas/Perchas. */
 .meta-tabla-compras { margin-bottom: '.px(14, $escalaTabla).'; }
@@ -258,17 +351,24 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 .meta-tabla thead th { background: #eeedf7; }
 .total-row td { font-weight: bold; border-top: 2px solid #000000; }
 .rebate-cell { background: #fbf0cf; }
-.label { font-size: '.px(21, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
-.hint { font-size: '.px(21, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; }
-.subtitulo { font-size: '.px(21, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; font-weight: bold; color: #000000; }
+.label { font-size: '.px($fGeneral, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
+/* Mismo motivo que .subtitulo: si un hint queda justo debajo de un subtítulo
+   al inicio de página, su 1ra línea todavía puede caer dentro del recuadro
+   fijo "Documento No". */
+.hint { font-size: '.px($fHintExtra, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; padding-right: '.px(130, $escala).'; }
+/* padding-right reserva el espacio del recuadro fijo "Documento No" (igual
+   que ya hacía h1) — sin esto, un subtítulo que cae justo al inicio de una
+   página nueva (2.a/2.b/Consideraciones Generales, con varias tablas) queda
+   pisado por ese recuadro, que se repite en todas las páginas. */
+.subtitulo { font-size: '.px($fGeneral, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; padding-right: '.px(130, $escala).'; font-weight: bold; color: #000000; }
 .condiciones { background: #f4f2fc; border: 1px solid #c4c5d5; border-radius: 6px; padding: '.px(6, $escala).' '.px(10, $escala).'; margin: '.px(3.5, $escala).' 0 '.px(5, $escala).'; }
-.condiciones h3 { font-size: '.px(21, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; color: #000000; }
+.condiciones h3 { font-size: '.px($fGeneral, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; color: #000000; }
 .condiciones ul { margin: 0; padding-left: '.px(17, $escala).'; }
-.condiciones li { margin-bottom: '.px(1.5, $escala).'; }
+.condiciones li { margin-bottom: '.px(1.5, $escala).'; font-size: '.px($fHintExtra, $escala).'; }
 .firmas-footer { margin-top: '.px(18, $escala).'; }
 .firma-linea-firmar { border-bottom: 1px solid #000000; height: '.px(28, $escala).'; margin: '.px(32, $escala).' 0; }
 .legend-box { border: 1px solid #c4c5d5; border-radius: 4px; padding: '.px(5, $escalaTabla).'; }
-.legend-box th, .legend-box td { font-size: '.px(16.5, $escalaTabla).'; }
+.legend-box th, .legend-box td { font-size: '.px($legendFuenteBase, $escalaTabla).'; }
 </style></head><body>
 
 <div class="doc-no"><span class="label">Documento No:</span><strong>'.h($detalle['documento_no']).'</strong></div>
@@ -276,9 +376,9 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 <h1>'.($esDistribuidor ? 'Acuerdo Comercial Canal Distribuidores' : 'Acuerdo de Desarrollo de Negocios Canal Directo').'</h1>
 
 <table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(5, $escala).';"><tr>
-	<td style="border:none; width:34%;"><span class="label">Estimado(a)</span><br><strong>'.h($esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor']).'</strong></td>
-	<td style="border:none; width:33%;"><span class="label">Localidad</span><br><strong>'.h($detalle['localidad']).'</strong></td>
-	<td style="border:none; width:33%;"><span class="label">Fecha</span><br><strong>'.h($fechaTexto).'</strong></td>
+	<td style="border:none; width:44%;"><span class="label">Estimado(a)</span><br><strong>'.h($estimadoTexto).'</strong></td>
+	<td style="border:none; width:28%;"><span class="label">Localidad</span><br><strong>'.h($detalle['localidad']).'</strong></td>
+	<td style="border:none; width:28%;"><span class="label">Fecha</span><br><strong>'.h($fechaTexto).'</strong></td>
 </tr></table>
 
 <p>JABONERÍA WILSON S.A. y '.h($detalle['distribuidor']).' celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.</p>
@@ -299,8 +399,8 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	</thead>
 	<tbody>'.$metaRows.'</tbody>
 	<tfoot><tr class="total-row"><td>Total</td>';
-	foreach ($metaSums as $s) $html .= '<td class="num">'.$fmt($s).'</td>';
-	$html .= '<td class="num">'.$fmt($metaGrandTotal).'</td><td class="ctr">—</td><td class="num">'.$fmt($metaGrandEst).'</td></tr></tfoot>
+	foreach ($metaSums as $s) $html .= '<td class="num" style="font-size:'.round($fuenteMesesMeta, 2).'px;">'.$fmt($s).'</td>';
+	$html .= '<td class="num" style="font-size:'.round($fuenteTotalMeta, 2).'px;">'.$fmt($metaGrandTotal).'</td><td class="ctr">—</td><td class="num" style="font-size:'.round($fuenteEstMeta, 2).'px;">'.$fmt($metaGrandEst).'</td></tr></tfoot>
 </table>
 
 <div class="condiciones">
@@ -352,11 +452,11 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 ').'
 
 <p class="subtitulo">Consideraciones Generales</p>
-<p style="margin:'.px(3, $escala).' 0;">Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>
-<p style="margin:'.px(3, $escala).' 0;">'.($esDistribuidor
+<p style="margin:'.px(3, $escala).' 0; font-size:'.px($fHintExtra, $escala).';">Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>
+<p style="margin:'.px(3, $escala).' 0; font-size:'.px($fHintExtra, $escala).';">'.($esDistribuidor
 		? 'La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de producto. El plazo para entregar el producto es hasta 2 meses luego de finalizar el periodo del acuerdo.'
 		: 'La liquidación del acuerdo se realizará al finalizar el periodo. El pago total será reconocido a través de nota de crédito. El plazo para emitir la nota de crédito es hasta 2 meses luego de finalizar el periodo del acuerdo.').'</p>
-<p style="margin:'.px(3, $escala).' 0 '.px(14, $escala).';">Como constancia del presente convenio, firman de común acuerdo las partes.</p>
+<p style="margin:'.px(3, $escala).' 0 '.px(26, $escala).'; font-size:'.px($fHintExtra, $escala).';">Como constancia del presente convenio, firman de común acuerdo las partes.</p>
 
 <div class="firmas-footer">
 '.($esDistribuidor && $sinVisibilidad ? '
@@ -388,14 +488,13 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 
 <div style="text-align:center; margin-top:'.px(20, $escala).';">
 	<p style="margin:0;">Jabonería Wilson<br><strong>ACEPTACIÓN DEL PRESENTE CONVENIO POR PARTE DEL CLIENTE</strong></p>
-	<p style="font-size:'.px(21, $escala).'; color:#000000;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
+	<p style="font-size:'.px($fGeneral, $escala).'; color:#000000;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
 	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(36, $escala).' auto;"></div>
 	<p class="label" style="margin:0;">Firma del Cliente</p>'
 	.($esDistribuidor ? '
 	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>
 	<p class="label" style="margin-top:'.px(4, $escala).'; padding-left:'.px(40, $escala).';">C.I.: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>' : '
-	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social:</p>
-	<p style="font-weight:bold; margin:0;">'.h($detalle['distribuidor']).'</p>').'
+	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social: <span style="font-weight:bold; text-transform:none;">'.h($detalle['distribuidor']).'</span></p>').'
 </div>
 
 </div>
@@ -420,17 +519,21 @@ function generar_acta_pdf_binario(array $detalle) {
 		return $dompdf;
 	};
 
-	// Prueba a escala 1.0 y solo si no entra en 1 hoja va reduciendo, nunca más de lo necesario.
-	// 2 pasadas: primero solo $escalaTabla (hasta piso 0.55) sin tocar texto general; recién si eso no alcanza, baja $escala general como último recurso.
+	// Primero se reduce SOLO $escalaTabla (letra y padding dentro de las
+	// tablas), hasta 0.35 — nunca toca el texto general. Recién si con eso no
+	// alcanza (probado con datos reales: sin este 2do paso, un Acta con las 4
+	// tablas completas quedaba en 3 hojas en vez de 1), $escala baja como
+	// último recurso, con un piso chico (0.3) — la diferencia real entre 1
+	// hoja y 3 para ese caso.
 	$escala = 1.0;
 	$escalaTabla = 1.0;
 	$dompdf = $renderizar($escala, $escalaTabla);
-	while ($dompdf->getCanvas()->get_page_count() > 1 && $escalaTabla > 0.55) {
+	while ($dompdf->getCanvas()->get_page_count() > 1 && $escalaTabla > 0.35) {
 		$escalaTabla -= 0.05;
 		$dompdf = $renderizar($escala, $escalaTabla);
 	}
-	while ($dompdf->getCanvas()->get_page_count() > 1 && $escala > 0.4) {
-		$escala -= 0.08;
+	while ($dompdf->getCanvas()->get_page_count() > 1 && $escala > 0.3) {
+		$escala -= 0.05;
 		$dompdf = $renderizar($escala, $escalaTabla);
 	}
 

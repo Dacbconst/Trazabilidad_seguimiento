@@ -8291,3 +8291,84 @@ Voseo corregido de paso en `registrar.js` (4 mensajes: "Podés", "completá"/
 "generá" ×2, con guion largo sacado de uno de ellos).
 
 **Probado**: `node --check` limpio. Sin probar en navegador real.
+
+## Bug real: `pos_id` duplicado en el maestro fantaseaba filas en Cumplimiento/campanita (2026-09-02)
+
+Reportado por el usuario: al resubir el Excel de Cumplimiento, ACOSTA
+SANTAMARIA EDGAR PATRICIO aparecía con cada categoría duplicada (6 filas
+en vez de 3) — NOVOA y SUPERALIANZA no. Confirmado con `SELECT` real: la
+tabla `repositorio_cumplimiento_cuota` solo tenía 3 filas reales para
+ACOSTA (nunca se duplicó al guardar) — el problema era 100% de lectura.
+Causa real: `repositorio_locales_supervisores_cliente.pos_id` **no es
+único** (ya documentado antes en el proyecto, "~1,116 pos_id duplicados")
+— `EPVD15130`/ACOSTA tiene 2 filas reales en ese maestro (una
+`supervisor=PATRICIO PASPUEZAN/canal=MAYORISTA`, otra `supervisor=GARRY
+SAINT/canal=DISTRIBUIDOR`); NOVOA/SUPERALIANZA tienen 1 sola fila cada
+uno, por eso no se veían afectados. Cualquier `JOIN` directo `ON
+mst.pos_id = c.pos_id` (patrón "CEDI del Excel gana, maestro de respaldo"
+usado en varios lados desde el 2026-08-28) multiplica cada fila real por
+la cantidad de filas que ese `pos_id` tenga en el maestro.
+
+**Corregido en las 5 consultas de `includes/functions.php` que tenían este
+patrón** — se reemplazó `LEFT JOIN repositorio_locales_supervisores_cliente
+m ON m.pos_id = c.pos_id` por `LEFT JOIN (SELECT pos_id, MIN(supervisor) AS
+supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m
+ON m.pos_id = c.pos_id` (fuerza máximo 1 fila por `pos_id` antes de unir,
+`MIN(supervisor)` como desempate arbitrario pero determinístico — solo
+importa cuando el CEDI del Excel no resuelve nada, que es el único caso
+donde este fallback se usa de verdad):
+- `listar_actas_precargadas_pendientes()` (campanita de Actas Asignadas —
+  podía mostrar la MISMA Acta Precargada 2 veces).
+- `resumen_cuotas()` — 2 ocurrencias en el `por_usuario` (ya estaban
+  protegidas por `COUNT(DISTINCT ...)`, corregidas igual por consistencia,
+  no porque estuvieran dando mal el número).
+- `listar_cumplimiento_cuota()` — el bug reportado (filas duplicadas en la
+  lista).
+- `resumen_cumplimiento_cuota()` — mismo bug en los stat tiles
+  ("15 categoría(s)" en vez de 12, "14 ganan" en vez de 11 — `COUNT(*)`/
+  `SUM(...)` sin `DISTINCT` sí se inflaban de verdad con el fan-out, a
+  diferencia del caso de arriba).
+
+**Verificado en el entorno real de Azure (login real, Playwright), no solo
+local** — el usuario pidió explícito "vos mismo tenés acceso, verificalo"
+tras dos rondas de "sigo viendo 6". Con sesión real de Javier Maldonado:
+el resumen ya dice "12 categoría(s)" / "11 ganan, 1 no ganan", y las 3
+filas de ACOSTA SANTAMARIA (AEROSOL 455.56%, AEROSOL 116.67%, PASTAS
+362.50%) aparecen una sola vez cada una. Confirma que el fix está
+desplegado y sirviendo bien contra la base real — si el usuario seguía
+viendo 6 después de esto, era caché del navegador, no el servidor.
+
+**No tocado a propósito**: `obtener_acuerdo_detalle()` tiene el mismo
+patrón (`JOIN repositorio_locales_supervisores_cliente d ON d.pos_id =
+a.pos_id`) pero con un comentario ya existente reconociendo el caso
+("LIMIT 1 alcanza pese a pos_id duplicados en el maestro (misma
+pos_name/cedi)") y usado para UNA sola Acta a la vez (`fetch_assoc()`, no
+una lista) — no genera duplicación visible, como mucho podría mostrar un
+`canal`/`supervisor` no determinístico si esos campos se llegaran a leer
+de ahí (no se leen hoy). Se deja como está, fuera de alcance de este bug
+puntual — si se toca de nuevo, aplicar el mismo criterio de la subquery.
+
+## Seguimiento de Equipo: número de Acta como hipervínculo de descarga (2026-09-02)
+
+Pedido explícito: en el panel de detalle de Seguimiento de Equipo, que
+"#ADN-2026-0047" sea un link que descargue el PDF real al hacer clic —
+antes era un `<span>` puramente decorativo, sin acción.
+
+`assets/js/seguimiento.js`, `renderDetalle()`: pasa a ser un `<a href="getters/generar_acta_pdf.php?id=..." download>` —
+mismo endpoint que ya sirve el PDF real en toda la app (Historial,
+Registrar), con el atributo `download` para que baje el archivo directo en
+un solo clic, sin pasar por el modal de previsualización que sí tiene
+sentido en Historial (ahí el asesor revisa/imprime su propia Acta; acá el
+superdesarrollador solo quiere el archivo). Sin backend nuevo.
+
+**Bug real encontrado armando esto**: `.ac-seg-detalle-fila > span:nth-child(1)`
+(`style.css`) fijaba el ancho de la 1ra columna — al pasar esa columna de
+`<span>` a `<a>`, el selector con `span:` ya no matcheaba nada ahí (el
+`<a>` sigue siendo el primer hijo, pero no es un `span`), rompiendo el
+layout de la fila. Corregido ampliando el selector a `:nth-child(1)` sin
+filtro de tag.
+
+**Probado con Playwright, sesión falsa contra la base real (mirror local,
+solo lectura)**: el link real trae `href="getters/generar_acta_pdf.php?id=63"`,
+atributo `download` presente, texto "#ADN-2026-0057" — y la fila se ve
+igual que antes visualmente (columna alineada, sin romperse).
