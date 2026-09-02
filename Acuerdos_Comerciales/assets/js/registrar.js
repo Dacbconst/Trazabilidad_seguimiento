@@ -1423,8 +1423,16 @@
 			pdfUrlActual = url;
 			habilitarDescarga(url, 'Acta_' + documentoNo + '.pdf');
 			aplicarZoom();
-			mostrarMensaje('PDF generado. Ya podés descargarlo.', true);
+			mostrarMensaje('PDF generado. Ya puedes descargarlo.', true);
 			limpiarFormularioParaNuevoAcuerdo();
+			// Bug real reportado 2026-09-02 (caso real: Carlos Proaño, Acta
+			// ADN-2026-0059) — el backend SÍ marcaba la precarga como 'usada'
+			// (confirmado contra la base), pero la campanita nunca se
+			// refrescaba después de generar, así que seguía mostrando la
+			// notificación vieja hasta el próximo cambio de módulo o el
+			// sondeo de 5 minutos. Mismo patrón que index.php ya usa al
+			// cambiar de módulo.
+			if (window.acAlertasFirmaRefrescar) window.acAlertasFirmaRefrescar();
 		});
 	});
 
@@ -1609,7 +1617,7 @@
 		// Cargar un borrador no es un cambio "sin guardar" propio — recién se
 		// vuelve sucio si el usuario lo edita a partir de acá.
 		formSucio = false;
-		mostrarMensaje('Borrador #' + a.documento_no + ' cargado. Podés seguir editándolo.', true);
+		mostrarMensaje('Borrador #' + a.documento_no + ' cargado. Puedes seguir editándolo.', true);
 	}
 
 	function cargarBorrador(id) {
@@ -1741,7 +1749,7 @@
 	function bloquearAgregarOtrasTablas() {
 		['ac-add-cabecera-row', 'ac-add-ruma-row', 'ac-add-percha-row'].forEach(function (id) {
 			var btn = document.getElementById(id);
-			if (btn) { btn.disabled = true; btn.title = 'Esta Acta viene de una precarga — completá las filas ya generadas, no se agregan más'; }
+			if (btn) { btn.disabled = true; btn.title = 'Esta Acta viene de una precarga. Completa las filas ya generadas, no se agregan más.'; }
 		});
 	}
 
@@ -1818,7 +1826,7 @@
 		// Cabeceras/Rumas/Perchas a partir de acá (mismo criterio que un
 		// Borrador restaurado).
 		formSucio = false;
-		mostrarMensaje('Acta precargada cargada — completá lo que falte y generá el Acta.', true);
+		mostrarMensaje('Acta precargada cargada. Completa lo que falte y genera el Acta.', true);
 	}
 
 	function cargarPrecarga(posId, trimestre, anio) {

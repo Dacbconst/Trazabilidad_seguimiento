@@ -1949,7 +1949,7 @@ nada, en esta misma vuelta:
    podía leer como que el ACUERDO comercial se caía, no que era la ventana
    para subir la foto de la firma). Nuevo texto en los 3 lugares que
    muestran esto — badge de Historial, banner de Historial, y campanita —
-   **"Subí la firma — N días"** / **"Subí la firma — hoy"**. La sección
+   **"Sube la firma — N días"** / **"Sube la firma — hoy"**. La sección
    "Equipo" de la campanita se queda con redacción descriptiva ("vence en N
    días", minúscula, sin imperativo) porque ahí se informa sobre el
    pendiente de OTRO usuario, no se le pide una acción a quien lee.
@@ -8264,3 +8264,30 @@ base (mismo tipo de tabla que `repositorio_locales_supervisores_cliente`/
 revisando qué tablas había, nunca la creó ni la usó. **Confirmado con el
 usuario: no tocarla** — sigue como "no usar hasta que alguien la llene",
 sin ningún plan de construir sobre ella por ahora.
+
+## Acta Precargada: seguía notificando después de generar (2026-09-02)
+
+Reportado: se generó el Acta de una notificación de Carlos Proaño y siguió
+apareciendo como pendiente. Investigado con datos reales, de solo lectura:
+
+- El fix del 2026-08-31 (consumir `estado='usada'` al guardar) **sí
+  funciona** — Acta `ADN-2026-0059` (hoy) marcó bien sus 4 filas.
+- Bug real encontrado: la campanita nunca se refrescaba después de
+  "Generar PDF" — seguía mostrando la lista vieja hasta el próximo cambio
+  de módulo o el sondeo de 5 min. Agregado `window.acAlertasFirmaRefrescar()`
+  al final del callback de `actaGenerarBtn` en `registrar.js`.
+- Encontrado de paso: `ADN-2026-0058` (ROBERT - PONCE COMPANY, EPV13260,
+  generada 2026-08-31 ANTES del fix) quedó con sus 4 filas de
+  `repositorio_cuota_cliente` en `pendiente_uso` para siempre — dato viejo
+  huérfano, no un bug nuevo. **Pendiente que el usuario corra** (Claude no
+  puede, es `UPDATE`):
+  ```sql
+  UPDATE repositorio_cuota_cliente
+  SET estado = 'usada', acuerdo_id_generado = 64
+  WHERE pos_id = 'EPV13260' AND trimestre = 2 AND anio = 2026 AND estado = 'pendiente_uso';
+  ```
+
+Voseo corregido de paso en `registrar.js` (4 mensajes: "Podés", "completá"/
+"generá" ×2, con guion largo sacado de uno de ellos).
+
+**Probado**: `node --check` limpio. Sin probar en navegador real.

@@ -1056,9 +1056,9 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	// usuario tal cual): "Vence en N días" no decía QUÉ vence — se podía
 	// leer como que el ACUERDO comercial se cae, no que es la ventana para
 	// subir la foto de la firma (heurística 2, coincidencia con el mundo
-	// real). "Subí la firma — N días" nombra la acción pendiente en vez de
+	// real). "Sube la firma — N días" nombra la acción pendiente en vez de
 	// solo el dato (heurística 5, prevención de errores) y usa el
-	// vocabulario del usuario ("subí la firma") en vez del sistema
+	// vocabulario del usuario ("sube la firma") en vez del sistema
 	// ("vence"). $filaUrgencia además marca el `<tr>` para la franja de
 	// color lateral (ver ac-fila-urgente/ac-fila-critica en style.css).
 	$filaUrgencia = '';
@@ -1071,7 +1071,7 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 			$diasRestantes = (int) (new DateTime('today'))->diff($limite)->format('%r%a');
 		}
 		if ($diasRestantes !== null && $diasRestantes <= 5) {
-			$texto = $diasRestantes <= 0 ? 'Subí la firma — hoy' : ($diasRestantes === 1 ? 'Subí la firma — 1 día' : 'Subí la firma — '.$diasRestantes.' días');
+			$texto = $diasRestantes <= 0 ? 'Sube la firma — hoy' : ($diasRestantes === 1 ? 'Sube la firma — 1 día' : 'Sube la firma — '.$diasRestantes.' días');
 			$esCritico = $diasRestantes <= 1;
 			$clase = $esCritico ? 'ac-badge-critico' : 'ac-badge-urgente';
 			$filaUrgencia = $esCritico ? ' ac-fila-critica' : ' ac-fila-urgente';
