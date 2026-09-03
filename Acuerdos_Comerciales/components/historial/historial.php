@@ -248,7 +248,19 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 		<div class="ac-firma-modal-body">
 			<div class="ac-firma-panel">
 				<p class="ac-firma-panel-label">Acta Generada</p>
+				<!-- Desktop: iframe con el PDF real, sin cambios (ya funciona bien).
+				     Móvil real (2026-09-02, 2do intento — el 1ro, HTML en vivo, se
+				     descartó: usa posiciones absolutas pensadas para una hoja A4
+				     completa, se rompía en pantalla angosta): un PDF en <iframe> no
+				     renderiza en Chrome de Android — acá se dibuja el PDF real como
+				     imagen dentro de un <canvas> con PDF.js (renderRader 100% en JS,
+				     sin depender de ningún visor nativo). Ver abrirModalFirma() en
+				     historial.js. -->
 				<iframe id="hist-firma-original-frame" class="ac-firma-panel-frame" title="Acta generada"></iframe>
+				<div class="ac-firma-canvas-wrap hidden" id="hist-firma-original-canvas-wrap">
+					<canvas id="hist-firma-original-canvas"></canvas>
+					<div class="ac-firma-canvas-estado" id="hist-firma-original-canvas-estado"></div>
+				</div>
 				<button type="button" class="ac-icon-btn ac-firma-panel-ampliar" id="hist-firma-ampliar-original" title="Ampliar">
 					<span class="material-symbols-outlined">open_in_full</span>
 				</button>

@@ -11,6 +11,24 @@ require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
 header('Content-Type: application/json; charset=utf-8');
 
+// Bufferea cualquier warning/notice de PHP para que nunca se mezcle con el
+// JSON de respuesta (2026-09-02, bug real reportado desde celular real: una
+// foto de cámara pesa varios MB — al procesarla, cualquier error real
+// (memory_limit, lo que sea) imprimía un aviso de PHP crudo ANTES del JSON,
+// así que fetch().then(r => r.json()) tiraba excepción del lado del
+// cliente, mostrando el "Error de conexión" genérico en vez del error real.
+// Mismo patrón ya usado en cumplimiento_guardar.php/cuotas_guardar.php.
+ob_start();
+set_exception_handler(function ($e) {
+	while (ob_get_level() > 0) { ob_end_clean(); }
+	echo json_encode(['ok' => false, 'message' => 'No se pudo subir el archivo: '.$e->getMessage()]);
+	exit;
+});
+// Margen extra para procesar una foto de cámara real (varios MB) — sin
+// efecto si el hosting bloquea ini_set() para memory_limit (@ evita el
+// warning en ese caso, sigue con el límite que ya tenía el servidor).
+@ini_set('memory_limit', '256M');
+
 if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 	http_response_code(403);
 	echo json_encode(['ok' => false, 'message' => 'No autorizado.']);
@@ -18,6 +36,7 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 }
 
 function responder($ok, $message) {
+	while (ob_get_level() > 0) { ob_end_clean(); }
 	echo json_encode(['ok' => $ok, 'message' => $message]);
 	exit;
 }

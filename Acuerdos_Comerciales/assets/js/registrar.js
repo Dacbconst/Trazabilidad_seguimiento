@@ -33,6 +33,12 @@
 	var activeMonthsIndices = [0, 1, 2];
 	var acuerdoId = null;
 	var documentoNo = null;
+	// Evita el doble click en "Generar PDF"/"Guardar Borrador" (2026-09-02,
+	// bug real reportado: 2 clicks seguidos disparaban 2 requests en
+	// paralelo — la 1ra creaba el Acuerdo, la 2da lo veía como "ya existe" y
+	// chocaban los 2 mensajes a la vez). Mientras hay un guardado en vuelo,
+	// cualquier click nuevo se ignora en silencio.
+	var guardandoAcuerdo = false;
 	// Fase 2 del Repositorio de Cuotas (2026-08-25): si el formulario actual
 	// vino de una Acta precargada (cargarPrecarga()), se manda junto con el
 	// guardado para que guardar_acuerdo.php marque esas filas como 'usada'.
@@ -505,6 +511,13 @@
 		addCabeceraRow();
 		addRumaRow();
 		addPerchaRow();
+		// La leyenda "Valor Ruma x Marca x Mes" NO se limpia sola — solo se
+		// actualiza cuando cambia un combo o se elimina una fila a mano (ver
+		// addRumaRow()), nunca al reconstruir la tabla de cero acá. Sin este
+		// llamado quedaba mostrando las filas de la Acta anterior (bug real
+		// reportado: "después de generar el PDF falta que se limpie bien
+		// esta" — 2026-09-02).
+		updateRumaLegend();
 		updateGrandTotals();
 	}
 
@@ -1180,8 +1193,17 @@
 		return true;
 	}
 
-	function guardarAcuerdo(estado, onOk) {
+	function guardarAcuerdo(estado, onOk, btn) {
+		if (guardandoAcuerdo) return;
 		if (!validarCabecera(estado)) return;
+
+		guardandoAcuerdo = true;
+		if (btn) acBotonCargando(btn, true);
+		// Mismo feedback que ya usa "Previsualización" (2026-08-24) — acá
+		// aplica solo al guardado FINAL ('generado'), que es el que de verdad
+		// puede tardar (arma el PDF real con Dompdf); "Guardar Borrador" es
+		// rápido, el spinner del botón ya alcanza para eso.
+		if (estado === 'generado') acMostrarCargandoPantalla('Generando el Acta');
 
 		var payload = {
 			acuerdo_id: acuerdoId,
@@ -1243,12 +1265,18 @@
 					if (onOk) onOk();
 				}
 			})
-			.catch(function () { mostrarMensaje('Error de conexión. Intenta nuevamente.', false); });
+			.catch(function () { mostrarMensaje('Error de conexión. Intenta nuevamente.', false); })
+			.finally(function () {
+				guardandoAcuerdo = false;
+				if (btn) acBotonCargando(btn, false);
+				if (estado === 'generado') acOcultarCargandoPantalla();
+			});
 	}
 
 	document.getElementById('ac-generar-acta').addEventListener('click', mostrarPreview);
-	document.getElementById('ac-guardar-borrador').addEventListener('click', function () {
-		guardarAcuerdo('borrador');
+	var guardarBorradorBtn = document.getElementById('ac-guardar-borrador');
+	guardarBorradorBtn.addEventListener('click', function () {
+		guardarAcuerdo('borrador', null, guardarBorradorBtn);
 	});
 
 	// ---------- Preview / Acta ----------
@@ -1433,7 +1461,7 @@
 			// sondeo de 5 minutos. Mismo patrón que index.php ya usa al
 			// cambiar de módulo.
 			if (window.acAlertasFirmaRefrescar) window.acAlertasFirmaRefrescar();
-		});
+		}, actaGenerarBtn);
 	});
 
 	function cerrarModalActa() {

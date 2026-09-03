@@ -55,6 +55,7 @@ $stmt = $mysqli->prepare(
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
+	   AND a.acta_firmada_archivo IS NOT NULL
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
@@ -320,6 +321,7 @@ $stmtVis = $mysqli->prepare(
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
+	   AND a.acta_firmada_archivo IS NOT NULL
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)

@@ -531,6 +531,9 @@
 	var firmaModalOverlay  = document.getElementById('hist-firma-modal-overlay');
 	var firmaModalTitle    = document.getElementById('hist-firma-modal-title');
 	var firmaOriginalFrame = document.getElementById('hist-firma-original-frame');
+	var firmaOriginalCanvasWrap   = document.getElementById('hist-firma-original-canvas-wrap');
+	var firmaOriginalCanvas       = document.getElementById('hist-firma-original-canvas');
+	var firmaOriginalCanvasEstado = document.getElementById('hist-firma-original-canvas-estado');
 	var firmaPreviewArea   = document.getElementById('hist-firma-preview-area');
 	var firmaModalHint     = document.getElementById('hist-firma-modal-hint');
 	var firmaElegirBtn     = document.getElementById('hist-firma-elegir-btn');
@@ -542,6 +545,7 @@
 	var firmaAcuerdoIdActual = null;
 	var firmaArchivoElegido  = null;
 	var firmaObjectUrl       = null;
+	var firmaOriginalUrlActual = ''; // el PDF real (botón "Ampliar" siempre abre esto) — el iframe puede cargar otra URL en móvil, ver abrirModalFirma().
 	var firmaGuardando       = false; // guarda contra doble click/doble submit al guardar.
 
 	var HTML_BOTON_GUARDAR = '<span class="material-symbols-outlined">save</span> Guardar Acta Firmada';
@@ -551,6 +555,82 @@
 			'<span class="material-symbols-outlined">add_a_photo</span>' +
 			'<p>' + escapeHtml(mensaje) + '</p></div>';
 		firmaAmpliarFirmadaBtn.classList.add('hidden');
+	}
+
+	// Comprime fotos de cámara ANTES de subirlas (2026-09-02) — causa real
+	// encontrada con el diagnóstico temporal: nginx (el servidor web, delante
+	// de nuestro PHP) rechaza la subida con 413 "Request Entity Too Large"
+	// para una foto de cámara real (varios MB) — ni siquiera llega a tocar
+	// subir_acta_firmada.php, así que ningún límite/arreglo de nuestro código
+	// puede hacer nada ahí. Es un límite de infraestructura (Azure/nginx), no
+	// algo editable desde este repo — la solución real es que la foto nunca
+	// llegue tan pesada: se redimensiona/recomprime en el propio navegador
+	// antes de armar el FormData. De paso, menos datos para mover en una
+	// conexión de celular (el problema original de "la página se siente
+	// pesada" que reportó el usuario). Un PDF (no es foto) se sube tal cual,
+	// no se puede "comprimir" así. Si algo falla acá (canvas bloqueado,
+	// imagen corrupta, etc.), se sube el archivo original sin comprimir —
+	// nunca se bloquea la subida por esto.
+	// Iterativa, no un solo intento fijo (2026-09-02, ronda 3 — 2 intentos
+	// con un tamaño/calidad fijos NO alcanzaron, mismo 413 las 2 veces,
+	// porque no hay forma de saber desde acá el límite real que tiene
+	// configurado nginx del lado de Azure). En vez de adivinar un valor y
+	// esperar que alcance, prueba una lista de escalones cada vez más chicos
+	// y se queda con el PRIMERO que entra bajo un límite bien conservador —
+	// así el resultado SIEMPRE queda claramente por debajo de cualquier
+	// límite razonable, no "probablemente por debajo".
+	function nombreComoJpg(archivo) { return archivo.name.replace(/\.[^.]+$/, '') + '.jpg'; }
+	function comprimirFotoSiHaceFalta(archivo) {
+		if (archivo.type.indexOf('image/') !== 0) return Promise.resolve(archivo);
+		// Bien por debajo de 1MB (el default real de nginx sin configurar) —
+		// deja margen de sobra para el overhead del multipart/FormData y para
+		// cualquier límite todavía más chico que ese que no se pueda ver
+		// desde acá.
+		var LIMITE_SEGURO = 500 * 1024;
+		var escalones = [
+			{ lado: 1280, calidad: 0.6 },
+			{ lado: 1000, calidad: 0.5 },
+			{ lado: 800,  calidad: 0.4 },
+			{ lado: 640,  calidad: 0.35 },
+			{ lado: 480,  calidad: 0.3 },
+			{ lado: 360,  calidad: 0.25 }
+		];
+		return new Promise(function (resolve) {
+			var url = URL.createObjectURL(archivo);
+			var img = new Image();
+			img.onload = function () {
+				URL.revokeObjectURL(url);
+				var mejorBlob = null;
+				var i = 0;
+				function intentar() {
+					if (i >= escalones.length) {
+						// Ni el escalón más chico entró en el límite (prácticamente
+						// imposible para una foto real) — se usa el más liviano que
+						// se logró, siempre mejor que subir el archivo original.
+						resolve(mejorBlob ? new File([mejorBlob], nombreComoJpg(archivo), { type: 'image/jpeg' }) : archivo);
+						return;
+					}
+					var cfg = escalones[i++];
+					var escala = Math.min(1, cfg.lado / Math.max(img.width, img.height));
+					var canvas = document.createElement('canvas');
+					canvas.width = Math.max(1, Math.round(img.width * escala));
+					canvas.height = Math.max(1, Math.round(img.height * escala));
+					canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+					canvas.toBlob(function (blob) {
+						if (!blob) { intentar(); return; }
+						if (!mejorBlob || blob.size < mejorBlob.size) mejorBlob = blob;
+						if (blob.size <= LIMITE_SEGURO) {
+							resolve(new File([blob], nombreComoJpg(archivo), { type: 'image/jpeg' }));
+							return;
+						}
+						intentar();
+					}, 'image/jpeg', cfg.calidad);
+				}
+				intentar();
+			};
+			img.onerror = function () { URL.revokeObjectURL(url); resolve(archivo); };
+			img.src = url;
+		});
 	}
 
 	function mostrarPreviewArchivoElegido(archivo) {
@@ -583,6 +663,72 @@
 		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 	}
 
+	// Vista previa del PDF real como imagen, con PDF.js (2026-09-02) — usada
+	// en móvil, donde un PDF embebido en <iframe> no renderiza (Chrome de
+	// Android real no trae visor de PDF ahí, a diferencia del modo "móvil"
+	// de Chrome de escritorio, que sigue siendo el motor de escritorio por
+	// debajo). PDF.js dibuja el PDF real en un <canvas> con JS puro — no
+	// depende de ningún visor nativo del navegador. Se carga por CDN, una
+	// sola vez, solo si de verdad hace falta (nadie paga ese peso si nunca
+	// abre este modal en un celular).
+	var pdfJsCargaPromesa = null;
+	function cargarPdfJs() {
+		if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+		if (pdfJsCargaPromesa) return pdfJsCargaPromesa;
+		pdfJsCargaPromesa = new Promise(function (resolve, reject) {
+			var script = document.createElement('script');
+			script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+			script.onload = function () {
+				window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+				resolve(window.pdfjsLib);
+			};
+			script.onerror = function () { reject(new Error('No se pudo cargar el visor de PDF.')); };
+			document.head.appendChild(script);
+		});
+		return pdfJsCargaPromesa;
+	}
+	function mostrarEstadoCanvasOriginal(mensaje) {
+		firmaOriginalCanvasEstado.textContent = mensaje;
+		firmaOriginalCanvasEstado.classList.remove('hidden');
+		firmaOriginalCanvas.classList.add('hidden');
+	}
+	// Escala el PDF (siempre 1 sola página, ver CLAUDE.md "auto-ajuste a 1
+	// hoja") al ancho real disponible del panel, con devicePixelRatio para que
+	// se vea nítido en pantallas de alta densidad (casi todos los celulares).
+	function renderizarPdfEnCanvas(url) {
+		mostrarEstadoCanvasOriginal('Cargando vista previa…');
+		cargarPdfJs()
+			.then(function (pdfjsLib) { return pdfjsLib.getDocument(url).promise; })
+			.then(function (pdf) { return pdf.getPage(1); })
+			.then(function (page) {
+				var anchoDisponible = firmaOriginalCanvasWrap.clientWidth || 320;
+				var viewportBase = page.getViewport({ scale: 1 });
+				var dpr = window.devicePixelRatio || 1;
+				var escala = (anchoDisponible / viewportBase.width) * dpr;
+				var viewport = page.getViewport({ scale: escala });
+				firmaOriginalCanvas.width = viewport.width;
+				firmaOriginalCanvas.height = viewport.height;
+				firmaOriginalCanvas.style.width = (viewport.width / dpr) + 'px';
+				firmaOriginalCanvas.style.height = (viewport.height / dpr) + 'px';
+				return page.render({ canvasContext: firmaOriginalCanvas.getContext('2d'), viewport: viewport }).promise;
+			})
+			.then(function () {
+				firmaOriginalCanvasEstado.classList.add('hidden');
+				firmaOriginalCanvas.classList.remove('hidden');
+			})
+			.catch(function (e) {
+				// DIAGNÓSTICO TEMPORAL (2026-09-02) — sacar este alert() en cuanto se
+				// identifique la causa real en celular; avisar a Claude para removerlo.
+				alert(
+					'[Vista previa PDF] ' + (e && e.name ? e.name : 'Error') + ': ' + (e && e.message ? e.message : e) + '\n' +
+					'pdfjsLib cargado: ' + (!!window.pdfjsLib) + '\n' +
+					'canvas soportado: ' + (!!(document.createElement('canvas').getContext)) + '\n' +
+					'UA: ' + navigator.userAgent
+				);
+				mostrarEstadoCanvasOriginal('No se pudo mostrar la vista previa. Usa "Ampliar" para verla en una pestaña nueva.');
+			});
+	}
+
 	// Botones "Ampliar" (2026-08-25, pedido explícito): el panel de Acta
 	// Generada siempre es un PDF — "ampliar" ahí abre el PDF real en una
 	// pestaña nueva (el visor nativo ya trae su propio zoom/pinch). El panel
@@ -590,7 +736,7 @@
 	// (zoom con los dedos, sin reinventar nada, ver assets/js/lightbox.js);
 	// PDF también va a pestaña nueva, mismo criterio que el otro panel.
 	firmaAmpliarOriginalBtn.addEventListener('click', function () {
-		if (firmaOriginalFrame.src) window.open(firmaOriginalFrame.src, '_blank');
+		if (firmaOriginalUrlActual) window.open(firmaOriginalUrlActual, '_blank');
 	});
 	firmaAmpliarFirmadaBtn.addEventListener('click', function () {
 		var img = firmaPreviewArea.querySelector('img');
@@ -604,7 +750,25 @@
 		firmaArchivoElegido = null;
 		firmaGuardando = false;
 		firmaModalTitle.textContent = 'Acta Firmada — #' + documentoNo;
-		firmaOriginalFrame.src = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+		// El botón "Ampliar" siempre abre el PDF real (documento oficial,
+		// descargable) — independiente de si el panel muestra el iframe o el canvas.
+		firmaOriginalUrlActual = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+		// Móvil real (2026-09-02): un PDF embebido en <iframe> no renderiza en
+		// Chrome de Android (a diferencia del modo "móvil" de Chrome de
+		// escritorio, que sigue siendo el motor de escritorio por debajo) —
+		// en pantallas angostas se dibuja el PDF real como imagen en un
+		// <canvas> con PDF.js en vez del iframe. Mismo breakpoint que ya usa
+		// este modal para apilar los 2 paneles (@media max-width:760px).
+		if (window.matchMedia('(max-width: 760px)').matches) {
+			firmaOriginalFrame.src = '';
+			firmaOriginalFrame.classList.add('hidden');
+			firmaOriginalCanvasWrap.classList.remove('hidden');
+			renderizarPdfEnCanvas(firmaOriginalUrlActual);
+		} else {
+			firmaOriginalCanvasWrap.classList.add('hidden');
+			firmaOriginalFrame.classList.remove('hidden');
+			firmaOriginalFrame.src = firmaOriginalUrlActual;
+		}
 		firmaElegirBtn.disabled = false;
 		firmaGuardarBtn.disabled = true;
 		firmaGuardarBtn.innerHTML = HTML_BOTON_GUARDAR;
@@ -634,12 +798,16 @@
 	});
 
 	firmaFileInput.addEventListener('change', function () {
-		var archivo = firmaFileInput.files[0];
-		if (!archivo) return;
-		firmaArchivoElegido = archivo;
-		mostrarPreviewArchivoElegido(archivo);
-		firmaGuardarBtn.disabled = false;
-		firmaModalHint.textContent = archivo.name;
+		var archivoOriginal = firmaFileInput.files[0];
+		if (!archivoOriginal) return;
+		firmaModalHint.textContent = 'Preparando el archivo…';
+		comprimirFotoSiHaceFalta(archivoOriginal).then(function (archivoFinal) {
+			firmaArchivoElegido = archivoFinal;
+			mostrarPreviewArchivoElegido(archivoFinal);
+			firmaGuardarBtn.disabled = false;
+			firmaModalHint.textContent = archivoFinal.name +
+				(archivoFinal !== archivoOriginal ? ' (comprimida automáticamente, ' + Math.round(archivoFinal.size / 1024) + ' KB)' : '');
+		});
 	});
 
 	firmaGuardarBtn.addEventListener('click', function () {
@@ -660,9 +828,34 @@
 			firmaGuardarBtn.innerHTML = HTML_BOTON_GUARDAR;
 		}
 
+		// DIAGNÓSTICO TEMPORAL (2026-09-02) — se lee la respuesta como texto
+		// crudo ANTES de intentar JSON.parse(), para poder mostrar el HTTP
+		// status y el cuerpo real de la respuesta si no es JSON válido (ej. un
+		// error de PHP impreso crudo, una página de error del hosting, etc.) —
+		// antes esto se perdía, `.then(r => r.json())` fallaba directo y todo
+		// terminaba en el mismo "Error de conexión" genérico, sin decir por
+		// qué. Sacar este alert() (y volver a la versión simple con
+		// `.then(r => r.json())`) en cuanto se identifique la causa real en
+		// celular; avisar a Claude para removerlo.
 		fetch('getters/subir_acta_firmada.php', { method: 'POST', body: formData })
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
+			.then(function (r) {
+				return r.text().then(function (texto) { return { status: r.status, ok: r.ok, texto: texto }; });
+			})
+			.then(function (resp) {
+				var data;
+				try {
+					data = JSON.parse(resp.texto);
+				} catch (errParse) {
+					alert(
+						'[Guardar Acta Firmada] La respuesta no es JSON válido.\n' +
+						'Archivo enviado: ' + firmaArchivoElegido.name + ', ' + firmaArchivoElegido.type + ', ' + Math.round(firmaArchivoElegido.size / 1024) + ' KB\n' +
+						'HTTP status: ' + resp.status + ' (ok=' + resp.ok + ')\n' +
+						'Primeros 800 caracteres de la respuesta:\n' + resp.texto.slice(0, 800)
+					);
+					mostrarToast('Error de conexión. Intenta nuevamente.', 'error');
+					restaurarBotones();
+					return;
+				}
 				mostrarToast(data.message, data.ok ? 'success' : 'error');
 				if (data.ok) {
 					cerrarModalFirma();
@@ -671,7 +864,8 @@
 					restaurarBotones();
 				}
 			})
-			.catch(function () {
+			.catch(function (e) {
+				alert('[Guardar Acta Firmada] Falló el fetch en sí (red/CORS/timeout).\n' + (e && e.name ? e.name : 'Error') + ': ' + (e && e.message ? e.message : e));
 				mostrarToast('Error de conexión. Intenta nuevamente.', 'error');
 				restaurarBotones();
 			});

@@ -7946,7 +7946,13 @@ Pedido explícito, 3 partes:
    (`index.php`, junto al nombre de usuario) — más los 2 `<select>` de rol
    en `components/gestion-usuarios/gestion-usuarios.php` (Nuevo Usuario y
    Editar Perfil), que tenían el texto de las `<option>` hardcodeado, no
-   vía `rolEtiqueta()`. **No se tocó** "Desarrollador de Mercado" en
+   vía `rolEtiqueta()`.
+   **Corregido 2026-09-02**: el `<select>` de "Editar Perfil" (`#rl-rol`)
+   en realidad se había quedado sin tocar (seguía con "Desarrollador"/
+   "Superdesarrollador" literal) — solo `#nu-rol` ("Nuevo Usuario") se
+   había actualizado de verdad, pese a lo que decía esta nota. Reportado
+   por el usuario, confirmado con `grep` en todo el proyecto (era el único
+   caso restante), corregido. **No se tocó** "Desarrollador de Mercado" en
    `includes/acta_pdf.php` — es la etiqueta de firma del Acta de
    Distribuidor, coincide la palabra pero es un concepto totalmente
    distinto (puesto real en el documento impreso, no el rol de la app).
@@ -8372,3 +8378,229 @@ filtro de tag.
 solo lectura)**: el link real trae `href="getters/generar_acta_pdf.php?id=63"`,
 atributo `download` presente, texto "#ADN-2026-0057" — y la fila se ve
 igual que antes visualmente (columna alineada, sin romperse).
+
+## Registrar: doble click en "Generar PDF"/"Guardar Borrador" (2026-09-02)
+
+Bug real reportado: 2 clicks seguidos disparaban 2 `guardar_acuerdo.php` en
+paralelo — el 1ro creaba el Acuerdo, el 2do chocaba con "ya existe". Mismo
+feedback que ya usaba "Previsualización" (spinner en botón +
+`acMostrarCargandoPantalla()`), ahora también en `guardarAcuerdo()`:
+- `guardandoAcuerdo` (flag módulo) — un 2do click mientras hay un guardado
+  en vuelo se ignora en silencio.
+- `guardarAcuerdo(estado, onOk, btn)` ganó un 3er parámetro (el botón que
+  llamó) — spinner en ese botón; overlay de pantalla completa solo para
+  `estado === 'generado'` (Guardar Borrador es rápido, el spinner del botón
+  alcanza).
+- `.finally()` libera todo sin importar el resultado (éxito, duplicado,
+  error de red).
+
+**Probado**: `node --check` limpio. Sin probar en navegador real.
+
+## Excel de Historial: solo Actas firmadas (2026-09-02)
+
+`AND a.acta_firmada_archivo IS NOT NULL` agregado a las 4 queries de
+`exportar_cuota_categoria.php`/`exportar_cuota_categoria_distribuidor.php`
+(hoja Cuota + hoja Visibilidad, en cada uno de los 2 formatos) — una Acta
+sin firma subida ya no entra al Excel, en ninguno de los 2 canales. La
+hoja "RESUMEN DE PAGOS" hereda el filtro solo (se arma de los mismos
+`$filasFinal`/`$filasVis`).
+
+**Probado**: `php -l` limpio en los 2 archivos. No se pudo verificar contra
+datos reales con Actas firmadas — el usuario vació `repositorio_acuerdos`
+(pidió el `TRUNCATE`/`DELETE` en este mismo chat) antes de esta vuelta, así
+que hoy solo hay 1 Acuerdo real, sin firmar. Misma condición
+(`acta_firmada_archivo IS NOT NULL`) ya usada y probada en
+`listar_historial_acuerdos()` (columna "Firma" de Historial), bajo riesgo.
+Sin probar en navegador real.
+
+## Registrar: leyenda "Valor Ruma x Marca x Mes" no se limpiaba tras generar el PDF (2026-09-03)
+
+Bug real reportado: la limpieza post-generación (`limpiarFormularioParaNuevoAcuerdo()`
+→ `aplicarTrimestre(0)` → `syncTables()`) resetea las 4 tablas (Meta de
+Compras/Cabeceras/Rumas/Perchas) a una sola fila vacía cada una, pero
+`rumasLegendBody` (la leyenda "Valor Ruma x Marca x Mes", DOM aparte de
+`rumasBody`) nunca se tocaba — `updateRumaLegend()` solo se dispara como
+callback al cambiar un combo o eliminar una fila (`addRumaRow()`), nunca
+al reconstruir la tabla de cero. Quedaba mostrando las filas de la Acta
+anterior (ej. LAVA/15, LAVA/20, MISTY/30, GOL/25) después de generar el
+PDF y arrancar un Acuerdo nuevo.
+
+**Corregido**: `syncTables()` (`assets/js/registrar.js`) ahora llama a
+`updateRumaLegend()` explícito después de reconstruir las 4 tablas —
+con `rumasBody` ya en su fila única vacía (sin Marca elegida),
+`updateRumaLegend()` renderiza correctamente su propio estado "Sin datos"
+en vez de arrastrar la leyenda vieja.
+
+**Probado**: `node --check` limpio. Verificado por lectura de código que
+`updateRumaLegend()` opera sobre `rumasBody` (ya reseteado en ese punto) y
+que su rama de "sin filas con Marca" ya renderiza "Sin datos" — mismo
+componente, sin cambios de lógica ahí. Sin probar en navegador real.
+
+## Modal "Subir Acta Firmada": 2 bugs reales en celular real (2026-09-02)
+
+Reportado desde un celular real (no el modo "móvil" de Chrome de
+escritorio, que sigue siendo el motor de escritorio por debajo — por eso
+ahí sí funcionaba): (1) el panel "Acta Generada" no mostraba el PDF, (2)
+"Guardar Acta Firmada" se quedaba en "Cargando..." y terminaba en "Error
+de conexión."
+
+1. **PDF en `<iframe>` no renderiza en Chrome de Android real** — límite
+   real de la plataforma, no un bug de este código en particular (afecta a
+   cualquier PDF embebido así en un navegador móvil real). **3 vueltas
+   hasta encontrar la que sirvió, las 2 primeras descartadas por feedback
+   real del usuario probando en su celular**:
+   - **Intento 1 (descartado)**: tarjeta "Ver Acta Generada" que abría el
+     PDF en pestaña nueva en vez de mostrarlo embebido — el usuario lo
+     rechazó explícito, quería ver una previsualización de verdad ahí
+     mismo, no un botón.
+   - **Intento 2 (descartado)**: `getters/generar_acta_preview_html.php`
+     (ya no existe) — servía el Acta como HTML en vivo
+     (`generar_acta_html()`, el mismo HTML que `generar_acta_pdf_binario()`
+     le pasa a Dompdf, pero sin pasar por Dompdf) dentro del mismo
+     `<iframe>`. Se rompía en pantalla angosta — captura real del usuario
+     mostró el título superpuesto con el recuadro de "Documento No": ese
+     HTML usa posiciones absolutas calibradas para una hoja A4 completa
+     (ver "H1 empujó el título... recuadro fijo Documento No" en la
+     sección "Formato de Acta para canal Distribuidor" de este archivo),
+     nunca pensado para reflowar en un viewport angosto.
+   - **Solución real (la que quedó)**: PDF.js (CDN, `cdnjs.cloudflare.com/
+     ajax/libs/pdf.js/3.11.174/`) dibuja el PDF REAL (el mismo binario de
+     siempre, `generar_acta_pdf.php`) como imagen dentro de un `<canvas>`
+     — 100% JavaScript, sin depender de ningún visor nativo del navegador,
+     así que funciona igual en cualquier celular. `renderizarPdfEnCanvas()`
+     en `historial.js`: carga PDF.js una sola vez (lazy, solo si de verdad
+     hace falta — nadie paga ese peso si nunca abre este modal en un
+     celular), `pdf.getPage(1)` (el Acta siempre es 1 sola hoja, ver
+     "auto-ajuste a 1 hoja" en este archivo), escala el viewport al ancho
+     real del panel × `devicePixelRatio` (nítido en pantallas de alta
+     densidad) y `page.render()`. `abrirModalFirma()` decide con
+     `matchMedia('(max-width: 760px)')` (mismo breakpoint que ya usa este
+     modal para apilar los 2 paneles) si muestra el `<iframe>` de siempre
+     (desktop, sin cambios) o el `<canvas>` (móvil). El botón "Ampliar"
+     sigue abriendo el PDF real en pestaña nueva en los 2 casos.
+2. **`subir_acta_firmada.php` no tenía el buffer de salida** que ya usan
+   los getters más nuevos del proyecto (`cumplimiento_guardar.php`,
+   `cuotas_guardar.php`) — cualquier error real de PHP procesando una foto
+   de cámara pesada (varios MB, mucho más grande que las imágenes de
+   prueba con las que se verificó esto en su momento) se imprimía crudo
+   ANTES del JSON, rompiendo el `fetch().then(r => r.json())` del cliente
+   y mostrando el "Error de conexión" genérico en vez del error real.
+   Agregado `ob_start()`/`set_exception_handler()` (mismo patrón ya
+   documentado varias veces en este archivo) + `@ini_set('memory_limit',
+   '256M')` de margen para una foto de celular real.
+
+**Probado**: `php -l`/`node --check` limpios, CSS balanceado (806/806).
+No se pudo probar PDF.js contra un celular real desde acá (necesita un
+navegador real, esta sesión no tiene uno) — es la librería estándar de la
+industria para exactamente este problema (renderizar PDF sin visor
+nativo), versión fija 3.11.174 (build clásico con `pdf.min.js`/
+`pdf.worker.min.js`, sin depender de ES modules). No se pudo reproducir el
+fallo de memoria/red del punto 2 desde acá (necesita un archivo pesado
+real de cámara y una conexión real de celular) — ese fix es el mismo
+patrón defensivo ya usado y probado en otros getters de este proyecto.
+Sin probar ninguno de los 2 en un celular real todavía.
+
+## ⚠️ DIAGNÓSTICO TEMPORAL activo en `historial.js` — sacar cuando se resuelva (2026-09-02)
+
+El usuario no puede abrir la consola del navegador en su celular real, así
+que se agregaron 3 `alert()` temporales (nativos, no toasts) en los 2
+puntos de arriba que seguían fallando sin decir por qué — el objetivo es
+que le tomen una foto/lean el mensaje y me lo pasen tal cual para
+diagnosticar sin adivinar a ciegas:
+- `renderizarPdfEnCanvas()` catch — nombre/mensaje del error real de
+  PDF.js, si `pdfjsLib` llegó a cargar, si el navegador soporta
+  `canvas.getContext`, y el `navigator.userAgent` completo.
+- `firmaGuardarBtn` click handler — reescrito para leer la respuesta de
+  `subir_acta_firmada.php` como texto CRUDO antes de intentar
+  `JSON.parse()` (antes se perdía el cuerpo real de la respuesta apenas
+  fallaba el parseo) — si no es JSON válido, alerta con el HTTP status +
+  los primeros 800 caracteres de la respuesta cruda; si el `fetch()` en sí
+  falla (red/CORS/timeout), alerta con el nombre/mensaje de ese error.
+
+**Sacar los 3 `alert()`** (quedan marcados con el comentario "DIAGNÓSTICO
+TEMPORAL" en el código, buscar ese texto) en cuanto el usuario mande el
+mensaje real y se identifique/corrija la causa — no son parte del
+comportamiento final del producto.
+
+## Causa real encontrada con el diagnóstico: nginx rechaza la foto ANTES de llegar a PHP (2026-09-02)
+
+El `alert()` de "Guardar Acta Firmada" mostró el mensaje real:
+```
+HTTP status: 413 (ok=false)
+<html><head><title>413 Request Entity Too Large</title></head>
+<body><center><h1>413 Request Entity Too Large</h1></center>
+<hr><center>nginx/1.28.0</center></body></html>
+```
+
+Confirma que nginx (el servidor web de Azure, delante de PHP-FPM) tiene un
+`client_max_body_size` configurado más chico que una foto de cámara real —
+la petición nunca llega a `subir_acta_firmada.php`, por eso ninguno de los
+arreglos anteriores en ese archivo (buffer de salida, límite propio de
+15MB, `memory_limit`) podían hacer nada: el rechazo pasa un paso ANTES,
+en la capa de infraestructura. Esto **no es editable desde este repo** —
+Claude no tiene acceso a la configuración de Azure/nginx.
+
+**Fix real, del lado del cliente**: `comprimirFotoSiHaceFalta()` en
+`historial.js` — antes de armar el `FormData`, si el archivo elegido es
+una foto (no PDF), se redimensiona a 1800px de lado máximo y se recomprime
+a JPEG calidad 0.82 vía `<canvas>`/`canvas.toBlob()`, siempre (no solo si
+"ya es grande" — no se conoce el límite real de nginx, mejor un tamaño de
+salida predecible siempre). Si el resultado comprimido termina más pesado
+que el original (raro, pero posible), se usa el original igual — nunca
+empeora nada. Un PDF se sube tal cual, no se puede comprimir así. Si algo
+falla en el proceso (canvas bloqueado, imagen corrupta), se sube el
+archivo original sin comprimir — la subida nunca se bloquea por esto.
+`firmaModalHint` muestra el tamaño final en KB después de comprimir, útil
+si hay que diagnosticar de nuevo.
+
+De paso, esto también resuelve la preocupación de "la página se siente
+pesada" del mismo usuario — una foto de cámara sin comprimir puede pesar
+8-15MB; la app nunca necesitó esa resolución para leer un documento
+firmado, y ahora nunca la sube así.
+
+**Probado**: `node --check` limpio. La compresión en sí no se pudo probar
+contra un celular real desde acá (necesita `Image`/`canvas.toBlob()` de un
+navegador real) — es la técnica estándar para este problema (resize +
+recompresión de foto antes de subir), sin dependencias nuevas. **Los 3
+`alert()` de diagnóstico siguen activos** (ver sección de arriba) —
+quedan hasta confirmar que esto resuelve la subida de verdad en el
+celular del usuario.
+
+**Ronda 2, mismo día — la primera compresión (1800px/calidad 0.82) NO
+alcanzó, mismo 413 de nuevo**: probado real en el celular del usuario,
+mismo error de nginx. `nginx/1.28.0` sin configuración propia usa
+`client_max_body_size` = **1MB por default** — probablemente ese es el
+límite real acá (esta imagen de la app es la nginx DE ADENTRO del
+contenedor de Azure App Service Linux, delante de PHP-FPM, no el borde de
+Azure — el header `nginx/1.28.0` lo confirma, el borde de Azure no se
+identifica como nginx). Bajado a **1280px / calidad 0.65** — de sobra
+legible para una foto de documento, debería quedar bien por debajo de
+1MB. El alert() de error ahora también muestra el tamaño real del archivo
+que se intentó subir (`firmaArchivoElegido.size`), para no tener que
+adivinar de nuevo si la próxima falla es "no comprimió lo suficiente" o
+"el límite real es todavía más chico de lo pensado".
+
+**Nota aparte, sin confirmar**: si el usuario tiene acceso al Portal de
+Azure (App Service > Configuration, o la consola Kudu), podría existir una
+forma de subir `client_max_body_size` directo ahí — no se investigó el
+mecanismo exacto para Linux App Service porque Claude no tiene acceso a
+Azure desde acá; la compresión del lado del cliente es la solución que sí
+se pudo implementar y verificar dentro del repo.
+
+**Ronda 3, mismo día — 2 intentos con un valor fijo (1800px/0.82, después
+1280px/0.65) NO alcanzaron, mismo 413 las 2 veces**: sin poder ver el
+límite real configurado en nginx, ADIVINAR un solo valor no es confiable.
+Reescrito `comprimirFotoSiHaceFalta()` para que sea **iterativa**: una
+lista de escalones cada vez más chicos (1280/0.6 → 1000/0.5 → 800/0.4 →
+640/0.35 → 480/0.3 → 360/0.25), probados en orden hasta que uno da un
+archivo ≤500KB (bien por debajo del default de 1MB de nginx, con margen
+para el overhead del multipart) — se queda con el PRIMERO que entra, no
+sigue bajando de más. Si ni el escalón más chico entrara (prácticamente
+imposible para una foto real), usa el más liviano logrado en vez de
+rendirse. **Probado**: `node --check` limpio; la lógica de escalonamiento
+en sí se verificó aislada con tamaños simulados (sin canvas/Image real,
+Node no tiene DOM) — 3 casos (entra en el 1er escalón, entra recién en el
+4to, no entra en ninguno) dieron el resultado esperado en los 3. La
+compresión real (con una foto real) sigue sin poder probarse desde acá —
+necesita un celular real, que es justo lo que se le pidió al usuario que
+confirme.

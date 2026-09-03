@@ -8,6 +8,7 @@ $stmtD = $mysqli->prepare(
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
+	   AND a.acta_firmada_archivo IS NOT NULL
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
@@ -226,6 +227,7 @@ $stmtVisD = $mysqli->prepare(
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
+	   AND a.acta_firmada_archivo IS NOT NULL
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
