@@ -1,0 +1,2152 @@
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => ANDRES CHAMBA
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 100
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => GERARDO PIRAY
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => GERARDO PIRAY
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => GERARDO PIRAY
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => GERARDO PIRAY
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => GERARDO PIRAY
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => FRANCISCA GUZMAN
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => LUIS CABRERA
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 100
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => DENNISE GUANOTUNA
+    [donantes] => Array
+        (
+            [0] => LUIS CABRERA
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => LUIS CABRERA
+    [donantes] => Array
+        (
+            [0] => FRANCISCA GUZMAN
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => BOTELLA (NOVIEMBRE)
+                    [cantidad] => 50
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => LUIS CABRERA
+    [donantes] => Array
+        (
+            [0] => AMPARO LOACHAMIN
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => Estrategia A
+                    [cantidad] => 100
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => GERARDO PIRAY
+    [donantes] => Array
+        (
+            [0] => ALISSON MACIAS
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => DETERGENTE POLVO GOL 70 GR (DICIEMBRE)
+                    [cantidad] => 7
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => CAROLINA AVILA
+    [donantes] => Array
+        (
+            [0] => YURI CONTENTO
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => DETERGENTE POLVO GOL 70 GR (DICIEMBRE)
+                    [cantidad] => 1000
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => GERARDO PIRAY
+    [donantes] => Array
+        (
+            [0] => LUIS CABRERA
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => DETERGENTE POLVO GOL 70 GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [1] => Array
+                (
+                    [tactico] => LAVA DISCO 150 GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [2] => Array
+                (
+                    [tactico] => LAVA 115GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [3] => Array
+                (
+                    [tactico] => ESPONJAS (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [4] => Array
+                (
+                    [tactico] => Pinzas (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => GERARDO PIRAY
+    [donantes] => Array
+        (
+            [0] => LUIS CABRERA
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => DETERGENTE POLVO GOL 70 GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+        )
+
+)
+Datos recibidos: Array
+(
+    [receptor] => GERARDO PIRAY
+    [donantes] => Array
+        (
+            [0] => LUIS CABRERA
+        )
+
+    [intercambios] => Array
+        (
+            [0] => Array
+                (
+                    [tactico] => DETERGENTE POLVO GOL 70 GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [1] => Array
+                (
+                    [tactico] => LAVA DISCO 150 GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [2] => Array
+                (
+                    [tactico] => LAVA 115GR (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [3] => Array
+                (
+                    [tactico] => ESPONJAS (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+            [4] => Array
+                (
+                    [tactico] => Pinzas (DICIEMBRE)
+                    [cantidad] => 1
+                )
+
+        )
+
+)
+[2026-02-25 18:27:20] === NUEVA CONSULTA ===
+[2026-02-25 18:27:20] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:27:20] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:27:20] Ejecutando query verificacion_vt
+[2026-02-25 18:27:20] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:27:20] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:27:20] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:27:20] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:27:20] Ejecutando query verificacion_rd
+[2026-02-25 18:27:20] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:27:20] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:27:20] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:27:20] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:27:20] Ejecutando query regional
+[2026-02-25 18:27:20] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:27:20] Resultados regional: 3 filas
+[2026-02-25 18:27:20] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:27:20] Ejecutando query ejecutivo
+[2026-02-25 18:27:20] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:27:20] Resultados ejecutivo: 13 filas
+[2026-02-25 18:27:20] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:27:20] Ejecutando query mercaderista
+[2026-02-25 18:27:20] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:27:20] Resultados mercaderista: 40 filas
+[2026-02-25 18:27:20] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:27:20] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:27:24] === NUEVA CONSULTA ===
+[2026-02-25 18:27:24] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:27:24] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:27:24] Ejecutando query verificacion_vt
+[2026-02-25 18:27:24] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:27:24] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:27:24] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:27:24] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:27:24] Ejecutando query verificacion_rd
+[2026-02-25 18:27:24] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:27:24] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:27:24] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:27:24] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:27:24] Ejecutando query regional
+[2026-02-25 18:27:24] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:27:24] Resultados regional: 3 filas
+[2026-02-25 18:27:24] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:27:24] Ejecutando query ejecutivo
+[2026-02-25 18:27:24] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:27:24] Resultados ejecutivo: 13 filas
+[2026-02-25 18:27:24] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:27:24] Ejecutando query mercaderista
+[2026-02-25 18:27:24] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:27:25] Resultados mercaderista: 40 filas
+[2026-02-25 18:27:25] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:27:25] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:28:30] === NUEVA CONSULTA ===
+[2026-02-25 18:28:30] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:28:30] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:28:30] Ejecutando query verificacion_vt
+[2026-02-25 18:28:30] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:28:30] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:28:30] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:28:30] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:28:30] Ejecutando query verificacion_rd
+[2026-02-25 18:28:30] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:28:30] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:28:30] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:28:30] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:28:30] Ejecutando query regional
+[2026-02-25 18:28:30] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:28:30] Resultados regional: 3 filas
+[2026-02-25 18:28:30] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:28:30] Ejecutando query ejecutivo
+[2026-02-25 18:28:30] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:28:30] Resultados ejecutivo: 13 filas
+[2026-02-25 18:28:30] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:28:30] Ejecutando query mercaderista
+[2026-02-25 18:28:30] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:28:31] Resultados mercaderista: 40 filas
+[2026-02-25 18:28:31] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:28:31] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:28:51] === NUEVA CONSULTA ===
+[2026-02-25 18:28:51] Parámetros recibidos: mes=1, anio=2026, es_adicional=false
+[2026-02-25 18:28:51] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:28:51] Ejecutando query verificacion_vt
+[2026-02-25 18:28:51] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 1 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:28:51] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:28:51] Primera fila: Array
+(
+    [total_registros] => 797
+    [total_armado] => 24600
+    [gestores_distintos] => 41
+    [tipos_tactico] => Actual
+)
+
+[2026-02-25 18:28:51] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 797
+            [total_armado] => 24600
+            [gestores_distintos] => 41
+            [tipos_tactico] => Actual
+        )
+
+)
+
+[2026-02-25 18:28:51] Ejecutando query verificacion_rd
+[2026-02-25 18:28:51] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 1 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:28:51] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:28:51] Primera fila: Array
+(
+    [total_asignaciones] => 81
+    [mercaderistas_distintos] => 41
+    [total_asignado] => 24600
+)
+
+[2026-02-25 18:28:51] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 81
+            [mercaderistas_distintos] => 41
+            [total_asignado] => 24600
+        )
+
+)
+
+[2026-02-25 18:28:51] Ejecutando query regional
+[2026-02-25 18:28:51] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 1
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 1 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 1 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:28:51] Resultados regional: 3 filas
+[2026-02-25 18:28:51] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4995
+    [cantidad_armada] => 4995
+    [faltantes] => 0
+    [avance] => 100.00
+)
+
+[2026-02-25 18:28:51] Ejecutando query ejecutivo
+[2026-02-25 18:28:51] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 1
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 1
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:28:51] Resultados ejecutivo: 13 filas
+[2026-02-25 18:28:51] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 2178
+    [cantidad_distribuida] => 2178
+)
+
+[2026-02-25 18:28:51] Ejecutando query mercaderista
+[2026-02-25 18:28:51] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 1
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 1
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 1
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:28:52] Resultados mercaderista: 41 filas
+[2026-02-25 18:28:52] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 621
+)
+
+[2026-02-25 18:28:52] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4995","cantidad_armada":"4995","faltantes":"0","avance":"100.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10535","cantidad_armada":"10535","faltantes":"0","avance":"100.00"},{"region":"SIERRA","cantidad_recursos":18,"cantidad_distribuida":"9070","cantidad_armada":"9070","faltantes":"0","avance":"100.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"2178","cantidad_distribuida":"2178"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":3,"cantidad_armada":"1122","cantidad_distribuida":"1122"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"3513","cantidad_distribuida":"3513"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"3027","cantidad_distribuida":"3027"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"1787","cantidad_distribuida":"1787"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"1252","cantidad_distribuida":"1252"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"1956","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"2733","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"1481","cantidad_distribuida":"1481"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"1283","cantidad_distribuida":"1283"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"1444","cantidad_distribuida":"1444"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"1504","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"1320","cantidad_distribuida":"1320"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"621"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"603"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"701","cantidad_armada":"701"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"640","cantidad_armada":"640"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"643","cantidad_armada":"643"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"857","cantidad_armada":"857"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"476"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"687","cantidad_armada":"687"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1233","cantidad_armada":"1233"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"228","cantidad_armada":"228"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"521","cantidad_armada":"521"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"373","cantidad_armada":"373"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"490"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"209","cantidad_armada":"209"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"814","cantidad_armada":"814"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"761","cantidad_armada":"761"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"683","cantidad_armada":"683"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"780","cantidad_armada":"780"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"591"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"724","cantidad_armada":"724"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"362","cantidad_armada":"362"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"502","cantidad_armada":"502"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"321","cantidad_armada":"321"},{"supervisor":"EDWIN TORRES","mercaderista":"SILVIA VELASCO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"428","cantidad_armada":"428"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"285","cantidad_armada":"285"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"633","cantidad_armada":"633"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"365","cantidad_armada":"365"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"264"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"538","cantidad_armada":"538"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"607","cantidad_armada":"607"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"681","cantidad_armada":"681"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"758"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"568","cantidad_armada":"568"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"829","cantidad_armada":"829"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"793","cantidad_armada":"793"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"780","cantidad_armada":"780"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"94","cantidad_armada":"94"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"778","cantidad_armada":"778"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"632","cantidad_armada":"632"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"620","cantidad_armada":"620"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1127","cantidad_armada":"1127"}]},"debug":{"verificacion_vt":[{"total_registros":797,"total_armado":"24600","gestores_distintos":41,"tipos_tactico":"Actual"}],"verificacion_rd":[{"total_asignaciones":81,"mercaderistas_distintos":41,"total_asignado":"24600"}],"parametros":{"mes":1,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:29:23] === NUEVA CONSULTA ===
+[2026-02-25 18:29:23] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:29:23] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:29:23] Ejecutando query verificacion_vt
+[2026-02-25 18:29:23] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:29:23] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:29:23] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:29:23] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:29:23] Ejecutando query verificacion_rd
+[2026-02-25 18:29:23] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:29:23] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:29:23] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:29:23] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:29:23] Ejecutando query regional
+[2026-02-25 18:29:23] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:29:23] Resultados regional: 3 filas
+[2026-02-25 18:29:23] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:29:23] Ejecutando query ejecutivo
+[2026-02-25 18:29:23] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:29:23] Resultados ejecutivo: 13 filas
+[2026-02-25 18:29:23] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:29:23] Ejecutando query mercaderista
+[2026-02-25 18:29:23] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:29:23] Resultados mercaderista: 40 filas
+[2026-02-25 18:29:23] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:29:23] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:29:54] === NUEVA CONSULTA ===
+[2026-02-25 18:29:54] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:29:54] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:29:54] Ejecutando query verificacion_vt
+[2026-02-25 18:29:54] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:29:54] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:29:54] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:29:54] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:29:54] Ejecutando query verificacion_rd
+[2026-02-25 18:29:54] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:29:54] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:29:54] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:29:54] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:29:54] Ejecutando query regional
+[2026-02-25 18:29:54] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:29:54] Resultados regional: 3 filas
+[2026-02-25 18:29:54] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:29:54] Ejecutando query ejecutivo
+[2026-02-25 18:29:54] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:29:54] Resultados ejecutivo: 13 filas
+[2026-02-25 18:29:54] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:29:54] Ejecutando query mercaderista
+[2026-02-25 18:29:54] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:29:54] Resultados mercaderista: 40 filas
+[2026-02-25 18:29:54] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:29:54] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:30:07] === NUEVA CONSULTA ===
+[2026-02-25 18:30:07] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:30:07] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:30:07] Ejecutando query verificacion_vt
+[2026-02-25 18:30:07] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:30:07] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:30:07] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:30:07] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:30:07] Ejecutando query verificacion_rd
+[2026-02-25 18:30:07] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:30:07] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:30:07] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:30:07] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:30:07] Ejecutando query regional
+[2026-02-25 18:30:07] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:30:07] Resultados regional: 3 filas
+[2026-02-25 18:30:07] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:30:07] Ejecutando query ejecutivo
+[2026-02-25 18:30:07] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:30:07] Resultados ejecutivo: 13 filas
+[2026-02-25 18:30:07] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:30:07] Ejecutando query mercaderista
+[2026-02-25 18:30:07] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:30:08] Resultados mercaderista: 40 filas
+[2026-02-25 18:30:08] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:30:08] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:30:39] === NUEVA CONSULTA ===
+[2026-02-25 18:30:39] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:30:39] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:30:39] Ejecutando query verificacion_vt
+[2026-02-25 18:30:39] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:30:39] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:30:39] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:30:39] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:30:39] Ejecutando query verificacion_rd
+[2026-02-25 18:30:39] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:30:39] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:30:39] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:30:39] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:30:39] Ejecutando query regional
+[2026-02-25 18:30:39] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:30:39] Resultados regional: 3 filas
+[2026-02-25 18:30:39] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:30:39] Ejecutando query ejecutivo
+[2026-02-25 18:30:39] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:30:39] Resultados ejecutivo: 13 filas
+[2026-02-25 18:30:39] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:30:39] Ejecutando query mercaderista
+[2026-02-25 18:30:39] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:30:39] Resultados mercaderista: 40 filas
+[2026-02-25 18:30:39] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:30:39] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}
+[2026-02-25 18:30:42] === NUEVA CONSULTA ===
+[2026-02-25 18:30:42] Parámetros recibidos: mes=2, anio=2026, es_adicional=false
+[2026-02-25 18:30:42] Condiciones: observaciones NOT LIKE '%Adicional%', tipo_tactico != 'Adicional'
+[2026-02-25 18:30:42] Ejecutando query verificacion_vt
+[2026-02-25 18:30:42] Query: 
+        SELECT 
+            COUNT(*) as total_registros,
+            SUM(cantidad_armada) as total_armado,
+            COUNT(DISTINCT gestor) as gestores_distintos,
+            GROUP_CONCAT(DISTINCT tipo_tactico) as tipos_tactico
+        FROM validacion_tacticos 
+        WHERE mes_reporte = 2 
+          AND anio_reporte = 2026
+    
+[2026-02-25 18:30:43] Resultados verificacion_vt: 1 filas
+[2026-02-25 18:30:43] Primera fila: Array
+(
+    [total_registros] => 0
+    [total_armado] => 
+    [gestores_distintos] => 0
+    [tipos_tactico] => 
+)
+
+[2026-02-25 18:30:43] VERIFICACIÓN VT: Array
+(
+    [0] => Array
+        (
+            [total_registros] => 0
+            [total_armado] => 
+            [gestores_distintos] => 0
+            [tipos_tactico] => 
+        )
+
+)
+
+[2026-02-25 18:30:43] Ejecutando query verificacion_rd
+[2026-02-25 18:30:43] Query: 
+        SELECT 
+            COUNT(*) as total_asignaciones,
+            COUNT(DISTINCT mercaderista) as mercaderistas_distintos,
+            SUM(cantidad_asignada) as total_asignado
+        FROM repositorio_distributivo 
+        WHERE MONTH(fecha_asignacion) = 2 
+          AND YEAR(fecha_asignacion) = 2026
+          AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+    
+[2026-02-25 18:30:43] Resultados verificacion_rd: 1 filas
+[2026-02-25 18:30:43] Primera fila: Array
+(
+    [total_asignaciones] => 78
+    [mercaderistas_distintos] => 40
+    [total_asignado] => 24610
+)
+
+[2026-02-25 18:30:43] VERIFICACIÓN RD: Array
+(
+    [0] => Array
+        (
+            [total_asignaciones] => 78
+            [mercaderistas_distintos] => 40
+            [total_asignado] => 24610
+        )
+
+)
+
+[2026-02-25 18:30:43] Ejecutando query regional
+[2026-02-25 18:30:43] Query: 
+        SELECT
+            a.region,
+            a.cantidad_recursos,
+            a.cantidad_distribuida,
+            COALESCE(b.total_armada, 0) AS cantidad_armada,
+            (a.cantidad_distribuida - COALESCE(b.total_armada, 0)) AS faltantes,
+            CASE WHEN a.cantidad_distribuida = 0 THEN 0
+                 ELSE ROUND((COALESCE(b.total_armada, 0) / a.cantidad_distribuida) * 100, 2)
+            END AS avance
+        FROM (
+            SELECT rd.regional AS region,
+                   COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+                   SUM(rd.cantidad_asignada) AS cantidad_distribuida
+            FROM repositorio_distributivo rd
+            WHERE MONTH(rd.fecha_asignacion) = 2
+              AND YEAR(rd.fecha_asignacion) = 2026
+              AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+            GROUP BY rd.regional
+        ) a
+        LEFT JOIN (
+            SELECT rd.regional AS region,
+                   SUM(vt_sub.cantidad_armada) AS total_armada
+            FROM (
+                SELECT gestor, SUM(cantidad_armada) AS cantidad_armada
+                FROM validacion_tacticos
+                WHERE mes_reporte = 2 AND anio_reporte = 2026 AND tipo_tactico != 'Adicional'
+                GROUP BY gestor
+            ) vt_sub
+            JOIN (
+                SELECT DISTINCT regional, mercaderista
+                FROM repositorio_distributivo
+                WHERE MONTH(fecha_asignacion) = 2 AND YEAR(fecha_asignacion) = 2026
+                  AND (observaciones IS NULL OR observaciones NOT LIKE '%Adicional%')
+            ) rd ON vt_sub.gestor = rd.mercaderista
+            GROUP BY rd.regional
+        ) b ON a.region = b.region;
+    
+[2026-02-25 18:30:43] Resultados regional: 3 filas
+[2026-02-25 18:30:43] Primera fila: Array
+(
+    [region] => AUSTRO
+    [cantidad_recursos] => 7
+    [cantidad_distribuida] => 4997
+    [cantidad_armada] => 0
+    [faltantes] => 4997
+    [avance] => 0.00
+)
+
+[2026-02-25 18:30:43] Ejecutando query ejecutivo
+[2026-02-25 18:30:43] Query: 
+        SELECT 
+          rd.jefatura,
+          rd.ejecutivo,
+          COUNT(DISTINCT rd.mercaderista) AS cantidad_recursos,
+          SUM(DISTINCT IFNULL(vt.total_armado,0)) AS cantidad_armada,
+          SUM(rd.cantidad_asignada) AS cantidad_distribuida
+        FROM 
+          repositorio_distributivo rd
+        LEFT JOIN (
+          SELECT 
+            gestor,
+            SUM(cantidad_armada) AS total_armado
+          FROM 
+            validacion_tacticos
+          WHERE 
+            mes_reporte = 2
+            AND anio_reporte = 2026
+            AND tipo_tactico != 'Adicional'
+          GROUP BY gestor
+        ) vt ON vt.gestor = rd.mercaderista
+        WHERE 
+          MONTH(rd.fecha_asignacion) = 2
+          AND YEAR(rd.fecha_asignacion) = 2026
+          AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+          AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+        GROUP BY 
+          rd.jefatura, rd.ejecutivo;
+    
+[2026-02-25 18:30:43] Resultados ejecutivo: 13 filas
+[2026-02-25 18:30:43] Primera fila: Array
+(
+    [jefatura] => DARIO ARGUDO
+    [ejecutivo] => CARLOS PROANO
+    [cantidad_recursos] => 3
+    [cantidad_armada] => 0
+    [cantidad_distribuida] => 2175
+)
+
+[2026-02-25 18:30:43] Ejecutando query mercaderista
+[2026-02-25 18:30:43] Query: 
+        SELECT 
+            rd.supervisor,
+            rd.mercaderista,
+            GROUP_CONCAT(DISTINCT rd.distribuidor SEPARATOR ' | ') AS distribuidor,
+            (
+                SELECT FLOOR(SUM(rd_sub.cantidad_asignada))
+                FROM repositorio_distributivo rd_sub
+                WHERE rd_sub.mercaderista = rd.mercaderista
+                    AND YEAR(rd_sub.fecha_asignacion) = 2026
+                    AND MONTH(rd_sub.fecha_asignacion) = 2
+                    AND (rd_sub.observaciones IS NULL OR rd_sub.observaciones NOT LIKE '%Adicional%')
+            ) AS cantidad_distribuida,
+            (
+                SELECT IFNULL(SUM(vt.cantidad_armada), 0)
+                FROM validacion_tacticos vt
+                JOIN repositorio_productos_onpacks rpo ON vt.tactico = rpo.sku
+                WHERE vt.gestor = rd.mercaderista
+                    AND anio_reporte = 2026
+                    AND mes_reporte = 2
+                    AND tipo_tactico != 'Adicional'
+                    AND (rpo.sku NOT LIKE '%ADIC%' AND rpo.historico != 'Adicional')
+            ) AS cantidad_armada
+        FROM 
+            repositorio_distributivo rd
+        WHERE 
+            YEAR(rd.fecha_asignacion) = 2026
+            AND MONTH(rd.fecha_asignacion) = 2
+            AND rd.mercaderista NOT IN ('LUCKY UIO', 'LUCKY GYE', 'PRUEBA GYE')
+            AND (rd.observaciones IS NULL OR rd.observaciones NOT LIKE '%Adicional%')
+        GROUP BY 
+            rd.supervisor, rd.mercaderista;
+    
+[2026-02-25 18:30:43] Resultados mercaderista: 40 filas
+[2026-02-25 18:30:43] Primera fila: Array
+(
+    [supervisor] => ANGEL BAILON
+    [mercaderista] => ANTONIO SALAZAR
+    [distribuidor] => JABONERIA WILSON GYE
+    [cantidad_distribuida] => 621
+    [cantidad_armada] => 0
+)
+
+[2026-02-25 18:30:43] RESPUESTA ENVIADA: {"success":true,"data":{"regional":[{"region":"AUSTRO","cantidad_recursos":7,"cantidad_distribuida":"4997","cantidad_armada":"0","faltantes":"4997","avance":"0.00"},{"region":"COSTA","cantidad_recursos":16,"cantidad_distribuida":"10768","cantidad_armada":"0","faltantes":"10768","avance":"0.00"},{"region":"SIERRA","cantidad_recursos":17,"cantidad_distribuida":"8845","cantidad_armada":"0","faltantes":"8845","avance":"0.00"}],"ejecutivo":[{"jefatura":"DARIO ARGUDO","ejecutivo":"CARLOS PROANO","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2175"},{"jefatura":"DARIO ARGUDO","ejecutivo":"GEOVANNY CANCHINGRE","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"692"},{"jefatura":"DARIO ARGUDO","ejecutivo":"MARCELO ESPINOZA","cantidad_recursos":7,"cantidad_armada":"0","cantidad_distribuida":"3514"},{"jefatura":"DARIO ARGUDO","ejecutivo":"XAVIER ALVARADO","cantidad_recursos":5,"cantidad_armada":"0","cantidad_distribuida":"3033"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JAIRO FLORES","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1786"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"JHONNY CASTILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1255"},{"jefatura":"SIXTO TRAVEZ","ejecutivo":"RODRIGO CORDOVA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1956"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"ADRIAN VASQUEZ","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"2733"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JOSE CARRILLO","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1482"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JUAN CORDOVILLA","cantidad_recursos":3,"cantidad_armada":"0","cantidad_distribuida":"1278"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"JULIO CABRERA","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1454"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"LENIN HERNANDEZ","cantidad_recursos":2,"cantidad_armada":"0","cantidad_distribuida":"1504"},{"jefatura":"VINICIO VERDESOTO","ejecutivo":"PATRICIO PASPUEZAN","cantidad_recursos":4,"cantidad_armada":"0","cantidad_distribuida":"1748"}],"mercaderista":[{"supervisor":"ANGEL BAILON","mercaderista":"ANTONIO SALAZAR","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"621","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"BLANCA PLAZA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"603","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"CARLOS RIZZO","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"745","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"GABRIELA TENORIO","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"633","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JAZMIN ANDRADE","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"417","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"JOSELYN ESPINOZA","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"711","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"KARINA MORA","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"476","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"MICHELLE VALVERDE","distribuidor":"JABONERIA WILSON GYE","cantidad_distribuida":"700","cantidad_armada":"0"},{"supervisor":"ANGEL BAILON","mercaderista":"TATIANA ZAMBRANO","distribuidor":"ASERTIA GUAYAQUIL","cantidad_distribuida":"1605","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ANDRES CHAMBA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"398","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"DIANA CASTELLANO","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"428","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"EDISON GUTIERREZ","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"396","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ERIKA VELIZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"490","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"FRANCIS GALLARDO","distribuidor":"JABONERIA WILSON QUITO","cantidad_distribuida":"367","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"JONATHAN ALVAREZ","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"815","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"KELLY SANCHEZ","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"762","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"LUIS ZAMBRANO","distribuidor":"ASERTIA LAGO AGRIO","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MARIELA SUAREZ","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"790","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MAURICIO MACAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"591","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"MELANY MORENO","distribuidor":"ASERTIA IBARRA","cantidad_distribuida":"714","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"NANCY CAMPANA","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"555","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"PAMELA BONILLA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"273","cantidad_armada":"0"},{"supervisor":"EDWIN TORRES","mercaderista":"ROSA PUENTE","distribuidor":"ASERTIA QUITO","cantidad_distribuida":"296","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"EDGAR IZA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"359","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"JHOANNA OROZCO","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"515","cantidad_armada":"0"},{"supervisor":"JORGE ORTEGA","mercaderista":"NOHELIA GAMBOA","distribuidor":"ASERTIA AMBATO","cantidad_distribuida":"404","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ALISSON MACIAS","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"264","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANGIE CHAMAIDAN","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"353","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"ANTHONY ZAMBRANO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"605","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"CARLOS APOLO","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"693","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"EVELYN CASTRO","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"758","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"JAIME UCHUARI","distribuidor":"MARCO CABANILLA","cantidad_distribuida":"740","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"KARINA CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"942","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"LUCY PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"794","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAOLY QUISHPE","distribuidor":"ASERTIA SANTO DOMINGO","cantidad_distribuida":"737","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MAYRA GONGORA","distribuidor":"JABONERIA WILSON STO DOMINGO","cantidad_distribuida":"323","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MICHELLE PICO","distribuidor":"JABONERIA WILSON MANABI","cantidad_distribuida":"776","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIGUEL GOMEZ","distribuidor":"FAGI CUENCA","cantidad_distribuida":"563","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"MIRIAN ALLAICO","distribuidor":"FAGI CUENCA","cantidad_distribuida":"692","cantidad_armada":"0"},{"supervisor":"XIMENA ARCE","mercaderista":"YURI CONTENTO","distribuidor":"COIMFAGI","cantidad_distribuida":"1014","cantidad_armada":"0"}]},"debug":{"verificacion_vt":[{"total_registros":0,"total_armado":null,"gestores_distintos":0,"tipos_tactico":null}],"verificacion_rd":[{"total_asignaciones":78,"mercaderistas_distintos":40,"total_asignado":"24610"}],"parametros":{"mes":2,"anio":2026,"es_adicional":false}}}

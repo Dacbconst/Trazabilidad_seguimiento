@@ -1,0 +1,6 @@
+{
+    "timestamp": "2025-06-04 04:22:52",
+    "es_adicional": false,
+    "mes": 1,
+    "anio": 2025
+}
