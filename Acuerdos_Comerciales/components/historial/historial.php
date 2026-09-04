@@ -282,7 +282,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<p class="ac-firma-modal-hint" id="hist-firma-modal-hint"></p>
 			<div class="ac-firma-modal-botones">
 				<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-firma-elegir-btn">
-					<span class="material-symbols-outlined">upload_file</span> Elegir Archivo
+					<span class="material-symbols-outlined">upload_file</span> Seleccionar Evidencia
 				</button>
 				<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-firma-guardar-btn" disabled>
 					<span class="material-symbols-outlined">save</span> Guardar Acta Firmada
@@ -291,7 +291,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 		</div>
 	</div>
 </div>
-<input type="file" id="hist-firma-file-input" accept="image/jpeg,image/png,image/webp,application/pdf" hidden>
+<!-- accept con "image/*" en vez de listar cada subtipo (2026-09-02) — Chrome en
+     Android mostraba solo "Cámara"/"Fotos y videos" en el picker (sin la
+     opción de explorar archivos/Drive/etc.), el `accept` con subtipos
+     específicos de imagen dispara la mini-hoja simplificada de Chrome en vez
+     del selector de archivos completo. "image/*" + "application/pdf" es el
+     patrón que sí muestra las 3 opciones (Cámara/Galería/Explorar). La
+     validación real del tipo de archivo sigue siendo del lado del servidor
+     (finfo, ver subir_acta_firmada.php) — esto es solo el filtro visual del
+     picker, no la seguridad real. -->
+<input type="file" id="hist-firma-file-input" accept="image/*,application/pdf" hidden>
 
 <!-- Detalle de un acuerdo del historial: mismo PDF real que genera Registrar
      (getters/generar_acta_pdf.php), no una segunda maqueta HTML a mantener

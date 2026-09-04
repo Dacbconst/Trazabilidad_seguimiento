@@ -8604,3 +8604,25 @@ Node no tiene DOM) — 3 casos (entra en el 1er escalón, entra recién en el
 compresión real (con una foto real) sigue sin poder probarse desde acá —
 necesita un celular real, que es justo lo que se le pidió al usuario que
 confirme.
+
+**Confirmado por el usuario: la subida ya funciona.** 2 pedidos más sobre
+el mismo modal:
+- Botón "Elegir Archivo" → **"Seleccionar Evidencia"** (mismo elemento en
+  desktop y móvil, un solo cambio de texto cubre los 2).
+- El picker de Android solo mostraba "Cámara"/"Fotos y videos", sin opción
+  de explorar archivos (Drive, gestor de archivos, etc.) — el `accept` del
+  `<input type="file">` listaba subtipos de imagen específicos
+  (`image/jpeg,image/png,image/webp,application/pdf`); cambiado a
+  `image/*,application/pdf` — patrón conocido para que Chrome en Android
+  muestre el selector completo (Cámara/Galería/Explorar) en vez de la
+  mini-hoja simplificada que dispara con subtipos específicos. La
+  validación real del tipo de archivo sigue siendo 100% del lado del
+  servidor (`finfo`, ver `subir_acta_firmada.php`) — esto es solo el
+  filtro visual del picker, no afecta la seguridad.
+
+**Probado**: `php -l` limpio. El cambio de `accept` es el patrón
+documentado/conocido para este problema puntual, pero no se pudo verificar
+en un navegador Android real desde acá (el comportamiento del picker lo
+decide el propio Chrome/OS, no algo que se pueda simular sin un
+dispositivo real) — pendiente que el usuario confirme que ahora aparecen
+las 3 opciones.
