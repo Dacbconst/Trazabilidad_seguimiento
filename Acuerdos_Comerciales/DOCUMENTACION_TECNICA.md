@@ -155,8 +155,8 @@ rediseño 2026-08-27 que reemplaza Segmento por Ciudad+Canal, §6.3.1).
 | `estado` | ENUM | `borrador → generado → enviado → firmado → liquidado → anulado → vencido` |
 | `sin_visibilidad` | TINYINT(1) | Switch "Visibilidad y Espacios" del formulario — oculta las tablas 2.a/2.b en el PDF |
 | `creado_por` | INT UNSIGNED NULL | FK lógica a `repositorio_usuarios_acuerdos.id`. Base de "cada usuario ve solo lo suyo" en Historial |
-| `acta_firmada_archivo` / `_mime` / `_subido_en` / `_subido_por` | LONGBLOB + auditoría | Foto/PDF del papel ya firmado |
-| `pdf_documento` / `pdf_generado_en` / `pdf_tamano_bytes` | LONGBLOB + meta | Snapshot del PDF generado, servido directo desde la base |
+| `acta_firmada_azure_path` / `acta_firmada_mime` / `_subido_en` / `_subido_por` | VARCHAR + auditoría | Foto/PDF del papel ya firmado — ruta en Azure Blob Storage (2026-09-05, ver "PDF y Acta firmada en Azure Blob Storage" más abajo); `acta_firmada_archivo` (LONGBLOB) queda deprecada, sin usar |
+| `pdf_azure_path` / `pdf_generado_en` / `pdf_tamano_bytes` | VARCHAR + meta | Ruta del PDF generado en Azure Blob Storage (2026-09-05); `pdf_documento` (LONGBLOB) queda deprecada, sin usar |
 | `created_at`, `updated_at` | DATETIME | Automáticos |
 
 **La firma es siempre física.** No existe ningún campo de firma digital — el
@@ -574,9 +574,10 @@ fuentes/espaciados si Dompdf reporta más de 1 página.
 - Distribuidor mide en **cajas**, no dólares (`numero()` vs `moneda()`), y
   su fórmula de "Cajas Estimadas a Ganar" es `Total × Rebate%` (Directo es
   `Total × (1 + Rebate%)`).
-- El PDF se guarda como snapshot (`pdf_documento` LONGBLOB) al pasar a
-  `estado='generado'` — se sirve ese snapshot, nunca se regenera en cada
-  descarga (salvo fallback para Actas viejas sin snapshot).
+- El PDF se guarda como snapshot en Azure Blob Storage (`pdf_azure_path`) al
+  pasar a `estado='generado'` — se sirve ese snapshot, nunca se regenera en
+  cada descarga (salvo fallback para Actas viejas sin snapshot, que lo sube
+  a Azure en el momento).
 
 ---
 

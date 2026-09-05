@@ -6,6 +6,7 @@
 // no hay edición incremental de una sola fila desde el backend.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/acta_pdf.php';
+require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';
 require_once __DIR__.'/../vendor/autoload.php';
 iniciar_sesion();
@@ -364,23 +365,26 @@ if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 }
 
 // Snapshot del PDF: solo al generar, para que Historial sirva "el documento tal como se generó".
-// Si el render falla acá no se aborta la respuesta, el próximo intento cae al render en vivo.
+// Si el render/subida falla acá no se aborta la respuesta, el próximo intento
+// cae al render en vivo (ver generar_acta_pdf.php). El PDF se sube a Azure
+// Blob Storage (includes/azure_storage.php) — solo se guarda la RUTA en la
+// base, nunca el binario (antes iba a pdf_documento LONGBLOB).
 if ($estado === 'generado') {
 	try {
 		$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);
 		if ($detalle) {
 			$pdfBinario = generar_acta_pdf_binario($detalle);
 			$tamano     = strlen($pdfBinario);
-			$stmtPdf = $mysqli->prepare(
-				'UPDATE repositorio_acuerdos SET pdf_documento = ?, pdf_generado_en = NOW(), pdf_tamano_bytes = ? WHERE id = ?'
-			);
-			if ($stmtPdf) {
-				// 's' alcanza para el LONGBLOB: mysqli es binary-safe con
-				// bind_param, send_long_data solo hace falta para blobs que no
-				// entran en max_allowed_packet (acá son ~100-200 KB, muy lejos).
-				$stmtPdf->bind_param('sii', $pdfBinario, $tamano, $acuerdoId);
-				$stmtPdf->execute();
-				$stmtPdf->close();
+			$rutaAzure  = azure_storage_subir('Actas/'.$documentoNo.'.pdf', $pdfBinario, 'application/pdf');
+			if ($rutaAzure !== false) {
+				$stmtPdf = $mysqli->prepare(
+					'UPDATE repositorio_acuerdos SET pdf_azure_path = ?, pdf_generado_en = NOW(), pdf_tamano_bytes = ? WHERE id = ?'
+				);
+				if ($stmtPdf) {
+					$stmtPdf->bind_param('sii', $rutaAzure, $tamano, $acuerdoId);
+					$stmtPdf->execute();
+					$stmtPdf->close();
+				}
 			}
 		}
 	} catch (\Throwable $e) {

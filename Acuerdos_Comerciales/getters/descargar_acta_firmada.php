@@ -3,6 +3,7 @@
 // de propiedad que el resto de Historial, `inline` para que el navegador lo
 // muestre directo (imagen o PDF) en vez de forzar descarga.
 require_once __DIR__.'/../includes/functions.php';
+require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
 
@@ -22,12 +23,12 @@ if ($acuerdoId <= 0) {
 }
 
 $stmt = $mysqli->prepare(
-	"SELECT documento_no, creado_por, acta_firmada_archivo, acta_firmada_mime
+	"SELECT documento_no, creado_por, acta_firmada_azure_path, acta_firmada_mime
 	 FROM repositorio_acuerdos WHERE id = ? LIMIT 1"
 );
 if (!$stmt) {
 	http_response_code(500);
-	echo 'Falta correr el ALTER TABLE de acta_firmada_archivo (ver CLAUDE.md).';
+	echo 'Avisa al equipo técnico.';
 	exit;
 }
 $stmt->bind_param('i', $acuerdoId);
@@ -40,9 +41,16 @@ if (!$fila || (int) $fila['creado_por'] !== (int) $usuarioId) {
 	echo 'Acuerdo no encontrado.';
 	exit;
 }
-if ($fila['acta_firmada_archivo'] === null) {
+if ($fila['acta_firmada_azure_path'] === null) {
 	http_response_code(404);
 	echo 'Este acuerdo todavía no tiene un Acta firmada subida.';
+	exit;
+}
+
+$contenido = azure_storage_descargar($fila['acta_firmada_azure_path']);
+if ($contenido === false) {
+	http_response_code(500);
+	echo 'No se pudo descargar el archivo. Avisa al equipo técnico.';
 	exit;
 }
 
@@ -52,6 +60,6 @@ $nombreArchivo = 'Acta_Firmada_'.$fila['documento_no'].'.'.$ext;
 
 header('Content-Type: '.$fila['acta_firmada_mime']);
 header('Content-Disposition: inline; filename="'.$nombreArchivo.'"');
-header('Content-Length: '.strlen($fila['acta_firmada_archivo']));
-echo $fila['acta_firmada_archivo'];
+header('Content-Length: '.strlen($contenido));
+echo $contenido;
 ?>

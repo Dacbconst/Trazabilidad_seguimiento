@@ -7,6 +7,7 @@
 // a `estado='firmado'` automáticamente — aprovecha el ENUM que ya existía
 // en el schema pero nunca se conectó a nada.
 require_once __DIR__.'/../includes/functions.php';
+require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
 header('Content-Type: application/json; charset=utf-8');
@@ -53,7 +54,7 @@ if ($acuerdoId <= 0) {
 // subir sobre un borrador (todavía no es un Acta real), uno anulado, ni uno
 // vencido (plazo de 20 días para firmar ya cumplido, ver
 // barrer_actas_vencidas() en includes/functions.php).
-$stmt = $mysqli->prepare("SELECT creado_por, estado, fecha_generacion FROM repositorio_acuerdos WHERE id = ? LIMIT 1");
+$stmt = $mysqli->prepare("SELECT creado_por, estado, fecha_generacion, documento_no FROM repositorio_acuerdos WHERE id = ? LIMIT 1");
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();
 $fila = $stmt->get_result()->fetch_assoc();
@@ -112,17 +113,27 @@ if ($contenido === false) {
 	responder(false, 'No se pudo leer el archivo subido.');
 }
 
+// Se sube a Azure Blob Storage (includes/azure_storage.php) — solo la RUTA
+// se guarda en la base (antes iba el binario a acta_firmada_archivo
+// LONGBLOB). Nombre fijo por Acuerdo (no por fecha/hora): una subida nueva
+// reemplaza el blob anterior, mismo comportamiento de "no hay versionado"
+// que ya tenía esto.
+$extensionesPorMime = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf'];
+$extension = $extensionesPorMime[$mime] ?? 'bin';
+$rutaAzure = azure_storage_subir('ActasFirmadas/'.$fila['documento_no'].'.'.$extension, $contenido, $mime);
+if ($rutaAzure === false) {
+	responder(false, 'No se pudo subir el archivo. Avisa al equipo técnico.');
+}
+
 $stmt = $mysqli->prepare(
 	"UPDATE repositorio_acuerdos
-	 SET acta_firmada_archivo = ?, acta_firmada_mime = ?, acta_firmada_subido_en = NOW(), acta_firmada_subido_por = ?, estado = 'firmado'
+	 SET acta_firmada_azure_path = ?, acta_firmada_mime = ?, acta_firmada_subido_en = NOW(), acta_firmada_subido_por = ?, estado = 'firmado'
 	 WHERE id = ?"
 );
 if (!$stmt) {
-	responder(false, 'No se pudo guardar (falta correr el ALTER TABLE de acta_firmada_archivo, ver CLAUDE.md).');
+	responder(false, 'No se pudo guardar. Avisa al equipo técnico.');
 }
-// 's' alcanza para el LONGBLOB: mysqli es binary-safe con bind_param, igual
-// que ya hace guardar_acuerdo.php con pdf_documento.
-$stmt->bind_param('ssii', $contenido, $mime, $usuarioId, $acuerdoId);
+$stmt->bind_param('ssii', $rutaAzure, $mime, $usuarioId, $acuerdoId);
 $ok = $stmt->execute();
 $stmt->close();
 

@@ -896,10 +896,10 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	}
 
 	// El JOIN es solo para pos_name/cedi/canal; GROUP BY a.id evita duplicar el Acuerdo por los ~1,116 pos_id repetidos en el maestro.
-	// Condición de firma en texto plano (no placeholder); si acta_firmada_archivo no existiera, cae al mismo fallback sin firma de abajo.
+	// Condición de firma en texto plano (no placeholder); si acta_firmada_azure_path no existiera todavía (falta correr el ALTER de la migración a Azure), cae al mismo fallback sin firma de abajo.
 	$condicionFirma = '';
-	if ($filtroFirma === 'firmadas') $condicionFirma = ' AND a.acta_firmada_archivo IS NOT NULL';
-	elseif ($filtroFirma === 'pendientes') $condicionFirma = ' AND a.acta_firmada_archivo IS NULL';
+	if ($filtroFirma === 'firmadas') $condicionFirma = ' AND a.acta_firmada_azure_path IS NOT NULL';
+	elseif ($filtroFirma === 'pendientes') $condicionFirma = ' AND a.acta_firmada_azure_path IS NULL';
 
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
@@ -927,12 +927,12 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		$offset = ($pagina - 1) * $porPagina;
 	}
 
-	// Sin el ALTER de acta_firmada_archivo, prepare() da false acá — mismo fallback que login() para `supervisor`.
+	// Sin el ALTER de acta_firmada_azure_path/pdf_azure_path (migración a Azure Blob Storage), prepare() da false acá — mismo fallback que login() para `supervisor`.
 	// Canal canónico: el `d.canal` crudo del JOIN es ambiguo con pos_id duplicados; usa el mismo EXISTS que decide la pastilla, para que el badge nunca contradiga el filtro.
 	$canalCanonico = "(CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR') THEN 'DISTRIBUIDOR' ELSE 'OTRO' END) AS canal";
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
-		        (a.acta_firmada_archivo IS NOT NULL) AS tiene_firma, a.acta_firmada_mime,
+		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma, a.acta_firmada_mime,
 		        d.pos_name, d.cedi, $canalCanonico
 		 $sqlBase
 		 GROUP BY a.id
@@ -988,8 +988,8 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 
 	$stmt = $mysqli->prepare(
 		"SELECT COUNT(DISTINCT a.id) AS total,
-		        COUNT(DISTINCT CASE WHEN a.acta_firmada_archivo IS NOT NULL THEN a.id END) AS firmadas,
-		        MIN(CASE WHEN a.acta_firmada_archivo IS NULL THEN a.fecha_generacion END) AS pendiente_mas_antigua
+		        COUNT(DISTINCT CASE WHEN a.acta_firmada_azure_path IS NOT NULL THEN a.id END) AS firmadas,
+		        MIN(CASE WHEN a.acta_firmada_azure_path IS NULL THEN a.fecha_generacion END) AS pendiente_mas_antigua
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
@@ -999,7 +999,7 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 		   AND (? = 0 OR a.anio = ?)
 		   $condicionCanal"
 	);
-	if (!$stmt) return $vacio; // acta_firmada_archivo todavía no existe, ver CLAUDE.md.
+	if (!$stmt) return $vacio; // acta_firmada_azure_path todavía no existe, ver CLAUDE.md (migración a Azure Blob Storage).
 	$stmt->bind_param('iisiiiii', $verTodos, $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmt->execute();
 	$fila = $stmt->get_result()->fetch_assoc();
@@ -1434,10 +1434,10 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 	$stmt = $mysqli->prepare(
 		"SELECT u.id AS usuario_id, u.usuario AS nombre,
 		        COUNT(*) AS total,
-		        COUNT(CASE WHEN a.acta_firmada_archivo IS NOT NULL THEN 1 END) AS firmadas,
-		        COUNT(CASE WHEN a.acta_firmada_archivo IS NULL AND a.estado IN ('generado', 'enviado') THEN 1 END) AS pendientes,
+		        COUNT(CASE WHEN a.acta_firmada_azure_path IS NOT NULL THEN 1 END) AS firmadas,
+		        COUNT(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado IN ('generado', 'enviado') THEN 1 END) AS pendientes,
 		        COUNT(CASE WHEN a.estado = 'vencido' THEN 1 END) AS vencidas,
-		        MIN(CASE WHEN a.acta_firmada_archivo IS NULL AND a.estado IN ('generado', 'enviado')
+		        MIN(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado IN ('generado', 'enviado')
 		                 THEN DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) END) AS dias_mas_proxima
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
@@ -1498,8 +1498,8 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	$anio            = (int) $anio;
 
 	switch ($tipo) {
-		case 'firmadas':   $condicionEstado = "a.acta_firmada_archivo IS NOT NULL"; $orden = 'a.fecha_generacion DESC'; break;
-		case 'pendientes': $condicionEstado = "a.estado IN ('generado', 'enviado') AND a.acta_firmada_archivo IS NULL"; $orden = 'dias_restantes ASC'; break;
+		case 'firmadas':   $condicionEstado = "a.acta_firmada_azure_path IS NOT NULL"; $orden = 'a.fecha_generacion DESC'; break;
+		case 'pendientes': $condicionEstado = "a.estado IN ('generado', 'enviado') AND a.acta_firmada_azure_path IS NULL"; $orden = 'dias_restantes ASC'; break;
 		case 'vencidas':   $condicionEstado = "a.estado = 'vencido'"; $orden = 'a.fecha_generacion DESC'; break;
 		default:           $condicionEstado = "a.estado NOT IN ('borrador', 'anulado')"; $orden = 'a.fecha_generacion DESC';
 	}
@@ -1513,7 +1513,7 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	// lista de Equipo. pos_name cae a NULL -> '—' en seguimiento.js.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
-		        (a.acta_firmada_archivo IS NOT NULL) AS tiene_firma,
+		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
 		        d.pos_name,
 		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a

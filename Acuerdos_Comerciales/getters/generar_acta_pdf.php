@@ -5,6 +5,7 @@
 // el tamaño/margen de la hoja de forma exacta.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/acta_pdf.php';
+require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';
 require_once __DIR__.'/../vendor/autoload.php';
 iniciar_sesion();
@@ -20,7 +21,7 @@ $acuerdoId = (int) ($_GET['id'] ?? 0);
 $cabecera = null;
 if ($acuerdoId > 0) {
 	$stmt = $mysqli->prepare(
-		'SELECT documento_no, creado_por, pdf_documento FROM repositorio_acuerdos WHERE id = ? LIMIT 1'
+		'SELECT documento_no, creado_por, pdf_azure_path FROM repositorio_acuerdos WHERE id = ? LIMIT 1'
 	);
 	if ($stmt) {
 		$stmt->bind_param('i', $acuerdoId);
@@ -47,12 +48,14 @@ if (!$cabecera || (!$puedeVerCualquiera && (int) $cabecera['creado_por'] !== (in
 }
 
 // Snapshot guardado en guardar_acuerdo.php al momento de "Generar Acta" — es
-// el caso normal, y evita re-renderizar con Dompdf en cada vista. Solo cae al
-// render en vivo si todavía no hay snapshot (acuerdos generados antes de que
-// existiera esto), y de paso lo deja guardado para la próxima vez.
-if ($cabecera['pdf_documento'] !== null) {
-	$pdfBinario = $cabecera['pdf_documento'];
-} else {
+// el caso normal, se baja de Azure Blob Storage en vez de re-renderizar con
+// Dompdf en cada vista. Solo cae al render en vivo si todavía no hay
+// snapshot (acuerdos generados antes de que existiera esto, o el acuerdo
+// viejo con pdf_documento LONGBLOB de antes de migrar a Azure — ese binario
+// viejo ya no se lee, se regenera y sube de nuevo), y de paso lo deja
+// guardado en Azure para la próxima vez.
+$pdfBinario = $cabecera['pdf_azure_path'] ? azure_storage_descargar($cabecera['pdf_azure_path']) : false;
+if ($pdfBinario === false) {
 	$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);
 	if (!$detalle) {
 		http_response_code(404);
@@ -62,13 +65,16 @@ if ($cabecera['pdf_documento'] !== null) {
 	$pdfBinario = generar_acta_pdf_binario($detalle);
 
 	$tamano = strlen($pdfBinario);
-	$stmtPdf = $mysqli->prepare(
-		'UPDATE repositorio_acuerdos SET pdf_documento = ?, pdf_generado_en = NOW(), pdf_tamano_bytes = ? WHERE id = ?'
-	);
-	if ($stmtPdf) {
-		$stmtPdf->bind_param('sii', $pdfBinario, $tamano, $acuerdoId);
-		$stmtPdf->execute();
-		$stmtPdf->close();
+	$rutaAzure = azure_storage_subir('Actas/'.$cabecera['documento_no'].'.pdf', $pdfBinario, 'application/pdf');
+	if ($rutaAzure !== false) {
+		$stmtPdf = $mysqli->prepare(
+			'UPDATE repositorio_acuerdos SET pdf_azure_path = ?, pdf_generado_en = NOW(), pdf_tamano_bytes = ? WHERE id = ?'
+		);
+		if ($stmtPdf) {
+			$stmtPdf->bind_param('sii', $rutaAzure, $tamano, $acuerdoId);
+			$stmtPdf->execute();
+			$stmtPdf->close();
+		}
 	}
 }
 

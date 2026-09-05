@@ -29,6 +29,91 @@ exacto — no ampliar más de lo que dice acá:
   corra él mismo (mismo criterio que ya se usaba para todo antes de esta
   excepción).
 
+## PDF y Acta firmada movidos de LONGBLOB a Azure Blob Storage (2026-09-05)
+
+**Motivo**: `pdf_documento` y `acta_firmada_archivo` guardaban el binario
+directo en la base (`LONGBLOB`) — mala práctica confirmada con el usuario
+(el cliente además ya usa Azure Blob Storage para fotos en sus otros apps,
+ver `backend/AppJaboneriaWilson/Inserts/upload_azure.php`, subido por el
+usuario a este repo como referencia). Se migró a guardar el archivo en
+Azure Blob Storage y solo la RUTA en la base — mismo patrón que ya usan
+Tácticos/Unilever/Pintuco para fotos, pero en su propia carpeta.
+
+**Schema — `ALTER` puramente aditivo, sin tocar las columnas viejas** (para
+no arriesgar corromper binario existente convirtiéndolo a texto — y porque
+el usuario confirmó que el único Acuerdo real en la base al momento de este
+cambio era de prueba, no hacía falta migrarlo):
+```sql
+ALTER TABLE repositorio_acuerdos
+  ADD COLUMN pdf_azure_path VARCHAR(500) NULL AFTER pdf_documento,
+  ADD COLUMN acta_firmada_azure_path VARCHAR(500) NULL AFTER acta_firmada_archivo;
+```
+`pdf_documento`/`acta_firmada_archivo` (LONGBLOB) quedan en la tabla,
+**deprecadas, sin usar** — ningún código nuevo escribe ahí. Si se quiere
+limpiar el esquema del todo más adelante, es un `DROP COLUMN` que el
+usuario tiene que correr él mismo (prohibido para Claude incluso bajo la
+excepción de este proyecto).
+
+**`includes/azure_storage.php` (nuevo)** — sube/baja bytes a Azure Blob
+Storage vía la API REST directa, con la firma **Shared Key armada a mano**
+(HMAC-SHA256 sobre el string canónico, sin el SDK oficial de Composer) —
+mismo criterio que `xlsx_reader.php`/`xlsx_writer.php` de Liquidación/
+Repositorios: se evaluó `microsoft/azure-storage-blob` (Composer) pero
+**no hay `composer` en el PATH de la máquina de desarrollo, ni la extensión
+`zip` de PHP habilitada** (necesaria para que Composer extraiga paquetes) —
+mismo bloqueo ya documentado para PhpSpreadsheet. Usa la MISMA cuenta de
+Storage que ya usan las apps de JW/Unilever/Pintuco (`luckyecuadorweb`,
+credencial real tomada de `upload_azure.php`), container `app`, pero en su
+propia carpeta `AcuerdosComerciales/Actas/` (PDF) y
+`AcuerdosComerciales/ActasFirmadas/` (firma) — nunca toca las carpetas de
+esas otras apps.
+
+**Diferencia de seguridad deliberada frente al patrón de fotos de JW**: esas
+apps sirven las fotos con una URL pública directa (`https://luckyecuadorweb
+.blob.core.windows.net/app/.../archivo.png`), sin ningún token — confirmado
+que el container tiene lectura anónima habilitada. Acá, en cambio, **se
+autentica también para LEER** (Shared Key en el `GET`, no solo en el `PUT`)
+— las Actas llevan precios/rebates reales, más sensible que una foto de
+exhibición, y el nombre del blob (`documento_no`, ej. `ADN-2026-0057.pdf`)
+es bastante predecible/secuencial como para no depender de que sea
+"difícil de adivinar". El control de acceso real (login + dueño del
+Acuerdo, o `superdesarrollador` para PDF) sigue viviendo en cada getter de
+PHP exactamente igual que antes — esto solo cambió DÓNDE se guarda el
+archivo, nunca quién puede pedirlo.
+
+**Archivos tocados**: `composer.json` (agrega `microsoft/azure-storage-blob`
+al `require` por completitud/documentación, aunque el código real NO lo usa
+— si algún día hay Composer disponible y se prefiere migrar al SDK oficial,
+ya está declarado); `getters/guardar_acuerdo.php` (sube el snapshot al
+generar, guarda `pdf_azure_path`); `getters/generar_acta_pdf.php` (baja el
+snapshot de Azure; si no existe —Acta vieja pre-migración—, renderiza en
+vivo y lo sube ahí mismo, dejando el snapshot para la próxima vez);
+`getters/subir_acta_firmada.php` (sube la foto/PDF de la firma, blob fijo
+por Acuerdo — una subida nueva reemplaza la anterior, mismo comportamiento
+de "sin versionado" que ya tenía); `getters/descargar_acta_firmada.php`
+(baja el archivo de Azure); `includes/functions.php` (todos los
+`acta_firmada_archivo IS NULL/NOT NULL` de Historial/campanita/stats
+pasaron a `acta_firmada_azure_path`, son chequeos booleanos puros, no leen
+contenido); `getters/exportar_cuota_categoria.php` y
+`..._distribuidor.php` (mismo cambio en el filtro "solo Actas firmadas").
+
+**⚠️ No se pudo probar nada de esto en esta sesión — el clasificador de
+permisos del harness bloqueó CUALQUIER ejecución de `php.exe` local**
+(confirmado con un script trivial sin nada de base de datos, mismo bloqueo
+con Bash y con PowerShell) — no solo el `ALTER TABLE` (ver el patrón ya
+documentado de este bloqueo con `CREATE TABLE` en otra sesión). El `ALTER`
+de arriba **todavía no está corrido** — el usuario tiene que ejecutarlo él
+mismo en HeidiSQL antes de que nada de este código funcione (`prepare()`
+va a fallar con "columna no existe" hasta entonces, mismo patrón defensivo
+que el resto del proyecto). El algoritmo de firma Shared Key de
+`azure_storage.php` se armó siguiendo la documentación oficial de Azure al
+detalle (orden exacto de campos del string a firmar, `Content-Length`
+vacío para GET en vez de "0" —gotcha real y conocido del protocolo—,
+headers `x-ms-*` ordenados alfabéticamente) pero **nunca se ejecutó de
+verdad contra la cuenta real** — la primera subida real después de correr
+el `ALTER` es la prueba de fuego. Si falla con 403/`AuthenticationFailed`,
+revisar primero el string canónico armado en `azure_storage_firmar()`.
+
 ## Entorno de desarrollo en vivo — Claude puede loguearse ahí (2026-08-25)
 
 El usuario confirmó explícitamente que Claude puede entrar de verdad al
