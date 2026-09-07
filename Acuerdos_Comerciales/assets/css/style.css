@@ -1802,6 +1802,72 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	}
 	#repo-tabla-body .ac-row-actions .ac-icon-btn-danger { border-color: var(--color-error); }
 	#repo-tabla-body .ac-btn-text { display: inline; }
+
+	/* Cuotas Trimestrales: tarjeta con jerarquía real, no pares etiqueta:valor
+	   (2026-09-07) — Rebate/Participación (arriba) tienen pocas columnas y les
+	   alcanza con Marca destacada + el resto apilado; Cuotas tiene 10 columnas
+	   y el Cliente (lo que más importa) se perdía entre las demás. Selector
+	   con 2 IDs (#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body, la clase
+	   la pone activarTab() en repositorios.js) a propósito — le gana en
+	   especificidad a la regla genérica de arriba sin tocarla ni necesitar
+	   !important. */
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body tr {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		row-gap: 6px;
+	}
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td::before { content: none; }
+
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="cliente_excel"] {
+		grid-row: 1; grid-column: 1 / -1;
+		font-size: 14px; font-weight: 700; color: var(--color-on-surface);
+	}
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="cedi_excel"] {
+		grid-row: 2; grid-column: 1 / 3;
+		font-size: 11px; color: var(--color-outline);
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="plan"] {
+		grid-row: 2; grid-column: 3 / 4;
+		font-size: 11px; color: var(--color-outline); text-align: right;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	/* Sector/Subcategoría/Marca como chips — mismo grid-row (auto-placement
+	   los reparte en las 3 columnas de esa fila, uno por columna). */
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="sector"],
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="subcategoria"],
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="marca"] {
+		grid-row: 3;
+		font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
+		color: var(--color-on-surface-variant);
+		background: var(--color-surface-container);
+		border-radius: var(--radius-full);
+		padding: 3px 8px;
+		text-align: center;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		justify-self: start; max-width: 100%;
+	}
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="periodo"] {
+		grid-row: 4; grid-column: 1 / -1;
+		font-size: 11px; font-weight: 600; color: var(--color-outline);
+	}
+	/* Mini-stats de los 3 meses — mismo lenguaje que el resto de la app
+	   (etiqueta chica arriba vía ::before + valor debajo), en vez del
+	   "$700.00" suelto de siempre. */
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key^="mes"] {
+		grid-row: 5;
+		background: var(--color-surface-container-low);
+		border-radius: 6px;
+		padding: 6px 4px;
+		text-align: center;
+		font-size: 12px; font-weight: 700; color: var(--color-on-surface);
+	}
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key^="mes"]::before {
+		content: attr(data-label);
+		display: block;
+		font-size: 9px; font-weight: 600; color: var(--color-outline); text-transform: uppercase;
+		margin-bottom: 2px;
+	}
+	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="acciones"] { grid-row: 6; }
 }
 
 /* Modal "Subir Archivo": paso 1 (elegir) vs paso 2 (previsualización editable) */
@@ -1811,6 +1877,16 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	width: fit-content;
 	min-width: 480px;
 	max-width: min(1300px, 95vw);
+}
+/* Bug real (2026-09-07): min-width:480px le gana a max-width:95vw en
+   cualquier pantalla más angosta que ~505px — el modal quedaba más ancho
+   que el propio viewport, cortando "Cancelar"/"Guardar" o forzando scroll
+   horizontal de la página entera (no solo de la tabla interna, que ya tenía
+   su propio scroll a propósito). En ese rango se saca el mínimo fijo: el
+   modal usa casi todo el ancho de pantalla, con márgenes chicos — la tabla
+   de previsualización sigue siendo la única que scrollea horizontal. */
+@media (max-width: 520px) {
+	.ac-repo-subir-modal.ac-repo-subir-modal-ancho { min-width: 0; width: 95vw; }
 }
 .ac-dropzone {
 	border: 1.5px dashed var(--color-outline-variant); border-radius: var(--radius-lg);
@@ -1980,6 +2056,31 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { display: none; }
 }
 
+/* ---------- Seguimiento: acordeón en mobile (2026-09-07) ----------
+   Reemplaza el maestro-detalle (lista arriba, panel de detalle en OTRA
+   tarjeta más abajo — había que scrollear para verlo, sin saber si el toque
+   funcionó) por el mismo lenguaje de acordeón que ya usa Cumplimiento de
+   Cuota: el detalle del asesor tocado aparece in-place, debajo de su propia
+   fila. El chevron solo se muestra acá — en desktop el detalle sigue en el
+   panel separado de siempre. */
+.ac-seg-fila-chevron { display: none; font-size: 22px; color: var(--color-outline); flex-shrink: 0; transition: transform 0.15s ease, color 0.15s ease; }
+
+@media (max-width: 900px) {
+	#seg-detalle-card { display: none; }
+	.ac-seg-fila-chevron { display: inline-flex; }
+	.ac-seg-fila-usuario.is-selected .ac-seg-fila-chevron { transform: rotate(180deg); color: var(--color-primary); }
+
+	.ac-seg-fila-detalle-inline {
+		padding: 4px var(--space-lg) 12px calc(var(--space-lg) + 52px);
+		background: var(--color-surface-container-low);
+		border-bottom: 1px solid var(--color-surface-container);
+	}
+	.ac-seg-fila-detalle-inline .ac-seg-detalle-thead,
+	.ac-seg-fila-detalle-inline .ac-seg-detalle-fila { padding: 8px 0; }
+	.ac-seg-fila-detalle-inline .ac-seg-detalle-thead { background: none; border-bottom: 1px solid var(--color-outline-variant); }
+	.ac-seg-fila-detalle-inline .ac-seg-cargando { padding: var(--space-md) 0; text-align: left; }
+}
+
 /* ---------- Módulo "Cumplimiento de Cuota" ----------
    JW sube de vuelta el Excel de Historial ya completado con venta real — acá solo se lee lo que el archivo ya calculó, nunca se recalcula. */
 .ac-cumpl { display: flex; flex-direction: column; gap: var(--space-lg); }
@@ -2086,6 +2187,59 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-cumpl-fila-cat > div:nth-child(5) { grid-area: gana; }
 	.ac-cumpl-fila-cat > div:nth-child(6) { grid-area: ganatotal; }
 	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
+}
+
+/* ---------- Cumplimiento: filtros colapsables en mobile (2026-09-07) ----------
+   Vista+Periodo+Año quedaban apilados en 2 filas completas antes de llegar a
+   los KPI/la lista — bastante scroll para algo que no se toca seguido. En
+   desktop, .ac-cumpl-periodo-wrap es "display:contents": sus 2 hijos
+   (trimestre-group + año) siguen siendo flex items directos de
+   .ac-seg-periodo exactamente como antes, cero cambio visual. Solo dentro
+   del media query de abajo (mobile) ese wrapper se vuelve un bloque real que
+   se oculta/muestra con el botón "Filtros". */
+.ac-cumpl-periodo-wrap { display: contents; }
+.ac-cumpl-filtros-btn { display: none; }
+
+@media (max-width: 700px) {
+	.ac-cumpl-vista-row { display: none; }
+	#ac-cumpl.ac-cumpl-filtros-abiertos .ac-cumpl-vista-row { display: flex; }
+
+	.ac-cumpl-periodo-wrap {
+		display: none;
+		flex-direction: column; align-items: stretch; gap: var(--space-sm);
+		flex-basis: 100%; order: -1;
+		padding-bottom: var(--space-sm);
+	}
+	#ac-cumpl.ac-cumpl-filtros-abiertos .ac-cumpl-periodo-wrap { display: flex; }
+	.ac-cumpl-periodo-wrap .ac-seg-pill-group { width: 100%; }
+	.ac-cumpl-periodo-wrap .ac-seg-anio { width: 100%; }
+
+	/* Buscador: sin min-width fijo acá, para que quepa junto al botón
+	   "Filtros" en la misma fila sin forzar un salto de línea (mismo tipo de
+	   bug ya documentado con .ac-hist-search-wrap). */
+	.ac-cumpl-buscar-wrap { min-width: 0; flex: 1 1 auto; }
+
+	.ac-cumpl-filtros-btn {
+		display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+		position: relative;
+		border: 1px solid var(--color-outline-variant); border-radius: var(--radius);
+		padding: 9px 12px;
+		background: var(--color-surface-container-lowest);
+		font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-on-surface-variant);
+		cursor: pointer;
+	}
+	.ac-cumpl-filtros-btn .material-symbols-outlined { font-size: 17px; }
+	#ac-cumpl.ac-cumpl-filtros-abiertos .ac-cumpl-filtros-btn {
+		border-color: var(--color-primary); color: var(--color-primary); background: #eaeefb;
+	}
+	.ac-cumpl-filtros-badge {
+		position: absolute; top: -6px; right: -6px;
+		width: 16px; height: 16px; border-radius: 50%;
+		background: var(--color-primary); color: var(--color-on-primary);
+		font-size: 10px; font-weight: 700;
+		display: flex; align-items: center; justify-content: center;
+	}
+	.ac-cumpl-filtros-badge[hidden] { display: none; }
 }
 
 /* Texto copiable con botón — modal de error de Excel. */

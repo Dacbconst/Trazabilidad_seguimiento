@@ -36,6 +36,15 @@
 		vencidas:   { viendoTexto: 'Vencidas', criterioTexto: 'ordenadas por cantidad de Actas vencidas', ordenTexto: 'Por cantidad de Actas', colEstado: 'Estado', vacioIcono: 'celebration', vacioTexto: 'Nadie tiene Actas vencidas en este período.' }
 	};
 
+	// En mobile, el detalle no vive en el panel separado (#seg-detalle-card,
+	// que queda oculto ahí — ver style.css) sino inline, justo debajo de la
+	// fila del asesor tocado (acordeón, mismo lenguaje visual que ya usa
+	// Cumplimiento de Cuota) — antes había que scrollear hasta una tarjeta
+	// aparte, más abajo en la página, sin ninguna señal de que el toque
+	// funcionó. Un solo breakpoint (900px), el mismo que ya usa .ac-seg-grid
+	// para pasar a 1 columna.
+	function esMobile() { return window.matchMedia('(max-width: 900px)').matches; }
+
 	function escapeHtml(texto) {
 		var div = document.createElement('div');
 		div.textContent = texto == null ? '' : String(texto);
@@ -184,23 +193,55 @@
 		return '<span class="' + clase + '">' + escapeHtml(texto) + '</span>';
 	}
 
+	// Contenedor inline del acordeón mobile — id fijo, uno solo a la vez
+	// (nunca hay 2 asesores expandidos juntos, mismo criterio "un detalle
+	// visible" que ya tenía el panel separado de desktop).
+	var ID_DETALLE_INLINE = 'seg-fila-detalle-inline';
+	function inlineDetalleHtml() {
+		return '<div class="ac-seg-fila-detalle-inline" id="' + ID_DETALLE_INLINE + '"><div class="ac-seg-cargando">Cargando...</div></div>';
+	}
+
 	function renderLista(filas) {
+		var mobile = esMobile();
 		listaCont.innerHTML = filas.map(function (f) {
 			var sel = f.id === estado.selectedId ? ' is-selected' : '';
-			return '<div class="ac-seg-fila-usuario' + sel + '" data-id="' + f.id + '">' +
+			var filaHtml = '<div class="ac-seg-fila-usuario' + sel + '" data-id="' + f.id + '">' +
 				avatarRingHtml(f.ringCss, f.iniciales, false) +
 				'<div class="ac-seg-fila-info"><p class="ac-user-name">' + escapeHtml(f.nombre) + '</p><p class="ac-seg-fila-meta">' + escapeHtml(f.metaLabel) + '</p></div>' +
 				badgeHtml(f.badgeClass, f.badgeText) +
+				'<span class="material-symbols-outlined ac-seg-fila-chevron">expand_more</span>' +
 				'</div>';
+			// Solo el asesor seleccionado, y solo en mobile, lleva el bloque de
+			// acordeón ya en el HTML inicial (evita un 2do paso de "insertar
+			// después de renderizar" para el auto-seleccionado de siempre).
+			if (mobile && f.id === estado.selectedId) filaHtml += inlineDetalleHtml();
+			return filaHtml;
 		}).join('');
 		Array.prototype.forEach.call(listaCont.querySelectorAll('.ac-seg-fila-usuario'), function (row) {
 			row.addEventListener('click', function () {
 				var id = parseInt(row.dataset.id, 10);
-				if (id === estado.selectedId) return;
-				estado.selectedId = id;
+				var mobileAhora = esMobile();
+				if (id === estado.selectedId) {
+					// En mobile, tocar el mismo asesor ya expandido lo colapsa
+					// (acordeón real) — en desktop no hace nada, como siempre
+					// (el panel de detalle ya muestra a este mismo usuario).
+					if (mobileAhora) {
+						estado.selectedId = null;
+						row.classList.remove('is-selected');
+						var abierto = document.getElementById(ID_DETALLE_INLINE);
+						if (abierto) abierto.remove();
+					}
+					return;
+				}
 				Array.prototype.forEach.call(listaCont.querySelectorAll('.ac-seg-fila-usuario'), function (r) {
 					r.classList.toggle('is-selected', parseInt(r.dataset.id, 10) === id);
 				});
+				if (mobileAhora) {
+					var viejo = document.getElementById(ID_DETALLE_INLINE);
+					if (viejo) viejo.remove();
+					row.insertAdjacentHTML('afterend', inlineDetalleHtml());
+				}
+				estado.selectedId = id;
 				var filaSel = filas.filter(function (f) { return f.id === id; })[0];
 				cargarDetalle(filaSel);
 			});
@@ -226,10 +267,11 @@
 		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el detalle.</p></div>';
 	}
 
-	// ---------- Render: panel de detalle ----------
-	function renderDetalle(filaUsuario, actas) {
-		var v = VISTAS[estado.filtro];
-		var filasHtml = actas.length
+	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile) ----------
+	// Compartido por los 2: el contenido de las Actas es idéntico, solo
+	// cambia dónde se inserta (panel separado vs. debajo de la fila).
+	function filasActasHtml(actas) {
+		return actas.length
 			? actas.map(function (a) {
 				var b = badgeParaActa(a);
 				// Hipervínculo directo al PDF real (2026-09-02, pedido explícito) —
@@ -245,7 +287,10 @@
 					'</div>';
 			}).join('')
 			: '<div class="ac-table-empty">Sin Actas para este filtro.</div>';
+	}
 
+	function renderDetalle(filaUsuario, actas) {
+		var v = VISTAS[estado.filtro];
 		detalleCard.innerHTML =
 			'<div class="ac-seg-detalle-header">' +
 			avatarRingHtml(filaUsuario.ringCss, filaUsuario.iniciales, true) +
@@ -253,7 +298,18 @@
 			'<div class="ac-seg-detalle-stat"><span class="ac-seg-detalle-stat-num">' + actas.length + '</span><span class="ac-seg-detalle-stat-label">en esta vista</span></div>' +
 			'</div>' +
 			'<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
-			'<div class="ac-seg-detalle-body">' + filasHtml + '</div>';
+			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
+	}
+
+	// Sin la cabecera de avatar/nombre (redundante: la fila del acordeón, justo
+	// arriba, ya muestra ambos) — solo el thead + las Actas.
+	function renderDetalleInline(actas) {
+		var cont = document.getElementById(ID_DETALLE_INLINE);
+		if (!cont) return;
+		var v = VISTAS[estado.filtro];
+		cont.innerHTML =
+			'<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
+			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
 	}
 
 	// Clave del detalle actualmente cargado — usuario + filtro + período.
@@ -281,14 +337,27 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (miReqId !== detalleReqId) return;
-				if (!data.ok) { ultimoFetchKey = null; detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error al cargar el detalle.</p></div>'; return; }
+				if (!data.ok) {
+					ultimoFetchKey = null;
+					detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error al cargar el detalle.</p></div>';
+					var contErr = document.getElementById(ID_DETALLE_INLINE);
+					if (contErr) contErr.innerHTML = '<p class="ac-table-empty">Error al cargar el detalle.</p>';
+					return;
+				}
 				ultimoFetchKey = key;
+				// El panel de desktop se actualiza siempre (aunque esté oculto por
+				// CSS en mobile) — así, si el usuario agranda la ventana sin
+				// recargar, no queda desactualizado con la última selección de
+				// antes de achicarla.
 				renderDetalle(filaUsuario, data.actas);
+				if (esMobile()) renderDetalleInline(data.actas);
 			})
 			.catch(function () {
 				if (miReqId !== detalleReqId) return;
 				ultimoFetchKey = null;
 				detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error de conexión.</p></div>';
+				var contCatch = document.getElementById(ID_DETALLE_INLINE);
+				if (contCatch) contCatch.innerHTML = '<p class="ac-table-empty">Error de conexión.</p>';
 			});
 	}
 

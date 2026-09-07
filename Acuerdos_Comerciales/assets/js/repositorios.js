@@ -166,6 +166,7 @@
 	var tabRebate = document.getElementById('repo-tab-rebate');
 	var tabParticipacion = document.getElementById('repo-tab-participacion');
 	var tabCuotas = document.getElementById('repo-tab-cuotas');
+	var raizRepo = document.getElementById('ac-repo-lista');
 	var pendientesAbrirBtn = document.getElementById('repo-pendientes-abrir');
 	var pendientesCount = document.getElementById('repo-pendientes-count');
 	var resumenAbrirBtn = document.getElementById('repo-resumen-abrir');
@@ -416,6 +417,11 @@
 		tabRebate.classList.toggle('active', tipo === 'rebate');
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
+		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css,
+		// "Cuotas Trimestrales: tarjeta con jerarquía real") — Rebate/
+		// Participación se quedan con el layout genérico de pares
+		// etiqueta:valor que ya tenían.
+		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
 		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito
 		// "quita el botón de Pendientes de Asignar") — se deja el resto del
 		// mecanismo intacto (getters, modal), por si se retoma después.

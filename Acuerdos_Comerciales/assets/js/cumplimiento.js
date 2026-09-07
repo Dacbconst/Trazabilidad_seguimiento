@@ -18,6 +18,27 @@ document.addEventListener('DOMContentLoaded', function () {
 	var estado = { trimestre: 0, anio: 0, busqueda: '', canal: 'total' };
 	var listaReqId = 0;
 
+	// ---------- Filtros colapsables en mobile (2026-09-07) ----------
+	// Vista+Periodo+Año viven detrás de este botón en pantallas angostas (ver
+	// .ac-cumpl-vista-row/.ac-cumpl-periodo-wrap en style.css) — en desktop
+	// el botón no se muestra y esto no hace nada. El badge cuenta cuántos de
+	// esos filtros están en un valor distinto del default, para que se note
+	// desde afuera si hay algo filtrado sin tener que abrir el panel.
+	var filtrosToggleBtn = document.getElementById('cumpl-filtros-toggle');
+	var filtrosBadge = document.getElementById('cumpl-filtros-badge');
+	function actualizarBadgeFiltros() {
+		if (!filtrosBadge) return;
+		var activos = (estado.canal !== 'total' ? 1 : 0) + (estado.trimestre !== 0 ? 1 : 0);
+		filtrosBadge.textContent = activos;
+		filtrosBadge.hidden = activos === 0;
+	}
+	if (filtrosToggleBtn) {
+		filtrosToggleBtn.addEventListener('click', function () {
+			var abierto = root.classList.toggle('ac-cumpl-filtros-abiertos');
+			filtrosToggleBtn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+		});
+	}
+
 	function escapeHtml(str) {
 		var div = document.createElement('div');
 		div.textContent = str == null ? '' : String(str);
@@ -116,6 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (b) {
 				b.classList.toggle('ac-seg-pill-activo', b === btn);
 			});
+			actualizarBadgeFiltros();
 			cargarLista();
 		});
 	});
@@ -126,6 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			Array.prototype.forEach.call(trimestreGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.remove('ac-seg-pill-activo'); });
 			btn.classList.add('ac-seg-pill-activo');
 			estado.trimestre = parseInt(btn.dataset.trimestre, 10) || 0;
+			actualizarBadgeFiltros();
 			cargarLista();
 		});
 	});
@@ -325,6 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			});
 	}
 	window.acCumplimientoRefrescar = cargarLista;
+	actualizarBadgeFiltros();
 	cargarLista();
 
 	// ---------- Modal "Subir Excel" ----------

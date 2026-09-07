@@ -48,8 +48,13 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 
 	<!-- Vista por canal (2026-08-31) — misma pastilla que ya usa Historial de
 	     Acuerdos, mismo criterio: filtra la lista Y decide qué formato de
-	     Excel acepta "Subir Excel" (ver cumplimiento.js). -->
-	<div class="ac-seg-periodo" style="margin-bottom: var(--space-sm);">
+	     Excel acepta "Subir Excel" (ver cumplimiento.js).
+	     Clase .ac-cumpl-vista-row (2026-09-07): en mobile esta fila se oculta
+	     junto con #cumpl-periodo-wrap detrás del botón "Filtros" de abajo —
+	     ver bloque "Cumplimiento: filtros colapsables en mobile" en
+	     style.css. En desktop no cambia nada (la clase no tiene ninguna
+	     regla fuera de ese media query). -->
+	<div class="ac-seg-periodo ac-cumpl-vista-row" style="margin-bottom: var(--space-sm);">
 		<span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--color-on-surface-variant);">Vista</span>
 		<div class="ac-seg-pill-group" id="cumpl-canal-group">
 			<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-canal="total">Total</button>
@@ -59,23 +64,37 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 	</div>
 
 	<div class="ac-seg-periodo">
-		<div class="ac-seg-pill-group" id="cumpl-trimestre-group">
-			<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-trimestre="0">Todos</button>
-			<button type="button" class="ac-seg-pill" data-trimestre="1">Q1</button>
-			<button type="button" class="ac-seg-pill" data-trimestre="2">Q2</button>
-			<button type="button" class="ac-seg-pill" data-trimestre="3">Q3</button>
-			<button type="button" class="ac-seg-pill" data-trimestre="4">Q4</button>
+		<!-- .ac-cumpl-periodo-wrap es "display:contents" en desktop (sus 2 hijos
+		     se comportan como flex items de .ac-seg-periodo de siempre, cero
+		     cambio visual) — en mobile pasa a ser el bloque que se oculta/
+		     muestra con el botón "Filtros". -->
+		<div class="ac-cumpl-periodo-wrap" id="cumpl-periodo-wrap">
+			<div class="ac-seg-pill-group" id="cumpl-trimestre-group">
+				<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-trimestre="0">Todos</button>
+				<button type="button" class="ac-seg-pill" data-trimestre="1">Q1</button>
+				<button type="button" class="ac-seg-pill" data-trimestre="2">Q2</button>
+				<button type="button" class="ac-seg-pill" data-trimestre="3">Q3</button>
+				<button type="button" class="ac-seg-pill" data-trimestre="4">Q4</button>
+			</div>
+			<select class="ac-select ac-seg-anio ac-select-bonito-auto" id="cumpl-anio">
+				<option value="0">Todos los años</option>
+				<?php foreach ($aniosDisponibles as $a): ?>
+					<option value="<?= $a ?>"><?= $a ?></option>
+				<?php endforeach; ?>
+			</select>
 		</div>
-		<select class="ac-select ac-seg-anio ac-select-bonito-auto" id="cumpl-anio">
-			<option value="0">Todos los años</option>
-			<?php foreach ($aniosDisponibles as $a): ?>
-				<option value="<?= $a ?>"><?= $a ?></option>
-			<?php endforeach; ?>
-		</select>
 		<div class="ac-input-wrap ac-cumpl-buscar-wrap">
 			<span class="material-symbols-outlined">search</span>
 			<input type="text" class="ac-input" id="cumpl-buscar" placeholder="Buscar asesor o cliente...">
 		</div>
+		<!-- Solo visible en mobile (ver style.css) — agrupa Vista+Periodo+Año
+		     detrás de un botón con badge, para no apilar 5 bloques de filtros
+		     antes de llegar al contenido real. -->
+		<button type="button" class="ac-cumpl-filtros-btn" id="cumpl-filtros-toggle" aria-expanded="false">
+			<span class="material-symbols-outlined">tune</span>
+			Filtros
+			<span class="ac-cumpl-filtros-badge" id="cumpl-filtros-badge" hidden>0</span>
+		</button>
 	</div>
 
 	<!-- Mismo componente visual que los KPI de Historial de Acuerdos
