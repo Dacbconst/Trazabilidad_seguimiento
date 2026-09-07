@@ -1287,6 +1287,9 @@
 	var actaZoomInBtn = document.getElementById('ac-acta-zoom-in');
 	var actaZoomOutBtn = document.getElementById('ac-acta-zoom-out');
 	var actaZoomLabel = document.getElementById('ac-acta-zoom-label');
+	var actaCanvasWrap   = document.getElementById('ac-acta-canvas-wrap');
+	var actaCanvas       = document.getElementById('ac-acta-canvas');
+	var actaCanvasEstado = document.getElementById('ac-acta-canvas-estado');
 
 	// pdfGenerado: true recién después de "Generar PDF" (el único click que de
 	// verdad guarda algo en la base) — "Previsualización" ya NO guarda nada,
@@ -1299,9 +1302,29 @@
 
 	function actualizarZoomLabel() { actaZoomLabel.textContent = zoomActual + '%'; }
 
+	// Móvil real: mismo arreglo de PDF.js que Historial, ver pdf-preview.js — zoom +/- pasa directo como zoomPct.
+	function esMovilAngosto() { return window.matchMedia('(max-width: 760px)').matches; }
 	function aplicarZoom() {
 		if (!pdfUrlActual) return;
 		actualizarZoomLabel();
+		if (esMovilAngosto()) {
+			actaPdfFrame.classList.add('hidden');
+			actaCanvasWrap.classList.remove('hidden');
+			actaCanvasEstado.textContent = 'Cargando vista previa…';
+			actaCanvasEstado.classList.remove('hidden');
+			actaCanvas.classList.add('hidden');
+			window.acRenderizarPdfEnCanvas(pdfUrlActual, actaCanvas, { zoomPct: zoomActual })
+				.then(function () {
+					actaCanvasEstado.classList.add('hidden');
+					actaCanvas.classList.remove('hidden');
+				})
+				.catch(function () {
+					actaCanvasEstado.textContent = 'No se pudo mostrar la vista previa.';
+				});
+			return;
+		}
+		actaCanvasWrap.classList.add('hidden');
+		actaPdfFrame.classList.remove('hidden');
 		// #toolbar=0&navpanes=0 oculta la barra/miniaturas del visor nativo del
 		// navegador (ya tenemos nuestros propios botones) — funciona igual
 		// pegado a una blob: URL que a una URL normal del servidor.

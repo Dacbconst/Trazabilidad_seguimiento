@@ -23,6 +23,7 @@ $select_bonito_js_v = @filemtime(__DIR__.'/assets/js/select-bonito.js') ?: time(
 $cargando_js_v = @filemtime(__DIR__.'/assets/js/cargando.js') ?: time();
 $lightbox_js_v = @filemtime(__DIR__.'/assets/js/lightbox.js') ?: time();
 $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time();
+$pdf_preview_js_v = @filemtime(__DIR__.'/assets/js/pdf-preview.js') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -45,6 +46,7 @@ $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time(
 	<script src="assets/js/select-bonito.js?v=<?= $select_bonito_js_v ?>" defer></script>
 	<script src="assets/js/lightbox.js?v=<?= $lightbox_js_v ?>" defer></script>
 	<script src="assets/js/alertas-firma.js?v=<?= $alertas_firma_js_v ?>" defer></script>
+	<script src="assets/js/pdf-preview.js?v=<?= $pdf_preview_js_v ?>" defer></script>
 </head>
 <body>
 

@@ -8711,3 +8711,42 @@ en un navegador Android real desde acá (el comportamiento del picker lo
 decide el propio Chrome/OS, no algo que se pueda simular sin un
 dispositivo real) — pendiente que el usuario confirme que ahora aparecen
 las 3 opciones.
+
+## PDF.js extendido a "Ver Detalles" y a la Previsualización de Registrar + panel de notificaciones desalineado en móvil (2026-09-04)
+
+El arreglo de PDF.js del modal "Subir Acta Firmada" (ver sección de arriba)
+tenía el mismo bug pendiente en otros 2 lugares del proyecto — el usuario
+pidió extenderlo y revisar dónde más hacía falta.
+
+- **`assets/js/pdf-preview.js` (nuevo)** — se extrajo la carga/render de
+  PDF.js a un archivo compartido (`window.acCargarPdfJs`/
+  `window.acRenderizarPdfEnCanvas`, cargado en `index.php`), en vez de
+  tener 3 copias de la misma lógica. `renderizarPdfEnCanvas(url, canvas,
+  opciones)` acepta `opciones.contenedor` (ajusta al ancho del panel) o
+  `opciones.zoomPct` (escala directa, para paneles con zoom propio).
+- **Historial > "Ver Detalles" (`abrirDetalle()`, `hist-pdf-frame`)** —
+  mismo bug que la firma: en móvil real mostraba "acta.php" en vez del
+  PDF. Ahora usa el mismo canvas con PDF.js bajo 760px (nuevo
+  `hist-detalle-canvas-wrap`/`hist-detalle-canvas` en
+  `components/historial/historial.php`).
+- **Registrar > modal de Previsualización/Generar PDF (`ac-acta-pdf-frame`,
+  `aplicarZoom()`)** — mismo bug, con la complicación extra de tener zoom
+  propio (+/-). Resuelto pasando `zoomPct: zoomActual` directo al render en
+  vez de recargar el iframe con `#zoom=` (ese truco nunca funcionó en móvil
+  para empezar). Nuevo `ac-acta-canvas-wrap`/`ac-acta-canvas` en
+  `components/registrar/registrar.php`.
+- **`seguimiento.js` confirmado sin este bug** — su link de Acta usa
+  `<a href download>`, no un iframe embebido.
+- **Panel de notificaciones desalineado en móvil** — `posicionarPanel()`
+  (`assets/js/alertas-firma.js`) posicionaba con `right:
+  window.innerWidth - r.right`, sin clamp — en pantallas angostas esto
+  podía dejar el panel (380px/90vw) extendiéndose fuera del borde
+  izquierdo. Corregido con el mismo clamp por `left` que ya usa
+  `posicionarPanelCombo()` en `registrar.js` (mínimo 8px de margen a cada
+  lado).
+
+**Probado**: `node --check`/`php -l` limpios en los 6 archivos tocados,
+llaves de `style.css` balanceadas. **Todavía sin probar en un celular
+real** — falta confirmar que "Ver Detalles", la Previsualización de
+Registrar (con zoom) y el panel de notificaciones se ven bien en el
+celular del usuario.

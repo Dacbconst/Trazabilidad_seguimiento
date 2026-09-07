@@ -3,6 +3,9 @@
 	var vistaPreview   = document.getElementById('ac-historial-preview');
 	var pdfFrame       = document.getElementById('hist-pdf-frame');
 	var descargarBtn   = document.getElementById('hist-descargar-pdf');
+	var detalleCanvasWrap   = document.getElementById('hist-detalle-canvas-wrap');
+	var detalleCanvas       = document.getElementById('hist-detalle-canvas');
+	var detalleCanvasEstado = document.getElementById('hist-detalle-canvas-estado');
 
 	var buscarInput     = document.getElementById('hist-buscar');
 	var trimestreSelect = document.getElementById('hist-trimestre');
@@ -498,19 +501,42 @@
 	// Mismo PDF real que genera Registrar (getters/generar_acta_pdf.php) —
 	// "Ver Detalles" y "Descargar PDF" abren el mismo iframe, no hay una
 	// segunda maqueta HTML que reconstruir ni mantener sincronizada.
+	function mostrarEstadoDetalleCanvas(mensaje) {
+		detalleCanvasEstado.textContent = mensaje;
+		detalleCanvasEstado.classList.remove('hidden');
+		detalleCanvas.classList.add('hidden');
+	}
 	function abrirDetalle(id) {
 		// &t= evita que el navegador reuse un PDF viejo cacheado con la misma URL ?id=X.
 		var url = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
-		// #toolbar=0&navpanes=0&zoom=page-width (2026-08-25, reportado con
-		// captura real: el Acta se veía chiquita, perdida en medio de un
-		// área gris grande) — sin esto el visor nativo de PDF arranca en su
-		// zoom "automático" (que en un iframe angosto en mobile termina
-		// alejado, con el toolbar nativo de Chrome ocupando espacio de
-		// arriba, redundante con el botón "Descargar / Imprimir PDF" que ya
-		// está en la barra de esta misma pantalla). "page-width" fuerza que
-		// la página ocupe todo el ancho disponible del iframe — el usuario
-		// igual puede seguir haciendo pinch-zoom nativo para acercar más.
-		pdfFrame.src = url + '#toolbar=0&navpanes=0&zoom=page-width';
+		// Móvil real: mismo arreglo que "Subir Acta Firmada", ver pdf-preview.js.
+		if (window.matchMedia('(max-width: 760px)').matches) {
+			pdfFrame.src = '';
+			pdfFrame.classList.add('hidden');
+			detalleCanvasWrap.classList.remove('hidden');
+			mostrarEstadoDetalleCanvas('Cargando vista previa…');
+			window.acRenderizarPdfEnCanvas(url, detalleCanvas, { contenedor: detalleCanvasWrap })
+				.then(function () {
+					detalleCanvasEstado.classList.add('hidden');
+					detalleCanvas.classList.remove('hidden');
+				})
+				.catch(function () {
+					mostrarEstadoDetalleCanvas('No se pudo mostrar la vista previa. Usa "Descargar / Imprimir PDF" para verla.');
+				});
+		} else {
+			detalleCanvasWrap.classList.add('hidden');
+			pdfFrame.classList.remove('hidden');
+			// #toolbar=0&navpanes=0&zoom=page-width (2026-08-25, reportado con
+			// captura real: el Acta se veía chiquita, perdida en medio de un
+			// área gris grande) — sin esto el visor nativo de PDF arranca en su
+			// zoom "automático" (que en un iframe angosto en mobile termina
+			// alejado, con el toolbar nativo de Chrome ocupando espacio de
+			// arriba, redundante con el botón "Descargar / Imprimir PDF" que ya
+			// está en la barra de esta misma pantalla). "page-width" fuerza que
+			// la página ocupe todo el ancho disponible del iframe — el usuario
+			// igual puede seguir haciendo pinch-zoom nativo para acercar más.
+			pdfFrame.src = url + '#toolbar=0&navpanes=0&zoom=page-width';
+		}
 		descargarBtn.href = url;
 		vistaLista.classList.add('hidden');
 		vistaPreview.classList.remove('hidden');
@@ -663,55 +689,15 @@
 		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 	}
 
-	// Vista previa del PDF real como imagen, con PDF.js (2026-09-02) — usada
-	// en móvil, donde un PDF embebido en <iframe> no renderiza (Chrome de
-	// Android real no trae visor de PDF ahí, a diferencia del modo "móvil"
-	// de Chrome de escritorio, que sigue siendo el motor de escritorio por
-	// debajo). PDF.js dibuja el PDF real en un <canvas> con JS puro — no
-	// depende de ningún visor nativo del navegador. Se carga por CDN, una
-	// sola vez, solo si de verdad hace falta (nadie paga ese peso si nunca
-	// abre este modal en un celular).
-	var pdfJsCargaPromesa = null;
-	function cargarPdfJs() {
-		if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-		if (pdfJsCargaPromesa) return pdfJsCargaPromesa;
-		pdfJsCargaPromesa = new Promise(function (resolve, reject) {
-			var script = document.createElement('script');
-			script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-			script.onload = function () {
-				window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-				resolve(window.pdfjsLib);
-			};
-			script.onerror = function () { reject(new Error('No se pudo cargar el visor de PDF.')); };
-			document.head.appendChild(script);
-		});
-		return pdfJsCargaPromesa;
-	}
+	// Render vía PDF.js (assets/js/pdf-preview.js) para móvil real, donde un PDF en <iframe> no renderiza.
 	function mostrarEstadoCanvasOriginal(mensaje) {
 		firmaOriginalCanvasEstado.textContent = mensaje;
 		firmaOriginalCanvasEstado.classList.remove('hidden');
 		firmaOriginalCanvas.classList.add('hidden');
 	}
-	// Escala el PDF (siempre 1 sola página, ver CLAUDE.md "auto-ajuste a 1
-	// hoja") al ancho real disponible del panel, con devicePixelRatio para que
-	// se vea nítido en pantallas de alta densidad (casi todos los celulares).
-	function renderizarPdfEnCanvas(url) {
+	function renderizarFirmaOriginalCanvas(url) {
 		mostrarEstadoCanvasOriginal('Cargando vista previa…');
-		cargarPdfJs()
-			.then(function (pdfjsLib) { return pdfjsLib.getDocument(url).promise; })
-			.then(function (pdf) { return pdf.getPage(1); })
-			.then(function (page) {
-				var anchoDisponible = firmaOriginalCanvasWrap.clientWidth || 320;
-				var viewportBase = page.getViewport({ scale: 1 });
-				var dpr = window.devicePixelRatio || 1;
-				var escala = (anchoDisponible / viewportBase.width) * dpr;
-				var viewport = page.getViewport({ scale: escala });
-				firmaOriginalCanvas.width = viewport.width;
-				firmaOriginalCanvas.height = viewport.height;
-				firmaOriginalCanvas.style.width = (viewport.width / dpr) + 'px';
-				firmaOriginalCanvas.style.height = (viewport.height / dpr) + 'px';
-				return page.render({ canvasContext: firmaOriginalCanvas.getContext('2d'), viewport: viewport }).promise;
-			})
+		window.acRenderizarPdfEnCanvas(url, firmaOriginalCanvas, { contenedor: firmaOriginalCanvasWrap })
 			.then(function () {
 				firmaOriginalCanvasEstado.classList.add('hidden');
 				firmaOriginalCanvas.classList.remove('hidden');
@@ -763,7 +749,7 @@
 			firmaOriginalFrame.src = '';
 			firmaOriginalFrame.classList.add('hidden');
 			firmaOriginalCanvasWrap.classList.remove('hidden');
-			renderizarPdfEnCanvas(firmaOriginalUrlActual);
+			renderizarFirmaOriginalCanvas(firmaOriginalUrlActual);
 		} else {
 			firmaOriginalCanvasWrap.classList.add('hidden');
 			firmaOriginalFrame.classList.remove('hidden');

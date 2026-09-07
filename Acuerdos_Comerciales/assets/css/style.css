@@ -1275,6 +1275,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-historial-preview { display: flex; flex-direction: column; }
 /* Sin altura explícita, flex:1 1 auto no tiene de dónde crecer y el iframe queda con la altura default del navegador. */
 #hist-pdf-frame { height: 80vh; }
+/* Ver Detalles en móvil (PDF.js): mismo alto que el iframe de escritorio. */
+#hist-detalle-canvas-wrap { height: 80vh; }
 
 /* Filtros de Historial en mobile: "Buscar" se oculta (redundante, ya dispara solo). Período/Año en una fila, Excel como pill angosto. */
 @media (max-width: 600px) {

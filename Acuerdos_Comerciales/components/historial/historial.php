@@ -315,6 +315,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 		</a>
 	</div>
 	<iframe id="hist-pdf-frame" class="ac-acta-pdf-frame" title="Vista previa del Acta"></iframe>
+	<!-- Móvil real: PDF.js dibuja el PDF en canvas, ver pdf-preview.js y abrirDetalle(). -->
+	<div class="ac-firma-canvas-wrap hidden" id="hist-detalle-canvas-wrap">
+		<canvas id="hist-detalle-canvas"></canvas>
+		<div class="ac-firma-canvas-estado" id="hist-detalle-canvas-estado"></div>
+	</div>
 </div>
 
 <!-- Modal: Mis Borradores — borradores propios (creado_por = usuario de la

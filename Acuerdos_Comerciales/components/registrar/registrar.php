@@ -208,6 +208,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			</button>
 		</div>
 		<iframe id="ac-acta-pdf-frame" class="ac-acta-pdf-frame" title="Vista previa del Acta"></iframe>
+		<!-- Móvil real: PDF.js dibuja el PDF en canvas, ver pdf-preview.js y aplicarZoom(). -->
+		<div class="ac-firma-canvas-wrap hidden" id="ac-acta-canvas-wrap">
+			<canvas id="ac-acta-canvas"></canvas>
+			<div class="ac-firma-canvas-estado" id="ac-acta-canvas-estado"></div>
+		</div>
 	</div>
 </div>
 

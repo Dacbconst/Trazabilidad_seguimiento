@@ -192,11 +192,16 @@
 			});
 	}
 
-	// El panel es position:fixed (escapa del overflow:hidden de .ac-header-inner), se posiciona acá con el rect real del botón.
+	// position:fixed escapa del overflow:hidden de .ac-header-inner. Clamp de left (mismo criterio que posicionarPanelCombo en registrar.js) — sin esto, en mobile el panel se salía por el borde izquierdo.
 	function posicionarPanel() {
 		var r = btn.getBoundingClientRect();
+		var margen = 8;
+		var ancho = Math.min(380, window.innerWidth * 0.9);
+		var left = Math.min(r.right - ancho, window.innerWidth - ancho - margen);
+		left = Math.max(left, margen);
 		panel.style.top = (r.bottom + 8) + 'px';
-		panel.style.right = (window.innerWidth - r.right) + 'px';
+		panel.style.left = left + 'px';
+		panel.style.right = 'auto';
 	}
 
 	function abrirPanel() {
