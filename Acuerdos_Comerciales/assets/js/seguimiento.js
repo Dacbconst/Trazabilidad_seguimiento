@@ -17,6 +17,17 @@
 	var equipoActual  = [];
 	var statsActual   = { total: 0, firmadas: 0, pendientes: 0, vencidas: 0 };
 	var ultimoFetchKey = null;
+	// Actas del último detalle cargado con éxito (2026-09-07) — sin esto, el
+	// acordeón mobile quedaba en "Cargando..." para siempre si la lista se
+	// volvía a renderizar SIN pedir un fetch nuevo (bug real: este módulo
+	// llama a cargarResumen() 2 veces al entrar — una al cargar la página,
+	// otra al hacer click en el link del sidebar — y la 2da vez
+	// `refrescarListaYDetalle()` no vuelve a pedir el detalle porque
+	// `ultimoFetchKey` ya matcheaba, pero `renderLista()` igual reconstruía
+	// el contenedor inline desde cero con el placeholder de carga). Ahora
+	// `renderLista()` puede reusar este caché en vez de asumir que siempre
+	// hay que esperar un fetch.
+	var ultimoDetalleActas = null;
 
 	// Tokens de request en vuelo — evitan que una respuesta vieja (llegó
 	// tarde por la red) pise a una más nueva. Ej: click en usuario A, click
@@ -213,8 +224,16 @@
 				'</div>';
 			// Solo el asesor seleccionado, y solo en mobile, lleva el bloque de
 			// acordeón ya en el HTML inicial (evita un 2do paso de "insertar
-			// después de renderizar" para el auto-seleccionado de siempre).
-			if (mobile && f.id === estado.selectedId) filaHtml += inlineDetalleHtml();
+			// después de renderizar" para el auto-seleccionado de siempre). Si
+			// ya está cacheado (mismo usuario+filtro+período que la última
+			// carga exitosa), se pinta el contenido real de una — si no,
+			// "Cargando..." hasta que `refrescarListaYDetalle()` dispare el
+			// fetch correspondiente.
+			if (mobile && f.id === estado.selectedId) {
+				filaHtml += (ultimoFetchKey === claveDetalle(f.id) && ultimoDetalleActas)
+					? '<div class="ac-seg-fila-detalle-inline" id="' + ID_DETALLE_INLINE + '">' + contenidoAcordeonHtml(ultimoDetalleActas) + '</div>'
+					: inlineDetalleHtml();
+			}
 			return filaHtml;
 		}).join('');
 		Array.prototype.forEach.call(listaCont.querySelectorAll('.ac-seg-fila-usuario'), function (row) {
@@ -303,13 +322,16 @@
 
 	// Sin la cabecera de avatar/nombre (redundante: la fila del acordeón, justo
 	// arriba, ya muestra ambos) — solo el thead + las Actas.
+	function contenidoAcordeonHtml(actas) {
+		var v = VISTAS[estado.filtro];
+		return '<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
+			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
+	}
+
 	function renderDetalleInline(actas) {
 		var cont = document.getElementById(ID_DETALLE_INLINE);
 		if (!cont) return;
-		var v = VISTAS[estado.filtro];
-		cont.innerHTML =
-			'<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
-			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
+		cont.innerHTML = contenidoAcordeonHtml(actas);
 	}
 
 	// Clave del detalle actualmente cargado — usuario + filtro + período.
@@ -339,12 +361,14 @@
 				if (miReqId !== detalleReqId) return;
 				if (!data.ok) {
 					ultimoFetchKey = null;
+					ultimoDetalleActas = null;
 					detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error al cargar el detalle.</p></div>';
 					var contErr = document.getElementById(ID_DETALLE_INLINE);
 					if (contErr) contErr.innerHTML = '<p class="ac-table-empty">Error al cargar el detalle.</p>';
 					return;
 				}
 				ultimoFetchKey = key;
+				ultimoDetalleActas = data.actas;
 				// El panel de desktop se actualiza siempre (aunque esté oculto por
 				// CSS en mobile) — así, si el usuario agranda la ventana sin
 				// recargar, no queda desactualizado con la última selección de
@@ -355,6 +379,7 @@
 			.catch(function () {
 				if (miReqId !== detalleReqId) return;
 				ultimoFetchKey = null;
+				ultimoDetalleActas = null;
 				detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><p>Error de conexión.</p></div>';
 				var contCatch = document.getElementById(ID_DETALLE_INLINE);
 				if (contCatch) contCatch.innerHTML = '<p class="ac-table-empty">Error de conexión.</p>';

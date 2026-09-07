@@ -8750,3 +8750,112 @@ llaves de `style.css` balanceadas. **Todavía sin probar en un celular
 real** — falta confirmar que "Ver Detalles", la Previsualización de
 Registrar (con zoom) y el panel de notificaciones se ven bien en el
 celular del usuario.
+
+## Mobile: acordeón en Seguimiento, filtros colapsables en Cumplimiento, tarjeta de Cuotas + modal ancho en Repositorios (2026-09-07)
+
+Explorado primero con Claude Design (canvas de 3 mockups a 375px, tokens
+reales del proyecto) antes de tocar código — el usuario los aprobó los 3
+("aplicalo"). Los 3 cambios viven SOLO dentro de `@media` mobile (900px
+para Seguimiento, 700px para Cumplimiento/Repositorios) — desktop queda
+pixel-igual en los 3 módulos, verificado por lectura (ninguna regla nueva
+sale de su media query).
+
+1. **Seguimiento de Equipo — acordeón in-place, reemplaza el panel
+   separado**: el detalle (Actas de un asesor) ya no vive en
+   `#seg-detalle-card` (quedaba en otra tarjeta, más abajo en la página —
+   había que scrollear para verlo, sin señal de que el toque funcionó).
+   En mobile se expande DEBAJO de la fila tocada, mismo lenguaje que ya
+   usa el acordeón asesor→categoría de Cumplimiento de Cuota — chevron
+   que rota, tocar la misma fila la colapsa. `renderDetalle()` (desktop,
+   sigue actualizando el panel oculto por si se agranda la ventana sin
+   recargar) y el acordeón comparten `filasActasHtml()`, ya factorizada.
+   - **Bug real encontrado y corregido en la verificación**: el módulo
+     recarga su resumen 2 veces al entrar (arquitectura ya existente —
+     una vez al cargar la página completa, otra al hacer click en el
+     link del sidebar) y también al tipear en el buscador —
+     `renderLista()` se ejecuta de nuevo en ambos casos, y antes
+     reconstruía el bloque del acordeón siempre con un "Cargando..."
+     fresco, aunque el detalle ya estuviera cargado — como
+     `refrescarListaYDetalle()` no vuelve a pedir el fetch si la clave
+     (usuario+filtro+período) ya coincide, ese "Cargando..." se quedaba
+     así para siempre (nadie lo volvía a llenar). Agregado
+     `ultimoDetalleActas` (cache de las Actas del último fetch exitoso,
+     junto a `ultimoFetchKey`) — `renderLista()` ahora reusa ese caché en
+     vez de asumir que siempre hace falta esperar un fetch nuevo.
+     Confirmado con Playwright: buscar "carlos" (que sigue matcheando al
+     asesor ya expandido) mantenía el contenido real antes del fix
+     roto, después del fix se mantiene.
+2. **Cumplimiento de Cuota — Vista+Periodo+Año detrás de un botón
+   "Filtros"**: antes eran 2 filas completas siempre visibles, apiladas
+   antes de llegar a los KPI/la lista. En mobile se colapsan detrás de
+   un botón con badge (cuenta cuántos de esos 2 filtros —canal,
+   trimestre— están en un valor no-default), dejando visible por
+   defecto solo buscador + Filtros + Subir Excel. Implementado con
+   `.ac-cumpl-periodo-wrap { display:contents; }` como base — en
+   desktop sus 2 hijos (trimestre-group + año) siguen siendo flex items
+   directos de `.ac-seg-periodo` exactamente como antes (cero cambio
+   real de DOM/layout); solo dentro del `@media(max-width:700px)` ese
+   wrapper se vuelve un panel real que se abre/cierra con la clase
+   `.ac-cumpl-filtros-abiertos` en la raíz del módulo.
+3. **Repositorios**:
+   - **Bug real de CSS, preexistente, se manifiesta solo en pantallas
+     angostas**: el modal "Subir Archivo" en su paso ancho
+     (`.ac-repo-subir-modal-ancho`) tenía `min-width:480px` contra
+     `max-width:min(1300px,95vw)` — en cualquier viewport menor a
+     ~505px el mínimo fijo le gana al máximo relativo (regla básica de
+     CSS: min-width siempre gana sobre max-width en conflicto), así que
+     el modal se renderizaba más ancho que la pantalla — cortaba
+     "Cancelar"/"Guardar" o forzaba scroll horizontal de toda la
+     página, no solo de la tabla interna (que ya tenía su propio
+     scroll a propósito). Corregido con un `@media(max-width:520px)`
+     que saca el mínimo fijo (`min-width:0; width:95vw;`) solo en ese
+     rango. Verificado con una página de prueba aislada (mismo
+     `style.css` real, viewport 390px): ancho del modal 342px, dentro
+     del viewport (antes del fix hubiera sido 480px, desbordando).
+   - **Pestaña Cuotas Trimestrales: tarjeta con jerarquía**, en vez de
+     la lista plana de pares etiqueta:valor que sigue usando Rebate/
+     Participación (tienen menos columnas, no la necesitan). Cliente en
+     negrita arriba, CEDI+Plan como subtítulo, Sector/Subcategoría/
+     Marca como chips, los 3 meses como mini-stats al final. Activado
+     solo para esta pestaña vía una clase (`ac-repo-tipo-cuotas`, la
+     pone `activarTab()` en `repositorios.js` sobre `#ac-repo-lista`) —
+     selector de 2 IDs a propósito, para ganarle en especificidad a la
+     regla genérica de tarjeta mobile sin tocarla ni usar `!important`.
+   - **Bug real encontrado y corregido en la verificación**: los chips
+     (Sector/Subcategoría/Marca) y los 3 meses quedaban SUPERPUESTOS en
+     una sola celda — solo se veía el último de cada grupo ("Mes 3" a
+     secas, o un texto ilegible mezclado tipo "LAVA  AJILLAS" donde
+     debía decir "LAVAVAJILLAS"). Causa: la especificidad de CSS se
+     resuelve POR PROPIEDAD, no por regla completa — mi regla nueva
+     (2 IDs) nunca declaraba `grid-column` para estos 2 grupos
+     (dejándolo en `auto` a propósito, para el auto-placement), pero la
+     regla genérica más vieja (`:not([data-key="marca"])...`, 1 ID)
+     SÍ declara `grid-column:1/-1` para cualquier columna no
+     exceptuada — como mi regla no competía por esa propiedad
+     puntual, la genérica seguía ganando y ponía a los 3 chips (y los
+     3 meses) en la misma celda de ancho completo, superpuestos.
+     Corregido declarando `grid-column:auto` explícito en ambos
+     grupos. Mismo tipo de bug ya documentado antes en este archivo
+     para clases que compiten por una sola propiedad (ver las
+     "lecciones repetidas" de `[hidden]`/`display` más arriba) — acá la
+     variante es "propiedad no declarada", no "clase con más
+     especificidad pisando".
+
+**Probado**: mirror local (`php -S localhost:8899` + sesión real de un
+superdesarrollador —`Admin`, id=1— vía un script temporal creado y
+borrado en la misma verificación, nunca escribió nada en la base, solo
+`session_start()` con `$_SESSION` seteado a mano) + Playwright a 390px de
+ancho, contra datos REALES (48 filas de Cuotas Trimestrales, Actas reales
+de Seguimiento de Equipo con Carlos Proaño/Javier Maldonado) — las 3
+pantallas confirmadas visualmente con screenshots, incluidos los 2
+estados de Cumplimiento (compacto/filtros abiertos), el acordeón de
+Seguimiento expandiendo/colapsando entre 2 asesores distintos, y el
+before/after de los 2 bugs de superposición en Cuotas. `php -l`/
+`node --check` limpios en los 5 archivos tocados (`style.css`,
+`seguimiento.js`, `cumplimiento.js`, `cumplimiento.php`,
+`repositorios.js`), llaves de `style.css` balanceadas (843/843).
+**Todavía sin probar en el entorno real de Azure ni en un celular
+físico** — el mirror local reprodujo y confirmó los bugs reales, pero
+este proyecto ya documentó antes casos donde el entorno real difiere del
+mirror (fuentes/imágenes reales, timing real) — preferir el entorno de
+desarrollo real si algo se ve distinto a lo descrito acá.

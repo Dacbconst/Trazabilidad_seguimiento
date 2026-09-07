@@ -1836,7 +1836,13 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="sector"],
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="subcategoria"],
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="marca"] {
-		grid-row: 3;
+		/* grid-column:auto explícito — sin esto, la regla genérica de arriba
+		   (":not([data-key=marca])...") le seguía ganando la property
+		   grid-column (la especificidad se resuelve POR PROPIEDAD, no por
+		   regla completa) y ponía 1/-1 en los 3 chips a la vez: quedaban
+		   superpuestos exactamente en la misma celda, mostrando un texto
+		   ilegible mezclado ("LAVA  AJILLAS" en vez de 3 chips separados). */
+		grid-row: 3; grid-column: auto;
 		font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
 		color: var(--color-on-surface-variant);
 		background: var(--color-surface-container);
@@ -1854,7 +1860,10 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	   (etiqueta chica arriba vía ::before + valor debajo), en vez del
 	   "$700.00" suelto de siempre. */
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key^="mes"] {
-		grid-row: 5;
+		/* grid-column:auto explícito — mismo motivo que en los chips de
+		   arriba, sin esto los 3 meses quedaban superpuestos en una sola
+		   celda (solo se veía el último, "Mes 3"). */
+		grid-row: 5; grid-column: auto;
 		background: var(--color-surface-container-low);
 		border-radius: 6px;
 		padding: 6px 4px;
