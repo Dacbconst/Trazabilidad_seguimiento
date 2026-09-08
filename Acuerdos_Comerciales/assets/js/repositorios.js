@@ -418,10 +418,7 @@
 		tabRebate.classList.toggle('active', tipo === 'rebate');
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
-		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css,
-		// "Cuotas Trimestrales: tarjeta con jerarquía real") — Rebate/
-		// Participación se quedan con el layout genérico de pares
-		// etiqueta:valor que ya tenían.
+		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
 		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito
 		// "quita el botón de Pendientes de Asignar") — se deja el resto del

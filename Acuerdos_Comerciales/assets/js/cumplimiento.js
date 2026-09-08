@@ -11,12 +11,12 @@ document.addEventListener('DOMContentLoaded', function () {
 	var statGanan = document.getElementById('cumpl-stat-ganan');
 	var statNoGanan = document.getElementById('cumpl-stat-no-ganan');
 	var statPromedio = document.getElementById('cumpl-stat-promedio');
+	var actualizarBtn = document.getElementById('cumpl-actualizar');
 
 	var estado = { trimestre: 0, anio: 0, busqueda: '', canal: 'total' };
 	var listaReqId = 0;
 
-	// ---------- Filtros colapsables en mobile ----------
-	// Vista+Periodo+Año viven detrás de este botón en pantallas angostas; en desktop no se muestra. El badge cuenta filtros en valor no-default.
+	// Vista+Periodo+Año viven detrás de este botón en mobile; el badge cuenta filtros en valor no-default.
 	var filtrosToggleBtn = document.getElementById('cumpl-filtros-toggle');
 	var filtrosBadge = document.getElementById('cumpl-filtros-badge');
 	function actualizarBadgeFiltros() {
@@ -278,6 +278,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function cargarLista() {
 		var miReqId = ++listaReqId;
+		// Mismo feedback de "Actualizar" que Historial: ícono gira mientras el fetch está en curso, sin importar qué lo haya disparado.
+		if (window.acBotonCargando && actualizarBtn) acBotonCargando(actualizarBtn, true);
 		if (window.acMostrarCargando) acMostrarCargando(root.closest('.ac-card') || root);
 		var params = new URLSearchParams({ trimestre: estado.trimestre, anio: estado.anio, q: estado.busqueda, canal: estado.canal });
 		fetch('getters/cumplimiento_listar.php?' + params.toString())
@@ -285,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			.then(function (data) {
 				if (miReqId !== listaReqId) return; // respuesta vieja, se descarta (condición de carrera)
 				if (window.acOcultarCargando) acOcultarCargando(root.closest('.ac-card') || root);
+				if (window.acBotonCargando && actualizarBtn) acBotonCargando(actualizarBtn, false);
 				if (!data.ok) { lista.innerHTML = '<div class="ac-table-empty">No se pudo cargar.</div>'; return; }
 				renderLista(data.usuarios);
 				statClientes.textContent = data.stats.clientes;
@@ -295,9 +298,11 @@ document.addEventListener('DOMContentLoaded', function () {
 			.catch(function () {
 				if (miReqId !== listaReqId) return;
 				if (window.acOcultarCargando) acOcultarCargando(root.closest('.ac-card') || root);
+				if (window.acBotonCargando && actualizarBtn) acBotonCargando(actualizarBtn, false);
 				lista.innerHTML = '<div class="ac-table-empty">Error de conexión.</div>';
 			});
 	}
+	if (actualizarBtn) actualizarBtn.addEventListener('click', cargarLista);
 	window.acCumplimientoRefrescar = cargarLista;
 	actualizarBadgeFiltros();
 	cargarLista();

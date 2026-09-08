@@ -8909,3 +8909,341 @@ físico** — el mirror local reprodujo y confirmó los bugs reales, pero
 este proyecto ya documentó antes casos donde el entorno real difiere del
 mirror (fuentes/imágenes reales, timing real) — preferir el entorno de
 desarrollo real si algo se ve distinto a lo descrito acá.
+
+## Registrar Acuerdo PDV: las 4 tablas se convierten en tarjetas en mobile (2026-09-07)
+
+El usuario reportó que en un celular real, intentar arrastrar las 4
+tablas (Meta de Compras/Cabeceras/Rumas/Perchas) para verlas completas
+"se queda fijo todo". Diagnosticado antes de tocar código: las columnas
+`.ac-sticky-col`/`-2`/`-3`/`-4` (Segmento/Sector/Categoría/Marca) suman
+hasta ~590px combinados — más ancho que cualquier celular real — así que
+en mobile casi TODA la superficie visible de la tabla son comboboxes
+interactivos. El dedo del usuario, al intentar hacer swipe horizontal,
+siempre aterriza sobre un campo (nunca sobre espacio vacío para
+arrastrar), y eso abre el panel del combo o el teclado en pantalla en vez
+de dejar que el navegador interprete el gesto como scroll — de ahí la
+sensación de "todo se congela" (no es un freeze real del navegador, es
+un teclado/panel tapando la pantalla). Se suma que varias columnas
+`position:sticky` a la vez son conocidas por generar jank durante el
+scroll táctil en navegadores móviles.
+
+**Diseñado primero con Claude Design** (4 artboards a 375px, uno por
+tabla, con los campos reales exactos de cada una) — el usuario lo aprobó
+explícitamente antes de tocar código, confirmando que el cambio es
+SOLO para mobile.
+
+**Solución, mismo patrón ya probado 3 veces en este proyecto (Historial/
+Repositorios/Cumplimiento de Cuota): cada FILA se convierte en una
+tarjeta vertical bajo `@media (max-width: 700px)`, sin scroll horizontal
+— cero cambios de lógica, cero cambios de desktop.**
+
+- **`assets/js/registrar.js`** — las 4 funciones que arman las filas
+  (`addPurchaseRow()`, `addCabeceraRow()`, `addRumaRow()`,
+  `addPerchaRow()`) ahora agregan `data-key`/`data-label` a cada `<td>`
+  (ej. `data-key="segmento"`, `data-key="mes" data-label="ENE ($)"`) —
+  atributos PUROS, no tocan ninguna clase (`.seg-input`, `.month-input`,
+  `.ac-rebate-input`, etc.), ningún id, ningún listener, ningún cálculo.
+  El CSS mobile los usa para saber qué es cada celda y qué etiqueta
+  ponerle arriba, sin depender de `nth-child` (las 4 tablas tienen
+  distinta cantidad de columnas). También se agregó
+  `<span class="ac-btn-text">Eliminar Fila</span>` dentro de cada botón
+  `.ac-remove-row` (oculto en desktop vía
+  `.ac-remove-row .ac-btn-text { display:none; }`, mismo criterio que
+  `.ac-repo-editar`/`.ac-repo-eliminar` de Repositorios) — el mismo botón
+  de siempre, solo con su nombre visible en mobile.
+- **`assets/css/style.css`**, sección "Registrar: tarjetas en mobile" —
+  dentro de `@media (max-width:700px)`: desactiva el `position:sticky`
+  (ya no aplica con una sola columna por fila), saca la sombra de scroll
+  de `.ac-table-scroll`, oculta `<thead>`/`<tfoot>`, y convierte cada
+  `<tr>` en una tarjeta CSS Grid de 3 columnas (`repeat(3, minmax(0,
+  1fr))`) — los campos de identidad (combos) y los totales ocupan la fila
+  completa (`grid-column:1/-1`), los 3 meses del trimestre (siempre
+  exactamente 3, ver `TRIMESTRES`) se auto-ubican uno por columna, y en
+  Meta de Compras "Total Período"+"Rebate %" comparten una fila (2/3+1/3).
+- **Fuera de alcance a propósito**: no se tocó nada del cálculo
+  (`updatePurchaseRow()`, `updateGrandTotals()`, `attachVisListeners()`,
+  `updateRumaLegend()`), ni la cascada de combos
+  (`bindCascadaComboConSector`/`bindCascadaCombo`/`bindMarcaPerchaCombo`),
+  ni las Actas Precargadas (bloqueo de campos con
+  `.ac-combo-input-precargado`) — todos siguen operando exactamente igual,
+  ahora sobre celdas que visualmente se reordenaron, no sobre una
+  estructura nueva.
+
+**Bug real encontrado y corregido en la verificación visual**: en la
+tarjeta de Perchas, "Participación" + "Cantidad" ocupan solo 2 de las 3
+columnas del grid, dejando la 3ra libre en esa fila — sin `grid-row`
+explícito, el auto-placement de CSS Grid completaba esa fila abierta con
+el primer campo de mes ("Ene") antes de pasar a la fila siguiente,
+dejando "Ene" pegado a Participación/Cantidad y "Feb"/"Mar" solos
+debajo. Corregido fijando `grid-row` explícito para cada grupo de
+Perchas (marca=1, participación+cantidad=2, meses=3, total=4,
+acciones=5) — las otras 3 tablas no tienen este problema porque cada
+grupo anterior siempre llena la fila completa, así que no hizo falta
+tocarlas.
+
+**Probado**: mirror local (`php -S` + sesión real de JAVIER MALDONADO,
+canal Directo, vía script temporal creado y borrado en la misma
+verificación — nunca escribió nada) + Playwright a 390px de ancho, con
+datos reales (cliente real elegido del combo, catálogo real de Segmento/
+Sector/Categoría/Marca). Confirmado funcionalmente, no solo visualmente:
+escribir en un input de mes SÍ actualiza "Total Período" en vivo
+($500.00 correcto); tocar el combo de Segmento SÍ abre el panel con las
+opciones reales del catálogo y SÍ aplica la selección; el botón
+"Agregar Fila" SÍ agrega una 2da tarjeta. Confirmado también que
+DESKTOP queda sin cambios: a 1440px, `<tr>` sigue siendo
+`display:table-row` (no grid) y `.ac-sticky-col` sigue siendo
+`position:sticky` — ninguna regla nueva se activó fuera de su media
+query. `node --check` limpio en `registrar.js`, `style.css` balanceado
+(867/867). **Todavía sin probar en un celular real** — el mirror local
+confirma que el mecanismo funciona y que ya no hace falta ningún scroll
+horizontal, pero la sensación táctil real (qué tan cómodo se siente
+tipear en los inputs angostos de mes, por ejemplo) solo se confirma en
+un dispositivo real.
+
+**Verificado en real con el usuario (2026-09-08)**: logueado como CARLOS
+PROANO (real, `id=9`) contra un mirror local con el código ya
+reconciliado (ver nota de abajo) — se cargó una Acta Precargada real
+(`EPV13214`, 4 categorías) y las 4 tablas se vieron como tarjetas
+limpias, sin superposición, con el bloqueo gris correcto y "Eliminar
+Fila" deshabilitado solo en Meta de Compras. El repositorio remoto tenía
+2 commits nuevos de otra sesión que esta sesión no tenía — se
+reconciliaron con `git stash` (guardar cambios propios, `git pull`,
+reaplicar el stash) sin conflictos.
+
+**Bug real reportado después por el usuario, con una captura real de su
+celular**: en la tarjeta de Perchas, la etiqueta "Cantidad (máx. 5)" se
+partía en 2 líneas dentro de esa columna angosta (~85px) y la 2da línea
+("5)") quedaba pisando el input de abajo. El mirror local (Chromium de
+escritorio a 390px) NO reprodujo la superposición — la caja de la
+etiqueta y el input medían exacto (40px etiqueta + 4px margen + 38px
+input = 82px, sin solaparse) — probablemente una diferencia de
+renderizado de fuente/wrap real del navegador del celular vs Chromium de
+escritorio (mismo tipo de brecha mirror-vs-real ya documentada en este
+archivo). **Corregido de raíz, no solo el síntoma**: se acortó el
+`data-label` de esa celda (`assets/js/registrar.js`, `addPerchaRow()`)
+de "Cantidad (máx. 5)" a "Max Percha" (mismo texto que ya usa el
+encabezado de escritorio para esa columna) — al no tener espacios para
+partir en un punto intermedio problemático y ser más corto, nunca
+necesita 2 líneas en ningún dispositivo, eliminando el riesgo de raíz en
+vez de perseguir el pixel exacto donde ocurría en ese celular puntual.
+El límite de 5 sigue enforced igual (`max="5"` en el input + el toast ya
+existente "El máximo de perchas por marca es 5."), no se perdió
+validación real, solo el hint del label. **Probado**: `node --check`
+limpio, confirmado visualmente en el mismo mirror que "MAX PERCHA" entra
+en una sola línea sin overlap. Sin confirmar todavía en el celular real
+del usuario.
+
+## Seguimiento de Equipo: columna "Firmada" + 2 bugs reales en Registrar (2026-09-08)
+
+Pedido explícito del usuario, 3 puntos:
+
+1. **Columna "Firmada" en el detalle de Seguimiento de Equipo** — mismo
+   criterio visual que el link del Documento (`.ac-seg-doc`/`.ac-seg-doc-link`):
+   si el Acta tiene firma subida, muestra la fecha real
+   (`acta_firmada_subido_en`) como link azul que abre el archivo firmado;
+   si no, "—". A diferencia del link de Documento (que usa `download`),
+   este usa `target="_blank"` porque `descargar_acta_firmada.php` ya sirve
+   con `Content-Disposition: inline` — se quiere VER la firma, no forzar
+   descarga.
+   - `listar_actas_equipo_usuario()` (`includes/functions.php`) agregó
+     `a.acta_firmada_subido_en` al SELECT (ya traía `tiene_firma`).
+   - **Bug real encontrado en el camino**: `getters/descargar_acta_firmada.php`
+     exigía `creado_por === usuario_sesion` sin excepción — funcionaba para
+     que cada asesor vea SU PROPIA firma en Historial, pero bloqueaba al
+     superdesarrollador viendo la firma de OTRO usuario desde Seguimiento
+     de Equipo (justo el caso de uso de esta columna nueva). Agregada la
+     misma excepción que ya usa `generar_acta_pdf.php`
+     (`$puedeVerCualquiera = rol === 'superdesarrollador'`).
+   - `seguimiento.js`: nueva `firmadaCeldaHtml()` + `theadActasHtml()`
+     (extraída, compartida entre el panel desktop y el acordeón mobile —
+     antes el `<div class="ac-seg-detalle-thead">...` estaba repetido
+     literal en 2 lugares, ahora un solo string). CSS: 5ta columna
+     (`nth-child(5)`, 100px) en `.ac-seg-detalle-thead`/`.ac-seg-detalle-fila`.
+   - **Probado con datos reales** (2 Actas reales de Carlos Proaño con
+     firma subida, `ADN-2026-0004`/`0005`, 08/09/2026) — logueado como
+     `Admin` (superdesarrollador, un usuario DISTINTO al dueño de esas
+     Actas): la columna muestra la fecha correcta como link, y
+     `curl` confirma `200 image/jpeg` al pedir el archivo — la excepción
+     de rol funciona de punta a punta. Confirmado también en mobile (el
+     acordeón ya ocultaba "Distribuidor"/"Fecha" a 600px, "Firmada" se
+     mantiene siempre visible, sin desbordar).
+2. **Alerta doble al generar el Acta, unificada** — bug real en
+   `guardarAcuerdo()` (`registrar.js`): al hacer click en "Generar PDF",
+   se mostraban 2 toasts seguidos — el genérico de `guardar_acuerdo.php`
+   (`mostrarMensaje(data.message, data.ok)`, incondicional) Y el
+   específico de `actaGenerarBtn`'s `onOk` ("PDF generado. Ya puedes
+   descargarlo."). Corregido: el genérico solo se muestra si NO se pasó
+   `onOk` (caso "Guardar Borrador", sigue con su único toast de siempre);
+   con `onOk` (caso "Generar PDF"), el llamador es responsable de su
+   propio mensaje de éxito — los errores (`!data.ok`) siguen mostrando el
+   mensaje del backend siempre, sin importar si hay `onOk`.
+3. **Zoom de la Previsualización no funcionaba en mobile** — bug real de
+   CSS, no de la lógica de zoom (`aplicarZoom()`/PDF.js ya calculaban bien
+   la escala). `.ac-firma-canvas-wrap canvas { max-width: 100% }` (pensada
+   para los visores SIN zoom — "Ver Detalles" de Historial, "Subir Acta
+   Firmada") se heredaba también en `#ac-acta-canvas-wrap` (Registrar, el
+   ÚNICO que tiene botones +/-) — el `max-width:100%` topeaba el canvas al
+   ancho del panel sin importar cuánto zoom pidiera el usuario, así que
+   acercar no se veía pasado cierto punto. Corregido con un override por
+   ID: `#ac-acta-canvas-wrap canvas { max-width: none; }` (gana por
+   especificidad, sin tocar el comportamiento de los otros 2 usos
+   compartidos). Probado con una página aislada cargando el `style.css`
+   real: antes del fix el canvas quedaba forzado a 300px (el ancho del
+   wrapper de prueba) aunque su `style.width` real fuera 900px; con el
+   fix, se respeta el `900px` real — el `overflow:auto` del wrapper
+   (ya existía) deja scrollear para ver el resto de la página zoomeada.
+
+**Probado**: `node --check`/`php -l` limpios en los 5 archivos tocados
+(`functions.php`, `descargar_acta_firmada.php`, `seguimiento.js`,
+`registrar.js`, `style.css`), CSS balanceado (869/869). Los 3 puntos
+verificados en el mismo mirror local (`php -S` + sesión real de
+superdesarrollador). **El punto 2 (alerta doble) y el flujo completo de
+zoom dentro de una Previsualización real todavía no se probaron end-to-end
+con un Acuerdo real generado** — el fix de zoom se verificó aislado (la
+regla CSS gana, matemáticamente correcto) pero no dentro del modal real
+con PDF.js corriendo; el fix de alerta doble es un cambio de lógica
+simple y de bajo riesgo, verificado por lectura + sintaxis, no con un
+click real en "Generar PDF" (requeriría completar un Acuerdo real de
+punta a punta). Pendiente que el usuario lo confirme en su celular real.
+
+## Bug real: "Pendientes" de Seguimiento de Equipo perdía Actas con estado inconsistente (2026-09-08)
+
+El usuario reportó, con datos reales: Javier Maldonado mostraba "0
+firmadas · 0 pendientes" en la mini-tarjeta pese a tener "1 Acta" — y al
+abrir el detalle, esa Acta SÍ aparecía, con badge "Pendiente". Después
+confirmó el mismo problema con Carlos Proaño (2 firmadas + 2 pendientes
+reales, la tarjeta mostraba solo 1 pendiente) y que el KPI "Pendientes"
+de arriba del todo también estaba mal (por ser la suma de estos mismos
+conteos).
+
+**Causa real, confirmada con `SELECT` directo**: el Acta `ADN-2026-0001`
+(de Javier) tiene `estado='firmado'` en la base pero
+`acta_firmada_azure_path` vacío — nunca se subió el archivo real de
+firma (dato inconsistente, probablemente de antes de que existiera la
+subida a Azure, o de una prueba vieja). `resumen_seguimiento_equipo()` y
+`listar_actas_equipo_usuario()` calculaban "pendientes" exigiendo
+`estado IN ('generado', 'enviado')` — como el estado real es
+`'firmado'`, esta Acta no calzaba en NINGÚN balde (no es "firmada" de
+verdad porque no hay archivo, no es "pendiente" porque el estado no
+matchea, no es "vencida"): contaba en el `total` pero desaparecía de los
+3 sub-contadores, incluido el KPI de arriba (que es la suma de estos
+mismos números por usuario).
+
+**Corregido en las 3 capas que dependían del mismo criterio estricto**:
+- `resumen_seguimiento_equipo()` (`includes/functions.php`) — `pendientes`
+  y `dias_mas_proxima` pasan de exigir `estado IN ('generado','enviado')`
+  a `estado <> 'vencido'` (ya se excluye "firmada" aparte, por tener
+  archivo real) — cualquier Acta sin firma real y sin vencer cuenta como
+  pendiente, sin importar el texto exacto del `estado`. Como el KPI de
+  arriba y las mini-tarjetas de cada usuario son sumas/lecturas directas
+  de este mismo cálculo, un solo cambio corrige ambos a la vez.
+- `listar_actas_equipo_usuario()` — mismo criterio ampliado para el
+  filtro `tipo=pendientes` (antes exigía el mismo `estado IN (...)`).
+- `badgeParaActa()` (`assets/js/seguimiento.js`) — mismo criterio: ya no
+  exige `estado==='generado'/'enviado'` para mostrar la cuenta regresiva
+  real ("Vence en N días") — antes una Acta así caía siempre en el badge
+  genérico "Pendiente" sin fecha, aunque sí tuviera `dias_restantes` real
+  calculado.
+- **Regla de fondo para no repetir esto**: nunca decidir "¿esto sigue
+  pendiente?" mirando solo el texto del `estado` — depender de si HAY un
+  archivo real (`acta_firmada_azure_path IS NOT NULL`) es la fuente de
+  verdad para "firmada", y de ahí en más, cualquier cosa sin vencer es
+  pendiente. El campo `estado` puede quedar desincronizado con la
+  realidad (edición manual, datos viejos de antes de una migración), el
+  archivo real no.
+
+**Probado con datos reales, solo lectura** (mismo `SELECT` de la función,
+nunca la función completa —corre `barrer_actas_vencidas()`, un
+`UPDATE`—, mismo criterio ya documentado antes en este archivo): antes
+del fix, Carlos Proaño daba 2 firmadas + 1 pendiente (perdía 1 de sus 2
+reales); después del fix, 2 firmadas + 2 pendientes, exacto. Javier
+Maldonado pasó de 0 pendientes a 1. Confirmado también en el navegador
+(mirror local, sesión de `Admin`/superdesarrollador): el KPI "Pendientes"
+de arriba subió de 2 a 3 (2 de Carlos + 1 de Javier), sin cambiar el
+total (sigue en 5). `node --check`/`php -l` limpios.
+
+## Bug real, mismo día — el fix de arriba fue demasiado amplio: metía borradores en "Pendientes" (2026-09-08)
+
+El usuario, filtrando "Pendientes" para Carlos Proaño, vio `#ADN-2026-0006`
+(WANG CHONG LONG) con Fecha en blanco ("—") y un badge "Pendiente" genérico
+sin cuenta de días, distinto a las otras 2 filas reales. Investigado con
+`SELECT` directo: ese registro es un **borrador** (`estado='borrador'`,
+`fecha_generacion` vacía, `id=71`) — nunca se generó de verdad, solo se
+guardó como borrador (mismo flujo de siempre, "Ver y Generar Acta" guarda
+primero como borrador en silencio antes de promoverlo).
+
+**Causa**: el fix del bug de arriba (mismo día, sección anterior) cambió
+la condición de "pendientes" en `listar_actas_equipo_usuario()` de
+`estado IN ('generado','enviado')` a `estado <> 'vencido'` — mucho más
+amplia, pero sin excluir explícitamente `borrador`/`anulado` (a diferencia
+de `resumen_seguimiento_equipo()`, que sí los excluye desde el principio
+en su `WHERE` general) — así que un borrador, que nunca tiene
+`fecha_generacion` real, pasó a colarse en el detalle de "Pendientes" con
+`DATEDIFF` dando `NULL` (de ahí el badge genérico sin días,
+`badgeParaActa()` cae a "Pendiente" cuando `dias_restantes` es `null`).
+
+**Corregido**: `case 'pendientes'` en `listar_actas_equipo_usuario()`
+(`includes/functions.php`) ahora excluye `borrador`/`anulado` explícito:
+`estado NOT IN ('vencido', 'borrador', 'anulado') AND acta_firmada_azure_path
+IS NULL`. `resumen_seguimiento_equipo()` no necesitó cambios — ya los
+excluía desde su `WHERE` general.
+
+**Probado con datos reales, solo lectura** (mismo `SELECT` de la función,
+nunca la función completa): antes del fix, la consulta traía `id=67`
+(`ADN-2026-0002`), `id=68` (`ADN-2026-0003`) Y `id=71` (`ADN-2026-0006`,
+el borrador); después, solo las 2 primeras — exacto lo esperado. `php -l`
+limpio. **Confirmado por el usuario en navegador real** — el detalle
+ahora muestra las 2 filas correctas.
+
+## Mini-tarjeta de Equipo no mostraba el conteo real filtrado, solo el total (2026-09-08, mismo día)
+
+Con el fix de arriba ya andando, el usuario notó otra cosa: la
+mini-tarjeta de Carlos Proaño con el filtro "Pendientes" activo mostraba
+"de 4 Actas en total" + "15 días" — el número real de pendientes (2)
+nunca aparecía ahí, solo el total general y el badge de urgencia (días
+al más próximo a vencer). Causa: `computeFilasBase()`
+(`assets/js/seguimiento.js`) arma `metaLabel` como `'de ' + u.total + '
+Actas en total'` en las 3 ramas de filtro (firmadas/pendientes/vencidas)
+sin incluir el conteo real de esa categoría — el usuario solo podía ver
+ese número expandiendo el acordeón hasta el detalle.
+
+**Corregido, ronda 2 (el usuario pidió simplificar más — "solo pone 2
+pendientes, no pongas 2 pendientes de 4 Actas en total")**: en la rama
+`pendientes`, `metaLabel` es SOLO el conteo real (`'2 pendientes'`), sin
+el contexto de total — coherente con el KPI de arriba, que también
+cuenta solo pendientes reales. Firmadas/Vencidas se dejaron con
+`'de X Actas en total'` (el badge de esas 2 ya trae el conteo explícito
+— "2 Firmadas"/"1 Vencida" — así que agregar el mismo número de nuevo en
+el meta sería redundante; solo Pendientes tenía el hueco real porque su
+badge muestra días, no un conteo).
+
+**Probado**: `node --check` limpio. **Todavía sin confirmar en
+navegador real.**
+
+## Botón "Actualizar" en Seguimiento de Equipo y Cumplimiento de Cuota (2026-09-08)
+
+Pedido explícito: agregar el mismo botón/diseño "Actualizar" que ya tiene
+Historial de Acuerdos (`hist-actualizar`: `ac-btn-outline ac-btn-inline`,
+ícono `refresh`, texto oculto en mobile vía `.ac-btn-text`, spinner
+girando mientras el fetch está en curso vía `acBotonCargando()`) a estos
+2 módulos, que hasta ahora solo se refrescaban solos al cargar o al
+cambiar de filtro/pestaña del sidebar.
+
+- **Seguimiento de Equipo** (`components/seguimiento/seguimiento.php`,
+  `assets/js/seguimiento.js`): nuevo botón `#seg-actualizar` en el header,
+  junto al título (mismo lugar que Historial). Conectado a la función ya
+  existente `cargarResumen()` — solo se le agregó `acBotonCargando(actualizarBtn,
+  true/false)` alrededor del fetch (el overlay `acMostrarCargando()` sobre
+  las tarjetas ya existía desde antes, sin cambios).
+- **Cumplimiento de Cuota** (`components/cumplimiento/cumplimiento.php`,
+  `assets/js/cumplimiento.js`): nuevo botón `#cumpl-actualizar`, agregado
+  en un `.ac-btn-group` junto a "Subir Excel" (mismo `ac-btn-group` que ya
+  usa Historial para agrupar sus botones de header). Conectado a
+  `cargarLista()` (ya existente), mismo patrón de `acBotonCargando()`.
+- **No se tocó** ningún mecanismo de refresco ya existente en los 2
+  módulos (sondeo, refresco al cambiar de módulo vía
+  `window.acSeguimientoRefrescar`/`window.acCumplimientoRefrescar`) — el
+  botón nuevo solo dispara la MISMA función que esos ya llamaban.
+
+**Probado**: `php -l`/`node --check` limpios en los 4 archivos. **Todavía
+sin probar en navegador real.**

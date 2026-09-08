@@ -25,6 +25,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/seguimiento.js') ?: time();
 			<h1 class="ac-page-title">Seguimiento de Equipo</h1>
 			<p class="ac-page-subtitle">Seguimiento de Actas generadas y su estado de firma, por miembro del equipo comercial.</p>
 		</div>
+		<div class="ac-btn-group">
+			<button type="button" class="ac-btn-outline ac-btn-inline" id="seg-actualizar" title="Actualizar">
+				<span class="material-symbols-outlined">refresh</span> <span class="ac-btn-text">Actualizar</span>
+			</button>
+		</div>
 		<div class="ac-seg-periodo">
 			<div class="ac-seg-pill-group" id="seg-trimestre-group">
 				<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-trimestre="0">Todos</button>

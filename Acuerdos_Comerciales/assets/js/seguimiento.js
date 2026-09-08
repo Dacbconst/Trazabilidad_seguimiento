@@ -12,13 +12,13 @@
 	var listaCont       = document.getElementById('seg-equipo-lista');
 	var detalleCard     = document.getElementById('seg-detalle-card');
 	var tarjetas        = raiz.querySelectorAll('.ac-card');
+	var actualizarBtn   = document.getElementById('seg-actualizar');
 
 	var estado = { trimestre: 0, anio: parseInt(anioSelect.value, 10) || 0, filtro: 'todas', busqueda: '', selectedId: null };
 	var equipoActual  = [];
 	var statsActual   = { total: 0, firmadas: 0, pendientes: 0, vencidas: 0 };
 	var ultimoFetchKey = null;
-	// Actas del último detalle cargado con éxito: sin esto, el acordeón mobile quedaba en "Cargando..." para siempre si la lista se re-renderizaba
-	// sin pedir un fetch nuevo (cargarResumen() corre 2 veces al entrar). renderLista() reusa este caché en vez de asumir que hay que esperar un fetch.
+	// Caché del último detalle cargado — sin esto, el acordeón mobile quedaba en "Cargando..." si la lista se re-renderizaba sin fetch nuevo.
 	var ultimoDetalleActas = null;
 
 	// Tokens de request en vuelo: evitan que una respuesta vieja pise a una más nueva (click rápido en A luego B, A responde después que B).
@@ -33,8 +33,7 @@
 		vencidas:   { viendoTexto: 'Vencidas', criterioTexto: 'ordenadas por cantidad de Actas vencidas', ordenTexto: 'Por cantidad de Actas', colEstado: 'Estado', vacioIcono: 'celebration', vacioTexto: 'Nadie tiene Actas vencidas en este período.' }
 	};
 
-	// En mobile el detalle vive inline debajo de la fila tocada (acordeón, no el panel separado #seg-detalle-card oculto por CSS).
-	// Mismo breakpoint (900px) que .ac-seg-grid usa para pasar a 1 columna.
+	// En mobile el detalle vive inline (acordeón), no en el panel separado #seg-detalle-card — mismo breakpoint que .ac-seg-grid.
 	function esMobile() { return window.matchMedia('(max-width: 900px)').matches; }
 
 	function escapeHtml(texto) {
@@ -66,8 +65,9 @@
 	function badgeParaActa(a) {
 		if (a.tiene_firma) return { className: 'ac-badge-ok', text: 'Firmada' };
 		if (a.estado === 'vencido') return { className: 'ac-badge-critico', text: 'Vencida' };
-		var enPlazo = a.estado === 'generado' || a.estado === 'enviado';
-		if (enPlazo && a.dias_restantes !== null && a.dias_restantes !== undefined) {
+		// Antes exigía estado==='generado'/'enviado' — una Acta con estado='firmado' pero sin archivo real (dato inconsistente real, ver
+		// resumen_seguimiento_equipo()) caía siempre acá mostrando "Pendiente" seco en vez de la cuenta regresiva real.
+		if (a.dias_restantes !== null && a.dias_restantes !== undefined) {
 			return badgeParaDias(a.dias_restantes, tierPorDias(a.dias_restantes));
 		}
 		return { className: 'ac-badge-revisar', text: 'Pendiente' };
@@ -109,7 +109,7 @@
 					f.sortKey = tieneDias ? u.dias_mas_proxima : 999999;
 					var b = tieneDias ? badgeParaDias(u.dias_mas_proxima, tierPorDias(u.dias_mas_proxima)) : { className: '', text: 'Sin fecha' };
 					f.badgeClass = b.className; f.badgeText = b.text;
-					f.metaLabel = 'de ' + u.total + ' Actas en total';
+					f.metaLabel = u.pendientes + (u.pendientes === 1 ? ' pendiente' : ' pendientes');
 				}
 			} else if (filtro === 'vencidas') {
 				f.incluir = u.vencidas > 0;
@@ -184,8 +184,7 @@
 				badgeHtml(f.badgeClass, f.badgeText) +
 				'<span class="material-symbols-outlined ac-seg-fila-chevron">expand_more</span>' +
 				'</div>';
-			// Solo el asesor seleccionado, y solo en mobile, lleva el acordeón ya en el HTML inicial. Si está cacheado se pinta directo,
-			// si no "Cargando..." hasta que refrescarListaYDetalle() dispare el fetch.
+			// Solo el asesor seleccionado, y solo en mobile, lleva el acordeón ya en el HTML inicial (cacheado, o "Cargando...").
 			if (mobile && f.id === estado.selectedId) {
 				filaHtml += (ultimoFetchKey === claveDetalle(f.id) && ultimoDetalleActas)
 					? '<div class="ac-seg-fila-detalle-inline" id="' + ID_DETALLE_INLINE + '">' + contenidoAcordeonHtml(ultimoDetalleActas) + '</div>'
@@ -235,8 +234,15 @@
 		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el detalle.</p></div>';
 	}
 
-	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile) ----------
-	// Compartido por los 2: el contenido de las Actas es idéntico, solo cambia dónde se inserta.
+	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile), mismo contenido ----------
+	// Link a la Acta firmada, mismo criterio visual que el link del Documento (#ac-seg-doc/-link) — la fecha es el texto del link.
+	// descargar_acta_firmada.php ya sirve el archivo con Content-Disposition:inline, así que target="_blank" lo MUESTRA, no lo descarga.
+	function firmadaCeldaHtml(a) {
+		if (!a.tiene_firma) return '<span class="ac-text-center ac-field-hint">—</span>';
+		var fecha = a.acta_firmada_subido_en ? formatearFecha(a.acta_firmada_subido_en.split(' ')[0]) : '—';
+		return '<span class="ac-text-center"><a class="ac-seg-doc ac-seg-doc-link" href="getters/descargar_acta_firmada.php?id=' + encodeURIComponent(a.id) + '" target="_blank" title="Ver Acta Firmada">' + escapeHtml(fecha) + '</a></span>';
+	}
+
 	function filasActasHtml(actas) {
 		return actas.length
 			? actas.map(function (a) {
@@ -247,9 +253,15 @@
 					'<span>' + escapeHtml(a.pos_name || '—') + '</span>' +
 					'<span class="ac-text-right ac-tabular">' + escapeHtml(formatearFecha(a.fecha_generacion)) + '</span>' +
 					'<span class="ac-text-center">' + badgeHtml(b.className, b.text) + '</span>' +
+					firmadaCeldaHtml(a) +
 					'</div>';
 			}).join('')
 			: '<div class="ac-table-empty">Sin Actas para este filtro.</div>';
+	}
+
+	// Encabezado compartido por el panel de desktop y el acordeón mobile — 5ta columna "Firmada" (fecha, o "—" si no tiene).
+	function theadActasHtml(v) {
+		return '<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span><span class="ac-text-center">Firmada</span></div>';
 	}
 
 	function renderDetalle(filaUsuario, actas) {
@@ -260,15 +272,14 @@
 			'<div><span class="ac-seg-eyebrow">' + escapeHtml(v.viendoTexto) + '</span><h2>' + escapeHtml(filaUsuario.nombre) + '</h2></div>' +
 			'<div class="ac-seg-detalle-stat"><span class="ac-seg-detalle-stat-num">' + actas.length + '</span><span class="ac-seg-detalle-stat-label">en esta vista</span></div>' +
 			'</div>' +
-			'<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
+			theadActasHtml(v) +
 			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
 	}
 
 	// Sin la cabecera de avatar/nombre (redundante con la fila del acordeón justo arriba), solo el thead + las Actas.
 	function contenidoAcordeonHtml(actas) {
 		var v = VISTAS[estado.filtro];
-		return '<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
-			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
+		return theadActasHtml(v) + '<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
 	}
 
 	function renderDetalleInline(actas) {
@@ -350,6 +361,8 @@
 
 	function cargarResumen() {
 		var miReqId = ++resumenReqId;
+		// Mismo feedback de "Actualizar" que Historial: ícono gira + overlay sobre las tarjetas mientras el fetch está en curso.
+		acBotonCargando(actualizarBtn, true);
 		Array.prototype.forEach.call(tarjetas, function (c) { acMostrarCargando(c); });
 		var url = 'getters/seguimiento_resumen.php?trimestre=' + estado.trimestre + '&anio=' + estado.anio;
 		fetch(url)
@@ -369,6 +382,7 @@
 			})
 			.finally(function () {
 				if (miReqId !== resumenReqId) return;
+				acBotonCargando(actualizarBtn, false);
 				Array.prototype.forEach.call(tarjetas, function (c) { acOcultarCargando(c); });
 			});
 	}
@@ -406,6 +420,9 @@
 		estado.busqueda = buscarInput.value;
 		refrescarListaYDetalle();
 	});
+
+	// ---------- Botón "Actualizar" (mismo diseño/comportamiento que hist-actualizar) ----------
+	actualizarBtn.addEventListener('click', cargarResumen);
 
 	cargarResumen();
 

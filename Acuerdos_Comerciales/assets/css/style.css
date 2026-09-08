@@ -1213,6 +1213,99 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 #ac-purchase-container, #ac-cabeceras-container, #ac-perchas-container { padding: var(--space-lg); }
 .ac-acuerdo-percha-hint { padding: 0 var(--space-lg) var(--space-lg); margin: 0; }
 
+/* Solo ícono en desktop, texto visible en mobile — mismo criterio que .ac-repo-editar/.ac-repo-eliminar de Repositorios. */
+.ac-remove-row .ac-btn-text { display: none; }
+
+/* Registrar: tarjetas en mobile (2026-09-07) — evita que el dedo aterrice sobre un combo sticky al arrastrar la tabla, ver CLAUDE.md. */
+@media (max-width: 700px) {
+	/* Sin sentido con una sola columna por fila. */
+	.ac-sticky-col, .ac-sticky-col-2, .ac-sticky-col-3, .ac-sticky-col-4 {
+		position: static; left: auto; width: auto; min-width: 0; max-width: none;
+	}
+	/* Ya no hay scroll horizontal, se saca también su sombra de "hay más columnas". */
+	#ac-purchase-container, #ac-cabeceras-container, #ac-rumas-container, #ac-perchas-container {
+		overflow-x: visible;
+		background: none;
+	}
+	#ac-purchase-table, #ac-cabeceras-table, #ac-rumas-table, #ac-perchas-table {
+		min-width: 0; width: 100%; table-layout: fixed;
+	}
+	#ac-purchase-table thead, #ac-cabeceras-table thead, #ac-rumas-table thead, #ac-perchas-table thead,
+	#ac-purchase-table tfoot { display: none; }
+	#ac-purchase-table tbody, #ac-cabeceras-table tbody, #ac-rumas-table tbody, #ac-perchas-table tbody {
+		display: flex; flex-direction: column; gap: var(--space-sm);
+	}
+	#ac-purchase-table tr, #ac-cabeceras-table tr, #ac-rumas-table tr, #ac-perchas-table tr {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 10px 8px;
+		background: var(--color-surface-container-lowest);
+		border: 1px solid var(--color-outline-variant);
+		border-radius: var(--radius-lg);
+		padding: var(--space-md);
+	}
+	#ac-purchase-table td, #ac-cabeceras-table td, #ac-rumas-table td, #ac-perchas-table td {
+		display: block; padding: 0; border: none; text-align: left; min-width: 0;
+	}
+	#ac-purchase-table td > *, #ac-cabeceras-table td > *, #ac-rumas-table td > *, #ac-perchas-table td > * { width: 100%; }
+	/* Etiqueta chica arriba de cada campo — mismo criterio ya usado en las tarjetas de Historial/Repositorios. */
+	#ac-purchase-table td[data-label]::before, #ac-cabeceras-table td[data-label]::before,
+	#ac-rumas-table td[data-label]::before, #ac-perchas-table td[data-label]::before {
+		content: attr(data-label);
+		display: block;
+		font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+		color: var(--color-on-surface-variant);
+		margin-bottom: 4px;
+	}
+
+	/* Campos de identidad (combos) a ancho completo, en las 4 tablas. */
+	#ac-purchase-table td[data-key="segmento"], #ac-purchase-table td[data-key="sector"],
+	#ac-purchase-table td[data-key="categoria"], #ac-purchase-table td[data-key="marca"],
+	#ac-purchase-table td[data-key="estimado"],
+	#ac-cabeceras-table td[data-key="segmento"], #ac-cabeceras-table td[data-key="categoria"],
+	#ac-cabeceras-table td[data-key="marca"], #ac-cabeceras-table td[data-key="total"],
+	#ac-rumas-table td[data-key="segmento"], #ac-rumas-table td[data-key="categoria"],
+	#ac-rumas-table td[data-key="marca"], #ac-rumas-table td[data-key="total"],
+	#ac-perchas-table td[data-key="marca"], #ac-perchas-table td[data-key="total"] {
+		grid-column: 1 / -1;
+	}
+
+	/* Meta de Compras: Total Período (2/3) + Rebate % (1/3) en la misma fila. */
+	#ac-purchase-table td[data-key="total"] { grid-column: 1 / 3; }
+	#ac-purchase-table td[data-key="rebate"] { grid-column: 3 / 4; }
+
+	/* Filas explícitas: sin esto "Ene" se colaba en el hueco que deja Participación+Cantidad (bug real, ver CLAUDE.md). */
+	#ac-perchas-table td[data-key="marca"] { grid-row: 1; }
+	#ac-perchas-table td[data-key="participacion"] { grid-row: 2; grid-column: 1; }
+	#ac-perchas-table td[data-key="cantidad"] { grid-row: 2; grid-column: 2; }
+	#ac-perchas-table td[data-key="mes"] { grid-row: 3; }
+	#ac-perchas-table td[data-key="total"] { grid-row: 4; }
+	#ac-perchas-table td[data-key="acciones"] { grid-row: 5; }
+
+	/* Siempre exactamente 3 meses (un trimestre) — grid-column:auto reparte uno por columna. */
+	#ac-purchase-table td[data-key="mes"], #ac-cabeceras-table td[data-key="mes"],
+	#ac-rumas-table td[data-key="mes"] {
+		grid-column: auto;
+	}
+
+	/* Acciones: "Eliminar Fila" de ancho completo con su nombre visible (antes solo ícono, apretado en la esquina). */
+	#ac-purchase-table td[data-key="acciones"], #ac-cabeceras-table td[data-key="acciones"],
+	#ac-rumas-table td[data-key="acciones"], #ac-perchas-table td[data-key="acciones"] {
+		grid-column: 1 / -1;
+		padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-outline-variant);
+	}
+	#ac-purchase-table .ac-remove-row, #ac-cabeceras-table .ac-remove-row,
+	#ac-rumas-table .ac-remove-row, #ac-perchas-table .ac-remove-row {
+		width: 100%; height: 40px;
+		border: 1px solid var(--color-error); border-radius: var(--radius);
+		gap: var(--space-xs);
+		font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--color-error);
+	}
+	#ac-purchase-table .ac-remove-row .ac-btn-text, #ac-cabeceras-table .ac-remove-row .ac-btn-text,
+	#ac-rumas-table .ac-remove-row .ac-btn-text, #ac-perchas-table .ac-remove-row .ac-btn-text { display: inline; }
+}
+
 /* Picker de meses removido: el período es un <select> de trimestres Q1-Q4, usa .ac-select como cualquier combo. */
 .ac-link-btn { background: none; border: none; color: var(--color-primary); font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
 .ac-link-btn:hover { text-decoration: underline; }
@@ -1542,6 +1635,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 /* Canvas del PDF renderizado con PDF.js en móvil: scroll propio si la página renderizada queda más alta que el panel. */
 .ac-firma-canvas-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: #525659; display: flex; flex-direction: column; align-items: center; }
 .ac-firma-canvas-wrap canvas { max-width: 100%; height: auto; margin: auto; display: block; }
+/* La Previsualización de Registrar sí tiene botones de zoom real — max-width:100% de arriba topeaba el canvas al ancho del panel, el zoom no se veía pasado el 100%. */
+#ac-acta-canvas-wrap canvas { max-width: none; }
 .ac-firma-canvas-estado { color: #dcdcdc; font-size: 13px; text-align: center; padding: var(--space-xl); }
 .ac-firma-modal-footer {
 	display: flex; align-items: center; gap: var(--space-md);
@@ -1794,8 +1889,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	#repo-tabla-body .ac-row-actions .ac-icon-btn-danger { border-color: var(--color-error); }
 	#repo-tabla-body .ac-btn-text { display: inline; }
 
-	/* Cuotas Trimestrales: tarjeta con jerarquía real, no pares etiqueta:valor — Cuotas tiene 10 columnas y el Cliente se perdía entre las demás.
-	   Selector con 2 IDs (la clase la pone activarTab() en repositorios.js) le gana en especificidad a la regla genérica sin !important. */
+	/* Tarjeta con jerarquía real (Cliente destacado) — 2 IDs le ganan en especificidad a la regla genérica sin !important. */
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body tr {
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		row-gap: 6px;
@@ -1863,8 +1957,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	min-width: 480px;
 	max-width: min(1300px, 95vw);
 }
-/* min-width:480px le gana a max-width:95vw bajo ~505px: el modal quedaba más ancho que el viewport, cortando botones y forzando scroll horizontal.
-   En ese rango se saca el mínimo fijo; la tabla de previsualización sigue siendo la única que scrollea horizontal. */
+/* min-width:480px le ganaba a max-width:95vw bajo ~505px, desbordando el modal — acá se saca el mínimo fijo. */
 @media (max-width: 520px) {
 	.ac-repo-subir-modal.ac-repo-subir-modal-ancho { min-width: 0; width: 95vw; }
 }
@@ -2019,6 +2112,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 .ac-seg-detalle-thead > span:nth-child(2), .ac-seg-detalle-fila > span:nth-child(2) { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { flex: 1; }
 .ac-seg-detalle-thead > span:nth-child(4), .ac-seg-detalle-fila > span:nth-child(4) { width: 130px; }
+.ac-seg-detalle-thead > span:nth-child(5), .ac-seg-detalle-fila > span:nth-child(5) { width: 100px; }
 .ac-seg-doc { font-weight: 700; color: var(--color-primary); }
 /* <a> real que descarga el PDF, mismo criterio visual que .ac-link-id: sin subrayado en reposo, subrayado solo al hover. */
 .ac-seg-doc-link { text-decoration: none; cursor: pointer; }

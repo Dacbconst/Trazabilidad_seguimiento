@@ -1379,13 +1379,17 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 
 	$vacio = ['stats' => ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'vencidas' => 0], 'equipo' => []];
 
+		// Pendientes: cualquier Acta sin firma real y sin vencer todavía — antes exigía estado IN ('generado','enviado'), pero una Acta con
+		// estado='firmado' sin archivo de firma real subido (dato inconsistente, ej. de antes de la subida a Azure) no calzaba con ningún balde
+		// y "desaparecía" de los 3 contadores aunque sí sumara al total (bug real reportado por el usuario). Nunca depender solo del texto del
+		// estado para decidir "esto sigue pendiente" — depender de si HAY un archivo real es la fuente de verdad.
 	$stmt = $mysqli->prepare(
 		"SELECT u.id AS usuario_id, u.usuario AS nombre,
 		        COUNT(*) AS total,
 		        COUNT(CASE WHEN a.acta_firmada_azure_path IS NOT NULL THEN 1 END) AS firmadas,
-		        COUNT(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado IN ('generado', 'enviado') THEN 1 END) AS pendientes,
+		        COUNT(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado <> 'vencido' THEN 1 END) AS pendientes,
 		        COUNT(CASE WHEN a.estado = 'vencido' THEN 1 END) AS vencidas,
-		        MIN(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado IN ('generado', 'enviado')
+		        MIN(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado <> 'vencido'
 		                 THEN DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) END) AS dias_mas_proxima
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
@@ -1438,7 +1442,10 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 
 	switch ($tipo) {
 		case 'firmadas':   $condicionEstado = "a.acta_firmada_azure_path IS NOT NULL"; $orden = 'a.fecha_generacion DESC'; break;
-		case 'pendientes': $condicionEstado = "a.estado IN ('generado', 'enviado') AND a.acta_firmada_azure_path IS NULL"; $orden = 'dias_restantes ASC'; break;
+		// Mismo criterio ampliado que resumen_seguimiento_equipo(): sin firma real y sin vencer, sin importar el texto exacto del estado.
+		// Excluye borrador/anulado explícito — un borrador nunca se generó de verdad (fecha_generacion vacía), no es un "pendiente" real
+		// (bug real reportado: ADN-2026-0006, estado='borrador', aparecía acá con Fecha en blanco y sin cuenta de días).
+		case 'pendientes': $condicionEstado = "a.estado NOT IN ('vencido', 'borrador', 'anulado') AND a.acta_firmada_azure_path IS NULL"; $orden = 'dias_restantes ASC'; break;
 		case 'vencidas':   $condicionEstado = "a.estado = 'vencido'"; $orden = 'a.fecha_generacion DESC'; break;
 		default:           $condicionEstado = "a.estado NOT IN ('borrador', 'anulado')"; $orden = 'a.fecha_generacion DESC';
 	}
@@ -1448,6 +1455,7 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
+		        a.acta_firmada_subido_en,
 		        d.pos_name,
 		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a

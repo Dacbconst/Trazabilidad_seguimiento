@@ -34,7 +34,9 @@ $stmt->execute();
 $fila = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if (!$fila || (int) $fila['creado_por'] !== (int) $usuarioId) {
+// El superdesarrollador puede ver la firma de cualquier Acta desde Seguimiento de Equipo — mismo criterio ya usado en generar_acta_pdf.php.
+$puedeVerCualquiera = ($_SESSION['rol'] ?? '') === 'superdesarrollador';
+if (!$fila || (!$puedeVerCualquiera && (int) $fila['creado_por'] !== (int) $usuarioId)) {
 	http_response_code(404);
 	echo 'Acuerdo no encontrado.';
 	exit;

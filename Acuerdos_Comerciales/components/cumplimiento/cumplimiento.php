@@ -12,35 +12,34 @@ $aniosDisponibles = listar_anios_disponibles_cumplimiento($mysqli);
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 ?>
-<!-- Cumplimiento de Cuota (2026-08-30) — mismo patrón que Seguimiento de
-     Equipo: esta página solo arma el shell (header, filtros, contenedores
-     vacíos); todo el contenido con datos lo llena assets/js/cumplimiento.js
-     al cargar, vía fetch a getters/cumplimiento_listar.php. -->
+<!-- Cumplimiento de Cuota. -->
 <div class="ac-cumpl" id="ac-cumpl">
 	<div class="ac-users-header ac-hist-header">
 		<div>
 			<h1 class="ac-page-title">Cumplimiento de Cuota</h1>
-			<p class="ac-page-subtitle">Resultado real por asesor, cliente y categoría — leído directo del Excel que Jabonería Wilson devuelve con la venta ya cargada.</p>
+			<p class="ac-page-subtitle">Resultado real por asesor, cliente y categoría .</p>
 		</div>
-		<!-- "Subir Excel" ahora deja elegir el formato (2026-08-31, mismo
-		     mecanismo que "Descargar Excel" en Historial — .ac-repo-exportar,
-		     cero CSS/animación nueva). Con la pastilla de Vista en Directo o
-		     Distribuidor, el botón salta el picker (ver cumplimiento.js). -->
-		<div class="ac-repo-exportar" id="cumpl-subir-wrap">
-			<button type="button" class="ac-btn-primary ac-btn-inline ac-repo-exportar-btn" id="cumpl-subir-btn">
-				<span class="material-symbols-outlined">upload_file</span>
-				Subir Excel
+		<!-- "Actualizar" + "Subir Excel" — mismo diseño/orden que Historial de Acuerdos. -->
+		<div class="ac-btn-group">
+			<button type="button" class="ac-btn-outline ac-btn-inline" id="cumpl-actualizar" title="Actualizar">
+				<span class="material-symbols-outlined">refresh</span> <span class="ac-btn-text">Actualizar</span>
 			</button>
-			<div class="ac-repo-exportar-opciones-outer">
-				<div class="ac-repo-exportar-opciones">
-					<button type="button" class="ac-repo-exportar-opcion" id="cumpl-subir-directo">
-						<span class="material-symbols-outlined">store</span>
-						Directo
-					</button>
-					<button type="button" class="ac-repo-exportar-opcion" id="cumpl-subir-distribuidor">
-						<span class="material-symbols-outlined">local_shipping</span>
-						Distribuidor
-					</button>
+			<div class="ac-repo-exportar" id="cumpl-subir-wrap">
+				<button type="button" class="ac-btn-primary ac-btn-inline ac-repo-exportar-btn" id="cumpl-subir-btn">
+					<span class="material-symbols-outlined">upload_file</span>
+					Subir Excel
+				</button>
+				<div class="ac-repo-exportar-opciones-outer">
+					<div class="ac-repo-exportar-opciones">
+						<button type="button" class="ac-repo-exportar-opcion" id="cumpl-subir-directo">
+							<span class="material-symbols-outlined">store</span>
+							Directo
+						</button>
+						<button type="button" class="ac-repo-exportar-opcion" id="cumpl-subir-distribuidor">
+							<span class="material-symbols-outlined">local_shipping</span>
+							Distribuidor
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -49,11 +48,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 	<!-- Vista por canal (2026-08-31) — misma pastilla que ya usa Historial de
 	     Acuerdos, mismo criterio: filtra la lista Y decide qué formato de
 	     Excel acepta "Subir Excel" (ver cumplimiento.js).
-	     Clase .ac-cumpl-vista-row (2026-09-07): en mobile esta fila se oculta
-	     junto con #cumpl-periodo-wrap detrás del botón "Filtros" de abajo —
-	     ver bloque "Cumplimiento: filtros colapsables en mobile" en
-	     style.css. En desktop no cambia nada (la clase no tiene ninguna
-	     regla fuera de ese media query). -->
+	     .ac-cumpl-vista-row: en mobile se oculta detrás del botón "Filtros" (ver style.css), en desktop no cambia nada. -->
 	<div class="ac-seg-periodo ac-cumpl-vista-row" style="margin-bottom: var(--space-sm);">
 		<span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--color-on-surface-variant);">Vista</span>
 		<div class="ac-seg-pill-group" id="cumpl-canal-group">

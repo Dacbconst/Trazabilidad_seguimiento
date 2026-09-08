@@ -631,20 +631,22 @@
 	// ---------- Meta de Compras ----------
 	function addPurchaseRow() {
 		var tr = document.createElement('tr');
+		// data-key/data-label: solo para la tarjeta mobile (ver style.css), no tocan la lógica.
 		var html =
-			'<td class="ac-sticky-col">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('sector', 'Categoría...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('cat', 'Subcategoría...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-4">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
-		activeMonthsIndices.forEach(function () {
-			html += '<td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input month-input" value="0"></div></td>';
+			'<td class="ac-sticky-col" data-key="segmento" data-label="Segmento">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-2" data-key="sector" data-label="Categoría">' + comboCellHtml('sector', 'Categoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-3" data-key="categoria" data-label="Subcategoría">' + comboCellHtml('cat', 'Subcategoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-4" data-key="marca" data-label="Marca">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
+		activeMonthsIndices.forEach(function (mIdx) {
+			var etiquetaMes = allMonthsShort[mIdx] + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)');
+			html += '<td class="ac-text-right" data-key="mes" data-label="' + etiquetaMes + '"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input month-input" value="0"></div></td>';
 		});
 		html +=
-			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell">$0.00</td>' +
+			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell" data-key="total" data-label="Total Período">$0.00</td>' +
 			// Rebate % conectado al repositorio (ver buscarYAplicarRebate): arranca readonly/0 porque la fila todavía no tiene la cascada completa.
-			'<td class="ac-text-right ac-col-highlight"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-rebate-input" value="0" readonly></td>' +
-			'<td class="ac-text-right ac-col-highlight ac-tabular est-cell">$0.00</td>' +
-			'<td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
+			'<td class="ac-text-right ac-col-highlight" data-key="rebate" data-label="Rebate %"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-rebate-input" value="0" readonly></td>' +
+			'<td class="ac-text-right ac-col-highlight ac-tabular est-cell" data-key="estimado" data-label="Valor Estimado a Ganar">$0.00</td>' +
+			'<td class="ac-text-center" data-key="acciones"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar Fila</span></button></td>';
 		tr.innerHTML = html;
 		purchaseBody.appendChild(tr);
 
@@ -693,13 +695,13 @@
 	function addCabeceraRow() {
 		var tr = document.createElement('tr');
 		var html =
-			'<td class="ac-sticky-col">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
-		activeMonthsIndices.forEach(function () {
-			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
+			'<td class="ac-sticky-col" data-key="segmento" data-label="Segmento">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-2" data-key="categoria" data-label="Categoría">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-3" data-key="marca" data-label="Marca">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
+		activeMonthsIndices.forEach(function (mIdx) {
+			html += '<td data-key="mes" data-label="' + allMonthsShort[mIdx] + '"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
 		});
-		html += '<td class="ac-tabular v-tot">$0.00</td><td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
+		html += '<td class="ac-tabular v-tot" data-key="total" data-label="Pago Total">$0.00</td><td class="ac-text-center" data-key="acciones"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar Fila</span></button></td>';
 		tr.innerHTML = html;
 		cabecerasBody.appendChild(tr);
 		tr._combo = bindCascadaCombo(tr);
@@ -712,13 +714,13 @@
 	function addRumaRow() {
 		var tr = document.createElement('tr');
 		var html =
-			'<td class="ac-sticky-col">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-2">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
-			'<td class="ac-sticky-col ac-sticky-col-3">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
-		activeMonthsIndices.forEach(function () {
-			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val-repetido" value="0" readonly tabindex="-1"></div></td>';
+			'<td class="ac-sticky-col" data-key="segmento" data-label="Segmento">' + comboCellHtml('seg', 'Segmento...', false) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-2" data-key="categoria" data-label="Categoría">' + comboCellHtml('cat', 'Categoría...', true) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-3" data-key="marca" data-label="Marca">' + comboCellHtml('marca', 'Marca...', true) + '</td>';
+		activeMonthsIndices.forEach(function (mIdx) {
+			html += '<td data-key="mes" data-label="' + allMonthsShort[mIdx] + '"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val-repetido" value="0" readonly tabindex="-1"></div></td>';
 		});
-		html += '<td class="ac-tabular v-tot">$0.00</td><td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
+		html += '<td class="ac-tabular v-tot" data-key="total" data-label="Pago Total">$0.00</td><td class="ac-text-center" data-key="acciones"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar Fila</span></button></td>';
 		tr.innerHTML = html;
 		rumasBody.appendChild(tr);
 		tr._combo = bindCascadaCombo(tr, function () { updateRumaLegend(); });
@@ -761,14 +763,15 @@
 	function addPerchaRow() {
 		var tr = document.createElement('tr');
 		var html =
-			'<td class="ac-sticky-col">' + comboCellHtml('marca', 'Marca...', false) + '</td>' +
+			'<td class="ac-sticky-col" data-key="marca" data-label="Marca Perchas">' + comboCellHtml('marca', 'Marca...', false) + '</td>' +
 			// Participación conectada al repositorio (ver buscarYAplicarParticipacion): arranca readonly/0%, mismo patrón que el Rebate % de Meta de Compras.
-			'<td><input type="text" class="ac-input ac-mini-input v-participacion" value="0%" readonly></td>' +
-			'<td><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
-		activeMonthsIndices.forEach(function () {
-			html += '<td><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
+			'<td data-key="participacion" data-label="Participación"><input type="text" class="ac-input ac-mini-input v-participacion" value="0%" readonly></td>' +
+			'<td data-key="cantidad" data-label="Max Percha"><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
+		activeMonthsIndices.forEach(function (mIdx) {
+			var etiquetaMes = allMonthsShort[mIdx] + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)');
+			html += '<td data-key="mes" data-label="' + etiquetaMes + '"><div class="ac-money-field"><input type="number" step="0.01" class="ac-input ac-mini-input v-val" value="0"></div></td>';
 		});
-		html += '<td class="ac-tabular v-tot">$0.00</td><td class="ac-text-center"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span></button></td>';
+		html += '<td class="ac-tabular v-tot" data-key="total" data-label="Pago Total">$0.00</td><td class="ac-text-center" data-key="acciones"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar Fila</span></button></td>';
 		tr.innerHTML = html;
 		perchasBody.appendChild(tr);
 		tr._comboMarca = bindMarcaPerchaCombo(tr);
@@ -984,16 +987,16 @@
 					});
 					return;
 				}
-				mostrarMensaje(data.message, data.ok);
-				if (data.ok) {
-					acuerdoId = data.acuerdo_id;
-					documentoNo = data.documento_no;
-					formSucio = false;
-					// Solo tiene sentido limpiar `origenPrecarga` cuando el guardado que se consolida es el final ('generado'), nunca en un
-					// "Guardar Borrador" intermedio: si no, guardar_acuerdo.php nunca marcaba esas filas como 'usada' (bug real confirmado).
-					if (estado === 'generado') origenPrecarga = null;
-					if (onOk) onOk();
-				}
+				if (!data.ok) { mostrarMensaje(data.message, false); return; }
+				acuerdoId = data.acuerdo_id;
+				documentoNo = data.documento_no;
+				formSucio = false;
+				// Solo tiene sentido limpiar `origenPrecarga` cuando el guardado que se consolida es el final ('generado'), nunca en un
+				// "Guardar Borrador" intermedio: si no, guardar_acuerdo.php nunca marcaba esas filas como 'usada' (bug real confirmado).
+				if (estado === 'generado') origenPrecarga = null;
+				// Con onOk, el llamador muestra su propio mensaje de éxito (más específico, ej. "PDF generado") — mostrar acá también el genérico
+				// del backend duplicaba la alerta (bug real reportado). Sin onOk (Guardar Borrador), el genérico sigue siendo la única confirmación.
+				if (onOk) onOk(); else mostrarMensaje(data.message, true);
 			})
 			.catch(function () { mostrarMensaje('Error de conexión. Intenta nuevamente.', false); })
 			.finally(function () {
