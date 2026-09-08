@@ -90,29 +90,43 @@ function repositorio_parsear_rebate($rutaArchivo) {
 
 // Excel de Cuotas trimestrales por cliente: CEDI, CLIENTE, PLAN, CATEGORIAS (=nuestro `sector`), CONCAT (ignorado), 3 meses con montos independientes.
 // Devuelve mes1/mes2/mes3 (posición en el trimestre); el pos_id se resuelve después en cuotas_guardar.php, este parser no recibe $mysqli.
+// Soporta 2 layouts reales, igual que repositorio_parsear_cumplimiento_cuota(): Directo (CEDI/CLIENTE/CATEGORIAS) y Distribuidor
+// (DISTRIBUIDOR/CIUDAD/NOMBRE/CATEGORIA, mismas columnas que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() para el
+// Excel real de Liquidación/Cumplimiento de Distribuidor — reusado acá porque JW no tiene un archivo aparte de "cuotas futuras" para
+// ese canal, el usuario confirmó reusar el mismo formato). A diferencia de Cumplimiento (2 hojas con NOMBRE fijo dentro del mismo
+// workbook), acá es 1 sola hoja — la diferenciación es por qué columnas trae esa hoja, no por nombre de pestaña.
 function repositorio_parsear_cuotas($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
 	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
 	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
 
-	$enc = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS']);
-	if (!$enc) return ['error' => 'No se encontraron las columnas CEDI, CLIENTE y CATEGORIAS en el archivo.'];
+	$encDirecto = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS']);
+	if ($encDirecto) return repositorio_parsear_cuotas_directo($filas, $encDirecto);
 
-	$colesMes = xlsx_detectar_columnas_mes($filas[$enc['fila']]);
+	$encDistribuidor = xlsx_encontrar_encabezado($filas, ['CIUDAD', 'NOMBRE', 'CATEGORIA']);
+	if ($encDistribuidor) return repositorio_parsear_cuotas_distribuidor($filas, $encDistribuidor);
+
+	return ['error' => 'No se encontraron las columnas esperadas: CEDI, CLIENTE y CATEGORIAS (canal Directo), o DISTRIBUIDOR, CIUDAD, NOMBRE y CATEGORIA (canal Distribuidor).'];
+}
+
+// Detecta el trimestre a partir de las 3 columnas de mes del encabezado — igual para los 2 canales, factorizado acá.
+function repositorio_cuotas_detectar_trimestre($filaEncabezado) {
+	$colesMes = xlsx_detectar_columnas_mes($filaEncabezado);
 	if (!$colesMes) return ['error' => 'No se encontró ninguna columna de mes (ej. ABRIL, MAYO, JUNIO) en el archivo.'];
-
-	// El trimestre se infiere de los 3 meses del encabezado — deben formar exactamente uno de los 4 trimestres fijos, si no se avisa en vez de adivinar.
 	$mesesDetectados = array_map(function ($d) { return $d['mes']; }, $colesMes);
 	sort($mesesDetectados);
 	$trimestres = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]];
-	$trimestre = null;
 	foreach ($trimestres as $idx => $meses) {
-		if ($mesesDetectados === $meses) { $trimestre = $idx + 1; break; }
+		if ($mesesDetectados === $meses) return ['colesMes' => $colesMes, 'trimestre' => $idx + 1];
 	}
-	if ($trimestre === null) {
-		return ['error' => 'Las columnas de mes encontradas no forman un trimestre completo (Ene-Mar, Abr-Jun, Jul-Sep u Oct-Dic).'];
-	}
+	return ['error' => 'Las columnas de mes encontradas no forman un trimestre completo (Ene-Mar, Abr-Jun, Jul-Sep u Oct-Dic).'];
+}
+
+function repositorio_parsear_cuotas_directo($filas, $enc) {
+	$det = repositorio_cuotas_detectar_trimestre($filas[$enc['fila']]);
+	if (isset($det['error'])) return ['error' => $det['error']];
+	$colesMes = $det['colesMes']; $trimestre = $det['trimestre'];
 
 	$m = $enc['mapa'];
 	$colCedi = xlsx_col($m, 'CEDI');
@@ -124,7 +138,6 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 	$colMarca = xlsx_col($m, 'MARCA');
 
 	$resultado = [];
-	$avisos = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
 		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
@@ -157,7 +170,59 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 		];
 	}
 	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
-	return ['filas' => $resultado, 'avisos' => $avisos, 'trimestre' => $trimestre];
+	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'directo'];
+}
+
+// Canal Distribuidor — mismas columnas reales que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() (DISTRIBUIDOR/CIUDAD/
+// NOMBRE/CATEGORIA). NOMBRE->cliente_excel, CIUDAD->cedi_excel (mismo campo que Directo, ahí SÍ es geográfico, no un nombre de asesor
+// — ver resolverPosIdCliente(), el desempate por canal usa un criterio distinto para cada uno), DISTRIBUIDOR (empresa)->plan (mismo
+// campo que Directo usa para PLAN, mismo criterio ya usado en Cumplimiento de Cuota).
+function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
+	$det = repositorio_cuotas_detectar_trimestre($filas[$enc['fila']]);
+	if (isset($det['error'])) return ['error' => $det['error']];
+	$colesMes = $det['colesMes']; $trimestre = $det['trimestre'];
+
+	$m = $enc['mapa'];
+	$colDistribuidor = xlsx_col($m, 'DISTRIBUIDOR');
+	$colCiudad = xlsx_col($m, 'CIUDAD');
+	$colNombre = xlsx_col($m, 'NOMBRE');
+	$colCategoria = xlsx_col($m, 'CATEGORIA');
+	$colSubcategoria = xlsx_col($m, 'SUBCATEGORIA');
+	$colMarca = xlsx_col($m, 'MARCA');
+
+	$resultado = [];
+	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
+		$fila = $filas[$i];
+		$cliente = repositorio_normalizar_texto($fila[$colNombre] ?? '');
+		$sector  = repositorio_normalizar_texto($fila[$colCategoria] ?? '');
+		if ($cliente === '' && $sector === '') continue;
+		if ($sector === 'OTRAS CATEGORIAS') continue;
+
+		$ciudad = $colCiudad !== null ? repositorio_normalizar_texto($fila[$colCiudad] ?? '') : '';
+		$distribuidor = $colDistribuidor !== null ? repositorio_normalizar_texto($fila[$colDistribuidor] ?? '') : '';
+		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
+		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
+
+		$valores = [];
+		foreach ($colesMes as $d) {
+			$crudo = $fila[$d['col']] ?? 0;
+			$valores[] = round(is_numeric($crudo) ? (float) $crudo : (float) str_replace(['$', ',', ' '], '', (string) $crudo), 2);
+		}
+
+		$resultado[] = [
+			'cliente_excel' => $cliente,
+			'cedi_excel'    => $ciudad,
+			'plan'          => $distribuidor,
+			'sector'        => $sector,
+			'subcategoria'  => $subcategoria,
+			'marca'         => $marca,
+			'mes1'          => $valores[0] ?? 0,
+			'mes2'          => $valores[1] ?? 0,
+			'mes3'          => $valores[2] ?? 0,
+		];
+	}
+	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
+	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'distribuidor'];
 }
 
 // Columnas reales: CIUDAD | CATEGORIA | SUBCATEGORIA | MARCA | %. Categoria/Subcategoria solo detectan filas vacías, nunca se guardan (Percha solo guarda Marca).

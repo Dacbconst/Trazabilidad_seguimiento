@@ -171,12 +171,36 @@ function canalDeSupervisor($mysqli, $supervisor) {
 	return null;
 }
 
+// Canal real de la SESIÓN actual, para decidir qué cartera de clientes ve el usuario en Registrar Acuerdo PDV — no confundir con
+// canalDeSupervisor() a secas, que sigue siendo la fuente de verdad cuando el usuario SÍ tiene un supervisor real asignado.
+// Caso especial: superdesarrollador sin supervisor (ej. la cuenta "Admin", sin cartera propia en repositorio_locales_supervisores_cliente)
+// no tiene forma de derivar un canal — antes esto lo dejaba sin ningún cliente para elegir, sin poder generar ninguna Acta. Ahora puede
+// elegir el canal a mano (ver getters/admin_set_canal.php), guardado en sesión — 'directo' por default hasta que elija.
+function canalEfectivoUsuario($mysqli) {
+	$supervisor = $_SESSION['supervisor'] ?? null;
+	if ($supervisor) return canalDeSupervisor($mysqli, $supervisor) ?: 'directo';
+	if (($_SESSION['rol'] ?? '') === 'superdesarrollador') return ($_SESSION['canal_admin'] ?? 'directo') === 'distribuidor' ? 'distribuidor' : 'directo';
+	return 'directo';
+}
+
+// true solo para la cuenta que necesita el modo de arriba: superdesarrollador sin supervisor real. El resto de usuarios (con supervisor,
+// o rol desarrollador) sigue viendo su cartera de siempre, sin ningún cambio de comportamiento.
+function esModoAdminSinCartera() {
+	return ($_SESSION['rol'] ?? '') === 'superdesarrollador' && empty($_SESSION['supervisor']);
+}
+
 // ---------- Repositorio de Cuotas trimestrales ----------
-// Match por nombre, desempate por CEDI=supervisor. A diferencia de Liquidación, acá se necesita UN solo pos_id; ambigüedad cae a "sin match".
-function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
+// Match por nombre, desempate según canal. A diferencia de Liquidación, acá se necesita UN solo pos_id; ambigüedad cae a "sin match".
+// $canal: 'directo' (default, mismo comportamiento de siempre) o 'distribuidor'. En Directo, "CEDI" del Excel es en realidad el nombre
+// del asesor (confirmado con el usuario) — el desempate compara contra `supervisor`. En Distribuidor un mismo asesor puede manejar
+// varias empresas a la vez (ej. Juan Cordovilla maneja 5) — `supervisor` no sirve de desempate ahí, hace falta la EMPRESA
+// (`tipo_distribuidor`, pasada en $distribuidorExcel) — mismo criterio ya usado para Actas Asignadas/Rebate cuando hace falta distinguir
+// canal. El filtro `canal` en la query primaria evita además que un nombre ambiguo entre los 2 canales matchee el cliente equivocado.
+function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null) {
+	$condicionCanal = $canal === 'distribuidor' ? "canal = 'DISTRIBUIDOR'" : "canal <> 'DISTRIBUIDOR'";
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
-		 WHERE pos_name LIKE CONCAT(?, '%')"
+		 WHERE pos_name LIKE CONCAT(?, '%') AND $condicionCanal"
 	);
 	if (!$stmt) return null;
 	$stmt->bind_param('s', $clienteExcel);
@@ -185,14 +209,25 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
 	$stmt->close();
 
 	if (count($posIds) === 1) return $posIds[0];
-	if (count($posIds) === 0 || !$cediExcel) return null;
+	if (count($posIds) === 0) return null;
 
-	$stmt = $mysqli->prepare(
-		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
-		 WHERE pos_name LIKE CONCAT(?, '%') AND supervisor = ?"
-	);
-	if (!$stmt) return null;
-	$stmt->bind_param('ss', $clienteExcel, $cediExcel);
+	if ($canal === 'distribuidor') {
+		if (!$distribuidorExcel) return null;
+		$stmt = $mysqli->prepare(
+			"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
+			 WHERE pos_name LIKE CONCAT(?, '%') AND canal = 'DISTRIBUIDOR' AND tipo_distribuidor = ?"
+		);
+		if (!$stmt) return null;
+		$stmt->bind_param('ss', $clienteExcel, $distribuidorExcel);
+	} else {
+		if (!$cediExcel) return null;
+		$stmt = $mysqli->prepare(
+			"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
+			 WHERE pos_name LIKE CONCAT(?, '%') AND canal <> 'DISTRIBUIDOR' AND supervisor = ?"
+		);
+		if (!$stmt) return null;
+		$stmt->bind_param('ss', $clienteExcel, $cediExcel);
+	}
 	$stmt->execute();
 	$desempatados = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
 	$stmt->close();

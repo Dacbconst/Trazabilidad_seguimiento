@@ -47,9 +47,10 @@ if (isset($resultado['error'])) {
 }
 
 responder(true, 'Archivo leído correctamente.', [
-	'nombre_archivo' => $nombreArchivo,
-	'filas'          => $resultado['filas'],
-	'avisos'         => $resultado['avisos'],
-	'trimestre'      => $resultado['trimestre'],
+	'nombre_archivo'  => $nombreArchivo,
+	'filas'           => $resultado['filas'],
+	'avisos'          => $resultado['avisos'],
+	'trimestre'       => $resultado['trimestre'],
+	'canal_detectado' => $resultado['canal_detectado'] ?? 'directo',
 ]);
 ?>

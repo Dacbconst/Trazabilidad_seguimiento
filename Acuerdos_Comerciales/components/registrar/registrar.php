@@ -11,8 +11,12 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 $anioActual = (int) date('Y');
 $anios      = range($anioActual - 1, $anioActual + 2);
 
-// Canal derivado en vivo del supervisor (canalDeSupervisor()), nunca se guarda.
-$canalUsuario = canalDeSupervisor($mysqli, $_SESSION['supervisor'] ?? null) ?: 'directo';
+// Canal derivado en vivo del supervisor (canalDeSupervisor()), nunca se guarda — salvo el caso especial de abajo.
+$canalUsuario = canalEfectivoUsuario($mysqli);
+// superdesarrollador sin supervisor real (ej. cuenta "Admin") no tiene cartera propia de la que derivar canal — sin este modo, el
+// combo de Local/Distribuidor quedaba siempre vacío y no podía generar ninguna Acta. Puede elegir el canal a mano (ver el switch más
+// abajo); el resto de usuarios (con supervisor real) no ve este switch y sigue exactamente igual que siempre.
+$modoAdminSinCartera = esModoAdminSinCartera();
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 ?>
@@ -22,7 +26,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 			<h1 class="ac-page-title">Registrar Acuerdo PDV</h1>
 			<p class="ac-page-subtitle">Gestión de acuerdos de desarrollo de negocios para el canal <?= $canalUsuario === 'distribuidor' ? 'distribuidor' : 'directo' ?>.</p>
 		</div>
-		<span class="ac-badge ac-badge-canal-<?= $canalUsuario ?>" id="ac-canal-badge"><?= $canalUsuario === 'distribuidor' ? 'Distribuidor' : 'Canal Directo' ?></span>
+		<div style="display:flex; flex-direction:column; align-items:flex-end; gap:var(--space-xs);">
+			<?php if ($modoAdminSinCartera): ?>
+			<!-- Solo superdesarrollador sin supervisor real — elige a mano qué cartera completa ver (sin esto no tiene forma de generar Actas). -->
+			<div class="ac-seg-pill-group" id="ac-canal-admin-group" title="Tu cuenta no tiene una cartera propia asignada: elige qué canal ver.">
+				<button type="button" class="ac-seg-pill<?= $canalUsuario !== 'distribuidor' ? ' ac-seg-pill-activo' : '' ?>" data-canal="directo">Directo</button>
+				<button type="button" class="ac-seg-pill<?= $canalUsuario === 'distribuidor' ? ' ac-seg-pill-activo' : '' ?>" data-canal="distribuidor">Distribuidor</button>
+			</div>
+			<?php endif; ?>
+			<span class="ac-badge ac-badge-canal-<?= $canalUsuario ?>" id="ac-canal-badge"><?= $canalUsuario === 'distribuidor' ? 'Distribuidor' : 'Canal Directo' ?></span>
+		</div>
 	</div>
 
 	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>';</script>

@@ -80,6 +80,22 @@ if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $p
 	}
 }
 
+// Tercera vía de propiedad: superdesarrollador sin supervisor real (ver esModoAdminSinCartera()) no tiene cartera propia contra la cual
+// comparar — acá se acepta cualquier pos_id real que pertenezca al canal que eligió a mano (mismo canal que ya filtra acuerdo_distribuidores.php).
+if (!$existePos && esModoAdminSinCartera()) {
+	$canalAdmin = canalEfectivoUsuario($mysqli) === 'distribuidor' ? 'DISTRIBUIDOR' : null;
+	$condicionCanalAdmin = $canalAdmin ? "canal = '$canalAdmin'" : "canal <> 'DISTRIBUIDOR'";
+	$stmtAdmin = $mysqli->prepare(
+		"SELECT pos_id FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? AND $condicionCanalAdmin LIMIT 1"
+	);
+	if ($stmtAdmin) {
+		$stmtAdmin->bind_param('s', $posId);
+		$stmtAdmin->execute();
+		$existePos = $stmtAdmin->get_result()->fetch_assoc();
+		$stmtAdmin->close();
+	}
+}
+
 if (!$existePos) {
 	responder(false, 'El Local seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
 }

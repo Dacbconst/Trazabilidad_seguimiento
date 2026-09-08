@@ -21,6 +21,7 @@ $body      = json_decode(file_get_contents('php://input'), true);
 $filas     = is_array($body['filas'] ?? null) ? $body['filas'] : [];
 $trimestre = (int) ($body['trimestre'] ?? 0);
 $anio      = (int) ($body['anio'] ?? 0);
+$canal     = ($body['canal'] ?? '') === 'distribuidor' ? 'distribuidor' : 'directo';
 
 if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 	responder(false, 'Parámetros inválidos.');
@@ -54,7 +55,8 @@ foreach ($filas as $fila) {
 
 	$clavePos = $clienteExcel.'|'.$cediExcel;
 	if (!array_key_exists($clavePos, $cachePosId)) {
-		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel);
+		$plan = repositorio_normalizar_texto($fila['plan'] ?? '');
+		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
 	}
 	$posId = $cachePosId[$clavePos];
 

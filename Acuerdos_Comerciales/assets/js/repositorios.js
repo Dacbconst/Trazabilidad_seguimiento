@@ -151,6 +151,9 @@
 	var filasPreview = null; // filas leídas del Excel, en edición dentro del modal
 	var trimestrePreview = null; // solo cuotas: inferido del propio Excel por repositorio_parsear_cuotas()
 	var estadosPreview = null; // solo cuotas: nuevo/actualiza/usada/sin_cliente por fila, ver verificarEstadosPreview()
+	// solo cuotas: 'directo'/'distribuidor', detectado por repositorio_parsear_cuotas() según qué columnas trae el Excel (CEDI/CLIENTE
+	// vs DISTRIBUIDOR/CIUDAD/NOMBRE) — decide el desempate de resolverPosIdCliente() al verificar/guardar (ver includes/functions.php).
+	var canalCuotasPreview = null;
 
 	var tablaHead = document.getElementById('repo-tabla-head');
 	var tablaBody = document.getElementById('repo-tabla-body');
@@ -672,8 +675,11 @@
 			if (!data.ok) { mostrarMensaje(data.message, false); return; }
 			filasPreview = data.filas;
 			trimestrePreview = data.trimestre || null;
+			canalCuotasPreview = data.canal_detectado || null;
 			previewNombreArchivo.textContent = data.nombre_archivo;
-			previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)' + (trimestrePreview ? ' (Q' + trimestrePreview + ')' : '');
+			var etiquetaCanalCuotas = canalCuotasPreview === 'distribuidor' ? 'Distribuidor' : (canalCuotasPreview === 'directo' ? 'Directo' : '');
+			var detalleCuotas = [etiquetaCanalCuotas, trimestrePreview ? 'Q' + trimestrePreview : ''].filter(Boolean).join(', ');
+			previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)' + (detalleCuotas ? ' (' + detalleCuotas + ')' : '');
 			estadosPreview = null;
 			if (tipoActivo === 'cuotas') {
 				previewAnioInput.value = new Date().getFullYear();
@@ -788,7 +794,7 @@
 		fetch('getters/cuotas_verificar_estado.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ filas: filasPreview, trimestre: trimestrePreview, anio: anio })
+			body: JSON.stringify({ filas: filasPreview, trimestre: trimestrePreview, anio: anio, canal: canalCuotasPreview })
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -863,7 +869,7 @@
 		fetch('getters/cuotas_guardar.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ filas: filas, trimestre: trimestrePreview, anio: anio })
+			body: JSON.stringify({ filas: filas, trimestre: trimestrePreview, anio: anio, canal: canalCuotasPreview })
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {

@@ -1500,5 +1500,46 @@
 	// El modal "Mis Borradores" vive en Historial, pero cargar un borrador solo lo puede hacer este módulo (el estado de las 4 tablas vive acá).
 	window.acRegistrarCargarBorrador = cargarBorrador;
 
+	// ---------- Switch de canal para superdesarrollador sin cartera propia (ver esModoAdminSinCartera() en registrar.php) ----------
+	// La mayoría del layout (título, badge, labels, "1. Meta de Compras en Cajas/Dólares", etc.) se arma server-side a partir de
+	// CANAL_USUARIO — recalcular todo eso en JS duplicaría demasiado texto/HTML ya existente en PHP. Más simple y sin riesgo: guardar
+	// la elección en sesión y recargar la página completa, mismo criterio que ya usa esta app ("todo se renderiza una vez al entrar").
+	var canalAdminGroup = document.getElementById('ac-canal-admin-group');
+	if (canalAdminGroup) {
+		function cambiarCanalAdmin(canal) {
+			fetch('getters/admin_set_canal.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ canal: canal })
+			})
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cambiar de canal.', false); return; }
+					location.reload();
+				})
+				.catch(function () { mostrarMensaje('Error de conexión al cambiar de canal.', false); });
+		}
+		Array.prototype.forEach.call(canalAdminGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
+			btn.addEventListener('click', function () {
+				if (btn.classList.contains('ac-seg-pill-activo')) return;
+				// El bloqueo duro de antes ("Guarda o descarta los cambios...") no daba ninguna pista de QUÉ había que guardar/descartar —
+				// confuso cuando el usuario no recuerda haber tocado nada. Reemplazado por una confirmación real (mismo componente que ya
+				// usa el resto de la app para "esto puede perder datos"): explica la consecuencia real (recarga la página, se pierde lo no
+				// guardado) y deja seguir con un solo click, sin tener que ir a buscar qué campo "ensució" el formulario.
+				if (!formSucio) { cambiarCanalAdmin(btn.dataset.canal); return; }
+				Swal.fire({
+					icon: 'warning',
+					title: 'Cambiar de canal',
+					text: 'Cambiar de canal recarga la página y se pierde cualquier dato del Acuerdo que no hayas guardado. ¿Continuar?',
+					showCancelButton: true,
+					confirmButtonText: 'Sí, cambiar de canal',
+					cancelButtonText: 'Cancelar'
+				}).then(function (resultado) {
+					if (resultado.isConfirmed) cambiarCanalAdmin(btn.dataset.canal);
+				});
+			});
+		});
+	}
+
 	cargarDatosIniciales();
 })();

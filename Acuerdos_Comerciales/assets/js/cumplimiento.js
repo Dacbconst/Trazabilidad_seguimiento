@@ -313,6 +313,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Formato esperado del archivo: elegido a mano en el picker (Vista=Total) o heredado de la pastilla de Vista. Si no coincide con el Excel real,
 	// se rechaza en la previsualización (mismo criterio "el sistema se defiende solo" del resto del proyecto).
 	var canalEsperadoActual = null;
+	// Canal REALMENTE detectado por el parser del lado del servidor (data.canal_detectado) — puede ser distinto de canalEsperadoActual
+	// solo si Vista=Total y el usuario no usó el picker; se usa para el desempate de resolverPosIdCliente() al verificar/guardar.
+	var canalDetectadoActual = null;
 	var subirOverlay = document.getElementById('cumpl-subir-modal-overlay');
 	var subirModal = subirOverlay.querySelector('.ac-repo-subir-modal');
 	var pasoElegir = document.getElementById('cumpl-subir-paso-elegir');
@@ -463,6 +466,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (!data.ok) { mostrarErrorArchivo(data); return; }
 			filasPreview = data.filas;
 			trimestrePreview = data.trimestre || null;
+			canalDetectadoActual = data.canal_detectado || null;
 			previewNombreArchivo.textContent = data.nombre_archivo;
 			var etiquetaCanal = data.canal_detectado === 'distribuidor' ? 'Distribuidor' : (data.canal_detectado === 'directo' ? 'Directo' : '');
 			var detalle = [etiquetaCanal, trimestrePreview ? 'Q' + trimestrePreview : ''].filter(Boolean).join(', ');
@@ -529,7 +533,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		fetch('getters/cumplimiento_verificar_estado.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ filas: filasPreview, trimestre: trimestrePreview, anio: anio })
+			body: JSON.stringify({ filas: filasPreview, trimestre: trimestrePreview, anio: anio, canal: canalDetectadoActual })
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -564,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		fetch('getters/cumplimiento_guardar.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ filas: filasPreview, trimestre: trimestrePreview, anio: anio })
+			body: JSON.stringify({ filas: filasPreview, trimestre: trimestrePreview, anio: anio, canal: canalDetectadoActual })
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {

@@ -9312,3 +9312,207 @@ funciones que escriban, esta prueba solo llama `generar_acta_pdf_binario()`
 directo, que no toca la base). **Todavía sin medir en el entorno real de
 Azure** (CPU/red reales pueden diferir del mirror local) — pendiente que
 el usuario confirme la mejora percibida en Previsualización/Generar PDF.
+
+## Admin (superdesarrollador sin supervisor) no podía generar Actas — combo de Local siempre vacío (2026-09-08)
+
+El usuario reportó que como Admin no le salía nada en el spinner de
+Distribuidor/Local, así que no podía generar ninguna Acta. Investigado y
+confirmado: `canalDeSupervisor($mysqli, $_SESSION['supervisor'])` (usado
+tanto en `registrar.php` para decidir el layout Directo/Distribuidor como
+en `getters/acuerdo_distribuidores.php` para filtrar qué clientes ver)
+devuelve `null` cuando no hay `supervisor` real — la cuenta `Admin`
+(`id=1`) tiene `supervisor=NULL` (confirmado con `SELECT`), así que caía
+siempre a Directo con el combo filtrado por `supervisor = NULL`, trayendo
+0 filas siempre. Sin cliente elegible, no hay forma de generar ningún
+Acuerdo — el bug era real y bloqueante para esa cuenta.
+
+**Se le preguntó al usuario explícitamente 3 opciones antes de tocar
+nada** (`AskUserQuestion`) — **eligió**: que Admin pueda elegir el canal a
+mano (Directo/Distribuidor, ya que no hay forma de derivarlo de un
+supervisor que no existe) y vea la cartera COMPLETA de ese canal, sin
+filtrar por supervisor — mismo criterio que ya usa esta cuenta en
+Historial/Seguimiento de Equipo ("ver todo el equipo", no solo lo propio).
+
+**Implementado, alcance acotado a ESTA cuenta puntual (superdesarrollador
+sin supervisor real) — cualquier usuario con supervisor real sigue
+exactamente igual que siempre, verificado con datos reales (Carlos
+Proaño, con supervisor real, no ve nada nuevo)**:
+- `includes/functions.php`: `canalEfectivoUsuario($mysqli)` (nueva) —
+  si hay supervisor real, delega en `canalDeSupervisor()` de siempre; si
+  no, y el rol es `superdesarrollador`, devuelve `$_SESSION['canal_admin']`
+  (default `'directo'`). `esModoAdminSinCartera()` (nueva) — `true` solo
+  si `rol==='superdesarrollador' && !supervisor`.
+- `getters/admin_set_canal.php` (nuevo) — guarda `$_SESSION['canal_admin']`
+  ('directo'/'distribuidor'), rechazado con 403 si `esModoAdminSinCartera()`
+  es `false` (nadie con supervisor real puede pisar su canal por acá).
+- `components/registrar/registrar.php` — usa `canalEfectivoUsuario()` en
+  vez de `canalDeSupervisor()` directo; nuevo switch `#ac-canal-admin-group`
+  (2 pastillas `.ac-seg-pill`, mismo componente ya usado en Seguimiento/
+  Cumplimiento, sin CSS nuevo), visible SOLO si `esModoAdminSinCartera()`.
+- `assets/js/registrar.js` — click en una pastilla llama a
+  `admin_set_canal.php` y hace `location.reload()` — se optó por recargar
+  la página completa en vez de reconstruir en JS todo lo que
+  `$canalUsuario` ya condiciona server-side (título, badge, labels,
+  "Meta de Compras en Cajas/Dólares", etc., son MUCHOS puntos) — mismo
+  criterio arquitectónico que ya usa el resto de la app ("todo se
+  renderiza una vez al entrar"), sin riesgo de duplicar lógica. Bloqueado
+  si hay cambios sin guardar (`formSucio`).
+- `getters/acuerdo_distribuidores.php` — nueva rama `if ($modoAdmin)`:
+  la misma consulta de siempre pero SIN el `WHERE supervisor = ?`,
+  filtrando en su lugar por el canal elegido (`canal = 'DISTRIBUIDOR'` o
+  `canal <> 'DISTRIBUIDOR'`) — trae la cartera completa de ese canal.
+  Escaneo completo de la tabla externa (~41,640 filas, sin índice en
+  `canal` — decisión ya tomada de no tocar el esquema de un maestro
+  externo, ver "Módulo Liquidación") aceptable acá: es 1 sola cuenta
+  admin, no tráfico normal.
+- `getters/guardar_acuerdo.php` — 3ra vía de propiedad (después de la de
+  siempre por supervisor, y la de Actas Precargadas): si
+  `esModoAdminSinCartera()`, acepta cualquier `pos_id` real que pertenezca
+  al canal elegido (mismo filtro que ya usa el getter de arriba) — sin
+  esto, Admin veía el cliente en el combo pero el guardado lo rechazaba
+  igual con "no pertenece a tu cartera de clientes".
+
+**Probado de punta a punta con datos reales** (servidor local `php -S` +
+2 sesiones falsas creadas y borradas en la misma verificación — `Admin`
+real, `id=1`, y `CARLOS PROAÑO` real, `id=9`, con supervisor real —
+ninguna escribió nada en la base): `acuerdo_distribuidores.php` con la
+sesión de Admin trae clientes reales tanto en Directo (default) como en
+Distribuidor (tras cambiar con `admin_set_canal.php`, confirmado con
+`curl`); `registrar.php` renderiza el switch con la pastilla activa
+correcta según el canal en sesión; la MISMA página para Carlos Proaño
+(supervisor real) confirma 0 apariciones del switch — sin regresión para
+el resto de usuarios. `php -l`/`node --check` limpios en los 5 archivos.
+**Todavía sin probar el flujo completo de "Generar PDF" con un cliente
+real elegido como Admin** — falta que el usuario confirme en su sesión
+real que puede completar y generar una Acta de punta a punta.
+
+**Ajuste 1, mismo día — el switch quedaba al lado de la bandera de
+canal, el usuario pidió que vaya arriba**: `registrar.php` — el switch y
+el `<span class="ac-badge">` de canal ahora comparten un contenedor
+`display:flex; flex-direction:column; align-items:flex-end` (inline,
+sin CSS nuevo) — el switch queda apilado ARRIBA del badge, ambos
+alineados a la derecha, en vez de ir uno al lado del otro en la misma
+fila.
+
+**Ajuste 2, mismo día — bloqueo confuso: "Guarda o descarta los cambios
+en curso" sin decir QUÉ había que guardar**: el usuario reportó que le
+salía ese aviso al intentar cambiar de canal aunque el formulario se
+viera vacío, sin ninguna forma de continuar. Investigado con Playwright
+(mirror local + sesión real de Admin): en un formulario genuinamente sin
+tocar, el switch cambia de canal al instante, sin ningún aviso — el
+bloqueo solo se dispara cuando `formSucio` (la misma bandera que ya usa
+el resto del formulario para "hay cambios sin guardar") es `true` de
+verdad. El problema real no era que el aviso apareciera sin motivo, sino
+que, cuando SÍ había algo sucio, el mensaje no daba ninguna forma de
+continuar — dejaba al usuario sin poder avanzar ni entender qué campo
+"ensució" el formulario.
+
+**Corregido**: reemplazado el bloqueo duro por una confirmación real
+(`Swal.fire`, mismo componente que ya usa el resto de la app para
+acciones que pueden perder datos — ver `confirmarYEliminarAcuerdo()` en
+Historial) que explica la consecuencia concreta ("cambiar de canal
+recarga la página y se pierde cualquier dato del Acuerdo que no hayas
+guardado") y deja seguir con un solo click ("Sí, cambiar de canal"), sin
+tener que ir a buscar qué guardar o descartar. Si el formulario está
+limpio, sigue cambiando de canal al instante, sin ningún diálogo de por
+medio (verificado con Playwright, 0 apariciones del modal en ese caso).
+
+**Probado con Playwright, servidor local + sesión real de Admin (creada
+y borrada en la misma verificación, nunca escribió en la base)**: 3
+escenarios — formulario limpio (cambia sin diálogo), formulario con un
+input editado a mano (dispara el diálogo, con el texto exacto esperado),
+y formulario limpio vía carga completa de `index.php` (mismo resultado
+que el componente aislado). `node --check` limpio.
+
+## Repositorio de Cuotas Trimestrales: soporte para canal Distribuidor (2026-09-08)
+
+El usuario preguntó cómo sería la carga masiva de Actas para Distribuidor
+(ya resuelto del lado Directo) — investigado antes de tocar código: **no
+hay un Excel de "cuotas futuras" aparte para Distribuidor**; el usuario
+confirmó explícitamente reusar el mismo formato que ya lee este proyecto
+para Liquidación/Cumplimiento de Distribuidor (hoja real
+`CUOTAS POR CAT -DISTRIBUIDORES`: columnas `DISTRIBUIDOR` (empresa),
+`CIUDAD`, `NOMBRE`, `CATEGORIA` + 3 meses) — mismo criterio ya usado ahí,
+solo ignorando las columnas de venta/rebate que ese archivo real también
+trae (Cuotas nunca las necesitó).
+
+**Cómo se diferencia Directo de Distribuidor, sin picker manual**: a
+diferencia de Cumplimiento (2 hojas con NOMBRE FIJO en un mismo workbook,
+se elige por nombre de pestaña), acá es 1 sola hoja — la diferenciación
+es por **qué columnas trae esa hoja**: si tiene `CEDI`/`CLIENTE`/
+`CATEGORIAS` → Directo; si no, se prueba `CIUDAD`/`NOMBRE`/`CATEGORIA`
+(sin `S` — Distribuidor) → Distribuidor. Mismo mecanismo de
+`xlsx_encontrar_encabezado()` ya usado en el resto del proyecto, sin
+inventar nada nuevo.
+
+**Bug real encontrado en el camino, corregido de paso**: `resolverPosIdCliente()`
+(usada por Cuotas Y por Cumplimiento de Cuota) desempataba SIEMPRE por
+`supervisor = CEDI` — válido solo para Directo (donde "CEDI" del Excel es
+en realidad el nombre del asesor, ya documentado). Para Distribuidor, un
+asesor puede manejar **varias empresas a la vez** (ej. Juan Cordovilla
+maneja 5) — ese desempate nunca iba a funcionar ahí, y **Cumplimiento de
+Cuota ya llamaba a esta función para sus filas de Distribuidor sin ningún
+ajuste**, así que cualquier nombre de cliente ambiguo en ese canal
+fallaba en silencio ("No se pudo identificar el cliente") sin que nadie
+lo hubiera notado todavía (solo se manifiesta cuando el nombre no es
+único, no siempre).
+
+**Implementado**:
+- `includes/functions.php` — `resolverPosIdCliente($mysqli, $clienteExcel,
+  $cediExcel, $canal = 'directo', $distribuidorExcel = null)`: la query
+  primaria ahora filtra también por canal (`canal = 'DISTRIBUIDOR'` o
+  `canal <> 'DISTRIBUIDOR'`) — evita además que un nombre ambiguo ENTRE
+  canales matchee el cliente equivocado, algo que antes no se filtraba
+  para ningún caso. El desempate usa `tipo_distribuidor` (empresa) para
+  Distribuidor, `supervisor` (sigue igual) para Directo. Parámetros
+  nuevos con default = comportamiento de siempre, ningún caller viejo se
+  rompe sin tocarlo.
+- `includes/repositorio_import.php` — `repositorio_parsear_cuotas()`
+  ahora prueba las 2 columnas de encabezado (mismo criterio que
+  `repositorio_parsear_cumplimiento_cuota()`) y delega a
+  `repositorio_parsear_cuotas_directo()` (código de siempre, sin cambios
+  de lógica, solo separado en su propia función) o
+  `repositorio_parsear_cuotas_distribuidor()` (nueva) — NOMBRE→
+  `cliente_excel`, CIUDAD→`cedi_excel`, DISTRIBUIDOR→`plan` (mismo campo
+  que Directo usa para PLAN, mismo truco ya usado en Cumplimiento).
+  SUBCATEGORIA/MARCA opcionales en los 2 casos, "OTRAS CATEGORIAS" se
+  sigue ignorando en los 2. Ambas devuelven `canal_detectado`.
+- `getters/cuotas_previsualizar_excel.php`,
+  `getters/cuotas_guardar.php`, `getters/cuotas_verificar_estado.php` —
+  propagan `canal`/`canal_detectado` end-to-end y lo pasan a
+  `resolverPosIdCliente()` (con `plan` como tie-break de empresa cuando
+  el canal es Distribuidor).
+- **Mismo fix aplicado a Cumplimiento de Cuota** (`getters/cumplimiento_guardar.php`,
+  `getters/cumplimiento_verificar_estado.php`) — ya tenían
+  `data.canal_detectado` disponible del lado del parser pero nunca lo
+  mandaban de vuelta al guardar/verificar; ahora sí, mismo criterio.
+- `assets/js/repositorios.js`/`assets/js/cumplimiento.js` — trackean el
+  canal detectado (`canalCuotasPreview`/`canalDetectadoActual`) desde la
+  respuesta de previsualizar y lo mandan en los 2 fetch siguientes
+  (verificar estado, guardar). El contador "N fila(s) detectada(s)" de
+  Cuotas ahora también muestra el canal detectado entre paréntesis (ej.
+  "48 fila(s) detectada(s) (Distribuidor, Q2)"), mismo formato que ya
+  usaba Cumplimiento.
+- **Sin cambios de esquema ni de UI de columnas** — los campos genéricos
+  ya existentes (`cedi_excel`/`cliente_excel`/`plan`) alcanzan para los 2
+  canales, mismo patrón ya validado en Cumplimiento — la tabla de
+  previsualización muestra los mismos encabezados genéricos ("CEDI",
+  "Cliente", "Plan") sin importar de qué canal vino el archivo.
+
+**Probado con datos reales de solo lectura**: `resolverPosIdCliente()`
+regresión confirmada — mismo resultado exacto (`EPV3329`) para el caso
+real de Directo ya documentado (YUCAILLA PADILLA/JAVIER MALDONADO), con
+y sin pasar `$canal` explícito. Camino nuevo de Distribuidor probado con
+datos reales de `ASERTIA COMERCIAL SA` (empresa real con clientes reales
+en el maestro) — resuelve el `pos_id` correcto por nombre+empresa.
+`repositorio_parsear_cuotas_directo()`/`_distribuidor()` probadas
+directo (sin `ZipArchive`, límite del CLI local de siempre) con
+encabezados sintéticos calcando los reales — Directo sigue dando el
+mismo resultado de siempre, Distribuidor mapea NOMBRE/CIUDAD/DISTRIBUIDOR/
+CATEGORIA correcto y detecta el trimestre bien. `php -l`/`node --check`
+limpios en los 9 archivos tocados. **Todavía sin probar con un archivo
+`.xlsx` real de Distribuidor ni en navegador real** — falta que el
+usuario suba un archivo real (puede ser directamente el
+`CUOTAS POR CAT -DISTRIBUIDORES` que ya usa para Liquidación) y confirme
+que las Actas Precargadas de Distribuidor llegan bien a la campanita del
+asesor dueño.

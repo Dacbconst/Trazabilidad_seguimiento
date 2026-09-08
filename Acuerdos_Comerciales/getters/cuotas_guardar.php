@@ -21,6 +21,8 @@ $body      = json_decode(file_get_contents('php://input'), true);
 $filas     = is_array($body['filas'] ?? null) ? $body['filas'] : [];
 $trimestre = (int) ($body['trimestre'] ?? 0);
 $anio      = (int) ($body['anio'] ?? 0);
+// Canal detectado al parsear el archivo (repositorio_parsear_cuotas()) — decide el criterio de desempate de resolverPosIdCliente().
+$canal     = ($body['canal'] ?? '') === 'distribuidor' ? 'distribuidor' : 'directo';
 
 if (!$filas) {
 	responder(false, 'No hay filas para guardar.');
@@ -120,7 +122,7 @@ try {
 
 		$clavePos = $clienteExcel.'|'.$cediExcel;
 		if (!array_key_exists($clavePos, $cachePosId)) {
-			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel);
+			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
 		}
 		$posId = $cachePosId[$clavePos];
 		$estado = $posId ? 'pendiente_uso' : 'pendiente_match';
