@@ -8369,7 +8369,27 @@ Pedido explícito, 2 partes:
 `.xlsx` real en esta sesión (falta la extensión `zip` en el PHP CLI local,
 límite ya documentado varias veces en este archivo) — el código reusa el
 mismo escritor ya probado en producción (`repositorio_exportar.php`), bajo
-riesgo. **Todavía sin probar en navegador real.**
+riesgo.
+
+**Bug real encontrado tras el primer deploy — mismo patrón que el
+incidente de 2026-07-26/27 ("PHP 8.2 fatal se ve como 404")**: el usuario
+reportó `404 Not Found` al hacer click en "Descargar Formato", ya con el
+archivo subido al servidor real. Causa: `getters/repositorio_plantilla.php`
+solo hacía `require includes/functions.php` — a diferencia de TODOS los
+demás getters del proyecto, nunca incluía `config.php`/`db_connect.php`.
+`iniciar_sesion()` usa la constante `SECURE` (`session_set_cookie_params`),
+y sin `config.php` esa constante no existe — en PHP 8.2 eso es un `Error`
+fatal, no un warning, y como el hosting corre nginx, ese fatal se muestra
+como "404 Not Found" en vez de un 500 (exactamente el mismo síntoma
+engañoso ya documentado en el incidente de Canal Directo/Distribuidor).
+Corregido agregando `require_once __DIR__.'/../config.php';` antes de
+`includes/functions.php` — no hace falta `db_connect.php` completo (esta
+plantilla no consulta la base). **Lección para cualquier getter nuevo de
+este proyecto: SIEMPRE incluir `config.php` (directo, o vía
+`db_connect.php` si hace falta la conexión) antes de llamar
+`iniciar_sesion()` — nunca asumir que alcanza con `functions.php` solo.**
+`php -l` limpio tras el fix. **Todavía sin volver a probar en navegador
+real** — falta que el usuario confirme que ahora sí descarga el archivo.
 
 ## Aclaración: `repositorio_portafolio_prioritario` NO es una tabla de este proyecto — no tocar (2026-08-31)
 
