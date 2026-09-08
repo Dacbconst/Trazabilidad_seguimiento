@@ -478,12 +478,46 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 
 // Renderiza el Acta completa a bytes de PDF (Dompdf), usada por guardar_acuerdo.php y generar_acta_pdf.php (fallback).
 // El caller debe hacer require de vendor/autoload.php antes de llamar esto.
+// Devuelve los escalones descendentes exactos 1.00, 0.95, 0.90... hasta $minimo (mismos valores de siempre, solo cambia CÓMO se recorren).
+function escalones_desde_uno($minimo) {
+	$out = [];
+	for ($e = 1.0; $e >= $minimo - 0.0001; $e -= 0.05) $out[] = round($e, 2);
+	return $out;
+}
+
+// Búsqueda binaria sobre una lista de escalones YA ORDENADA de mayor a menor (monotonía asumida: un escalón más chico nunca ocupa más
+// páginas que uno más grande) — encuentra el escalón MÁS GRANDE que entra en 1 página, con ~log2(n) renders de Dompdf en vez de recorrer
+// los n escalones uno por uno. $dompdfEnUno ya viene renderizado con el escalón [0] (1.00) — si ya entraba, ni siquiera se llama acá.
+function buscar_escalon_que_entre(array $escalones, callable $renderizar) {
+	$lo = 1; $hi = count($escalones) - 1; // el [0] (1.00) ya se descartó por el caller, siempre entra 1 en 1 página como mínimo
+	$mejorEscalon = $escalones[$hi];
+	$mejorDompdf = null;
+	while ($lo <= $hi) {
+		$mid = intdiv($lo + $hi, 2);
+		$dompdf = $renderizar($escalones[$mid]);
+		if ($dompdf->getCanvas()->get_page_count() <= 1) {
+			$mejorEscalon = $escalones[$mid];
+			$mejorDompdf = $dompdf;
+			$hi = $mid - 1; // ¿entra uno más grande (más cerca de 1.00) todavía?
+		} else {
+			$lo = $mid + 1;
+		}
+	}
+	// Ningún escalón intermedio entró — el último (el más chico) es la red de seguridad final, se renderiza si no se probó ya.
+	if ($mejorDompdf === null) $mejorDompdf = $renderizar($escalones[count($escalones) - 1]);
+	return [$mejorEscalon, $mejorDompdf];
+}
+
 function generar_acta_pdf_binario(array $detalle) {
 	$medirTexto = crear_medidor_texto();
 
 	$renderizar = function ($escala, $escalaTabla) use ($detalle, $medirTexto) {
 		$options = new \Dompdf\Options();
 		$options->set('isRemoteEnabled', false);
+		// Subsetting recalcula qué glyphs de la fuente hace falta embeber — trabajo real de CPU por render, innecesario para un documento
+		// de 1 sola hoja en español (el ahorro de peso de archivo no compensa el costo, y este PDF puede rendersearse hasta varias veces
+		// seguidas por el auto-ajuste de abajo). Deshabilitado por rendimiento — no cambia cómo se ve el documento, solo cómo se embebe la fuente.
+		$options->set('isFontSubsettingEnabled', false);
 		$dompdf = new \Dompdf\Dompdf($options);
 		$dompdf->loadHtml(generar_acta_html($detalle, $escala, $medirTexto, $escalaTabla));
 		$dompdf->setPaper('A4', 'portrait');
@@ -491,17 +525,26 @@ function generar_acta_pdf_binario(array $detalle) {
 		return $dompdf;
 	};
 
-	// Primero se reduce SOLO $escalaTabla hasta 0.35 (nunca toca el texto general). Si no alcanza, $escala baja como último recurso, piso 0.3.
-	$escala = 1.0;
-	$escalaTabla = 1.0;
-	$dompdf = $renderizar($escala, $escalaTabla);
-	while ($dompdf->getCanvas()->get_page_count() > 1 && $escalaTabla > 0.35) {
-		$escalaTabla -= 0.05;
-		$dompdf = $renderizar($escala, $escalaTabla);
+	// Primero se reduce SOLO $escalaTabla (nunca toca el texto general). Si ni con el piso de 0.35 alcanza, se reduce $escala como último
+	// recurso, piso 0.3 — mismos 2 pisos y mismos escalones de 0.05 de siempre, ahora recorridos con búsqueda binaria (ver funciones de
+	// arriba) en vez de uno por uno: la inmensa mayoría de Actas entra ya al primer intento (escala=1.0, cero renders extra), pero una con
+	// muchas líneas (ej. varias categorías de una Acta Precargada, que ahora también llenan Cabeceras/Rumas/Perchas) podía necesitar hasta
+	// ~27 renders completos de Dompdf en el peor caso con el barrido lineal — con binaria son ~8 como mucho, Dompdf es caro por render.
+	$escalonesTabla = escalones_desde_uno(0.35);
+	$dompdf = $renderizar(1.0, $escalonesTabla[0]);
+	$escalaTablaFinal = $escalonesTabla[0];
+	if ($dompdf->getCanvas()->get_page_count() > 1) {
+		list($escalaTablaFinal, $dompdf) = buscar_escalon_que_entre($escalonesTabla, function ($escalaTabla) use ($renderizar) {
+			return $renderizar(1.0, $escalaTabla);
+		});
 	}
-	while ($dompdf->getCanvas()->get_page_count() > 1 && $escala > 0.3) {
-		$escala -= 0.05;
-		$dompdf = $renderizar($escala, $escalaTabla);
+
+	$escalaFinal = 1.0;
+	if ($dompdf->getCanvas()->get_page_count() > 1) {
+		$escalonesGenerales = escalones_desde_uno(0.3);
+		list($escalaFinal, $dompdf) = buscar_escalon_que_entre($escalonesGenerales, function ($escala) use ($renderizar, $escalaTablaFinal) {
+			return $renderizar($escala, $escalaTablaFinal);
+		});
 	}
 
 	return $dompdf->output();

@@ -9247,3 +9247,68 @@ cambiar de filtro/pestaña del sidebar.
 
 **Probado**: `php -l`/`node --check` limpios en los 4 archivos. **Todavía
 sin probar en navegador real.**
+
+## Optimización de velocidad: "Previsualización" y "Generar PDF" (2026-09-08)
+
+Pedido explícito del usuario: ambos flujos (Registrar Acuerdo PDV) se
+sentían lentos. Investigado: los 2 llaman a `generar_acta_pdf_binario()`
+(`includes/acta_pdf.php`) — la Previsualización nunca toca la base
+(confirmado, ver "Previsualización... a propósito nunca abre conexión a
+la base" más arriba), así que su costo entero es Dompdf; "Generar PDF"
+suma el mismo costo de Dompdf más la subida real a Azure Blob Storage
+(red, no optimizable desde acá).
+
+**Causa real del costo de Dompdf, confirmada con benchmarks propios**:
+el "auto-ajuste a 1 hoja" (documentado desde 2026-08-19) reducía
+`$escalaTabla` y `$escala` de a **0.05 por vez, de forma lineal**, desde
+1.0 hasta un piso (0.35 y 0.3) — hasta **28 renders completos de Dompdf**
+en el peor caso (confirmado con un benchmark real: una Acta con 6 líneas
+en las 4 tablas tardó 28 renders / 6.0s). Con **Actas Precargadas**
+generando ahora varias categorías que se espejan en las 4 tablas a la
+vez (ver "Actas precargadas: filas vacía espejo..." más arriba), este
+peor caso dejó de ser hipotético — Actas reales con 4-6 categorías
+disparan varias vueltas del auto-ajuste. La mayoría de Actas chicas (1-3
+líneas) siempre entraron al primer intento (1 solo render) — para esas,
+nada de esto era el problema real, pero para las más grandes sí.
+
+**2 optimizaciones, ninguna cambia el resultado visual del documento**:
+1. **Búsqueda binaria en vez de lineal** (`escalones_desde_uno()`/
+   `buscar_escalon_que_entre()`, nuevas en `includes/acta_pdf.php`) —
+   mismos escalones exactos de 0.05 (1.00, 0.95, 0.90... hasta el mismo
+   piso de siempre), pero recorridos con binaria: ~log2(13)+log2(14) ≈ 8
+   renders en el peor caso teórico en vez de hasta 27. Confirmado con el
+   mismo benchmark de 6 líneas: 28 renders (lineal) → 11 renders
+   (binaria) para llegar al MISMO resultado final (mismos escalones
+   mínimos, mismas 2 páginas — ese caso extremo genuinamente no entra ni
+   al máximo achique, no es una regresión). Para Actas chicas (caso más
+   común) sigue siendo 1 solo render, sin cambios.
+2. **`isFontSubsettingEnabled` deshabilitado** en las opciones de Dompdf
+   — el subsetting recalcula qué glyphs de la fuente hace falta embeber
+   en cada render, trabajo real de CPU que no aporta nada visual para un
+   documento de 1 hoja en español (solo reduce el peso del archivo,
+   irrelevante acá). Confirmado con benchmark aislado (mismo render, 3
+   repeticiones cada uno, tras precalentar autoload/opcache): ~0.21-0.23s
+   sin subsetting vs ~0.25-0.30s con subsetting — ahorro real en CADA uno
+   de los renders del auto-ajuste, se multiplica cuando hace falta más de
+   uno.
+
+**Combinado**: el mismo benchmark de 6 líneas pasó de 6.0s a 2.9s
+(~2x más rápido) en el peor caso; una Acta chica (1 línea por tabla) es
+prácticamente el mismo tiempo que antes (1 render, ya era rápido — el
+"first hit" de un proceso PHP CLI frío mide ~1.3s por el autoload en sí,
+no por el render — bajo PHP-FPM real con opcache ya caliente ese costo
+de autoload no se repite en cada request).
+
+**No tocado a propósito**: la subida a Azure Blob Storage dentro de
+"Generar PDF" (`azure_storage_subir()`, llamada real de red con firma
+Shared Key) — es tiempo de red real, no de cómputo local, no hay nada
+que optimizar en el código de este proyecto sin cambiar de proveedor o
+de mecanismo de subida.
+
+**Probado**: `php -l` limpio. Benchmarks propios (arriba) corridos con
+datos sintéticos vía CLI, sin tocar la base ni tocar ningún Acuerdo
+real — mismo criterio de siempre (nunca usar el CLI local para invocar
+funciones que escriban, esta prueba solo llama `generar_acta_pdf_binario()`
+directo, que no toca la base). **Todavía sin medir en el entorno real de
+Azure** (CPU/red reales pueden diferir del mirror local) — pendiente que
+el usuario confirme la mejora percibida en Previsualización/Generar PDF.
