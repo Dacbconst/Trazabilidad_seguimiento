@@ -1,8 +1,5 @@
 <?php
-// "Eliminar" un Acuerdo desde Historial nunca es un DELETE físico — se marca
-// estado='anulado' (ya existía en el ENUM, ver CLAUDE.md), mismo patrón que
-// repositorio_usuarios_acuerdos.status (activo/inactivo). listar_historial_acuerdos()
-// no filtra por estado <> 'anulado' todavía, así que además se excluye acá.
+// Nunca DELETE físico: marca estado='anulado'. listar_historial_acuerdos() no filtra ese estado todavía, así que se excluye acá también.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

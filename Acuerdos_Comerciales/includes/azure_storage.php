@@ -1,23 +1,6 @@
 <?php
-// Sube/descarga archivos a Azure Blob Storage vía la API REST directa (firma
-// Shared Key armada a mano), sin el SDK de Composer — mismo criterio que
-// xlsx_reader.php/xlsx_writer.php de Liquidación/Repositorios: evitar una
-// dependencia pesada cuando el entorno de desarrollo no tiene Composer en el
-// PATH ni la extensión `zip` de PHP habilitada (necesaria para que Composer
-// extraiga paquetes), y el deploy real es manual por FTP.
-//
-// Usa la MISMA cuenta de Storage que ya usan las apps de Jabonería Wilson/
-// Unilever/Pintuco (`luckyecuadorweb`, ver
-// backend/AppJaboneriaWilson/Inserts/upload_azure.php), container "app",
-// pero en su PROPIA carpeta (AcuerdosComerciales/) — nunca toca las carpetas
-// de esas apps.
-//
-// A diferencia de esas apps (sirven las fotos con una URL pública directa,
-// sin autenticar), acá SIEMPRE se autentica también para LEER (Shared Key
-// también en el GET) — las Actas llevan precios/rebates reales, más
-// sensible que una foto de exhibición. El control de acceso real (login +
-// dueño del Acuerdo) sigue viviendo en cada getter de PHP, como siempre;
-// esto solo mueve DÓNDE se guarda el archivo, no quién puede pedirlo.
+// Sube/descarga a Azure Blob Storage vía API REST directa (firma Shared Key a mano), sin SDK de Composer — mismo criterio que xlsx_reader/writer.
+// A diferencia de otras apps de la misma cuenta, acá SIEMPRE se autentica también para LEER (Shared Key en el GET): las Actas llevan precios/rebates reales.
 
 define('AZURE_STORAGE_ACCOUNT', 'luckyecuadorweb');
 define('AZURE_STORAGE_KEY', '1NR1OHQjEVkwUmFTCtktU9j0/iMbVq7szdh41DOSac4icyhIzStRfyD0sAMha0ZSRWT+ZRGucKeksMR0iEaFzQ==');
@@ -25,9 +8,7 @@ define('AZURE_STORAGE_CONTAINER', 'app');
 define('AZURE_STORAGE_PREFIX', 'AcuerdosComerciales/');
 define('AZURE_STORAGE_API_VERSION', '2021-08-06');
 
-// Firma Shared Key (no Lite) para Blob Service — ver documentación oficial
-// de Azure "Authorize with Shared Key". $headersFirma debe traer SOLO los
-// headers x-ms-* que se van a mandar en la request real, sin más.
+// Firma Shared Key (no Lite) para Blob Service. $headersFirma debe traer SOLO los headers x-ms-* que se van a mandar en la request real.
 function azure_storage_firmar($metodo, $blobPath, $headersFirma, $contentType, $contentLength) {
 	ksort($headersFirma);
 	$canonHeaders = '';
@@ -99,9 +80,7 @@ function azure_storage_subir($nombreRelativo, $contenido, $contentType) {
 	return $blobPath;
 }
 
-// Descarga los bytes crudos de un blob ya guardado (ruta completa, tal cual
-// se persistió — ya incluye el prefijo AcuerdosComerciales/). Devuelve
-// false si no existe o si falló la descarga.
+// Descarga bytes crudos de un blob (ruta completa tal cual se persistió, ya incluye el prefijo). false si no existe o falló.
 function azure_storage_descargar($blobPath) {
 	if (!$blobPath) {
 		return false;

@@ -311,8 +311,7 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 }
 
 // ==================== Hoja "VISIBILIDAD" ====================
-// cabecera->CABECERA, ruma->ISLA, percha->PERCHA; cuenta si el TOTAL de la línea es > 0.
-// "MARCA" muestra Categoría (Percha no tiene ese campo, sigue con Marca); VALIDACIÓN se autocompleta.
+// cabecera->CABECERA, ruma->ISLA, percha->PERCHA; cuenta si el TOTAL de la línea es > 0. "MARCA" muestra Categoría (Percha usa Marca).
 $stmtVis = $mysqli->prepare(
 	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.tipo, l.marca, l.categoria,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
@@ -330,8 +329,7 @@ $stmtVis = $mysqli->prepare(
 );
 $filasVis = [];
 if ($stmtVis) {
-	// Sin filtro de creado_por acá tampoco (2026-08-31, "ver todo" — ver nota
-	// completa en la 1ra query de este archivo).
+	// Sin filtro de creado_por acá tampoco (ver nota en la 1ra query del archivo).
 	$stmtVis->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVis->execute();
 	$filasVis = $stmtVis->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -383,12 +381,9 @@ ksort($porClienteVis);
 $s3 = $wb->agregarHoja('VISIBILIDAD ');
 
 // ---------- Hoja "VISIBILIDAD": encabezados (2 filas, igual que el archivo real) ----------
-// Color de tema resuelto a mano desde el XML crudo (Excel COM daba rosa incorrecto);
-// reusa $bgEncabezado/$bgClienteDato de la hoja Cuota/Categoría, mismos azul/rosa.
+// Color de tema resuelto a mano desde el XML crudo; reusa $bgEncabezado/$bgClienteDato de la hoja Cuota/Categoría.
 $bgEncVis = $bgEncabezado; $bgClienteVis = $bgClienteDato;
-// Columnas (sin "KP", fórmula rota #REF! del archivo real sin uso):
-// 1 CEDI, 2 Nombres, 3 PLAN, 4-6 CANTIDAD, 7-9 PAGO, 10 PAGO TOTAL, 11-13 MARCA,
-// 14-16 VALIDACIÓN, 17-19 validado, 20 TOTAL, 21 OBSERVACION (todas Cab/Isla/Percha).
+// Columnas (sin "KP", fórmula rota #REF! sin uso): 1 CEDI, 2 Nombres, 3 PLAN, 4-6 CANTIDAD, 7-9 PAGO, 10 PAGO TOTAL, 11-13 MARCA, 14-16 VALIDACIÓN, 17-19 validado, 20 TOTAL, 21 OBSERVACION.
 $vCedi = 1; $vNombres = 2; $vPlan = 3;
 $vCantCab = 4; $vCantIsla = 5; $vCantPercha = 6;
 $vPagoCab = 7; $vPagoIsla = 8; $vPagoPercha = 9; $vPagoTotal = 10;
@@ -465,8 +460,7 @@ foreach ($porClienteVis as $cliente => $datosCliente) {
 $ultimaFilaVis = $filaVisDatos - 1;
 
 // ---------- Hoja "VISIBILIDAD": fila TOTAL ----------
-// Fórmulas leídas exactas del archivo real: CANTIDAD/PAGO usan SUM (no SUBTOTAL),
-// MARCA/VALIDACIÓN/R-S-T quedan en blanco, solo TOTAL usa SUBTOTAL(9,...).
+// Fórmulas exactas del archivo real: CANTIDAD/PAGO usan SUM (no SUBTOTAL), MARCA/VALIDACIÓN/R-S-T en blanco, solo TOTAL usa SUBTOTAL(9,...).
 if ($ultimaFilaVis >= $primeraFilaVis) {
 	$filaTotalVis = $ultimaFilaVis + 1;
 	$wb->celda($s3, $filaTotalVis, $vNombres, 'TOTAL', true);

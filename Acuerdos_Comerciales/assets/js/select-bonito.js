@@ -1,27 +1,11 @@
-// "Select bonito" (2026-08-25) — reemplaza la interacción de un <select>
-// nativo por un trigger + panel propio, mismo look que el combobox de
-// Registrar (.ac-combo-panel/.ac-combo-option, ver style.css). El motivo:
-// el dropdown ABIERTO de un <select> es UI del sistema operativo en mobile
-// (Android/iOS) — no hay forma de restylearlo con CSS, y con pocas
-// opciones cortas terminaba viéndose enorme/desproporcionado (reportado
-// con captura real). El <select> original queda oculto pero SIGUE siendo
-// la única fuente de verdad: su .value cambia y dispara un 'change' real,
-// así que cualquier código existente que ya escuche 'change' sobre el
-// select (historial.js, liquidacion.js, registrar.js, etc.) sigue
-// funcionando sin que haga falta tocarlo. Reusable en cualquier módulo:
-// agregar la clase "ac-select-bonito-auto" al <select> alcanza.
+// Reemplaza un <select> nativo por un trigger + panel propio: el dropdown abierto es UI del SO en mobile, sin forma de restylearlo con CSS.
+// El <select> original queda oculto pero sigue siendo la fuente de verdad (su .value dispara 'change' real). Agregar "ac-select-bonito-auto" alcanza.
 (function () {
 	function mejorarSelect(select) {
 		if (select.dataset.bonito) return;
 		select.dataset.bonito = '1';
 
-		// El wrapper hereda las MISMAS clases que ya tenía el <select> (ej.
-		// ".ac-hist-periodo", que en el CSS de la grilla de tarjetas mobile
-		// usa "grid-area: periodo") — así cualquier layout que ya apuntaba
-		// a esa clase (grid-area, flex-basis, width, lo que sea) sigue
-		// aplicando sobre el elemento que ahora SÍ es el item real del
-		// contenedor (el wrapper), no sobre el <select> que quedó oculto
-		// adentro.
+		// El wrapper hereda las mismas clases que ya tenía el <select>, así cualquier layout que apuntaba a esa clase sigue aplicando sobre el wrapper.
 		var wrap = document.createElement('div');
 		wrap.className = select.className + ' ac-select-bonito';
 		select.parentNode.insertBefore(wrap, select);
@@ -69,9 +53,7 @@
 			});
 		}
 
-		// Mismo clamp de viewport ya usado en el combobox de Registrar
-		// (posicionarPanelCombo, registrar.js) — sin esto el panel se sale
-		// del borde derecho en pantallas angostas.
+		// Mismo clamp de viewport que el combobox de Registrar (posicionarPanelCombo): sin esto el panel se sale del borde derecho en pantallas angostas.
 		function posicionarPanel() {
 			var r = trigger.getBoundingClientRect();
 			var ancho = r.width;
@@ -105,18 +87,8 @@
 		window.addEventListener('resize', function () {
 			if (!panel.classList.contains('hidden')) posicionarPanel();
 		});
-		// Si algo del propio módulo cambia el <select> por código (ej.
-		// resumenFiltroTrimestre.value = '2'), el label tiene que reflejarlo
-		// igual, no solo cuando el usuario clickea el panel. 'change' cubre
-		// los casos normales, pero HAY módulos (ej. Liquidación,
-		// popularFiltroCedi() en liquidacion.js) que reasignan
-		// "select.value = ..." por código DIRECTO — eso nunca dispara
-		// 'change' (ni debería, sería un evento falso). Para cubrir ese
-		// caso sin tener que tocar cada módulo que use esto, se intercepta
-		// el setter de .value de ESTE select puntual (no el prototype
-		// global, no afecta a ningún otro <select> de la página) — así
-		// cualquier "select.value = x" futuro, sea del módulo que sea,
-		// re-sincroniza el label solo.
+		// Algunos módulos reasignan "select.value = ..." por código directo, lo que nunca dispara 'change'. Se intercepta el setter de .value
+		// de ESTE select puntual (no el prototype global) para que cualquier asignación futura re-sincronice el label solo.
 		var valueDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
 		Object.defineProperty(select, 'value', {
 			get: function () { return valueDescriptor.get.call(select); },
@@ -137,8 +109,6 @@
 	} else {
 		mejorarTodos();
 	}
-	// Los paneles de Liquidación/Historial se agregan al DOM recién al
-	// entrar a esa sección por primera vez en algunos flujos — exponerlo
-	// para que cada módulo pueda volver a llamarlo si hace falta.
+	// Los paneles de Liquidación/Historial se agregan al DOM recién al entrar a esa sección; se expone para que cada módulo lo re-llame si hace falta.
 	window.acMejorarSelectsNuevos = mejorarTodos;
 })();

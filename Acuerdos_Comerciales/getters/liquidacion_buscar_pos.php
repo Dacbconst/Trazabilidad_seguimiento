@@ -1,8 +1,5 @@
 <?php
-// Búsqueda libre de pos_id por nombre (contiene, no solo prefijo) — para la
-// pantalla de "Pendientes de Asignar" cuando una fila quedó en sin_match
-// (cero candidatos automáticos) y el superdesarrollador tiene que buscar a
-// mano el cliente correcto.
+// Búsqueda libre de pos_id por nombre (contiene, no solo prefijo), para cuando una fila quedó sin candidatos automáticos.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

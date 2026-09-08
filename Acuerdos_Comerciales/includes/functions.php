@@ -1,7 +1,5 @@
 <?php
-// Todo el manejo de sesión y roles vive en un solo archivo a propósito:
-// este proyecto es independiente del login de Xplora y no necesita la
-// separación Session.php/Auth.php que usan Pintuco/Unilever.
+// Sesión y roles en un solo archivo a propósito: proyecto independiente del login de Xplora, no necesita separar Session.php/Auth.php.
 
 function iniciar_sesion() {
 	if (session_status() === PHP_SESSION_NONE) {
@@ -117,8 +115,7 @@ function rolEtiqueta($rol) {
 }
 
 // ---------- Canal (Directo / Distribuidor) vía supervisor ----------
-// repositorio_locales_supervisores_cliente es un maestro externo de Alicorp (nunca se modifica su esquema).
-// El canal NUNCA se guarda: se deriva en vivo mirando el canal de los clientes del supervisor.
+// El canal NUNCA se guarda: se deriva en vivo mirando el canal de los clientes del supervisor (maestro externo de Alicorp, esquema intocable).
 
 function listar_supervisores_disponibles($mysqli) {
 	$supervisores = [];
@@ -156,11 +153,8 @@ function supervisores_asignados_activos($mysqli, $excluirId = 0) {
 	return $asignados;
 }
 
-// Ningún supervisor real mezcla DISTRIBUIDOR con COBERTURA/MAYORISTA.
+// Se llama sin condición en cada carga de Registrar: nunca debe tirar fatal error, devuelve null (-> 'directo' por defecto) en vez de romper el login.
 // Caso borde sin resolver: un supervisor exclusivamente MAYORISTA caería como 'directo'.
-//
-// Se llama sin condición en cada carga de Registrar — nunca debe tirar fatal error;
-// devuelve null (-> 'directo' por defecto) en vez de romper el login para todos.
 function canalDeSupervisor($mysqli, $supervisor) {
 	if (!$supervisor) return null;
 	$stmt = $mysqli->prepare(
@@ -178,8 +172,7 @@ function canalDeSupervisor($mysqli, $supervisor) {
 }
 
 // ---------- Repositorio de Cuotas trimestrales ----------
-// Match por nombre (pos_name LIKE), desempate por CEDI=supervisor (canal directa).
-// A diferencia de Liquidación, acá se necesita UN solo pos_id; 0 o más de 1 candidato tras el desempate cae a "sin match".
+// Match por nombre, desempate por CEDI=supervisor. A diferencia de Liquidación, acá se necesita UN solo pos_id; ambigüedad cae a "sin match".
 function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel) {
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -390,15 +383,10 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 }
 
 // ---------- Actas Precargadas (Repositorio de Cuotas) ----------
-// Resolución en vivo, nunca guardada. Agrupa por (pos_id, trimestre, anio) — varias filas de sector de un cliente son UNA sola Acta.
-// Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota(), acá como JOIN para todas las filas pendientes a la vez.
+// Resolución en vivo, nunca guardada. Agrupa por (pos_id, trimestre, anio): varias filas de sector de un cliente son UNA sola Acta.
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
-	// Subquery en vez de JOIN directo por pos_id (2026-09-02, mismo bug real
-	// ya corregido en listar_cumplimiento_cuota()/resumen_cumplimiento_cuota() —
-	// `repositorio_locales_supervisores_cliente.pos_id` NO es único, un JOIN
-	// directo duplicaría esta Acta Precargada en la campanita si el cliente
-	// tiene 2+ filas en el maestro real).
+	// Subquery en vez de JOIN directo: pos_id NO es único en el maestro, un JOIN directo duplicaría esta Acta Precargada si el cliente tiene 2+ filas.
 	$stmt = $mysqli->prepare(
 		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.sector, c.valores_mensuales, c.updated_at
 		 FROM repositorio_cuota_cliente c
@@ -420,9 +408,7 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	// `actualizado_en` = updated_at más reciente del grupo — así la clave de "visto" de la campanita cambia si el cliente se resube/reasigna.
 	$grupos = [];
 	foreach ($filasCrudas as $f) {
-		// "OTRAS CATEGORIAS" se ignora acá también (2026-08-31, ver
-		// obtener_precarga_detalle()) — el contador tiene que seguir
-		// coincidiendo exacto con lo que el asesor va a ver de verdad.
+		// "OTRAS CATEGORIAS" se ignora acá también (ver obtener_precarga_detalle()): el contador debe coincidir exacto con lo que ve el asesor.
 		if (strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS') continue;
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
 		if (!is_array($valores) || array_sum($valores) <= 0) continue;
@@ -445,10 +431,7 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
 		 ORDER BY sector"
 	);
-	// Fallback si `subcategoria`/`marca` todavía no existen en la base (falta
-	// correr el ALTER correspondiente, ver CLAUDE.md) — mismo criterio
-	// defensivo que login() con `supervisor`: nunca tumbar toda la Acta
-	// Precargada por columnas nuevas que capaz no se corrieron todavía.
+	// Fallback si `subcategoria`/`marca` todavía no existen en la base (ALTER pendiente): nunca tumbar la Acta Precargada por columnas nuevas.
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
 			"SELECT id, sector, NULL AS subcategoria, NULL AS marca, valores_mensuales FROM repositorio_cuota_cliente
@@ -689,9 +672,7 @@ function resumen_cuotas($mysqli) {
 }
 
 // ---------- Gestión de Usuarios (repositorio_usuarios_acuerdos) ----------
-// Centralizado aquí porque tanto la carga inicial (gestion-usuarios.php) como
-// el refresco por AJAX (getters/tabla_usuarios.php) necesitan la misma consulta
-// y el mismo render de fila, para no duplicar el SQL ni el HTML.
+// Centralizado acá porque la carga inicial y el refresco AJAX necesitan la misma consulta y el mismo render de fila.
 
 function listar_usuarios_acuerdos($mysqli, $busqueda = '', $pagina = 1, $porPagina = 8) {
 	$pagina = max(1, (int) $pagina);
@@ -800,9 +781,7 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 }
 
 // ---------- Historial de Acuerdos (repositorio_acuerdos) ----------
-// Mismo patrón que arriba: la carga inicial (historial.php) y el refresco
-// por AJAX (getters/listar_historial.php) comparten la misma consulta y el
-// mismo render de fila para no duplicar SQL ni HTML.
+// Mismo patrón que arriba: carga inicial y refresco AJAX comparten la misma consulta y el mismo render de fila.
 
 function mesCorto($mes) {
 	$meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -1034,11 +1013,8 @@ function listar_anios_disponibles($mysqli, $usuarioId, $rol = null) {
 	return array_map('intval', $anios);
 }
 
-// $mostrarCanal (2026-08-31): agrega una celda de Canal (Directo/Distribuidor)
-// entre Localidad y Periodo — solo tiene sentido para quien puede ver Actas de
-// los 2 canales mezcladas (superdesarrollador, ver historial.php); un
-// desarrollador normal siempre ve un solo canal, así que ahí la columna se
-// omite y la fila queda EXACTAMENTE igual que antes de este cambio.
+// $mostrarCanal agrega una celda de Canal entre Localidad y Periodo, solo para quien ve Actas de los 2 canales mezcladas (superdesarrollador).
+// Un desarrollador normal siempre ve un solo canal: la columna se omite y la fila queda igual que antes.
 function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	$fecha = $a['fecha_generacion'] ? date('d/m/Y', strtotime($a['fecha_generacion'])) : '—';
 	$celdaCanal = '';
@@ -1047,25 +1023,10 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 		$celdaCanal = '<td><span class="ac-badge ac-badge-canal-'.($esDistribuidor ? 'distribuidor' : 'directo').'">'.($esDistribuidor ? 'Distribuidor' : 'Directo').'</span></td>';
 	}
 
-	// Firma subida (2026-08-21): reusa `acta_firmada_archivo` (antes `firmas`,
-	// JSON sin usar — ver CLAUDE.md) para saber si ya volvió el Acta firmada a
-	// mano. Un solo botón por fila que cambia de ícono/acción según el
-	// estado: subir si falta, ver el archivo si ya está.
+	// Un solo botón por fila que cambia de ícono/acción según el estado: subir si falta la firma, ver el archivo si ya está.
 	$tieneFirma = !empty($a['tiene_firma']);
-	// Aviso visual de vencimiento (2026-08-25) — el badge "Pendiente" de
-	// siempre pasa a mostrar la cuenta regresiva cuando quedan 5 días o
-	// menos (mismo umbral que la campanita del header, ver
-	// listar_alertas_firma_propias() más abajo), con 2 niveles de urgencia.
-	// Texto rediseñado tras revisar la etiqueta contra las heurísticas de
-	// Nielsen (ver concepto "Sala de Alertas", 2026-08-25, aprobado por el
-	// usuario tal cual): "Vence en N días" no decía QUÉ vence — se podía
-	// leer como que el ACUERDO comercial se cae, no que es la ventana para
-	// subir la foto de la firma (heurística 2, coincidencia con el mundo
-	// real). "Sube la firma — N días" nombra la acción pendiente en vez de
-	// solo el dato (heurística 5, prevención de errores) y usa el
-	// vocabulario del usuario ("sube la firma") en vez del sistema
-	// ("vence"). $filaUrgencia además marca el `<tr>` para la franja de
-	// color lateral (ver ac-fila-urgente/ac-fila-critica en style.css).
+	// Badge "Pendiente" pasa a cuenta regresiva con 5 días o menos (mismo umbral que la campanita). "Sube la firma — N días" nombra la acción
+	// pendiente en vez de solo el dato. $filaUrgencia marca el <tr> para la franja lateral (ac-fila-urgente/ac-fila-critica en style.css).
 	$filaUrgencia = '';
 	if ($tieneFirma) {
 		$firmaBadge = '<span class="ac-badge ac-badge-ok">Firmada</span>';
@@ -1085,24 +1046,13 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 			$firmaBadge = '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
 		}
 	}
-	// Ownership (2026-08-31): con el superdesarrollador viendo Actas de
-	// OTROS asesores en Historial (ver listar_historial_acuerdos(), "ver
-	// todo"), Subir Firma/Ver Firma y Eliminar tienen que seguir bloqueados
-	// para una Acta ajena — decisión confirmada con el usuario, esos 2
-	// botones no se habilitan solo porque ahora se VE la fila. Ver Detalles
-	// y Descargar PDF sí quedan libres para cualquiera (ver
-	// getters/generar_acta_pdf.php, ya actualizado). Para un desarrollador
-	// normal `$esPropio` siempre da true (nunca ve Actas ajenas de entrada),
-	// así que esto no cambia nada para ese rol.
+	// Con el superdesarrollador viendo Actas de otros asesores, Subir/Ver Firma y Eliminar siguen bloqueados para una Acta ajena;
+	// Ver Detalles y Descargar PDF quedan libres para cualquiera. Para un desarrollador normal $esPropio siempre da true.
 	$esPropio = (int) ($a['creado_por'] ?? 0) === (int) ($_SESSION['user_id'] ?? 0);
 	$disabledAjeno = $esPropio ? '' : ' disabled';
 	$tituloAjeno = ' title="Esta Acta la generó otro asesor — solo esa cuenta puede subir la firma."';
 
-	// .ac-row-actions-primary + el <span> de texto (oculto en desktop, ver
-	// style.css): en mobile este es el botón que más importa de toda la fila
-	// — la mayoría de las subidas de Acta firmada van a pasar por celular,
-	// así que necesita texto visible y buen tamaño táctil, no un ícono
-	// pelado igual de chico que "Eliminar" (2026-08-25, pedido explícito).
+	// .ac-row-actions-primary + <span> de texto (oculto en desktop): en mobile es el botón más importante, necesita texto visible y buen tamaño táctil.
 	$firmaBtn = $tieneFirma
 		? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'"'.$disabledAjeno.($esPropio ? ' title="Ver Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">task_alt</span><span class="ac-row-actions-primary-label">Ver Firma</span></button>'
 		: '<button type="button" class="ac-icon-btn ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0"'.$disabledAjeno.($esPropio ? ' title="Subir Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
@@ -1221,7 +1171,6 @@ function listar_borradores_usuario($mysqli, $usuarioId) {
 
 // ---------- Módulo Repositorios ----------
 // Dos catálogos self-service (Rebate, Participación de Percha) que autocompletan y bloquean esos campos en el Acta.
-// $stmt puede venir null si no se corrió el schema — se devuelve vacío en vez de fatal error, mismo criterio que `supervisor`.
 function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
@@ -1405,8 +1354,7 @@ function listar_repositorio_cuotas_pendientes_match($mysqli) {
 }
 
 // ---------- Seguimiento de Equipo (repositorio_acuerdos, TODOS los usuarios) ----------
-// Maestro-detalle con un filtro de estado (Todas/Firmadas/Pendientes/Vencidas). Solo cuenta Actas con creado_por real, sin bucket "Sin usuario asignado".
-// Los getters devuelven JSON crudo (el frontend arma el DOM) para que filtrar se sienta instantáneo. Única pantalla donde superdesarrollador ve Actas de otros — reforzar el chequeo de rol.
+// Maestro-detalle con filtro de estado. Única pantalla donde superdesarrollador ve Actas de otros usuarios: reforzar el chequeo de rol.
 
 // Años con al menos un Acuerdo real de cualquier usuario — a diferencia de listar_anios_disponibles(), este es a nivel de todo el equipo.
 function listar_anios_disponibles_equipo($mysqli) {
@@ -1473,22 +1421,13 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 	return ['stats' => $stats, 'equipo' => $equipo];
 }
 
-// Detalle de un usuario para el filtro de estado activo — $tipo:
-// 'todas' | 'firmadas' | 'pendientes' | 'vencidas' (validado con whitelist
-// en el getter, acá se usa directo en el SQL). 'pendientes' ordena por
-// urgencia (menos días primero); el resto por fecha de generación. Mismo
-// GROUP BY a.id que listar_historial_acuerdos() por los ~1,116 pos_id
-// duplicados de repositorio_locales_supervisores_cliente.
+// $tipo validado con whitelist en el getter, acá se usa directo en el SQL. 'pendientes' ordena por urgencia, el resto por fecha de generación.
+// Mismo GROUP BY a.id que listar_historial_acuerdos() por los ~1,116 pos_id duplicados del maestro.
 function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio = 0, $tipo = 'todas') {
 	$usuarioId = (int) $usuarioId;
 	if (!$usuarioId) return [];
 
-	// Sin esto, un Acta que ya pasó los 20 días pero nadie visitó Historial/
-	// este módulo desde entonces seguía apareciendo como 'generado'/
-	// 'enviado' con días negativos en vez de 'vencido' — mismo criterio que
-	// listar_historial_acuerdos()/resumen_seguimiento_equipo() (esta función
-	// se llama sola sin pasar antes por esa, ej. si el detalle se pide
-	// directo contra el getter).
+	// Sin esto, un Acta vencida hace rato pero sin visita a Historial seguía apareciendo 'generado' con días negativos en vez de 'vencido'.
 	barrer_actas_vencidas($mysqli);
 
 	$bounds          = trimestreABounds($trimestre);
@@ -1504,13 +1443,8 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 		default:           $condicionEstado = "a.estado NOT IN ('borrador', 'anulado')"; $orden = 'a.fecha_generacion DESC';
 	}
 
-	// LEFT JOIN (no JOIN normal) a propósito: el conteo por usuario de
-	// resumen_seguimiento_equipo() no depende del maestro de clientes, así
-	// que si el `pos_id` de un Acta real ya no matchea ese maestro (mismo
-	// fenómeno ya documentado para las Actas huérfanas viejas — puede
-	// pasarle a una Acta con usuario real también), con JOIN normal esa
-	// fila desaparecía del detalle aunque SÍ contara en el total de la
-	// lista de Equipo. pos_name cae a NULL -> '—' en seguimiento.js.
+	// LEFT JOIN a propósito: si el pos_id de un Acta real ya no matchea el maestro, un JOIN normal la haría desaparecer del detalle aunque SÍ
+	// cuente en el total del resumen de Equipo. pos_name cae a NULL -> '—' en seguimiento.js.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
@@ -1538,35 +1472,8 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	return $filas;
 }
 
-// ---------- Módulo "Cumplimiento de Cuota" (2026-08-30) ----------
-// Resolución de dueño: mismo criterio "CEDI del Excel gana sobre el maestro"
-// ya confirmado con el usuario para el Repositorio de Cuotas Trimestrales
-// (ver usuarioIdDeCuota()/listar_actas_precargadas_pendientes() arriba) — es
-// literalmente el mismo Excel/mismo significado de columna CEDI, así que se
-// aplica igual acá, como LEFT JOIN + COALESCE (una sola consulta para todas
-// las filas, no una por fila).
-// $canal (2026-08-31): 'total'/'directo'/'distribuidor', mismo criterio
-// EXISTS-based ya usado en listar_historial_acuerdos() — un pos_id puede
-// tener 2+ filas en el maestro con canal distinto entre sí, así que un
-// filtro directo sobre `canal` no sería mutuamente excluyente (ver el
-// comentario completo en esa función, includes/functions.php).
-//
-// Corregido 2026-08-31 (bug real reportado por el usuario): la primera
-// versión chequeaba el canal directo sobre `pos_id` contra el maestro
-// (`repositorio_locales_supervisores_cliente`) — pero el DUEÑO real de la
-// fila ya se resuelve con el criterio de arriba ("CEDI del Excel gana
-// sobre el maestro"), y el maestro puede decir una cosa totalmente
-// distinta de con quién trabaja Alicorp en la práctica (mismo fenómeno ya
-// documentado para Actas Asignadas: Javier Maldonado es Directo de
-// verdad, pero sus clientes en el maestro caen como MAYORISTA). Filtrar el
-// canal por el `pos_id` crudo, ignorando a quién se le asignó la fila,
-// hacía que un usuario Directo apareciera clasificado como Distribuidor
-// (o al revés) según lo que diga el maestro, no según quién es. Ahora
-// recibe la expresión SQL del SUPERVISOR ya resuelto (`COALESCE(u_cedi.
-// supervisor, u_master.supervisor)`, ver los JOIN en las 2 funciones de
-// abajo) y compara canal contra ESE supervisor — el mismo criterio que ya
-// usa `canalDeSupervisor()` en el resto de la app, solo que expresado como
-// SQL para poder filtrar/agrupar sin una consulta por fila.
+// ---------- Módulo "Cumplimiento de Cuota" ----------
+// Resolución de dueño: "CEDI del Excel gana sobre el maestro" (LEFT JOIN + COALESCE). $canal filtra por el SUPERVISOR ya resuelto, no por pos_id crudo.
 function condicionCanalCumplimiento($canal, $columnaSupervisor) {
 	if ($canal === 'directo') {
 		return "NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.supervisor = $columnaSupervisor AND d2.canal = 'DISTRIBUIDOR')";
@@ -1594,27 +1501,8 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
-	// `canal` acá es el mismo criterio canónico de arriba, resuelto una vez
-	// por fila — el frontend lo usa para mostrar el badge de canal SOLO
-	// cuando la Vista está en "Total" (con un canal puntual ya filtrado, el
-	// badge sería redundante en cada fila). Se deriva del SUPERVISOR ya
-	// resuelto (CEDI del Excel gana sobre el maestro), no del `pos_id`
-	// crudo — ver el comentario de `condicionCanalCumplimiento()`.
-	//
-	// Bug real corregido (2026-09-02, reportado por el usuario: "por qué se
-	// duplicó ACOSTA SANTAMARIA y NOVOA no"): `repositorio_locales_supervisores_cliente.pos_id`
-	// NO es único (confirmado con datos reales — EPVD15130/ACOSTA SANTAMARIA
-	// tiene 2 filas en el maestro, una con supervisor PATRICIO PASPUEZAN
-	// canal MAYORISTA y otra GARRY SAINT canal DISTRIBUIDOR; NOVOA/SUPERALIANZA
-	// tienen 1 sola fila cada uno, por eso no se duplicaban). Un
-	// `LEFT JOIN ... ON mst.pos_id = c.pos_id` directo multiplica cada fila
-	// de Cumplimiento por la cantidad de filas que tenga ese pos_id en el
-	// maestro — acá pasaba de 1 a 2, y con 3 categorías reales se veían 6.
-	// La subquery `(SELECT pos_id, MIN(supervisor)... GROUP BY pos_id)`
-	// fuerza como máximo 1 fila por pos_id antes del JOIN, sin importar
-	// cuántas tenga el maestro real — mismo criterio a aplicar en cualquier
-	// otro JOIN nuevo contra esta tabla por `pos_id` (ver también
-	// `listar_actas_precargadas_pendientes()`, corregida igual el mismo día).
+	// `canal` acá: el frontend lo usa para el badge solo cuando la Vista está en "Total", derivado del SUPERVISOR ya resuelto, no del pos_id crudo.
+	// pos_id NO es único en el maestro: la subquery MIN(supervisor) fuerza máximo 1 fila por pos_id antes del JOIN, si no se multiplican filas.
 	$stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan_excel, c.sector,
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
@@ -1646,11 +1534,7 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 	$tipos = '';
 	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
 	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
-	// Mismo criterio que listar_cumplimiento_cuota() (2026-08-31, bug real
-	// corregido) — el canal se resuelve por el SUPERVISOR del usuario
-	// dueño real de la fila (CEDI del Excel gana sobre el maestro), no por
-	// el `pos_id` crudo — necesita los mismos 2 LEFT JOIN de esa función
-	// para poder resolver ese dueño acá también.
+	// Mismo criterio que listar_cumplimiento_cuota(): canal por el SUPERVISOR del dueño real, no por pos_id crudo. Necesita los mismos 2 LEFT JOIN.
 	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_cedi.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);

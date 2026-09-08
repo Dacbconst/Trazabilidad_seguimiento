@@ -6,7 +6,6 @@ require_once __DIR__.'/dinero.php';
 
 // ---------- Parseo: hoja Cuota/Venta/Rebate por categoria ----------
 // Detecta el periodo leyendo las columnas de mes reales de la hoja (no asume frecuencia fija).
-// $canal: 'directa' o 'distribuidor', cada uno con su propia hoja/columnas.
 function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 	if ($canal === 'directa') {
 		$nombreHoja = 'CUOTA CLIENTE - CATEGORÍA';
@@ -131,8 +130,7 @@ function liquidacion_parsear_visibilidad($rutaArchivo, $canal) {
 }
 
 // ---------- Matching: fila del Excel -> pos_id(s) candidato(s) ----------
-// Match primario por pos_name LIKE 'excel%' (el Excel trunca el nombre, siempre es prefijo).
-// CEDI/DISTRIBUIDOR NO filtra el match (el supervisor de un cliente cambia con el tiempo, pos_name es mas estable); solo desempata cuando el prefijo matchea a mas de un cliente.
+// Match primario por pos_name LIKE 'excel%'; CEDI/DISTRIBUIDOR solo desempata (el supervisor cambia con el tiempo, pos_name es más estable).
 function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $clienteONombre) {
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -162,8 +160,7 @@ function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $cli
 }
 
 // ---------- Matching: pos_id -> acuerdo_id (Acta cuyo periodo se solapa) ----------
-// Se solapa, no es exactamente igual, porque el periodo del Excel puede no calzar 1 a 1
-// con mes_inicio/mes_fin de la Acta. Tambien filtra por anio, para no confundir el mismo trimestre de anios distintos.
+// Se solapa, no es exactamente igual: el periodo del Excel puede no calzar 1 a 1 con mes_inicio/mes_fin. Filtra por anio también.
 function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin, $anio) {
 	$stmt = $mysqli->prepare(
 		"SELECT id FROM repositorio_acuerdos
@@ -193,8 +190,7 @@ function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $cliente
 }
 
 // ---------- Resumen de Pagos: junta rebate real + visibilidad por cliente ----------
-// Agrupa por (cedi_o_distribuidor, cliente_o_nombre). No filtra por estado_match: siempre
-// muestra todos los clientes, con `estado` ('ok'/'revisar') si algo quedo sin resolver.
+// No filtra por estado_match: siempre muestra todos los clientes, con `estado` ('ok'/'revisar') si algo quedo sin resolver.
 function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	$porCliente = [];
 
@@ -279,8 +275,7 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 }
 
 // ---------- Resumen de Pagos UNIFICADO por canal ----------
-// Junta todas las importaciones completadas de un canal; cada fila mantiene SU PROPIO periodo,
-// nunca se suman montos de trimestres distintos. $trimestre: 0=todos, 1-4=Q1-Q4. $anio: 0=todos.
+// Junta todas las importaciones de un canal; cada fila mantiene su propio periodo, nunca suma montos de trimestres distintos.
 function liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio) {
 	$bounds = trimestreABounds($trimestre);
 	$trimestreActivo = $bounds ? 1 : 0;

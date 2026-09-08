@@ -1,11 +1,5 @@
 <?php
-// Lista las filas borradas lógicamente de un repositorio (Rebate o
-// Participación de Percha) — ver "Eliminar" en repositorio_eliminar.php y la
-// nota de borrado lógico en datos/repositorios_schema.sql. Filtrable por
-// rango de fecha de borrado (`desde`/`hasta`, YYYY-MM-DD) — el caso real que
-// motivó esto: "me dicen que por error borraron algo, quiero filtrar rápido
-// el día y reactivarlo" (2026-08-25, pedido explícito). Solo superdesarrollador,
-// mismo criterio que el resto de Repositorios.
+// Lista filas borradas lógicamente (Rebate o Participación de Percha), filtrable por rango de fecha de borrado, para reactivar rápido un error puntual.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -27,9 +21,7 @@ if (!in_array($tipo, ['rebate', 'participacion'], true)) {
 	exit;
 }
 
-// (? = '' OR DATE(eliminado_en) >= ?) — mismo patrón "0 = sin filtrar" que
-// ya usa el resto del proyecto para filtros opcionales (ver trimestreABounds()),
-// adaptado a texto vacío porque acá el filtro es una fecha, no un entero.
+// (? = '' OR DATE(eliminado_en) >= ?): mismo patrón "sin filtrar" que trimestreABounds(), adaptado a texto vacío por ser fecha.
 if ($tipo === 'rebate') {
 	$stmt = $mysqli->prepare(
 		"SELECT r.id, r.ciudad, r.canal, r.sector, r.categoria, r.marca, r.rebate_pct, r.eliminado_en, u.usuario AS eliminado_por_usuario

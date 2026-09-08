@@ -83,11 +83,7 @@
 	var exportCompletoAntes = trimestreSelect.value !== '0' && anioSelect.value !== '0';
 	function actualizarEstadoFiltroPeriodo() {
 		var completoAhora = trimestreSelect.value !== '0' && anioSelect.value !== '0';
-		// Recién ahora quedaron los 2 elegidos a la vez — no solo el que
-		// cambió. Se usa para confirmar en verde TAMBIÉN el otro campo,
-		// aunque nunca haya estado pulsando (pedido explícito: "para que dé
-		// a entender que el año también" cuenta en el momento en que se
-		// habilita la descarga, no solo el campo que el usuario tocó).
+		// Recién ahora quedaron los 2 elegidos a la vez: confirma en verde también el otro campo, aunque nunca haya estado pulsando.
 		var recienCompleto = completoAhora && !exportCompletoAntes;
 
 		[trimestreSelect, anioSelect].forEach(function (select) {
@@ -111,14 +107,8 @@
 	trimestreSelect.addEventListener('change', actualizarEstadoFiltroPeriodo);
 	anioSelect.addEventListener('change', actualizarEstadoFiltroPeriodo);
 
-	// Apaga cualquier pulso/flash/brillo que hubiera quedado activo al
-	// cambiar de módulo (2026-08-28, pedido explícito: "que llegue a
-	// desaparecer si cambia de módulo... para no dejar vivo eso todo el
-	// tiempo") — Historial nunca se destruye al cambiar de pestaña (solo se
-	// oculta con CSS, ver index.php), así que sin esto un pulso `infinite`
-	// seguiría animando en segundo plano indefinidamente. Expuesta para que
-	// index.php la llame en CADA click de navegación del sidebar, sin
-	// importar hacia dónde (mismo patrón que window.acAlertasFirmaRefrescar).
+	// Apaga cualquier pulso/flash/brillo activo al cambiar de módulo: Historial nunca se destruye al cambiar de pestaña (solo se oculta con CSS),
+	// así que sin esto un pulso `infinite` seguiría animando en segundo plano. Expuesta para que index.php la llame en cada navegación del sidebar.
 	function limpiarResaltadoFiltroPeriodo() {
 		[trimestreSelect, anioSelect].forEach(function (select) {
 			var objetivo = select.closest('.ac-select-bonito') || select;
@@ -130,21 +120,12 @@
 	var tbody           = document.getElementById('hist-tabla-body');
 	var tablaCard       = tbody.closest('.ac-card');
 	var actualizarBtn   = document.getElementById('hist-actualizar');
-	// paginacionEl sigue siendo la ÚNICA fuente de verdad del estado (data-pagina/
-	// data-total-paginas) — el bloque de arriba es solo visual, se pinta en
-	// sincro pero nada lee su dataset. Paginación arriba Y abajo (2026-08-25,
-	// pedido explícito: "tengo que bajar para poder cambiar de página").
+	// paginacionEl sigue siendo la ÚNICA fuente de verdad del estado (data-pagina/data-total-paginas); el bloque de arriba es solo visual.
 	var paginacionEl    = document.getElementById('hist-paginacion');
 	var paginacionInfoEls = [document.getElementById('hist-paginacion-info-top'), document.getElementById('hist-paginacion-info')];
 	var paginacionBtnsEls = [document.getElementById('hist-paginacion-btns-top'), document.getElementById('hist-paginacion-btns')];
 	var buscarTimeout   = null;
-	// Tokens de request en vuelo — evitan que una respuesta vieja pise a una
-	// más nueva (ej. tipear "a", esperar el debounce de 350ms, y antes de
-	// que esa respuesta vuelva ya se tipeó "ab" y se disparó un 2do fetch —
-	// si el 2do responde primero y el 1ro llega después, sin este guard el
-	// 1ro pisaba la tabla con resultados de una búsqueda vieja/distinta a lo
-	// que el input muestra en pantalla ahora mismo). Mismo patrón ya
-	// aplicado en Seguimiento de Equipo tras encontrar el mismo bug ahí.
+	// Tokens de request en vuelo: evitan que una respuesta vieja pise a una más nueva (tipear rápido dispara 2 fetch, el 1ro puede responder después).
 	var historialReqId = 0;
 	var bannerReqId     = 0;
 	var histBanner      = document.getElementById('hist-banner');
@@ -157,12 +138,8 @@
 		return div.innerHTML;
 	}
 
-	// Confirmación (SweetAlert2, acción destructiva) + guardado real vía
-	// eliminar_acuerdo.php (nunca DELETE físico, marca estado='anulado') —
-	// compartido entre el listado de Historial y el modal "Mis Borradores".
-	// La única diferencia entre los dos usos es qué pasa con la fila después
-	// de borrar (recargar toda la lista vs. sacar solo esa fila con
-	// animación), por eso queda a cargo de onOk.
+	// Compartido entre Historial y "Mis Borradores"; eliminar_acuerdo.php nunca hace DELETE físico, marca estado='anulado'.
+	// La diferencia entre los 2 usos es qué pasa con la fila después (recargar todo vs. sacarla con animación), por eso queda a cargo de onOk.
 	function confirmarYEliminarAcuerdo(id, documentoNo, onOk) {
 		Swal.fire({
 			icon: 'warning',
@@ -189,9 +166,7 @@
 		});
 	}
 
-	// Saca una fila de una tabla con una animación corta (fade + slide) en vez
-	// de desaparecer de golpe, y deja el placeholder de "vacío" si era la
-	// última fila que quedaba — mismo patrón para Mis Borradores.
+	// Fade + slide en vez de desaparecer de golpe, y deja el placeholder de "vacío" si era la última fila (mismo patrón para Mis Borradores).
 	function animarYQuitarFila(fila, colspanVacio, mensajeVacio) {
 		fila.classList.add('ac-fila-eliminando');
 		fila.addEventListener('transitionend', function () {
@@ -203,17 +178,15 @@
 		}, { once: true });
 	}
 
-	// ---------- Stat tiles = también filtro de firma (2026-08-21) ----------
-	// "todos" | "firmadas" | "pendientes" — click en un tile ya activo vuelve
-	// a "todos" (toggle), no queda un estado sin salida.
+	// ---------- Stat tiles = también filtro de firma ----------
+	// "todos" | "firmadas" | "pendientes": click en un tile ya activo vuelve a "todos" (toggle), no queda un estado sin salida.
 	var firmaFiltroActual = 'todos';
 	var statTiles = {
 		firmadas:   document.getElementById('hist-stat-firmadas'),
 		pendientes: document.getElementById('hist-stat-pendientes')
 	};
 
-	// Solo alimentan el ancho de las barras — el % y "más antigua" ya no se
-	// muestran como texto (pedido explícito: dejar solo el número).
+	// Solo alimentan el ancho de las barras: el % y "más antigua" ya no se muestran como texto.
 	function renderStats(stats) {
 		var pctFirmadas = stats.total > 0 ? Math.round(stats.firmadas / stats.total * 100) : 0;
 		var pctPendientes = stats.total > 0 ? Math.round(stats.pendientes / stats.total * 100) : 0;
@@ -242,18 +215,11 @@
 		cargarHistorial(1);
 	});
 
-	// ---------- Pastillas de Canal (2026-08-31, solo superdesarrollador) ----------
-	// "total" | "directo" | "distribuidor" — solo existe el contenedor
-	// (#hist-canal-group) para superdesarrollador, ver historial.php. Mismo
-	// mecanismo simple que ya usan los pills de período de Cumplimiento/
-	// Seguimiento de Equipo: clase .ac-seg-pill-activo puesta a mano, sin
-	// componente nuevo.
+	// ---------- Pastillas de Canal (solo superdesarrollador) ----------
+	// "total" | "directo" | "distribuidor": mismo mecanismo simple que Cumplimiento/Seguimiento (clase .ac-seg-pill-activo a mano, sin componente nuevo).
 	var canalGroup = document.getElementById('hist-canal-group');
 	var canalFiltroActual = 'total';
-	// Refleja en el título del botón qué va a pasar al hacer click — con un
-	// canal puntual elegido, ya no hay picker (ver el listener de
-	// exportarBtn más arriba), así que el botón necesita decir SOLO qué
-	// formato descarga.
+	// Refleja en el título del botón qué va a pasar al click: con un canal puntual elegido ya no hay picker, el botón dice solo qué formato descarga.
 	var actualizarTituloExportar = function () {
 		if (!exportarBtn) return;
 		if (canalFiltroActual === 'directo') exportarBtn.title = 'Descarga el Excel de canal Directo';
@@ -261,11 +227,7 @@
 		else exportarBtn.title = 'Elige el formato a descargar';
 	};
 	if (canalGroup) {
-		// Arranca con la pastilla que el servidor ya marcó activa (ej. si se
-		// entra con ?canal=directo en la URL) — sin esto, recargar con un
-		// canal puntual en la URL dejaba la variable en 'total' aunque la
-		// pastilla visual mostrara otra cosa, y el botón de Excel directo
-		// (arriba) hubiera abierto el picker de todos modos.
+		// Arranca con la pastilla que el servidor ya marcó activa (ej. ?canal=directo en la URL); sin esto la variable quedaba en 'total' igual.
 		var pillActiva = canalGroup.querySelector('.ac-seg-pill-activo');
 		if (pillActiva) canalFiltroActual = pillActiva.dataset.canal;
 		actualizarTituloExportar();
@@ -295,19 +257,11 @@
 		var url = 'getters/listar_historial.php?q=' + encodeURIComponent(q) + filtrosQs +
 			'&firma=' + encodeURIComponent(firmaFiltroActual) + '&pg=' + (pagina || 1);
 
-		// Los 2 links de export siempre apuntan a lo mismo que está filtrado en
-		// pantalla ahora mismo — mismos parámetros que la lista, salvo firma (el
-		// Excel es de Cuota/Categoría, no distingue si ya está firmada) y canal
-		// (cada link elige el SUYO propio, sin importar qué pastilla de Vista
-		// esté activa — son 2 controles independientes, ver CLAUDE.md).
+		// Los 2 links de export apuntan a lo filtrado en pantalla, salvo firma (el Excel no distingue firmada) y canal (cada link elige el suyo propio).
 		if (exportarDirectoLink) exportarDirectoLink.href = 'getters/exportar_cuota_categoria.php?canal=directo&q=' + encodeURIComponent(q) + '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
 		if (exportarDistribuidorLink) exportarDistribuidorLink.href = 'getters/exportar_cuota_categoria.php?canal=distribuidor&q=' + encodeURIComponent(q) + '&trimestre=' + encodeURIComponent(trimestre) + '&anio=' + encodeURIComponent(anio);
 
-		// Feedback de carga (2026-08-25, pedido explícito — "le doy
-		// Actualizar y no pasa nada"): ícono de Actualizar gira + overlay
-		// sobre la card de la tabla mientras el fetch está en curso, sin
-		// importar qué lo haya disparado (Actualizar, buscar, cambiar
-		// período/año, paginar) — antes no había NINGUNA señal visible.
+		// Feedback de carga: ícono de Actualizar gira + overlay sobre la tabla mientras el fetch está en curso, sin importar qué lo haya disparado.
 		acBotonCargando(actualizarBtn, true);
 		acMostrarCargando(tablaCard);
 
@@ -364,13 +318,8 @@
 	anioSelect.addEventListener('change', function () { cargarHistorial(1); });
 	buscarBtn.addEventListener('click', function () { cargarHistorial(1); });
 
-	// Banner de vencimiento (2026-08-25, del concepto "Sala de Alertas") —
-	// reusa la misma data que la campanita del header (assets/js/alertas-
-	// firma.js, getters/alertas_firma.php), pero SOLO "mías" (acá no hay
-	// espacio ni motivo para la sección de Equipo). No se llama desde
-	// cargarHistorial() a propósito: esa se dispara en cada tecla de
-	// búsqueda/paginación/cambio de filtro, sería una consulta de más por
-	// cada una — se llama solo al entrar al módulo y al refrescar.
+	// Reusa la misma data que la campanita del header, pero solo "mías". No se llama desde cargarHistorial() (se dispara en cada tecla) a propósito,
+	// sería una consulta de más por cada una; se llama solo al entrar al módulo y al refrescar.
 	function diasCortosHist(dias) {
 		dias = parseInt(dias, 10);
 		if (dias <= 0) return 'hoy';
@@ -410,17 +359,13 @@
 	}
 	cargarBannerVencimiento();
 
-	// Recarga la página actual sin perder la búsqueda/filtro de mes — a
-	// diferencia de "Nuevo Acuerdo", esto no reinicia nada, solo vuelve a
-	// pedir los mismos datos por si algo cambió (ej. un Acuerdo generado
-	// desde otra pestaña/sesión).
+	// A diferencia de "Nuevo Acuerdo", esto no reinicia nada: solo vuelve a pedir los mismos datos por si algo cambió (otra pestaña/sesión).
 	function refrescarHistorial() {
 		cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
 		cargarBannerVencimiento();
 	}
 	document.getElementById('hist-actualizar').addEventListener('click', refrescarHistorial);
-	// Expuesto para que index.php pueda refrescar este módulo automáticamente
-	// al navegar hacia él desde el sidebar (ver script inline de index.php).
+	// Expuesto para que index.php refresque este módulo al navegar hacia él desde el sidebar.
 	window.acHistorialRefrescar = refrescarHistorial;
 
 	function irARegistrar() {
@@ -431,9 +376,7 @@
 	document.getElementById('hist-nuevo-acuerdo').addEventListener('click', irARegistrar);
 
 	// ---------- Mis Borradores ----------
-	// El listado y el modal viven acá; cargar el borrador en el formulario lo
-	// hace registrar.js (todo el estado de las 4 tablas vive ahí adentro) —
-	// solo cambiamos a esa pestaña y le pasamos el id.
+	// El listado y el modal viven acá; cargar el borrador en el formulario lo hace registrar.js (el estado de las 4 tablas vive ahí).
 	var borraModalOverlay = document.getElementById('hist-borradores-modal-overlay');
 	var borraBody = document.getElementById('hist-borradores-body');
 
@@ -498,9 +441,7 @@
 	});
 
 	// ---------- Detalle / Acta (Ver Detalles y Descargar PDF) ----------
-	// Mismo PDF real que genera Registrar (getters/generar_acta_pdf.php) —
-	// "Ver Detalles" y "Descargar PDF" abren el mismo iframe, no hay una
-	// segunda maqueta HTML que reconstruir ni mantener sincronizada.
+	// Mismo PDF real que Registrar: "Ver Detalles" y "Descargar PDF" abren el mismo iframe, sin una segunda maqueta HTML que mantener.
 	function mostrarEstadoDetalleCanvas(mensaje) {
 		detalleCanvasEstado.textContent = mensaje;
 		detalleCanvasEstado.classList.remove('hidden');
@@ -526,15 +467,8 @@
 		} else {
 			detalleCanvasWrap.classList.add('hidden');
 			pdfFrame.classList.remove('hidden');
-			// #toolbar=0&navpanes=0&zoom=page-width (2026-08-25, reportado con
-			// captura real: el Acta se veía chiquita, perdida en medio de un
-			// área gris grande) — sin esto el visor nativo de PDF arranca en su
-			// zoom "automático" (que en un iframe angosto en mobile termina
-			// alejado, con el toolbar nativo de Chrome ocupando espacio de
-			// arriba, redundante con el botón "Descargar / Imprimir PDF" que ya
-			// está en la barra de esta misma pantalla). "page-width" fuerza que
-			// la página ocupe todo el ancho disponible del iframe — el usuario
-			// igual puede seguir haciendo pinch-zoom nativo para acercar más.
+			// #toolbar=0&navpanes=0&zoom=page-width: sin esto el visor nativo arranca en zoom "automático", chiquito en un iframe angosto de mobile.
+			// "page-width" fuerza que la página ocupe todo el ancho; el usuario igual puede seguir con pinch-zoom nativo.
 			pdfFrame.src = url + '#toolbar=0&navpanes=0&zoom=page-width';
 		}
 		descargarBtn.href = url;
@@ -549,11 +483,8 @@
 		});
 	}
 
-	// ---------- Subir/ver Acta firmada (2026-08-21) ----------
-	// Modal con 2 paneles lado a lado: el Acta generada (izquierda, siempre
-	// de referencia) y el Acta firmada (derecha) — un solo componente sirve
-	// tanto para "ver la firma ya subida" como para "elegir una nueva y
-	// guardarla", solo cambia el estado inicial del panel derecho.
+	// ---------- Subir/ver Acta firmada ----------
+	// Modal con 2 paneles: Acta generada (izquierda, referencia) y Acta firmada (derecha). Un solo componente sirve para "ver" y "subir nueva".
 	var firmaModalOverlay  = document.getElementById('hist-firma-modal-overlay');
 	var firmaModalTitle    = document.getElementById('hist-firma-modal-title');
 	var firmaOriginalFrame = document.getElementById('hist-firma-original-frame');
@@ -583,35 +514,12 @@
 		firmaAmpliarFirmadaBtn.classList.add('hidden');
 	}
 
-	// Comprime fotos de cámara ANTES de subirlas (2026-09-02) — causa real
-	// encontrada con el diagnóstico temporal: nginx (el servidor web, delante
-	// de nuestro PHP) rechaza la subida con 413 "Request Entity Too Large"
-	// para una foto de cámara real (varios MB) — ni siquiera llega a tocar
-	// subir_acta_firmada.php, así que ningún límite/arreglo de nuestro código
-	// puede hacer nada ahí. Es un límite de infraestructura (Azure/nginx), no
-	// algo editable desde este repo — la solución real es que la foto nunca
-	// llegue tan pesada: se redimensiona/recomprime en el propio navegador
-	// antes de armar el FormData. De paso, menos datos para mover en una
-	// conexión de celular (el problema original de "la página se siente
-	// pesada" que reportó el usuario). Un PDF (no es foto) se sube tal cual,
-	// no se puede "comprimir" así. Si algo falla acá (canvas bloqueado,
-	// imagen corrupta, etc.), se sube el archivo original sin comprimir —
-	// nunca se bloquea la subida por esto.
-	// Iterativa, no un solo intento fijo (2026-09-02, ronda 3 — 2 intentos
-	// con un tamaño/calidad fijos NO alcanzaron, mismo 413 las 2 veces,
-	// porque no hay forma de saber desde acá el límite real que tiene
-	// configurado nginx del lado de Azure). En vez de adivinar un valor y
-	// esperar que alcance, prueba una lista de escalones cada vez más chicos
-	// y se queda con el PRIMERO que entra bajo un límite bien conservador —
-	// así el resultado SIEMPRE queda claramente por debajo de cualquier
-	// límite razonable, no "probablemente por debajo".
+	// Comprime fotos ANTES de subir: nginx rechaza con 413 fotos pesadas, límite de infraestructura no editable desde este repo.
+	// Prueba escalones cada vez más chicos hasta entrar bajo un límite conservador; PDF se sube tal cual, si falla sube el original sin comprimir.
 	function nombreComoJpg(archivo) { return archivo.name.replace(/\.[^.]+$/, '') + '.jpg'; }
 	function comprimirFotoSiHaceFalta(archivo) {
 		if (archivo.type.indexOf('image/') !== 0) return Promise.resolve(archivo);
-		// Bien por debajo de 1MB (el default real de nginx sin configurar) —
-		// deja margen de sobra para el overhead del multipart/FormData y para
-		// cualquier límite todavía más chico que ese que no se pueda ver
-		// desde acá.
+		// Bien por debajo de 1MB (default real de nginx sin configurar): deja margen para el overhead del multipart/FormData.
 		var LIMITE_SEGURO = 500 * 1024;
 		var escalones = [
 			{ lado: 1280, calidad: 0.6 },
@@ -630,9 +538,7 @@
 				var i = 0;
 				function intentar() {
 					if (i >= escalones.length) {
-						// Ni el escalón más chico entró en el límite (prácticamente
-						// imposible para una foto real) — se usa el más liviano que
-						// se logró, siempre mejor que subir el archivo original.
+						// Ni el escalón más chico entró en el límite: se usa el más liviano logrado, siempre mejor que el archivo original.
 						resolve(mejorBlob ? new File([mejorBlob], nombreComoJpg(archivo), { type: 'image/jpeg' }) : archivo);
 						return;
 					}
@@ -672,11 +578,8 @@
 		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 	}
 
-	// Foto → <img> (se ajusta/centra con object-fit igual que la vista previa
-	// local); PDF → <iframe> (el visor nativo del navegador ya centra y
-	// ajusta la página solo). Antes esto siempre usaba <iframe> para lo ya
-	// subido — para una imagen, el navegador la muestra a tamaño natural
-	// pegada arriba, sin centrar ni ajustar, corregido acá (2026-08-21).
+	// Foto → <img> (se ajusta/centra con object-fit); PDF → <iframe> (el visor nativo ya centra y ajusta solo). Antes siempre usaba <iframe>,
+	// una imagen se mostraba a tamaño natural pegada arriba sin centrar.
 	function mostrarFirmaYaSubida(id, mime) {
 		var url = 'getters/descargar_acta_firmada.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
 		if (mime && mime.indexOf('image/') === 0) {
@@ -703,8 +606,7 @@
 				firmaOriginalCanvas.classList.remove('hidden');
 			})
 			.catch(function (e) {
-				// DIAGNÓSTICO TEMPORAL (2026-09-02) — sacar este alert() en cuanto se
-				// identifique la causa real en celular; avisar a Claude para removerlo.
+				// DIAGNÓSTICO TEMPORAL: sacar este alert() en cuanto se identifique la causa real en celular.
 				alert(
 					'[Vista previa PDF] ' + (e && e.name ? e.name : 'Error') + ': ' + (e && e.message ? e.message : e) + '\n' +
 					'pdfjsLib cargado: ' + (!!window.pdfjsLib) + '\n' +
@@ -715,12 +617,7 @@
 			});
 	}
 
-	// Botones "Ampliar" (2026-08-25, pedido explícito): el panel de Acta
-	// Generada siempre es un PDF — "ampliar" ahí abre el PDF real en una
-	// pestaña nueva (el visor nativo ya trae su propio zoom/pinch). El panel
-	// de Acta Firmada puede ser foto o PDF — foto abre el lightbox global
-	// (zoom con los dedos, sin reinventar nada, ver assets/js/lightbox.js);
-	// PDF también va a pestaña nueva, mismo criterio que el otro panel.
+	// Acta Generada siempre es PDF: "ampliar" abre el PDF real en pestaña nueva. Acta Firmada puede ser foto (lightbox global) o PDF (pestaña nueva).
 	firmaAmpliarOriginalBtn.addEventListener('click', function () {
 		if (firmaOriginalUrlActual) window.open(firmaOriginalUrlActual, '_blank');
 	});
@@ -736,15 +633,10 @@
 		firmaArchivoElegido = null;
 		firmaGuardando = false;
 		firmaModalTitle.textContent = 'Acta Firmada — #' + documentoNo;
-		// El botón "Ampliar" siempre abre el PDF real (documento oficial,
-		// descargable) — independiente de si el panel muestra el iframe o el canvas.
+		// El botón "Ampliar" siempre abre el PDF real, independiente de si el panel muestra el iframe o el canvas.
 		firmaOriginalUrlActual = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
-		// Móvil real (2026-09-02): un PDF embebido en <iframe> no renderiza en
-		// Chrome de Android (a diferencia del modo "móvil" de Chrome de
-		// escritorio, que sigue siendo el motor de escritorio por debajo) —
-		// en pantallas angostas se dibuja el PDF real como imagen en un
-		// <canvas> con PDF.js en vez del iframe. Mismo breakpoint que ya usa
-		// este modal para apilar los 2 paneles (@media max-width:760px).
+		// Móvil real: un PDF embebido en <iframe> no renderiza en Chrome de Android, así que se dibuja con PDF.js en un <canvas> en su lugar.
+		// Mismo breakpoint que este modal usa para apilar los 2 paneles (@media max-width:760px).
 		if (window.matchMedia('(max-width: 760px)').matches) {
 			firmaOriginalFrame.src = '';
 			firmaOriginalFrame.classList.add('hidden');
@@ -814,15 +706,8 @@
 			firmaGuardarBtn.innerHTML = HTML_BOTON_GUARDAR;
 		}
 
-		// DIAGNÓSTICO TEMPORAL (2026-09-02) — se lee la respuesta como texto
-		// crudo ANTES de intentar JSON.parse(), para poder mostrar el HTTP
-		// status y el cuerpo real de la respuesta si no es JSON válido (ej. un
-		// error de PHP impreso crudo, una página de error del hosting, etc.) —
-		// antes esto se perdía, `.then(r => r.json())` fallaba directo y todo
-		// terminaba en el mismo "Error de conexión" genérico, sin decir por
-		// qué. Sacar este alert() (y volver a la versión simple con
-		// `.then(r => r.json())`) en cuanto se identifique la causa real en
-		// celular; avisar a Claude para removerlo.
+		// DIAGNÓSTICO TEMPORAL: lee la respuesta como texto crudo antes de JSON.parse() para mostrar HTTP status y cuerpo real si no es JSON válido.
+		// Sacar este alert() (volver a `.then(r => r.json())` simple) en cuanto se identifique la causa real en celular.
 		fetch('getters/subir_acta_firmada.php', { method: 'POST', body: formData })
 			.then(function (r) {
 				return r.text().then(function (texto) { return { status: r.status, ok: r.ok, texto: texto }; });

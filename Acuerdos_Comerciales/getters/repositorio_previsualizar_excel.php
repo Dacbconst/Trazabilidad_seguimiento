@@ -1,9 +1,5 @@
 <?php
-// Paso 1 de la subida (2026-08-24, ver CLAUDE.md "Módulo Repositorios"): SOLO
-// parsea el Excel y devuelve las filas leídas — no toca la base para nada,
-// mismo espíritu que getters/previsualizar_acta_pdf.php. El usuario revisa/
-// corrige en pantalla y recién con eso confirmado se llama a
-// repositorio_guardar.php (paso 2, el que sí escribe).
+// Paso 1: solo parsea el Excel y devuelve las filas, no toca la base. Confirmado en pantalla, recién ahí se llama a repositorio_guardar.php.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -26,11 +22,7 @@ if (!in_array($tipo, ['rebate', 'participacion'], true)) {
 	responder(false, 'Tipo de repositorio inválido.');
 }
 
-// Mensaje específico por código de error de subida, no un genérico "falló la
-// subida" — el pedido explícito fue que el sistema "se defienda solo": si
-// alguien sube un archivo de 50MB o cierra la pestaña a mitad de subida,
-// tiene que quedar claro POR QUÉ, no un error mudo. Códigos de $_FILES,
-// ver https://www.php.net/manual/en/features.file-upload.errors.php.
+// Mensaje específico por código de error de $_FILES, no un genérico "falló la subida" — que quede claro por qué (archivo pesado, corte de conexión, etc).
 if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
 	$codigo = $_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE;
 	$mensajesError = [
@@ -48,13 +40,7 @@ if (!xlsx_disponible()) {
 	responder(false, 'No se pudo leer el archivo. Avisa al equipo técnico.');
 }
 
-// 2026-08-24: se probó agregar un límite propio de 10MB (mismo patrón que
-// subir_acta_firmada.php) para que coincida con lo que ya prometía la
-// pantalla — el usuario pidió explícitamente NO limitar la subida acá, solo
-// mostrar una barra de carga mientras procesa un archivo pesado (ver
-// components/repositorios/repositorios.php y assets/js/repositorios.js).
-// Sigue aplicando el límite real del servidor
-// (upload_max_filesize/post_max_size), eso no se puede evitar desde acá.
+// Sin límite propio a propósito: solo se muestra una barra de carga mientras procesa. Sigue aplicando el límite real del servidor (upload_max_filesize/post_max_size).
 
 $rutaTmp = $_FILES['archivo']['tmp_name'];
 $nombreArchivo = basename($_FILES['archivo']['name']);
@@ -74,11 +60,7 @@ if (!$resultado['filas']) {
 	responder(false, 'El archivo no tiene filas de datos reconocibles.');
 }
 
-// $resultado['aviso'] (solo Rebate, ver repositorio_parsear_rebate()): el
-// archivo se pudo leer igual, pero le falta la columna Segmento — se
-// muestra como aviso no bloqueante en la previsualización (misma caja
-// .ac-alert-error que ya usa Cuotas para sus avisos, ver
-// mostrarErroresPreview() en repositorios.js).
+// $resultado['aviso'] (solo Rebate): archivo leído pero falta la columna Segmento, se muestra como aviso no bloqueante en la previsualización.
 responder(true, 'Archivo leído correctamente.', [
 	'nombre_archivo' => $nombreArchivo,
 	'filas' => $resultado['filas'],

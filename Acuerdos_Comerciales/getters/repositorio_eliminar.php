@@ -1,8 +1,5 @@
 <?php
-// Elimina una fila de un repositorio, siempre borrado lógico (nunca DELETE físico).
-// Rebate/Participación: llena eliminado_en/eliminado_por, recuperable desde "Eliminados".
-// Cuotas: 'usada' bloquea el borrado del todo; el resto pasa a estado='descartada',
-// recuperable con "Reactivar".
+// Siempre borrado lógico, nunca DELETE físico. Rebate/Participación llena eliminado_en/eliminado_por; Cuotas pasa a estado='descartada' ('usada' bloquea el borrado).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

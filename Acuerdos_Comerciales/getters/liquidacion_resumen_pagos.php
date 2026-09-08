@@ -1,10 +1,5 @@
 <?php
-// Resumen de Pagos, UNIFICADO por canal (2026-08-20, antes atado a una sola
-// importación — ver CLAUDE.md "Resumen de Pagos unificado por canal" y
-// liquidacion_resumen_pagos_unificado() en includes/liquidacion_import.php
-// para el porqué y la lógica real). Junta todas las importaciones
-// completadas de un canal (opcionalmente filtradas por trimestre/año) sin
-// sumar montos entre trimestres distintos — cada fila trae su propio período.
+// Junta todas las importaciones completadas de un canal (opcional filtro trimestre/año) sin sumar montos entre trimestres distintos.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';

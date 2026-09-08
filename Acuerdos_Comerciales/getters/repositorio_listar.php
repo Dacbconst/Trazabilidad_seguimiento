@@ -1,8 +1,5 @@
 <?php
-// Lista paginada de un repositorio (Rebate o Participación de Percha), con
-// búsqueda — mismo patrón que listar_historial_acuerdos()/listar_usuarios_acuerdos().
-// Solo superdesarrollador (mismo criterio que Liquidación/Gestión de Usuarios,
-// ver CLAUDE.md "Módulo Repositorios").
+// Lista paginada con búsqueda, mismo patrón que listar_historial_acuerdos()/listar_usuarios_acuerdos().
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

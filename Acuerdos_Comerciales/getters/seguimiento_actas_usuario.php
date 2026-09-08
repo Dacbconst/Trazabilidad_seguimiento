@@ -1,8 +1,5 @@
 <?php
-// Seguimiento de Equipo (2026-08-27) — Actas puntuales de UN usuario para
-// el filtro de estado activo (tipo=todas|firmadas|pendientes|vencidas),
-// JSON crudo. Mismo chequeo de rol que seguimiento_resumen.php, sin
-// excepción — este getter también expone Actas de OTROS usuarios.
+// Actas de un usuario para el filtro activo (tipo=todas|firmadas|pendientes|vencidas). Mismo chequeo de rol que seguimiento_resumen.php: expone Actas ajenas.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

@@ -1,9 +1,5 @@
 <?php
-// Sube y procesa el Excel trimestral de Liquidación (Directa o Distribuidor):
-// parsea las 2 hojas relevantes (ver includes/liquidacion_import.php), intenta
-// matchear cada fila contra un acuerdo_id, y guarda todo en las 3 tablas de
-// datos/liquidacion_schema.sql. Solo superdesarrollador (mismo criterio que
-// el resto de Liquidación, ver CLAUDE.md).
+// Parsea las 2 hojas del Excel de Liquidación, matchea cada fila contra un acuerdo_id, y guarda en las 3 tablas del esquema.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -56,12 +52,8 @@ if (!$filasCuota && !$filasVisibilidad) {
 	responder(false, 'El archivo no tiene filas de datos en ninguna de las dos hojas esperadas.');
 }
 
-// El período NO lo elige quien sube el archivo — se lee directo de las
-// columnas de mes de la hoja de cuota/venta (ver
-// liquidacion_parsear_cuota_categoria()), porque no hay ninguna frecuencia
-// fija confirmada (puede ser mensual, trimestral, o lo que sea que JW mande
-// esa vez). Sin filas de cuota no hay forma de saber el período, así que la
-// hoja de visibilidad sola no alcanza para procesar el archivo.
+// El período se lee de las columnas de mes de la hoja de cuota/venta, no lo elige quien sube (no hay frecuencia fija confirmada).
+// Sin filas de cuota no hay forma de saber el período, así que la hoja de visibilidad sola no alcanza.
 if (!$filasCuota) {
 	responder(false, 'La hoja de cuota/venta no tiene filas — sin eso no se puede determinar el período de esta importación.');
 }
@@ -82,11 +74,7 @@ try {
 	$importacionId = $stmt->insert_id;
 	$stmt->close();
 
-	// Cache en memoria del match por (cedi/distribuidor + cliente/nombre): las
-	// hojas de cuota y visibilidad suelen repetir el mismo cliente varias
-	// veces (una fila por categoría) — matchear una sola vez por cliente en
-	// vez de una por fila evita repetir la misma consulta a la base decenas
-	// de veces para el mismo cliente.
+	// Cache en memoria por (cedi/distribuidor + cliente): las hojas repiten el mismo cliente varias veces, evita repetir la consulta.
 	$cacheMatch = [];
 	$matchearConCache = function ($cedi, $cliente) use ($mysqli, $canal, $mesInicio, $mesFin, $anio, &$cacheMatch) {
 		$clave = $cedi.'|'.$cliente;
@@ -115,9 +103,7 @@ try {
 		if ($estadoMatch !== 'matcheado') $filasPendientes++;
 		$totalFilas++;
 
-		// El orden de los parámetros tiene que calzar EXACTO con el orden de
-		// columnas del INSERT de arriba (..., cumplimiento, acuerdo_id, estado_match)
-		// — acuerdo_id va como 'i' aunque pueda ser NULL, mysqli lo manda bien igual.
+		// El orden de los parámetros debe calzar exacto con las columnas del INSERT de arriba; acuerdo_id va como 'i' aunque sea NULL.
 		$stmtCuota->bind_param(
 			'isssssdddddsis',
 			$importacionId, $fila['cedi_o_distribuidor'], $fila['cliente_o_nombre'], $fila['codigo'], $fila['ruc'], $fila['categoria'],

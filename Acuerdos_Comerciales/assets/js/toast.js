@@ -1,6 +1,4 @@
-// Notificaciones toast compartidas por todo el proyecto (Registrar, Gestión
-// de Usuarios, etc.) — un solo mostrarToast(mensaje, tipo) global en vez de
-// que cada componente arme su propio mensaje inline (ac-form-msg viejo).
+// Un solo mostrarToast(mensaje, tipo) global compartido, en vez de que cada componente arme su propio mensaje inline.
 (function () {
 	var ICONOS = {
 		success: 'check_circle',

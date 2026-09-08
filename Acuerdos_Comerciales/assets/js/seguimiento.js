@@ -17,29 +17,15 @@
 	var equipoActual  = [];
 	var statsActual   = { total: 0, firmadas: 0, pendientes: 0, vencidas: 0 };
 	var ultimoFetchKey = null;
-	// Actas del último detalle cargado con éxito (2026-09-07) — sin esto, el
-	// acordeón mobile quedaba en "Cargando..." para siempre si la lista se
-	// volvía a renderizar SIN pedir un fetch nuevo (bug real: este módulo
-	// llama a cargarResumen() 2 veces al entrar — una al cargar la página,
-	// otra al hacer click en el link del sidebar — y la 2da vez
-	// `refrescarListaYDetalle()` no vuelve a pedir el detalle porque
-	// `ultimoFetchKey` ya matcheaba, pero `renderLista()` igual reconstruía
-	// el contenedor inline desde cero con el placeholder de carga). Ahora
-	// `renderLista()` puede reusar este caché en vez de asumir que siempre
-	// hay que esperar un fetch.
+	// Actas del último detalle cargado con éxito: sin esto, el acordeón mobile quedaba en "Cargando..." para siempre si la lista se re-renderizaba
+	// sin pedir un fetch nuevo (cargarResumen() corre 2 veces al entrar). renderLista() reusa este caché en vez de asumir que hay que esperar un fetch.
 	var ultimoDetalleActas = null;
 
-	// Tokens de request en vuelo — evitan que una respuesta vieja (llegó
-	// tarde por la red) pise a una más nueva. Ej: click en usuario A, click
-	// rápido en usuario B, la respuesta de A llega después que la de B —
-	// sin esto, A terminaba pintando el panel encima de B aunque B siguiera
-	// resaltado como seleccionado en la lista. Mismo mecanismo para
-	// cargarResumen() (cambiar de trimestre/año rápido dos veces seguidas).
+	// Tokens de request en vuelo: evitan que una respuesta vieja pise a una más nueva (click rápido en A luego B, A responde después que B).
 	var resumenReqId = 0;
 	var detalleReqId = 0;
 
-	// Copy de cada vista — texto corporativo, sin jerga interna ("ordenado
-	// por cantidad" se rechazó explícitamente por sonar poco profesional).
+	// Copy de cada vista, texto corporativo sin jerga interna.
 	var VISTAS = {
 		todas:      { viendoTexto: 'Todas las Actas', criterioTexto: 'ordenadas por cantidad de Actas generadas', ordenTexto: 'Por cantidad de Actas', colEstado: 'Estado', vacioIcono: 'inbox', vacioTexto: 'No hay Actas generadas todavía en este período.' },
 		firmadas:   { viendoTexto: 'Firmadas', criterioTexto: 'ordenadas por cantidad de Actas firmadas', ordenTexto: 'Por cantidad de Actas', colEstado: 'Estado', vacioIcono: 'task_alt', vacioTexto: 'Nadie tiene Actas firmadas todavía en este período.' },
@@ -47,13 +33,8 @@
 		vencidas:   { viendoTexto: 'Vencidas', criterioTexto: 'ordenadas por cantidad de Actas vencidas', ordenTexto: 'Por cantidad de Actas', colEstado: 'Estado', vacioIcono: 'celebration', vacioTexto: 'Nadie tiene Actas vencidas en este período.' }
 	};
 
-	// En mobile, el detalle no vive en el panel separado (#seg-detalle-card,
-	// que queda oculto ahí — ver style.css) sino inline, justo debajo de la
-	// fila del asesor tocado (acordeón, mismo lenguaje visual que ya usa
-	// Cumplimiento de Cuota) — antes había que scrollear hasta una tarjeta
-	// aparte, más abajo en la página, sin ninguna señal de que el toque
-	// funcionó. Un solo breakpoint (900px), el mismo que ya usa .ac-seg-grid
-	// para pasar a 1 columna.
+	// En mobile el detalle vive inline debajo de la fila tocada (acordeón, no el panel separado #seg-detalle-card oculto por CSS).
+	// Mismo breakpoint (900px) que .ac-seg-grid usa para pasar a 1 columna.
 	function esMobile() { return window.matchMedia('(max-width: 900px)').matches; }
 
 	function escapeHtml(texto) {
@@ -75,12 +56,7 @@
 		return 'plain';
 	}
 
-	// Devuelve {className, text} — className se aplica JUNTO a la clase base
-	// ".ac-badge" (ej. "ac-badge ac-badge-critico"), nunca colores inline:
-	// así el badge hereda la animación de pulso de .ac-badge-critico
-	// (style.css) — con colores hardcodeados en JS esa animación nunca se
-	// aplicaba, aunque el color coincidiera a simple vista (bug real,
-	// encontrado en revisión).
+	// className se aplica junto a ".ac-badge", nunca colores inline: así el badge hereda la animación de pulso de .ac-badge-critico (style.css).
 	function badgeParaDias(dias, tier) {
 		if (tier === 'critico') return { className: 'ac-badge-critico', text: dias <= 0 ? 'Vence hoy' : 'Vence en 1 día' };
 		if (tier === 'urgente') return { className: 'ac-badge-urgente', text: 'Vence en ' + dias + ' días' };
@@ -104,14 +80,8 @@
 		return 'conic-gradient(#1e9e5a 0% ' + pctVerde + '%, ' + urg + ' ' + pctVerde + '% 100%)';
 	}
 
-	// El anillo también tiene que reflejar Vencidas, no solo Pendientes — un
-	// usuario con 0 pendientes pero Actas vencidas mostraba un aro gris
-	// "neutral" (bug real: parecía que no tenía nada urgente, ni siquiera
-	// mirando el filtro "Vencidas"). `dias_mas_proxima` puede venir null
-	// aunque pendientes>0 (todas sus pendientes sin fecha_generacion, caso
-	// teórico hoy — ver CLAUDE.md) — guardado con `!= null` para no pasarle
-	// null a tierPorDias() (ahí "null <= 1" da true en JS, pintaría crítico
-	// por error).
+	// El anillo también refleja Vencidas, no solo Pendientes (un usuario con 0 pendientes pero vencidas no debe verse "neutral").
+	// `dias_mas_proxima` puede venir null aunque pendientes>0; se chequea con `!= null` para no pasar null a tierPorDias() (pintaría crítico por error).
 	function ringDeUsuario(u) {
 		var pct = u.total > 0 ? Math.round((u.firmadas / u.total) * 100) : 0;
 		var tier = 'plain';
@@ -121,11 +91,7 @@
 	}
 
 	// ---------- Filas de "Equipo" según el filtro de estado activo ----------
-	// `u.iniciales` viene calculado en el servidor (inicialesUsuario() de
-	// functions.php) — antes se recalculaba acá con una regex más simple
-	// (solo espacios) que divergía de la real para usuarios con punto en el
-	// nombre (ej. "javier.maldonado" daba mal las iniciales solo en este
-	// módulo). Una sola fuente de verdad ahora.
+	// `u.iniciales` viene calculado en el servidor (inicialesUsuario()): recalcularlo acá con otra regex divergía para nombres con punto.
 	function computeFilasBase(equipo, filtro) {
 		return equipo.map(function (u) {
 			var f = { id: u.usuario_id, nombre: u.nombre, iniciales: u.iniciales, ringCss: ringDeUsuario(u) };
@@ -176,9 +142,7 @@
 			btn.classList.toggle('ac-seg-filtro-activo', activo);
 			btn.style.background = activo ? btn.dataset.color : '';
 			btn.style.color = activo ? '#ffffff' : '';
-			// El backend manda `total`, no `todas` (statsActual = {total,
-			// firmadas, pendientes, vencidas}) — mapeo explícito acá, si no
-			// el botón "Todas" quedaba siempre en 0.
+			// El backend manda `total`, no `todas`: mapeo explícito acá, si no el botón "Todas" quedaba siempre en 0.
 			var valor = key === 'todas' ? statsActual.total : statsActual[key];
 			btn.querySelector('[data-valor="' + key + '"]').textContent = valor != null ? valor : 0;
 		});
@@ -204,9 +168,7 @@
 		return '<span class="' + clase + '">' + escapeHtml(texto) + '</span>';
 	}
 
-	// Contenedor inline del acordeón mobile — id fijo, uno solo a la vez
-	// (nunca hay 2 asesores expandidos juntos, mismo criterio "un detalle
-	// visible" que ya tenía el panel separado de desktop).
+	// Contenedor inline del acordeón mobile, id fijo: uno solo a la vez, mismo criterio "un detalle visible" que el panel separado de desktop.
 	var ID_DETALLE_INLINE = 'seg-fila-detalle-inline';
 	function inlineDetalleHtml() {
 		return '<div class="ac-seg-fila-detalle-inline" id="' + ID_DETALLE_INLINE + '"><div class="ac-seg-cargando">Cargando...</div></div>';
@@ -222,13 +184,8 @@
 				badgeHtml(f.badgeClass, f.badgeText) +
 				'<span class="material-symbols-outlined ac-seg-fila-chevron">expand_more</span>' +
 				'</div>';
-			// Solo el asesor seleccionado, y solo en mobile, lleva el bloque de
-			// acordeón ya en el HTML inicial (evita un 2do paso de "insertar
-			// después de renderizar" para el auto-seleccionado de siempre). Si
-			// ya está cacheado (mismo usuario+filtro+período que la última
-			// carga exitosa), se pinta el contenido real de una — si no,
-			// "Cargando..." hasta que `refrescarListaYDetalle()` dispare el
-			// fetch correspondiente.
+			// Solo el asesor seleccionado, y solo en mobile, lleva el acordeón ya en el HTML inicial. Si está cacheado se pinta directo,
+			// si no "Cargando..." hasta que refrescarListaYDetalle() dispare el fetch.
 			if (mobile && f.id === estado.selectedId) {
 				filaHtml += (ultimoFetchKey === claveDetalle(f.id) && ultimoDetalleActas)
 					? '<div class="ac-seg-fila-detalle-inline" id="' + ID_DETALLE_INLINE + '">' + contenidoAcordeonHtml(ultimoDetalleActas) + '</div>'
@@ -241,9 +198,7 @@
 				var id = parseInt(row.dataset.id, 10);
 				var mobileAhora = esMobile();
 				if (id === estado.selectedId) {
-					// En mobile, tocar el mismo asesor ya expandido lo colapsa
-					// (acordeón real) — en desktop no hace nada, como siempre
-					// (el panel de detalle ya muestra a este mismo usuario).
+					// En mobile, tocar el mismo asesor ya expandido lo colapsa; en desktop no hace nada, el panel ya muestra a ese usuario.
 					if (mobileAhora) {
 						estado.selectedId = null;
 						row.classList.remove('is-selected');
@@ -273,13 +228,7 @@
 		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">' + icono + '</span><p>' + escapeHtml(texto) + '</p></div>';
 	}
 
-	// Estado de error genérico — a diferencia de un simple toast (que
-	// desaparece solo y no dice nada sobre lo que hay EN pantalla), deja el
-	// panel en un estado explícito de "no se pudo cargar" en vez de quedarse
-	// trabado para siempre en los placeholders "Cargando..." del SSR (bug
-	// real: si el primer fetch fallaba — sesión vencida, red caída — la
-	// pantalla quedaba mostrando "Cargando..." sin fin, sin ningún indicio
-	// de que algo salió mal ni forma de reintentar salvo recargar la página).
+	// Estado de error genérico: a diferencia de un toast que desaparece solo, deja el panel en "no se pudo cargar" en vez de trabado en "Cargando...".
 	function mostrarErrorGeneral() {
 		mostrarToast('Error de conexión al cargar el seguimiento.', 'error');
 		listaCont.innerHTML = '<div class="ac-seg-vacio"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el equipo. Actualizá la página para reintentar.</p></div>';
@@ -287,17 +236,12 @@
 	}
 
 	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile) ----------
-	// Compartido por los 2: el contenido de las Actas es idéntico, solo
-	// cambia dónde se inserta (panel separado vs. debajo de la fila).
+	// Compartido por los 2: el contenido de las Actas es idéntico, solo cambia dónde se inserta.
 	function filasActasHtml(actas) {
 		return actas.length
 			? actas.map(function (a) {
 				var b = badgeParaActa(a);
-				// Hipervínculo directo al PDF real (2026-09-02, pedido explícito) —
-				// mismo endpoint que ya usa toda la app (getters/generar_acta_pdf.php),
-				// con `download` para que baje el archivo de una, sin pasar por el
-				// modal de previsualización de Historial (acá el superdesarrollador
-				// solo quiere el archivo rápido, no editar/imprimir la propia Acta).
+				// Hipervínculo directo al PDF (mismo endpoint que el resto de la app) con `download`, sin pasar por el modal de Historial.
 				return '<div class="ac-seg-detalle-fila">' +
 					'<a class="ac-seg-doc ac-seg-doc-link" href="getters/generar_acta_pdf.php?id=' + encodeURIComponent(a.id) + '" download title="Descargar PDF">#' + escapeHtml(a.documento_no) + '</a>' +
 					'<span>' + escapeHtml(a.pos_name || '—') + '</span>' +
@@ -320,8 +264,7 @@
 			'<div class="ac-seg-detalle-body">' + filasActasHtml(actas) + '</div>';
 	}
 
-	// Sin la cabecera de avatar/nombre (redundante: la fila del acordeón, justo
-	// arriba, ya muestra ambos) — solo el thead + las Actas.
+	// Sin la cabecera de avatar/nombre (redundante con la fila del acordeón justo arriba), solo el thead + las Actas.
 	function contenidoAcordeonHtml(actas) {
 		var v = VISTAS[estado.filtro];
 		return '<div class="ac-seg-detalle-thead"><span>Documento</span><span>Distribuidor</span><span class="ac-text-right">Fecha</span><span class="ac-text-center">' + escapeHtml(v.colEstado) + '</span></div>' +
@@ -339,15 +282,8 @@
 		return usuarioId + '|' + estado.filtro + '|' + estado.trimestre + '|' + estado.anio;
 	}
 
-	// ultimoFetchKey se actualiza DESPUÉS de confirmar éxito (no antes de
-	// lanzar el fetch) — si se marcaba como "ya cargado" de entrada y el
-	// fetch fallaba, un refresco posterior con la misma clave se saltaba el
-	// reintento. En error se limpia a null a propósito, para que CUALQUIER
-	// refresco posterior reintente.
-	// `miReqId` evita que una respuesta vieja (ej. click en A, click rápido
-	// en B, la respuesta de A llega después) pise el panel ya actualizado
-	// por B — solo la respuesta del ÚLTIMO pedido puede pintar/actualizar
-	// el caché.
+	// ultimoFetchKey se actualiza DESPUÉS de confirmar éxito: si se marcaba de entrada y el fetch fallaba, un refresco posterior saltaba el reintento.
+	// `miReqId` evita que una respuesta vieja pise el panel ya actualizado por una más nueva.
 	function cargarDetalle(filaUsuario) {
 		if (!filaUsuario) return;
 		var miReqId = ++detalleReqId;
@@ -369,10 +305,7 @@
 				}
 				ultimoFetchKey = key;
 				ultimoDetalleActas = data.actas;
-				// El panel de desktop se actualiza siempre (aunque esté oculto por
-				// CSS en mobile) — así, si el usuario agranda la ventana sin
-				// recargar, no queda desactualizado con la última selección de
-				// antes de achicarla.
+				// El panel de desktop se actualiza siempre (aunque esté oculto en mobile), para que agrandar la ventana sin recargar no lo deje viejo.
 				renderDetalle(filaUsuario, data.actas);
 				if (esMobile()) renderDetalleInline(data.actas);
 			})
@@ -402,10 +335,7 @@
 			return;
 		}
 
-		// == null (no !estado.selectedId) a propósito: un id real nunca es 0
-		// hoy, pero "falsy" también atrapa 0 — si algún día existe un id
-		// sintético 0, esta condición lo hubiera ignorado silenciosamente
-		// cada vez que se seleccionara.
+		// == null (no !estado.selectedId) a propósito: "falsy" también atrapa 0, que podría ser un id sintético real algún día.
 		var validIds = filas.map(function (f) { return f.id; });
 		if (estado.selectedId == null || validIds.indexOf(estado.selectedId) === -1) {
 			estado.selectedId = filas[0].id;
@@ -479,7 +409,6 @@
 
 	cargarResumen();
 
-	// Expuesto para que index.php refresque este módulo al entrar por el
-	// sidebar (mismo patrón que window.acHistorialRefrescar/etc.).
+	// Expuesto para que index.php refresque este módulo al entrar por el sidebar (mismo patrón que window.acHistorialRefrescar/etc.).
 	window.acSeguimientoRefrescar = cargarResumen;
 })();

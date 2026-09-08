@@ -15,9 +15,7 @@
 	var resumenFiltroTrimestre = document.getElementById('liq-resumen-filtro-trimestre');
 	var resumenFiltroAnio = document.getElementById('liq-resumen-filtro-anio');
 	var resumenCanalActual = 'directa'; // fijo mientras la pantalla de Resumen está abierta, ver abrirResumen().
-	// Colores fijos de la serie (validados con la skill de dataviz — par
-	// categórico #2a78d6/#eb6834, ver referencia de la skill): Volumen y
-	// Visibilidad SIEMPRE con estos colores, en este orden, en todo el chart.
+	// Colores fijos de la serie: Volumen y Visibilidad SIEMPRE con estos colores, en este orden, en todo el chart.
 	var COLOR_VOLUMEN = '#2a78d6';
 	var COLOR_VISIBILIDAD = '#eb6834';
 	var resumenDatos = []; // cache del último fetch, para filtrar en el cliente sin volver a pedir al servidor.
@@ -32,19 +30,14 @@
 	var etiquetaEstado = { procesando: 'Procesando', completado: 'Completado', con_errores: 'Con errores' };
 	var etiquetaCanal = { directa: 'Directa', distribuidor: 'Distribuidor' };
 
-	// Mismo período detectado del archivo (no elegido a mano) — un solo mes
-	// se muestra una vez, un rango se muestra "Abr - Jun".
+	// Período detectado del archivo (no elegido a mano): un solo mes se muestra una vez, un rango se muestra "Abr - Jun".
 	function periodoTexto(mesInicio, mesFin) {
 		mesInicio = parseInt(mesInicio, 10); mesFin = parseInt(mesFin, 10);
 		if (mesInicio === mesFin) return mesesCorto[mesInicio];
 		return mesesCorto[mesInicio] + ' - ' + mesesCorto[mesFin];
 	}
 
-	// Para el botón "Resumen de Pagos" de una fila puntual del listado de
-	// importaciones: solo mapea a un trimestre si el rango de esa
-	// importación calza EXACTO con uno (Ene-Mar, etc.) — si cubre un rango
-	// raro (ej. un solo mes, o Feb-Abr), abre el Resumen sin filtro de
-	// período (0 = todos) en vez de adivinar mal a cuál trimestre pertenece.
+	// Solo mapea a un trimestre si el rango calza EXACTO (Ene-Mar, etc.); un rango raro abre el Resumen sin filtro de período en vez de adivinar mal.
 	var TRIMESTRES_LIQ = [[0, 2], [3, 5], [6, 8], [9, 11]];
 	function trimestreDeRango(mesInicio, mesFin) {
 		mesInicio = parseInt(mesInicio, 10); mesFin = parseInt(mesFin, 10);
@@ -64,9 +57,7 @@
 	var liqTablaCard = tablaBody.closest('.ac-card');
 	function cargarImportaciones() {
 		tablaBody.innerHTML = '<tr><td colspan="7" class="ac-table-empty">Cargando...</td></tr>';
-		// Mismo feedback de carga reusable que Historial (2026-08-25, ver
-		// assets/js/cargando.js) — el texto "Cargando..." de la fila de
-		// arriba ya estaba, pero el ícono de Actualizar se quedaba quieto.
+		// Mismo feedback de carga reusable que Historial (assets/js/cargando.js): el ícono de Actualizar también anima, no solo el texto de la fila.
 		acBotonCargando(liqActualizarBtn, true);
 		acMostrarCargando(liqTablaCard);
 		fetch('getters/listar_liquidacion_importaciones.php')
@@ -82,14 +73,8 @@
 					var accionPendientes = pendientes > 0
 						? '<button type="button" class="ac-link-id liq-btn-pendientes" data-id="' + f.id + '">Resolver (' + pendientes + ')</button>'
 						: '<span class="ac-field-hint">Sin pendientes</span>';
-					// El Resumen de Pagos ya no es por importación (ver
-					// liquidacion_resumen_pagos_unificado() en
-					// includes/liquidacion_import.php) — este botón abre la
-					// vista unificada del canal de esta fila, pre-filtrada al
-					// período de esta importación (si calza con un trimestre
-					// exacto) para que el flujo de "click en esta fila para
-					// ver su resumen" siga funcionando igual que antes; desde
-					// ahí se puede ampliar el filtro a "Todos los períodos".
+					// El Resumen de Pagos ya no es por importación (ver liquidacion_resumen_pagos_unificado()): este botón abre la vista unificada
+					// del canal, pre-filtrada al período de esta fila si calza con un trimestre exacto; desde ahí se amplía a "Todos los períodos".
 					var trimestreFila = trimestreDeRango(f.mes_inicio, f.mes_fin);
 					var accionResumen = '<button type="button" class="ac-link-id liq-btn-resumen" ' +
 						'data-canal="' + escapeHtml(f.canal) + '" data-trimestre="' + trimestreFila + '" data-anio="' + f.anio + '">Resumen de Pagos</button>';
@@ -152,9 +137,7 @@
 		subirProgreso.classList.add('hidden');
 	}
 
-	// XHR en vez de fetch() (2026-08-24, mismo arreglo que Repositorios): fetch()
-	// no expone progreso de subida, así que con un Excel pesado el botón
-	// "Procesando..." se queda mudo sin dar ninguna señal de avance real.
+	// XHR en vez de fetch() (mismo arreglo que Repositorios): fetch() no expone progreso de subida, un Excel pesado dejaría el botón mudo.
 	formSubir.addEventListener('submit', function (e) {
 		e.preventDefault();
 		submitBtn.disabled = true;
@@ -234,12 +217,8 @@
 			return;
 		}
 		pendientesBody.innerHTML = filas.map(function (f) {
-			// Ambigüedad de ACTA (2026-08-20): el cliente ya resolvió a un solo
-			// pos_id, pero ese cliente tiene 2+ Actas cuyo período+año se
-			// solapan (ej. dos Actas generadas para el mismo lugar en el mismo
-			// trimestre) — acá NO se muestra el selector de cliente (ya está
-			// resuelto), se muestra directo cuál Acta es, para no confundir
-			// mostrando los dos pasos de match a la vez.
+			// Ambigüedad de ACTA: el cliente ya resolvió a un solo pos_id, pero tiene 2+ Actas cuyo período+año se solapan.
+			// No se muestra el selector de cliente (ya resuelto), directo cuál Acta es, para no mostrar los dos pasos de match a la vez.
 			if (f.actas_candidatas && f.actas_candidatas.length) {
 				var actasHtml = f.actas_candidatas.map(function (a) {
 					return '<button type="button" class="ac-btn-outline ac-btn-inline liq-btn-acta" style="margin:2px; display:block; text-align:left;" ' +
@@ -266,10 +245,7 @@
 						escapeHtml(c.pos_name) + ' <span class="ac-field-hint">(' + escapeHtml(c.pos_id) + ')</span></button>';
 				}).join('');
 			}
-			// El estado se deriva de los candidatos recalculados AHORA (no del
-			// estado_match guardado en el momento de importar) — si el maestro
-			// de clientes cambió desde entonces, puede haber más o menos
-			// candidatos que cuando se subió el Excel originalmente.
+			// El estado se deriva de los candidatos recalculados AHORA, no del estado_match guardado al importar: el maestro pudo cambiar desde entonces.
 			var cantidadCandidatos = f.candidatos ? f.candidatos.length : 0;
 			var etiquetaEstadoFila = cantidadCandidatos === 0
 				? 'Sin candidatos'
@@ -343,13 +319,7 @@
 	}
 
 	// ---------- Resumen de Pagos ----------
-	// Unificado por canal (2026-08-20): antes esta pantalla mostraba UNA
-	// sola importación (un Excel puntual); ahora junta TODAS las
-	// importaciones completadas de un canal — Trimestre/Año filtran del
-	// lado del servidor (cambian QUÉ importaciones se incluyen), CEDI/Estado
-	// siguen filtrando del lado del cliente sobre lo ya cargado (no cambian
-	// eso). Cada fila trae su propio período — nunca se suman montos de
-	// trimestres distintos en un solo número (decisión del usuario).
+	// Unificado por canal: Trimestre/Año filtran server-side, CEDI/Estado client-side. Cada fila trae su propio período, nunca se suman entre trimestres.
 	function abrirResumen(canal, trimestre, anio) {
 		vistaLista.classList.add('hidden');
 		vistaResumen.classList.remove('hidden');
@@ -400,9 +370,7 @@
 		cargarImportaciones();
 	});
 
-	// Opciones del filtro CEDI/Distribuidor siempre desde el set COMPLETO (no
-	// desde lo ya filtrado) — para que elegir "Revisar" en Estado no le borre
-	// opciones al combo de al lado.
+	// Opciones del filtro CEDI/Distribuidor siempre desde el set completo (no lo ya filtrado), para que "Revisar" en Estado no borre el combo de al lado.
 	function popularFiltroCedi(filas) {
 		var vistos = {};
 		var unicos = [];
@@ -457,21 +425,8 @@
 		}).join('');
 	}
 
-	// Gráfico de barras horizontales apiladas (Volumen + Visibilidad), top 10
-	// por total — HTML/CSS en vez de SVG a mano (2026-08-20, corregido: la
-	// versión en SVG media el nombre por CANTIDAD DE CARACTERES para decidir
-	// si truncar, pero el ancho real en píxeles de cada letra varía — un
-	// nombre largo que "por caracteres" parecía entrar terminaba invadiendo
-	// el área de la barra, y como la barra se dibuja DESPUÉS en el XML del
-	// SVG, la tapaba a la mitad ("DISTRIBUIDORA SUPERALIANZA." cortado a la
-	// mitad de una palabra, sin ningún "…"). El label ahora es un <span> con
-	// `text-overflow:ellipsis` real del navegador — nunca se puede tapar con
-	// otro elemento porque no comparten espacio, y el nombre completo queda
-	// en el atributo `title` (tooltip nativo) además de en la fila de la
-	// tabla de abajo. Título/tooltip nativo (`title`) en cada segmento en vez
-	// de un tooltip HTML custom: para 10 barras en una pantalla interna, es
-	// el punto justo de esfuerzo — el valor exacto también queda siempre
-	// disponible en la tabla de abajo, nunca solo en el hover.
+	// Top 10 por total, HTML/CSS en vez de SVG: medir por cantidad de caracteres no sirve, el ancho real en píxeles varía y tapaba la barra.
+	// El label es un <span> con text-overflow:ellipsis real, nunca se tapa; el nombre completo queda en `title` además de en la tabla de abajo.
 	function renderResumenChart(filas) {
 		if (!filas.length) {
 			resumenChart.innerHTML = '<p class="ac-field-hint">Sin datos para graficar.</p>';
@@ -481,10 +436,7 @@
 		var max = Math.max.apply(null, top.map(function (f) { return f.total; })) || 1;
 
 		var filasHtml = top.map(function (f) {
-			// Cliente + período en la etiqueta (2026-08-20): el Resumen ahora
-			// junta varios trimestres — el mismo cliente puede aparecer 2
-			// veces (una por período), así que el nombre solo ya no alcanza
-			// para distinguir las barras.
+			// Cliente + período en la etiqueta: el Resumen junta varios trimestres, el mismo cliente puede aparecer 2 veces (una por período).
 			var etiqueta = f.cliente_o_nombre + ' (' + periodoTexto(f.mes_inicio, f.mes_fin) + ' ' + f.anio + ')';
 			var pctVolumen = Math.max((f.volumen / max) * 100, f.volumen > 0 ? 1 : 0);
 			var pctVisibilidad = Math.max((f.visibilidad / max) * 100, f.visibilidad > 0 ? 1 : 0);
@@ -536,9 +488,7 @@
 
 	function resolverFila(tabla, id, posId, tr, accion, acuerdoId) {
 		var params = { tabla: tabla, id: id, pos_id: posId, accion: accion };
-		// acuerdoId: solo cuando el cliente ya está resuelto (1 pos_id) pero
-		// hay 2+ Actas candidatas para el mismo período+año (ver renderPendientes
-		// y liquidacion_resolver_match.php) — quién eligió cuál Acta es.
+		// acuerdoId: solo cuando el cliente ya está resuelto pero hay 2+ Actas candidatas para el mismo período+año (ver renderPendientes).
 		if (acuerdoId) params.acuerdo_id = acuerdoId;
 		fetch('getters/liquidacion_resolver_match.php', {
 			method: 'POST',
@@ -553,18 +503,8 @@
 			.catch(function () { mostrarToast('Error de conexión al resolver.', 'error'); });
 	}
 
-	// Aviso de "en desarrollo" (2026-08-20, pedido explícito) — mismo estilo
-	// de ventanita SweetAlert2 que ya usa la confirmación de "Eliminar" en
-	// Historial/Mis Borradores, acá como alerta informativa (un solo botón,
-	// sin cancelar). Este script corre UNA sola vez al cargar index.php (como
-	// todos los módulos, ver arquitectura de secciones en CLAUDE.md), pase lo
-	// que pase esté o no activa la pestaña Liquidación — por eso NO se
-	// dispara acá directo (salía "de la nada" en cualquier otro módulo con el
-	// que arrancara la sesión). Se expone para que index.php lo llame recién
-	// al entrar de verdad a esta sección (mismo patrón que
-	// window.acHistorialRefrescar/window.acUsuariosRefrescar), y una sola vez
-	// por sesión (avisoDesarrolloMostrado), no cada vez que se vuelve a
-	// hacer click en la pestaña.
+	// Aviso "en desarrollo" (SweetAlert2, un solo botón). Este script corre siempre al cargar index.php sin importar la pestaña activa, por eso no
+	// se dispara acá directo (saldría "de la nada"); se expone para que index.php lo llame al entrar de verdad a la sección, una vez por sesión.
 	var avisoDesarrolloMostrado = false;
 	window.acLiquidacionRefrescar = function () {
 		if (!avisoDesarrolloMostrado) {

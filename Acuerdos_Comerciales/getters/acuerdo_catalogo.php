@@ -1,10 +1,6 @@
 <?php
-// Catálogo de Segmento -> Categoría -> Marca para las 4 tablas del Acta.
-// repositorio_productos es compartida con otros fabricantes (La Fabril,
-// Unilever, Colgate, etc.) — SIEMPRE filtrar por fabricante para no mezclar
-// catálogo de la competencia en los spinners de este acuerdo. También se
-// filtra `activar = 'SI'` — de los 342 SKU de Wilson, 79 están marcados
-// como descontinuados (activar='NO') y no deben aparecer como opción.
+// Catálogo Segmento -> Categoría -> Marca para las 4 tablas del Acta.
+// repositorio_productos es compartida entre fabricantes: siempre filtrar por fabricante y activar='SI'.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -18,15 +14,8 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 
 define('FABRICANTE_ACUERDOS', 'JABONERIA WILSON');
 
-// Alcance real de Acuerdos Comerciales (2026-08-27) — JW fabrica bastante
-// más que línea de limpieza (PASTAS "DON VITTORIO", SALSAS, AEROSOL
-// "SAPOLIO", OTROS/CLORO "EL MACHO"...), pero esas líneas NUNCA aparecen en
-// ninguna de las 3 fuentes reales de este módulo (Cuotas trimestrales,
-// Liquidación Directa/Distribuidor, ni el Excel de Rebate) — las 3
-// coinciden exactas en los mismos 4 Sectores: BARRA/CREMA/LIQUIDO/POLVO.
-// Ver CLAUDE.md, "Alcance real de Acuerdos Comerciales — Sector/Categoría
-// restringidos" para la investigación completa. Filtra las 4 tablas del
-// Acta (Meta de Compras/Cabeceras/Rumas/Perchas), no solo Meta de Compras.
+// Restringido a los 4 Sectores que realmente usa el módulo (BARRA/CREMA/LIQUIDO/POLVO) — ver CLAUDE.md "Alcance real de Acuerdos Comerciales".
+// Filtra las 4 tablas del Acta, no solo Meta de Compras.
 $combosValidos = [
 	['BARRA', 'LAVAVAJILLAS'],
 	['BARRA', 'ROPA'],
@@ -79,15 +68,8 @@ while ($row = $res->fetch_assoc()) {
 	$marcasPercha[] = $row['marca'];
 }
 
-// Árbol Segmento -> Sector -> Categoría -> [Marcas], SOLO para Meta de
-// Compras (2026-08-18, pedido explícito del usuario tras revisar un Acta real
-// escaneada: el nombre impreso de cada categoría es literalmente "Sector +
-// Categoría + Marca", ej. "Crema Lavavajillas LAVA"). Cabeceras/Rumas/Perchas
-// siguen usando `segmentos` de arriba (Segmento->Categoría->Marca, sin
-// Sector) — no se tocó esa forma a propósito. Se comprobó con datos reales
-// que Sector depende limpio de Segmento (ej. Cuidado del Hogar: solo 5
-// sectores) y Categoría depende limpio de Segmento+Sector (1 a 4 categorías
-// cada uno) — por eso este orden de cascada no explota en ningún paso.
+// Árbol Segmento -> Sector -> Categoría -> [Marcas], solo para Meta de Compras: el nombre impreso del Acta es "Sector + Categoría + Marca".
+// Cabeceras/Rumas/Perchas siguen usando `segmentos` (sin Sector) a propósito.
 $segmentosSector = [];
 $res = $mysqli->query(
 	"SELECT DISTINCT segmento, sector, categoria, marca

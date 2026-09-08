@@ -1,33 +1,20 @@
 <?php
-// Sube la foto/PDF del Acta ya firmada a mano (el papel físico vuelve firmado
-// y alguien lo escanea/fotografía) — vive en Historial, no es un módulo
-// aparte: es el siguiente paso natural del ciclo de vida de un Acuerdo ya
-// generado (ver CLAUDE.md, decisión 2026-08-20/21). Al subir, el archivo
-// reemplaza cualquier subida anterior (no hay versionado) y el Acuerdo pasa
-// a `estado='firmado'` automáticamente — aprovecha el ENUM que ya existía
-// en el schema pero nunca se conectó a nada.
+// Sube la foto/PDF del Acta firmada a mano; vive en Historial, siguiente paso natural del ciclo de vida del Acuerdo.
+// Reemplaza cualquier subida anterior (sin versionado) y pasa a estado='firmado' automáticamente.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
 header('Content-Type: application/json; charset=utf-8');
 
-// Bufferea cualquier warning/notice de PHP para que nunca se mezcle con el
-// JSON de respuesta (2026-09-02, bug real reportado desde celular real: una
-// foto de cámara pesa varios MB — al procesarla, cualquier error real
-// (memory_limit, lo que sea) imprimía un aviso de PHP crudo ANTES del JSON,
-// así que fetch().then(r => r.json()) tiraba excepción del lado del
-// cliente, mostrando el "Error de conexión" genérico en vez del error real.
-// Mismo patrón ya usado en cumplimiento_guardar.php/cuotas_guardar.php.
+// Bufferea warnings/notices de PHP para que no rompan el JSON: una foto de cámara pesada puede disparar un warning de memory_limit antes del JSON.
 ob_start();
 set_exception_handler(function ($e) {
 	while (ob_get_level() > 0) { ob_end_clean(); }
 	echo json_encode(['ok' => false, 'message' => 'No se pudo subir el archivo: '.$e->getMessage()]);
 	exit;
 });
-// Margen extra para procesar una foto de cámara real (varios MB) — sin
-// efecto si el hosting bloquea ini_set() para memory_limit (@ evita el
-// warning en ese caso, sigue con el límite que ya tenía el servidor).
+// Margen extra para fotos de cámara pesadas; @ evita warning si el hosting bloquea ini_set().
 @ini_set('memory_limit', '256M');
 
 if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
@@ -49,11 +36,7 @@ if ($acuerdoId <= 0) {
 	responder(false, 'Acuerdo inválido.');
 }
 
-// Mismo criterio de propiedad que eliminar_acuerdo.php/generar_acta_pdf.php:
-// nadie sube la firma de un acuerdo ajeno adivinando el id. No se permite
-// subir sobre un borrador (todavía no es un Acta real), uno anulado, ni uno
-// vencido (plazo de 20 días para firmar ya cumplido, ver
-// barrer_actas_vencidas() en includes/functions.php).
+// Mismo criterio de propiedad que eliminar_acuerdo.php. No se permite subir sobre un borrador, anulado, ni vencido (20 días, ver barrer_actas_vencidas()).
 $stmt = $mysqli->prepare("SELECT creado_por, estado, fecha_generacion, documento_no FROM repositorio_acuerdos WHERE id = ? LIMIT 1");
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();
@@ -66,11 +49,7 @@ if (!$fila || (int) $fila['creado_por'] !== (int) $usuarioId) {
 if (in_array($fila['estado'], ['borrador', 'anulado', 'vencido'], true)) {
 	responder(false, 'No se puede subir la firma de un acuerdo en borrador, vencido o anulado.');
 }
-// Defensa en tiempo real: el barrido de vencidos (listar_historial_acuerdos)
-// puede no haber corrido todavía sobre este Acuerdo en particular si nadie
-// visitó Historial desde que se cumplió el plazo — no confiar solo en
-// $fila['estado'] para el punto más crítico (bloquear la subida), chequear
-// la fecha acá mismo también y dejar el registro consistente de una vez.
+// Defensa en tiempo real: el barrido de vencidos puede no haber corrido todavía si nadie visitó Historial, así que se rechequea la fecha acá.
 if (in_array($fila['estado'], ['generado', 'enviado'], true) && $fila['fecha_generacion']) {
 	$vencida = (new DateTime($fila['fecha_generacion']))->modify('+20 days') < new DateTime();
 	if ($vencida) {
@@ -91,16 +70,13 @@ if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK)
 	responder(false, $errores[$codigo] ?? 'No se pudo subir el archivo.');
 }
 
-// Límite propio (15MB, generoso para una foto de celular) — independiente de
-// upload_max_filesize/post_max_size del servidor, que también aplican antes
-// de llegar acá.
+// Límite propio (15MB, generoso para foto de celular), independiente de upload_max_filesize/post_max_size del servidor.
 $tamanoMaximo = 15 * 1024 * 1024;
 if ($_FILES['archivo']['size'] > $tamanoMaximo) {
 	responder(false, 'El archivo no puede superar 15MB.');
 }
 
-// Mime real del contenido (finfo), no la extensión ni el Content-Type que
-// manda el navegador — ambos se pueden falsear fácil.
+// Mime real del contenido (finfo), no la extensión ni el Content-Type del navegador — ambos se pueden falsear fácil.
 $finfo = new finfo(FILEINFO_MIME_TYPE);
 $mime  = $finfo->file($_FILES['archivo']['tmp_name']);
 $mimesPermitidos = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -113,11 +89,7 @@ if ($contenido === false) {
 	responder(false, 'No se pudo leer el archivo subido.');
 }
 
-// Se sube a Azure Blob Storage (includes/azure_storage.php) — solo la RUTA
-// se guarda en la base (antes iba el binario a acta_firmada_archivo
-// LONGBLOB). Nombre fijo por Acuerdo (no por fecha/hora): una subida nueva
-// reemplaza el blob anterior, mismo comportamiento de "no hay versionado"
-// que ya tenía esto.
+// Solo se guarda la RUTA en la base (Azure Blob Storage). Nombre fijo por Acuerdo: una subida nueva reemplaza el blob anterior, sin versionado.
 $extensionesPorMime = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf'];
 $extension = $extensionesPorMime[$mime] ?? 'bin';
 $rutaAzure = azure_storage_subir('ActasFirmadas/'.$fila['documento_no'].'.'.$extension, $contenido, $mime);

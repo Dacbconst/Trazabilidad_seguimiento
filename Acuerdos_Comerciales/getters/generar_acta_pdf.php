@@ -1,8 +1,5 @@
 <?php
-// Genera el PDF del Acta con Dompdf (servidor) — a diferencia de window.print()
-// en el navegador, no depende del encabezado/pie que agrega Chrome ni de que
-// el usuario lo desactive, y el @page CSS de includes/acta_pdf.php controla
-// el tamaño/margen de la hoja de forma exacta.
+// Genera el PDF con Dompdf en servidor: a diferencia de window.print(), no depende del header/footer de Chrome ni de que el usuario lo desactive.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/acta_pdf.php';
 require_once __DIR__.'/../includes/azure_storage.php';
@@ -31,14 +28,8 @@ if ($acuerdoId > 0) {
 	}
 }
 
-// Mismo criterio de scoping que Historial y "Mis Borradores" (creado_por):
-// nadie puede ver el Acta de un acuerdo ajeno adivinando el id por la URL.
-// 404 (no 403) a propósito en ambos casos, para no confirmar si el id existe.
-// Excepción (2026-08-31, confirmado con el usuario): superdesarrollador SÍ
-// puede ver/descargar el PDF de cualquier Acta — ahora ve ambos canales
-// combinados en Historial (ver listar_historial_acuerdos()), tiene que poder
-// abrir lo que ve. Subir Firma/Eliminar de una Acta ajena siguen bloqueados
-// (ver renderFilaHistorial(), esos botones ni se habilitan en la fila).
+// Scoping por creado_por, igual que Historial: 404 (no 403) a propósito para no confirmar si el id existe.
+// Excepción: superdesarrollador puede ver/descargar el PDF de cualquier Acta (ve ambos canales combinados en Historial).
 $usuarioSesion = $_SESSION['user_id'] ?? null;
 $puedeVerCualquiera = ($_SESSION['rol'] ?? '') === 'superdesarrollador';
 if (!$cabecera || (!$puedeVerCualquiera && (int) $cabecera['creado_por'] !== (int) $usuarioSesion)) {
@@ -47,13 +38,8 @@ if (!$cabecera || (!$puedeVerCualquiera && (int) $cabecera['creado_por'] !== (in
 	exit;
 }
 
-// Snapshot guardado en guardar_acuerdo.php al momento de "Generar Acta" — es
-// el caso normal, se baja de Azure Blob Storage en vez de re-renderizar con
-// Dompdf en cada vista. Solo cae al render en vivo si todavía no hay
-// snapshot (acuerdos generados antes de que existiera esto, o el acuerdo
-// viejo con pdf_documento LONGBLOB de antes de migrar a Azure — ese binario
-// viejo ya no se lee, se regenera y sube de nuevo), y de paso lo deja
-// guardado en Azure para la próxima vez.
+// Caso normal: baja el snapshot ya generado de Azure Blob Storage en vez de re-renderizar con Dompdf.
+// Cae al render en vivo solo si no hay snapshot todavía (y de paso lo deja guardado en Azure para la próxima).
 $pdfBinario = $cabecera['pdf_azure_path'] ? azure_storage_descargar($cabecera['pdf_azure_path']) : false;
 if ($pdfBinario === false) {
 	$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);

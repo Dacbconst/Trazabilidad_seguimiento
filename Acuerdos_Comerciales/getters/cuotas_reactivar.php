@@ -1,11 +1,6 @@
 <?php
-// Deshace un "Eliminar" del Repositorio de Cuotas (2026-08-25) — "Eliminar"
-// ahí es borrado lógico (estado='descartada', ver repositorio_eliminar.php),
-// esto es lo inverso: vuelve la fila a un estado usable. Si el pos_id ya
-// estaba resuelto, vuelve a 'pendiente_uso' (aparece de nuevo en la
-// campanita del asesor correspondiente); si nunca se resolvió, vuelve a
-// 'pendiente_match' (cola de "Pendientes de Asignar"). Nunca reactiva una
-// fila 'usada' — esa protección es a propósito, ver CLAUDE.md.
+// Inverso de "Eliminar" (borrado lógico, estado='descartada'): vuelve a 'pendiente_uso' o 'pendiente_match' según si el pos_id ya estaba resuelto.
+// Nunca reactiva una fila 'usada', a propósito.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

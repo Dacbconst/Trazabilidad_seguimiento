@@ -1,10 +1,7 @@
 (function () {
 	var buscarInput     = document.getElementById('us-buscar');
 	var tbody           = document.getElementById('tabla-usuarios-body');
-	// paginacionEl sigue siendo la ÚNICA fuente de verdad del estado (data-pagina/
-	// data-total-paginas) — el bloque de arriba es solo visual, se pinta en
-	// sincro pero nada lee su dataset. Paginación arriba Y abajo (2026-08-25,
-	// pedido explícito: "tengo que bajar para poder cambiar de página").
+	// paginacionEl sigue siendo la ÚNICA fuente de verdad del estado (data-pagina/data-total-paginas); el bloque de arriba es solo visual.
 	var paginacionEl    = document.getElementById('paginacion-usuarios');
 	var paginacionInfoEls = [document.getElementById('paginacion-info-top'), document.getElementById('paginacion-info')];
 	var paginacionBtnsEls = [document.getElementById('paginacion-btns-top'), document.getElementById('paginacion-btns')];
@@ -20,15 +17,11 @@
 	var nuSupervisor    = document.getElementById('nu-supervisor');
 	var rlSupervisor    = document.getElementById('rl-supervisor');
 	var buscarTimeout   = null;
-	// Evita que una respuesta vieja (llegó tarde por la red) pise a una más
-	// nueva — ej. tipear rápido, el 1er fetch responde después que el 2do.
-	// Mismo bug ya encontrado y corregido en Seguimiento de Equipo/Historial.
+	// Evita que una respuesta vieja (llegó tarde por la red) pise a una más nueva — mismo bug ya corregido en Seguimiento de Equipo/Historial.
 	var usuariosReqId   = 0;
 
 	// ---------- Supervisor: 1 supervisor = 1 cuenta (ver functions.php) ----------
-	// Autocompletar Nombre de Usuario con el supervisor elegido (el admin
-	// puede editarlo después si quiere un usuario distinto); y mantener los
-	// combos de supervisor sincronizados con quién ya lo tiene asignado.
+	// Autocompletar Nombre de Usuario con el supervisor elegido (editable después) y mantener los combos sincronizados con quién ya lo tiene.
 	nuSupervisor.addEventListener('change', function () {
 		nuUsuario.value = nuSupervisor.value || '';
 	});

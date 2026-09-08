@@ -163,6 +163,7 @@
 	var exportarBtn = document.getElementById('repo-exportar-btn');
 	var exportarCsvLink = document.getElementById('repo-exportar-csv');
 	var exportarXlsxLink = document.getElementById('repo-exportar-xlsx');
+	var plantillaDescargarLink = document.getElementById('repo-plantilla-descargar');
 	var tabRebate = document.getElementById('repo-tab-rebate');
 	var tabParticipacion = document.getElementById('repo-tab-participacion');
 	var tabCuotas = document.getElementById('repo-tab-cuotas');
@@ -426,10 +427,9 @@
 		// "quita el botón de Pendientes de Asignar") — se deja el resto del
 		// mecanismo intacto (getters, modal), por si se retoma después.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
-		// "Eliminados" (borrado lógico, 2026-08-25): Rebate/Participación solo
-		// — Cuotas ya tiene su propio mecanismo (estado='descartada'), no se
-		// duplica el botón acá.
-		eliminadosAbrirBtn.classList.toggle('hidden', tipo === 'cuotas');
+		// eliminadosAbrirBtn oculto a propósito; mecanismo intacto por si se retoma.
+		plantillaDescargarLink.classList.toggle('hidden', tipo === 'cuotas');
+		if (tipo !== 'cuotas') plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
 		if (tipo === 'cuotas') actualizarContadorPendientes();
 		actualizarHrefsExportar();
 		cargarLista();

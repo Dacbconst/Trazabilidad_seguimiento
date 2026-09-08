@@ -1,7 +1,5 @@
 <?php
-// Paso 2 de la subida del Repositorio de Cuotas: UPSERT fila por fila, resuelve
-// pos_id (resolverPosIdCliente()); sin match único queda 'pendiente_match' para
-// resolver a mano en "Pendientes de Asignar".
+// Paso 2: UPSERT fila por fila, resuelve pos_id (resolverPosIdCliente()); sin match único queda 'pendiente_match' para resolver a mano.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';

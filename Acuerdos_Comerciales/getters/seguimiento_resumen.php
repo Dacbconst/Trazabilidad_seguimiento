@@ -1,10 +1,6 @@
 <?php
-// Seguimiento de Equipo (2026-08-27) — resumen para superdesarrollador:
-// stats globales + un array por usuario con sus 4 conteos, en JSON crudo
-// (el frontend arma las 4 vistas filtradas al vuelo, ver
-// assets/js/seguimiento.js). Única pantalla del proyecto que muestra Actas
-// de TODOS los usuarios, no solo las propias — reforzar el chequeo de rol
-// acá, no alcanza con que el módulo esté oculto del sidebar para otros roles.
+// Resumen para superdesarrollador: stats globales + conteos por usuario. Única pantalla que muestra Actas de todos, reforzar el chequeo de rol acá
+// (no alcanza con ocultar el módulo del sidebar para otros roles).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

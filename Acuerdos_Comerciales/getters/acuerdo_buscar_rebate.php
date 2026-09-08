@@ -23,9 +23,7 @@ if ($ciudad === '' || $canal === '' || $sector === '' || $categoria === '' || $m
 	exit;
 }
 
-// buscarRebateProducto() tolera plural/singular y, como último recurso,
-// matchea sin Categoría — el texto del Excel de JW no siempre calza exacto
-// con el catálogo real (ej. "LIQUIDOS" vs "LIQUIDO").
+// Tolera plural/singular y, como último recurso, matchea sin Categoría — el texto del Excel de JW no siempre calza con el catálogo real.
 $rebatePct = buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca);
 
 if ($rebatePct !== null) {

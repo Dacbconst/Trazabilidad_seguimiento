@@ -1,9 +1,5 @@
 <?php
-// Guarda (crea o actualiza) un Acuerdo PDV completo: cabecera en
-// repositorio_acuerdos + sus 4 tablas en repositorio_acuerdo_lineas.
-// Editar = borrar todas las líneas del acuerdo e insertar de nuevo el set
-// actual — el formulario siempre manda el estado completo de las 4 tablas,
-// no hay edición incremental de una sola fila desde el backend.
+// Guarda cabecera en repositorio_acuerdos + 4 tablas en repositorio_acuerdo_lineas. Editar = borrar todas las líneas e insertar de nuevo el set actual.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/acta_pdf.php';
 require_once __DIR__.'/../includes/azure_storage.php';
@@ -58,9 +54,7 @@ if (!in_array($estado, $estadosPermitidosDesdeForm, true)) {
 	responder(false, 'Estado inválido.');
 }
 
-// pos_id debe existir en el maestro real — no hay FK, se valida en código.
-// Además debe pertenecer al `supervisor` de la sesión: nadie puede guardar un
-// Acuerdo para un cliente que no es suyo, aunque conozca su pos_id.
+// pos_id debe existir en el maestro real (no hay FK, se valida en código) y pertenecer al `supervisor` de la sesión: nadie guarda para un cliente ajeno.
 $supervisorSesion = $_SESSION['supervisor'] ?? null;
 $stmt = $mysqli->prepare(
 	'SELECT pos_id FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? AND supervisor = ? LIMIT 1'
@@ -280,15 +274,12 @@ try {
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 	);
 
-	// Tipos: acuerdo_id(i) tipo(s) segmento(s) sector(s) categoria(s) marca(s) rebate_pct(d)
-	// cantidad_max_percha(i) participacion_pct(s) precio_percha(d) valores_mensuales(s) valor_mensual_unico(d) orden(i)
+	// Tipos: acuerdo_id(i) tipo(s) segmento(s) sector(s) categoria(s) marca(s) rebate_pct(d) cantidad_max_percha(i) participacion_pct(s) precio_percha(d) valores_mensuales(s) valor_mensual_unico(d) orden(i)
 	$tiposBind = 'isssssdisdsdi';
 
 	foreach (['meta_compra', 'cabecera'] as $tipo) {
 		foreach ($filasNormalizadas[$tipo] as $fila) {
-			// JSON_FORCE_OBJECT: sin esto, un periodo que arranca en Enero (mes 0)
-			// produce claves "0","1","2" consecutivas y json_encode las convierte
-			// en un ARRAY JSON en vez del objeto {"0":...} que espera el esquema.
+			// JSON_FORCE_OBJECT: sin esto, un periodo que arranca en Enero (mes 0) produce claves "0","1","2" que json_encode convierte en ARRAY, no objeto.
 			$valoresJson = json_encode($fila['valores_mensuales'], JSON_NUMERIC_CHECK | JSON_FORCE_OBJECT);
 			$rebate = $fila['rebate_pct'];
 			$sector = $fila['sector'];
@@ -346,8 +337,7 @@ try {
 	responder(false, 'No se pudo guardar el acuerdo: '.$e->getMessage());
 }
 
-// Consumir la Acta precargada de origen: pasa a 'usada', enlazada al Acuerdo real.
-// No aborta el guardado si esto falla (la precarga solo sigue apareciendo en la campanita).
+// Consumir la Acta precargada de origen: pasa a 'usada'. No aborta el guardado si esto falla.
 if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
 	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
@@ -364,11 +354,8 @@ if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	}
 }
 
-// Snapshot del PDF: solo al generar, para que Historial sirva "el documento tal como se generó".
-// Si el render/subida falla acá no se aborta la respuesta, el próximo intento
-// cae al render en vivo (ver generar_acta_pdf.php). El PDF se sube a Azure
-// Blob Storage (includes/azure_storage.php) — solo se guarda la RUTA en la
-// base, nunca el binario (antes iba a pdf_documento LONGBLOB).
+// Snapshot del PDF solo al generar, para que Historial sirva "el documento tal como se generó".
+// Si falla no se aborta la respuesta, el próximo intento cae al render en vivo. Se guarda solo la ruta en Azure, nunca el binario.
 if ($estado === 'generado') {
 	try {
 		$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);

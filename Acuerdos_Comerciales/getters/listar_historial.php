@@ -18,10 +18,7 @@ $pagina     = (int) ($_GET['pg'] ?? 1);
 $usuarioId  = $_SESSION['user_id'] ?? null;
 $rolUsuario = $_SESSION['rol'] ?? '';
 $esSuperdev = $rolUsuario === 'superdesarrollador';
-// Filtro de Canal (2026-08-31) — mismo criterio que components/historial/historial.php,
-// misma whitelist. Este endpoint sirve los refrescos AJAX (búsqueda, cambio
-// de página/filtro), así que necesita el mismo tratamiento que la carga
-// inicial por SSR.
+// Filtro de Canal: misma whitelist que components/historial/historial.php, sirve los refrescos AJAX igual que la carga inicial SSR.
 $canal = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 $resultado  = listar_historial_acuerdos($mysqli, $busqueda, $trimestre, $anio, $filtroFirma, $pagina, $usuarioId, 10, $rolUsuario, $canal);
 
@@ -33,9 +30,7 @@ if (!$resultado['acuerdos']) {
 	$filas = '<tr><td colspan="'.($esSuperdev ? 8 : 7).'" class="ac-table-empty">No se encontraron acuerdos.</td></tr>';
 }
 
-// Stats de los 3 tiles: mismo alcance de búsqueda/trimestre/año/canal que la
-// tabla, pero SIN el filtro de firma (esos números son lo que ese filtro
-// decide) — así los tiles no "desaparecen" contando solo lo ya filtrado.
+// Stats de los 3 tiles: mismo alcance que la tabla pero sin el filtro de firma, para que no cuenten solo lo ya filtrado.
 $stats = obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId, $rolUsuario, $canal);
 
 echo json_encode([

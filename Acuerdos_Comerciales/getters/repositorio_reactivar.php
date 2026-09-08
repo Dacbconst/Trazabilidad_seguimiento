@@ -1,8 +1,5 @@
 <?php
-// Reactiva una fila borrada lógicamente de Rebate o Participación de Percha
-// (limpia eliminado_en/eliminado_por) — ver repositorio_eliminar.php y la
-// nota de borrado lógico en datos/repositorios_schema.sql. Solo
-// superdesarrollador, mismo criterio que el resto de Repositorios.
+// Reactiva una fila borrada lógicamente de Rebate o Participación de Percha, limpiando eliminado_en/eliminado_por.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

@@ -9,26 +9,15 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 }
 
 $busqueda  = trim($_GET['q'] ?? '');
-// Filtro de período (2026-08-20): reemplaza al selector de mes suelto — el
-// Período del Acuerdo es siempre un trimestre fijo (ver trimestreABounds()
-// en functions.php), así que filtrar por Q1-Q4 + Año calza exacto con cómo
-// se guardan los Acuerdos, en vez de un mes cualquiera dentro del rango.
+// Filtro por Q1-Q4 + Año, no mes suelto: el Período del Acuerdo siempre es un trimestre fijo (ver trimestreABounds() en functions.php).
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
 $rolUsuario = $_SESSION['rol'] ?? '';
-// "Ver todo" + filtro de Canal (2026-08-31, pedido explícito): con un solo
-// superdesarrollador en total, esa cuenta necesita ver Actas de Directo Y
-// Distribuidor a la vez (antes cada usuario veía un solo canal, derivado de
-// su supervisor real) — ver el mockup aprobado por el usuario ("Opción A":
-// pastillas Total/Directo/Distribuidor arriba de los stat tiles). Un
-// desarrollador normal nunca ve esta pastilla (sigue viendo solo lo suyo,
-// como siempre), así que $canal solo tiene efecto real para superdesarrollador.
+// "Ver todo" + filtro de Canal: superdesarrollador necesita ver Actas de Directo y Distribuidor a la vez (antes veía solo el canal de su supervisor).
+// Un desarrollador normal nunca ve esta pastilla, así que $canal solo tiene efecto real para superdesarrollador.
 $esSuperdev = $rolUsuario === 'superdesarrollador';
 $canal = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 $aniosDisponibles = listar_anios_disponibles($mysqli, $_SESSION['user_id'] ?? null, $rolUsuario);
-// Año: si no vino explícito por query, se autoselecciona el año en curso
-// (2026-08-28, pedido explícito) — pero solo si ese año realmente tiene
-// Acuerdos del usuario; si no, se queda en "Todos los años" en vez de
-// mostrar una tabla vacía por defecto.
+// Año: si no vino explícito por query, se autoselecciona el año en curso, pero solo si ese año realmente tiene Acuerdos (si no, "Todos los años").
 if (isset($_GET['anio'])) {
 	$anio = (int) $_GET['anio'];
 } else {

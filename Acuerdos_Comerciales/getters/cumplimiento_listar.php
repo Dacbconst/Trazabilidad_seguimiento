@@ -1,9 +1,5 @@
 <?php
-// Pantalla principal de Cumplimiento de Cuota — un solo request, JSON crudo
-// (mismo criterio que Seguimiento de Equipo/Repositorios: el front arma el
-// DOM completo a partir de esto, no HTML pre-armado), con la jerarquía ya
-// agrupada Asesor -> Cliente -> Categoría para que el JS no tenga que
-// reconstruirla.
+// JSON crudo, el front arma el DOM completo desde esto (sin HTML pre-armado); jerarquía ya agrupada Asesor -> Cliente -> Categoría.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -15,8 +11,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-// Ver nota completa en cumplimiento_guardar.php: bufferea cualquier
-// warning/notice de PHP para que nunca se mezcle con el JSON de respuesta.
+// Bufferea warnings/notices de PHP para que no se mezclen con el JSON de respuesta.
 ob_start();
 set_exception_handler(function ($e) {
 	while (ob_get_level() > 0) { ob_end_clean(); }
@@ -72,11 +67,7 @@ foreach ($filas as $f) {
 		$cambio = $f['gana_categoria'] === 'gana' ? 'mejora' : 'empeora';
 	}
 
-	// gana_total se repite acá TAMBIÉN por categoría (no solo en la cabecera
-	// del cliente) — a propósito: el usuario pidió explícito poder comparar
-	// Gana Categoría y Gana Total lado a lado, en la MISMA fila, igual que
-	// las 2 columnas adyacentes del Excel real (una categoría puede decir
-	// "NO GANA" mientras el cliente completo dice "GANA" en el total).
+	// gana_total se repite por categoría a propósito, para comparar Gana Categoría vs Gana Total lado a lado en la misma fila.
 	$usuarios[$uid]['clientes'][$posId]['categorias'][] = [
 		'id'               => (int) $f['id'],
 		'sector'           => $f['sector'],
@@ -105,10 +96,7 @@ foreach ($ordenUsuarios as $uid) {
 	$usuariosLista[] = [
 		'usuario_id'         => $u['usuario_id'],
 		'nombre'             => $u['nombre'],
-		// Iniciales SIEMPRE calculadas acá (con la misma inicialesUsuario() que
-		// usa el resto de la app) — no en JS, para no repetir el bug ya
-		// encontrado en Seguimiento de Equipo (iniciales distintas entre
-		// PHP/JS por una regex de separadores distinta). Sin cuenta = "?".
+		// Calculado acá con inicialesUsuario(), no en JS, para no repetir el bug de iniciales distintas PHP/JS de Seguimiento de Equipo.
 		'iniciales'          => $u['usuario_id'] ? inicialesUsuario($u['nombre']) : '?',
 		'clientes'           => $clientes,
 		'total_clientes'     => count($clientes),

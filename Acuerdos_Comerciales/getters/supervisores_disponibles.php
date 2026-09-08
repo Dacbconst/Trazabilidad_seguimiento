@@ -1,8 +1,5 @@
 <?php
-// Refresca el estado de los combos de Supervisor en Gestión de Usuarios
-// (quién ya tomó cuál) después de crear/editar/activar-desactivar un usuario,
-// sin necesidad de recargar la página. Ver supervisores_asignados_activos()
-// en includes/functions.php para la regla de negocio (1 supervisor = 1 cuenta).
+// Refresca los combos de Supervisor tras crear/editar/activar un usuario, sin recargar. Regla: 1 supervisor = 1 cuenta (supervisores_asignados_activos()).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

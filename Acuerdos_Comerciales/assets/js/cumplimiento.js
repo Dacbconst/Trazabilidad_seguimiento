@@ -1,7 +1,4 @@
-// Módulo "Cumplimiento de Cuota" (2026-08-30) — mismo patrón que
-// Seguimiento de Equipo/Repositorios: el getter devuelve JSON crudo, este
-// script arma TODO el DOM en cliente (más rápido para cambiar de filtro sin
-// ida y vuelta al servidor por cada click).
+// Mismo patrón que Seguimiento de Equipo/Repositorios: el getter devuelve JSON crudo, este script arma todo el DOM en cliente.
 document.addEventListener('DOMContentLoaded', function () {
 	var root = document.getElementById('ac-cumpl');
 	if (!root) return; // rol sin acceso, el componente no se renderizó
@@ -18,12 +15,8 @@ document.addEventListener('DOMContentLoaded', function () {
 	var estado = { trimestre: 0, anio: 0, busqueda: '', canal: 'total' };
 	var listaReqId = 0;
 
-	// ---------- Filtros colapsables en mobile (2026-09-07) ----------
-	// Vista+Periodo+Año viven detrás de este botón en pantallas angostas (ver
-	// .ac-cumpl-vista-row/.ac-cumpl-periodo-wrap en style.css) — en desktop
-	// el botón no se muestra y esto no hace nada. El badge cuenta cuántos de
-	// esos filtros están en un valor distinto del default, para que se note
-	// desde afuera si hay algo filtrado sin tener que abrir el panel.
+	// ---------- Filtros colapsables en mobile ----------
+	// Vista+Periodo+Año viven detrás de este botón en pantallas angostas; en desktop no se muestra. El badge cuenta filtros en valor no-default.
 	var filtrosToggleBtn = document.getElementById('cumpl-filtros-toggle');
 	var filtrosBadge = document.getElementById('cumpl-filtros-badge');
 	function actualizarBadgeFiltros() {
@@ -45,8 +38,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		return div.innerHTML;
 	}
 	function mostrarMensaje(texto, ok) { mostrarToast(texto, ok ? 'success' : 'error'); }
-	// Caja de texto copiable, botón de copiar (Clipboard API) — sin id fijo,
-	// puede repetirse más de una vez en el mismo modal.
+	// Caja de texto copiable (Clipboard API), sin id fijo: puede repetirse más de una vez en el mismo modal.
 	function cajaCopiable(texto) {
 		return '<div class="ac-copiable" data-copiar="' + escapeHtml(texto) + '">' +
 			'<span class="ac-copiable-texto">' + escapeHtml(texto) + '</span>' +
@@ -65,10 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			});
 		});
 	}
-	// Error al leer el Excel: modal, no toast — el toast desaparece antes de
-	// que el usuario termine de leer qué corregir. El contenido cambia según
-	// `data.tipo` (ver includes/repositorio_import.php) — cada problema real
-	// tiene su propia pista, no un mensaje genérico para todos los casos.
+	// Error al leer el Excel: modal, no toast (el toast desaparece antes de terminar de leer). El contenido cambia según `data.tipo`, cada problema con su propia pista.
 	function mostrarErrorArchivo(data) {
 		var html = '<p style="margin:0 0 8px;">' + escapeHtml(data.message || 'Ocurrió un error.') + '</p>';
 		if (data.tipo === 'hoja_no_encontrada' && data.hoja_esperada) {
@@ -95,20 +84,13 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	}
 	function moneda(v) { return '$' + (parseFloat(v) || 0).toFixed(2); }
-	// Distribuidor mide en Cajas, no en Dólares (mismo criterio ya resuelto
-	// en Meta de Compras de Registrar) — sin signo "$", con un tag chico
-	// para no confundir con Directo cuando la Vista está en "Total".
+	// Distribuidor mide en Cajas, no en Dólares (mismo criterio que Meta de Compras de Registrar): sin "$", con tag chico para no confundir con Directo.
 	function cajas(v) { return Math.round(parseFloat(v) || 0) + '<span class="ac-cumpl-cajas-tag">cajas</span>'; }
 	function valorMonetario(v, canalCliente) { return canalCliente === 'distribuidor' ? cajas(v) : moneda(v); }
 	function pctTexto(v) { return (parseFloat(v) || 0).toFixed(2) + '%'; }
 
-	// Mini donut de Cumplimiento (2026-08-31, pedido explícito: "no me
-	// agrada un número porcentual así seco... pon algo diferente") — mismo
-	// truco de conic-gradient que ya usa ringDeUsuario() más abajo (el aro
-	// de cada asesor), reusado acá a tamaño chico por fila. El relleno se
-	// clampea a 100% (cumplimiento real puede pasar de 100%, ej. 134% — el
-	// círculo no puede "sobrellenarse" visualmente) pero el texto sigue
-	// mostrando el número real, sin clamp.
+	// Mini donut de Cumplimiento, mismo truco de conic-gradient que ringDeUsuario() a tamaño chico por fila.
+	// El relleno se clampea a 100% (el círculo no puede "sobrellenarse"), pero el texto sigue mostrando el número real sin clamp.
 	function donutCumplimiento(v) {
 		var pct = parseFloat(v) || 0;
 		var relleno = Math.max(0, Math.min(100, pct));
@@ -125,10 +107,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		return '<span class="ac-badge ' + clase + (outline ? ' ac-cumpl-badge-outline' : '') + '">' + (esGana ? 'GANA' : 'NO GANA') + '</span>';
 	}
 
-	// ---------- Vista por canal (2026-08-31) ----------
-	// "total" | "directo" | "distribuidor" — mismo mecanismo que la pastilla
-	// de Canal en Historial: filtra la lista Y decide, más abajo, qué
-	// formato de Excel acepta "Subir Excel".
+	// ---------- Vista por canal ----------
+	// "total" | "directo" | "distribuidor", mismo mecanismo que la pastilla de Canal en Historial: filtra la lista y decide el formato de Excel.
 	var canalGroup = document.getElementById('cumpl-canal-group');
 	Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
 		btn.addEventListener('click', function () {
@@ -165,10 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		}, 350);
 	});
 
-	// ---------- Anillo del asesor (conic-gradient), mismo criterio visual que
-	// Seguimiento de Equipo: verde = % de categorías que gana, el resto en
-	// gris neutro (acá no hay "urgencia" de fecha como en Seguimiento, solo
-	// proporción). ----------
+	// ---------- Anillo del asesor: verde = % de categorías que gana, resto gris neutro (sin "urgencia" de fecha como en Seguimiento) ----------
 	function ringDeUsuario(u) {
 		var pct = u.total_categorias > 0 ? Math.round((u.ganan_categoria / u.total_categorias) * 100) : 0;
 		if (pct >= 100) return 'conic-gradient(#1e9e5a 0% 100%)';
@@ -189,45 +166,27 @@ document.addEventListener('DOMContentLoaded', function () {
 				'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>' +
 				'Bajó desde la última subida</div>';
 		}
-		// Cuota y Rebate ganado ocultas a pedido explícito del usuario
-		// (2026-08-31, ver style.css .ac-cumpl-col-header > div:nth-child(4)
-		// y :nth-child(7)) — los 2 `<div>` se siguen generando acá con su
-		// dato real, nunca se sacó de `cat`, solo se dejaron de mostrar.
+		// Cuota y Rebate ganado ocultas por CSS (ver .ac-cumpl-col-header): los `<div>` se siguen generando con su dato real, solo no se muestran.
 		return '<div class="ac-cumpl-fila-cat ' + grupoClase + '">' +
 			'<div>' + escapeHtml(cat.sector) + cambioHtml + '</div>' +
 			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
 			'<div>' + valorMonetario(cat.venta_total, canalCliente) + '</div>' +
 			'<div>' + valorMonetario(cat.cuota_total, canalCliente) + '</div>' +
 			'<div>' + badgeGana(cat.gana_categoria, false) + '</div>' +
-			// Gana Total al lado de Gana Categoría, en la MISMA fila — mismo
-			// pedido explícito del usuario tras confundirse con el mockup
-			// anterior (donde Gana Total solo se veía arriba, en la cabecera
-			// del cliente). Con borde (outline) en vez de relleno sólido, para
-			// que se lea como "resultado heredado del cliente" y no se
-			// confunda con el resultado propio de esta categoría.
+			// Gana Total al lado de Gana Categoría, en la misma fila. Con borde (outline) en vez de relleno sólido, para leerse como "heredado del cliente".
 			'<div>' + badgeGana(cat.gana_total, true) + '</div>' +
 			'<div>' + (cat.gana_categoria === 'gana' ? valorMonetario(cat.rebate_real_vol, canalCliente) : '<span class="ac-field-hint">' + valorMonetario(cat.rebate_real_vol, canalCliente) + '</span>') + '</div>' +
 			'<div><button type="button" class="ac-icon-btn ac-icon-btn-danger ac-cumpl-eliminar" data-id="' + cat.id + '" title="Eliminar"><span class="material-symbols-outlined">delete</span></button></div>' +
 			'</div>';
 	}
 
-	// Igual que el acordeón de asesores (ver renderLista() más abajo), pero
-	// un nivel más adentro — cada CLIENTE arranca cerrado, clic en su fila
-	// muestra/oculta sus categorías (2026-08-31, pedido explícito: "convierte
-	// sub droplist esto... hazlos mini droplista también"). Mismo mecanismo
-	// exacto (clase `.hidden` + chevron que rota), solo que acá el id del
-	// grupo tiene que ser único por cliente DENTRO de su asesor, no solo por
-	// asesor — se arma con los 2 índices (usuario + cliente).
+	// Igual que el acordeón de asesores (ver renderLista()), un nivel más adentro: cada CLIENTE arranca cerrado, clic muestra/oculta sus categorías.
+	// Mismo mecanismo (`.hidden` + chevron), pero el id del grupo debe ser único por cliente DENTRO de su asesor, se arma con los 2 índices.
 	function filaCliente(cliente, grupoClase, idGrupo) {
-		// Sin badge de Gana Total acá (a propósito): ya se ve en cada fila de
-		// categoría, al lado de Gana Categoría — repetirlo también en esta
-		// cabecera, justo arriba de la primera fila, sería la misma
-		// información dos veces seguidas sin aportar nada nuevo.
+		// Sin badge de Gana Total acá a propósito: ya se ve en cada fila de categoría, repetirlo en la cabecera sería la misma info dos veces.
 		var actualizado = cliente.actualizado_en ? new Date(cliente.actualizado_en.replace(' ', 'T')) : null;
 		var actualizadoTexto = actualizado ? 'Actualizado ' + actualizado.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) : '';
-		// Badge de canal solo con la Vista en "Total" (2026-08-31, pedido
-		// explícito) — con un canal puntual ya filtrado, mostrarlo en CADA
-		// fila es redundante (todas son de ese mismo canal).
+		// Badge de canal solo con la Vista en "Total": con un canal puntual ya filtrado, mostrarlo en cada fila es redundante.
 		var badgeCanal = '';
 		if (estado.canal === 'total' && cliente.canal) {
 			var esDistribuidor = cliente.canal === 'distribuidor';
@@ -246,13 +205,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		return header + '<div class="hidden" id="' + idGrupo + '">' + filas + '</div>';
 	}
 
-	// Cada usuario arranca CERRADO (2026-08-31, pedido explícito) — con
-	// varios usuarios y varios clientes cada uno, la lista entera abierta de
-	// entrada era una pantalla larguísima para desplazarse. Clic en la
-	// cabecera del usuario expande/colapsa solo su propio grupo de clientes
-	// — el estado de cada uno vive en la clase `.hidden` del contenedor de
-	// ese grupo (mismo utilitario global del proyecto, no un mecanismo
-	// nuevo) y en la rotación del chevron (`.ac-cumpl-chevron-abierto`).
+	// Cada usuario arranca cerrado: con varios usuarios y clientes, la lista abierta de entrada era larguísima. Clic expande/colapsa su propio
+	// grupo, estado en la clase `.hidden` del contenedor (utilitario global) y en la rotación del chevron (`.ac-cumpl-chevron-abierto`).
 	function renderLista(usuarios) {
 		if (!usuarios.length) {
 			lista.innerHTML = '<div class="ac-table-empty">Sin registros para este filtro.</div>';
@@ -286,10 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			btn.addEventListener('click', function () { confirmarYEliminar(parseInt(btn.dataset.id, 10)); });
 		});
 
-		// Mismo mecanismo para las 2 cabeceras que colapsan/expanden (asesor
-		// Y cliente, ver comentario de filaCliente()) — ambas comparten
-		// `data-grupo` + `.ac-cumpl-chevron`, así que un solo listener
-		// genérico alcanza para las 2.
+		// Mismo mecanismo para las 2 cabeceras que colapsan/expanden (asesor y cliente): ambas comparten `data-grupo` + `.ac-cumpl-chevron`.
 		Array.prototype.forEach.call(lista.querySelectorAll('.ac-cumpl-fila-usuario, .ac-cumpl-fila-cliente'), function (cabeceraEl) {
 			cabeceraEl.addEventListener('click', function () {
 				var grupo = document.getElementById(cabeceraEl.dataset.grupo);
@@ -354,12 +305,8 @@ document.addEventListener('DOMContentLoaded', function () {
 	// ---------- Modal "Subir Excel" ----------
 	var subirWrap = document.getElementById('cumpl-subir-wrap');
 	var subirBtn = document.getElementById('cumpl-subir-btn');
-	// Formato que se espera del archivo (2026-08-31) — elegido a mano en el
-	// picker (Vista=Total) o heredado directo de la pastilla de Vista
-	// (Directo/Distribuidor ya filtrado, ver más abajo). Se manda al
-	// servidor junto con el archivo; si no coincide con lo que el Excel
-	// resulta ser de verdad, se rechaza en la previsualización (mismo
-	// criterio "el sistema se defiende solo" del resto del proyecto).
+	// Formato esperado del archivo: elegido a mano en el picker (Vista=Total) o heredado de la pastilla de Vista. Si no coincide con el Excel real,
+	// se rechaza en la previsualización (mismo criterio "el sistema se defiende solo" del resto del proyecto).
 	var canalEsperadoActual = null;
 	var subirOverlay = document.getElementById('cumpl-subir-modal-overlay');
 	var subirModal = subirOverlay.querySelector('.ac-repo-subir-modal');
@@ -436,10 +383,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		ocultarErroresPreview();
 	}
 
-	// Picker de formato (2026-08-31, mismo mecanismo que "Descargar Excel" en
-	// Historial) — con la Vista ya filtrada a un canal puntual, el botón
-	// salta el picker y abre el modal directo para ESE formato. Solo con
-	// "Total" (canal ambiguo) sigue abriendo el picker de 2 opciones.
+	// Picker de formato (mismo mecanismo que "Descargar Excel" en Historial): con la Vista filtrada a un canal, salta el picker directo a ese formato.
 	subirBtn.addEventListener('click', function () {
 		if (estado.canal === 'directo' || estado.canal === 'distribuidor') {
 			canalEsperadoActual = estado.canal;
@@ -465,8 +409,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	document.getElementById('cumpl-subir-modal-close').addEventListener('click', cerrarModalSubir);
 	document.getElementById('cumpl-subir-cancelar').addEventListener('click', cerrarModalSubir);
 	document.getElementById('cumpl-subir-atras').addEventListener('click', mostrarPasoElegir);
-	// Sin cierre por click afuera a propósito (mismo motivo que Repositorios:
-	// evitar perder el paso de previsualización por un click accidental).
+	// Sin cierre por click afuera a propósito (mismo motivo que Repositorios): evitar perder el paso de previsualización por un click accidental.
 
 	dropzone.addEventListener('click', function () { archivoInput.click(); });
 	dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('ac-dropzone-hover'); });
@@ -539,11 +482,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (item.estado === 'mejora') return '<span class="ac-badge ac-badge-ok">Ahora gana</span>';
 		if (item.estado === 'empeora') return '<span class="ac-badge ac-badge-critico">Ya no gana</span>';
 		if (item.estado === 'sin_cliente') return '<span class="ac-field-hint">Cliente sin identificar</span>';
-		// Sin cambios de verdad (2026-08-31, pedido explícito: "si no hay
-		// nada, obvio no diría nada") — la fila completa ya se comparó
-		// contra la existente en cumplimiento_verificar_estado.php, no solo
-		// Gana Categoría, así que acá "nada" es literal: sin badge, sin
-		// guion, nada que leer.
+		// Sin cambios de verdad: la fila completa ya se comparó contra la existente en cumplimiento_verificar_estado.php, "nada" es literal.
 		if (item.estado === 'sin_cambios') return '';
 		return '<span class="ac-field-hint">—</span>';
 	}
@@ -561,10 +500,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			{ label: 'Categoría', key: 'sector' },
 			{ label: 'Cumplimiento', render: function (f) { return donutCumplimiento(f.cumplimiento_pct); } },
 			{ label: 'Venta real', render: function (f) { return moneda(f.venta_total); } },
-			// Cuota y Rebate ganado ocultas a pedido explícito del usuario
-			// (2026-08-31) — los datos siguen viniendo en `f.cuota_total`/
-			// `f.rebate_real_vol` (no se tocó el parseo ni el guardado),
-			// solo se dejaron de mostrar en esta tabla de previsualización.
+			// Cuota y Rebate ganado ocultas: los datos siguen en `f.cuota_total`/`f.rebate_real_vol`, solo no se muestran en esta tabla.
 			{ label: 'Gana categoría', render: function (f) { return badgeGana(f.gana_categoria, false); } },
 			{ label: 'Gana total', render: function (f) { return badgeGana(f.gana_total, true); } }
 		];
@@ -628,10 +564,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				ponerGuardarCargando(false);
-				// data.ok siempre es true si la petición se procesó (aunque 0 filas
-				// se hayan guardado de verdad) — el color del toast usa
-				// data.guardadas, no data.ok a secas (mismo criterio que
-				// Repositorios, ver assets/js/repositorios.js).
+				// data.ok siempre es true si la petición se procesó (aunque 0 filas se guardaran); el color del toast usa data.guardadas, no data.ok.
 				mostrarMensaje(data.message, data.ok && data.guardadas > 0);
 				if (!data.ok) return;
 				cargarLista();

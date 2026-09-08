@@ -1,7 +1,5 @@
 <?php
-// Filas sin resolver de una importación (las 2 tablas juntas), para "Pendientes
-// de Asignar" — trae candidatos de pos_id y, si el cliente resuelve único pero
-// hay 2+ Actas superpuestas en el período, también las Actas candidatas.
+// Filas sin resolver de una importación (las 2 tablas juntas): trae candidatos de pos_id y, si hay 2+ Actas superpuestas, también esas candidatas.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';

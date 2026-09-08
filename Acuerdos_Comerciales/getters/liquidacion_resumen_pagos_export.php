@@ -1,12 +1,5 @@
 <?php
-// Export a Excel (CSV con BOM UTF-8, Excel lo abre directo) del Resumen de
-// Pagos UNIFICADO por canal (2026-08-20, antes exportaba una sola
-// importación — mismo cambio que liquidacion_resumen_pagos.php, ver
-// liquidacion_resumen_pagos_unificado() en includes/liquidacion_import.php).
-// Se usa CSV en vez de un .xlsx real por la misma razón que
-// includes/xlsx_reader.php es propio: sin Composer instalado en la máquina
-// de desarrollo, y una dependencia pesada complicaría el deploy manual por
-// FTP (ver CLAUDE.md).
+// CSV con BOM UTF-8 (Excel lo abre directo) en vez de .xlsx real, misma razón que includes/xlsx_reader.php es propio: sin Composer en el deploy manual por FTP.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';

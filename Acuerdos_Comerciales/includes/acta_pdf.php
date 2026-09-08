@@ -62,13 +62,7 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 
 function px($n, $escala) { return round($n * $escala, 2) . 'px'; }
 
-// Igual criterio que ancho_columna_categoria()/fuente_una_linea(), pero para
-// una columna de VALORES numéricos: mide el más ancho entre todos los que van
-// a aparecer ahí (cada fila + el total, si lo hay) para que ningún número
-// quede cortado a la mitad al envolver — antes solo la columna Categoría
-// tenía esta protección, los números confiaban en que el % fijo de columna
-// alcanzara siempre, y con sumas grandes (Total Período, Estimado a Ganar)
-// no alcanzaba.
+// Igual criterio que ancho_columna_categoria()/fuente_una_linea(), pero para columnas numéricas: mide el valor más ancho para que no se corte al envolver.
 function fuente_columna_valores(array $textos, $fuenteBasePx, $anchoColPct, $medirTexto, $paddingPx = 10) {
 	$anchoMax = 0;
 	foreach ($textos as $t) $anchoMax = max($anchoMax, $medirTexto($t, $fuenteBasePx));
@@ -146,11 +140,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$sinVisibilidad = !empty($detalle['sin_visibilidad']);
 	$ocultarVisibilidad = $sinVisibilidad;
 
-	// "Con visibilidad" (Directo y Distribuidor) ya está aprobado — no tocar
-	// estos valores. Con menos contenido (sin las tablas 2.a/2.b), "sin
-	// visibilidad" deja el documento con demasiado espacio en blanco y
-	// letras desproporcionadas — pedido explícito: SOLO ahí la letra
-	// general baja un poco más y la de las tablas sube un poco.
+	// "Con visibilidad" ya está aprobado, no tocar. "Sin visibilidad" tiene menos contenido y queda con espacio en blanco de más, por eso la letra ajusta distinto.
 	$fGeneral = $sinVisibilidad ? 13.5 : 24;
 	$fH1 = $sinVisibilidad ? 19 : 31;
 	$fDocNo = $sinVisibilidad ? 10.5 : 17;
@@ -203,10 +193,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		$metaFilas[] = ['categoria' => $categoriaTextos[$i], 'valores' => $valores, 'total' => $total, 'rebate' => $rebate, 'est' => $est];
 	}
 
-	// Los números también necesitan medirse: si el valor más ancho de la
-	// columna (incluida la fila Total) no entra a esta fuente, se corta a la
-	// mitad al envolver en vez de quedarse en 1 línea — mismo criterio que
-	// Categoría, ahora aplicado a meses/Total Período/Estimado a Ganar.
+	// Los números también necesitan medirse (mismo criterio que Categoría), si no el más ancho se corta al envolver en vez de quedar en 1 línea.
 	$mesesTextos = []; $totalTextos = [$fmt($metaGrandTotal)]; $estTextos = [$fmt($metaGrandEst)];
 	foreach ($metaFilas as $fila) {
 		foreach ($fila['valores'] as $v) $mesesTextos[] = $fmt($v);
@@ -305,18 +292,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
-	// Nombres de cliente largos (ej. "ACONDA SIMBANA MARGARITA DE LOURDES")
-	// envuelven a 2 líneas dentro del 34% de la columna — se ven "chicos"
-	// frente a Localidad/Fecha (misma letra, solo que partida en 2 líneas se
-	// percibe más densa/chica en una miniatura). Forzar 1 sola línea aquí
-	// (como en Categoría) NO es viable: incluso a un ancho de columna mucho
-	// mayor, un nombre así de largo seguiría sin entrar, y forzarlo igual
-	// dejaría una letra microscópica — peor que el problema original. En vez
-	// de eso, se le da más ancho a esta columna (34%→44%, a costa de
-	// Localidad/Fecha) para que la mayoría de los nombres reales entren en 1
-	// línea sin necesidad de achicar nada; los pocos casos extremos que
-	// igual envuelvan a 2 líneas lo hacen al MISMO tamaño que Localidad/Fecha
-	// (nunca más chico).
+	// Nombres largos envuelven a 2 líneas y se ven "chicos" frente a Localidad/Fecha. Forzar 1 línea no es viable (letra microscópica);
+	// en cambio se le da más ancho a la columna (34%→44%) para que la mayoría entre en 1 línea sin achicar nada.
 	$estimadoTexto = $esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor'];
 
 	// Nombre del Ejecutivo Comercial = quien generó el acuerdo (creado_por); la firma sigue siendo física siempre.
@@ -352,14 +329,9 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 .total-row td { font-weight: bold; border-top: 2px solid #000000; }
 .rebate-cell { background: #fbf0cf; }
 .label { font-size: '.px($fGeneral, $escala).'; text-transform: uppercase; letter-spacing: 0.05em; color: #000000; }
-/* Mismo motivo que .subtitulo: si un hint queda justo debajo de un subtítulo
-   al inicio de página, su 1ra línea todavía puede caer dentro del recuadro
-   fijo "Documento No". */
+/* Mismo motivo que .subtitulo: un hint justo debajo de un subtítulo al inicio de página puede caer dentro del recuadro fijo "Documento No". */
 .hint { font-size: '.px($fHintExtra, $escala).'; color: #000000; margin: 0 0 '.px(2.5, $escala).'; padding-right: '.px(130, $escala).'; }
-/* padding-right reserva el espacio del recuadro fijo "Documento No" (igual
-   que ya hacía h1) — sin esto, un subtítulo que cae justo al inicio de una
-   página nueva (2.a/2.b/Consideraciones Generales, con varias tablas) queda
-   pisado por ese recuadro, que se repite en todas las páginas. */
+/* padding-right reserva el espacio del recuadro fijo "Documento No" (igual que h1); sin esto un subtítulo al inicio de página queda pisado por ese recuadro. */
 .subtitulo { font-size: '.px($fGeneral, $escala).'; text-transform: uppercase; margin: '.px(6.5, $escala).' 0 '.px(2.5, $escala).'; padding-right: '.px(130, $escala).'; font-weight: bold; color: #000000; }
 .condiciones { background: #f4f2fc; border: 1px solid #c4c5d5; border-radius: 6px; padding: '.px(6, $escala).' '.px(10, $escala).'; margin: '.px(3.5, $escala).' 0 '.px(5, $escala).'; }
 .condiciones h3 { font-size: '.px($fGeneral, $escala).'; text-transform: uppercase; margin: 0 0 '.px(2.5, $escala).'; color: #000000; }
@@ -519,12 +491,7 @@ function generar_acta_pdf_binario(array $detalle) {
 		return $dompdf;
 	};
 
-	// Primero se reduce SOLO $escalaTabla (letra y padding dentro de las
-	// tablas), hasta 0.35 — nunca toca el texto general. Recién si con eso no
-	// alcanza (probado con datos reales: sin este 2do paso, un Acta con las 4
-	// tablas completas quedaba en 3 hojas en vez de 1), $escala baja como
-	// último recurso, con un piso chico (0.3) — la diferencia real entre 1
-	// hoja y 3 para ese caso.
+	// Primero se reduce SOLO $escalaTabla hasta 0.35 (nunca toca el texto general). Si no alcanza, $escala baja como último recurso, piso 0.3.
 	$escala = 1.0;
 	$escalaTabla = 1.0;
 	$dompdf = $renderizar($escala, $escalaTabla);

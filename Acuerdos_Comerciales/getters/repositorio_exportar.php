@@ -1,9 +1,5 @@
 <?php
-// Exporta el repositorio completo (respetando la búsqueda activa, si hay) —
-// CSV o .xlsx real, según ?formato= (2026-08-24, antes solo CSV). El .xlsx
-// reusa includes/xlsx_writer.php (el mismo escritor propio que ya arma
-// Descargar Excel de Historial) — acá sin fórmulas, solo celdas con formato
-// de %, mucho más simple que esos exports.
+// Exporta el repositorio completo (respeta la búsqueda activa) como CSV o .xlsx según ?formato=, reusando includes/xlsx_writer.php.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -23,9 +19,7 @@ if (!in_array($tipo, ['rebate', 'participacion'], true)) {
 	exit;
 }
 
-// porPagina alto para traer "todo" en una sola pasada — un catálogo de
-// referencia no llega a tener miles de filas como para justificar paginar
-// también la exportación.
+// porPagina alto para traer "todo" en una sola pasada: un catálogo de referencia no llega a miles de filas.
 $resultado = $tipo === 'rebate'
 	? listar_repositorio_rebate($mysqli, $busqueda, 1, 100000)
 	: listar_repositorio_participacion($mysqli, $busqueda, 1, 100000);

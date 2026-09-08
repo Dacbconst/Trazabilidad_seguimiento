@@ -1,7 +1,5 @@
 <?php
-// Vista previa del Acta sin guardar nada en la base. Arma $detalle desde lo
-// que hay en pantalla y llama al mismo renderizador (generar_acta_pdf_binario)
-// que usa el resto del sistema — nunca abre conexión a la base.
+// Vista previa sin tocar la base: arma $detalle desde lo que hay en pantalla y llama al mismo renderizador que el resto del sistema.
 require_once __DIR__.'/../config.php';
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/acta_pdf.php';

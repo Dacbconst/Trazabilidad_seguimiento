@@ -1,7 +1,5 @@
 <?php
-// Lista de borradores del usuario logueado, para el modal "Mis Borradores"
-// de Registrar Acuerdo PDV. Ver listar_borradores_usuario() en functions.php
-// para el criterio de scoping por creado_por.
+// Lista de borradores del usuario logueado; scoping por creado_por en listar_borradores_usuario() (functions.php).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

@@ -8341,6 +8341,36 @@ sesión (falta la extensión `zip` en el PHP CLI local, límite ya
 documentado varias veces en este archivo). **Todavía sin probar en
 navegador real.**
 
+## Repositorios: botón "Descargar Formato" (Rebate/Participación) + "Eliminados" oculto (2026-09-07)
+
+Pedido explícito, 2 partes:
+
+1. **Nuevo botón "Descargar Formato"** junto a "Subir Archivo" — solo
+   visible en Rebate/Participación (oculto en Cuotas, que ya tiene su
+   propio Excel trimestral estable, sin necesidad de plantilla). Descarga
+   un `.xlsx` en blanco (solo encabezados + 1 fila de ejemplo marcada
+   "EJEMPLO") con las columnas EXACTAS que ya tolera el importador —
+   mismo vocabulario real de JW, no el propio del proyecto:
+   - Rebate: `CIUDAD | CANAL | CATEGORIA | SUBCATEGORIA | MARCA | REBATE`.
+   - Participación: `CIUDAD | CATEGORIA | SUBCATEGORIA | MARCA | %`.
+   Nuevo `getters/repositorio_plantilla.php?tipo=rebate|participacion` —
+   reusa `includes/xlsx_writer.php` (mismo escritor de siempre), sin
+   ninguna consulta a la base (es un archivo estático, no depende de datos
+   reales). `assets/js/repositorios.js`: el `href` del link se recalcula en
+   `activarTab()`, igual que ya hacía `actualizarHrefsExportar()` para
+   Exportar.
+2. **Botón "Eliminados" oculto** (mismo criterio ya usado para "Pendientes
+   de Asignar" el 2026-08-26: se agrega la clase `hidden` en el HTML y se
+   saca el `classList.toggle()` de `activarTab()` — el mecanismo completo
+   (modal, `getters/repositorio_eliminados.php`/`_reactivar.php`, el
+   listener de click) queda intacto por si se retoma después).
+
+**Probado**: `php -l`/`node --check` limpios. No se pudo generar el
+`.xlsx` real en esta sesión (falta la extensión `zip` en el PHP CLI local,
+límite ya documentado varias veces en este archivo) — el código reusa el
+mismo escritor ya probado en producción (`repositorio_exportar.php`), bajo
+riesgo. **Todavía sin probar en navegador real.**
+
 ## Aclaración: `repositorio_portafolio_prioritario` NO es una tabla de este proyecto — no tocar (2026-08-31)
 
 El usuario preguntó si esa tabla (mencionada en el pendiente "Portafolio

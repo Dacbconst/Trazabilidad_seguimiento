@@ -1,7 +1,5 @@
 <?php
-// Clientes/PDV del Acuerdo PDV, filtrados por el `supervisor` del usuario
-// logueado (repositorio_locales_supervisores_cliente, maestro externo de
-// Alicorp) — canal Distribuidor agrupa por empresa, Directo/Mayorista va plano.
+// Clientes/PDV filtrados por el `supervisor` del usuario logueado; canal Distribuidor agrupa por empresa, Directo/Mayorista va plano.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

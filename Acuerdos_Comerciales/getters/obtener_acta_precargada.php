@@ -1,12 +1,5 @@
 <?php
-// Fase 2 del Repositorio de Cuotas (2026-08-25) — arma el detalle de una Acta
-// precargada para que registrar.js la cargue en el formulario. A diferencia
-// de obtener_borrador.php (que exige creado_por === usuario de sesión, un
-// Acuerdo que YA existe), acá no hay ningún acuerdo_id todavía — la
-// propiedad se valida resolviendo a quién le corresponde ese pos_id
-// (usuarioIdDePosId(), includes/functions.php) y comparando contra la
-// sesión, mismo criterio de "nadie ve datos ajenos adivinando el id" que el
-// resto del proyecto.
+// Arma el detalle de una Acta precargada para registrar.js. Sin acuerdo_id todavía: la propiedad se valida resolviendo el dueño del pos_id contra la sesión.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -32,9 +25,7 @@ if ($posId === '' || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
-// CEDI del Excel gana sobre el maestro de Alicorp para este caso puntual
-// (usuarioIdDeCuota(), ver includes/functions.php — 2026-08-28, choque real
-// confirmado entre el maestro y el Excel real de Liquidación de JW).
+// CEDI del Excel gana sobre el maestro de Alicorp acá (usuarioIdDeCuota()): hay choques reales confirmados entre el maestro y el Excel de JW.
 $usuarioDueno = usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio);
 if (!$usuarioDueno || (int) $usuarioDueno !== (int) $usuarioSesion) {
 	http_response_code(404);

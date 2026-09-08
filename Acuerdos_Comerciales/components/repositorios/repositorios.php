@@ -82,15 +82,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 					<span class="material-symbols-outlined">bar_chart</span>
 					Resumen
 				</button>
-				<!-- Solo visible en Rebate/Participación (2026-08-25, borrado
-				     lógico — regla base, ver datos/repositorios_schema.sql):
-				     Cuotas ya tiene su propio mecanismo de reactivar
-				     (`estado='descartada'`), no se duplica acá. Ver
-				     getters/repositorio_eliminados.php/_reactivar.php. -->
-				<button type="button" class="ac-btn-outline ac-btn-inline" id="repo-eliminados-abrir">
+				<!-- Oculto a pedido explícito; mecanismo intacto por si se retoma. -->
+				<button type="button" class="ac-btn-outline ac-btn-inline hidden" id="repo-eliminados-abrir">
 					<span class="material-symbols-outlined">restore_from_trash</span>
 					Eliminados
 				</button>
+				<!-- .xlsx en blanco con columnas del importador, solo Rebate/Participación. Href en activarTab(). -->
+				<a class="ac-btn-outline ac-btn-inline" id="repo-plantilla-descargar" href="getters/repositorio_plantilla.php?tipo=rebate" target="_blank">
+					<span class="material-symbols-outlined">file_download</span>
+					Descargar Formato
+				</a>
 				<button type="button" class="ac-btn-primary ac-btn-inline" id="repo-subir-abrir">
 					<span class="material-symbols-outlined">upload_file</span>
 					Subir Archivo

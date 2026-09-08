@@ -1,7 +1,5 @@
 <?php
-// Paso 2 de la subida (y también el guardado de una fila editada a mano): UPSERT
-// sobre la clave única de cada tabla, nunca se borra el resto del repositorio.
-// Reporta por fila $errores (no se guardó) y $avisos (se guardó, revisar) sin abortar todo por un error puntual.
+// Paso 2 (y guardado de fila editada a mano): UPSERT sobre la clave única de cada tabla, nunca se borra el resto del repositorio.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';

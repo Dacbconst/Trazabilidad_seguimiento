@@ -1,7 +1,5 @@
 <?php
-// Aritmética de dinero sin errores de punto flotante — nunca sumar montos con
-// + / array_sum nativo de PHP. Usa BCMath (aritmética decimal exacta) para
-// toda suma de montos en este proyecto.
+// Nunca sumar montos con + / array_sum nativo (errores de punto flotante) — usar BCMath (aritmética decimal exacta).
 
 function dinero_disponible_bcmath() {
 	return function_exists('bcadd');

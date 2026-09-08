@@ -1,11 +1,5 @@
 <?php
-// Chequeo EN VIVO (solo lectura, nunca escribe) antes de confirmar el
-// guardado — mismo espíritu que getters/cuotas_verificar_estado.php: para
-// cada fila ya parseada, resuelve a qué pos_id/sector real corresponde y
-// dice qué va a pasar al guardar (Nuevo / Se actualiza / Sin cambios /
-// Cambió de estado), ANTES de que el usuario confirme. Se llama de nuevo
-// cada vez que cambia el Año elegido (el trimestre ya se sabe del archivo,
-// pero el año recién se elige en este paso).
+// Chequeo en vivo (solo lectura) antes de confirmar el guardado: resuelve pos_id/sector por fila y dice qué va a pasar (Nuevo/Actualiza/Sin cambios).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php'; // repositorio_normalizar_texto()
 require_once __DIR__.'/../db_connect.php';
@@ -18,11 +12,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-// Ver nota completa en cumplimiento_guardar.php: bufferea cualquier
-// warning/notice de PHP para que nunca se mezcle con el JSON de respuesta.
-// Este chequeo falla en silencio del lado del cliente (no bloquea la
-// previsualización), así que sin esto un warning acá se traducía en "los
-// badges de Al Guardar nunca aparecen", sin ningún error visible.
+// Bufferea warnings/notices de PHP: sin esto un warning se traducía en "los badges nunca aparecen", sin error visible.
 ob_start();
 function responderVerificar($data) {
 	while (ob_get_level() > 0) { ob_end_clean(); }
@@ -43,14 +33,7 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio < 2000) {
 $cacheSector = [];
 $cachePosId  = [];
 
-// Trae la fila completa, no solo gana_categoria (2026-08-31, pedido
-// explícito: "obviamente si hay alguna modificación... y si no hay nada,
-// obvio no diría nada") — antes SIEMPRE decía "Se actualiza" para
-// cualquier fila que ya existiera con el mismo Gana Categoría, aunque
-// literalmente nada hubiera cambiado (mismo $, mismo %, todo igual). Ahora
-// se compara cada campo real contra lo que se va a guardar — si de verdad
-// no cambió nada, el badge queda vacío (ver 'sin_cambios' más abajo), no
-// hace falta avisar de un "cambio" que no existió.
+// Trae la fila completa, no solo gana_categoria: se compara cada campo contra lo que se va a guardar para no marcar "Se actualiza" cuando nada cambió.
 $stmtExistente = $mysqli->prepare(
 	'SELECT cuota_total, venta_total, cumplimiento_pct, gana_categoria, gana_total,
 	        rebate_pct, pre_rebate, rebate_maximo_110, rebate_real_vol
@@ -58,9 +41,7 @@ $stmtExistente = $mysqli->prepare(
 	 WHERE pos_id = ? AND sector = ? AND linea = ? AND trimestre = ? AND anio = ? AND eliminado_en IS NULL LIMIT 1'
 );
 
-// Mismo redondeo que usa cumplimiento_guardar.php al guardar — comparar
-// sin esto (ej. "62" contra "62.00") daría falsos "cambios" por formato,
-// no por dato real.
+// Mismo redondeo que cumplimiento_guardar.php al guardar, para no dar falsos "cambios" por formato (ej. "62" vs "62.00").
 function filaSinCambios($existente, $fila, $ganaCategoriaNueva, $ganaTotalNueva) {
 	$aNum = function ($v, $decimales) {
 		return is_numeric($v) ? round((float) $v, $decimales) : null;
@@ -121,8 +102,6 @@ foreach ($filas as $indice => $fila) {
 	if (!$existente) {
 		$estados[$indice] = ['estado' => 'nuevo'];
 	} elseif (filaSinCambios($existente, $fila, $ganaCategoriaNueva, $ganaTotalNueva)) {
-		// De verdad no cambió nada (fila completa comparada, no solo Gana
-		// Categoría) — no hace falta avisar de un "cambio" que no existió.
 		$estados[$indice] = ['estado' => 'sin_cambios'];
 	} elseif ($existente['gana_categoria'] === $ganaCategoriaNueva) {
 		$estados[$indice] = ['estado' => 'actualiza'];

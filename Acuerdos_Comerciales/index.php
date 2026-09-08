@@ -150,9 +150,8 @@ $pdf_preview_js_v = @filemtime(__DIR__.'/assets/js/pdf-preview.js') ?: time();
 		acHeaderMenuBtn.addEventListener('click', abrirDrawer);
 		acSidebarBackdrop.addEventListener('click', cerrarDrawer);
 
-		// Cada módulo se renderiza una sola vez (mostrar/ocultar con CSS, no navegación real),
-		// así que cada uno con datos vivos expone su propio window.ac*Refrescar. Registrar no
-		// tiene hook a propósito: refrescarlo destruiría el formulario en progreso del usuario.
+		// Cada módulo se renderiza una sola vez (mostrar/ocultar con CSS), así que cada uno con datos vivos expone su propio window.ac*Refrescar.
+		// Registrar no tiene hook a propósito: refrescarlo destruiría el formulario en progreso.
 		var refrescoPorSeccion = {
 			'#sec-historial':        function () { if (window.acHistorialRefrescar) window.acHistorialRefrescar(); },
 			'#sec-gestion-usuarios': function () { if (window.acUsuariosRefrescar) window.acUsuariosRefrescar(); },

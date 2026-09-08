@@ -1,10 +1,6 @@
 <?php
 include_once __DIR__.'/config.php';
-// Desde PHP 8.1, mysqli tira excepciones (mysqli_sql_exception) en errores de
-// prepare()/execute() en vez de devolver false — rompe TODO el código de este
-// proyecto que asume el comportamiento clásico (if (!$stmt), $stmt->errno,
-// etc., ver getters/guardar_acuerdo.php y includes/functions.php). Esto
-// restaura ese comportamiento clásico para toda la app.
+// Desde PHP 8.1, mysqli tira excepciones en vez de devolver false, rompiendo el patrón if (!$stmt) usado en toda la app. Esto restaura ese comportamiento.
 mysqli_report(MYSQLI_REPORT_OFF);
 $mysqli = new mysqli(HOST, USER, PASS, DB);
 

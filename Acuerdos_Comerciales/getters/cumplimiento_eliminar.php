@@ -1,10 +1,5 @@
 <?php
-// Borrado lógico de una fila de Cumplimiento de Cuota (una categoría de un
-// cliente/período puntual) — nunca DELETE físico, mismo patrón que
-// Rebate/Participación. Recuperar: volver a subir el mismo Excel del mismo
-// trimestre/año limpia eliminado_en/eliminado_por solo (ver
-// getters/cumplimiento_guardar.php) — no hace falta una pantalla de
-// "Eliminados"/Reactivar aparte para esto.
+// Borrado lógico (nunca DELETE físico). Recuperar: re-subir el mismo Excel del mismo trimestre/año limpia eliminado_en/eliminado_por.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

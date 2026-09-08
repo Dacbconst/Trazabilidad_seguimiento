@@ -1,9 +1,5 @@
 <?php
-// Antes se llamaba process_login.php — el nombre con "login" quedaba
-// bloqueado por una regla de seguridad del hosting/WAF (nombres tipo
-// "process_login.php"/"wp-login.php" son blancos clásicos de bots, muchos
-// proveedores los filtran por default). Mismo contenido, solo cambia el
-// nombre del archivo para esquivar ese filtro.
+// Nombre elegido a propósito (no "process_login.php"): ese patrón queda bloqueado por reglas de WAF del hosting que filtran nombres típicos de bots.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

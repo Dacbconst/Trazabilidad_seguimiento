@@ -1,10 +1,5 @@
 <?php
-// Cola de resolución manual del Repositorio de Cuotas — filas donde
-// resolverPosIdCliente() no encontró exactamente un cliente (ver
-// getters/cuotas_guardar.php). Mismo concepto visual que "Pendientes de
-// Asignar" de Liquidación: se muestran junto con candidatos sugeridos (match
-// por nombre, sin filtrar por CEDI) para que el superdesarrollador elija a
-// mano en vez de tipear un pos_id a ciegas.
+// Cola de resolución manual: filas donde resolverPosIdCliente() no encontró exactamente un cliente. Se muestran con candidatos sugeridos por nombre.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

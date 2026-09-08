@@ -1,10 +1,5 @@
 <?php
-// Busca el % de Participación ya cargado en el repositorio
-// (repositorio_participacion_percha) para una Ciudad+Marca — usado por
-// Registrar Acuerdo PDV para autocompletar y bloquear el campo Participación
-// de la tabla de Perchas (2026-08-30, "conectar Participación a Registrar",
-// mismo patrón que Rebate — ver acuerdo_buscar_rebate.php). Solo lectura,
-// nunca escribe.
+// Busca el % de Participación cargado en repositorio_participacion_percha por Ciudad+Marca, para autocompletar en Registrar. Solo lectura.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

@@ -1,7 +1,5 @@
 <?php
-// Paso 2 de la subida de Cumplimiento de Cuota: UPSERT fila por fila sobre
-// (pos_id, sector, trimestre, anio), nunca aborta todo por un error puntual.
-// Re-subir revive una fila borrada lógicamente (limpia eliminado_en/eliminado_por).
+// Paso 2: UPSERT fila por fila sobre (pos_id, sector, trimestre, anio); nunca aborta todo por un error puntual. Re-subir revive filas borradas.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php'; // repositorio_normalizar_texto()
 require_once __DIR__.'/../db_connect.php';

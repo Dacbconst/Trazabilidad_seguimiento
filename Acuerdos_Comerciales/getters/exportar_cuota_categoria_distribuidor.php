@@ -218,8 +218,7 @@ if ($ultimaFilaD2 >= $primeraFilaD2) {
 }
 
 // ==================== Hoja "VISIBILIDAD (2)" ====================
-// cabecera->CABECERA, ruma->ISLA, percha->PERCHA, un renglón por cliente.
-// PAGO = CANTIDAD x 6 (fórmula real del archivo, no suma de la Acta como en Directa).
+// cabecera->CABECERA, ruma->ISLA, percha->PERCHA, un renglón por cliente. PAGO = CANTIDAD x 6 (fórmula real, no suma de la Acta como en Directa).
 $stmtVisD = $mysqli->prepare(
 	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.tipo, l.marca,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
@@ -236,7 +235,7 @@ $stmtVisD = $mysqli->prepare(
 );
 $filasVisD = [];
 if ($stmtVisD) {
-	// Sin filtro de creado_por acá tampoco (2026-08-31, "ver todo").
+	// Sin filtro de creado_por acá tampoco.
 	$stmtVisD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVisD->execute();
 	$filasVisD = $stmtVisD->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -278,9 +277,7 @@ ksort($porClienteVisD);
 
 $sVisD = $wbD->agregarHoja('VISIBILIDAD (2)');
 
-// Columnas: 1 DISTRIBUIDOR, 2 CIUDAD, 3 NOMBRE, 4-7 CANTIDAD(Cab/Isla/Percha/Total),
-// 8-11 PAGO(Cab/Isla/Percha/Total), 12-14 VALIDACIÓN(Cab/Isla/Percha),
-// 15-18 PAGO CAJAS = validado(Cab/Isla/Percha/Total), 19 OBSERVACIONES.
+// Columnas: 1 DISTRIBUIDOR, 2 CIUDAD, 3 NOMBRE, 4-7 CANTIDAD, 8-11 PAGO, 12-14 VALIDACIÓN, 15-18 PAGO CAJAS = validado, 19 OBSERVACIONES.
 $vdDistribuidor = 1; $vdCiudad = 2; $vdNombre = 3;
 $vdCantCab = 4; $vdCantIsla = 5; $vdCantPercha = 6; $vdCantTotal = 7;
 $vdPagoCab = 8; $vdPagoIsla = 9; $vdPagoPercha = 10; $vdPagoTotal = 11;
@@ -331,12 +328,7 @@ foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 	$wbD->formula($sVisD, $filaVisDatosD, $vdCantTotal,
 		XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'+'.XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD);
 
-	// PAGO = CANTIDAD * 6, fórmula real (ver nota arriba, confirmado con el usuario).
-	// Sin formato 'money' (2026-08-31, bug real confirmado y corregido — el
-	// propio encabezado de este grupo ya decía "PAGO (CAJAS)" pero la celda
-	// se pintaba con signo $, contradiciendo su propio título; Distribuidor
-	// se paga en Cajas, no en Dólares, mismo criterio ya aplicado a la
-	// pantalla interactiva de Registrar el 2026-08-30).
+	// PAGO = CANTIDAD * 6, fórmula real. Sin formato 'money': Distribuidor se paga en Cajas, no en Dólares.
 	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoCab, XlsxWriter::colLetra($vdCantCab).$filaVisDatosD.'*6');
 	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoIsla, XlsxWriter::colLetra($vdCantIsla).$filaVisDatosD.'*6');
 	$wbD->formula($sVisD, $filaVisDatosD, $vdPagoPercha, XlsxWriter::colLetra($vdCantPercha).$filaVisDatosD.'*6');

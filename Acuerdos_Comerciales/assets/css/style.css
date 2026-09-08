@@ -1351,15 +1351,9 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-hist-stat-icon .material-symbols-outlined { font-size: 22px; }
 .ac-hist-stat-ok .ac-hist-stat-icon { background: #d7f2db; color: #1e9e5a; }
 .ac-hist-stat-warn .ac-hist-stat-icon { background: #fff2cc; color: #d98c1f; }
-/* Rojo/error, mismos tokens que .ac-badge-critico — para tarjetas KPI que
-   necesitan el 3er color de estado (ok/warn ya cubrían Historial; acá
-   "No ganan" en Cumplimiento de Cuota, 2026-08-31, necesita el rojo). */
+/* Rojo/error, mismos tokens que .ac-badge-critico — 3er color de estado para KPI que lo necesitan (ok/warn no alcanzan). */
 .ac-hist-stat-bad .ac-hist-stat-icon { background: var(--color-error-container); color: var(--color-on-error-container); }
-/* Tarjetas KPI que reusan el look de .ac-hist-stat pero no filtran nada al
-   click (Cumplimiento de Cuota, 2026-08-31, pedido explícito de reusar
-   "el mismo estilo de card" de Historial) — se les saca el cursor de
-   botón y el hover/active de "esto se puede apretar", todo lo demás
-   (bordes, ícono en círculo, tipografía) queda igual. */
+/* Tarjetas KPI que reusan el look de .ac-hist-stat pero no filtran nada al click: se les saca el cursor de botón y el hover/active. */
 .ac-hist-stat-static { cursor: default; }
 .ac-hist-stat-static:hover { border-color: var(--color-outline-variant); box-shadow: none; }
 .ac-hist-stat-static:active { transform: none; }
@@ -1545,9 +1539,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	color: #dcdcdc; text-align: center; padding: var(--space-xl);
 }
 .ac-firma-preview-vacio .material-symbols-outlined { font-size: 48px; }
-/* Canvas del PDF renderizado con PDF.js en móvil (2026-09-02) — mismo fondo
-   oscuro que el resto de este modal, scroll propio si la página renderizada
-   queda más alta que el panel (mismo criterio que .ac-firma-preview-area). */
+/* Canvas del PDF renderizado con PDF.js en móvil: scroll propio si la página renderizada queda más alta que el panel. */
 .ac-firma-canvas-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: #525659; display: flex; flex-direction: column; align-items: center; }
 .ac-firma-canvas-wrap canvas { max-width: 100%; height: auto; margin: auto; display: block; }
 .ac-firma-canvas-estado { color: #dcdcdc; font-size: 13px; text-align: center; padding: var(--space-xl); }
@@ -1751,9 +1743,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo-badge { display: inline-flex; padding: 3px 10px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; background: #fbf0cf; color: #7a5b00; }
 .ac-repo-editar .ac-btn-text, .ac-repo-eliminar .ac-btn-text { display: none; } /* icon-only en desktop, ver mobile más abajo */
 
-/* ---------- Repositorios: tarjetas en mobile (2026-08-24) ----------
-   Rebate y Participación tienen distinta cantidad de columnas — el layout se arma por data-key/data-label (no posición fija). Marca
-   queda arriba-izquierda, el % como badge arriba-derecha, el resto de columnas debajo, una por fila. */
+/* ---------- Repositorios: tarjetas en mobile ----------
+   Rebate y Participación tienen distinta cantidad de columnas: el layout se arma por data-key/data-label, no posición fija. */
 @media (max-width: 700px) {
 	#repo-tabla thead { display: none; }
 	#repo-tabla, #repo-tabla tbody { display: block; width: 100%; min-width: 0; }
@@ -1803,14 +1794,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	#repo-tabla-body .ac-row-actions .ac-icon-btn-danger { border-color: var(--color-error); }
 	#repo-tabla-body .ac-btn-text { display: inline; }
 
-	/* Cuotas Trimestrales: tarjeta con jerarquía real, no pares etiqueta:valor
-	   (2026-09-07) — Rebate/Participación (arriba) tienen pocas columnas y les
-	   alcanza con Marca destacada + el resto apilado; Cuotas tiene 10 columnas
-	   y el Cliente (lo que más importa) se perdía entre las demás. Selector
-	   con 2 IDs (#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body, la clase
-	   la pone activarTab() en repositorios.js) a propósito — le gana en
-	   especificidad a la regla genérica de arriba sin tocarla ni necesitar
-	   !important. */
+	/* Cuotas Trimestrales: tarjeta con jerarquía real, no pares etiqueta:valor — Cuotas tiene 10 columnas y el Cliente se perdía entre las demás.
+	   Selector con 2 IDs (la clase la pone activarTab() en repositorios.js) le gana en especificidad a la regla genérica sin !important. */
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body tr {
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		row-gap: 6px;
@@ -1836,12 +1821,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="sector"],
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="subcategoria"],
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key="marca"] {
-		/* grid-column:auto explícito — sin esto, la regla genérica de arriba
-		   (":not([data-key=marca])...") le seguía ganando la property
-		   grid-column (la especificidad se resuelve POR PROPIEDAD, no por
-		   regla completa) y ponía 1/-1 en los 3 chips a la vez: quedaban
-		   superpuestos exactamente en la misma celda, mostrando un texto
-		   ilegible mezclado ("LAVA  AJILLAS" en vez de 3 chips separados). */
+		/* grid-column:auto explícito: la especificidad se resuelve por propiedad, sin esto la regla genérica ponía 1/-1 y los 3 chips quedaban superpuestos. */
 		grid-row: 3; grid-column: auto;
 		font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
 		color: var(--color-on-surface-variant);
@@ -1856,13 +1836,9 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 		grid-row: 4; grid-column: 1 / -1;
 		font-size: 11px; font-weight: 600; color: var(--color-outline);
 	}
-	/* Mini-stats de los 3 meses — mismo lenguaje que el resto de la app
-	   (etiqueta chica arriba vía ::before + valor debajo), en vez del
-	   "$700.00" suelto de siempre. */
+	/* Mini-stats de los 3 meses: etiqueta chica arriba vía ::before + valor debajo, en vez del "$700.00" suelto de siempre. */
 	#ac-repo-lista.ac-repo-tipo-cuotas #repo-tabla-body td[data-key^="mes"] {
-		/* grid-column:auto explícito — mismo motivo que en los chips de
-		   arriba, sin esto los 3 meses quedaban superpuestos en una sola
-		   celda (solo se veía el último, "Mes 3"). */
+		/* grid-column:auto explícito, mismo motivo que en los chips de arriba: sin esto los 3 meses quedaban superpuestos en una sola celda. */
 		grid-row: 5; grid-column: auto;
 		background: var(--color-surface-container-low);
 		border-radius: 6px;
@@ -1887,13 +1863,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	min-width: 480px;
 	max-width: min(1300px, 95vw);
 }
-/* Bug real (2026-09-07): min-width:480px le gana a max-width:95vw en
-   cualquier pantalla más angosta que ~505px — el modal quedaba más ancho
-   que el propio viewport, cortando "Cancelar"/"Guardar" o forzando scroll
-   horizontal de la página entera (no solo de la tabla interna, que ya tenía
-   su propio scroll a propósito). En ese rango se saca el mínimo fijo: el
-   modal usa casi todo el ancho de pantalla, con márgenes chicos — la tabla
-   de previsualización sigue siendo la única que scrollea horizontal. */
+/* min-width:480px le gana a max-width:95vw bajo ~505px: el modal quedaba más ancho que el viewport, cortando botones y forzando scroll horizontal.
+   En ese rango se saca el mínimo fijo; la tabla de previsualización sigue siendo la única que scrollea horizontal. */
 @media (max-width: 520px) {
 	.ac-repo-subir-modal.ac-repo-subir-modal-ancho { min-width: 0; width: 95vw; }
 }
@@ -2043,18 +2014,13 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 }
 .ac-seg-detalle-fila { padding: 14px var(--space-lg); border-bottom: 1px solid var(--color-surface-container); }
 .ac-seg-detalle-fila:last-child { border-bottom: none; }
-/* `:nth-child(1)` sin filtro de tag (no "span:nth-child") — la 1ra columna
-   de .ac-seg-detalle-fila pasó de <span> a <a> (2026-09-02, ver .ac-seg-doc-link)
-   y "span:nth-child(1)" ya no matchea un <a> en esa posición, aunque sea el
-   primer hijo. */
+/* :nth-child(1) sin filtro de tag: la 1ra columna pasó de <span> a <a> (ver .ac-seg-doc-link), "span:nth-child(1)" ya no matchea en esa posición. */
 .ac-seg-detalle-thead > span:nth-child(1), .ac-seg-detalle-fila > :nth-child(1) { flex: 1.5; }
 .ac-seg-detalle-thead > span:nth-child(2), .ac-seg-detalle-fila > span:nth-child(2) { flex: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { flex: 1; }
 .ac-seg-detalle-thead > span:nth-child(4), .ac-seg-detalle-fila > span:nth-child(4) { width: 130px; }
 .ac-seg-doc { font-weight: 700; color: var(--color-primary); }
-/* Ahora es un <a> real que descarga el PDF (2026-09-02) — mismo criterio
-   visual que .ac-link-id (Historial): sin subrayado en reposo, subrayado
-   solo al pasar el mouse, para que se lea como link sin verse "azul feo". */
+/* <a> real que descarga el PDF, mismo criterio visual que .ac-link-id: sin subrayado en reposo, subrayado solo al hover. */
 .ac-seg-doc-link { text-decoration: none; cursor: pointer; }
 .ac-seg-doc-link:hover { text-decoration: underline; }
 
@@ -2065,13 +2031,8 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-seg-detalle-thead > span:nth-child(3), .ac-seg-detalle-fila > span:nth-child(3) { display: none; }
 }
 
-/* ---------- Seguimiento: acordeón en mobile (2026-09-07) ----------
-   Reemplaza el maestro-detalle (lista arriba, panel de detalle en OTRA
-   tarjeta más abajo — había que scrollear para verlo, sin saber si el toque
-   funcionó) por el mismo lenguaje de acordeón que ya usa Cumplimiento de
-   Cuota: el detalle del asesor tocado aparece in-place, debajo de su propia
-   fila. El chevron solo se muestra acá — en desktop el detalle sigue en el
-   panel separado de siempre. */
+/* ---------- Seguimiento: acordeón en mobile ---------- */
+/* Reemplaza el maestro-detalle (requería scroll) por el mismo lenguaje de acordeón que Cumplimiento; en desktop el detalle sigue en panel separado. */
 .ac-seg-fila-chevron { display: none; font-size: 22px; color: var(--color-outline); flex-shrink: 0; transition: transform 0.15s ease, color 0.15s ease; }
 
 @media (max-width: 900px) {
@@ -2198,14 +2159,8 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
 }
 
-/* ---------- Cumplimiento: filtros colapsables en mobile (2026-09-07) ----------
-   Vista+Periodo+Año quedaban apilados en 2 filas completas antes de llegar a
-   los KPI/la lista — bastante scroll para algo que no se toca seguido. En
-   desktop, .ac-cumpl-periodo-wrap es "display:contents": sus 2 hijos
-   (trimestre-group + año) siguen siendo flex items directos de
-   .ac-seg-periodo exactamente como antes, cero cambio visual. Solo dentro
-   del media query de abajo (mobile) ese wrapper se vuelve un bloque real que
-   se oculta/muestra con el botón "Filtros". */
+/* ---------- Cumplimiento: filtros colapsables en mobile ---------- */
+/* En desktop .ac-cumpl-periodo-wrap es "display:contents" (cero cambio visual); solo en mobile se vuelve un bloque que se oculta con "Filtros". */
 .ac-cumpl-periodo-wrap { display: contents; }
 .ac-cumpl-filtros-btn { display: none; }
 
@@ -2223,9 +2178,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-cumpl-periodo-wrap .ac-seg-pill-group { width: 100%; }
 	.ac-cumpl-periodo-wrap .ac-seg-anio { width: 100%; }
 
-	/* Buscador: sin min-width fijo acá, para que quepa junto al botón
-	   "Filtros" en la misma fila sin forzar un salto de línea (mismo tipo de
-	   bug ya documentado con .ac-hist-search-wrap). */
+	/* Buscador sin min-width fijo acá, para que quepa junto al botón "Filtros" en la misma fila sin forzar salto de línea (ver .ac-hist-search-wrap). */
 	.ac-cumpl-buscar-wrap { min-width: 0; flex: 1 1 auto; }
 
 	.ac-cumpl-filtros-btn {

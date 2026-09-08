@@ -1,10 +1,5 @@
 <?php
-// Paso 1 de la subida de Cumplimiento de Cuota (2026-08-30, ver CLAUDE.md
-// "Módulo Cumplimiento de Cuota") — mismo espíritu que
-// getters/cuotas_previsualizar_excel.php: SOLO parsea el Excel y devuelve
-// las filas leídas, no toca la base para nada. El trimestre se infiere del
-// propio archivo; el año NO viene en el Excel, lo elige el
-// superdesarrollador en pantalla y se manda junto con el resto en el paso 2.
+// Paso 1: solo parsea el Excel y devuelve las filas, no toca la base. El trimestre se infiere del archivo; el año lo elige el usuario en pantalla.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/xlsx_reader.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
@@ -18,10 +13,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-// Ver nota completa en cumplimiento_guardar.php: bufferea cualquier
-// warning/notice de PHP para que nunca se mezcle con el JSON de respuesta
-// (rompía el fetch().then(r => r.json()) del lado del cliente, mostrando
-// "Error de conexión" en vez del error real).
+// Bufferea warnings/notices de PHP para que no rompan el JSON de respuesta.
 ob_start();
 
 function responder($ok, $message, $extra = []) {
@@ -64,10 +56,7 @@ if (isset($resultado['error'])) {
 	responder(false, $resultado['error'], $extra);
 }
 
-// El botón "Subir Excel" ya declara qué formato espera (elegido a mano, o
-// heredado de la pastilla de Vista — ver cumplimiento.js) — si el archivo
-// real resulta ser del OTRO canal, se rechaza acá en vez de dejarlo pasar
-// silenciosamente a la previsualización.
+// Si el canal declarado por el botón no coincide con el detectado en el archivo, se rechaza acá en vez de pasar silenciosamente a la previsualización.
 $canalEsperado = in_array($_POST['canal_esperado'] ?? '', ['directo', 'distribuidor'], true) ? $_POST['canal_esperado'] : '';
 $canalDetectado = $resultado['canal_detectado'] ?? '';
 if ($canalEsperado !== '' && $canalDetectado !== '' && $canalEsperado !== $canalDetectado) {

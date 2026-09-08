@@ -1,9 +1,6 @@
 <?php
-// Resuelve a mano una fila de "Pendientes de Asignar": accion=matchear (pos_id
-// elegido -> busca el acuerdo_id por solape de período) o accion=sin_acta
-// (estado final, para históricos que nunca van a tener Acta digital). Si viene
-// $_POST['acuerdo_id'] (caso de 2+ Actas candidatas), se valida contra la
-// lista real recalculada, nunca se confía en el id tal cual.
+// accion=matchear busca el acuerdo_id por solape de período; accion=sin_acta es estado final para históricos sin Acta digital.
+// Si viene $_POST['acuerdo_id'] (2+ candidatas), se valida contra la lista recalculada, nunca se confía tal cual.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';

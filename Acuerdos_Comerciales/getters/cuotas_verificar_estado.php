@@ -1,12 +1,5 @@
 <?php
-// Chequeo ANTES de guardar (2026-08-25, pedido explícito: "no quiero
-// enterarme recién después de guardar qué era nuevo y qué modifiqué") —
-// para cada fila de la previsualización, resuelve pos_id/sector (mismo
-// criterio que cuotas_guardar.php, pero de SOLO LECTURA, nunca escribe) y
-// dice si esa fila sería nueva, actualizaría algo que ya existe, o no se
-// puede tocar porque ya generó una Acta real. Se llama cada vez que el
-// superdesarrollador cambia el Año en la previsualización (el trimestre ya
-// se sabe del Excel, pero el año recién se tipea ahí).
+// Chequeo antes de guardar, solo lectura: resuelve pos_id/sector por fila y dice si sería nueva, actualizaría algo, o ya generó una Acta real.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';
@@ -33,13 +26,7 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
-// Cache dentro de esta misma verificación (2026-08-30, mismo bug de
-// rendimiento que cuotas_guardar.php — ver la nota completa ahí):
-// resolverSectorReal()/resolverPosIdCliente() escanean tablas sin índice
-// útil, y este endpoint corre TODAVÍA más seguido que el guardado real
-// (cada vez que se cambia el Año en la previsualización). El mismo texto
-// de Sector/Cliente da siempre el mismo resultado dentro de una sola
-// verificación, así que cachear es seguro.
+// Cachea dentro de esta verificación: resolverSectorReal()/resolverPosIdCliente() escanean sin índice útil y esto corre en cada cambio de Año.
 $cacheSector = [];
 $cachePosId  = [];
 $stmtExistente = $mysqli->prepare(
@@ -56,10 +43,7 @@ foreach ($filas as $fila) {
 		continue;
 	}
 
-	// Mismo dato que va a avisar cuotas_guardar.php al guardar de verdad —
-	// se expone ACÁ también para que el badge de la previsualización ya lo
-	// muestre ANTES de confirmar (2026-08-25, pedido explícito: no
-	// enterarse recién en el aviso rojo de después de guardar).
+	// Mismo dato que avisará cuotas_guardar.php al guardar, expuesto acá para que el badge de previsualización lo muestre antes de confirmar.
 	if (!array_key_exists($sector, $cacheSector)) {
 		$cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
 	}

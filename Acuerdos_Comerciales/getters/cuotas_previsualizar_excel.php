@@ -1,11 +1,5 @@
 <?php
-// Paso 1 de la subida del Repositorio de Cuotas (2026-08-25, ver CLAUDE.md
-// "Repositorio de Cuotas trimestrales + Actas precargadas") — mismo espíritu
-// que getters/repositorio_previsualizar_excel.php: SOLO parsea el Excel y
-// devuelve las filas leídas, no toca la base para nada. El trimestre se
-// infiere del propio archivo (ver repositorio_parsear_cuotas()); el año NO
-// viene en el Excel, así que lo elige el superdesarrollador en pantalla y se
-// manda aparte para confirmarlo junto con el resto en el paso 2.
+// Paso 1: solo parsea el Excel y devuelve las filas, no toca la base. Trimestre se infiere del archivo; el año lo elige el usuario en pantalla.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';

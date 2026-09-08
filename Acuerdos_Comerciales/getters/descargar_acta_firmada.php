@@ -1,7 +1,5 @@
 <?php
-// Sirve el archivo del Acta firmada ya subido (foto o PDF) — mismo criterio
-// de propiedad que el resto de Historial, `inline` para que el navegador lo
-// muestre directo (imagen o PDF) en vez de forzar descarga.
+// Sirve el archivo del Acta firmada con `inline` para que el navegador lo muestre directo en vez de forzar descarga.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';
