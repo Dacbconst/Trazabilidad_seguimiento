@@ -1625,8 +1625,18 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	display: flex; align-items: center; justify-content: center;
 	background: #525659;
 }
-.ac-firma-preview-area img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.ac-firma-preview-area iframe { width: 100%; height: 100%; border: none; }
+.ac-firma-preview-area img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.08s ease-out; }
+.ac-firma-preview-area iframe { width: 100%; height: 100%; border: none; transition: transform 0.08s ease-out; }
+/* Zoom con rueda del mouse / botones en el panel de Acta Firmada, ver aplicarZoomFirmada() en historial.js/seguimiento.js. */
+.ac-firma-zoom-controls {
+	position: absolute; bottom: var(--space-sm); right: var(--space-sm);
+	display: flex; align-items: center; gap: 2px;
+	background: rgba(26, 27, 34, 0.7); border-radius: var(--radius-full);
+	padding: 2px; z-index: 5;
+}
+.ac-firma-zoom-controls .ac-icon-btn { width: 28px; height: 28px; color: #fff; }
+.ac-firma-zoom-controls .ac-icon-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.ac-firma-zoom-label { color: #fff; font-size: 11px; font-weight: 700; min-width: 34px; text-align: center; }
 .ac-firma-preview-vacio {
 	display: flex; flex-direction: column; align-items: center; gap: var(--space-sm);
 	color: #dcdcdc; text-align: center; padding: var(--space-xl);
@@ -1634,7 +1644,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-firma-preview-vacio .material-symbols-outlined { font-size: 48px; }
 /* Canvas del PDF renderizado con PDF.js en móvil: scroll propio si la página renderizada queda más alta que el panel. */
 .ac-firma-canvas-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: #525659; display: flex; flex-direction: column; align-items: center; }
-.ac-firma-canvas-wrap canvas { max-width: 100%; height: auto; margin: auto; display: block; }
+.ac-firma-canvas-wrap canvas { max-width: 100%; height: auto; margin: auto; display: block; transition: transform 0.08s ease-out; }
 /* La Previsualización de Registrar sí tiene botones de zoom real — max-width:100% de arriba topeaba el canvas al ancho del panel, el zoom no se veía pasado el 100%. */
 #ac-acta-canvas-wrap canvas { max-width: none; }
 .ac-firma-canvas-estado { color: #dcdcdc; font-size: 13px; text-align: center; padding: var(--space-xl); }
@@ -2154,7 +2164,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 /* Encabezado y fila comparten el mismo grid-template-columns. Gana Categoría/Gana Total van adyacentes: se comparan de un vistazo. */
 .ac-cumpl-col-header, .ac-cumpl-fila-cat {
 	display: grid;
-	grid-template-columns: 2fr 0.9fr 1fr 1fr 1fr 44px;
+	grid-template-columns: 2fr 1fr 1fr 0.9fr 1fr 1fr 44px;
 	gap: var(--space-sm);
 	padding: 10px var(--space-lg);
 	align-items: center;
@@ -2168,9 +2178,7 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 }
 .ac-cumpl-fila-cat { font-size: 13px; border-top: 1px solid var(--color-outline-variant); }
 .ac-cumpl-fila-cat > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* Columnas "Cuota" y "Rebate ganado" ocultas — el dato sigue generándose, display:none solo las saca de la vista. */
-.ac-cumpl-col-header > div:nth-child(4),
-.ac-cumpl-fila-cat > div:nth-child(4),
+/* Columna "Rebate ganado" oculta — el dato sigue generándose, display:none solo la saca de la vista. */
 .ac-cumpl-col-header > div:nth-child(7),
 .ac-cumpl-fila-cat > div:nth-child(7) {
 	display: none;
@@ -2240,16 +2248,17 @@ tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
 	.ac-cumpl-col-header { display: none; }
 	.ac-cumpl-fila-cat {
 		grid-template-columns: 1fr 1fr;
-		grid-template-areas: "sector sector" "cumpl venta" "gana ganatotal" "acciones acciones";
+		grid-template-areas: "sector sector" "cuota venta" "cumpl cumpl" "gana ganatotal" "acciones acciones";
 		row-gap: 6px;
 		padding: 10px var(--space-md) 14px calc(var(--space-md) + 20px);
 	}
 	.ac-cumpl-fila-cat > div:nth-child(1) { grid-area: sector; font-weight: 600; }
-	.ac-cumpl-fila-cat > div:nth-child(2) { grid-area: cumpl; }
+	.ac-cumpl-fila-cat > div:nth-child(2) { grid-area: cuota; }
 	.ac-cumpl-fila-cat > div:nth-child(3) { grid-area: venta; }
-	/* nth-child(4)/(7) = Cuota/Rebate ganado, ya ocultas arriba, sin mapeo de grid-area acá. */
+	.ac-cumpl-fila-cat > div:nth-child(4) { grid-area: cumpl; }
 	.ac-cumpl-fila-cat > div:nth-child(5) { grid-area: gana; }
 	.ac-cumpl-fila-cat > div:nth-child(6) { grid-area: ganatotal; }
+	/* nth-child(7) = Rebate ganado, ya oculta arriba, sin mapeo de grid-area acá. */
 	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
 }
 

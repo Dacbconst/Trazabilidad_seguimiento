@@ -105,4 +105,46 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/seguimiento.js') ?: time();
 	</div>
 </div>
 
+<!-- Ver Acta Firmada, solo lectura: mismo componente de 2 paneles de Historial (Acta Generada + Acta Firmada), sin los botones de subir — acá es para comparar sin abrir pestañas nuevas, nunca para reemplazar el archivo. Ver abrirFirmaSoloLectura() en seguimiento.js. -->
+<div class="ac-modal-overlay ac-firma-modal-overlay" id="seg-firma-modal-overlay">
+	<div class="ac-modal ac-firma-modal">
+		<div class="ac-firma-modal-bar no-print">
+			<h3 class="ac-firma-modal-title" id="seg-firma-modal-title">Acta Firmada</h3>
+			<button type="button" class="ac-modal-close" id="seg-firma-modal-close" aria-label="Cerrar">
+				<span class="material-symbols-outlined">close</span>
+			</button>
+		</div>
+		<div class="ac-firma-modal-body">
+			<div class="ac-firma-panel">
+				<p class="ac-firma-panel-label">Acta Generada</p>
+				<iframe id="seg-firma-original-frame" class="ac-firma-panel-frame" title="Acta generada"></iframe>
+				<div class="ac-firma-canvas-wrap hidden" id="seg-firma-original-canvas-wrap">
+					<canvas id="seg-firma-original-canvas"></canvas>
+					<div class="ac-firma-canvas-estado" id="seg-firma-original-canvas-estado"></div>
+				</div>
+				<button type="button" class="ac-icon-btn ac-firma-panel-ampliar" id="seg-firma-ampliar-original" title="Ampliar">
+					<span class="material-symbols-outlined">open_in_full</span>
+				</button>
+			</div>
+			<div class="ac-firma-panel">
+				<p class="ac-firma-panel-label">Acta Firmada</p>
+				<div class="ac-firma-preview-area" id="seg-firma-preview-area"></div>
+				<button type="button" class="ac-icon-btn ac-firma-panel-ampliar hidden" id="seg-firma-ampliar-firmada" title="Ampliar">
+					<span class="material-symbols-outlined">open_in_full</span>
+				</button>
+				<!-- Zoom con rueda del mouse o los botones, ver aplicarZoomFirmada() en seguimiento.js. -->
+				<div class="ac-firma-zoom-controls hidden" id="seg-firma-zoom-controls">
+					<button type="button" class="ac-icon-btn" id="seg-firma-zoom-out" title="Alejar">
+						<span class="material-symbols-outlined">zoom_out</span>
+					</button>
+					<span class="ac-firma-zoom-label" id="seg-firma-zoom-label">100%</span>
+					<button type="button" class="ac-icon-btn" id="seg-firma-zoom-in" title="Acercar">
+						<span class="material-symbols-outlined">zoom_in</span>
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
 <script src="assets/js/seguimiento.js?v=<?= $js_v ?>"></script>

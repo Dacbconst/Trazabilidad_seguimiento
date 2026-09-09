@@ -164,12 +164,12 @@ document.addEventListener('DOMContentLoaded', function () {
 				'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>' +
 				'Bajó desde la última subida</div>';
 		}
-		// Cuota y Rebate ganado ocultas por CSS (ver .ac-cumpl-col-header): los `<div>` se siguen generando con su dato real, solo no se muestran.
+		// Rebate ganado oculta por CSS (ver .ac-cumpl-col-header): el `<div>` se sigue generando con su dato real, solo no se muestra.
 		return '<div class="ac-cumpl-fila-cat ' + grupoClase + '">' +
 			'<div>' + escapeHtml(cat.sector) + cambioHtml + '</div>' +
-			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
-			'<div>' + valorMonetario(cat.venta_total, canalCliente) + '</div>' +
 			'<div>' + valorMonetario(cat.cuota_total, canalCliente) + '</div>' +
+			'<div>' + valorMonetario(cat.venta_total, canalCliente) + '</div>' +
+			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
 			'<div>' + badgeGana(cat.gana_categoria, false) + '</div>' +
 			// Gana Total al lado de Gana Categoría, en la misma fila. Con borde (outline) en vez de relleno sólido, para leerse como "heredado del cliente".
 			'<div>' + badgeGana(cat.gana_total, true) + '</div>' +

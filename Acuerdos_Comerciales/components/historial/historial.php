@@ -262,6 +262,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<button type="button" class="ac-icon-btn ac-firma-panel-ampliar hidden" id="hist-firma-ampliar-firmada" title="Ampliar">
 					<span class="material-symbols-outlined">open_in_full</span>
 				</button>
+				<!-- Zoom con rueda del mouse o los botones, ver aplicarZoomFirmada() en historial.js. -->
+				<div class="ac-firma-zoom-controls hidden" id="hist-firma-zoom-controls">
+					<button type="button" class="ac-icon-btn" id="hist-firma-zoom-out" title="Alejar">
+						<span class="material-symbols-outlined">zoom_out</span>
+					</button>
+					<span class="ac-firma-zoom-label" id="hist-firma-zoom-label">100%</span>
+					<button type="button" class="ac-icon-btn" id="hist-firma-zoom-in" title="Acercar">
+						<span class="material-symbols-outlined">zoom_in</span>
+					</button>
+				</div>
 			</div>
 		</div>
 		<div class="ac-firma-modal-footer no-print">

@@ -143,9 +143,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 		</div>
 		<div class="ac-cumpl-col-header">
 			<div>Categoría</div>
-			<div>Cumplimiento</div>
+			<div>Cuota total</div>
 			<div>Venta real</div>
-			<div>Cuota</div>
+			<div>Cumplimiento</div>
 			<div>Gana categoría</div>
 			<div>Gana total</div>
 			<div>Rebate ganado</div>

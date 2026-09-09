@@ -231,11 +231,11 @@
 		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el detalle.</p></div>';
 	}
 
-	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile), mismo contenido ---------- Link a la Acta firmada, mismo criterio visual que el link del Documento (#ac-seg-doc/-link) — la fecha es el texto del link. descargar_acta_firmada.php ya sirve el archivo con Content-Disposition:inline, así que target="_blank" lo MUESTRA, no lo descarga.
+	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile), mismo contenido ---------- Link a la Acta firmada — abre el modal de 2 paneles (Acta Generada + Acta Firmada) reusado de Historial, ver abrirFirmaSoloLectura(), en vez de una pestaña nueva.
 	function firmadaCeldaHtml(a) {
 		if (!a.tiene_firma) return '<span class="ac-text-center ac-field-hint">—</span>';
 		var fecha = a.acta_firmada_subido_en ? formatearFecha(a.acta_firmada_subido_en.split(' ')[0]) : '—';
-		return '<span class="ac-text-center"><a class="ac-seg-doc ac-seg-doc-link" href="getters/descargar_acta_firmada.php?id=' + encodeURIComponent(a.id) + '" target="_blank" title="Ver Acta Firmada">' + escapeHtml(fecha) + '</a></span>';
+		return '<span class="ac-text-center"><a class="ac-seg-doc ac-seg-doc-link ac-seg-firma-link" href="#" data-id="' + encodeURIComponent(a.id) + '" data-doc="' + escapeHtml(a.documento_no) + '" data-mime="' + escapeHtml(a.acta_firmada_mime || '') + '" title="Ver Acta Firmada">' + escapeHtml(fecha) + '</a></span>';
 	}
 
 	function filasActasHtml(actas) {
@@ -417,6 +417,132 @@
 
 	// ---------- Botón "Actualizar" (mismo diseño/comportamiento que hist-actualizar) ----------
 	actualizarBtn.addEventListener('click', cargarResumen);
+
+	// ---------- Ver Acta Firmada, solo lectura (mismo modal de 2 paneles de Historial, sin subir) ----------
+	var firmaModalOverlay  = document.getElementById('seg-firma-modal-overlay');
+	var firmaModalTitle    = document.getElementById('seg-firma-modal-title');
+	var firmaOriginalFrame = document.getElementById('seg-firma-original-frame');
+	var firmaOriginalCanvasWrap   = document.getElementById('seg-firma-original-canvas-wrap');
+	var firmaOriginalCanvas       = document.getElementById('seg-firma-original-canvas');
+	var firmaOriginalCanvasEstado = document.getElementById('seg-firma-original-canvas-estado');
+	var firmaPreviewArea   = document.getElementById('seg-firma-preview-area');
+	var firmaAmpliarOriginalBtn = document.getElementById('seg-firma-ampliar-original');
+	var firmaAmpliarFirmadaBtn  = document.getElementById('seg-firma-ampliar-firmada');
+	var firmaZoomControles = document.getElementById('seg-firma-zoom-controls');
+	var firmaZoomOutBtn    = document.getElementById('seg-firma-zoom-out');
+	var firmaZoomInBtn     = document.getElementById('seg-firma-zoom-in');
+	var firmaZoomLabel     = document.getElementById('seg-firma-zoom-label');
+	var firmaOriginalUrlActual = '';
+	var firmaFirmadaUrlActual  = '';
+
+	// Zoom del panel "Acta Firmada" con rueda del mouse o los botones — transform:scale sobre el img/iframe/canvas que haya adentro, funciona igual para los 3.
+	var zoomFirmada = 1;
+	function aplicarZoomFirmada() {
+		firmaZoomLabel.textContent = Math.round(zoomFirmada * 100) + '%';
+		var el = firmaPreviewArea.querySelector('img, iframe, canvas');
+		if (el) el.style.transform = 'scale(' + zoomFirmada + ')';
+	}
+	function ajustarZoomFirmada(delta) {
+		zoomFirmada = Math.min(3, Math.max(0.5, zoomFirmada + delta));
+		aplicarZoomFirmada();
+	}
+	firmaZoomInBtn.addEventListener('click', function () { ajustarZoomFirmada(0.2); });
+	firmaZoomOutBtn.addEventListener('click', function () { ajustarZoomFirmada(-0.2); });
+	firmaPreviewArea.addEventListener('wheel', function (e) {
+		if (firmaZoomControles.classList.contains('hidden')) return;
+		e.preventDefault();
+		ajustarZoomFirmada(e.deltaY < 0 ? 0.15 : -0.15);
+	}, { passive: false });
+	function mostrarControlesFirmada() {
+		zoomFirmada = 1;
+		aplicarZoomFirmada();
+		firmaAmpliarFirmadaBtn.classList.remove('hidden');
+		firmaZoomControles.classList.remove('hidden');
+	}
+
+	function mostrarEstadoCanvasOriginal(mensaje) {
+		firmaOriginalCanvasEstado.textContent = mensaje;
+		firmaOriginalCanvasEstado.classList.remove('hidden');
+		firmaOriginalCanvas.classList.add('hidden');
+	}
+	function renderizarFirmaOriginalCanvas(url) {
+		mostrarEstadoCanvasOriginal('Cargando vista previa…');
+		window.acRenderizarPdfEnCanvas(url, firmaOriginalCanvas, { contenedor: firmaOriginalCanvasWrap })
+			.then(function () {
+				firmaOriginalCanvasEstado.classList.add('hidden');
+				firmaOriginalCanvas.classList.remove('hidden');
+			})
+			.catch(function () { mostrarEstadoCanvasOriginal('No se pudo mostrar la vista previa. Usa "Ampliar" para verla en una pestaña nueva.'); });
+	}
+	firmaAmpliarOriginalBtn.addEventListener('click', function () {
+		if (firmaOriginalUrlActual) window.open(firmaOriginalUrlActual, '_blank');
+	});
+	firmaAmpliarFirmadaBtn.addEventListener('click', function () {
+		var img = firmaPreviewArea.querySelector('img');
+		if (img && img.src) { window.acAbrirLightbox(img.src); return; }
+		if (firmaFirmadaUrlActual) window.open(firmaFirmadaUrlActual, '_blank');
+	});
+
+	// PDF en el panel derecho: desktop usa <iframe>; móvil real dibuja con PDF.js en <canvas> (mismo arreglo que el panel izquierdo) — sin esto salía la "sub-ventanita" rota que muestra Chrome de Android cuando no puede embeber un PDF.
+	function mostrarPdfEnPanelFirmada(url) {
+		if (window.matchMedia('(max-width: 760px)').matches) {
+			firmaPreviewArea.innerHTML = '<div class="ac-firma-canvas-wrap"><canvas></canvas><div class="ac-firma-canvas-estado">Cargando vista previa…</div></div>';
+			var wrap = firmaPreviewArea.querySelector('.ac-firma-canvas-wrap');
+			var canvas = wrap.querySelector('canvas');
+			var estado = wrap.querySelector('.ac-firma-canvas-estado');
+			window.acRenderizarPdfEnCanvas(url, canvas, { contenedor: wrap })
+				.then(function () { estado.classList.add('hidden'); })
+				.catch(function () { estado.textContent = 'No se pudo mostrar la vista previa. Usa "Ampliar" para verla en una pestaña nueva.'; });
+		} else {
+			firmaPreviewArea.innerHTML = '<iframe title="Acta firmada"></iframe>';
+			firmaPreviewArea.querySelector('iframe').src = url;
+		}
+	}
+
+	function abrirFirmaSoloLectura(id, documentoNo, mime) {
+		firmaModalTitle.textContent = 'Acta Firmada — #' + documentoNo;
+		firmaOriginalUrlActual = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+		firmaFirmadaUrlActual  = 'getters/descargar_acta_firmada.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+
+		// Móvil real: mismo arreglo de PDF.js que Historial, ver pdf-preview.js.
+		if (window.matchMedia('(max-width: 760px)').matches) {
+			firmaOriginalFrame.src = '';
+			firmaOriginalFrame.classList.add('hidden');
+			firmaOriginalCanvasWrap.classList.remove('hidden');
+			renderizarFirmaOriginalCanvas(firmaOriginalUrlActual);
+		} else {
+			firmaOriginalCanvasWrap.classList.add('hidden');
+			firmaOriginalFrame.classList.remove('hidden');
+			firmaOriginalFrame.src = firmaOriginalUrlActual;
+		}
+
+		if (mime && mime.indexOf('image/') === 0) {
+			firmaPreviewArea.innerHTML = '<img alt="Acta firmada">';
+			firmaPreviewArea.querySelector('img').src = firmaFirmadaUrlActual;
+		} else {
+			mostrarPdfEnPanelFirmada(firmaFirmadaUrlActual);
+		}
+		mostrarControlesFirmada();
+		firmaModalOverlay.classList.add('ac-modal-open');
+	}
+
+	function cerrarFirmaSoloLectura() {
+		firmaModalOverlay.classList.remove('ac-modal-open');
+		firmaOriginalFrame.src = '';
+		firmaPreviewArea.innerHTML = '';
+	}
+	document.getElementById('seg-firma-modal-close').addEventListener('click', cerrarFirmaSoloLectura);
+	firmaModalOverlay.addEventListener('click', function (e) {
+		if (e.target === firmaModalOverlay) cerrarFirmaSoloLectura();
+	});
+
+	// Delegado en raiz: las filas se re-renderizan en detalleCard (desktop) y en el acordeón inline (mobile), ambos descendientes.
+	raiz.addEventListener('click', function (e) {
+		var link = e.target.closest('.ac-seg-firma-link');
+		if (!link) return;
+		e.preventDefault();
+		abrirFirmaSoloLectura(link.dataset.id, link.dataset.doc, link.dataset.mime);
+	});
 
 	cargarResumen();
 

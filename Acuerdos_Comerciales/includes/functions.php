@@ -1434,7 +1434,7 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
-		        a.acta_firmada_subido_en,
+		        a.acta_firmada_subido_en, a.acta_firmada_mime,
 		        d.pos_name,
 		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a

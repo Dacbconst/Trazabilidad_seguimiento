@@ -487,20 +487,55 @@
 	var firmaFileInput     = document.getElementById('hist-firma-file-input');
 	var firmaAmpliarOriginalBtn = document.getElementById('hist-firma-ampliar-original');
 	var firmaAmpliarFirmadaBtn  = document.getElementById('hist-firma-ampliar-firmada');
+	var firmaZoomControles = document.getElementById('hist-firma-zoom-controls');
+	var firmaZoomOutBtn    = document.getElementById('hist-firma-zoom-out');
+	var firmaZoomInBtn     = document.getElementById('hist-firma-zoom-in');
+	var firmaZoomLabel     = document.getElementById('hist-firma-zoom-label');
 
 	var firmaAcuerdoIdActual = null;
 	var firmaArchivoElegido  = null;
 	var firmaObjectUrl       = null;
 	var firmaOriginalUrlActual = ''; // el PDF real (botón "Ampliar" siempre abre esto) — el iframe puede cargar otra URL en móvil, ver abrirModalFirma().
+	var firmaFirmadaUrlActual  = ''; // igual, para el panel derecho (Ampliar cuando se está mostrando un canvas en vez de un iframe/img).
 	var firmaGuardando       = false; // guarda contra doble click/doble submit al guardar.
 
 	var HTML_BOTON_GUARDAR = '<span class="material-symbols-outlined">save</span> Guardar Acta Firmada';
+
+	// Zoom del panel "Acta Firmada" con rueda del mouse o los botones — transform:scale sobre el img/iframe/canvas que haya adentro, funciona igual para los 3.
+	var zoomFirmada = 1;
+	function aplicarZoomFirmada() {
+		firmaZoomLabel.textContent = Math.round(zoomFirmada * 100) + '%';
+		var el = firmaPreviewArea.querySelector('img, iframe, canvas');
+		if (el) el.style.transform = 'scale(' + zoomFirmada + ')';
+	}
+	function ajustarZoomFirmada(delta) {
+		zoomFirmada = Math.min(3, Math.max(0.5, zoomFirmada + delta));
+		aplicarZoomFirmada();
+	}
+	firmaZoomInBtn.addEventListener('click', function () { ajustarZoomFirmada(0.2); });
+	firmaZoomOutBtn.addEventListener('click', function () { ajustarZoomFirmada(-0.2); });
+	firmaPreviewArea.addEventListener('wheel', function (e) {
+		if (firmaZoomControles.classList.contains('hidden')) return;
+		e.preventDefault();
+		ajustarZoomFirmada(e.deltaY < 0 ? 0.15 : -0.15);
+	}, { passive: false });
+
+	function mostrarControlesFirmada() {
+		zoomFirmada = 1;
+		aplicarZoomFirmada();
+		firmaAmpliarFirmadaBtn.classList.remove('hidden');
+		firmaZoomControles.classList.remove('hidden');
+	}
+	function ocultarControlesFirmada() {
+		firmaAmpliarFirmadaBtn.classList.add('hidden');
+		firmaZoomControles.classList.add('hidden');
+	}
 
 	function firmaPreviewVacia(mensaje) {
 		firmaPreviewArea.innerHTML = '<div class="ac-firma-preview-vacio">' +
 			'<span class="material-symbols-outlined">add_a_photo</span>' +
 			'<p>' + escapeHtml(mensaje) + '</p></div>';
-		firmaAmpliarFirmadaBtn.classList.add('hidden');
+		ocultarControlesFirmada();
 	}
 
 	// Comprime fotos ANTES de subir: nginx rechaza con 413 fotos pesadas, límite de infraestructura no editable desde este repo. Prueba escalones cada vez más chicos hasta entrar bajo un límite conservador; PDF se sube tal cual, si falla sube el original sin comprimir.
@@ -553,30 +588,46 @@
 		});
 	}
 
+	// PDF en el panel derecho: desktop usa <iframe> de siempre; móvil real dibuja con PDF.js en <canvas> (mismo arreglo que el panel izquierdo) — sin esto salía la "sub-ventanita" rota que muestra Chrome de Android cuando no puede embeber un PDF.
+	function mostrarPdfEnPanelFirmada(url) {
+		if (window.matchMedia('(max-width: 760px)').matches) {
+			firmaPreviewArea.innerHTML = '<div class="ac-firma-canvas-wrap"><canvas></canvas><div class="ac-firma-canvas-estado">Cargando vista previa…</div></div>';
+			var wrap = firmaPreviewArea.querySelector('.ac-firma-canvas-wrap');
+			var canvas = wrap.querySelector('canvas');
+			var estado = wrap.querySelector('.ac-firma-canvas-estado');
+			window.acRenderizarPdfEnCanvas(url, canvas, { contenedor: wrap })
+				.then(function () { estado.classList.add('hidden'); })
+				.catch(function () { estado.textContent = 'No se pudo mostrar la vista previa. Usa "Ampliar" para verla en una pestaña nueva.'; });
+		} else {
+			firmaPreviewArea.innerHTML = '<iframe title="Acta firmada"></iframe>';
+			firmaPreviewArea.querySelector('iframe').src = url;
+		}
+	}
+
 	function mostrarPreviewArchivoElegido(archivo) {
 		if (firmaObjectUrl) URL.revokeObjectURL(firmaObjectUrl);
 		firmaObjectUrl = URL.createObjectURL(archivo);
+		firmaFirmadaUrlActual = firmaObjectUrl;
 		if (archivo.type === 'application/pdf') {
-			firmaPreviewArea.innerHTML = '<iframe title="Vista previa del archivo elegido"></iframe>';
-			firmaPreviewArea.querySelector('iframe').src = firmaObjectUrl;
+			mostrarPdfEnPanelFirmada(firmaObjectUrl);
 		} else {
 			firmaPreviewArea.innerHTML = '<img alt="Vista previa del archivo elegido">';
 			firmaPreviewArea.querySelector('img').src = firmaObjectUrl;
 		}
-		firmaAmpliarFirmadaBtn.classList.remove('hidden');
+		mostrarControlesFirmada();
 	}
 
-	// Foto → <img> (se ajusta/centra con object-fit); PDF → <iframe> (el visor nativo ya centra y ajusta solo). Antes siempre usaba <iframe>, una imagen se mostraba a tamaño natural pegada arriba sin centrar.
+	// Foto → <img> (se ajusta/centra con object-fit); PDF → ver mostrarPdfEnPanelFirmada(). Antes siempre usaba <iframe>, una imagen se mostraba a tamaño natural pegada arriba sin centrar.
 	function mostrarFirmaYaSubida(id, mime) {
 		var url = 'getters/descargar_acta_firmada.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
+		firmaFirmadaUrlActual = url;
 		if (mime && mime.indexOf('image/') === 0) {
 			firmaPreviewArea.innerHTML = '<img alt="Acta firmada ya subida">';
 			firmaPreviewArea.querySelector('img').src = url;
 		} else {
-			firmaPreviewArea.innerHTML = '<iframe title="Acta firmada ya subida"></iframe>';
-			firmaPreviewArea.querySelector('iframe').src = url;
+			mostrarPdfEnPanelFirmada(url);
 		}
-		firmaAmpliarFirmadaBtn.classList.remove('hidden');
+		mostrarControlesFirmada();
 	}
 
 	// Render vía PDF.js (assets/js/pdf-preview.js) para móvil real, donde un PDF en <iframe> no renderiza.
@@ -611,8 +662,7 @@
 	firmaAmpliarFirmadaBtn.addEventListener('click', function () {
 		var img = firmaPreviewArea.querySelector('img');
 		if (img && img.src) { window.acAbrirLightbox(img.src); return; }
-		var iframe = firmaPreviewArea.querySelector('iframe');
-		if (iframe && iframe.src) window.open(iframe.src, '_blank');
+		if (firmaFirmadaUrlActual) window.open(firmaFirmadaUrlActual, '_blank');
 	});
 
 	function abrirModalFirma(id, documentoNo, tieneFirma, mime) {
