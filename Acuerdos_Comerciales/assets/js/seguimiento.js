@@ -435,7 +435,7 @@
 	var firmaOriginalUrlActual = '';
 	var firmaFirmadaUrlActual  = '';
 
-	// Zoom del panel "Acta Firmada" con rueda del mouse o los botones — transform:scale sobre el img/iframe/canvas que haya adentro, funciona igual para los 3.
+	// Zoom del panel "Acta Firmada" con rueda del mouse o los botones — transform:scale sobre el img/iframe/canvas que haya adentro, funciona igual para los 3. transform-origin se recalcula en cada rueda con la posición del mouse, para que el zoom crezca hacia donde apunta, no siempre desde el centro.
 	var zoomFirmada = 1;
 	function aplicarZoomFirmada() {
 		firmaZoomLabel.textContent = Math.round(zoomFirmada * 100) + '%';
@@ -446,16 +446,28 @@
 		zoomFirmada = Math.min(3, Math.max(0.5, zoomFirmada + delta));
 		aplicarZoomFirmada();
 	}
-	firmaZoomInBtn.addEventListener('click', function () { ajustarZoomFirmada(0.2); });
-	firmaZoomOutBtn.addEventListener('click', function () { ajustarZoomFirmada(-0.2); });
+	function centrarOrigenZoomFirmada() {
+		var el = firmaPreviewArea.querySelector('img, iframe, canvas');
+		if (el) el.style.transformOrigin = '50% 50%';
+	}
+	firmaZoomInBtn.addEventListener('click', function () { centrarOrigenZoomFirmada(); ajustarZoomFirmada(0.2); });
+	firmaZoomOutBtn.addEventListener('click', function () { centrarOrigenZoomFirmada(); ajustarZoomFirmada(-0.2); });
 	firmaPreviewArea.addEventListener('wheel', function (e) {
 		if (firmaZoomControles.classList.contains('hidden')) return;
 		e.preventDefault();
+		var el = firmaPreviewArea.querySelector('img, iframe, canvas');
+		if (el) {
+			var r = el.getBoundingClientRect();
+			if (r.width && r.height) {
+				el.style.transformOrigin = (((e.clientX - r.left) / r.width) * 100) + '% ' + (((e.clientY - r.top) / r.height) * 100) + '%';
+			}
+		}
 		ajustarZoomFirmada(e.deltaY < 0 ? 0.15 : -0.15);
 	}, { passive: false });
 	function mostrarControlesFirmada() {
 		zoomFirmada = 1;
 		aplicarZoomFirmada();
+		centrarOrigenZoomFirmada();
 		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 		firmaZoomControles.classList.remove('hidden');
 	}
