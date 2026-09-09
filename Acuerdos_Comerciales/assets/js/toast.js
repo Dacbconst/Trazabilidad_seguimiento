@@ -29,8 +29,7 @@
 			'<span class="ac-toast-msg"></span>' +
 			'<button type="button" class="ac-toast-close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>' +
 			'<span class="ac-toast-bar"></span>';
-		// textContent (no innerHTML) para el mensaje: puede traer texto del
-		// backend (ej. errores de validación) que nunca debe interpretarse como HTML.
+		// textContent (no innerHTML) para el mensaje: puede traer texto del backend (ej. errores de validación) que nunca debe interpretarse como HTML.
 		toast.querySelector('.ac-toast-msg').textContent = mensaje;
 		toast.querySelector('.ac-toast-bar').style.animationDuration = DURACION_MS + 'ms';
 

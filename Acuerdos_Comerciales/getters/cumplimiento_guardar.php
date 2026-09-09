@@ -52,8 +52,7 @@ $avisos  = []; // [{indice, fila, motivo}, ...] — SÍ se guardaron, pero convi
 
 $mysqli->begin_transaction();
 try {
-	// Orden del SET importa: MySQL evalúa izquierda a derecha, así "gana_categoria_anterior"
-	// captura el valor previo antes de que "gana_categoria" se pise (ver datos/cumplimiento_cuota_schema.sql).
+	// Orden del SET importa: MySQL evalúa izquierda a derecha, así "gana_categoria_anterior" captura el valor previo antes de que "gana_categoria" se pise (ver datos/cumplimiento_cuota_schema.sql).
 	$stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cumplimiento_cuota
 		 (pos_id, cliente_excel, cedi_excel, plan_excel, sector, linea, trimestre, anio,
@@ -81,8 +80,7 @@ try {
 		$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
 		$plan         = repositorio_normalizar_texto($fila['plan_excel'] ?? '');
 		$sectorCrudo  = repositorio_normalizar_texto($fila['sector'] ?? '');
-		// "linea" distingue 2+ filas del mismo cliente+Sector (ver
-		// repositorio_parsear_cumplimiento_cuota()); `?: 1` solo por compatibilidad vieja.
+		// "linea" distingue 2+ filas del mismo cliente+Sector (ver repositorio_parsear_cumplimiento_cuota()); `?: 1` solo por compatibilidad vieja.
 		$linea        = is_numeric($fila['linea'] ?? null) ? (int) $fila['linea'] : 1;
 		$cuotaTotal   = is_numeric($fila['cuota_total'] ?? null) ? round((float) $fila['cuota_total'], 2) : 0.0;
 		$ventaTotal   = is_numeric($fila['venta_total'] ?? null) ? round((float) $fila['venta_total'], 2) : 0.0;

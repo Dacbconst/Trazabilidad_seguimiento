@@ -1,6 +1,5 @@
 <?php
-// Resumen para superdesarrollador: stats globales + conteos por usuario. Única pantalla que muestra Actas de todos, reforzar el chequeo de rol acá
-// (no alcanza con ocultar el módulo del sidebar para otros roles).
+// Resumen para superdesarrollador: stats globales + conteos por usuario. Única pantalla que muestra Actas de todos, reforzar el chequeo de rol acá (no alcanza con ocultar el módulo del sidebar para otros roles).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

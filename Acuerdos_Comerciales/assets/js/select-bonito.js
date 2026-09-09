@@ -1,5 +1,4 @@
-// Reemplaza un <select> nativo por un trigger + panel propio: el dropdown abierto es UI del SO en mobile, sin forma de restylearlo con CSS.
-// El <select> original queda oculto pero sigue siendo la fuente de verdad (su .value dispara 'change' real). Agregar "ac-select-bonito-auto" alcanza.
+// Reemplaza un <select> nativo por un trigger + panel propio: el dropdown abierto es UI del SO en mobile, sin forma de restylearlo con CSS. El <select> original queda oculto pero sigue siendo la fuente de verdad (su .value dispara 'change' real). Agregar "ac-select-bonito-auto" alcanza.
 (function () {
 	function mejorarSelect(select) {
 		if (select.dataset.bonito) return;
@@ -87,8 +86,7 @@
 		window.addEventListener('resize', function () {
 			if (!panel.classList.contains('hidden')) posicionarPanel();
 		});
-		// Algunos módulos reasignan "select.value = ..." por código directo, lo que nunca dispara 'change'. Se intercepta el setter de .value
-		// de ESTE select puntual (no el prototype global) para que cualquier asignación futura re-sincronice el label solo.
+		// Algunos módulos reasignan "select.value = ..." por código directo, lo que nunca dispara 'change'. Se intercepta el setter de .value de ESTE select puntual (no el prototype global) para que cualquier asignación futura re-sincronice el label solo.
 		var valueDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
 		Object.defineProperty(select, 'value', {
 			get: function () { return valueDescriptor.get.call(select); },

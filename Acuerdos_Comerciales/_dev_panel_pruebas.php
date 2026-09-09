@@ -1,6 +1,5 @@
 <?php
-// TEMPORAL: panel para simular el vencimiento de firma (20 días) sin esperar de verdad.
-// Borrar este archivo + getters/_dev_simular_vencimiento.php cuando termine la prueba.
+// TEMPORAL: panel para simular el vencimiento de firma (20 días) sin esperar de verdad. Borrar este archivo + getters/_dev_simular_vencimiento.php cuando termine la prueba.
 require_once __DIR__.'/includes/functions.php';
 require_once __DIR__.'/db_connect.php';
 iniciar_sesion();

@@ -1,6 +1,5 @@
 <?php
-// Catálogo Segmento -> Categoría -> Marca para las 4 tablas del Acta.
-// repositorio_productos es compartida entre fabricantes: siempre filtrar por fabricante y activar='SI'.
+// Catálogo Segmento -> Categoría -> Marca para las 4 tablas del Acta. repositorio_productos es compartida entre fabricantes: siempre filtrar por fabricante y activar='SI'.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -14,8 +13,7 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 
 define('FABRICANTE_ACUERDOS', 'JABONERIA WILSON');
 
-// Restringido a los 4 Sectores que realmente usa el módulo (BARRA/CREMA/LIQUIDO/POLVO) — ver CLAUDE.md "Alcance real de Acuerdos Comerciales".
-// Filtra las 4 tablas del Acta, no solo Meta de Compras.
+// Restringido a los 4 Sectores que realmente usa el módulo (BARRA/CREMA/LIQUIDO/POLVO) — ver CLAUDE.md "Alcance real de Acuerdos Comerciales". Filtra las 4 tablas del Acta, no solo Meta de Compras.
 $combosValidos = [
 	['BARRA', 'LAVAVAJILLAS'],
 	['BARRA', 'ROPA'],
@@ -68,8 +66,7 @@ while ($row = $res->fetch_assoc()) {
 	$marcasPercha[] = $row['marca'];
 }
 
-// Árbol Segmento -> Sector -> Categoría -> [Marcas], solo para Meta de Compras: el nombre impreso del Acta es "Sector + Categoría + Marca".
-// Cabeceras/Rumas/Perchas siguen usando `segmentos` (sin Sector) a propósito.
+// Árbol Segmento -> Sector -> Categoría -> [Marcas], solo para Meta de Compras: el nombre impreso del Acta es "Sector + Categoría + Marca". Cabeceras/Rumas/Perchas siguen usando `segmentos` (sin Sector) a propósito.
 $segmentosSector = [];
 $res = $mysqli->query(
 	"SELECT DISTINCT segmento, sector, categoria, marca

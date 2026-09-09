@@ -1,6 +1,5 @@
 <?php
-// TEMPORAL: retrocede fecha_generacion de un Acta propia para probar el vencimiento sin esperar 20 días.
-// Borrar este archivo + su botón en Historial cuando termine la prueba.
+// TEMPORAL: retrocede fecha_generacion de un Acta propia para probar el vencimiento sin esperar 20 días. Borrar este archivo + su botón en Historial cuando termine la prueba.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

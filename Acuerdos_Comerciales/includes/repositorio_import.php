@@ -1,10 +1,8 @@
 <?php
-// Parseo de Excel de autocarga del módulo Repositorios (Rebate, Participación de Percha, Cuotas) — self-service, subido por JW.
-// A diferencia de Liquidación, acá se lee la PRIMERA hoja y las columnas se buscan por nombre, tolerando variantes.
+// Parseo de Excel de autocarga del módulo Repositorios (Rebate, Participación de Percha, Cuotas) — self-service, subido por JW. A diferencia de Liquidación, acá se lee la PRIMERA hoja y las columnas se buscan por nombre, tolerando variantes.
 require_once __DIR__.'/xlsx_reader.php';
 
-// Normaliza rebate/participación (fracción 0.025 o entero 2.5) por rango: >1 se asume % entero y se pasa a fracción.
-// Usado solo para REBATE (se guarda como fracción).
+// Normaliza rebate/participación (fracción 0.025 o entero 2.5) por rango: >1 se asume % entero y se pasa a fracción. Usado solo para REBATE (se guarda como fracción).
 function repositorio_valor_a_fraccion($crudo) {
 	$num = is_numeric($crudo) ? (float) $crudo : (float) str_replace(['%', ','], ['', '.'], (string) $crudo);
 	return $num > 1 ? $num / 100 : $num;
@@ -16,15 +14,13 @@ function repositorio_valor_a_porcentaje($crudo) {
 	return $num <= 1 ? $num * 100 : $num;
 }
 
-// Normaliza texto de producto (mayúsculas + espacios colapsados) — sin esto, "Lavavajillas" y "LAVAVAJILLAS "
-// generarían 2 filas por la clave única exacta de la tabla.
+// Normaliza texto de producto (mayúsculas + espacios colapsados) — sin esto, "Lavavajillas" y "LAVAVAJILLAS " generarían 2 filas por la clave única exacta de la tabla.
 function repositorio_normalizar_texto($crudo) {
 	$texto = trim(preg_replace('/\s+/', ' ', (string) $crudo));
 	return mb_strtoupper($texto, 'UTF-8');
 }
 
-// Columnas reales del Excel de JW: CIUDAD, CANAL, CATEGORIA, SUBCATEGORIA, MARCA, REBATE.
-// Su "CATEGORIA" es nuestro Sector, su "SUBCATEGORIA" nuestra Categoría; Ciudad y Canal cambian el % de Rebate del mismo producto.
+// Columnas reales del Excel de JW: CIUDAD, CANAL, CATEGORIA, SUBCATEGORIA, MARCA, REBATE. Su "CATEGORIA" es nuestro Sector, su "SUBCATEGORIA" nuestra Categoría; Ciudad y Canal cambian el % de Rebate del mismo producto.
 function repositorio_parsear_rebate($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
@@ -88,13 +84,7 @@ function repositorio_parsear_rebate($rutaArchivo) {
 	return ['filas' => $resultado, 'aviso' => $aviso];
 }
 
-// Excel de Cuotas trimestrales por cliente: CEDI, CLIENTE, PLAN, CATEGORIAS (=nuestro `sector`), CONCAT (ignorado), 3 meses con montos independientes.
-// Devuelve mes1/mes2/mes3 (posición en el trimestre); el pos_id se resuelve después en cuotas_guardar.php, este parser no recibe $mysqli.
-// Soporta 2 layouts reales, igual que repositorio_parsear_cumplimiento_cuota(): Directo (CEDI/CLIENTE/CATEGORIAS) y Distribuidor
-// (DISTRIBUIDOR/CIUDAD/NOMBRE/CATEGORIA, mismas columnas que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() para el
-// Excel real de Liquidación/Cumplimiento de Distribuidor — reusado acá porque JW no tiene un archivo aparte de "cuotas futuras" para
-// ese canal, el usuario confirmó reusar el mismo formato). A diferencia de Cumplimiento (2 hojas con NOMBRE fijo dentro del mismo
-// workbook), acá es 1 sola hoja — la diferenciación es por qué columnas trae esa hoja, no por nombre de pestaña.
+// Excel de Cuotas trimestrales por cliente: CEDI, CLIENTE, PLAN, CATEGORIAS (=nuestro `sector`), CONCAT (ignorado), 3 meses con montos independientes. Devuelve mes1/mes2/mes3 (posición en el trimestre); el pos_id se resuelve después en cuotas_guardar.php, este parser no recibe $mysqli. Soporta 2 layouts reales, igual que repositorio_parsear_cumplimiento_cuota(): Directo (CEDI/CLIENTE/CATEGORIAS) y Distribuidor (DISTRIBUIDOR/CIUDAD/NOMBRE/CATEGORIA, mismas columnas que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() para el Excel real de Liquidación/Cumplimiento de Distribuidor — reusado acá porque JW no tiene un archivo aparte de "cuotas futuras" para ese canal, el usuario confirmó reusar el mismo formato). A diferencia de Cumplimiento (2 hojas con NOMBRE fijo dentro del mismo workbook), acá es 1 sola hoja — la diferenciación es por qué columnas trae esa hoja, no por nombre de pestaña.
 function repositorio_parsear_cuotas($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
@@ -173,10 +163,7 @@ function repositorio_parsear_cuotas_directo($filas, $enc) {
 	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'directo'];
 }
 
-// Canal Distribuidor — mismas columnas reales que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() (DISTRIBUIDOR/CIUDAD/
-// NOMBRE/CATEGORIA). NOMBRE->cliente_excel, CIUDAD->cedi_excel (mismo campo que Directo, ahí SÍ es geográfico, no un nombre de asesor
-// — ver resolverPosIdCliente(), el desempate por canal usa un criterio distinto para cada uno), DISTRIBUIDOR (empresa)->plan (mismo
-// campo que Directo usa para PLAN, mismo criterio ya usado en Cumplimiento de Cuota).
+// Canal Distribuidor — mismas columnas reales que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() (DISTRIBUIDOR/CIUDAD/ NOMBRE/CATEGORIA). NOMBRE->cliente_excel, CIUDAD->cedi_excel (mismo campo que Directo, ahí SÍ es geográfico, no un nombre de asesor — ver resolverPosIdCliente(), el desempate por canal usa un criterio distinto para cada uno), DISTRIBUIDOR (empresa)->plan (mismo campo que Directo usa para PLAN, mismo criterio ya usado en Cumplimiento de Cuota).
 function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	$det = repositorio_cuotas_detectar_trimestre($filas[$enc['fila']]);
 	if (isset($det['error'])) return ['error' => $det['error']];
@@ -225,8 +212,7 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'distribuidor'];
 }
 
-// Columnas reales: CIUDAD | CATEGORIA | SUBCATEGORIA | MARCA | %. Categoria/Subcategoria solo detectan filas vacías, nunca se guardan (Percha solo guarda Marca).
-// Ciudad sí importa (ej. LAVA varía por ciudad, "RESTO CIUDADES" es catch-all); sin columna de Canal, aplica igual a Directo y Distribuidor.
+// Columnas reales: CIUDAD | CATEGORIA | SUBCATEGORIA | MARCA | %. Categoria/Subcategoria solo detectan filas vacías, nunca se guardan (Percha solo guarda Marca). Ciudad sí importa (ej. LAVA varía por ciudad, "RESTO CIUDADES" es catch-all); sin columna de Canal, aplica igual a Directo y Distribuidor.
 function repositorio_parsear_participacion($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
@@ -266,8 +252,7 @@ function repositorio_parsear_participacion($rutaArchivo) {
 	return ['filas' => $resultado, 'aviso' => $aviso];
 }
 
-// Módulo "Cumplimiento de Cuota": parsea el Excel que JW devuelve YA COMPLETADO (venta+cartera a mano sobre el export de Historial).
-// No calcula nada — lee el valor ya cacheado por Excel de las celdas de fórmula. Soporta Directo y Distribuidor (funciones separadas más abajo).
+// Módulo "Cumplimiento de Cuota": parsea el Excel que JW devuelve YA COMPLETADO (venta+cartera a mano sobre el export de Historial). No calcula nada — lee el valor ya cacheado por Excel de las celdas de fórmula. Soporta Directo y Distribuidor (funciones separadas más abajo).
 function repositorio_parsear_cumplimiento_cuota($rutaArchivo) {
 	// xlsx_leer_hoja() matchea el nombre de pestaña de forma tolerante (mayúsculas/tilde/espacios, ver xlsx_normalizar_nombre_hoja()).
 	$filasDirecto = xlsx_leer_hoja($rutaArchivo, 'CUOTA CLIENTE - CATEGORÍA');
@@ -313,8 +298,7 @@ function repositorio_parsear_cumplimiento_cuota_directo($filas) {
 		return ['error' => 'Faltan columnas en la hoja.', 'tipo' => 'columnas_faltantes'];
 	}
 
-	// Sanity-check: si una columna se reordenó cerca de "REBATE A APLICAR %"/"CARTERA", esto leería la vecina en silencio.
-	// El encabezado real en esa posición siempre empieza con "TOTAL Q"/"VENTA Q" — si no, algo se movió.
+	// Sanity-check: si una columna se reordenó cerca de "REBATE A APLICAR %"/"CARTERA", esto leería la vecina en silencio. El encabezado real en esa posición siempre empieza con "TOTAL Q"/"VENTA Q" — si no, algo se movió.
 	$encCuota = xlsx_normalizar_encabezado($filas[$enc['fila']][$colCuotaTotal] ?? '');
 	$encVenta = xlsx_normalizar_encabezado($filas[$enc['fila']][$colVentaTotal] ?? '');
 	if (!preg_match('/^TOTAL Q\d/', $encCuota) || !preg_match('/^VENTA Q\d/', $encVenta)) {
@@ -342,8 +326,7 @@ function repositorio_parsear_cumplimiento_cuota_directo($filas) {
 		return is_numeric($v) ? (float) $v : (float) str_replace(['$', ',', ' ', '%'], '', (string) $v);
 	};
 
-	// Cuenta cuántas veces se vio este cliente+CEDI+Sector en el archivo — un cliente puede traer 2+ filas del mismo Sector.
-	// `linea` entra a la clave única de guardado para que ninguna fila real se pierda (antes la 2da pisaba a la 1ra).
+	// Cuenta cuántas veces se vio este cliente+CEDI+Sector en el archivo — un cliente puede traer 2+ filas del mismo Sector. `linea` entra a la clave única de guardado para que ninguna fila real se pierda (antes la 2da pisaba a la 1ra).
 	$vecesVistoSector = [];
 
 	$resultado = [];
@@ -381,8 +364,7 @@ function repositorio_parsear_cumplimiento_cuota_directo($filas) {
 	return ['filas' => $resultado, 'trimestre' => $trimestre, 'canal_detectado' => 'directo'];
 }
 
-// Canal Distribuidor, hoja "CUOTAS POR CAT -DISTRIBUIDORES" — mismo criterio que Directo, layout distinto: NOMBRE/CIUDAD/CATEGORIA/REBATE, sin CARTERA.
-// "DISTRIBUIDOR" (empresa) se guarda en `plan_excel`, mismo campo que Directo usa para PLAN.
+// Canal Distribuidor, hoja "CUOTAS POR CAT -DISTRIBUIDORES" — mismo criterio que Directo, layout distinto: NOMBRE/CIUDAD/CATEGORIA/REBATE, sin CARTERA. "DISTRIBUIDOR" (empresa) se guarda en `plan_excel`, mismo campo que Directo usa para PLAN.
 function repositorio_parsear_cumplimiento_cuota_distribuidor($filas) {
 	$enc = xlsx_encontrar_encabezado($filas, ['CIUDAD', 'NOMBRE', 'CATEGORIA', 'CUMPLIMIENTO', 'GANA POR CATEGORIA', 'GANA TOTAL Q', 'REBATE REAL VOL']);
 	if (!$enc) {

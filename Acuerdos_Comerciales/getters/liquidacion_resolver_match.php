@@ -1,6 +1,5 @@
 <?php
-// accion=matchear busca el acuerdo_id por solape de período; accion=sin_acta es estado final para históricos sin Acta digital.
-// Si viene $_POST['acuerdo_id'] (2+ candidatas), se valida contra la lista recalculada, nunca se confía tal cual.
+// accion=matchear busca el acuerdo_id por solape de período; accion=sin_acta es estado final para históricos sin Acta digital. Si viene $_POST['acuerdo_id'] (2+ candidatas), se valida contra la lista recalculada, nunca se confía tal cual.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/liquidacion_import.php';
 require_once __DIR__.'/../db_connect.php';

@@ -1,7 +1,5 @@
 <?php
-// Guarda en sesión el canal que el superdesarrollador SIN supervisor eligió para Registrar Acuerdo PDV (ver canalEfectivoUsuario()/
-// esModoAdminSinCartera() en includes/functions.php). Solo tiene efecto para esa cuenta puntual — un usuario con supervisor real
-// nunca puede pisar su canal real de esta forma, el chequeo de esModoAdminSinCartera() lo bloquea.
+// Guarda en sesión el canal que el superdesarrollador SIN supervisor eligió para Registrar Acuerdo PDV (ver canalEfectivoUsuario()/ esModoAdminSinCartera() en includes/functions.php). Solo tiene efecto para esa cuenta puntual — un usuario con supervisor real nunca puede pisar su canal real de esta forma, el chequeo de esModoAdminSinCartera() lo bloquea.
 require_once __DIR__.'/../config.php';
 require_once __DIR__.'/../includes/functions.php';
 iniciar_sesion();

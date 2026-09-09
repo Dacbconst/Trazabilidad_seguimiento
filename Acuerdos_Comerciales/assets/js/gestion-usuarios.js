@@ -20,8 +20,7 @@
 	// Evita que una respuesta vieja (llegó tarde por la red) pise a una más nueva — mismo bug ya corregido en Seguimiento de Equipo/Historial.
 	var usuariosReqId   = 0;
 
-	// ---------- Supervisor: 1 supervisor = 1 cuenta (ver functions.php) ----------
-	// Autocompletar Nombre de Usuario con el supervisor elegido (editable después) y mantener los combos sincronizados con quién ya lo tiene.
+	// ---------- Supervisor: 1 supervisor = 1 cuenta (ver functions.php) ---------- Autocompletar Nombre de Usuario con el supervisor elegido (editable después) y mantener los combos sincronizados con quién ya lo tiene.
 	nuSupervisor.addEventListener('change', function () {
 		nuUsuario.value = nuSupervisor.value || '';
 	});
@@ -262,8 +261,7 @@
 		document.getElementById('rl-usuario-label').textContent = usuario;
 		document.getElementById('rl-rol').value = rol;
 
-		// El supervisor actual de ESTE usuario debe seguir seleccionable aunque
-		// figure como "tomado" (es el suyo); los tomados por otros se deshabilitan.
+		// El supervisor actual de ESTE usuario debe seguir seleccionable aunque figure como "tomado" (es el suyo); los tomados por otros se deshabilitan.
 		Array.prototype.forEach.call(rlSupervisor.options, function (opt) {
 			var tomadoPor = opt.dataset.tomadoPor;
 			opt.disabled = !!(tomadoPor && tomadoPor !== usuario);
@@ -304,8 +302,7 @@
 			});
 	});
 
-	// Expuesto para que index.php refresque este módulo al navegar hacia él
-	// desde el sidebar (mismo patrón que window.acHistorialRefrescar).
+	// Expuesto para que index.php refresque este módulo al navegar hacia él desde el sidebar (mismo patrón que window.acHistorialRefrescar).
 	window.acUsuariosRefrescar = function () {
 		cargarUsuarios(parseInt(paginacionEl.dataset.pagina, 10) || 1);
 		refrescarSupervisores();

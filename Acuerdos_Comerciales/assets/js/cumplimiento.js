@@ -89,8 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	function valorMonetario(v, canalCliente) { return canalCliente === 'distribuidor' ? cajas(v) : moneda(v); }
 	function pctTexto(v) { return (parseFloat(v) || 0).toFixed(2) + '%'; }
 
-	// Mini donut de Cumplimiento, mismo truco de conic-gradient que ringDeUsuario() a tamaño chico por fila.
-	// El relleno se clampea a 100% (el círculo no puede "sobrellenarse"), pero el texto sigue mostrando el número real sin clamp.
+	// Mini donut de Cumplimiento, mismo truco de conic-gradient que ringDeUsuario() a tamaño chico por fila. El relleno se clampea a 100% (el círculo no puede "sobrellenarse"), pero el texto sigue mostrando el número real sin clamp.
 	function donutCumplimiento(v) {
 		var pct = parseFloat(v) || 0;
 		var relleno = Math.max(0, Math.min(100, pct));
@@ -107,8 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		return '<span class="ac-badge ' + clase + (outline ? ' ac-cumpl-badge-outline' : '') + '">' + (esGana ? 'GANA' : 'NO GANA') + '</span>';
 	}
 
-	// ---------- Vista por canal ----------
-	// "total" | "directo" | "distribuidor", mismo mecanismo que la pastilla de Canal en Historial: filtra la lista y decide el formato de Excel.
+	// ---------- Vista por canal ---------- "total" | "directo" | "distribuidor", mismo mecanismo que la pastilla de Canal en Historial: filtra la lista y decide el formato de Excel.
 	var canalGroup = document.getElementById('cumpl-canal-group');
 	Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
 		btn.addEventListener('click', function () {
@@ -180,8 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			'</div>';
 	}
 
-	// Igual que el acordeón de asesores (ver renderLista()), un nivel más adentro: cada CLIENTE arranca cerrado, clic muestra/oculta sus categorías.
-	// Mismo mecanismo (`.hidden` + chevron), pero el id del grupo debe ser único por cliente DENTRO de su asesor, se arma con los 2 índices.
+	// Igual que el acordeón de asesores (ver renderLista()), un nivel más adentro: cada CLIENTE arranca cerrado, clic muestra/oculta sus categorías. Mismo mecanismo (`.hidden` + chevron), pero el id del grupo debe ser único por cliente DENTRO de su asesor, se arma con los 2 índices.
 	function filaCliente(cliente, grupoClase, idGrupo) {
 		// Sin badge de Gana Total acá a propósito: ya se ve en cada fila de categoría, repetirlo en la cabecera sería la misma info dos veces.
 		var actualizado = cliente.actualizado_en ? new Date(cliente.actualizado_en.replace(' ', 'T')) : null;
@@ -205,8 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		return header + '<div class="hidden" id="' + idGrupo + '">' + filas + '</div>';
 	}
 
-	// Cada usuario arranca cerrado: con varios usuarios y clientes, la lista abierta de entrada era larguísima. Clic expande/colapsa su propio
-	// grupo, estado en la clase `.hidden` del contenedor (utilitario global) y en la rotación del chevron (`.ac-cumpl-chevron-abierto`).
+	// Cada usuario arranca cerrado: con varios usuarios y clientes, la lista abierta de entrada era larguísima. Clic expande/colapsa su propio grupo, estado en la clase `.hidden` del contenedor (utilitario global) y en la rotación del chevron (`.ac-cumpl-chevron-abierto`).
 	function renderLista(usuarios) {
 		if (!usuarios.length) {
 			lista.innerHTML = '<div class="ac-table-empty">Sin registros para este filtro.</div>';
@@ -310,11 +306,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	// ---------- Modal "Subir Excel" ----------
 	var subirWrap = document.getElementById('cumpl-subir-wrap');
 	var subirBtn = document.getElementById('cumpl-subir-btn');
-	// Formato esperado del archivo: elegido a mano en el picker (Vista=Total) o heredado de la pastilla de Vista. Si no coincide con el Excel real,
-	// se rechaza en la previsualización (mismo criterio "el sistema se defiende solo" del resto del proyecto).
+	// Formato esperado del archivo: elegido a mano en el picker (Vista=Total) o heredado de la pastilla de Vista. Si no coincide con el Excel real, se rechaza en la previsualización (mismo criterio "el sistema se defiende solo" del resto del proyecto).
 	var canalEsperadoActual = null;
-	// Canal REALMENTE detectado por el parser del lado del servidor (data.canal_detectado) — puede ser distinto de canalEsperadoActual
-	// solo si Vista=Total y el usuario no usó el picker; se usa para el desempate de resolverPosIdCliente() al verificar/guardar.
+	// Canal REALMENTE detectado por el parser del lado del servidor (data.canal_detectado) — puede ser distinto de canalEsperadoActual solo si Vista=Total y el usuario no usó el picker; se usa para el desempate de resolverPosIdCliente() al verificar/guardar.
 	var canalDetectadoActual = null;
 	var subirOverlay = document.getElementById('cumpl-subir-modal-overlay');
 	var subirModal = subirOverlay.querySelector('.ac-repo-subir-modal');

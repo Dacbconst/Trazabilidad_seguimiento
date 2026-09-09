@@ -13,9 +13,7 @@ $anios      = range($anioActual - 1, $anioActual + 2);
 
 // Canal derivado en vivo del supervisor (canalDeSupervisor()), nunca se guarda — salvo el caso especial de abajo.
 $canalUsuario = canalEfectivoUsuario($mysqli);
-// superdesarrollador sin supervisor real (ej. cuenta "Admin") no tiene cartera propia de la que derivar canal — sin este modo, el
-// combo de Local/Distribuidor quedaba siempre vacío y no podía generar ninguna Acta. Puede elegir el canal a mano (ver el switch más
-// abajo); el resto de usuarios (con supervisor real) no ve este switch y sigue exactamente igual que siempre.
+// superdesarrollador sin supervisor real (ej. cuenta "Admin") no tiene cartera propia de la que derivar canal — sin este modo, el combo de Local/Distribuidor quedaba siempre vacío y no podía generar ninguna Acta. Puede elegir el canal a mano (ver el switch más abajo); el resto de usuarios (con supervisor real) no ve este switch y sigue exactamente igual que siempre.
 $modoAdminSinCartera = esModoAdminSinCartera();
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();

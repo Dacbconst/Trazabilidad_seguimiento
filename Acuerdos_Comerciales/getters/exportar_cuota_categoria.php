@@ -1,6 +1,5 @@
 <?php
-// Genera el .xlsx "CUOTA CLIENTE - CATEGORÍA" de JW, canal Directa (Distribuidor
-// delega en exportar_cuota_categoria_distribuidor.php). Rebate % congelado, una fila por línea, nunca agrupada.
+// Genera el .xlsx "CUOTA CLIENTE - CATEGORÍA" de JW, canal Directa (Distribuidor delega en exportar_cuota_categoria_distribuidor.php). Rebate % congelado, una fila por línea, nunca agrupada.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/xlsx_writer.php';
 require_once __DIR__.'/../db_connect.php';
@@ -31,8 +30,7 @@ if (!$usuarioId) {
 	exit;
 }
 
-// Exige trimestre Y año puntuales: esta hoja replica un archivo de un solo
-// trimestre, "Todos los períodos"/"Todos los años" mezclaría líneas de Actas distintas.
+// Exige trimestre Y año puntuales: esta hoja replica un archivo de un solo trimestre, "Todos los períodos"/"Todos los años" mezclaría líneas de Actas distintas.
 if (!$trimestreActivo || !$anio) {
 	http_response_code(400);
 	echo 'Elige un trimestre y un año específicos en el filtro de período antes de descargar el Excel.';
@@ -46,8 +44,7 @@ if ($canalExport === 'distribuidor') {
 	exit;
 }
 
-// GROUP BY a.id, l.id colapsa duplicados de pos_id sin perder líneas reales.
-// Sin filtro de creado_por: exporta Actas de todos los asesores del canal (u.usuario identifica cada línea).
+// GROUP BY a.id, l.id colapsa duplicados de pos_id sin perder líneas reales. Sin filtro de creado_por: exporta Actas de todos los asesores del canal (u.usuario identifica cada línea).
 $stmt = $mysqli->prepare(
 	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 	 FROM repositorio_acuerdos a
@@ -113,8 +110,7 @@ usort($filasFinal, function ($a, $b) {
 	return $c !== 0 ? $c : strcmp($a['sector'], $b['sector']);
 });
 
-// ---------- Layout de columnas (dinámico según cuántos meses hay) ----------
-// SUBCATEGORIA/MARCA van a la derecha de CATEGORIAS/PLAN, antes de CONCAT.
+// ---------- Layout de columnas (dinámico según cuántos meses hay) ---------- SUBCATEGORIA/MARCA van a la derecha de CATEGORIAS/PLAN, antes de CONCAT.
 $colCedi = 1; $colCliente = 2; $colPlan = 3; $colCategorias = 4;
 $colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
 $colCuotaInicio = 8;
@@ -140,8 +136,7 @@ $s1 = $wb->agregarHoja('CUOTA CLIENTE - CATEGORÍA');
 $wb->anchoMinimo($s1, $colConcat, 40);
 $s2 = $wb->agregarHoja('CUOTA TOTAL');
 
-// ---------- Hoja 1: encabezados (fila 2, como el archivo real) ----------
-// Colores exactos leídos del archivo real vía Excel COM (BGR->RGB).
+// ---------- Hoja 1: encabezados (fila 2, como el archivo real) ---------- Colores exactos leídos del archivo real vía Excel COM (BGR->RGB).
 $bgEncabezado = 'C0E6F5'; $bgVenta = '61CBF3'; $fontVenta = 'FF0000';
 $bgCartera = 'FFC000'; $bgResultado = 'B5E6A2'; $bgRebateReal = 'FFFF00';
 
@@ -181,8 +176,7 @@ $wb->celda($s1, $filaEnc, $colGanaTotal, 'GANA TOTAL', true, null, $bgResultado,
 $wb->celda($s1, $filaEnc, $colPreRebate, 'PRE REBATE', true, null, $bgResultado, '000000');
 $wb->celda($s1, $filaEnc, $colRebateRealVol, 'REBATE REAL VOL', true, null, $bgRebateReal, '000000');
 
-// Columnas de fila 1 fuera de la fusión de VENTA necesitan celda propia (vacía,
-// mismo color que la fila 2 de abajo) o quedan sin pintar/sin borde.
+// Columnas de fila 1 fuera de la fusión de VENTA necesitan celda propia (vacía, mismo color que la fila 2 de abajo) o quedan sin pintar/sin borde.
 $wb->celda($s1, 1, $colCedi, '', false, null, $bgEncabezado, '000000');
 $wb->celda($s1, 1, $colCliente, '', false, null, $bgEncabezado, '000000');
 $wb->celda($s1, 1, $colPlan, '', false, null, $bgEncabezado, '000000');
@@ -205,8 +199,7 @@ $wb->celda($s1, 1, $colGanaTotal, '', false, null, $bgResultado, '000000');
 $wb->celda($s1, 1, $colPreRebate, '', false, null, $bgResultado, '000000');
 $wb->celda($s1, 1, $colRebateRealVol, '', false, null, $bgRebateReal, '000000');
 
-// ---------- Hoja 1: filas de datos ----------
-// Colores de datos leídos del archivo real: CLIENTE rosa, bloque Cuota+Total+Rebate% verde.
+// ---------- Hoja 1: filas de datos ---------- Colores de datos leídos del archivo real: CLIENTE rosa, bloque Cuota+Total+Rebate% verde.
 $bgClienteDato = 'F2CEEF'; $bgCuotaDato = '92D050';
 
 $primeraFilaDatos = $filaEnc + 1;
@@ -215,8 +208,7 @@ $clientesVistos = []; // para armar la hoja CUOTA TOTAL (únicos), en orden de a
 foreach ($filasFinal as $g) {
 	$wb->celda($s1, $fila, $colCedi, $g['ejecutivo']);
 	$wb->celda($s1, $fila, $colCliente, $g['cliente'], false, null, $bgClienteDato, '000000');
-	// PLAN = canal del cliente en el maestro (COBERTURA/MAYORISTA/AUTOSERVICIO),
-	// ver nota arriba — confirmado con el usuario 2026-08-28.
+	// PLAN = canal del cliente en el maestro (COBERTURA/MAYORISTA/AUTOSERVICIO), ver nota arriba — confirmado con el usuario 2026-08-28.
 	$wb->celda($s1, $fila, $colPlan, $g['plan']);
 	$wb->celda($s1, $fila, $colCategorias, $g['sector']);
 	$wb->celda($s1, $fila, $colSubcategoria, $g['categoria']);
@@ -310,8 +302,7 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 	}
 }
 
-// ==================== Hoja "VISIBILIDAD" ====================
-// cabecera->CABECERA, ruma->ISLA, percha->PERCHA; cuenta si el TOTAL de la línea es > 0. "MARCA" muestra Categoría (Percha usa Marca).
+// ==================== Hoja "VISIBILIDAD" ==================== cabecera->CABECERA, ruma->ISLA, percha->PERCHA; cuenta si el TOTAL de la línea es > 0. "MARCA" muestra Categoría (Percha usa Marca).
 $stmtVis = $mysqli->prepare(
 	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.tipo, l.marca, l.categoria,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
@@ -355,8 +346,7 @@ foreach ($filasVis as $f) {
 	}
 	if ($pagoLinea <= 0) continue; // sin data real en la línea: no cuenta ni suma, ver nota arriba.
 
-	// "MARCA" del archivo real en realidad muestra la categoría (cabecera/
-	// ruma la tienen guardada); percha no tiene ese campo, se usa marca.
+	// "MARCA" del archivo real en realidad muestra la categoría (cabecera/ ruma la tienen guardada); percha no tiene ese campo, se usa marca.
 	$textoColumna = ($f['tipo'] === 'percha') ? $f['marca'] : ($f['categoria'] !== '' && $f['categoria'] !== null ? $f['categoria'] : $f['marca']);
 
 	$cliente = $f['cliente'];
@@ -380,8 +370,7 @@ ksort($porClienteVis);
 // Espacio final a propósito: liquidacion_import.php busca la hoja por ese nombre exacto al reimportar.
 $s3 = $wb->agregarHoja('VISIBILIDAD ');
 
-// ---------- Hoja "VISIBILIDAD": encabezados (2 filas, igual que el archivo real) ----------
-// Color de tema resuelto a mano desde el XML crudo; reusa $bgEncabezado/$bgClienteDato de la hoja Cuota/Categoría.
+// ---------- Hoja "VISIBILIDAD": encabezados (2 filas, igual que el archivo real) ---------- Color de tema resuelto a mano desde el XML crudo; reusa $bgEncabezado/$bgClienteDato de la hoja Cuota/Categoría.
 $bgEncVis = $bgEncabezado; $bgClienteVis = $bgClienteDato;
 // Columnas (sin "KP", fórmula rota #REF! sin uso): 1 CEDI, 2 Nombres, 3 PLAN, 4-6 CANTIDAD, 7-9 PAGO, 10 PAGO TOTAL, 11-13 MARCA, 14-16 VALIDACIÓN, 17-19 validado, 20 TOTAL, 21 OBSERVACION.
 $vCedi = 1; $vNombres = 2; $vPlan = 3;
@@ -459,8 +448,7 @@ foreach ($porClienteVis as $cliente => $datosCliente) {
 }
 $ultimaFilaVis = $filaVisDatos - 1;
 
-// ---------- Hoja "VISIBILIDAD": fila TOTAL ----------
-// Fórmulas exactas del archivo real: CANTIDAD/PAGO usan SUM (no SUBTOTAL), MARCA/VALIDACIÓN/R-S-T en blanco, solo TOTAL usa SUBTOTAL(9,...).
+// ---------- Hoja "VISIBILIDAD": fila TOTAL ---------- Fórmulas exactas del archivo real: CANTIDAD/PAGO usan SUM (no SUBTOTAL), MARCA/VALIDACIÓN/R-S-T en blanco, solo TOTAL usa SUBTOTAL(9,...).
 if ($ultimaFilaVis >= $primeraFilaVis) {
 	$filaTotalVis = $ultimaFilaVis + 1;
 	$wb->celda($s3, $filaTotalVis, $vNombres, 'TOTAL', true);
@@ -479,8 +467,7 @@ if ($ultimaFilaVis >= $primeraFilaVis) {
 	}
 }
 
-// ==================== Hoja "RESUMEN DE PAGOS" ====================
-// Un renglón por cliente, sin los subtotales intercalados del archivo real, con fórmulas reales (mismo patrón que "CUOTA TOTAL").
+// ==================== Hoja "RESUMEN DE PAGOS" ==================== Un renglón por cliente, sin los subtotales intercalados del archivo real, con fórmulas reales (mismo patrón que "CUOTA TOTAL").
 $sResumen = $wb->agregarHoja('RESUMEN DE PAGOS');
 $rCedi = 1; $rCliente = 2; $rVolumen = 3; $rVisibilidad = 4; $rTotalPago = 5;
 $wb->celda($sResumen, 1, $rCedi, 'CEDI', true, null, $bgEncabezado, '000000');

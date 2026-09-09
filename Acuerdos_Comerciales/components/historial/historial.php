@@ -12,8 +12,7 @@ $busqueda  = trim($_GET['q'] ?? '');
 // Filtro por Q1-Q4 + Año, no mes suelto: el Período del Acuerdo siempre es un trimestre fijo (ver trimestreABounds() en functions.php).
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
 $rolUsuario = $_SESSION['rol'] ?? '';
-// "Ver todo" + filtro de Canal: superdesarrollador necesita ver Actas de Directo y Distribuidor a la vez (antes veía solo el canal de su supervisor).
-// Un desarrollador normal nunca ve esta pastilla, así que $canal solo tiene efecto real para superdesarrollador.
+// "Ver todo" + filtro de Canal: superdesarrollador necesita ver Actas de Directo y Distribuidor a la vez (antes veía solo el canal de su supervisor). Un desarrollador normal nunca ve esta pastilla, así que $canal solo tiene efecto real para superdesarrollador.
 $esSuperdev = $rolUsuario === 'superdesarrollador';
 $canal = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 $aniosDisponibles = listar_anios_disponibles($mysqli, $_SESSION['user_id'] ?? null, $rolUsuario);
@@ -24,16 +23,14 @@ if (isset($_GET['anio'])) {
 	$anioActual = (int) date('Y');
 	$anio = in_array($anioActual, $aniosDisponibles, true) ? $anioActual : 0;
 }
-// Filtro de firma (2026-08-21): activado desde los stat tiles de arriba, no
-// un <select> — ver obtener_stats_historial()/listar_historial_acuerdos().
+// Filtro de firma (2026-08-21): activado desde los stat tiles de arriba, no un <select> — ver obtener_stats_historial()/listar_historial_acuerdos().
 $filtroFirma = in_array($_GET['firma'] ?? '', ['firmadas', 'pendientes'], true) ? $_GET['firma'] : 'todos';
 $pagina    = (int) ($_GET['pg'] ?? 1);
 $usuarioId = $_SESSION['user_id'] ?? null;
 $resultado = listar_historial_acuerdos($mysqli, $busqueda, $trimestre, $anio, $filtroFirma, $pagina, $usuarioId, 10, $rolUsuario, $canal);
 $acuerdos  = $resultado['acuerdos'];
 $stats     = obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId, $rolUsuario, $canal);
-// Solo alimentan el ancho de las barras — el % y "más antigua" ya no se
-// muestran como texto (pedido explícito: quitarlos, dejar solo el número).
+// Solo alimentan el ancho de las barras — el % y "más antigua" ya no se muestran como texto (pedido explícito: quitarlos, dejar solo el número).
 $pctFirmadas = $stats['total'] > 0 ? round($stats['firmadas'] / $stats['total'] * 100) : 0;
 $pctPendientes = $stats['total'] > 0 ? round($stats['pendientes'] / $stats['total'] * 100) : 0;
 

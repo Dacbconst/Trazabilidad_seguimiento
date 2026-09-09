@@ -1,6 +1,5 @@
 <?php
-// Resuelve a mano una fila de "Pendientes de Asignar": accion=matchear asigna el pos_id elegido (pasa a 'pendiente_uso');
-// accion=descartar la marca 'descartada' (estado final, no vuelve a la cola).
+// Resuelve a mano una fila de "Pendientes de Asignar": accion=matchear asigna el pos_id elegido (pasa a 'pendiente_uso'); accion=descartar la marca 'descartada' (estado final, no vuelve a la cola).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

@@ -11,8 +11,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 	exit;
 }
 
-// Ver nota completa en cumplimiento_guardar.php: bufferea cualquier
-// warning/notice de PHP para que nunca se mezcle con el JSON de respuesta.
+// Ver nota completa en cumplimiento_guardar.php: bufferea cualquier warning/notice de PHP para que nunca se mezcle con el JSON de respuesta.
 ob_start();
 
 function responder($ok, $message) {

@@ -1,20 +1,9 @@
 (function () {
-	// Config por tipo de repositorio — todo lo que cambia entre Rebate y
-	// Participación de Percha vive acá (columnas, formato, placeholder de
-	// búsqueda) para no duplicar la lógica de render/edición en 2 copias.
+	// Config por tipo de repositorio — todo lo que cambia entre Rebate y Participación de Percha vive acá (columnas, formato, placeholder de búsqueda) para no duplicar la lógica de render/edición en 2 copias.
 	var CONFIG = {
 		rebate: {
 			label: 'Rebate',
-			// Ciudad/Canal reemplazan a Segmento (2026-08-27) — el Excel real
-			// de JW (datos/RABATE.xlsx) no trae Segmento, pero sí Ciudad y
-			// Canal, que cambian el % del mismo Sector+Categoría+Marca (ver
-			// CLAUDE.md "Rebate: el Excel real de JW no usa el vocabulario...").
-			// Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría")
-			// — mismo criterio que ya se aplicó en Meta de Compras de
-			// Registrar: la columna interna `sector`/`categoria` no cambia de
-			// nombre, solo el texto visible, para que se lea igual que el
-			// Excel real que sube JW (su "Categoría" = nuestro Sector, su
-			// "Subcategoría" = nuestra Categoría).
+			// Ciudad/Canal reemplazan a Segmento (2026-08-27) — el Excel real de JW (datos/RABATE.xlsx) no trae Segmento, pero sí Ciudad y Canal, que cambian el % del mismo Sector+Categoría+Marca (ver CLAUDE.md "Rebate: el Excel real de JW no usa el vocabulario..."). Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría") — mismo criterio que ya se aplicó en Meta de Compras de Registrar: la columna interna `sector`/`categoria` no cambia de nombre, solo el texto visible, para que se lea igual que el Excel real que sube JW (su "Categoría" = nuestro Sector, su "Subcategoría" = nuestra Categoría).
 			buscarPlaceholder: 'Buscar por ciudad, canal, categoría, subcategoría o marca...',
 			columnas: [
 				{ key: 'ciudad', label: 'Ciudad' },
@@ -27,12 +16,7 @@
 		},
 		participacion: {
 			label: 'Participación de Percha',
-			// Ciudad agregada 2026-08-30 (Excel real confirmado por el usuario,
-			// datos/PARTICIPACION PERCHA.xlsx) — la misma Marca puede tener %
-			// distinto por ciudad (ej. LAVA: 50% Guayaquil, 60% Quito, 55%
-			// "RESTO CIUDADES", catch-all real del archivo). Sin Categoría/
-			// Subcategoría a propósito — no se guardan, ver
-			// repositorio_parsear_participacion() en repositorio_import.php.
+			// Ciudad agregada 2026-08-30 (Excel real confirmado por el usuario, datos/PARTICIPACION PERCHA.xlsx) — la misma Marca puede tener % distinto por ciudad (ej. LAVA: 50% Guayaquil, 60% Quito, 55% "RESTO CIUDADES", catch-all real del archivo). Sin Categoría/ Subcategoría a propósito — no se guardan, ver repositorio_parsear_participacion() en repositorio_import.php.
 			buscarPlaceholder: 'Buscar por ciudad o marca...',
 			columnas: [
 				{ key: 'ciudad', label: 'Ciudad' },
@@ -40,85 +24,37 @@
 				{ key: 'participacion_pct', label: 'Participación %', numero: true, formato: function (v) { return parseFloat(v).toFixed(1) + '%'; } }
 			]
 		},
-		// Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md
-		// "Repositorio de Cuotas trimestrales + Actas precargadas") — a
-		// diferencia de Rebate/Participación, SÍ tiene cliente y el pos_id se
-		// resuelve en el servidor (cuotas_guardar.php), no en el Excel. Por eso
-		// tiene 2 juegos de columnas: `columnasPreview` (lo que trae el Excel
-		// crudo, antes de guardar) y `columnas` (lo que se ve en la tabla
-		// principal ya guardada, con pos_id/período/estado resueltos). Sin
-		// edición inline (`editable: false`) — estos datos vienen de un match
-		// automático, no de texto libre como Rebate/Participación.
+		// Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md "Repositorio de Cuotas trimestrales + Actas precargadas") — a diferencia de Rebate/Participación, SÍ tiene cliente y el pos_id se resuelve en el servidor (cuotas_guardar.php), no en el Excel. Por eso tiene 2 juegos de columnas: `columnasPreview` (lo que trae el Excel crudo, antes de guardar) y `columnas` (lo que se ve en la tabla principal ya guardada, con pos_id/período/estado resueltos). Sin edición inline (`editable: false`) — estos datos vienen de un match automático, no de texto libre como Rebate/Participación.
 		cuotas: {
 			label: 'Cuotas Trimestrales',
-			// Ampliado 2026-08-30 (bug real reportado: "no sé si me anda
-			// buscando por columna") — antes solo buscaba por Cliente/pos_id/
-			// Categoría, dejaba afuera CEDI/Plan/Subcategoría/Marca aunque son
-			// columnas visibles en esta misma tabla (ver listar_repositorio_cuotas()).
+			// Ampliado 2026-08-30 (bug real reportado: "no sé si me anda buscando por columna") — antes solo buscaba por Cliente/pos_id/ Categoría, dejaba afuera CEDI/Plan/Subcategoría/Marca aunque son columnas visibles en esta misma tabla (ver listar_repositorio_cuotas()).
 			buscarPlaceholder: 'Buscar por CEDI, cliente, plan, categoría, subcategoría o marca...',
 			editable: false,
 			agruparPor: 'pos_id',
-			// mes1/mes2/mes3 (2026-08-25, corregido — la primera versión asumía
-			// mal que los 3 meses del trimestre siempre traían el mismo monto):
-			// posición dentro del trimestre, no el índice real de mes — el
-			// índice real (0-11) se calcula recién en cuotas_guardar.php a
-			// partir de `trimestre`. Etiquetados genéricos "Mes 1/2/3" porque acá
-			// todavía no se sabe qué trimestre es (recién se conoce al leer
-			// data.trimestre de la respuesta de previsualizar, ver
-			// previsualizarArchivo() más abajo).
-			// Mismo orden que trae el Excel real (CEDI, CLIENTE, PLAN, CATEGORIAS,
-			// ...meses) — pedido explícito 2026-08-25, para que la previsualización
-			// se lea igual que el archivo original.
+			// mes1/mes2/mes3 (2026-08-25, corregido — la primera versión asumía mal que los 3 meses del trimestre siempre traían el mismo monto): posición dentro del trimestre, no el índice real de mes — el índice real (0-11) se calcula recién en cuotas_guardar.php a partir de `trimestre`. Etiquetados genéricos "Mes 1/2/3" porque acá todavía no se sabe qué trimestre es (recién se conoce al leer data.trimestre de la respuesta de previsualizar, ver previsualizarArchivo() más abajo). Mismo orden que trae el Excel real (CEDI, CLIENTE, PLAN, CATEGORIAS, ...meses) — pedido explícito 2026-08-25, para que la previsualización se lea igual que el archivo original.
 			columnasPreview: [
 				{ key: 'cedi_excel', label: 'CEDI' },
 				{ key: 'cliente_excel', label: 'Cliente' },
 				{ key: 'plan', label: 'Plan' },
 				{ key: 'sector', label: 'Categoría' },
-				// SUBCATEGORIA/MARCA (2026-08-28, opcionales — mismo orden que
-				// las trae el Excel real): si el archivo no las trae, vienen
-				// vacías del parser y el usuario las puede escribir a mano acá
-				// mismo antes de confirmar — igual sirve como referencia de qué
-				// se va a intentar matchear contra el catálogo real al generar
-				// la Acta (ver resolverProductoCuota() en functions.php).
+				// SUBCATEGORIA/MARCA (2026-08-28, opcionales — mismo orden que las trae el Excel real): si el archivo no las trae, vienen vacías del parser y el usuario las puede escribir a mano acá mismo antes de confirmar — igual sirve como referencia de qué se va a intentar matchear contra el catálogo real al generar la Acta (ver resolverProductoCuota() en functions.php).
 				{ key: 'subcategoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
-				// Sin columna de Rebate (2026-08-30, pedido explícito del
-				// usuario: nunca pidió que Cuotas tomara Rebate del Excel —
-				// se sacó por completo del parser/guardado, ver
-				// includes/repositorio_import.php y getters/cuotas_guardar.php).
+				// Sin columna de Rebate (2026-08-30, pedido explícito del usuario: nunca pidió que Cuotas tomara Rebate del Excel — se sacó por completo del parser/guardado, ver includes/repositorio_import.php y getters/cuotas_guardar.php).
 				{ key: 'mes1', label: 'Mes 1', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
 				{ key: 'mes2', label: 'Mes 2', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
 				{ key: 'mes3', label: 'Mes 3', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } }
 			],
-			// Mismo orden y mismas columnas "de origen" que columnasPreview
-			// (CEDI, Cliente, Plan, Categoría) — pedido explícito 2026-08-25,
-			// el usuario esperaba poder comparar la previsualización contra la
-			// tabla ya guardada sin que las columnas cambien de golpe. Pos ID se
-			// sigue resolviendo y guardando igual, solo se dejó de mostrar acá
-			// (pedido explícito) — sigue disponible en `fila.pos_id` para
-			// agruparPor y para Fase 2. Período va antes de los 3 meses
-			// independientes.
-			// Sin columna "Estado" (2026-08-30, pedido explícito: el usuario la
-			// encontraba confusa — no entendía cómo una categoría podía quedar
-			// "sin usar" si la tabla maestra no permite eliminar filas una vez
-			// precargada. `fila.estado` sigue existiendo en los datos y sigue
-			// gobernando la lógica real (bloquea "Descartar" -> "Reactivar" más
-			// abajo, cuenta en el modal de Resumen, saca la Acta de la
-			// campanita al usarse) — solo se dejó de MOSTRAR en esta tabla.
+			// Mismo orden y mismas columnas "de origen" que columnasPreview (CEDI, Cliente, Plan, Categoría) — pedido explícito 2026-08-25, el usuario esperaba poder comparar la previsualización contra la tabla ya guardada sin que las columnas cambien de golpe. Pos ID se sigue resolviendo y guardando igual, solo se dejó de mostrar acá (pedido explícito) — sigue disponible en `fila.pos_id` para agruparPor y para Fase 2. Período va antes de los 3 meses independientes. Sin columna "Estado" (2026-08-30, pedido explícito: el usuario la encontraba confusa — no entendía cómo una categoría podía quedar "sin usar" si la tabla maestra no permite eliminar filas una vez precargada. `fila.estado` sigue existiendo en los datos y sigue gobernando la lógica real (bloquea "Descartar" -> "Reactivar" más abajo, cuenta en el modal de Resumen, saca la Acta de la campanita al usarse) — solo se dejó de MOSTRAR en esta tabla.
 			columnas: [
 				{ key: 'cedi_excel', label: 'CEDI' },
 				{ key: 'cliente_excel', label: 'Cliente' },
 				{ key: 'plan', label: 'Plan' },
 				{ key: 'sector', label: 'Categoría' },
-				// Subcategoría/Marca (2026-08-28) — faltaban acá, la tabla ya
-				// guardada nunca las mostraba aunque el backend las guardara bien
-				// (bug real reportado por el usuario). `render` en vez de `key`
-				// simple para mostrar "—" cuando el Excel no las trajo (archivos
-				// viejos, o el formato real de JW que hoy no las tiene).
+				// Subcategoría/Marca (2026-08-28) — faltaban acá, la tabla ya guardada nunca las mostraba aunque el backend las guardara bien (bug real reportado por el usuario). `render` en vez de `key` simple para mostrar "—" cuando el Excel no las trajo (archivos viejos, o el formato real de JW que hoy no las tiene).
 				{ key: 'subcategoria', label: 'Subcategoría', render: function (fila) { return fila.subcategoria || '—'; } },
 				{ key: 'marca', label: 'Marca', render: function (fila) { return fila.marca || '—'; } },
-				// Sin columna de Rebate acá tampoco (2026-08-30, mismo pedido
-				// que columnasPreview más arriba).
+				// Sin columna de Rebate acá tampoco (2026-08-30, mismo pedido que columnasPreview más arriba).
 				{
 					key: 'periodo', label: 'Período',
 					render: function (fila) { return 'Q' + fila.trimestre + ' ' + fila.anio; }
@@ -143,22 +79,17 @@
 	var paginaActual = 1;
 	var busquedaActual = '';
 	var buscarTimeout = null;
-	// Evita que una respuesta vieja pise a una más nueva (tipear rápido, o
-	// cambiar de tab justo cuando un fetch anterior sigue en vuelo). Mismo
-	// bug ya encontrado y corregido en Seguimiento de Equipo/Historial/
-	// Gestión de Usuarios.
+	// Evita que una respuesta vieja pise a una más nueva (tipear rápido, o cambiar de tab justo cuando un fetch anterior sigue en vuelo). Mismo bug ya encontrado y corregido en Seguimiento de Equipo/Historial/ Gestión de Usuarios.
 	var listaReqId = 0;
 	var filasPreview = null; // filas leídas del Excel, en edición dentro del modal
 	var trimestrePreview = null; // solo cuotas: inferido del propio Excel por repositorio_parsear_cuotas()
 	var estadosPreview = null; // solo cuotas: nuevo/actualiza/usada/sin_cliente por fila, ver verificarEstadosPreview()
-	// solo cuotas: 'directo'/'distribuidor', detectado por repositorio_parsear_cuotas() según qué columnas trae el Excel (CEDI/CLIENTE
-	// vs DISTRIBUIDOR/CIUDAD/NOMBRE) — decide el desempate de resolverPosIdCliente() al verificar/guardar (ver includes/functions.php).
+	// solo cuotas: 'directo'/'distribuidor', detectado por repositorio_parsear_cuotas() según qué columnas trae el Excel (CEDI/CLIENTE vs DISTRIBUIDOR/CIUDAD/NOMBRE) — decide el desempate de resolverPosIdCliente() al verificar/guardar (ver includes/functions.php).
 	var canalCuotasPreview = null;
 
 	var tablaHead = document.getElementById('repo-tabla-head');
 	var tablaBody = document.getElementById('repo-tabla-body');
-	// Paginación arriba Y abajo (2026-08-25) — ambos pares se pintan siempre
-	// juntos, ver renderPaginacion() más abajo.
+	// Paginación arriba Y abajo (2026-08-25) — ambos pares se pintan siempre juntos, ver renderPaginacion() más abajo.
 	var paginacionInfoEls = [document.getElementById('repo-paginacion-info-top'), document.getElementById('repo-paginacion-info')];
 	var paginacionBtnsEls = [document.getElementById('repo-paginacion-btns-top'), document.getElementById('repo-paginacion-btns')];
 	var buscarInput = document.getElementById('repo-buscar');
@@ -186,20 +117,14 @@
 		mostrarToast(texto, ok ? 'success' : 'error');
 	}
 
-	// "{"3": 600, "4": 650, "5": 700}" -> "$600.00 / $650.00 / $700.00" —
-	// mismo formato JSON que repositorio_acuerdo_lineas.valores_mensuales,
-	// ordenado por índice de mes (las claves de un objeto no garantizan
-	// orden numérico en JS si vinieran como texto "10" antes que "3").
+	// "{"3": 600, "4": 650, "5": 700}" -> "$600.00 / $650.00 / $700.00" — mismo formato JSON que repositorio_acuerdo_lineas.valores_mensuales, ordenado por índice de mes (las claves de un objeto no garantizan orden numérico en JS si vinieran como texto "10" antes que "3").
 	function montosMensualesTexto(valoresMensuales) {
 		var meses = Object.keys(valoresMensuales || {}).sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
 		if (!meses.length) return '—';
 		return meses.map(function (m) { return '$' + parseFloat(valoresMensuales[m]).toFixed(2); }).join(' / ');
 	}
 
-	// Valor de un mes puntual por posición (0=primero, 1=segundo, 2=tercero)
-	// dentro del trimestre — para las 3 columnas independientes de la tabla
-	// principal de Cuotas (2026-08-25, pedido explícito: separar en vez de un
-	// solo texto "$a / $b / $c").
+	// Valor de un mes puntual por posición (0=primero, 1=segundo, 2=tercero) dentro del trimestre — para las 3 columnas independientes de la tabla principal de Cuotas (2026-08-25, pedido explícito: separar en vez de un solo texto "$a / $b / $c").
 	function mesMensualPorPosicion(valoresMensuales, posicion) {
 		var meses = Object.keys(valoresMensuales || {}).sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
 		var clave = meses[posicion];
@@ -232,18 +157,7 @@
 			tablaBody.innerHTML = '<tr><td colspan="' + (cols.length + 1) + '" class="ac-table-empty">Sin registros.</td></tr>';
 			return;
 		}
-		// Color pastel por GRUPO (no por fila) cuando hay agruparPor — antes
-		// era solo una alternancia par/impar muy sutil (2026-08-25), el
-		// usuario la encontró insuficiente para distinguir dónde termina un
-		// cliente y empieza el siguiente. Reemplazado 2026-08-30 (mockup
-		// "Opción A" aprobado por el usuario) por 3 tonos pastel que rotan
-		// por grupo (nunca por fila) + un borde de color a la izquierda —
-		// tonos elegidos deliberadamente FUERA de la familia verde/ámbar que
-		// ya usan los badges de estado en el resto de la app, para no
-		// confundir "grupo" con "estado". Se mantiene el texto completo en
-		// cada fila (a diferencia de un rowspan que lo ocultaría) para que
-		// la vista mobile en tarjetas siga mostrando el cliente en cada una,
-		// sin quedar una tarjeta "vacía".
+		// Color pastel por GRUPO (no por fila) cuando hay agruparPor — antes era solo una alternancia par/impar muy sutil (2026-08-25), el usuario la encontró insuficiente para distinguir dónde termina un cliente y empieza el siguiente. Reemplazado 2026-08-30 (mockup "Opción A" aprobado por el usuario) por 3 tonos pastel que rotan por grupo (nunca por fila) + un borde de color a la izquierda — tonos elegidos deliberadamente FUERA de la familia verde/ámbar que ya usan los badges de estado en el resto de la app, para no confundir "grupo" con "estado". Se mantiene el texto completo en cada fila (a diferencia de un rowspan que lo ocultaría) para que la vista mobile en tarjetas siga mostrando el cliente en cada una, sin quedar una tarjeta "vacía".
 		var GRUPO_CLASES = ['ac-repo-fila-grupo-a', 'ac-repo-fila-grupo-b', 'ac-repo-fila-grupo-c'];
 		var grupoAnterior = null;
 		var grupoIndice = -1;
@@ -252,17 +166,11 @@
 				var claveGrupo = fila[agruparPor];
 				if (claveGrupo !== grupoAnterior) { grupoIndice = (grupoIndice + 1) % GRUPO_CLASES.length; grupoAnterior = claveGrupo; }
 			}
-			// data-key/data-label (2026-08-24): Rebate y Participación de Percha
-			// tienen distinta cantidad de columnas (5 vs 2) — la vista mobile
-			// (ver style.css, tarjetas por fila) arma el layout por estos
-			// atributos en vez de nth-child, para no depender de una posición
-			// fija de columna que solo calza con uno de los 2 tipos.
+			// data-key/data-label (2026-08-24): Rebate y Participación de Percha tienen distinta cantidad de columnas (5 vs 2) — la vista mobile (ver style.css, tarjetas por fila) arma el layout por estos atributos en vez de nth-child, para no depender de una posición fija de columna que solo calza con uno de los 2 tipos.
 			var tds = cols.map(function (c) {
 				return '<td' + (c.numero ? ' class="ac-text-right"' : '') + ' data-key="' + c.key + '" data-label="' + escapeHtml(c.label) + '">' + celdaValor(c, fila) + '</td>';
 			}).join('');
-			// Cuotas descartada (2026-08-25, borrado lógico): "Eliminar" se
-			// reemplaza por "Reactivar" — no tiene sentido "descartar de nuevo"
-			// algo que ya está descartado, y sí tiene sentido poder deshacerlo.
+			// Cuotas descartada (2026-08-25, borrado lógico): "Eliminar" se reemplaza por "Reactivar" — no tiene sentido "descartar de nuevo" algo que ya está descartado, y sí tiene sentido poder deshacerlo.
 			var accionesHtml = (fila.estado === 'descartada')
 				? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-repo-reactivar" title="Reactivar"><span class="material-symbols-outlined">restore</span><span class="ac-btn-text">Reactivar</span></button>'
 				: (editable ? '<button type="button" class="ac-icon-btn ac-repo-editar" title="Editar"><span class="material-symbols-outlined">edit</span><span class="ac-btn-text">Editar</span></button>' : '') +
@@ -299,9 +207,7 @@
 		});
 	}
 
-	// Convierte una fila de la tabla en inputs editables in-place (mismo
-	// componente visual .ac-preview-input que usa el modal de subida) — sin
-	// abrir un modal aparte para un cambio puntual de 1-2 campos.
+	// Convierte una fila de la tabla en inputs editables in-place (mismo componente visual .ac-preview-input que usa el modal de subida) — sin abrir un modal aparte para un cambio puntual de 1-2 campos.
 	function activarEdicionFila(tr, fila) {
 		var cols = CONFIG[tipoActivo].columnas;
 		var tds = tr.querySelectorAll('td');
@@ -353,9 +259,7 @@
 		});
 	}
 
-	// Pinta los botones en AMBOS contenedores (arriba y abajo) — mismo HTML,
-	// cada uno con sus propios listeners, para que cambiar de página funcione
-	// igual sin importar cuál de los 2 el usuario tenga a la vista.
+	// Pinta los botones en AMBOS contenedores (arriba y abajo) — mismo HTML, cada uno con sus propios listeners, para que cambiar de página funcione igual sin importar cuál de los 2 el usuario tenga a la vista.
 	function renderPaginacion(pagina, totalPaginas) {
 		var html = '';
 		html += '<button type="button" class="ac-page-btn" data-pg="' + (pagina - 1) + '" ' + (pagina <= 1 ? 'disabled' : '') + '>' +
@@ -423,9 +327,7 @@
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
 		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
-		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito
-		// "quita el botón de Pendientes de Asignar") — se deja el resto del
-		// mecanismo intacto (getters, modal), por si se retoma después.
+		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito "quita el botón de Pendientes de Asignar") — se deja el resto del mecanismo intacto (getters, modal), por si se retoma después.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
 		// eliminadosAbrirBtn oculto a propósito; mecanismo intacto por si se retoma.
 		plantillaDescargarLink.classList.toggle('hidden', tipo === 'cuotas');
@@ -470,14 +372,7 @@
 	var previewAnioWrap = document.getElementById('repo-preview-anio-wrap');
 	var previewAnioInput = document.getElementById('repo-preview-anio');
 
-	// Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito:
-	// "que pueda con el mouse mover la tabla sosteniendo y moviendo el mouse"
-	// — con el ancho auto-ajustado la tabla de previsualización puede quedar
-	// más ancha que el modal, y el scrollbar nativo del navegador solo se ve
-	// pegado abajo del todo, no arriba). Mantener click y arrastrar mueve el
-	// contenido, sin depender de encontrar el scrollbar. Se excluye el
-	// arrastre si el click empezó en un input/botón/link — si no, no se
-	// podría hacer foco normal para editar una celda.
+	// Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito: "que pueda con el mouse mover la tabla sosteniendo y moviendo el mouse" — con el ancho auto-ajustado la tabla de previsualización puede quedar más ancha que el modal, y el scrollbar nativo del navegador solo se ve pegado abajo del todo, no arriba). Mantener click y arrastrar mueve el contenido, sin depender de encontrar el scrollbar. Se excluye el arrastre si el click empezó en un input/botón/link — si no, no se podría hacer foco normal para editar una celda.
 	function activarArrastreScroll(contenedor) {
 		if (!contenedor) return;
 		var arrastrando = false;
@@ -506,9 +401,7 @@
 	}
 	activarArrastreScroll(document.querySelector('.ac-preview-table-scroll'));
 
-	// Columnas a usar en la previsualización — para Cuotas es un juego
-	// distinto al de la tabla principal (ver comentario de CONFIG.cuotas más
-	// arriba); para Rebate/Participación es el mismo de siempre.
+	// Columnas a usar en la previsualización — para Cuotas es un juego distinto al de la tabla principal (ver comentario de CONFIG.cuotas más arriba); para Rebate/Participación es el mismo de siempre.
 	function columnasPreview() {
 		return CONFIG[tipoActivo].columnasPreview || CONFIG[tipoActivo].columnas;
 	}
@@ -519,21 +412,7 @@
 	}
 
 
-	// Muestra el detalle post-guardado (2026-08-24, pedido explícito: "que el
-	// sistema pueda defenderse solo, sin estar yo detrás de él") — qué fila
-	// NO se guardó y por qué (errores) y qué fila SÍ se guardó pero conviene
-	// revisar (avisos, ej. un producto repetido en el mismo archivo). No toca
-	// la tabla en sí (sin bordes rojos por celda), es una caja de resumen
-	// aparte arriba de la tabla.
-	// Mismo formato comparativo ya aprobado en Claude Design para "Actas en
-	// Choque" del Resumen — Cuotas Trimestrales (2026-08-31, pedido
-	// explícito: "por qué sale 'esta categoría' en vez del significado
-	// real... no diseñé algo visual para esto?") — reusa las clases
-	// `.ac-choque-*` globales (no están escopeadas a ese modal), solo cambia
-	// el texto de los "eyebrow" porque acá el caso es distinto: no es una
-	// Acta precargada que TODAVÍA no se generó y choca con otra, es una fila
-	// que ya se usó para generar la que se ve a la derecha, así que no se
-	// modificó de nuevo.
+	// Muestra el detalle post-guardado (2026-08-24, pedido explícito: "que el sistema pueda defenderse solo, sin estar yo detrás de él") — qué fila NO se guardó y por qué (errores) y qué fila SÍ se guardó pero conviene revisar (avisos, ej. un producto repetido en el mismo archivo). No toca la tabla en sí (sin bordes rojos por celda), es una caja de resumen aparte arriba de la tabla. Mismo formato comparativo ya aprobado en Claude Design para "Actas en Choque" del Resumen — Cuotas Trimestrales (2026-08-31, pedido explícito: "por qué sale 'esta categoría' en vez del significado real... no diseñé algo visual para esto?") — reusa las clases `.ac-choque-*` globales (no están escopeadas a ese modal), solo cambia el texto de los "eyebrow" porque acá el caso es distinto: no es una Acta precargada que TODAVÍA no se generó y choca con otra, es una fila que ya se usó para generar la que se ve a la derecha, así que no se modificó de nuevo.
 	function filaAvisoYaUsada(a) {
 		return '<div class="ac-choque-row">' +
 			'<div class="ac-choque-side ac-choque-side-precarga">' +
@@ -572,19 +451,11 @@
 				'<div class="ac-choque-list">' + avisosYaUsada.map(filaAvisoYaUsada).join('') + '</div>';
 		}
 		previewErrores.innerHTML = html;
-		// Rojo SOLO si de verdad hubo algo que no se guardó — un aviso sin
-		// errores (2026-08-30, bug real reportado: "sacás una alerta roja por
-		// todo, da a entender que hubo error") no es una falla, es solo "esto
-		// se guardó pero convendría revisarlo" — mismo ámbar que el resto de
-		// la app usa para "revisar" (.ac-badge-revisar), nunca rojo si nada
-		// falló de verdad.
+		// Rojo SOLO si de verdad hubo algo que no se guardó — un aviso sin errores (2026-08-30, bug real reportado: "sacás una alerta roja por todo, da a entender que hubo error") no es una falla, es solo "esto se guardó pero convendría revisarlo" — mismo ámbar que el resto de la app usa para "revisar" (.ac-badge-revisar), nunca rojo si nada falló de verdad.
 		previewErrores.classList.toggle('ac-alert-error', errores.length > 0);
 		previewErrores.classList.toggle('ac-alert-warning', errores.length === 0);
 		previewErrores.classList.remove('hidden');
-		// La caja puede quedar fuera de la vista si el usuario ya había
-		// scrolleado la tabla antes de guardar (2026-08-30, mismo reporte:
-		// "está mal ubicado") — se asegura que quede visible apenas aparece,
-		// en vez de depender de que el usuario note que algo cambió arriba.
+		// La caja puede quedar fuera de la vista si el usuario ya había scrolleado la tabla antes de guardar (2026-08-30, mismo reporte: "está mal ubicado") — se asegura que quede visible apenas aparece, en vez de depender de que el usuario note que algo cambió arriba.
 		previewErrores.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 	}
 
@@ -623,13 +494,7 @@
 	document.getElementById('repo-subir-modal-close').addEventListener('click', cerrarModalSubir);
 	document.getElementById('repo-subir-cancelar').addEventListener('click', cerrarModalSubir);
 	document.getElementById('repo-subir-atras').addEventListener('click', mostrarPasoElegir);
-	// Sin cierre por click afuera (2026-08-25, pedido explícito: "se me
-	// cierra esta ventanita por clicks accidentales afuera") — el arrastre
-	// con mouse de la tabla de previsualización (activarArrastreScroll())
-	// mueve el cursor bastante, y si el mouseup termina cayendo justo sobre
-	// el fondo oscuro del overlay, el `click` nativo podía disparar acá y
-	// cerrar el modal perdiendo lo que el usuario ya había corregido. Cerrar
-	// sigue disponible por la "X" (`repo-subir-modal-close`) y "Cancelar".
+	// Sin cierre por click afuera (2026-08-25, pedido explícito: "se me cierra esta ventanita por clicks accidentales afuera") — el arrastre con mouse de la tabla de previsualización (activarArrastreScroll()) mueve el cursor bastante, y si el mouseup termina cayendo justo sobre el fondo oscuro del overlay, el `click` nativo podía disparar acá y cerrar el modal perdiendo lo que el usuario ya había corregido. Cerrar sigue disponible por la "X" (`repo-subir-modal-close`) y "Cancelar".
 
 	dropzone.addEventListener('click', function () { archivoInput.click(); });
 	dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('ac-dropzone-hover'); });
@@ -643,13 +508,7 @@
 		if (archivoInput.files.length) previsualizarArchivo(archivoInput.files[0]);
 	});
 
-	// Paso 1 -> 2: sube el archivo a repositorio_previsualizar_excel.php, que
-	// SOLO lo parsea (no toca la base) y devuelve las filas leídas — ver
-	// comentario de cabecera en ese getter. Sin límite de tamaño propio acá
-	// (pedido explícito 2026-08-24: "no limites la subida") — vía XHR en vez
-	// de fetch() porque fetch() no expone progreso de subida, y con un
-	// archivo pesado el pedido fue justamente mostrar una barra de carga
-	// real, no dejar la ventana "trabada" sin feedback.
+	// Paso 1 -> 2: sube el archivo a repositorio_previsualizar_excel.php, que SOLO lo parsea (no toca la base) y devuelve las filas leídas — ver comentario de cabecera en ese getter. Sin límite de tamaño propio acá (pedido explícito 2026-08-24: "no limites la subida") — vía XHR en vez de fetch() porque fetch() no expone progreso de subida, y con un archivo pesado el pedido fue justamente mostrar una barra de carga real, no dejar la ventana "trabada" sin feedback.
 	function previsualizarArchivo(archivo) {
 		var formData = new FormData();
 		formData.append('tipo', tipoActivo);
@@ -710,42 +569,23 @@
 		dropzone.classList.remove('hidden');
 	}
 
-	// Ancho "inteligente" de verdad (2026-08-25, corregido tras feedback: los
-	// % fijos de `anchoPct` eran una adivinanza a mano que no se adaptaba a
-	// cuántas columnas trajera el Excel esa vez — se ve mal apenas la
-	// cantidad/el contenido real no calza con lo que se supuso). Ahora la
-	// tabla usa `table-layout: auto` (default del navegador, sin forzar
-	// nada) y cada <input> lleva el atributo HTML `size` (NO `width` de CSS)
-	// calculado del largo real de SU valor — el motor de layout de tablas ya
-	// sabe medir el ancho natural de cada input según ese `size` y ensancha
-	// la columna entera a la celda más ancha (incluido el <th>, que se mide
-	// solo, sin tocar nada acá) — exactamente lo mismo que hace Excel al
-	// autoajustar una columna, sin tener que adivinar porcentajes.
+	// Ancho "inteligente" de verdad (2026-08-25, corregido tras feedback: los % fijos de `anchoPct` eran una adivinanza a mano que no se adaptaba a cuántas columnas trajera el Excel esa vez — se ve mal apenas la cantidad/el contenido real no calza con lo que se supuso). Ahora la tabla usa `table-layout: auto` (default del navegador, sin forzar nada) y cada <input> lleva el atributo HTML `size` (NO `width` de CSS) calculado del largo real de SU valor — el motor de layout de tablas ya sabe medir el ancho natural de cada input según ese `size` y ensancha la columna entera a la celda más ancha (incluido el <th>, que se mide solo, sin tocar nada acá) — exactamente lo mismo que hace Excel al autoajustar una columna, sin tener que adivinar porcentajes.
 	function tamanoInput(valor) {
 		var largo = String(valor == null ? '' : valor).length;
 		return Math.max(4, Math.min(40, largo + 1));
 	}
 
-	// Badge "Nuevo"/"Actualiza"/"Ya usada"/"Cliente sin identificar" por fila
-	// de la previsualización de Cuotas (2026-08-25, pedido explícito: "no
-	// quiero enterarme recién después de guardar qué modifiqué" — se resuelve
-	// ANTES de confirmar, no después). null mientras no se corrió la consulta
-	// todavía (ej. recién subido el archivo, antes de que el Año esté listo).
+	// Badge "Nuevo"/"Actualiza"/"Ya usada"/"Cliente sin identificar" por fila de la previsualización de Cuotas (2026-08-25, pedido explícito: "no quiero enterarme recién después de guardar qué modifiqué" — se resuelve ANTES de confirmar, no después). null mientras no se corrió la consulta todavía (ej. recién subido el archivo, antes de que el Año esté listo).
 	function badgeEstadoPreview(estado) {
 		if (!estado) return '<span class="ac-field-hint">…</span>';
 		var html;
 		if (estado.estado === 'nuevo') html = '<span class="ac-badge ac-badge-ok">Nuevo</span>';
-		// "Se actualiza" (no "Actualiza" a secas) — 2026-08-30, bug real
-		// reportado: "Actualiza" solo, sin sujeto, se leía como una orden
-		// para el usuario ("[vos] actualizá esto"), no como una descripción
-		// de lo que va a pasar con esa fila al guardar.
+		// "Se actualiza" (no "Actualiza" a secas) — 2026-08-30, bug real reportado: "Actualiza" solo, sin sujeto, se leía como una orden para el usuario ("[vos] actualizá esto"), no como una descripción de lo que va a pasar con esa fila al guardar.
 		else if (estado.estado === 'actualiza') html = '<span class="ac-badge ac-badge-revisar">Se actualiza</span>';
 		else if (estado.estado === 'usada') html = '<span class="ac-badge ac-badge-urgente">Ya usada, no se puede modificar</span>';
 		else if (estado.estado === 'sin_cliente') html = '<span class="ac-field-hint">Cliente sin identificar</span>';
 		else html = '<span class="ac-field-hint">—</span>';
-		// Nota de interpretación de Categoría (2026-08-25, pedido explícito: no
-		// enterarse recién en el aviso rojo de después de guardar) — mismo
-		// dato que ya avisa cuotas_guardar.php, mostrado ACÁ antes.
+		// Nota de interpretación de Categoría (2026-08-25, pedido explícito: no enterarse recién en el aviso rojo de después de guardar) — mismo dato que ya avisa cuotas_guardar.php, mostrado ACÁ antes.
 		if (estado.sector_interpretado) {
 			html += '<br><span class="ac-field-hint">Se interpreta como Sector "' + escapeHtml(estado.sector_resuelto) + '"</span>';
 		} else if (estado.sector_sin_resolver) {
@@ -772,9 +612,7 @@
 		}).join('');
 	}
 
-	// Fila entera pintada según el estado (2026-08-25, pedido explícito: "que
-	// se pinten las filas también", no solo el badge chico de la última
-	// columna) — mismo criterio de color que badgeEstadoPreview().
+	// Fila entera pintada según el estado (2026-08-25, pedido explícito: "que se pinten las filas también", no solo el badge chico de la última columna) — mismo criterio de color que badgeEstadoPreview().
 	function claseFilaEstado(estado) {
 		if (estado === 'nuevo') return 'ac-preview-fila-nueva';
 		if (estado === 'actualiza') return 'ac-preview-fila-actualiza';
@@ -782,11 +620,7 @@
 		return '';
 	}
 
-	// Se llama al terminar de subir (con el año por default, hoy) y cada vez
-	// que el superdesarrollador cambia el Año — resuelve cliente/sector de
-	// SOLO LECTURA (nunca escribe) contra la base real para decidir si cada
-	// fila sería nueva, actualizaría algo que ya existe, o ya no se puede
-	// tocar (ya usada).
+	// Se llama al terminar de subir (con el año por default, hoy) y cada vez que el superdesarrollador cambia el Año — resuelve cliente/sector de SOLO LECTURA (nunca escribe) contra la base real para decidir si cada fila sería nueva, actualizaría algo que ya existe, o ya no se puede tocar (ya usada).
 	function verificarEstadosPreview() {
 		if (tipoActivo !== 'cuotas' || !filasPreview || !trimestrePreview) return;
 		var anio = parseInt(previewAnioInput.value, 10);
@@ -810,9 +644,7 @@
 		verificarEstadosTimeout = setTimeout(verificarEstadosPreview, 400);
 	});
 
-	// Lee los valores actuales de los inputs (el usuario puede haber
-	// corregido cualquier celda) antes de guardar — nunca se guarda el dato
-	// crudo tal como vino del Excel si se editó en pantalla.
+	// Lee los valores actuales de los inputs (el usuario puede haber corregido cualquier celda) antes de guardar — nunca se guarda el dato crudo tal como vino del Excel si se editó en pantalla.
 	function leerFilasPreviewEditadas() {
 		var cols = columnasPreview();
 		return Array.prototype.map.call(previewTablaBody.querySelectorAll('tr'), function (tr) {
@@ -826,10 +658,7 @@
 		});
 	}
 
-	// onDone recibe la respuesta COMPLETA (no solo "ok") — quien llama decide
-	// qué hacer con data.errores (detalle por fila, ver repositorio_guardar.php),
-	// porque el modal de subida necesita quedarse abierto si hubo problemas y
-	// la edición inline de una fila suelta no.
+	// onDone recibe la respuesta COMPLETA (no solo "ok") — quien llama decide qué hacer con data.errores (detalle por fila, ver repositorio_guardar.php), porque el modal de subida necesita quedarse abierto si hubo problemas y la edición inline de una fila suelta no.
 	function guardarFilas(filas, onDone) {
 		ponerGuardarCargando(true);
 		fetch('getters/repositorio_guardar.php', {
@@ -839,24 +668,14 @@
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				// Bug real reportado por el usuario (2026-08-30): repositorio_guardar.php
-				// siempre responde `ok:true` (la petición en sí se procesó bien,
-				// aunque CADA fila haya fallado) — usar `data.ok` a secas para el
-				// toast mostraba "guardado" en verde incluso con 0 filas guardadas
-				// de 10. `data.guardadas` (ya viene en la respuesta) sí refleja si
-				// de verdad se guardó algo — solo se mantiene `data.ok` para el
-				// flujo de arriba (cerrar modal, refrescar lista), no para el color
-				// del toast.
+				// Bug real reportado por el usuario (2026-08-30): repositorio_guardar.php siempre responde `ok:true` (la petición en sí se procesó bien, aunque CADA fila haya fallado) — usar `data.ok` a secas para el toast mostraba "guardado" en verde incluso con 0 filas guardadas de 10. `data.guardadas` (ya viene en la respuesta) sí refleja si de verdad se guardó algo — solo se mantiene `data.ok` para el flujo de arriba (cerrar modal, refrescar lista), no para el color del toast.
 				mostrarMensaje(data.message, data.ok && data.guardadas > 0);
 				if (onDone) onDone(data);
 			})
 			.catch(function () { ponerGuardarCargando(false); mostrarMensaje('Error de conexión al guardar.', false); });
 	}
 
-	// Guarda el paso 2 de la subida de Cuotas — endpoint y payload distintos
-	// a Rebate/Participación (getters/cuotas_guardar.php espera
-	// {filas, trimestre, anio}, no {tipo, filas}), y el año lo tipeó el
-	// usuario a mano (el Excel no lo trae, ver previsualizarArchivo()).
+	// Guarda el paso 2 de la subida de Cuotas — endpoint y payload distintos a Rebate/Participación (getters/cuotas_guardar.php espera {filas, trimestre, anio}, no {tipo, filas}), y el año lo tipeó el usuario a mano (el Excel no lo trae, ver previsualizarArchivo()).
 	function guardarCuotas(onDone) {
 		var anio = parseInt(previewAnioInput.value, 10);
 		var anioActual = new Date().getFullYear();
@@ -873,9 +692,7 @@
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				// Mismo bug de arriba (ver guardarFilas()) — cuotas_guardar.php
-				// también responde `ok:true` aunque 0 filas se hayan guardado de
-				// verdad; `data.guardadas` sí lo refleja.
+				// Mismo bug de arriba (ver guardarFilas()) — cuotas_guardar.php también responde `ok:true` aunque 0 filas se hayan guardado de verdad; `data.guardadas` sí lo refleja.
 				mostrarMensaje(data.message, data.ok && data.guardadas > 0);
 				if (onDone) onDone(data);
 			})
@@ -899,51 +716,16 @@
 			if (tipoActivo === 'cuotas') actualizarContadorPendientes();
 			var errores = data.errores || [];
 			var avisos = data.avisos || [];
-			// Bug real reportado 2026-08-30 ("después de guardar me da la
-			// impresión de que no se guardó porque aún veo la tabla") — antes,
-			// CUALQUIER aviso (aunque nada haya fallado de verdad, ej. "esta
-			// fila se repite en el archivo") dejaba el modal abierto con la
-			// MISMA tabla vieja, igual que si hubiera un error real que
-			// corregir — nada que corregir + tabla todavía ahí = parece que no
-			// guardó. Ahora: el modal se queda abierto SOLO si hay errores de
-			// verdad (algo no se guardó, tiene sentido poder corregir sin
-			// perder el resto del archivo); si son solo avisos, ya se guardó
-			// todo — se cierra el modal (mismo criterio que "nada que
-			// revisar") y el detalle de los avisos se muestra en un modal
-			// aparte (SweetAlert2, mismo componente que el resto de la app),
-			// para no perderlo sin dejar la sensación de "quedó a medias".
+			// Bug real reportado 2026-08-30 ("después de guardar me da la impresión de que no se guardó porque aún veo la tabla") — antes, CUALQUIER aviso (aunque nada haya fallado de verdad, ej. "esta fila se repite en el archivo") dejaba el modal abierto con la MISMA tabla vieja, igual que si hubiera un error real que corregir — nada que corregir + tabla todavía ahí = parece que no guardó. Ahora: el modal se queda abierto SOLO si hay errores de verdad (algo no se guardó, tiene sentido poder corregir sin perder el resto del archivo); si son solo avisos, ya se guardó todo — se cierra el modal (mismo criterio que "nada que revisar") y el detalle de los avisos se muestra en un modal aparte (SweetAlert2, mismo componente que el resto de la app), para no perderlo sin dejar la sensación de "quedó a medias".
 			if (errores.length) {
 				mostrarErroresPreview(errores, avisos);
 				return;
 			}
 			cerrarModalSubir();
-			// Los avisos de tipo "duplicado_archivo" (2026-08-30, bug real
-			// reportado: "subo el mismo archivo y me sale la misma alerta, no
-			// debería haber novedad") son una propiedad fija DEL ARCHIVO (2
-			// filas apuntan al mismo producto/cliente) — van a salir SIEMPRE
-			// que se suba ese mismo archivo, sin importar si algo cambió de
-			// verdad en la base. No son algo que el usuario tenga que revisar
-			// o corregir, así que no ameritan un modal cada vez — se filtran
-			// acá; los demás avisos (sector que no matchea el catálogo, cuota
-			// ya usada, cliente sin resolver) sí son información real y
-			// siguen mostrándose siempre.
+			// Los avisos de tipo "duplicado_archivo" (2026-08-30, bug real reportado: "subo el mismo archivo y me sale la misma alerta, no debería haber novedad") son una propiedad fija DEL ARCHIVO (2 filas apuntan al mismo producto/cliente) — van a salir SIEMPRE que se suba ese mismo archivo, sin importar si algo cambió de verdad en la base. No son algo que el usuario tenga que revisar o corregir, así que no ameritan un modal cada vez — se filtran acá; los demás avisos (sector que no matchea el catálogo, cuota ya usada, cliente sin resolver) sí son información real y siguen mostrándose siempre.
 			var avisosRelevantes = avisos.filter(function (a) { return a.tipo !== 'duplicado_archivo'; });
 			if (avisosRelevantes.length) {
-				// Agrupado por motivo (2026-08-30, pedido explícito: "una barra
-				// larga de info" — con un archivo grande, el mismo motivo se
-				// repetía una vez por fila (ej. 14 clientes con "OTRAS
-				// CATEGORIAS") en una lista angosta y muy alta. Agrupar por
-				// motivo + mostrar las filas afectadas como chips que envuelven
-				// en horizontal reduce la altura sin perder ningún dato — el
-				// motivo se lee una sola vez, no 14.
-				// "ya_usada" aparte, con la tarjeta comparativa real (2026-08-31,
-				// pedido explícito: "por qué sale 'esta categoría' en vez del
-				// significado real... no diseñé algo visual para esto?" — mismo
-				// formato ya aprobado en Claude Design para "Actas en Choque" del
-				// Resumen). Un chip de texto no alcanza acá porque cada fila
-				// apunta a una Acta DISTINTA (documento/usuario/fecha propios) —
-				// agruparlas todas bajo el mismo motivo y mostrarlas como chips
-				// perdía justo el dato que hacía falta ver.
+				// Agrupado por motivo (2026-08-30, pedido explícito: "una barra larga de info" — con un archivo grande, el mismo motivo se repetía una vez por fila (ej. 14 clientes con "OTRAS CATEGORIAS") en una lista angosta y muy alta. Agrupar por motivo + mostrar las filas afectadas como chips que envuelven en horizontal reduce la altura sin perder ningún dato — el motivo se lee una sola vez, no 14. "ya_usada" aparte, con la tarjeta comparativa real (2026-08-31, pedido explícito: "por qué sale 'esta categoría' en vez del significado real... no diseñé algo visual para esto?" — mismo formato ya aprobado en Claude Design para "Actas en Choque" del Resumen). Un chip de texto no alcanza acá porque cada fila apunta a una Acta DISTINTA (documento/usuario/fecha propios) — agruparlas todas bajo el mismo motivo y mostrarlas como chips perdía justo el dato que hacía falta ver.
 				var avisosYaUsada = avisosRelevantes.filter(function (a) { return a.tipo === 'ya_usada'; });
 				var avisosChip = avisosRelevantes.filter(function (a) { return a.tipo !== 'ya_usada'; });
 
@@ -986,11 +768,7 @@
 		}
 	});
 
-	// Botón "Exportar" que se transforma in-place en CSV/Excel (2026-08-24,
-	// pedido explícito: "no quiero otra ventanita, usa animaciones") — la
-	// animación en sí es CSS puro (ver style.css, .ac-repo-exportar), esto
-	// solo prende/apaga la clase y cierra al elegir una opción o al hacer
-	// click afuera, mismo patrón que el panel de combos de registrar.js.
+	// Botón "Exportar" que se transforma in-place en CSV/Excel (2026-08-24, pedido explícito: "no quiero otra ventanita, usa animaciones") — la animación en sí es CSS puro (ver style.css, .ac-repo-exportar), esto solo prende/apaga la clase y cierra al elegir una opción o al hacer click afuera, mismo patrón que el panel de combos de registrar.js.
 	exportarBtn.addEventListener('click', function () {
 		exportarWrap.classList.add('ac-repo-exportar-abierto');
 	});
@@ -999,9 +777,7 @@
 	}
 	[exportarCsvLink, exportarXlsxLink].forEach(function (link) {
 		link.addEventListener('click', function () {
-			// No preventDefault: el link igual navega/descarga normal, solo se
-			// repliega visualmente después de un toque para que la animación de
-			// apertura no se corte en seco.
+			// No preventDefault: el link igual navega/descarga normal, solo se repliega visualmente después de un toque para que la animación de apertura no se corte en seco.
 			setTimeout(cerrarExportar, 150);
 		});
 	});
@@ -1009,13 +785,7 @@
 		if (!exportarWrap.contains(e.target)) cerrarExportar();
 	});
 
-	// ---------- Pendientes de Asignar (solo Cuotas) ----------
-	// Filas donde resolverPosIdCliente() no encontró exactamente un cliente
-	// (ver getters/cuotas_guardar.php) — mismo concepto visual que la
-	// pantalla homónima de Liquidación (assets/js/liquidacion.js): cada fila
-	// muestra los candidatos sugeridos (mismo nombre, sin filtrar por CEDI)
-	// como botones clicables, más un input libre por si el candidato
-	// correcto no aparece en la lista corta.
+	// ---------- Pendientes de Asignar (solo Cuotas) ---------- Filas donde resolverPosIdCliente() no encontró exactamente un cliente (ver getters/cuotas_guardar.php) — mismo concepto visual que la pantalla homónima de Liquidación (assets/js/liquidacion.js): cada fila muestra los candidatos sugeridos (mismo nombre, sin filtrar por CEDI) como botones clicables, más un input libre por si el candidato correcto no aparece en la lista corta.
 	var pendientesOverlay = document.getElementById('repo-pendientes-modal-overlay');
 	var pendientesBody = document.getElementById('repo-pendientes-body');
 
@@ -1113,23 +883,13 @@
 	document.getElementById('repo-pendientes-modal-close').addEventListener('click', cerrarPendientes);
 	pendientesOverlay.addEventListener('click', function (e) { if (e.target === pendientesOverlay) cerrarPendientes(); });
 
-	// ---------- Resumen (solo Cuotas) ----------
-	// "¿A quién le estoy mandando qué Actas?" (2026-08-25, pedido explícito) —
-	// tarjetas de stat + lista agrupada en 2 secciones (con cuenta/sin
-	// cuenta, ver renderResumenChart()). Rediseño visual 2026-08-26: primero
-	// maquetado en Claude Design, aprobado por el usuario y pasado a código
-	// real acá — colores/avatares en las clases .ac-resumen-* nuevas de
-	// style.css, tomadas de los tokens reales del proyecto (--color-primary,
-	// .ac-avatar-initials), no inventadas.
+	// ---------- Resumen (solo Cuotas) ---------- "¿A quién le estoy mandando qué Actas?" (2026-08-25, pedido explícito) — tarjetas de stat + lista agrupada en 2 secciones (con cuenta/sin cuenta, ver renderResumenChart()). Rediseño visual 2026-08-26: primero maquetado en Claude Design, aprobado por el usuario y pasado a código real acá — colores/avatares en las clases .ac-resumen-* nuevas de style.css, tomadas de los tokens reales del proyecto (--color-primary, .ac-avatar-initials), no inventadas.
 	var resumenOverlay = document.getElementById('repo-resumen-modal-overlay');
 	var resumenStats = document.getElementById('repo-resumen-stats');
 	var resumenChart = document.getElementById('repo-resumen-chart');
 	var resumenChoque = document.getElementById('repo-resumen-choque');
 
-	// "Sin usuario asignado" como número suelto se sacó (2026-08-26, pedido
-	// explícito: "me hace ruido... quítalo, lo veo innecesario") — esa misma
-	// información ahora vive en la lista de abajo, con nombre y una marca
-	// pasiva por fila (ver renderResumenChart()), no como un conteo ciego.
+	// "Sin usuario asignado" como número suelto se sacó (2026-08-26, pedido explícito: "me hace ruido... quítalo, lo veo innecesario") — esa misma información ahora vive en la lista de abajo, con nombre y una marca pasiva por fila (ver renderResumenChart()), no como un conteo ciego.
 	function renderResumenStats(data) {
 		var tiles = [
 			{ label: 'Actas pendientes de completar', value: String(data.pendientes) },
@@ -1144,15 +904,7 @@
 		}).join('');
 	}
 
-	// Lista única de a quién le corresponden las Actas pendientes — usuarios
-	// reales CON cuenta (barra de color normal) y supervisores del maestro
-	// que todavía no tienen cuenta creada (`tiene_cuenta: false`, ver
-	// resumen_cuotas() en functions.php) con una marca pasiva "Sin cuenta"
-	// al lado del nombre, en vez de un número aparte sin decir a quién
-	// corresponde (2026-08-26, pedido explícito).
-	// Iniciales para el avatar circular de cada fila — mismo criterio visual
-	// que .ac-avatar-initials ya usa en Gestión de Usuarios (primeras letras
-	// de las 2 primeras palabras del nombre).
+	// Lista única de a quién le corresponden las Actas pendientes — usuarios reales CON cuenta (barra de color normal) y supervisores del maestro que todavía no tienen cuenta creada (`tiene_cuenta: false`, ver resumen_cuotas() en functions.php) con una marca pasiva "Sin cuenta" al lado del nombre, en vez de un número aparte sin decir a quién corresponde (2026-08-26, pedido explícito). Iniciales para el avatar circular de cada fila — mismo criterio visual que .ac-avatar-initials ya usa en Gestión de Usuarios (primeras letras de las 2 primeras palabras del nombre).
 	function inicialesDe(nombre) {
 		var partes = (nombre || '').trim().split(/\s+/);
 		return ((partes[0] || '')[0] || '') + ((partes[1] || '')[0] || '');
@@ -1171,11 +923,7 @@
 			'</div>';
 	}
 
-	// Agrupado en 2 secciones — "Con cuenta de usuario" / "Sin cuenta
-	// todavía" — en vez de una lista sola con un badge chico al lado del
-	// nombre (2026-08-26, rediseño hecho primero en Claude Design y
-	// aprobado por el usuario): separar espacialmente los dos grupos se
-	// distingue de un vistazo, sin tener que leer cada fila una por una.
+	// Agrupado en 2 secciones — "Con cuenta de usuario" / "Sin cuenta todavía" — en vez de una lista sola con un badge chico al lado del nombre (2026-08-26, rediseño hecho primero en Claude Design y aprobado por el usuario): separar espacialmente los dos grupos se distingue de un vistazo, sin tener que leer cada fila una por una.
 	function renderResumenChart(porUsuario) {
 		if (!porUsuario.length) {
 			resumenChart.innerHTML = '<p class="ac-field-hint">Nadie tiene Actas precargadas pendientes ahora mismo.</p>';
@@ -1199,15 +947,7 @@
 		resumenChart.innerHTML = html;
 	}
 
-	// Actas que YA NO se pueden generar porque el Local ya tiene un Acuerdo
-	// activo en el mismo Período (2026-08-28, ver resumen_cuotas() en
-	// functions.php — misma regla que getters/guardar_acuerdo.php, detectada
-	// acá ANTES de que el asesor intente generar y se lo rechacen en
-	// silencio). Diseñado primero en Claude Design y aprobado por el
-	// usuario ("me parece perfecto") — cuadro comparativo: a la izquierda la
-	// Acta precargada (Local + Período + a quién se le iba a asignar), a la
-	// derecha el Acuerdo existente con el que choca (documento, quién lo
-	// generó, fecha).
+	// Actas que YA NO se pueden generar porque el Local ya tiene un Acuerdo activo en el mismo Período (2026-08-28, ver resumen_cuotas() en functions.php — misma regla que getters/guardar_acuerdo.php, detectada acá ANTES de que el asesor intente generar y se lo rechacen en silencio). Diseñado primero en Claude Design y aprobado por el usuario ("me parece perfecto") — cuadro comparativo: a la izquierda la Acta precargada (Local + Período + a quién se le iba a asignar), a la derecha el Acuerdo existente con el que choca (documento, quién lo generó, fecha).
 	var TRIMESTRE_LABEL = ['', 'Q1', 'Q2', 'Q3', 'Q4'];
 	function filaResumenChoque(c) {
 		var asignadoHtml = c.asignado_a
@@ -1262,13 +1002,7 @@
 	document.getElementById('repo-resumen-modal-close').addEventListener('click', cerrarResumen);
 	resumenOverlay.addEventListener('click', function (e) { if (e.target === resumenOverlay) cerrarResumen(); });
 
-	// ---------- "Eliminados" (borrado lógico, 2026-08-25) ----------
-	// Solo Rebate/Participación — ver nota en activarTab(). Filtro por fecha
-	// de borrado (desde/hasta) para el caso real que motivó esto: "me dicen
-	// que por error borraron algo, quiero filtrar rápido el día y
-	// reactivarlo". Columnas propias (no CONFIG[tipoActivo].columnas): acá
-	// interesa además CUÁNDO y QUIÉN borró, y la acción es Reactivar, no
-	// Editar/Eliminar.
+	// ---------- "Eliminados" (borrado lógico, 2026-08-25) ---------- Solo Rebate/Participación — ver nota en activarTab(). Filtro por fecha de borrado (desde/hasta) para el caso real que motivó esto: "me dicen que por error borraron algo, quiero filtrar rápido el día y reactivarlo". Columnas propias (no CONFIG[tipoActivo].columnas): acá interesa además CUÁNDO y QUIÉN borró, y la acción es Reactivar, no Editar/Eliminar.
 	var eliminadosOverlay = document.getElementById('repo-eliminados-modal-overlay');
 	var eliminadosHead = document.getElementById('repo-eliminados-tabla-head');
 	var eliminadosBody = document.getElementById('repo-eliminados-body');
@@ -1294,9 +1028,7 @@
 
 	function formatoFechaHora(fechaSql) {
 		if (!fechaSql) return '—';
-		// 'YYYY-MM-DD HH:MM:SS' -> 'DD/MM/YYYY HH:MM', sin new Date() (evita
-		// líos de timezone del navegador contra una hora que ya viene en
-		// hora local del servidor).
+		// 'YYYY-MM-DD HH:MM:SS' -> 'DD/MM/YYYY HH:MM', sin new Date() (evita líos de timezone del navegador contra una hora que ya viene en hora local del servidor).
 		var partes = fechaSql.split(' ');
 		var fecha = partes[0].split('-');
 		var hora = (partes[1] || '').slice(0, 5);
@@ -1363,8 +1095,7 @@
 	document.getElementById('repo-eliminados-buscar').addEventListener('click', cargarEliminados);
 	eliminadosOverlay.addEventListener('click', function (e) { if (e.target === eliminadosOverlay) cerrarEliminados(); });
 
-	// Refresco al volver a esta pestaña (mismo patrón que Historial/Liquidación,
-	// ver index.php) — la arquitectura de la app renderiza todo una sola vez.
+	// Refresco al volver a esta pestaña (mismo patrón que Historial/Liquidación, ver index.php) — la arquitectura de la app renderiza todo una sola vez.
 	window.acRepositoriosRefrescar = function () { cargarLista(); };
 
 	actualizarHrefsExportar();

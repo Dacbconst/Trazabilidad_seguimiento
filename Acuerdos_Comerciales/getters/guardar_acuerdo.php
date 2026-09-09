@@ -67,8 +67,7 @@ $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()), solo si el
-// guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
+// Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()), solo si el guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
 if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
 	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
@@ -80,8 +79,7 @@ if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $p
 	}
 }
 
-// Tercera vía de propiedad: superdesarrollador sin supervisor real (ver esModoAdminSinCartera()) no tiene cartera propia contra la cual
-// comparar — acá se acepta cualquier pos_id real que pertenezca al canal que eligió a mano (mismo canal que ya filtra acuerdo_distribuidores.php).
+// Tercera vía de propiedad: superdesarrollador sin supervisor real (ver esModoAdminSinCartera()) no tiene cartera propia contra la cual comparar — acá se acepta cualquier pos_id real que pertenezca al canal que eligió a mano (mismo canal que ya filtra acuerdo_distribuidores.php).
 if (!$existePos && esModoAdminSinCartera()) {
 	$canalAdmin = canalEfectivoUsuario($mysqli) === 'distribuidor' ? 'DISTRIBUIDOR' : null;
 	$condicionCanalAdmin = $canalAdmin ? "canal = '$canalAdmin'" : "canal <> 'DISTRIBUIDOR'";
@@ -100,8 +98,7 @@ if (!$existePos) {
 	responder(false, 'El Local seleccionado no existe en el maestro de locales o no pertenece a tu cartera de clientes.');
 }
 
-// Solo un Acta activa por Local+Período: "el primero que llega, gana". Los
-// borradores quedan exentos, se bloquea recién al intentar generar de verdad.
+// Solo un Acta activa por Local+Período: "el primero que llega, gana". Los borradores quedan exentos, se bloquea recién al intentar generar de verdad.
 if ($estado !== 'borrador') {
 	$stmtDup = $mysqli->prepare(
 		"SELECT d.pos_name FROM repositorio_acuerdos a
@@ -124,8 +121,7 @@ if ($estado !== 'borrador') {
 
 $cantidadMeses = $mesFin - $mesInicio + 1;
 
-// ---------- Validación y normalización de las 4 tablas ----------
-// max(0, ...): defensa del servidor, el guardado es por fetch() y no pasa siempre por la validación de JS.
+// ---------- Validación y normalización de las 4 tablas ---------- max(0, ...): defensa del servidor, el guardado es por fetch() y no pasa siempre por la validación de JS.
 function normalizarValores(array $valores, $cantidadMeses, $mesInicio) {
 	$out = [];
 	for ($i = 0; $i < $cantidadMeses; $i++) {
@@ -370,8 +366,7 @@ if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	}
 }
 
-// Snapshot del PDF solo al generar, para que Historial sirva "el documento tal como se generó".
-// Si falla no se aborta la respuesta, el próximo intento cae al render en vivo. Se guarda solo la ruta en Azure, nunca el binario.
+// Snapshot del PDF solo al generar, para que Historial sirva "el documento tal como se generó". Si falla no se aborta la respuesta, el próximo intento cae al render en vivo. Se guarda solo la ruta en Azure, nunca el binario.
 if ($estado === 'generado') {
 	try {
 		$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);

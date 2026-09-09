@@ -52,8 +52,7 @@ if (!$filasCuota && !$filasVisibilidad) {
 	responder(false, 'El archivo no tiene filas de datos en ninguna de las dos hojas esperadas.');
 }
 
-// El período se lee de las columnas de mes de la hoja de cuota/venta, no lo elige quien sube (no hay frecuencia fija confirmada).
-// Sin filas de cuota no hay forma de saber el período, así que la hoja de visibilidad sola no alcanza.
+// El período se lee de las columnas de mes de la hoja de cuota/venta, no lo elige quien sube (no hay frecuencia fija confirmada). Sin filas de cuota no hay forma de saber el período, así que la hoja de visibilidad sola no alcanza.
 if (!$filasCuota) {
 	responder(false, 'La hoja de cuota/venta no tiene filas — sin eso no se puede determinar el período de esta importación.');
 }

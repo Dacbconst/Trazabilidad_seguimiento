@@ -1,11 +1,9 @@
 <?php
-// Parseo de Excel de liquidacion de JW (Directa/Distribuidor) + matching contra
-// repositorio_locales_supervisores_cliente y repositorio_acuerdos. Ver CLAUDE.md "Modulo Liquidacion".
+// Parseo de Excel de liquidacion de JW (Directa/Distribuidor) + matching contra repositorio_locales_supervisores_cliente y repositorio_acuerdos. Ver CLAUDE.md "Modulo Liquidacion".
 require_once __DIR__.'/xlsx_reader.php';
 require_once __DIR__.'/dinero.php';
 
-// ---------- Parseo: hoja Cuota/Venta/Rebate por categoria ----------
-// Detecta el periodo leyendo las columnas de mes reales de la hoja (no asume frecuencia fija).
+// ---------- Parseo: hoja Cuota/Venta/Rebate por categoria ---------- Detecta el periodo leyendo las columnas de mes reales de la hoja (no asume frecuencia fija).
 function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 	if ($canal === 'directa') {
 		$nombreHoja = 'CUOTA CLIENTE - CATEGORÍA';
@@ -31,8 +29,7 @@ function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 	}
 	if ($colRebatePct === null) return ['error' => "No se encontró la columna de % de rebate en \"$nombreHoja\"."];
 
-	// El bloque de meses se repite 2 veces en la hoja (cuota pactada, luego venta real), mismo orden.
-	// Se parte la lista a la mitad: primera mitad = cuota, segunda mitad = venta.
+	// El bloque de meses se repite 2 veces en la hoja (cuota pactada, luego venta real), mismo orden. Se parte la lista a la mitad: primera mitad = cuota, segunda mitad = venta.
 	$columnasMes = xlsx_detectar_columnas_mes($filas[$enc['fila']]);
 	if (count($columnasMes) < 2 || count($columnasMes) % 2 !== 0) {
 		return ['error' => "No se pudieron detectar los meses de la hoja \"$nombreHoja\" (se esperaba el mismo bloque de meses repetido 2 veces: cuota y venta real)."];
@@ -61,8 +58,7 @@ function liquidacion_parsear_cuota_categoria($rutaArchivo, $canal) {
 		// Filas vacías (huecos entre secciones, o el final de la hoja) — se saltan.
 		if ($cedi === '' || $cliente === '' || $categoria === '') continue;
 
-		// Se suman los meses detectados en vez de leer una columna "TOTAL" fija (el nombre varia por periodo).
-		// dinero_sumar() en vez de +/array_sum nativo, es plata (ver includes/dinero.php).
+		// Se suman los meses detectados en vez de leer una columna "TOTAL" fija (el nombre varia por periodo). dinero_sumar() en vez de +/array_sum nativo, es plata (ver includes/dinero.php).
 		$valoresCuota = array_map(function ($c) use ($fila) { return $fila[$c['col']] ?? 0; }, $colsCuota);
 		$valoresVenta = array_map(function ($c) use ($fila) { return $fila[$c['col']] ?? 0; }, $colsVenta);
 
@@ -129,8 +125,7 @@ function liquidacion_parsear_visibilidad($rutaArchivo, $canal) {
 	return ['filas' => $resultado];
 }
 
-// ---------- Matching: fila del Excel -> pos_id(s) candidato(s) ----------
-// Match primario por pos_name LIKE 'excel%'; CEDI/DISTRIBUIDOR solo desempata (el supervisor cambia con el tiempo, pos_name es más estable).
+// ---------- Matching: fila del Excel -> pos_id(s) candidato(s) ---------- Match primario por pos_name LIKE 'excel%'; CEDI/DISTRIBUIDOR solo desempata (el supervisor cambia con el tiempo, pos_name es más estable).
 function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $clienteONombre) {
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -144,8 +139,7 @@ function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $cli
 
 	if (count($posIds) <= 1) return $posIds;
 
-	// Desempate por CEDI/DISTRIBUIDOR via una 2da consulta SQL (aprovecha la collation de MySQL,
-	// ignora tildes/mayusculas). Si no deja exactamente 1 pos_id, se devuelven todos (sigue ambiguo).
+	// Desempate por CEDI/DISTRIBUIDOR via una 2da consulta SQL (aprovecha la collation de MySQL, ignora tildes/mayusculas). Si no deja exactamente 1 pos_id, se devuelven todos (sigue ambiguo).
 	$campo = $canal === 'directa' ? 'supervisor' : 'tipo_distribuidor';
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
@@ -159,8 +153,7 @@ function liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $cli
 	return count($desempatados) === 1 ? $desempatados : $posIds;
 }
 
-// ---------- Matching: pos_id -> acuerdo_id (Acta cuyo periodo se solapa) ----------
-// Se solapa, no es exactamente igual: el periodo del Excel puede no calzar 1 a 1 con mes_inicio/mes_fin. Filtra por anio también.
+// ---------- Matching: pos_id -> acuerdo_id (Acta cuyo periodo se solapa) ---------- Se solapa, no es exactamente igual: el periodo del Excel puede no calzar 1 a 1 con mes_inicio/mes_fin. Filtra por anio también.
 function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin, $anio) {
 	$stmt = $mysqli->prepare(
 		"SELECT id FROM repositorio_acuerdos
@@ -175,8 +168,7 @@ function liquidacion_candidatos_acuerdo_id($mysqli, $posId, $mesInicio, $mesFin,
 	return array_column($filas, 'id');
 }
 
-// Combina los 2 pasos de match (Excel -> pos_id -> acuerdo_id): 'matcheado' si hay
-// exactamente 1 candidato en cada paso, si no 'sin_match'/'pendiente'.
+// Combina los 2 pasos de match (Excel -> pos_id -> acuerdo_id): 'matcheado' si hay exactamente 1 candidato en cada paso, si no 'sin_match'/'pendiente'.
 function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $clienteONombre, $mesInicio, $mesFin, $anio) {
 	$posIds = liquidacion_candidatos_pos_id($mysqli, $canal, $cediODistribuidor, $clienteONombre);
 	if (count($posIds) !== 1) {
@@ -189,8 +181,7 @@ function liquidacion_matchear_fila($mysqli, $canal, $cediODistribuidor, $cliente
 	return ['acuerdo_id' => $acuerdoIds[0], 'estado_match' => 'matcheado'];
 }
 
-// ---------- Resumen de Pagos: junta rebate real + visibilidad por cliente ----------
-// No filtra por estado_match: siempre muestra todos los clientes, con `estado` ('ok'/'revisar') si algo quedo sin resolver.
+// ---------- Resumen de Pagos: junta rebate real + visibilidad por cliente ---------- No filtra por estado_match: siempre muestra todos los clientes, con `estado` ('ok'/'revisar') si algo quedo sin resolver.
 function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	$porCliente = [];
 
@@ -274,16 +265,14 @@ function liquidacion_calcular_resumen_pagos($mysqli, $importacionId) {
 	return $resultado;
 }
 
-// ---------- Resumen de Pagos UNIFICADO por canal ----------
-// Junta todas las importaciones de un canal; cada fila mantiene su propio periodo, nunca suma montos de trimestres distintos.
+// ---------- Resumen de Pagos UNIFICADO por canal ---------- Junta todas las importaciones de un canal; cada fila mantiene su propio periodo, nunca suma montos de trimestres distintos.
 function liquidacion_resumen_pagos_unificado($mysqli, $canal, $trimestre, $anio) {
 	$bounds = trimestreABounds($trimestre);
 	$trimestreActivo = $bounds ? 1 : 0;
 	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
 	$mesFinFiltro = $bounds ? $bounds[1] : -1;
 
-	// Solape, no igualdad exacta: una importacion puede cubrir cualquier rango de meses,
-	// un filtro "Q1" debe encontrar tambien una que cubra, por ejemplo, solo Febrero.
+	// Solape, no igualdad exacta: una importacion puede cubrir cualquier rango de meses, un filtro "Q1" debe encontrar tambien una que cubra, por ejemplo, solo Febrero.
 	$stmt = $mysqli->prepare(
 		"SELECT id, anio, mes_inicio, mes_fin, nombre_archivo FROM repositorio_liquidacion_importaciones
 		 WHERE canal = ? AND estado = 'completado'

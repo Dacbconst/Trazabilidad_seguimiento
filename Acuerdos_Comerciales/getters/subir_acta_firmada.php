@@ -1,6 +1,5 @@
 <?php
-// Sube la foto/PDF del Acta firmada a mano; vive en Historial, siguiente paso natural del ciclo de vida del Acuerdo.
-// Reemplaza cualquier subida anterior (sin versionado) y pasa a estado='firmado' automáticamente.
+// Sube la foto/PDF del Acta firmada a mano; vive en Historial, siguiente paso natural del ciclo de vida del Acuerdo. Reemplaza cualquier subida anterior (sin versionado) y pasa a estado='firmado' automáticamente.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/azure_storage.php';
 require_once __DIR__.'/../db_connect.php';

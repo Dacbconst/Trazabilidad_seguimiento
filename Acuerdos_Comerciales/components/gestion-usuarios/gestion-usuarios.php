@@ -1,6 +1,5 @@
 <?php
-// Se auto-incluye sus propias dependencias (require_once es idempotente) para
-// poder funcionar tanto embebido en index.php como si se accediera directo.
+// Se auto-incluye sus propias dependencias (require_once es idempotente) para poder funcionar tanto embebido en index.php como si se accediera directo.
 require_once __DIR__.'/../../includes/functions.php';
 require_once __DIR__.'/../../db_connect.php';
 iniciar_sesion();

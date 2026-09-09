@@ -46,8 +46,7 @@ $clavesVistas = []; // pos_id|sector -> índice, para avisar de repetidos DENTRO
 
 $mysqli->begin_transaction();
 try {
-	// subcategoria/marca son opcionales (fallback si el ALTER no se corrió). Sin
-	// rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
+	// subcategoria/marca son opcionales (fallback si el ALTER no se corrió). Sin rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
 	$stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cuota_cliente
 		 (pos_id, cliente_excel, cedi_excel, plan, sector, subcategoria, marca, trimestre, anio, valores_mensuales, estado, actualizado_por)
@@ -75,8 +74,7 @@ try {
 	// mes1/mes2/mes3 -> índice real 0-11, mismo formato JSON que valores_mensuales.
 	$mesInicio = ($trimestre - 1) * 3;
 
-	// Cache por subida: resolverSectorReal()/resolverPosIdCliente() escanean
-	// tablas sin índice útil, evita repetir la misma búsqueda por fila.
+	// Cache por subida: resolverSectorReal()/resolverPosIdCliente() escanean tablas sin índice útil, evita repetir la misma búsqueda por fila.
 	$cacheSector = [];
 	$cachePosId  = [];
 
@@ -127,8 +125,7 @@ try {
 		$posId = $cachePosId[$clavePos];
 		$estado = $posId ? 'pendiente_uso' : 'pendiente_match';
 
-		// Protege una fila ya 'usada' (generó una Acta real): chequeo aparte del
-		// UPSERT para poder avisar con el Acta real (documento_no/usuario/fecha).
+		// Protege una fila ya 'usada' (generó una Acta real): chequeo aparte del UPSERT para poder avisar con el Acta real (documento_no/usuario/fecha).
 		if ($posId) {
 			$stmtCheck = $mysqli->prepare(
 				'SELECT c.estado, a.documento_no, a.created_at, u.usuario

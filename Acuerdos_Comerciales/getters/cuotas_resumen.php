@@ -1,6 +1,5 @@
 <?php
-// Resumen visual del Repositorio de Cuotas (2026-08-25) — "¿a quién le
-// estoy mandando qué Actas?", ver includes/functions.php resumen_cuotas().
+// Resumen visual del Repositorio de Cuotas (2026-08-25) — "¿a quién le estoy mandando qué Actas?", ver includes/functions.php resumen_cuotas().
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

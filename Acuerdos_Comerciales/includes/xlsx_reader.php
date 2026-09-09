@@ -1,6 +1,5 @@
 <?php
-// Lector de XLSX mínimo y propio, sin PhpSpreadsheet (pesado, problemas subiendo vendor/ grande por FTP/WinSCP).
-// Un .xlsx es un ZIP con XML adentro: solo necesita la extensión `zip` + SimpleXML, ambas comunes en hosting compartido.
+// Lector de XLSX mínimo y propio, sin PhpSpreadsheet (pesado, problemas subiendo vendor/ grande por FTP/WinSCP). Un .xlsx es un ZIP con XML adentro: solo necesita la extensión `zip` + SimpleXML, ambas comunes en hosting compartido.
 
 function xlsx_disponible() {
 	return class_exists('ZipArchive');
@@ -126,8 +125,7 @@ function xlsx_leer_hoja($rutaArchivo, $nombreHoja) {
 				// índice a sharedStrings
 				$valor = $strings[(int) $valorCrudo] ?? '';
 			} else {
-				// numérico (o fecha serial de Excel, se deja como número —
-				// no hace falta convertir fechas para este importador)
+				// numérico (o fecha serial de Excel, se deja como número — no hace falta convertir fechas para este importador)
 				$valor = is_numeric($valorCrudo) ? $valorCrudo + 0 : $valorCrudo;
 			}
 			$fila[$col] = $valor;
@@ -159,8 +157,7 @@ function xlsx_normalizar_nombre_hoja($texto) {
 	return preg_replace('/\s+/', ' ', $texto);
 }
 
-// $mapa[NOMBRE] es un ARRAY de índices: los reportes de JW repiten el mismo mes 2 veces (cuota pactada, venta real); un solo índice pisaría la 1ra ocurrencia.
-// Usar xlsx_col($mapa, 'ABRIL', 0) para la 1ra, 1 para la 2da, etc.
+// $mapa[NOMBRE] es un ARRAY de índices: los reportes de JW repiten el mismo mes 2 veces (cuota pactada, venta real); un solo índice pisaría la 1ra ocurrencia. Usar xlsx_col($mapa, 'ABRIL', 0) para la 1ra, 1 para la 2da, etc.
 function xlsx_encontrar_encabezado(array $filas, array $columnasRequeridas, $maxFilas = 10) {
 	$requeridas = array_map('xlsx_normalizar_encabezado', $columnasRequeridas);
 	$limite = min($maxFilas, count($filas));
@@ -178,8 +175,7 @@ function xlsx_encontrar_encabezado(array $filas, array $columnasRequeridas, $max
 	return null;
 }
 
-// Índice de columna para la N-ésima ocurrencia (0-based) de un nombre de
-// columna repetido — ver comentario de xlsx_encontrar_encabezado().
+// Índice de columna para la N-ésima ocurrencia (0-based) de un nombre de columna repetido — ver comentario de xlsx_encontrar_encabezado().
 function xlsx_col(array $mapa, $nombre, $ocurrencia = 0) {
 	$nombre = xlsx_normalizar_encabezado($nombre);
 	return $mapa[$nombre][$ocurrencia] ?? null;
@@ -190,8 +186,7 @@ function xlsx_meses_nombres() {
 	return ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 }
 
-// Devuelve [['mes' => 0-11, 'col' => int], ...] en orden de aparición. No agrupa por nombre: los reportes repiten el bloque de meses 2 veces
-// (cuota pactada, venta real), quien llama decide cómo partir el resultado (ver liquidacion_parsear_cuota_categoria()).
+// Devuelve [['mes' => 0-11, 'col' => int], ...] en orden de aparición. No agrupa por nombre: los reportes repiten el bloque de meses 2 veces (cuota pactada, venta real), quien llama decide cómo partir el resultado (ver liquidacion_parsear_cuota_categoria()).
 function xlsx_detectar_columnas_mes(array $filaEncabezado) {
 	$meses = xlsx_meses_nombres();
 	$mesesNormalizados = array_flip(array_map('xlsx_normalizar_encabezado', $meses));

@@ -81,8 +81,7 @@ $valores[] = $id;
 
 $stmt = $mysqli->prepare($sql);
 if (!$stmt) {
-	// Probablemente falta correr getters/alter_usuarios_supervisor.sql (columna
-	// "supervisor" todavía no existe) — evita un fatal error por prepare()=false.
+	// Probablemente falta correr getters/alter_usuarios_supervisor.sql (columna "supervisor" todavía no existe) — evita un fatal error por prepare()=false.
 	echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar el usuario (revisar si falta la columna "supervisor" en la base).']);
 	exit;
 }

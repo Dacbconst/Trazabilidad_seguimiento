@@ -1,6 +1,5 @@
 <?php
-// Busca el Rebate % del repositorio (Ciudad+Canal+Sector+Categoría+Marca) para
-// autocompletar y bloquear el campo en Registrar. Solo lectura, nunca escribe.
+// Busca el Rebate % del repositorio (Ciudad+Canal+Sector+Categoría+Marca) para autocompletar y bloquear el campo en Registrar. Solo lectura, nunca escribe.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

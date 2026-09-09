@@ -59,8 +59,7 @@
 		});
 	}
 
-	// Sube el scroll a la tarjeta de filtros y agrega un aro pulsante (.ac-filtro-resaltado) al/los select que faltan — sigue hasta el
-	// change real (ver actualizarEstadoFiltroPeriodo() más abajo), no se apaga solo con timeout.
+	// Sube el scroll a la tarjeta de filtros y agrega un aro pulsante (.ac-filtro-resaltado) al/los select que faltan — sigue hasta el change real (ver actualizarEstadoFiltroPeriodo() más abajo), no se apaga solo con timeout.
 	function resaltarFiltroPeriodo(marcarTrimestre, marcarAnio) {
 		var filtrosCard = document.querySelector('.ac-hist-filtros-card');
 		if (filtrosCard && filtrosCard.scrollIntoView) {
@@ -78,8 +77,7 @@
 		});
 	}
 
-	// Apaga el pulso azul y lo reemplaza por flash verde de confirmación; al completar período+año, brilla "Descargar Excel". Volver a
-	// "Todos" no vuelve a poner verde. setTimeout (no "animationend") porque .ac-excel-brillo anima 2 elementos y el evento se duplicaría.
+	// Apaga el pulso azul y lo reemplaza por flash verde de confirmación; al completar período+año, brilla "Descargar Excel". Volver a "Todos" no vuelve a poner verde. setTimeout (no "animationend") porque .ac-excel-brillo anima 2 elementos y el evento se duplicaría.
 	var exportCompletoAntes = trimestreSelect.value !== '0' && anioSelect.value !== '0';
 	function actualizarEstadoFiltroPeriodo() {
 		var completoAhora = trimestreSelect.value !== '0' && anioSelect.value !== '0';
@@ -107,8 +105,7 @@
 	trimestreSelect.addEventListener('change', actualizarEstadoFiltroPeriodo);
 	anioSelect.addEventListener('change', actualizarEstadoFiltroPeriodo);
 
-	// Apaga cualquier pulso/flash/brillo activo al cambiar de módulo: Historial nunca se destruye al cambiar de pestaña (solo se oculta con CSS),
-	// así que sin esto un pulso `infinite` seguiría animando en segundo plano. Expuesta para que index.php la llame en cada navegación del sidebar.
+	// Apaga cualquier pulso/flash/brillo activo al cambiar de módulo: Historial nunca se destruye al cambiar de pestaña (solo se oculta con CSS), así que sin esto un pulso `infinite` seguiría animando en segundo plano. Expuesta para que index.php la llame en cada navegación del sidebar.
 	function limpiarResaltadoFiltroPeriodo() {
 		[trimestreSelect, anioSelect].forEach(function (select) {
 			var objetivo = select.closest('.ac-select-bonito') || select;
@@ -138,8 +135,7 @@
 		return div.innerHTML;
 	}
 
-	// Compartido entre Historial y "Mis Borradores"; eliminar_acuerdo.php nunca hace DELETE físico, marca estado='anulado'.
-	// La diferencia entre los 2 usos es qué pasa con la fila después (recargar todo vs. sacarla con animación), por eso queda a cargo de onOk.
+	// Compartido entre Historial y "Mis Borradores"; eliminar_acuerdo.php nunca hace DELETE físico, marca estado='anulado'. La diferencia entre los 2 usos es qué pasa con la fila después (recargar todo vs. sacarla con animación), por eso queda a cargo de onOk.
 	function confirmarYEliminarAcuerdo(id, documentoNo, onOk) {
 		Swal.fire({
 			icon: 'warning',
@@ -178,8 +174,7 @@
 		}, { once: true });
 	}
 
-	// ---------- Stat tiles = también filtro de firma ----------
-	// "todos" | "firmadas" | "pendientes": click en un tile ya activo vuelve a "todos" (toggle), no queda un estado sin salida.
+	// ---------- Stat tiles = también filtro de firma ---------- "todos" | "firmadas" | "pendientes": click en un tile ya activo vuelve a "todos" (toggle), no queda un estado sin salida.
 	var firmaFiltroActual = 'todos';
 	var statTiles = {
 		firmadas:   document.getElementById('hist-stat-firmadas'),
@@ -215,8 +210,7 @@
 		cargarHistorial(1);
 	});
 
-	// ---------- Pastillas de Canal (solo superdesarrollador) ----------
-	// "total" | "directo" | "distribuidor": mismo mecanismo simple que Cumplimiento/Seguimiento (clase .ac-seg-pill-activo a mano, sin componente nuevo).
+	// ---------- Pastillas de Canal (solo superdesarrollador) ---------- "total" | "directo" | "distribuidor": mismo mecanismo simple que Cumplimiento/Seguimiento (clase .ac-seg-pill-activo a mano, sin componente nuevo).
 	var canalGroup = document.getElementById('hist-canal-group');
 	var canalFiltroActual = 'total';
 	// Refleja en el título del botón qué va a pasar al click: con un canal puntual elegido ya no hay picker, el botón dice solo qué formato descarga.
@@ -318,8 +312,7 @@
 	anioSelect.addEventListener('change', function () { cargarHistorial(1); });
 	buscarBtn.addEventListener('click', function () { cargarHistorial(1); });
 
-	// Reusa la misma data que la campanita del header, pero solo "mías". No se llama desde cargarHistorial() (se dispara en cada tecla) a propósito,
-	// sería una consulta de más por cada una; se llama solo al entrar al módulo y al refrescar.
+	// Reusa la misma data que la campanita del header, pero solo "mías". No se llama desde cargarHistorial() (se dispara en cada tecla) a propósito, sería una consulta de más por cada una; se llama solo al entrar al módulo y al refrescar.
 	function diasCortosHist(dias) {
 		dias = parseInt(dias, 10);
 		if (dias <= 0) return 'hoy';
@@ -375,8 +368,7 @@
 
 	document.getElementById('hist-nuevo-acuerdo').addEventListener('click', irARegistrar);
 
-	// ---------- Mis Borradores ----------
-	// El listado y el modal viven acá; cargar el borrador en el formulario lo hace registrar.js (el estado de las 4 tablas vive ahí).
+	// ---------- Mis Borradores ---------- El listado y el modal viven acá; cargar el borrador en el formulario lo hace registrar.js (el estado de las 4 tablas vive ahí).
 	var borraModalOverlay = document.getElementById('hist-borradores-modal-overlay');
 	var borraBody = document.getElementById('hist-borradores-body');
 
@@ -440,8 +432,7 @@
 		if (e.target === borraModalOverlay) cerrarModalBorradores();
 	});
 
-	// ---------- Detalle / Acta (Ver Detalles y Descargar PDF) ----------
-	// Mismo PDF real que Registrar: "Ver Detalles" y "Descargar PDF" abren el mismo iframe, sin una segunda maqueta HTML que mantener.
+	// ---------- Detalle / Acta (Ver Detalles y Descargar PDF) ---------- Mismo PDF real que Registrar: "Ver Detalles" y "Descargar PDF" abren el mismo iframe, sin una segunda maqueta HTML que mantener.
 	function mostrarEstadoDetalleCanvas(mensaje) {
 		detalleCanvasEstado.textContent = mensaje;
 		detalleCanvasEstado.classList.remove('hidden');
@@ -467,8 +458,7 @@
 		} else {
 			detalleCanvasWrap.classList.add('hidden');
 			pdfFrame.classList.remove('hidden');
-			// #toolbar=0&navpanes=0&zoom=page-width: sin esto el visor nativo arranca en zoom "automático", chiquito en un iframe angosto de mobile.
-			// "page-width" fuerza que la página ocupe todo el ancho; el usuario igual puede seguir con pinch-zoom nativo.
+			// #toolbar=0&navpanes=0&zoom=page-width: sin esto el visor nativo arranca en zoom "automático", chiquito en un iframe angosto de mobile. "page-width" fuerza que la página ocupe todo el ancho; el usuario igual puede seguir con pinch-zoom nativo.
 			pdfFrame.src = url + '#toolbar=0&navpanes=0&zoom=page-width';
 		}
 		descargarBtn.href = url;
@@ -483,8 +473,7 @@
 		});
 	}
 
-	// ---------- Subir/ver Acta firmada ----------
-	// Modal con 2 paneles: Acta generada (izquierda, referencia) y Acta firmada (derecha). Un solo componente sirve para "ver" y "subir nueva".
+	// ---------- Subir/ver Acta firmada ---------- Modal con 2 paneles: Acta generada (izquierda, referencia) y Acta firmada (derecha). Un solo componente sirve para "ver" y "subir nueva".
 	var firmaModalOverlay  = document.getElementById('hist-firma-modal-overlay');
 	var firmaModalTitle    = document.getElementById('hist-firma-modal-title');
 	var firmaOriginalFrame = document.getElementById('hist-firma-original-frame');
@@ -514,8 +503,7 @@
 		firmaAmpliarFirmadaBtn.classList.add('hidden');
 	}
 
-	// Comprime fotos ANTES de subir: nginx rechaza con 413 fotos pesadas, límite de infraestructura no editable desde este repo.
-	// Prueba escalones cada vez más chicos hasta entrar bajo un límite conservador; PDF se sube tal cual, si falla sube el original sin comprimir.
+	// Comprime fotos ANTES de subir: nginx rechaza con 413 fotos pesadas, límite de infraestructura no editable desde este repo. Prueba escalones cada vez más chicos hasta entrar bajo un límite conservador; PDF se sube tal cual, si falla sube el original sin comprimir.
 	function nombreComoJpg(archivo) { return archivo.name.replace(/\.[^.]+$/, '') + '.jpg'; }
 	function comprimirFotoSiHaceFalta(archivo) {
 		if (archivo.type.indexOf('image/') !== 0) return Promise.resolve(archivo);
@@ -578,8 +566,7 @@
 		firmaAmpliarFirmadaBtn.classList.remove('hidden');
 	}
 
-	// Foto → <img> (se ajusta/centra con object-fit); PDF → <iframe> (el visor nativo ya centra y ajusta solo). Antes siempre usaba <iframe>,
-	// una imagen se mostraba a tamaño natural pegada arriba sin centrar.
+	// Foto → <img> (se ajusta/centra con object-fit); PDF → <iframe> (el visor nativo ya centra y ajusta solo). Antes siempre usaba <iframe>, una imagen se mostraba a tamaño natural pegada arriba sin centrar.
 	function mostrarFirmaYaSubida(id, mime) {
 		var url = 'getters/descargar_acta_firmada.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
 		if (mime && mime.indexOf('image/') === 0) {
@@ -635,8 +622,7 @@
 		firmaModalTitle.textContent = 'Acta Firmada — #' + documentoNo;
 		// El botón "Ampliar" siempre abre el PDF real, independiente de si el panel muestra el iframe o el canvas.
 		firmaOriginalUrlActual = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
-		// Móvil real: un PDF embebido en <iframe> no renderiza en Chrome de Android, así que se dibuja con PDF.js en un <canvas> en su lugar.
-		// Mismo breakpoint que este modal usa para apilar los 2 paneles (@media max-width:760px).
+		// Móvil real: un PDF embebido en <iframe> no renderiza en Chrome de Android, así que se dibuja con PDF.js en un <canvas> en su lugar. Mismo breakpoint que este modal usa para apilar los 2 paneles (@media max-width:760px).
 		if (window.matchMedia('(max-width: 760px)').matches) {
 			firmaOriginalFrame.src = '';
 			firmaOriginalFrame.classList.add('hidden');
@@ -706,8 +692,7 @@
 			firmaGuardarBtn.innerHTML = HTML_BOTON_GUARDAR;
 		}
 
-		// DIAGNÓSTICO TEMPORAL: lee la respuesta como texto crudo antes de JSON.parse() para mostrar HTTP status y cuerpo real si no es JSON válido.
-		// Sacar este alert() (volver a `.then(r => r.json())` simple) en cuanto se identifique la causa real en celular.
+		// DIAGNÓSTICO TEMPORAL: lee la respuesta como texto crudo antes de JSON.parse() para mostrar HTTP status y cuerpo real si no es JSON válido. Sacar este alert() (volver a `.then(r => r.json())` simple) en cuanto se identifique la causa real en celular.
 		fetch('getters/subir_acta_firmada.php', { method: 'POST', body: formData })
 			.then(function (r) {
 				return r.text().then(function (texto) { return { status: r.status, ok: r.ok, texto: texto }; });

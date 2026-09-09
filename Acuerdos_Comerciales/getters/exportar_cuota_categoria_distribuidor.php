@@ -1,6 +1,5 @@
 <?php
-// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php
-// cuando el canal es distribuidor. Sin CODIGO/RUC/CARTERA ni fila TOTAL (no existen en el archivo real).
+// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php cuando el canal es distribuidor. Sin CODIGO/RUC/CARTERA ni fila TOTAL (no existen en el archivo real).
 
 $stmtD = $mysqli->prepare(
 	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
@@ -64,8 +63,7 @@ usort($filasFinalD, function ($a, $b) {
 	return $c !== 0 ? $c : strcmp($a['sector'], $b['sector']);
 });
 
-// ---------- Layout de columnas ----------
-// SUBCATEGORIA/MARCA van a la derecha de CATEGORIA (sin columna PLAN acá).
+// ---------- Layout de columnas ---------- SUBCATEGORIA/MARCA van a la derecha de CATEGORIA (sin columna PLAN acá).
 $colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCategoria = 4;
 $colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
 $colCuotaInicio = 8;
@@ -126,8 +124,7 @@ $wbD->celda($sD1, 1, $colCuotaInicio, $tituloCuotaGrupo, true, null, $bgEncD, $f
 if ($MD > 1) {
 	$wbD->combinarCeldas($sD1, XlsxWriter::colLetra($colCuotaInicio).'1:'.XlsxWriter::colLetra($colCuotaInicio + $MD - 1).'1');
 }
-// El merge real (O1:R1) cubre los meses de venta Y la columna "TOTAL VENTA",
-// a diferencia del bloque CUOTA de arriba (que NO incluye su columna total).
+// El merge real (O1:R1) cubre los meses de venta Y la columna "TOTAL VENTA", a diferencia del bloque CUOTA de arriba (que NO incluye su columna total).
 $wbD->celda($sD1, 1, $colVentaInicio, $tituloVentaGrupo, true, null, $bgVentaD, $fontVentaD);
 $wbD->combinarCeldas($sD1, XlsxWriter::colLetra($colVentaInicio).'1:'.XlsxWriter::colLetra($colVentaTotal).'1');
 
@@ -217,8 +214,7 @@ if ($ultimaFilaD2 >= $primeraFilaD2) {
 	}
 }
 
-// ==================== Hoja "VISIBILIDAD (2)" ====================
-// cabecera->CABECERA, ruma->ISLA, percha->PERCHA, un renglón por cliente. PAGO = CANTIDAD x 6 (fórmula real, no suma de la Acta como en Directa).
+// ==================== Hoja "VISIBILIDAD (2)" ==================== cabecera->CABECERA, ruma->ISLA, percha->PERCHA, un renglón por cliente. PAGO = CANTIDAD x 6 (fórmula real, no suma de la Acta como en Directa).
 $stmtVisD = $mysqli->prepare(
 	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.tipo, l.marca,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
@@ -348,8 +344,7 @@ foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 }
 $ultimaFilaVisD = $filaVisDatosD - 1;
 
-// ==================== Hoja "RESUMEN DE PAGOS" ====================
-// Un renglón por cliente: VOLUMEN de REBATE REAL VOL, VISIBILIDAD del total de "VISIBILIDAD (2)".
+// ==================== Hoja "RESUMEN DE PAGOS" ==================== Un renglón por cliente: VOLUMEN de REBATE REAL VOL, VISIBILIDAD del total de "VISIBILIDAD (2)".
 $sResumenD = $wbD->agregarHoja('RESUMEN DE PAGOS');
 $rdDistribuidor = 1; $rdNombre = 2; $rdVolumen = 3; $rdVisibilidad = 4; $rdTotalPago = 5;
 $wbD->celda($sResumenD, 1, $rdDistribuidor, 'DISTRIBUIDOR', true, null, $bgEncD, $fontEncD);
@@ -358,8 +353,7 @@ $wbD->celda($sResumenD, 1, $rdVolumen, 'VOLUMEN', true, null, $bgEncD, $fontEncD
 $wbD->celda($sResumenD, 1, $rdVisibilidad, 'VISIBILIDAD', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sResumenD, 1, $rdTotalPago, 'TOTAL', true, null, $bgEncD, $fontEncD);
 
-// Unión de clientes vistos en Cuota (meta_compra) y en Visibilidad
-// (cabecera/ruma/percha) — un cliente puede tener solo uno de los dos.
+// Unión de clientes vistos en Cuota (meta_compra) y en Visibilidad (cabecera/ruma/percha) — un cliente puede tener solo uno de los dos.
 $clientesResumenD = [];
 foreach ($clientesVistosD as $cli => $cv) $clientesResumenD[$cli] = $cv['distribuidor'];
 foreach ($porClienteVisD as $cli => $dv) {

@@ -1,5 +1,4 @@
-// Lightbox reusable, un solo overlay global (markup en index.php) que cualquier módulo abre con window.acAbrirLightbox(src).
-// No implementa pinch-zoom a mano: el viewport nunca deshabilitó el zoom nativo, así que alcanza con mostrar la imagen grande.
+// Lightbox reusable, un solo overlay global (markup en index.php) que cualquier módulo abre con window.acAbrirLightbox(src). No implementa pinch-zoom a mano: el viewport nunca deshabilitó el zoom nativo, así que alcanza con mostrar la imagen grande.
 (function () {
 	var overlay = document.getElementById('acLightboxOverlay');
 	var img = document.getElementById('acLightboxImg');

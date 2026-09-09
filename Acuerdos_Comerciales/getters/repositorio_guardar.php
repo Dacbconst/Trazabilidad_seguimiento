@@ -34,8 +34,7 @@ $errores   = []; // [{indice, fila, motivo}, ...] — NO se guardaron.
 $avisos    = []; // [{indice, fila, motivo}, ...] — SÍ se guardaron, pero conviene revisar.
 $clavesVistas = []; // clave normalizada -> índice de la última fila que la usó, para detectar repetidos DENTRO del mismo archivo.
 
-// Identificador legible de una fila para el mensaje — la mejor combinación
-// de campos que ya tenga tipeados, aunque estén incompletos.
+// Identificador legible de una fila para el mensaje — la mejor combinación de campos que ya tenga tipeados, aunque estén incompletos.
 function repositorio_identificar_fila($tipo, $fila) {
 	if ($tipo === 'rebate') {
 		$partes = array_filter([$fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['ciudad'] ?? '', $fila['canal'] ?? '']);
@@ -49,8 +48,7 @@ function repositorio_identificar_fila($tipo, $fila) {
 $mysqli->begin_transaction();
 try {
 	if ($tipo === 'rebate') {
-		// eliminado_en/eliminado_por se limpian acá: re-subir revive una fila borrada lógicamente.
-		// Clave (ciudad, canal, sector, categoria, marca), sin segmento: el Excel real de JW no lo tiene.
+		// eliminado_en/eliminado_por se limpian acá: re-subir revive una fila borrada lógicamente. Clave (ciudad, canal, sector, categoria, marca), sin segmento: el Excel real de JW no lo tiene.
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_rebate_producto (ciudad, canal, sector, categoria, marca, rebate_pct, actualizado_por)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -99,8 +97,7 @@ try {
 		}
 		$stmt->close();
 	} else {
-		// eliminado_en/eliminado_por en NULL, mismo motivo que Rebate.
-		// Clave (ciudad, marca): sin categoría/subcategoría (Percha del Acta solo guarda Marca) ni canal.
+		// eliminado_en/eliminado_por en NULL, mismo motivo que Rebate. Clave (ciudad, marca): sin categoría/subcategoría (Percha del Acta solo guarda Marca) ni canal.
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_participacion_percha (ciudad, marca, participacion_pct, actualizado_por)
 			 VALUES (?, ?, ?, ?)

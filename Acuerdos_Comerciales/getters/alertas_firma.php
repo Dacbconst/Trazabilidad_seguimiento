@@ -1,6 +1,5 @@
 <?php
-// Campanita del header, en vivo (nunca cacheada), solo Actas propias del
-// usuario: "mias" (por vencer, últimos 5 días) y "precargadas" (Actas Asignadas).
+// Campanita del header, en vivo (nunca cacheada), solo Actas propias del usuario: "mias" (por vencer, últimos 5 días) y "precargadas" (Actas Asignadas).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

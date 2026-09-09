@@ -1,6 +1,5 @@
 <?php
-// Escritor de XLSX propio, sin librería externa (sin Composer en desarrollo).
-// Fórmulas siempre en inglés/coma; fills 0 y 1 son "none"/"gray125" por spec OOXML.
+// Escritor de XLSX propio, sin librería externa (sin Composer en desarrollo). Fórmulas siempre en inglés/coma; fills 0 y 1 son "none"/"gray125" por spec OOXML.
 
 class XlsxWriter {
 	private $hojas = []; // idx => ['nombre','celdas'=>[fila][col]=>spec,'merges'=>[...]]
@@ -32,8 +31,7 @@ class XlsxWriter {
 		$this->hojas[$hojaIdx]['merges'][] = $rangoRef;
 	}
 
-	// Fuerza un piso de ancho para una columna: el autofit no puede medir el
-	// resultado real de una celda de fórmula, solo garantiza un mínimo.
+	// Fuerza un piso de ancho para una columna: el autofit no puede medir el resultado real de una celda de fórmula, solo garantiza un mínimo.
 	public function anchoMinimo($hojaIdx, $col, $ancho) {
 		$this->hojas[$hojaIdx]['anchosMinimos'][$col] = $ancho;
 	}
@@ -72,8 +70,7 @@ class XlsxWriter {
 		return $id;
 	}
 
-	// $bg / $fontColor: hex sin "#" (ej. "FFC000") o null para el default.
-	// $centrado: centra horizontal/vertical (OOXML alinea a la izquierda por default en celdas fusionadas).
+	// $bg / $fontColor: hex sin "#" (ej. "FFC000") o null para el default. $centrado: centra horizontal/vertical (OOXML alinea a la izquierda por default en celdas fusionadas).
 	public function celda($hojaIdx, $fila, $col, $valor, $negrita = false, $numFmt = null, $bg = null, $fontColor = null, $centrado = false) {
 		$this->hojas[$hojaIdx]['celdas'][$fila][$col] = [
 			'tipo' => is_numeric($valor) ? 'n' : 's',
@@ -82,8 +79,7 @@ class XlsxWriter {
 		];
 	}
 
-	// Funciones posteriores a Excel 2007 (ej. CONCAT) necesitan el prefijo _xlfn.
-	// en el XML o Excel muestra #NAME?; IF/SUM/SUBTOTAL/VLOOKUP/AND/IFERROR no lo necesitan.
+	// Funciones posteriores a Excel 2007 (ej. CONCAT) necesitan el prefijo _xlfn. en el XML o Excel muestra #NAME?; IF/SUM/SUBTOTAL/VLOOKUP/AND/IFERROR no lo necesitan.
 	private static $funcionesModernas = ['CONCAT'];
 
 	private function prefijarFuncionesModernas($formula) {
@@ -106,8 +102,7 @@ class XlsxWriter {
 		return htmlspecialchars((string) $texto, ENT_QUOTES | ENT_XML1, 'UTF-8');
 	}
 
-	// Ancho de columna "autofit": Excel no lo calcula solo en un archivo generado
-	// por código, así que se estima por caracteres del texto, clampeado en xmlCols().
+	// Ancho de columna "autofit": Excel no lo calcula solo en un archivo generado por código, así que se estima por caracteres del texto, clampeado en xmlCols().
 	private function anchoTexto($spec) {
 		if ($spec['tipo'] === 'f') {
 			// Resultado de fórmula desconocido sin evaluarla: se usa un ancho razonable por formato.

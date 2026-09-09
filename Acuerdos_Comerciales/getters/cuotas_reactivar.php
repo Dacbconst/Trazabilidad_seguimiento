@@ -1,6 +1,5 @@
 <?php
-// Inverso de "Eliminar" (borrado lógico, estado='descartada'): vuelve a 'pendiente_uso' o 'pendiente_match' según si el pos_id ya estaba resuelto.
-// Nunca reactiva una fila 'usada', a propósito.
+// Inverso de "Eliminar" (borrado lógico, estado='descartada'): vuelve a 'pendiente_uso' o 'pendiente_match' según si el pos_id ya estaba resuelto. Nunca reactiva una fila 'usada', a propósito.
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();

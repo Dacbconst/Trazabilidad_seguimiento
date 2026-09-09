@@ -1,8 +1,5 @@
 <?php
-// Clientes/PDV filtrados por el `supervisor` del usuario logueado; canal Distribuidor agrupa por empresa, Directo/Mayorista va plano.
-// Excepción: superdesarrollador sin supervisor real (ver esModoAdminSinCartera()) no tiene cartera propia — ve TODOS los clientes del
-// canal que eligió a mano (ac-canal-admin-group en registrar.php), sin filtrar por supervisor. Mismo criterio ya usado en Historial/
-// Seguimiento de Equipo para ese rol ("ver todo el equipo", no solo lo propio).
+// Clientes/PDV filtrados por el `supervisor` del usuario logueado; canal Distribuidor agrupa por empresa, Directo/Mayorista va plano. Excepción: superdesarrollador sin supervisor real (ver esModoAdminSinCartera()) no tiene cartera propia — ve TODOS los clientes del canal que eligió a mano (ac-canal-admin-group en registrar.php), sin filtrar por supervisor. Mismo criterio ya usado en Historial/ Seguimiento de Equipo para ese rol ("ver todo el equipo", no solo lo propio).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
@@ -22,9 +19,7 @@ $empresas  = [];
 $clientes  = [];
 
 if ($modoAdmin) {
-	// Sin supervisor que filtrar — trae la cartera COMPLETA del canal elegido, de cualquier supervisor. Esta tabla externa (~41,640 filas)
-	// no tiene índice en `canal` (decisión ya tomada de no tocar el esquema de un maestro externo, ver "Módulo Liquidación" en CLAUDE.md)
-	// — un escaneo completo es aceptable acá porque es 1 sola cuenta admin, no el tráfico normal de la app.
+	// Sin supervisor que filtrar — trae la cartera COMPLETA del canal elegido, de cualquier supervisor. Esta tabla externa (~41,640 filas) no tiene índice en `canal` (decisión ya tomada de no tocar el esquema de un maestro externo, ver "Módulo Liquidación" en CLAUDE.md) — un escaneo completo es aceptable acá porque es 1 sola cuenta admin, no el tráfico normal de la app.
 	$condicionCanal = $canal === 'distribuidor' ? "canal = 'DISTRIBUIDOR'" : "canal <> 'DISTRIBUIDOR'";
 	$filas = $mysqli->query(
 		"SELECT pos_id, pos_name, cedi, tipo_distribuidor

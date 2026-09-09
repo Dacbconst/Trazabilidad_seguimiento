@@ -73,8 +73,7 @@
 					var accionPendientes = pendientes > 0
 						? '<button type="button" class="ac-link-id liq-btn-pendientes" data-id="' + f.id + '">Resolver (' + pendientes + ')</button>'
 						: '<span class="ac-field-hint">Sin pendientes</span>';
-					// El Resumen de Pagos ya no es por importación (ver liquidacion_resumen_pagos_unificado()): este botón abre la vista unificada
-					// del canal, pre-filtrada al período de esta fila si calza con un trimestre exacto; desde ahí se amplía a "Todos los períodos".
+					// El Resumen de Pagos ya no es por importación (ver liquidacion_resumen_pagos_unificado()): este botón abre la vista unificada del canal, pre-filtrada al período de esta fila si calza con un trimestre exacto; desde ahí se amplía a "Todos los períodos".
 					var trimestreFila = trimestreDeRango(f.mes_inicio, f.mes_fin);
 					var accionResumen = '<button type="button" class="ac-link-id liq-btn-resumen" ' +
 						'data-canal="' + escapeHtml(f.canal) + '" data-trimestre="' + trimestreFila + '" data-anio="' + f.anio + '">Resumen de Pagos</button>';
@@ -203,8 +202,7 @@
 		cargarImportaciones();
 	});
 
-	// Formatea una fecha 'YYYY-MM-DD' (fecha_generacion) para mostrar en la
-	// lista de Actas candidatas — sin hora, es solo para distinguir cuál es cuál.
+	// Formatea una fecha 'YYYY-MM-DD' (fecha_generacion) para mostrar en la lista de Actas candidatas — sin hora, es solo para distinguir cuál es cuál.
 	function formatoFechaCorta(fecha) {
 		if (!fecha) return 'sin fecha';
 		var partes = fecha.split('-');
@@ -217,8 +215,7 @@
 			return;
 		}
 		pendientesBody.innerHTML = filas.map(function (f) {
-			// Ambigüedad de ACTA: el cliente ya resolvió a un solo pos_id, pero tiene 2+ Actas cuyo período+año se solapan.
-			// No se muestra el selector de cliente (ya resuelto), directo cuál Acta es, para no mostrar los dos pasos de match a la vez.
+			// Ambigüedad de ACTA: el cliente ya resolvió a un solo pos_id, pero tiene 2+ Actas cuyo período+año se solapan. No se muestra el selector de cliente (ya resuelto), directo cuál Acta es, para no mostrar los dos pasos de match a la vez.
 			if (f.actas_candidatas && f.actas_candidatas.length) {
 				var actasHtml = f.actas_candidatas.map(function (a) {
 					return '<button type="button" class="ac-btn-outline ac-btn-inline liq-btn-acta" style="margin:2px; display:block; text-align:left;" ' +
@@ -318,8 +315,7 @@
 		});
 	}
 
-	// ---------- Resumen de Pagos ----------
-	// Unificado por canal: Trimestre/Año filtran server-side, CEDI/Estado client-side. Cada fila trae su propio período, nunca se suman entre trimestres.
+	// ---------- Resumen de Pagos ---------- Unificado por canal: Trimestre/Año filtran server-side, CEDI/Estado client-side. Cada fila trae su propio período, nunca se suman entre trimestres.
 	function abrirResumen(canal, trimestre, anio) {
 		vistaLista.classList.add('hidden');
 		vistaResumen.classList.remove('hidden');
@@ -425,8 +421,7 @@
 		}).join('');
 	}
 
-	// Top 10 por total, HTML/CSS en vez de SVG: medir por cantidad de caracteres no sirve, el ancho real en píxeles varía y tapaba la barra.
-	// El label es un <span> con text-overflow:ellipsis real, nunca se tapa; el nombre completo queda en `title` además de en la tabla de abajo.
+	// Top 10 por total, HTML/CSS en vez de SVG: medir por cantidad de caracteres no sirve, el ancho real en píxeles varía y tapaba la barra. El label es un <span> con text-overflow:ellipsis real, nunca se tapa; el nombre completo queda en `title` además de en la tabla de abajo.
 	function renderResumenChart(filas) {
 		if (!filas.length) {
 			resumenChart.innerHTML = '<p class="ac-field-hint">Sin datos para graficar.</p>';
@@ -503,8 +498,7 @@
 			.catch(function () { mostrarToast('Error de conexión al resolver.', 'error'); });
 	}
 
-	// Aviso "en desarrollo" (SweetAlert2, un solo botón). Este script corre siempre al cargar index.php sin importar la pestaña activa, por eso no
-	// se dispara acá directo (saldría "de la nada"); se expone para que index.php lo llame al entrar de verdad a la sección, una vez por sesión.
+	// Aviso "en desarrollo" (SweetAlert2, un solo botón). Este script corre siempre al cargar index.php sin importar la pestaña activa, por eso no se dispara acá directo (saldría "de la nada"); se expone para que index.php lo llame al entrar de verdad a la sección, una vez por sesión.
 	var avisoDesarrolloMostrado = false;
 	window.acLiquidacionRefrescar = function () {
 		if (!avisoDesarrolloMostrado) {

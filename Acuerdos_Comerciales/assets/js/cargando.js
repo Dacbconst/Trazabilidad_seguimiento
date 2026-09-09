@@ -1,5 +1,4 @@
-// Feedback de carga reusable: acBotonCargando(btn, bool) gira el ícono y deshabilita el botón; acMostrarCargando()/acOcultarCargando()
-// ponen un overlay con spinner sobre cualquier contenedor con position:relative.
+// Feedback de carga reusable: acBotonCargando(btn, bool) gira el ícono y deshabilita el botón; acMostrarCargando()/acOcultarCargando() ponen un overlay con spinner sobre cualquier contenedor con position:relative.
 (function () {
 	window.acBotonCargando = function (btn, cargando) {
 		if (!btn) return;

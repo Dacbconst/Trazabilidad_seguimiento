@@ -1,6 +1,5 @@
 <?php
-// Sube/descarga a Azure Blob Storage vía API REST directa (firma Shared Key a mano), sin SDK de Composer — mismo criterio que xlsx_reader/writer.
-// A diferencia de otras apps de la misma cuenta, acá SIEMPRE se autentica también para LEER (Shared Key en el GET): las Actas llevan precios/rebates reales.
+// Sube/descarga a Azure Blob Storage vía API REST directa (firma Shared Key a mano), sin SDK de Composer — mismo criterio que xlsx_reader/writer. A diferencia de otras apps de la misma cuenta, acá SIEMPRE se autentica también para LEER (Shared Key en el GET): las Actas llevan precios/rebates reales.
 
 define('AZURE_STORAGE_ACCOUNT', 'luckyecuadorweb');
 define('AZURE_STORAGE_KEY', '1NR1OHQjEVkwUmFTCtktU9j0/iMbVq7szdh41DOSac4icyhIzStRfyD0sAMha0ZSRWT+ZRGucKeksMR0iEaFzQ==');
@@ -37,8 +36,7 @@ function azure_storage_firmar($metodo, $blobPath, $headersFirma, $contentType, $
 	return 'SharedKey ' . AZURE_STORAGE_ACCOUNT . ':' . $firma;
 }
 
-// Sube $contenido (bytes crudos) al blob "AcuerdosComerciales/$nombreRelativo".
-// Devuelve la ruta guardada (para persistir en la base) o false si falló.
+// Sube $contenido (bytes crudos) al blob "AcuerdosComerciales/$nombreRelativo". Devuelve la ruta guardada (para persistir en la base) o false si falló.
 function azure_storage_subir($nombreRelativo, $contenido, $contentType) {
 	$blobPath = AZURE_STORAGE_PREFIX . ltrim($nombreRelativo, '/');
 	$fecha = gmdate('D, d M Y H:i:s \G\M\T');

@@ -28,8 +28,7 @@ if ($acuerdoId > 0) {
 	}
 }
 
-// Scoping por creado_por, igual que Historial: 404 (no 403) a propósito para no confirmar si el id existe.
-// Excepción: superdesarrollador puede ver/descargar el PDF de cualquier Acta (ve ambos canales combinados en Historial).
+// Scoping por creado_por, igual que Historial: 404 (no 403) a propósito para no confirmar si el id existe. Excepción: superdesarrollador puede ver/descargar el PDF de cualquier Acta (ve ambos canales combinados en Historial).
 $usuarioSesion = $_SESSION['user_id'] ?? null;
 $puedeVerCualquiera = ($_SESSION['rol'] ?? '') === 'superdesarrollador';
 if (!$cabecera || (!$puedeVerCualquiera && (int) $cabecera['creado_por'] !== (int) $usuarioSesion)) {
@@ -38,8 +37,7 @@ if (!$cabecera || (!$puedeVerCualquiera && (int) $cabecera['creado_por'] !== (in
 	exit;
 }
 
-// Caso normal: baja el snapshot ya generado de Azure Blob Storage en vez de re-renderizar con Dompdf.
-// Cae al render en vivo solo si no hay snapshot todavía (y de paso lo deja guardado en Azure para la próxima).
+// Caso normal: baja el snapshot ya generado de Azure Blob Storage en vez de re-renderizar con Dompdf. Cae al render en vivo solo si no hay snapshot todavía (y de paso lo deja guardado en Azure para la próxima).
 $pdfBinario = $cabecera['pdf_azure_path'] ? azure_storage_descargar($cabecera['pdf_azure_path']) : false;
 if ($pdfBinario === false) {
 	$detalle = obtener_acuerdo_detalle($mysqli, $acuerdoId);
@@ -64,8 +62,7 @@ if ($pdfBinario === false) {
 	}
 }
 
-// El acuerdo puede cambiar (regenerar acta) sin que cambie ?id=X, así que el
-// navegador no debe reusar una versión vieja del PDF con esa misma URL.
+// El acuerdo puede cambiar (regenerar acta) sin que cambie ?id=X, así que el navegador no debe reusar una versión vieja del PDF con esa misma URL.
 header('Content-Type: application/pdf');
 header('Content-Disposition: inline; filename="Acta_'.$cabecera['documento_no'].'.pdf"');
 header('Content-Length: '.strlen($pdfBinario));

@@ -19,8 +19,7 @@ if ($acuerdoId <= 0) {
 	exit;
 }
 
-// Mismo criterio de propiedad que Historial/Mis Borradores/generar_acta_pdf.php:
-// nadie puede anular un acuerdo ajeno adivinando el id.
+// Mismo criterio de propiedad que Historial/Mis Borradores/generar_acta_pdf.php: nadie puede anular un acuerdo ajeno adivinando el id.
 $stmt = $mysqli->prepare('SELECT creado_por FROM repositorio_acuerdos WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();

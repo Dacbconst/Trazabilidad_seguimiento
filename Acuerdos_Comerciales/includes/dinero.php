@@ -5,8 +5,7 @@ function dinero_disponible_bcmath() {
 	return function_exists('bcadd');
 }
 
-// Suma un array de valores numéricos con precisión decimal exacta. Sin BCMath
-// disponible, cae a array_sum nativo en vez de romper la importación.
+// Suma un array de valores numéricos con precisión decimal exacta. Sin BCMath disponible, cae a array_sum nativo en vez de romper la importación.
 function dinero_sumar(array $valores, $escala = 2) {
 	if (!dinero_disponible_bcmath()) {
 		return round(array_sum(array_map('floatval', $valores)), $escala);
@@ -20,8 +19,7 @@ function dinero_sumar(array $valores, $escala = 2) {
 	return (float) bcadd($acumulado, '0', $escala);
 }
 
-// bcadd/bcmul exigen strings numéricos normales; un float en notación
-// científica ("1.0E-5") rompe BCMath en silencio. number_format() lo evita.
+// bcadd/bcmul exigen strings numéricos normales; un float en notación científica ("1.0E-5") rompe BCMath en silencio. number_format() lo evita.
 function dinero_a_string($valor, $decimales = 6) {
 	return number_format((float) $valor, $decimales, '.', '');
 }

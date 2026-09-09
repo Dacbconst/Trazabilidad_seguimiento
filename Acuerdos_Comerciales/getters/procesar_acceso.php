@@ -19,8 +19,7 @@ if ($resultado === true) {
 	exit;
 }
 
-// 'bloqueado' (demasiados intentos fallidos, ver login() en functions.php)
-// se distingue del error genérico para mostrar un mensaje específico.
+// 'bloqueado' (demasiados intentos fallidos, ver login() en functions.php) se distingue del error genérico para mostrar un mensaje específico.
 header('Location: ../login.php?error='.($resultado === 'bloqueado' ? 'bloqueado' : '1'));
 exit;
 ?>

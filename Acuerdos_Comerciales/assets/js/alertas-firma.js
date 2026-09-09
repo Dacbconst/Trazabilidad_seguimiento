@@ -1,5 +1,4 @@
-// Campanita de notificaciones: "Actas Asignadas" (precargadas pendientes) y "Actas Por Firmar" (plazo de 20 días, ver alertas_firma.php).
-// Sin tiempo real (sin Firebase): la sensación de en vivo la da el refresco manual + el automático en cada cambio de módulo.
+// Campanita de notificaciones: "Actas Asignadas" (precargadas pendientes) y "Actas Por Firmar" (plazo de 20 días, ver alertas_firma.php). Sin tiempo real (sin Firebase): la sensación de en vivo la da el refresco manual + el automático en cada cambio de módulo.
 (function () {
 	var btn = document.getElementById('acAlertasBtn');
 	var badge = document.getElementById('acAlertasBadge');

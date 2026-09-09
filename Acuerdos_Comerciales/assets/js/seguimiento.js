@@ -65,8 +65,7 @@
 	function badgeParaActa(a) {
 		if (a.tiene_firma) return { className: 'ac-badge-ok', text: 'Firmada' };
 		if (a.estado === 'vencido') return { className: 'ac-badge-critico', text: 'Vencida' };
-		// Antes exigía estado==='generado'/'enviado' — una Acta con estado='firmado' pero sin archivo real (dato inconsistente real, ver
-		// resumen_seguimiento_equipo()) caía siempre acá mostrando "Pendiente" seco en vez de la cuenta regresiva real.
+		// Antes exigía estado==='generado'/'enviado' — una Acta con estado='firmado' pero sin archivo real (dato inconsistente real, ver resumen_seguimiento_equipo()) caía siempre acá mostrando "Pendiente" seco en vez de la cuenta regresiva real.
 		if (a.dias_restantes !== null && a.dias_restantes !== undefined) {
 			return badgeParaDias(a.dias_restantes, tierPorDias(a.dias_restantes));
 		}
@@ -80,8 +79,7 @@
 		return 'conic-gradient(#1e9e5a 0% ' + pctVerde + '%, ' + urg + ' ' + pctVerde + '% 100%)';
 	}
 
-	// El anillo también refleja Vencidas, no solo Pendientes (un usuario con 0 pendientes pero vencidas no debe verse "neutral").
-	// `dias_mas_proxima` puede venir null aunque pendientes>0; se chequea con `!= null` para no pasar null a tierPorDias() (pintaría crítico por error).
+	// El anillo también refleja Vencidas, no solo Pendientes (un usuario con 0 pendientes pero vencidas no debe verse "neutral"). `dias_mas_proxima` puede venir null aunque pendientes>0; se chequea con `!= null` para no pasar null a tierPorDias() (pintaría crítico por error).
 	function ringDeUsuario(u) {
 		var pct = u.total > 0 ? Math.round((u.firmadas / u.total) * 100) : 0;
 		var tier = 'plain';
@@ -90,8 +88,7 @@
 		return ringGradient(pct, tier);
 	}
 
-	// ---------- Filas de "Equipo" según el filtro de estado activo ----------
-	// `u.iniciales` viene calculado en el servidor (inicialesUsuario()): recalcularlo acá con otra regex divergía para nombres con punto.
+	// ---------- Filas de "Equipo" según el filtro de estado activo ---------- `u.iniciales` viene calculado en el servidor (inicialesUsuario()): recalcularlo acá con otra regex divergía para nombres con punto.
 	function computeFilasBase(equipo, filtro) {
 		return equipo.map(function (u) {
 			var f = { id: u.usuario_id, nombre: u.nombre, iniciales: u.iniciales, ringCss: ringDeUsuario(u) };
@@ -234,9 +231,7 @@
 		detalleCard.innerHTML = '<div class="ac-seg-vacio-detalle"><span class="material-symbols-outlined">error</span><p>No se pudo cargar el detalle.</p></div>';
 	}
 
-	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile), mismo contenido ----------
-	// Link a la Acta firmada, mismo criterio visual que el link del Documento (#ac-seg-doc/-link) — la fecha es el texto del link.
-	// descargar_acta_firmada.php ya sirve el archivo con Content-Disposition:inline, así que target="_blank" lo MUESTRA, no lo descarga.
+	// ---------- Render: panel de detalle (desktop) / acordeón inline (mobile), mismo contenido ---------- Link a la Acta firmada, mismo criterio visual que el link del Documento (#ac-seg-doc/-link) — la fecha es el texto del link. descargar_acta_firmada.php ya sirve el archivo con Content-Disposition:inline, así que target="_blank" lo MUESTRA, no lo descarga.
 	function firmadaCeldaHtml(a) {
 		if (!a.tiene_firma) return '<span class="ac-text-center ac-field-hint">—</span>';
 		var fecha = a.acta_firmada_subido_en ? formatearFecha(a.acta_firmada_subido_en.split(' ')[0]) : '—';
@@ -293,8 +288,7 @@
 		return usuarioId + '|' + estado.filtro + '|' + estado.trimestre + '|' + estado.anio;
 	}
 
-	// ultimoFetchKey se actualiza DESPUÉS de confirmar éxito: si se marcaba de entrada y el fetch fallaba, un refresco posterior saltaba el reintento.
-	// `miReqId` evita que una respuesta vieja pise el panel ya actualizado por una más nueva.
+	// ultimoFetchKey se actualiza DESPUÉS de confirmar éxito: si se marcaba de entrada y el fetch fallaba, un refresco posterior saltaba el reintento. `miReqId` evita que una respuesta vieja pise el panel ya actualizado por una más nueva.
 	function cargarDetalle(filaUsuario) {
 		if (!filaUsuario) return;
 		var miReqId = ++detalleReqId;
