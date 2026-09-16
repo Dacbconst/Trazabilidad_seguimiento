@@ -39,6 +39,35 @@ if (!$trimestreActivo || !$anio) {
 
 // Formato elegido explícito en el picker de Historial; sin valor reconocido cae a Directo.
 $canalExport = ($_GET['canal'] ?? '') === 'distribuidor' ? 'distribuidor' : 'directo';
+
+// Chequeo previo (?verificar=1, sin generar el archivo): el frontend lo llama antes de descargar
+// para no bajar un Excel vacío cuando el filtro no tiene ningún acuerdo real.
+if (($_GET['verificar'] ?? '') === '1') {
+	$condicionCanalVerificar = $canalExport === 'distribuidor' ? "d.canal = 'DISTRIBUIDOR'" : "d.canal <> 'DISTRIBUIDOR'";
+	$hayDatos = false;
+	$stmtV = $mysqli->prepare(
+		"SELECT COUNT(DISTINCT a.id) AS total
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 WHERE a.estado NOT IN ('borrador', 'anulado')
+		   AND a.acta_firmada_azure_path IS NOT NULL
+		   AND d.pos_name LIKE ?
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)
+		   AND $condicionCanalVerificar"
+	);
+	if ($stmtV) {
+		$stmtV->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+		$stmtV->execute();
+		$filaV = $stmtV->get_result()->fetch_assoc();
+		$stmtV->close();
+		$hayDatos = ((int) ($filaV['total'] ?? 0)) > 0;
+	}
+	header('Content-Type: application/json');
+	echo json_encode(['ok' => true, 'hay_datos' => $hayDatos]);
+	exit;
+}
+
 if ($canalExport === 'distribuidor') {
 	require __DIR__.'/exportar_cuota_categoria_distribuidor.php';
 	exit;

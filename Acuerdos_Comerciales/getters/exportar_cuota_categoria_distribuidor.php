@@ -1,5 +1,10 @@
 <?php
-// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php cuando el canal es distribuidor. Sin CODIGO/RUC/CARTERA ni fila TOTAL (no existen en el archivo real).
+// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php cuando el canal es distribuidor.
+// Sin fila TOTAL (confirmado contra el archivo real, no la tiene). Usa CATEGORIA/SUBCATEGORIA/MARCA
+// (decisión del usuario, 2026-09-15) en vez de las columnas CODIGO/RUC que sí trae el archivo real de JW
+// ahí — no se replican porque no hay fuente real en nuestra base (repositorio_locales_supervisores_cliente
+// no tiene esas columnas); confirmado contra un archivo real de JW que sí las incluye y trae dato, así que si
+// se consigue esa fuente en el futuro, agregarlas es solo swap de estas 2 columnas por esas 2.
 
 $stmtD = $mysqli->prepare(
 	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
@@ -87,9 +92,12 @@ $sD2 = $wbD->agregarHoja('CUOTA TOTAL');
 $bgEncD = '747474'; $fontEncD = 'FFFFFF'; $bgVentaD = '000000'; $fontVentaD = 'FFFFFF'; $bgClienteD = 'F2CEEF';
 
 $trimestreD = intdiv($mesesColsD[0], 3) + 1;
-$tituloCuotaGrupo = 'CUOTAS Q'.$trimestreD;
+// Los títulos de GRUPO (fila 1, fusionados) llevan año en el archivo real ("CUOTAS Q2 2026"/
+// "VENTA Q2 2026") — los de columna (fila 2, "CUOTA Q2"/"TOTAL VENTA Q2") NO lo llevan,
+// confirmado celda por celda contra el archivo real de JW (2026-09-15).
+$tituloCuotaGrupo = 'CUOTAS Q'.$trimestreD.' '.$anio;
 $tituloCuotaCol = 'CUOTA Q'.$trimestreD;
-$tituloVentaGrupo = 'VENTA Q'.$trimestreD;
+$tituloVentaGrupo = 'VENTA Q'.$trimestreD.' '.$anio;
 $tituloVentaCol = 'TOTAL VENTA Q'.$trimestreD;
 
 // ---------- Encabezados fila 2 ----------
@@ -344,14 +352,49 @@ foreach ($porClienteVisD as $clienteD => $datosClienteD) {
 }
 $ultimaFilaVisD = $filaVisDatosD - 1;
 
-// ==================== Hoja "RESUMEN DE PAGOS" ==================== Un renglón por cliente: VOLUMEN de REBATE REAL VOL, VISIBILIDAD del total de "VISIBILIDAD (2)".
+// Fila TOTAL (2026-09-15) — confirmado contra el archivo real que esta hoja SÍ la tiene
+// (a diferencia de "CUOTAS POR CAT -DISTRIBUIDORES", que no la tiene). Mismo patrón ya
+// usado en la fila TOTAL de "CUOTA CLIENTE - CATEGORÍA" de Directo: SUBTOTAL(9,...) para
+// el total de Pago, SUM() para el resto. Las columnas de VALIDACIÓN (texto CUMPLE/NO
+// CUMPLE) no se totalizan — mismo criterio ya usado ahí, sumar texto no aporta nada.
+if ($ultimaFilaVisD >= $primeraFilaVisD) {
+	$filaTotalVisD = $filaVisDatosD;
+	$wbD->celda($sVisD, $filaTotalVisD, $vdNombre, 'TOTAL', true);
+	foreach ([$vdCantCab, $vdCantIsla, $vdCantPercha, $vdCantTotal, $vdPagoCab, $vdPagoIsla, $vdPagoPercha] as $col) {
+		$rangoTotalVisD = XlsxWriter::colLetra($col).$primeraFilaVisD.':'.XlsxWriter::colLetra($col).$ultimaFilaVisD;
+		$wbD->formula($sVisD, $filaTotalVisD, $col, 'SUM('.$rangoTotalVisD.')', true);
+	}
+	$rangoPagoTotalVisD = XlsxWriter::colLetra($vdPagoTotal).$primeraFilaVisD.':'.XlsxWriter::colLetra($vdPagoTotal).$ultimaFilaVisD;
+	$wbD->formula($sVisD, $filaTotalVisD, $vdPagoTotal, 'SUBTOTAL(9,'.$rangoPagoTotalVisD.')', true);
+	foreach ([$vdFinCab, $vdFinIsla, $vdFinPercha, $vdFinTotal] as $col) {
+		$rangoTotalVisD = XlsxWriter::colLetra($col).$primeraFilaVisD.':'.XlsxWriter::colLetra($col).$ultimaFilaVisD;
+		$wbD->formula($sVisD, $filaTotalVisD, $col, 'SUM('.$rangoTotalVisD.')', true);
+	}
+}
+
+// ==================== Hoja "RESUMEN DE PAGOS" — OCULTA (2026-09-15) ====================
+// Pedido explícito del usuario, tras comparar celda por celda contra el archivo real de
+// JW ("RESUMEN DE PAGOS CAJAS"): esa hoja real tiene 12 columnas (Ciudad, Volumen/
+// Visibilidad/Total en CANTIDAD de cajas, precio por SKU, split Comercial/Marketing) —
+// de esas, "Volumen" (cantidad real de cajas vendidas) y el precio por SKU NO tienen
+// ninguna fuente en nuestra base hoy (se investigó a fondo: repositorio_locales_ventas y
+// repositorio_productos_ventas —esta última con columna `pvp`, encajaría en concepto—
+// existen en el esquema pero están en 0 filas, no cargadas para este proyecto). La
+// versión de 5 columnas que sí podíamos armar con nuestros datos (Volumen desde REBATE
+// REAL VOL, Visibilidad desde VISIBILIDAD (2)) no representa lo mismo que la hoja real
+// y generaba confusión — se decidió sacarla del export en vez de mostrar algo que no
+// coincide. El código queda comentado, no borrado, por si en el futuro se consigue la
+// fuente real de "cajas vendidas" y tiene sentido reconstruirla con la estructura
+// completa de 12 columnas. Para reactivarla: descomentar el bloque de abajo.
+/*
 $sResumenD = $wbD->agregarHoja('RESUMEN DE PAGOS');
+$bgResumenD = '0000FF'; $fontResumenD = 'FFFFFF';
 $rdDistribuidor = 1; $rdNombre = 2; $rdVolumen = 3; $rdVisibilidad = 4; $rdTotalPago = 5;
-$wbD->celda($sResumenD, 1, $rdDistribuidor, 'DISTRIBUIDOR', true, null, $bgEncD, $fontEncD);
-$wbD->celda($sResumenD, 1, $rdNombre, 'NOMBRE', true, null, $bgEncD, $fontEncD);
-$wbD->celda($sResumenD, 1, $rdVolumen, 'VOLUMEN', true, null, $bgEncD, $fontEncD);
-$wbD->celda($sResumenD, 1, $rdVisibilidad, 'VISIBILIDAD', true, null, $bgEncD, $fontEncD);
-$wbD->celda($sResumenD, 1, $rdTotalPago, 'TOTAL', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sResumenD, 1, $rdDistribuidor, 'DISTRIBUIDOR', true, null, $bgResumenD, $fontResumenD);
+$wbD->celda($sResumenD, 1, $rdNombre, 'NOMBRE', true, null, $bgResumenD, $fontResumenD);
+$wbD->celda($sResumenD, 1, $rdVolumen, 'VOLUMEN', true, null, $bgResumenD, $fontResumenD);
+$wbD->celda($sResumenD, 1, $rdVisibilidad, 'VISIBILIDAD', true, null, $bgResumenD, $fontResumenD);
+$wbD->celda($sResumenD, 1, $rdTotalPago, 'TOTAL', true, null, $bgResumenD, $fontResumenD);
 
 // Unión de clientes vistos en Cuota (meta_compra) y en Visibilidad (cabecera/ruma/percha) — un cliente puede tener solo uno de los dos.
 $clientesResumenD = [];
@@ -394,6 +437,7 @@ if ($ultimaFilaResumenD >= $primeraFilaResumenD) {
 		$wbD->formula($sResumenD, $filaResumenD, $col, 'SUM('.$rango.')', true, 'money');
 	}
 }
+*/
 
 $binD = $wbD->generar();
 $nombreArchivoD = 'CuotaCategoria_Distribuidor_'.date('Y-m-d').'.xlsx';

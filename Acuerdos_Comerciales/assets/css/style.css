@@ -1994,6 +1994,20 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-archivo-chip-nombre { font-size: 13px; font-weight: 600; }
 .ac-archivo-chip-detalle { font-size: 12px; color: var(--color-on-surface-variant); }
 
+/* Trimestre detectado en el archivo de Cuotas — a propósito MUY notorio (ver comentario en repositorios.php):
+   antes solo vivía como texto chico dentro de .ac-archivo-chip-detalle, fácil de pasar por alto. */
+.ac-cuotas-trimestre-banner {
+	display: flex; align-items: center; gap: var(--space-sm);
+	background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed);
+	border-radius: var(--radius-lg); padding: var(--space-sm) var(--space-md);
+	margin-bottom: var(--space-md);
+}
+.ac-cuotas-trimestre-banner.hidden { display: none; }
+.ac-cuotas-trimestre-banner .material-symbols-outlined { font-size: 28px; flex-shrink: 0; }
+.ac-cuotas-trimestre-banner-texto { display: flex; flex-direction: column; line-height: 1.25; }
+.ac-cuotas-trimestre-banner-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.85; }
+.ac-cuotas-trimestre-banner-valor { font-size: 20px; font-weight: 800; }
+
 /* Sin resaltado de error a propósito: las celdas de previsualización son inputs simples, sin bordes rojos por campo. */
 .ac-preview-table-scroll { border: 1px solid var(--color-outline-variant); border-radius: var(--radius); }
 /* Arrastre horizontal con mouse tipo touch (ver activarArrastreScroll() en repositorios.js). Sin selección de texto durante el arrastre. */

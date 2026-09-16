@@ -3,6 +3,7 @@
 	var CONFIG = {
 		rebate: {
 			label: 'Rebate',
+			descripcion: 'Catálogo de % de Rebate por producto. Autocompleta y bloquea el campo en Registrar Acuerdo PDV.',
 			// Ciudad/Canal reemplazan a Segmento (2026-08-27) — el Excel real de JW (datos/RABATE.xlsx) no trae Segmento, pero sí Ciudad y Canal, que cambian el % del mismo Sector+Categoría+Marca (ver CLAUDE.md "Rebate: el Excel real de JW no usa el vocabulario..."). Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría") — mismo criterio que ya se aplicó en Meta de Compras de Registrar: la columna interna `sector`/`categoria` no cambia de nombre, solo el texto visible, para que se lea igual que el Excel real que sube JW (su "Categoría" = nuestro Sector, su "Subcategoría" = nuestra Categoría).
 			buscarPlaceholder: 'Buscar por ciudad, canal, categoría, subcategoría o marca...',
 			columnas: [
@@ -16,6 +17,7 @@
 		},
 		participacion: {
 			label: 'Participación de Percha',
+			descripcion: 'Catálogo de % de Participación de Percha por marca. Autocompleta y bloquea el campo en Registrar Acuerdo PDV.',
 			// Ciudad agregada 2026-08-30 (Excel real confirmado por el usuario, datos/PARTICIPACION PERCHA.xlsx) — la misma Marca puede tener % distinto por ciudad (ej. LAVA: 50% Guayaquil, 60% Quito, 55% "RESTO CIUDADES", catch-all real del archivo). Sin Categoría/ Subcategoría a propósito — no se guardan, ver repositorio_parsear_participacion() en repositorio_import.php.
 			buscarPlaceholder: 'Buscar por ciudad o marca...',
 			columnas: [
@@ -27,6 +29,7 @@
 		// Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md "Repositorio de Cuotas trimestrales + Actas precargadas") — a diferencia de Rebate/Participación, SÍ tiene cliente y el pos_id se resuelve en el servidor (cuotas_guardar.php), no en el Excel. Por eso tiene 2 juegos de columnas: `columnasPreview` (lo que trae el Excel crudo, antes de guardar) y `columnas` (lo que se ve en la tabla principal ya guardada, con pos_id/período/estado resueltos). Sin edición inline (`editable: false`) — estos datos vienen de un match automático, no de texto libre como Rebate/Participación.
 		cuotas: {
 			label: 'Cuotas Trimestrales',
+			descripcion: 'Sube el Excel de cuotas del trimestre para asignar Actas Precargadas de forma masiva: cada categoría queda lista para que el asesor dueño del cliente la genere desde su lista de Actas Asignadas.',
 			// Ampliado 2026-08-30 (bug real reportado: "no sé si me anda buscando por columna") — antes solo buscaba por Cliente/pos_id/ Categoría, dejaba afuera CEDI/Plan/Subcategoría/Marca aunque son columnas visibles en esta misma tabla (ver listar_repositorio_cuotas()).
 			buscarPlaceholder: 'Buscar por CEDI, cliente, plan, categoría, subcategoría o marca...',
 			editable: false,
@@ -89,6 +92,7 @@
 
 	var tablaHead = document.getElementById('repo-tabla-head');
 	var tablaBody = document.getElementById('repo-tabla-body');
+	var subtituloEl = document.getElementById('repo-subtitulo');
 	// Paginación arriba Y abajo (2026-08-25) — ambos pares se pintan siempre juntos, ver renderPaginacion() más abajo.
 	var paginacionInfoEls = [document.getElementById('repo-paginacion-info-top'), document.getElementById('repo-paginacion-info')];
 	var paginacionBtnsEls = [document.getElementById('repo-paginacion-btns-top'), document.getElementById('repo-paginacion-btns')];
@@ -308,6 +312,22 @@
 			});
 	}
 
+	// El numerito de cada pestaña (Rebate/Participación/Cuotas) mostraba "—" hasta entrar ahí: cargarLista() solo
+	// actualiza el contador de la pestaña ACTIVA. Esto llena los otros 2 aparte, sin tocar tabla/paginación de esa pestaña.
+	function cargarContadorTab(tipo) {
+		var contador = document.getElementById('repo-tab-' + tipo + '-count');
+		if (!contador) return;
+		fetch('getters/repositorio_listar.php?' + new URLSearchParams({ tipo: tipo, q: '', pg: 1 }).toString())
+			.then(function (r) { return r.json(); })
+			.then(function (data) { if (data.ok) contador.textContent = data.total; })
+			.catch(function () {});
+	}
+	function cargarContadoresTabs() {
+		['rebate', 'participacion', 'cuotas'].forEach(function (tipo) {
+			if (tipo !== tipoActivo) cargarContadorTab(tipo); // el de la pestaña activa ya lo llena cargarLista()
+		});
+	}
+
 	// ---------- Exportar (CSV/Excel) ----------
 	function actualizarHrefsExportar() {
 		var base = 'getters/repositorio_exportar.php?tipo=' + tipoActivo + '&q=' + encodeURIComponent(busquedaActual) + '&formato=';
@@ -322,6 +342,7 @@
 		busquedaActual = '';
 		buscarInput.value = '';
 		buscarInput.placeholder = CONFIG[tipo].buscarPlaceholder;
+		if (subtituloEl && CONFIG[tipo].descripcion) subtituloEl.textContent = CONFIG[tipo].descripcion;
 		tabRebate.classList.toggle('active', tipo === 'rebate');
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
@@ -371,6 +392,8 @@
 	var previewErrores = document.getElementById('repo-preview-errores');
 	var previewAnioWrap = document.getElementById('repo-preview-anio-wrap');
 	var previewAnioInput = document.getElementById('repo-preview-anio');
+	var previewTrimestreBanner = document.getElementById('repo-preview-trimestre-banner');
+	var previewTrimestreValor = document.getElementById('repo-preview-trimestre-valor');
 
 	// Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito: "que pueda con el mouse mover la tabla sosteniendo y moviendo el mouse" — con el ancho auto-ajustado la tabla de previsualización puede quedar más ancha que el modal, y el scrollbar nativo del navegador solo se ve pegado abajo del todo, no arriba). Mantener click y arrastrar mueve el contenido, sin depender de encontrar el scrollbar. Se excluye el arrastre si el click empezó en un input/botón/link — si no, no se podría hacer foco normal para editar una celda.
 	function activarArrastreScroll(contenedor) {
@@ -543,8 +566,15 @@
 			if (tipoActivo === 'cuotas') {
 				previewAnioInput.value = new Date().getFullYear();
 				previewAnioWrap.classList.remove('hidden');
+				if (trimestrePreview) {
+					previewTrimestreValor.textContent = 'Q' + trimestrePreview + (etiquetaCanalCuotas ? ' · Canal ' + etiquetaCanalCuotas : '');
+					previewTrimestreBanner.classList.remove('hidden');
+				} else {
+					previewTrimestreBanner.classList.add('hidden');
+				}
 			} else {
 				previewAnioWrap.classList.add('hidden');
+				previewTrimestreBanner.classList.add('hidden');
 			}
 			renderPreviewTabla();
 			mostrarPasoPreview();
@@ -1096,8 +1126,10 @@
 	eliminadosOverlay.addEventListener('click', function (e) { if (e.target === eliminadosOverlay) cerrarEliminados(); });
 
 	// Refresco al volver a esta pestaña (mismo patrón que Historial/Liquidación, ver index.php) — la arquitectura de la app renderiza todo una sola vez.
-	window.acRepositoriosRefrescar = function () { cargarLista(); };
+	window.acRepositoriosRefrescar = function () { cargarLista(); cargarContadoresTabs(); };
 
+	if (subtituloEl && CONFIG[tipoActivo].descripcion) subtituloEl.textContent = CONFIG[tipoActivo].descripcion;
 	actualizarHrefsExportar();
 	cargarLista();
+	cargarContadoresTabs();
 })();

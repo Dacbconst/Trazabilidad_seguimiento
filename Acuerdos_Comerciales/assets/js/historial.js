@@ -38,23 +38,53 @@
 		});
 
 		// Aviso ANTES de descargar: con "Todos los períodos/años" el Excel mezclaría trimestres — el getter ya lo rechaza, esto avisa antes del click.
+		// Con período y año completos, se verifica primero (?verificar=1, sin generar el archivo) que el filtro tenga
+		// algún acuerdo real — si no hay ninguno, se avisa en vez de descargar un Excel vacío.
 		exportarLinks.forEach(function (link) {
 			link.addEventListener('click', function (e) {
 				var faltaTrimestre = trimestreSelect.value === '0';
 				var faltaAnio = anioSelect.value === '0';
-				if (!faltaTrimestre && !faltaAnio) { setTimeout(cerrarExportar, 150); return; }
-
 				e.preventDefault();
-				var queFalta = faltaTrimestre && faltaAnio ? 'el período y el año' : (faltaTrimestre ? 'el período' : 'el año');
-				Swal.fire({
-					icon: 'warning',
-					title: 'Elige el período antes de descargar',
-					html: 'Este archivo se genera para un trimestre y año específicos.<br><br>Elige <strong>' + queFalta + '</strong> en el filtro de arriba antes de descargar.',
-					confirmButtonText: 'Ir al filtro',
-					confirmButtonColor: '#00288e'
-				}).then(function () {
-					resaltarFiltroPeriodo(faltaTrimestre, faltaAnio);
-				});
+
+				if (faltaTrimestre || faltaAnio) {
+					var queFalta = faltaTrimestre && faltaAnio ? 'el período y el año' : (faltaTrimestre ? 'el período' : 'el año');
+					Swal.fire({
+						icon: 'warning',
+						title: 'Elige el período antes de descargar',
+						html: 'Este archivo se genera para un trimestre y año específicos.<br><br>Elige <strong>' + queFalta + '</strong> en el filtro de arriba antes de descargar.',
+						confirmButtonText: 'Ir al filtro',
+						confirmButtonColor: '#00288e'
+					}).then(function () {
+						resaltarFiltroPeriodo(faltaTrimestre, faltaAnio);
+					});
+					return;
+				}
+
+				var url = link.href;
+				var urlVerificar = url + (url.indexOf('?') === -1 ? '?' : '&') + 'verificar=1';
+				acBotonCargando(exportarBtn, true);
+				fetch(urlVerificar)
+					.then(function (r) { return r.json(); })
+					.then(function (data) {
+						cerrarExportar();
+						if (data.ok && data.hay_datos) {
+							window.location.href = url;
+						} else {
+							Swal.fire({
+								icon: 'info',
+								title: 'No hay acuerdos para descargar',
+								text: 'No se encontraron acuerdos firmados con este período, año y canal. Prueba con otro filtro.',
+								confirmButtonText: 'Entendido',
+								confirmButtonColor: '#00288e'
+							});
+						}
+					})
+					.catch(function () {
+						mostrarToast('Error de conexión. Intenta nuevamente.', 'error');
+					})
+					.finally(function () {
+						acBotonCargando(exportarBtn, false);
+					});
 			});
 		});
 	}

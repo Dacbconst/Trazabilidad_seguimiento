@@ -4,30 +4,42 @@ Contexto de negocio y técnico para trabajar en este proyecto. Cliente: Jaboner�
 Wilson S.A. (empresa de Alicorp). Sistema para digitalizar el proceso de Acuerdos
 Comerciales (Acta de Compromiso) con distribuidores/PDV del canal directo.
 
-## ⚠️ Excepción a la regla de solo lectura — SOLO en este proyecto (2026-08-28)
+## ⚠️ REVOCADA (2026-09-15): la excepción de solo lectura de este proyecto ya no existe
 
-El `CLAUDE.md` raíz del repositorio (fuera de esta carpeta) dice que Claude
-solo puede ejecutar `SELECT`/`SHOW`/`DESCRIBE` en cualquier base de datos
-del repo, sin excepción. **Esa regla raíz NO cambió y sigue aplicando tal
-cual a todos los demás proyectos** (ej. Pintuco). El usuario pidió una
-excepción puntual, **solo para Acuerdos Comerciales**, con este alcance
-exacto — no ampliar más de lo que dice acá:
+Este proyecto tuvo, entre el 2026-08-28 y el 2026-09-15, una excepción
+puntual que permitía a Claude ejecutar `CREATE TABLE`/`ALTER TABLE` acá
+(mostrando el SQL exacto y esperando confirmación antes de cada uno). **El
+usuario la revocó del todo** — el `CLAUDE.md` raíz del repositorio ahora
+dice explícitamente que la regla de solo lectura aplica "a todos los
+proyectos de este repositorio... sin excepción" y que Claude "JAMÁS puede
+ejecutar... `ALTER TABLE`... bajo ninguna circunstancia, aunque el usuario
+lo pida explícitamente en el momento" — ya no hay excepción por proyecto,
+ni para este ni para ningún otro.
 
-- **Permitido, y SOLO esto**: `CREATE TABLE` y `ALTER TABLE`.
-- **Requisito obligatorio, sin excepción, para cada ejecución**: antes de
-  correr el `CREATE`/`ALTER`, Claude tiene que mostrarle al usuario el SQL
-  EXACTO que va a ejecutar y esperar una confirmación explícita ("sí" o
-  equivalente claro) para ESE SQL puntual. Nunca ejecutar de entrada, nunca
-  asumir que una aprobación anterior cubre una ejecución nueva o distinta.
-- **Sigue absolutamente prohibido, sin ninguna excepción, igual que
-  siempre**: `DROP TABLE`, `DROP DATABASE`, `DELETE`, `TRUNCATE`, `UPDATE`,
-  `INSERT`, o cualquier otra operación que borre/modifique datos o
-  esquema fuera de `CREATE TABLE`/`ALTER TABLE`. Esto incluye `DROP` como
-  parte de un `ALTER` (ej. `ALTER TABLE ... DROP COLUMN`) — si un `ALTER`
-  necesario incluye un `DROP COLUMN`/`DROP INDEX`, sigue prohibido
-  ejecutarlo Claude; en ese caso, proponer el SQL para que el usuario lo
-  corra él mismo (mismo criterio que ya se usaba para todo antes de esta
-  excepción).
+**Motivo real**: el usuario descubrió que las credenciales de
+`config.php` (las que usa Claude en cualquier script de diagnóstico
+directo contra la base) tienen MÁS privilegios que su propia cuenta
+personal de HeidiSQL — incluido `ALTER TABLE`, confirmado con un hecho
+real: bajo la excepción de arriba, Claude corrió varios `ALTER`/`CREATE`
+reales contra esta base (ver secciones "Tabla nueva:
+`repositorio_cumplimiento_cuota`", "Participación de Percha — conectada
+al repositorio", "Cuotas: SUBCATEGORIA/MARCA opcionales..." más abajo en
+este mismo archivo, todas marcadas "✅ EJECUTADO por Claude" — esas
+ejecuciones fueron legítimas en su momento, bajo la excepción vigente
+entonces, no se deshacen ni se cuestionan retroactivamente, solo quedan
+como evidencia de por qué se cerró la puerta). El usuario decidió que
+Claude debe operar como si solo tuviera lectura, siempre, sin importar lo
+que la cuenta permita técnicamente.
+
+**Regla vigente de acá en más, sin excepción**: Claude **solo puede
+ejecutar `SELECT`/`SHOW`/`DESCRIBE`** en la base de este proyecto (o
+cualquier otra del repo). Ante cualquier necesidad de `CREATE`/`ALTER`/
+`INSERT`/`UPDATE`/`DELETE`/`DROP`, proponer el SQL exacto para que el
+usuario lo corra él mismo en HeidiSQL — nunca ejecutarlo, nunca ofrecerse
+a "probarlo" con datos de prueba, nunca crear un script/endpoint que lo
+ejecute en su lugar. Una instrucción explícita del usuario en el momento
+("corrélo vos", "dale sí") **no** habilita una excepción — la regla es
+absoluta y no depende de una autorización puntual.
 
 ## PDF y Acta firmada movidos de LONGBLOB a Azure Blob Storage (2026-09-05)
 
@@ -8341,6 +8353,93 @@ sesión (falta la extensión `zip` en el PHP CLI local, límite ya
 documentado varias veces en este archivo). **Todavía sin probar en
 navegador real.**
 
+## Excel Distribuidor: comparativa celda por celda contra el archivo real de JW (2026-09-15)
+
+El usuario pasó un archivo real (`datos/formatos/LIQUIDACION DE ACUERDO COMERCIALES
+DISTRIBUIDORES Q2 2026 - copia.xlsx`, 7 hojas) y pidió comparar nuestro export de
+Distribuidor contra él, celda por celda, para saber qué corregir — **el export de
+Directo queda intacto, no se toca nada ahí, confirmado explícito por el usuario**.
+Investigado con Excel COM (PowerShell) contra el archivo real completo — hallazgos y
+qué se hizo con cada uno:
+
+**Corregido (2 cambios reales en `getters/exportar_cuota_categoria_distribuidor.php`)**:
+1. **Títulos de grupo (fila 1, fusionados) ahora llevan año** — `CUOTAS Q{trim} {año}` /
+   `VENTA Q{trim} {año}` (antes solo `CUOTAS Q{trim}`/`VENTA Q{trim}`, sin año) — confirmado
+   contra el real que SÍ lo lleva ahí (los títulos de columna, fila 2, "CUOTA Q2"/"TOTAL
+   VENTA Q2", correctamente NO llevan año, no se tocaron).
+2. **Hoja "VISIBILIDAD (2)" ahora tiene fila TOTAL** (antes no la tenía) — confirmado
+   contra el archivo real (fila 57 ahí) que SÍ existe, a diferencia de "CUOTAS POR CAT
+   -DISTRIBUIDORES" que confirmé que NO tiene fila TOTAL (no se agregó ahí). Mismo
+   patrón ya usado en la fila TOTAL de "CUOTA CLIENTE - CATEGORÍA" de Directo:
+   `SUBTOTAL(9,...)` para Pago Total, `SUM()` para el resto — las columnas de VALIDACIÓN
+   (texto CUMPLE/NO CUMPLE) no se totalizan, mismo criterio de siempre. Probado con
+   Excel COM real (2 filas sintéticas + fórmula de total) antes de darlo por bueno —
+   todos los valores coincidieron con lo esperado a mano.
+
+**Decisión explícita del usuario — NO tocar**: el real trae `CODIGO`/`RUC` (con dato
+real, confirmado — un supuesto viejo de este archivo que decía "no existen en el
+archivo real" estaba mal) donde nosotros tenemos `SUBCATEGORIA`/`MARCA` en su lugar.
+El usuario decidió **dejar Subcategoría/Marca como están** — no revertir a
+Código/RUC aunque el archivo real los tenga. Comentario del archivo corregido para no
+repetir el supuesto viejo.
+
+**Investigado y descartado — NO son bugs, no tocar**:
+- **Label "REBATE MAXIMO 110%" vs "100%" del real**: el real dice 100% pero la fórmula
+  calcula ×1.1 (110% real) — es un typo de JW en su propio archivo. Se mantiene
+  nuestro label correcto (110%), no se copia el error.
+- **Regla de pago Isla/Percha con cantidad>1**: se encontraron 9 casos reales donde
+  el pago final es `(cantidad-1)×6` en vez de `cantidad×6` — pero verificado contra
+  las 50 filas reales con CUMPLE, **41 de 50 siguen `cantidad×6`** (lo que ya hace
+  nuestra fórmula) — los 9 son ajustes manuales puntuales de JW (probablemente "esto
+  ya se pagó el trimestre pasado"), no una regla sistemática. Nuestra fórmula actual
+  es correcta, no se tocó.
+- **VALIDACIÓN (CUMPLE/NO CUMPLE)**: confirmado que 156 de 159 celdas reales están
+  tipeadas a mano (visita física a la tienda — número de caras, marca correcta en
+  percha, etc.), solo 3 tenían algo parecido a fórmula (errores `#N/D`). Es dato de
+  campo, imposible de derivar de nuestro sistema — nuestro diseño (dejarlo vacío para
+  que JW lo llene) ya es correcto, confirmado, no se tocó.
+- **Columnas V/W/X ("CABECERA"/"ISLA"/"PERCHA" sueltas, con texto tipo "LAVA 2 ISLAS")
+  en `VISIBILIDAD (2)` del real**: es una referencia que JW se dejó anotada a sí misma
+  (qué marca debería ir en cada mueble por cliente) para guiarse llenando Validación a
+  mano — no es parte de la estructura de la hoja, no se replica.
+
+**"RESUMEN DE PAGOS" — OCULTADA del export (2026-09-15), no se pudo hacer coincidir con
+el real**: la hoja real "RESUMEN DE PAGOS CAJAS" tiene 12 columnas (Ciudad, Volumen/
+Visibilidad/Total en CANTIDAD de cajas, precio por SKU, split % Comercial/Marketing) —
+investigado a fondo antes de rendirse: se cruzaron 10 clientes reales entre las 2 hojas
+y "Volumen" (cantidad) **no correlaciona ni con Cuota Q2 ni con Venta Real** de la otra
+hoja (ninguna proporción consistente); se buscó si era del trimestre anterior (Q1) — no
+hay ningún marcador de período en la hoja; se encontraron 2 tablas en la base que
+ENCAJAN en concepto (`repositorio_locales_ventas`, `repositorio_productos_ventas` —esta
+última con columna `pvp`, calzaría con "precio por SKU"— ambas del esquema compartido
+con otros proyectos de la agencia) pero **están en 0 filas**, nunca cargadas para este
+proyecto. Conclusión: "Volumen" es venta real/sell-out que le llega a JW desde un
+sistema externo que no tenemos. La versión de 5 columnas que sí se podía armar con
+nuestros datos (ver código comentado abajo) generaba confusión al no coincidir con la
+real — el usuario pidió sacarla del todo en vez de mostrar algo que no corresponde.
+**Código de la hoja completo, comentado (no borrado)** en
+`getters/exportar_cuota_categoria_distribuidor.php` (líneas 389-440, bloque `/* ... */`)
+— si en el futuro se consigue la fuente real de "cajas vendidas" (esas 2 tablas se
+llenan, o Alicorp confirma otro origen), reconstruir con la estructura completa de 12
+columnas del real, no reactivar tal cual este bloque comentado (esa versión de 5
+columnas ya se descartó como insuficiente). El color azul (`0000FF`/blanco, tomado del
+real) que se le había puesto al encabezado el mismo día queda en el código comentado,
+sin efecto mientras la hoja esté apagada.
+- **"PRESUPUESTO UTILIZADO"**: son 3 tablas — una TablaDinámica real de Excel (fuente:
+  "Resumen de Pagos Cajas"), una comparación con Q1, y una tabla de **presupuesto
+  anual 2026 por distribuidor** que JW arma a mano — no existe en nuestra base y no se
+  puede derivar. Sigue sin construirse, mismo estado que antes de esta sesión.
+
+**Probado**: `php -l` limpio en `exportar_cuota_categoria_distribuidor.php`. Los 2
+cambios de arriba se verificaron con el motor real de Excel (COM), no solo a mano —
+tanto la cadena completa de fórmulas de "CUOTAS POR CAT -DISTRIBUIDORES" (Cuota Total,
+Rebate $, Rebate Máximo, Total Venta, Cumplimiento, Gana Categoría, Gana Total vía
+VLOOKUP, Pre Rebate, Rebate Real Vol) como el patrón Cantidad→Pago×6→Validación→Pago
+Cajas→Total de "VISIBILIDAD (2)" — contra datos reales tomados del archivo de JW
+(ZAVAMEGACORP CIA LTDA, filas 3-4 reales) coinciden exacto. **Todavía sin probar en
+navegador real** — falta descargar el Excel real generado por la app y confirmar
+visualmente los 2 cambios.
+
 ## Repositorios: botón "Descargar Formato" (Rebate/Participación) + "Eliminados" oculto (2026-09-07)
 
 Pedido explícito, 2 partes:
@@ -9516,3 +9615,94 @@ usuario suba un archivo real (puede ser directamente el
 `CUOTAS POR CAT -DISTRIBUIDORES` que ya usa para Liquidación) y confirme
 que las Actas Precargadas de Distribuidor llegan bien a la campanita del
 asesor dueño.
+
+## ⚠️ PENDIENTE — bug real de clave única en `repositorio_cuota_cliente`, falta que el usuario corra el ALTER (2026-09-16)
+
+Simulando con datos reales (captura real del usuario: cliente "ACOSTA
+HERNANDEZ SANTO AURELIO" bajo "ASERTIA COMERCIAL SA", 4 filas — BARRA,
+CREMA, y **2 filas de sector LIQUIDO** con Subcategoría/Marca distintas:
+JABON TOCADOR/MISTY y DESINFECTANTES/GOL) se encontró que **la clave única
+real de la tabla es `(pos_id, sector, trimestre, anio)`** — confirmado con
+`SHOW INDEX` — y **NO incluye Subcategoría ni Marca**, aunque esas 2
+columnas ya se guardan desde el 2026-08-28. Consecuencia real: las 2 filas
+de "LIQUIDO" del ejemplo se pisan entre sí al guardar (la 2da sobrescribe
+a la 1ra) — de 4 filas reales, solo se guardarían 3. Cualquier cliente
+real con 2+ categorías del mismo Sector (que el propio Excel real de
+Distribuidor SÍ tiene) pierde una línea en silencio, sin aviso.
+
+**SQL propuesto, sin ejecutar todavía (regla de solo lectura vigente,
+Claude no puede correrlo) — el usuario lo tiene que correr en HeidiSQL**:
+```sql
+DROP INDEX idx_pos_sector_periodo ON repositorio_cuota_cliente;
+CREATE UNIQUE INDEX idx_pos_sector_periodo ON repositorio_cuota_cliente (pos_id, sector, subcategoria, marca, trimestre, anio);
+```
+**No hace falta tocar código** — `getters/cuotas_guardar.php` ya incluye
+`subcategoria`/`marca` en el `INSERT`/`ON DUPLICATE KEY UPDATE` desde que
+se agregaron esas columnas; el único cambio que falta es el índice.
+Filas viejas (antes del 2026-08-28) con `subcategoria`/`marca` en `NULL`
+no se ven afectadas — MySQL nunca considera un `NULL` como duplicado de
+otro `NULL` en una clave única, así que no hace falta limpiar nada antes
+de correr esto. **Sin este `ALTER`, cualquier Excel real de Distribuidor
+con 2+ categorías del mismo Sector para un mismo cliente sigue perdiendo
+líneas en silencio al guardar.**
+
+## Cómo se resuelve "a quién asignar" una fila de Cuotas — explicado para pasarle a quien sube el archivo (2026-09-16)
+
+El usuario pidió explicar el mecanismo exacto (probado con el caso real de
+arriba, "ACOSTA HERNANDEZ SANTO AURELIO" → resuelto a `pos_id=EPVD12726`,
+`supervisor=ADRIAN VASQUEZ` en el maestro → cuenta activa `id=2` con ese
+mismo usuario/supervisor) para poder explicárselo a la persona real que va
+a subir este Excel. **El sistema NUNCA lee "a quién asignarlo" del Excel
+mismo** — lo resuelve solo, en 2 pasos:
+
+1. **Identificar el cliente exacto (`pos_id`)**: busca `NOMBRE` (columna
+   del Excel) contra `pos_name` en el maestro de Alicorp
+   (`repositorio_locales_supervisores_cliente`), filtrado a
+   `canal='DISTRIBUIDOR'`. Si el nombre es único por sí solo (como en el
+   caso real de arriba), listo. **Si el nombre resuelve a MÁS de un
+   cliente posible**, usa `DISTRIBUIDOR` (columna del Excel) como
+   desempate — pero ahí exige **coincidencia EXACTA** contra
+   `tipo_distribuidor` del maestro, que guarda el **nombre legal
+   completo** de la empresa (`"ASERTIA COMERCIAL SA"`, no `"ASERTIA"` a
+   secas — ver la lista completa de los 9 nombres legales reales en la
+   sección "Comparativa celda por celda..." más abajo en este archivo).
+   **Importante para instruir a quien llena el Excel: usar siempre el
+   nombre legal completo en `DISTRIBUIDOR`, nunca la forma corta** — si
+   se usa la forma corta y el nombre del cliente resulta ambiguo, el
+   desempate va a fallar (0 coincidencias) y la fila cae a "Pendientes de
+   Asignar" sin necesidad.
+2. **Encontrar el usuario dueño**: una vez resuelto el `pos_id`, se lee el
+   campo `supervisor` de ESA fila puntual del maestro (no un valor
+   agregado por Distribuidor — cada `pos_id` individual tiene su propio
+   supervisor correcto, aunque el mismo Distribuidor tenga varios
+   supervisores distintos manejando clientes diferentes — confirmado con
+   datos reales, ASERTIA COMERCIAL SA sola tiene 6 supervisores
+   distintos). Se busca una cuenta activa en `repositorio_usuarios_acuerdos`
+   cuyo `usuario` o `supervisor` coincida con ese valor — esa es la
+   persona que va a ver la Acta Precargada en su campanita.
+   **`CIUDAD` (columna del Excel) NO participa en absoluto de esta
+   resolución** — es solo informativo/geográfico para Distribuidor (a
+   diferencia de Directo, donde el campo equivalente SÍ es el nombre real
+   del asesor y sirve de mecanismo de respaldo, ver
+   `usuarioIdDeCuota()`) — no hay ningún "override" manual disponible hoy
+   para Distribuidor si el `supervisor` del maestro estuviera desactualizado.
+
+**Instrucciones concretas para quien llena el Excel de Cuotas de
+Distribuidor**:
+- `NOMBRE`: el nombre del cliente/PDV tal cual está en el maestro de
+  Alicorp — mientras más exacto, mejor (el sistema hace `LIKE 'texto%'`,
+  tolera texto de más al final pero no errores de tipeo al principio).
+- `DISTRIBUIDOR`: **nombre legal completo** de la empresa distribuidora
+  (`"ASERTIA COMERCIAL SA"`, no `"ASERTIA"`) — solo se usa si `NOMBRE` es
+  ambiguo, pero conviene ponerlo bien siempre por las dudas.
+- `CIUDAD`: dato informativo nomás, no afecta a quién se le asigna.
+
+**Limitación real, ya confirmada con datos — no depende de cómo se llene
+el Excel**: se investigó cuántos clientes reales de Distribuidor (129 de
+un archivo real de JW) existen en el maestro de Alicorp — **solo 54 (42%)
+existen, 75 (58%) NO EXISTEN en absoluto**, ni siquiera buscando por
+palabra clave suelta (no es problema de formato de texto). Para esos
+casos, ningún llenado del Excel va a lograr que el sistema encuentre un
+`pos_id` — la fila cae a "Pendientes de Asignar" para resolución manual
+(o queda sin resolver hasta que Alicorp complete su maestro). Esto no es
+arreglable desde este proyecto.

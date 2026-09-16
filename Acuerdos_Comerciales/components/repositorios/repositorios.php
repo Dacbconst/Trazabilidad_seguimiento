@@ -14,7 +14,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 	<div class="ac-users-header ac-repo-header">
 		<div>
 			<h1 class="ac-page-title">Repositorios</h1>
-			<p class="ac-page-subtitle">Catálogos de referencia para autocompletar y bloquear campos del Acta.</p>
+			<!-- Texto dinámico por pestaña (activarTab() en repositorios.js) — Cuotas Trimestrales no es un catálogo de
+			     referencia como Rebate/Participación, es el mecanismo para asignar Actas Precargadas de forma masiva,
+			     y el subtítulo genérico no lo decía (pedido explícito 2026-09-15). -->
+			<p class="ac-page-subtitle" id="repo-subtitulo">Catálogos de referencia para autocompletar y bloquear campos del Acta.</p>
 		</div>
 	</div>
 
@@ -168,6 +171,17 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<div>
 					<div class="ac-archivo-chip-nombre" id="repo-preview-nombre-archivo">—</div>
 					<div class="ac-archivo-chip-detalle" id="repo-preview-cantidad">—</div>
+				</div>
+			</div>
+			<!-- Trimestre (y canal) detectado en el archivo de Cuotas — bien visible a propósito
+			     (2026-09-15, pedido explícito: el aviso chico de antes, "(Directo, Q2)" dentro del
+			     detalle del archivo, no se notaba). Oculto para Rebate/Participación
+			     (assets/js/repositorios.js). -->
+			<div class="ac-cuotas-trimestre-banner hidden" id="repo-preview-trimestre-banner">
+				<span class="material-symbols-outlined">event</span>
+				<div class="ac-cuotas-trimestre-banner-texto">
+					<span class="ac-cuotas-trimestre-banner-label">Se están subiendo datos del trimestre</span>
+					<span class="ac-cuotas-trimestre-banner-valor" id="repo-preview-trimestre-valor">—</span>
 				</div>
 			</div>
 			<!-- El Excel de Cuotas no trae el año (solo el trimestre, inferido del
