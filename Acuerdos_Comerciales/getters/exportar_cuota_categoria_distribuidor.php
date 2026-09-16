@@ -1,16 +1,13 @@
 <?php
-// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php cuando el canal es distribuidor.
-// Sin fila TOTAL (confirmado contra el archivo real, no la tiene). Usa CATEGORIA/SUBCATEGORIA/MARCA
-// (decisión del usuario, 2026-09-15) en vez de las columnas CODIGO/RUC que sí trae el archivo real de JW
-// ahí — no se replican porque no hay fuente real en nuestra base (repositorio_locales_supervisores_cliente
-// no tiene esas columnas); confirmado contra un archivo real de JW que sí las incluye y trae dato, así que si
-// se consigue esa fuente en el futuro, agregarlas es solo swap de estas 2 columnas por esas 2.
+// Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php cuando el canal es distribuidor. Sin fila TOTAL (confirmado contra el archivo real). Usa CATEGORIA/SUBCATEGORIA/MARCA (decisión del usuario, 2026-09-15). CODIGO/RUC (2026-09-16) se rellenan desde repositorio_cuota_cliente, cruce por pos_id+sector+trimestre+año — vienen de una subida previa al Repositorio de Cuotas (ver repositorio_parsear_cuotas_distribuidor()); sin match quedan vacías.
 
 $stmtD = $mysqli->prepare(
-	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
+	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales,
+	        c.codigo AS codigo_cuota, c.ruc AS ruc_cuota
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
+	 LEFT JOIN repositorio_cuota_cliente c ON c.pos_id = a.pos_id AND c.sector = l.sector AND c.trimestre = ? AND c.anio = a.anio
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.acta_firmada_azure_path IS NOT NULL
 	   AND d.pos_name LIKE ?
@@ -19,13 +16,32 @@ $stmtD = $mysqli->prepare(
 	   AND d.canal = 'DISTRIBUIDOR'
 	 GROUP BY a.id, l.id"
 );
-if (!$stmtD) {
-	http_response_code(500);
-	echo 'Error preparando la consulta.';
-	exit;
+$tieneCodigoRuc = (bool) $stmtD;
+if ($stmtD) {
+	// Sin filtro de creado_por: exporta las Actas de todos los asesores del canal.
+	$stmtD->bind_param('isiiiii', $trimestreActivo, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+} else {
+	// Fallback si `codigo`/`ruc` todavía no existen en repositorio_cuota_cliente (ALTER pendiente): mismo comportamiento de siempre, columnas vacías.
+	$stmtD = $mysqli->prepare(
+		"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
+		 WHERE a.estado NOT IN ('borrador', 'anulado')
+		   AND a.acta_firmada_azure_path IS NOT NULL
+		   AND d.pos_name LIKE ?
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)
+		   AND d.canal = 'DISTRIBUIDOR'
+		 GROUP BY a.id, l.id"
+	);
+	if (!$stmtD) {
+		http_response_code(500);
+		echo 'Error preparando la consulta.';
+		exit;
+	}
+	$stmtD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 }
-// Sin filtro de creado_por: exporta las Actas de todos los asesores del canal.
-$stmtD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 $stmtD->execute();
 $filasD = $stmtD->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmtD->close();
@@ -51,6 +67,8 @@ foreach ($filasD as $f) {
 		// Subcategoría/Marca de la cascada; puede venir vacío si la línea quedó sin resolver.
 		'categoria'    => $f['categoria'] ?? '',
 		'marca'        => $f['marca'] ?? '',
+		'codigo'       => $tieneCodigoRuc ? ($f['codigo_cuota'] ?? '') : '',
+		'ruc'          => $tieneCodigoRuc ? ($f['ruc_cuota'] ?? '') : '',
 		'rebate_pct'   => (float) $f['rebate_pct'],
 		'valores'      => $valoresPorMes,
 	];
@@ -68,10 +86,10 @@ usort($filasFinalD, function ($a, $b) {
 	return $c !== 0 ? $c : strcmp($a['sector'], $b['sector']);
 });
 
-// ---------- Layout de columnas ---------- SUBCATEGORIA/MARCA van a la derecha de CATEGORIA (sin columna PLAN acá).
-$colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCategoria = 4;
-$colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
-$colCuotaInicio = 8;
+// ---------- Layout de columnas ---------- CODIGO/RUC van a la derecha de NOMBRE (vacías), SUBCATEGORIA/MARCA a la derecha de CATEGORIA (sin columna PLAN acá).
+$colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCodigo = 4; $colRuc = 5; $colCategoria = 6;
+$colSubcategoria = 7; $colMarca = 8; $colConcat = 9;
+$colCuotaInicio = 10;
 $colCuotaTotal = $colCuotaInicio + $MD;
 $colRebatePct = $colCuotaTotal + 1;
 $colRebateDolar = $colCuotaTotal + 2;
@@ -105,6 +123,8 @@ $filaEncD = 2;
 $wbD->celda($sD1, $filaEncD, $colDistribuidor, 'DISTRIBUIDOR', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colCiudad, 'CIUDAD', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colNombre, 'NOMBRE', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sD1, $filaEncD, $colCodigo, 'CODIGO', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sD1, $filaEncD, $colRuc, 'RUC', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colCategoria, 'CATEGORIA', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colSubcategoria, 'SUBCATEGORIA', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colMarca, 'MARCA', true, null, $bgEncD, $fontEncD);
@@ -137,7 +157,7 @@ $wbD->celda($sD1, 1, $colVentaInicio, $tituloVentaGrupo, true, null, $bgVentaD, 
 $wbD->combinarCeldas($sD1, XlsxWriter::colLetra($colVentaInicio).'1:'.XlsxWriter::colLetra($colVentaTotal).'1');
 
 // Columnas de fila 1 fuera de la fusión necesitan celda propia o quedan sin pintar.
-foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCategoria, $colSubcategoria, $colMarca, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110] as $c) {
+foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCodigo, $colRuc, $colCategoria, $colSubcategoria, $colMarca, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110] as $c) {
 	$wbD->celda($sD1, 1, $c, '', false, null, $bgEncD, $fontEncD);
 }
 foreach ([$colCumplimiento, $colGanaCategoria, $colGanaTotal, $colPreRebate, $colRebateRealVol, $colNovedades] as $c) {
@@ -152,6 +172,8 @@ foreach ($filasFinalD as $g) {
 	$wbD->celda($sD1, $filaD, $colDistribuidor, $g['distribuidor']);
 	$wbD->celda($sD1, $filaD, $colCiudad, $g['ciudad']);
 	$wbD->celda($sD1, $filaD, $colNombre, $g['cliente'], false, null, $bgClienteD, '000000');
+	$wbD->celda($sD1, $filaD, $colCodigo, $g['codigo']);
+	$wbD->celda($sD1, $filaD, $colRuc, $g['ruc']);
 	$wbD->celda($sD1, $filaD, $colCategoria, $g['sector']);
 	$wbD->celda($sD1, $filaD, $colSubcategoria, $g['categoria']);
 	$wbD->celda($sD1, $filaD, $colMarca, $g['marca']);

@@ -46,18 +46,32 @@ $clavesVistas = []; // pos_id|sector -> índice, para avisar de repetidos DENTRO
 
 $mysqli->begin_transaction();
 try {
-	// subcategoria/marca son opcionales (fallback si el ALTER no se corrió). Sin rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
+	// codigo/ruc (2026-09-16) y subcategoria/marca son opcionales (fallback si el ALTER no se corrió). Sin rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
 	$stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cuota_cliente
-		 (pos_id, cliente_excel, cedi_excel, plan, sector, subcategoria, marca, trimestre, anio, valores_mensuales, estado, actualizado_por)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 (pos_id, cliente_excel, cedi_excel, plan, sector, subcategoria, marca, codigo, ruc, trimestre, anio, valores_mensuales, estado, actualizado_por)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON DUPLICATE KEY UPDATE
 		   cliente_excel = VALUES(cliente_excel), cedi_excel = VALUES(cedi_excel), plan = VALUES(plan),
-		   subcategoria = VALUES(subcategoria), marca = VALUES(marca),
+		   subcategoria = VALUES(subcategoria), marca = VALUES(marca), codigo = VALUES(codigo), ruc = VALUES(ruc),
 		   valores_mensuales = VALUES(valores_mensuales), estado = VALUES(estado), actualizado_por = VALUES(actualizado_por),
 		   updated_at = NOW()'
 	);
-	$conSubcategoriaMarca = (bool) $stmt;
+	$conCodigoRuc = (bool) $stmt;
+	$conSubcategoriaMarca = $conCodigoRuc;
+	if (!$stmt) {
+		$stmt = $mysqli->prepare(
+			'INSERT INTO repositorio_cuota_cliente
+			 (pos_id, cliente_excel, cedi_excel, plan, sector, subcategoria, marca, trimestre, anio, valores_mensuales, estado, actualizado_por)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 ON DUPLICATE KEY UPDATE
+			   cliente_excel = VALUES(cliente_excel), cedi_excel = VALUES(cedi_excel), plan = VALUES(plan),
+			   subcategoria = VALUES(subcategoria), marca = VALUES(marca),
+			   valores_mensuales = VALUES(valores_mensuales), estado = VALUES(estado), actualizado_por = VALUES(actualizado_por),
+			   updated_at = NOW()'
+		);
+		$conSubcategoriaMarca = (bool) $stmt;
+	}
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
 			'INSERT INTO repositorio_cuota_cliente
@@ -85,6 +99,9 @@ try {
 		$sector       = repositorio_normalizar_texto($fila['sector'] ?? '');
 		$subcategoria = repositorio_normalizar_texto($fila['subcategoria'] ?? '');
 		$marca        = repositorio_normalizar_texto($fila['marca'] ?? '');
+		// Sin normalizar a mayúsculas: son códigos exactos, no texto de catálogo.
+		$codigo       = trim((string) ($fila['codigo'] ?? ''));
+		$ruc          = trim((string) ($fila['ruc'] ?? ''));
 		$mes1         = is_numeric($fila['mes1'] ?? null) ? round((float) $fila['mes1'], 2) : null;
 		$mes2         = is_numeric($fila['mes2'] ?? null) ? round((float) $fila['mes2'], 2) : null;
 		$mes3         = is_numeric($fila['mes3'] ?? null) ? round((float) $fila['mes3'], 2) : null;
@@ -170,7 +187,9 @@ try {
 			(string) ($mesInicio + 2) => $mes3,
 		]);
 
-		if ($conSubcategoriaMarca) {
+		if ($conCodigoRuc) {
+			$stmt->bind_param('sssssssssiissi', $posId, $clienteExcel, $cediExcel, $plan, $sector, $subcategoria, $marca, $codigo, $ruc, $trimestre, $anio, $valoresJson, $estado, $usuarioSesion);
+		} elseif ($conSubcategoriaMarca) {
 			$stmt->bind_param('sssssssiissi', $posId, $clienteExcel, $cediExcel, $plan, $sector, $subcategoria, $marca, $trimestre, $anio, $valoresJson, $estado, $usuarioSesion);
 		} else {
 			$stmt->bind_param('sssssiissi', $posId, $clienteExcel, $cediExcel, $plan, $sector, $trimestre, $anio, $valoresJson, $estado, $usuarioSesion);

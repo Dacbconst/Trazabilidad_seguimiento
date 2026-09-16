@@ -100,10 +100,16 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 	return ['error' => 'No se encontraron las columnas esperadas: CEDI, CLIENTE y CATEGORIAS (canal Directo), o DISTRIBUIDOR, CIUDAD, NOMBRE y CATEGORIA (canal Distribuidor).'];
 }
 
-// Detecta el trimestre a partir de las 3 columnas de mes del encabezado — igual para los 2 canales, factorizado acá.
+// Detecta el trimestre a partir de las 3 columnas de mes del encabezado — igual para los 2 canales, factorizado acá. Distribuidor reusa el export de Liquidación como fuente (no tiene un archivo aparte de "cuotas futuras", ver comentario de repositorio_parsear_cuotas()), que trae el mismo mes 2 veces (bloque CUOTA y bloque VENTA, este último siempre vacío en esta etapa) — se descarta cualquier repetido y se queda solo con la 1ra aparición de cada mes (el bloque de Cuota, a la izquierda).
 function repositorio_cuotas_detectar_trimestre($filaEncabezado) {
-	$colesMes = xlsx_detectar_columnas_mes($filaEncabezado);
-	if (!$colesMes) return ['error' => 'No se encontró ninguna columna de mes (ej. ABRIL, MAYO, JUNIO) en el archivo.'];
+	$colesMesCrudo = xlsx_detectar_columnas_mes($filaEncabezado);
+	if (!$colesMesCrudo) return ['error' => 'No se encontró ninguna columna de mes (ej. ABRIL, MAYO, JUNIO) en el archivo.'];
+	$colesMes = []; $mesesVistos = [];
+	foreach ($colesMesCrudo as $d) {
+		if (isset($mesesVistos[$d['mes']])) continue;
+		$mesesVistos[$d['mes']] = true;
+		$colesMes[] = $d;
+	}
 	$mesesDetectados = array_map(function ($d) { return $d['mes']; }, $colesMes);
 	sort($mesesDetectados);
 	$trimestres = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]];
@@ -163,7 +169,7 @@ function repositorio_parsear_cuotas_directo($filas, $enc) {
 	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'directo'];
 }
 
-// Canal Distribuidor — mismas columnas reales que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() (DISTRIBUIDOR/CIUDAD/ NOMBRE/CATEGORIA). NOMBRE->cliente_excel, CIUDAD->cedi_excel (mismo campo que Directo, ahí SÍ es geográfico, no un nombre de asesor — ver resolverPosIdCliente(), el desempate por canal usa un criterio distinto para cada uno), DISTRIBUIDOR (empresa)->plan (mismo campo que Directo usa para PLAN, mismo criterio ya usado en Cumplimiento de Cuota).
+// Canal Distribuidor — mismas columnas reales que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() (DISTRIBUIDOR/CIUDAD/ NOMBRE/CATEGORIA). NOMBRE->cliente_excel, CIUDAD->cedi_excel (mismo campo que Directo, ahí SÍ es geográfico, no un nombre de asesor — ver resolverPosIdCliente(), el desempate por canal usa un criterio distinto para cada uno), DISTRIBUIDOR (empresa)->plan (mismo campo que Directo usa para PLAN, mismo criterio ya usado en Cumplimiento de Cuota). CODIGO/RUC (2026-09-16) son opcionales, igual que SUBCATEGORIA/MARCA: JW las llena a mano sobre el Excel que el sistema mismo exportó con esas 2 columnas vacías (ver exportar_cuota_categoria_distribuidor.php), y acá se guardan para que la Acta Precargada las traiga.
 function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	$det = repositorio_cuotas_detectar_trimestre($filas[$enc['fila']]);
 	if (isset($det['error'])) return ['error' => $det['error']];
@@ -176,6 +182,8 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	$colCategoria = xlsx_col($m, 'CATEGORIA');
 	$colSubcategoria = xlsx_col($m, 'SUBCATEGORIA');
 	$colMarca = xlsx_col($m, 'MARCA');
+	$colCodigo = xlsx_col($m, 'CODIGO');
+	$colRuc = xlsx_col($m, 'RUC');
 
 	$resultado = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
@@ -189,6 +197,9 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 		$distribuidor = $colDistribuidor !== null ? repositorio_normalizar_texto($fila[$colDistribuidor] ?? '') : '';
 		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
 		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
+		// Sin normalizar a mayúsculas: RUC/Código son códigos exactos, no texto de catálogo a comparar.
+		$codigo = $colCodigo !== null ? trim((string) ($fila[$colCodigo] ?? '')) : '';
+		$ruc = $colRuc !== null ? trim((string) ($fila[$colRuc] ?? '')) : '';
 
 		$valores = [];
 		foreach ($colesMes as $d) {
@@ -203,6 +214,8 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 			'sector'        => $sector,
 			'subcategoria'  => $subcategoria,
 			'marca'         => $marca,
+			'codigo'        => $codigo,
+			'ruc'           => $ruc,
 			'mes1'          => $valores[0] ?? 0,
 			'mes2'          => $valores[1] ?? 0,
 			'mes3'          => $valores[2] ?? 0,

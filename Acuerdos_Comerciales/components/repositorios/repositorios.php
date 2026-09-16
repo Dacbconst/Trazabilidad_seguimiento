@@ -183,6 +183,8 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 					<span class="ac-cuotas-trimestre-banner-label">Se están subiendo datos del trimestre</span>
 					<span class="ac-cuotas-trimestre-banner-valor" id="repo-preview-trimestre-valor">—</span>
 				</div>
+				<!-- Canal detectado en el archivo (2026-09-16, pedido explícito): mismo estilo de badge que ya usa Registrar para el canal del usuario logueado, así se reconoce de un vistazo antes de confirmar el guardado. -->
+				<span class="ac-badge" id="repo-preview-canal-badge">—</span>
 			</div>
 			<!-- El Excel de Cuotas no trae el año (solo el trimestre, inferido del
 			     propio archivo por repositorio_parsear_cuotas()) — lo elige el

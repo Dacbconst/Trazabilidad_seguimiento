@@ -394,6 +394,7 @@
 	var previewAnioInput = document.getElementById('repo-preview-anio');
 	var previewTrimestreBanner = document.getElementById('repo-preview-trimestre-banner');
 	var previewTrimestreValor = document.getElementById('repo-preview-trimestre-valor');
+	var previewCanalBadge = document.getElementById('repo-preview-canal-badge');
 
 	// Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito: "que pueda con el mouse mover la tabla sosteniendo y moviendo el mouse" — con el ancho auto-ajustado la tabla de previsualización puede quedar más ancha que el modal, y el scrollbar nativo del navegador solo se ve pegado abajo del todo, no arriba). Mantener click y arrastrar mueve el contenido, sin depender de encontrar el scrollbar. Se excluye el arrastre si el click empezó en un input/botón/link — si no, no se podría hacer foco normal para editar una celda.
 	function activarArrastreScroll(contenedor) {
@@ -567,7 +568,10 @@
 				previewAnioInput.value = new Date().getFullYear();
 				previewAnioWrap.classList.remove('hidden');
 				if (trimestrePreview) {
-					previewTrimestreValor.textContent = 'Q' + trimestrePreview + (etiquetaCanalCuotas ? ' · Canal ' + etiquetaCanalCuotas : '');
+					previewTrimestreValor.textContent = 'Q' + trimestrePreview;
+					// Badge de canal (2026-09-16): mismo par de clases que ya usa Registrar para su badge de canal, así se reconoce de un vistazo antes de confirmar el guardado.
+					previewCanalBadge.textContent = canalCuotasPreview === 'distribuidor' ? 'Distribuidor' : 'Canal Directo';
+					previewCanalBadge.className = 'ac-badge ac-badge-canal-' + (canalCuotasPreview === 'distribuidor' ? 'distribuidor' : 'directo');
 					previewTrimestreBanner.classList.remove('hidden');
 				} else {
 					previewTrimestreBanner.classList.add('hidden');

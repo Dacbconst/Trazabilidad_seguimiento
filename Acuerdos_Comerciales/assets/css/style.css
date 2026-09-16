@@ -2003,6 +2003,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	margin-bottom: var(--space-md);
 }
 .ac-cuotas-trimestre-banner.hidden { display: none; }
+.ac-cuotas-trimestre-banner .ac-badge { margin-left: auto; }
 .ac-cuotas-trimestre-banner .material-symbols-outlined { font-size: 28px; flex-shrink: 0; }
 .ac-cuotas-trimestre-banner-texto { display: flex; flex-direction: column; line-height: 1.25; }
 .ac-cuotas-trimestre-banner-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.85; }
