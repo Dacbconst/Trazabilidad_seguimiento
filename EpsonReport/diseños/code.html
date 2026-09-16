@@ -1,0 +1,347 @@
+<!DOCTYPE html><html class="h-full bg-[#fbfcfe]" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>PulseLog - Mis Actividades de Hoy</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 350, 'GRAD' 0, 'opsz' 20;
+    }
+  </style>
+</head>
+<body class="h-full font-sans text-slate-800 antialiased bg-[#fbfcfe] flex flex-col selection:bg-indigo-50 selection:text-indigo-700">
+<!-- Minimalist Clean Top Bar -->
+<header class="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 transition-all">
+<div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-end">
+<!-- Brand / Context -->
+
+<!-- Quick Day Nav & Add Action -->
+<div class="flex items-center gap-3">
+<!-- Day Navigation -->
+<div class="flex items-center gap-1 bg-slate-50/80 rounded-full p-1 border border-slate-200/60 text-xs font-medium text-slate-600"><button class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white hover:text-slate-900 transition-colors text-slate-400" title="Período anterior"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button><div class="flex items-center gap-1.5 px-3 py-1 bg-white rounded-full shadow-2xs cursor-pointer hover:border-slate-300 transition-colors text-slate-800"><span class="material-symbols-outlined text-slate-400 text-[15px]">calendar_today</span><span class="select-none font-medium">18 Oct - 24 Oct, 2023</span><span class="material-symbols-outlined text-slate-400 text-[14px]">expand_more</span></div><button class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white hover:text-slate-900 transition-colors text-slate-400" title="Período siguiente"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button></div>
+<!-- Subtle Primary Action -->
+<button class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-medium shadow-xs transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span class="">Registrar</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main User Activity Feed -->
+<main class="flex-1 max-w-5xl w-full mx-auto px-6 py-10">
+<!-- Spacious Clean Header -->
+<div class="flex flex-col gap-6 pb-6 border-b border-slate-100"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><div><div class="flex items-center gap-2 text-xs text-indigo-700 font-medium mb-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span><span class="tracking-wide uppercase text-[11px] font-semibold">Filtrado por tipo de actividad</span></div><h1 class="text-2xl font-bold tracking-tight text-slate-900 leading-snug">Mantenimiento Preventivo e Infraestructura IT</h1><p class="text-sm text-slate-500 mt-1 font-normal">6 actividades registradas entre el 18 y el 24 de Octubre · Total acumulado: 4h 45m</p></div><div class="inline-flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/50 text-xs self-start sm:self-auto"><button class="px-3 py-1.5 rounded-lg font-normal text-slate-500 hover:text-slate-800 transition-all">Hoy</button><button class="px-3 py-1.5 rounded-lg bg-white font-medium text-slate-900 shadow-2xs transition-all">Últimos 7 días</button><button class="px-3 py-1.5 rounded-lg font-normal text-slate-500 hover:text-slate-800 transition-all">Este mes</button></div></div><!-- Control and scalable selector bar --><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 bg-slate-50/60 p-3 rounded-2xl border border-slate-200/60"><div class="flex items-center gap-2.5 flex-1 min-w-0"><label class="text-xs font-semibold text-slate-500 shrink-0 flex items-center gap-1.5" for="activityTypeSelect"><span class="material-symbols-outlined text-[16px] text-slate-400">filter_list</span>Tipo de actividad:</label><div class="relative flex-1 max-w-md"><select class="w-full bg-white border border-slate-200 text-slate-800 text-xs font-medium rounded-xl py-2 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs truncate cursor-pointer" id="activityTypeSelect"><option value="all">Todas las actividades (14 registros)</option><option selected="" value="maint">Mantenimiento Preventivo e Infraestructura IT (6)</option><option value="habits">Seguimiento de Hábitos y Rutinas Personales (3)</option><option value="finance">Gestión Financiera, Gastos Operativos e Inversiones (3)</option><option value="growth">Desarrollo Profesional y Formación Continua (2)</option><option value="client">Atención, Soporte Técnico y Fidelización de Clientes (0)</option><option value="ops">Operaciones Logísticas y Distribución Comercial (0)</option></select></div></div><div class="flex items-center gap-2 self-start md:self-auto shrink-0"><div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-500/10"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span><span class="truncate max-w-[200px] sm:max-w-xs">Mantenimiento IT (6)</span><button class="text-indigo-400 hover:text-indigo-700 flex items-center" title="Limpiar filtro"><span class="material-symbols-outlined text-[14px]">close</span></button></div><button class="text-xs text-slate-500 hover:text-slate-800 hover:underline transition-colors px-2 py-1">Restablecer</button></div></div></div>
+<!-- Grouped by Activity Type View (Default) -->
+<div class="mt-8 space-y-6" id="groupedView"><!-- Results sub-header with count and quick hint -->
+<div class="flex items-center justify-between px-1 text-xs text-slate-500">
+<div class="flex items-center gap-2">
+<span class="font-medium text-slate-700">Resultados detallados por jornada</span>
+<span class="text-slate-300">•</span>
+<span class="text-slate-400">6 registros (1 expandido con informe completo)</span>
+</div>
+<span class="text-slate-400 flex items-center gap-1 cursor-pointer hover:text-slate-700 transition-colors"><span class="material-symbols-outlined text-[15px]">unfold_more</span> Expandir todos</span>
+</div>
+<!-- Day Group 1: Hoy - Jueves 24 Oct -->
+<section class="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs transition-all hover:border-slate-200/80">
+<div class="flex items-center justify-between pb-4 border-b border-slate-50">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-50"></span>
+<h2 class="text-sm font-semibold tracking-tight text-slate-900">Hoy — Jueves, 24 de Octubre</h2>
+<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">2 registros</span>
+</div>
+<span class="text-xs text-slate-400 font-medium">1h 30m total</span>
+</div>
+<div class="space-y-4 pt-4">
+<!-- RECORD 1: FULLY EXPANDED RICH DETAILS CARD -->
+<article class="rounded-xl border border-indigo-500/20 bg-slate-50/60 p-5 transition-all shadow-xs">
+<!-- Record Header Bar -->
+<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-slate-200/60">
+<div class="flex items-start gap-3.5 min-w-0">
+<span class="text-xs font-mono font-medium text-indigo-700 bg-indigo-50 border border-indigo-500/10 px-2 py-1 rounded-md shrink-0 mt-0.5">15:30</span>
+<div>
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="text-sm font-bold text-slate-900 leading-snug">Mantenimiento de clúster Kubernetes y balanceo de carga</h3>
+<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-500/20">Completado</span>
+</div>
+<p class="text-xs text-slate-500 mt-1 font-normal">Actualización de nodos en producción y verificación integral de certificados TLS/SSL</p>
+</div>
+</div>
+<div class="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+<span class="text-xs font-semibold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-2xs">45 min</span>
+<button class="flex items-center gap-1 text-xs font-medium text-indigo-700 hover:text-indigo-800 bg-white border border-slate-200 px-2.5 py-1 rounded-md transition-colors shadow-2xs">
+<span class="">Plegar</span>
+<span class="material-symbols-outlined text-[15px]">expand_less</span>
+</button>
+</div>
+</div>
+<!-- Expanded Progressive Disclosure Body -->
+<div class="mt-4 space-y-4.5">
+<!-- Detailed Log / Summary -->
+<div>
+<h4 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Descripción de la intervención</h4>
+<p class="text-xs text-slate-600 leading-relaxed bg-white p-3 rounded-lg border border-slate-200/60">
+            Se ejecutó el drenado seguro de pods y actualización controlada en los nodos <code class="font-mono text-slate-800 bg-slate-100 px-1 py-0.5 rounded text-[11px]">k8s-prod-worker-01..04</code>. Los ingress controllers actualizaron los secretos de certificados Let's Encrypt para wildcard perimetral. Cero degradación en la latencia de respuesta HTTP.
+          </p>
+</div>
+<!-- Structured Technical Metadata Grid -->
+<div>
+<h4 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Parámetros &amp; Contexto técnico</h4>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+<div class="bg-white p-2.5 rounded-lg border border-slate-200/60">
+<span class="text-[11px] text-slate-400 block font-normal">Entorno / Región</span>
+<span class="text-xs font-semibold text-slate-800 mt-0.5 block">AWS eu-central-1 (Prod)</span>
+</div>
+<div class="bg-white p-2.5 rounded-lg border border-slate-200/60">
+<span class="text-[11px] text-slate-400 block font-normal">Ticket Jira / Asignación</span>
+<span class="text-xs font-semibold text-indigo-700 mt-0.5 block hover:underline cursor-pointer">#INFRA-4892</span>
+</div>
+<div class="bg-white p-2.5 rounded-lg border border-slate-200/60">
+<span class="text-[11px] text-slate-400 block font-normal">Nivel de impacto</span>
+<span class="text-xs font-semibold text-amber-700 mt-0.5 block">Medio (Ventana acordada)</span>
+</div>
+<div class="bg-white p-2.5 rounded-lg border border-slate-200/60">
+<span class="text-[11px] text-slate-400 block font-normal">Supervisado por</span>
+<span class="text-xs font-semibold text-slate-800 mt-0.5 block">DevOps Lead (M. Santos)</span>
+</div>
+</div>
+</div>
+<!-- Two columns: Checklist & Attachments -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<!-- Checklist Sub-tasks -->
+<div class="bg-white p-3.5 rounded-lg border border-slate-200/60">
+<div class="flex items-center justify-between mb-2">
+<span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-indigo-600">check_circle</span> Pasos verificados (4/4)
+              </span>
+<span class="text-[11px] font-medium text-emerald-600">100%</span>
+</div>
+<ul class="space-y-1.5 text-xs text-slate-600">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[15px] text-emerald-500 shrink-0">check</span><span class="truncate">Drenado cordon &amp; drain de pods auxiliares</span></li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[15px] text-emerald-500 shrink-0">check</span><span class="truncate">Upgrade kubelet v1.28.3 a v1.28.5</span></li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[15px] text-emerald-500 shrink-0">check</span><span class="truncate">Renovación llaves TLS y test de ingress</span></li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[15px] text-emerald-500 shrink-0">check</span><span class="truncate">Prueba de conmutación balanceador nginx</span></li>
+</ul>
+</div>
+<!-- Attachments & Outputs -->
+<div class="bg-white p-3.5 rounded-lg border border-slate-200/60 flex flex-col justify-between">
+<div>
+<span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2 block flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-slate-400">attach_file</span> Archivos y telemetría (2)
+              </span>
+<div class="space-y-2">
+<div class="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors text-xs">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-indigo-600 text-[16px]">description</span>
+<span class="font-mono text-slate-700 truncate text-[11px]">k8s_upgrade_summary_2410.log</span>
+</div>
+<span class="text-slate-400 text-[11px] shrink-0 ml-2">142 KB</span>
+</div>
+<div class="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors text-xs">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-indigo-600 text-[16px]">monitoring</span>
+<span class="font-mono text-slate-700 truncate text-[11px]">datadog_cluster_latency.png</span>
+</div>
+<span class="text-slate-400 text-[11px] shrink-0 ml-2">1.8 MB</span>
+</div>
+</div>
+</div>
+<div class="pt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]">lock</span> Firmado criptográficamente por Vault Agent
+            </div>
+</div>
+</div>
+</div>
+</article>
+<!-- RECORD 2: COMPACT COLLAPSED WITH BADGES -->
+<article class="rounded-xl border border-slate-100 hover:border-slate-200/80 bg-white p-4 transition-all hover:bg-slate-50/40 group">
+<div class="flex items-start sm:items-center justify-between gap-4">
+<div class="flex items-start sm:items-center gap-3.5 min-w-0">
+<span class="text-xs font-mono text-slate-400 w-12 shrink-0 pt-0.5 sm:pt-0">11:00</span>
+<div class="min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="text-sm font-medium text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">Monitoreo preventivo y rotación de credenciales en servidores VPN</h3>
+<!-- Meta badges counter -->
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[13px] text-slate-400">checklist</span> 3 tareas</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[13px] text-slate-400">attach_file</span> 1 adjunto</span>
+</div>
+<p class="text-xs text-slate-400 mt-1 font-normal">Auditoría de accesos remotos del equipo de desarrollo y revocación de certificados obsoletos</p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<span class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md">45 min</span>
+<button class="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-md transition-colors bg-white shadow-2xs">
+<span class="">Detalles</span>
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- Day Group 2: Ayer - Miércoles 23 Oct -->
+<section class="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs transition-all hover:border-slate-200/80">
+<div class="flex items-center justify-between pb-4 border-b border-slate-50">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-50"></span>
+<h2 class="text-sm font-semibold tracking-tight text-slate-900">Ayer — Miércoles, 23 de Octubre</h2>
+<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">2 registros</span>
+</div>
+<span class="text-xs text-slate-400 font-medium">2h 15m total</span>
+</div>
+<div class="space-y-3 pt-3">
+<!-- Collapsed record with details preview trigger -->
+<article class="rounded-xl border border-slate-100 hover:border-slate-200/80 bg-white p-4 transition-all hover:bg-slate-50/40 group">
+<div class="flex items-start sm:items-center justify-between gap-4">
+<div class="flex items-start sm:items-center gap-3.5 min-w-0">
+<span class="text-xs font-mono text-slate-400 w-12 shrink-0 pt-0.5 sm:pt-0">16:00</span>
+<div class="min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="text-sm font-medium text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">Reconfiguración de políticas de firewall perimetral y respaldo NAS</h3>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[13px] text-slate-400">description</span> Reporte de respaldo</span>
+</div>
+<p class="text-xs text-slate-400 mt-1 font-normal">Sincronización incremental y verificación de integridad de snapshots en cabina Synology</p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<span class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md">1h 30m</span>
+<button class="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-md transition-colors bg-white shadow-2xs">
+<span class="">Detalles</span>
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Collapsed record -->
+<article class="rounded-xl border border-slate-100 hover:border-slate-200/80 bg-white p-4 transition-all hover:bg-slate-50/40 group">
+<div class="flex items-start sm:items-center justify-between gap-4">
+<div class="flex items-start sm:items-center gap-3.5 min-w-0">
+<span class="text-xs font-mono text-slate-400 w-12 shrink-0 pt-0.5 sm:pt-0">10:00</span>
+<div class="min-w-0">
+<h3 class="text-sm font-medium text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">Inspección de hardware y sustitución de fuentes redundantes</h3>
+<p class="text-xs text-slate-400 mt-1 font-normal">Datacenter secundario · Rack B-04 · Sin afectación a servicios activos</p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<span class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md">45 min</span>
+<button class="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-md transition-colors bg-white shadow-2xs">
+<span class="">Detalles</span>
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- Day Group 3: Lunes 21 Oct -->
+<section class="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs transition-all hover:border-slate-200/80">
+<div class="flex items-center justify-between pb-4 border-b border-slate-50">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-50"></span>
+<h2 class="text-sm font-semibold tracking-tight text-slate-900">Lunes, 21 de Octubre</h2>
+<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">2 registros</span>
+</div>
+<span class="text-xs text-slate-400 font-medium">1h 00m total</span>
+</div>
+<div class="space-y-3 pt-3">
+<article class="rounded-xl border border-slate-100 hover:border-slate-200/80 bg-white p-4 transition-all hover:bg-slate-50/40 group">
+<div class="flex items-start sm:items-center justify-between gap-4">
+<div class="flex items-start sm:items-center gap-3.5 min-w-0">
+<span class="text-xs font-mono text-slate-400 w-12 shrink-0 pt-0.5 sm:pt-0">14:15</span>
+<div class="min-w-0">
+<div class="flex items-center gap-2 flex-wrap">
+<h3 class="text-sm font-medium text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">Actualización de parches de seguridad críticos en SO base</h3>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[13px] text-slate-400">terminal</span> Kernel 6.1-LTS</span>
+</div>
+<p class="text-xs text-slate-400 mt-1 font-normal">Despliegue escalonado en entornos de desarrollo y staging con reinicio coordinado</p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<span class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md">30 min</span>
+<button class="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-md transition-colors bg-white shadow-2xs">
+<span class="">Detalles</span>
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+<article class="rounded-xl border border-slate-100 hover:border-slate-200/80 bg-white p-4 transition-all hover:bg-slate-50/40 group">
+<div class="flex items-start sm:items-center justify-between gap-4">
+<div class="flex items-start sm:items-center gap-3.5 min-w-0">
+<span class="text-xs font-mono text-slate-400 w-12 shrink-0 pt-0.5 sm:pt-0">09:30</span>
+<div class="min-w-0">
+<h3 class="text-sm font-medium text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">Verificación matutina de alarmas Datadog y telemetría de red</h3>
+<p class="text-xs text-slate-400 mt-1 font-normal">Comprobación rutinaria de p99 en base de datos PostgreSQL y réplicas de lectura</p>
+</div>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<span class="text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md">30 min</span>
+<button class="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-md transition-colors bg-white shadow-2xs">
+<span class="">Detalles</span>
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</section></div>
+<!-- Continuous Timeline View (Hidden by default, switched cleanly) -->
+<!-- Subtle Quick Add Placeholder -->
+<div class="mt-8 border border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-slate-300 transition-colors bg-white/40 cursor-pointer">
+<div class="flex flex-col items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-slate-400 text-[20px]">add_circle_outline</span>
+<span class="text-xs font-medium text-slate-600">¿Hiciste algo más hoy?</span>
+<span class="text-[11px] text-slate-400">Pulsa aquí o presiona Espacio para registrar rápidamente</span>
+</div>
+</div>
+</main>
+<!-- Clean Symmetrical Footer -->
+
+<!-- View Switcher Script -->
+<script>
+    function switchView(viewType) {
+      const groupedView = document.getElementById('groupedView');
+      const timelineView = document.getElementById('timelineView');
+      const btnGroup = document.getElementById('btnGroupView');
+      const btnTimeline = document.getElementById('btnTimelineView');
+
+      if (viewType === 'group') {
+        groupedView.classList.remove('hidden');
+        timelineView.classList.add('hidden');
+        
+        btnGroup.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white font-medium text-slate-900 shadow-2xs transition-all";
+        btnTimeline.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-normal text-slate-500 hover:text-slate-800 transition-all";
+      } else {
+        groupedView.classList.add('hidden');
+        timelineView.classList.remove('hidden');
+        
+        btnTimeline.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white font-medium text-slate-900 shadow-2xs transition-all";
+        btnGroup.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-normal text-slate-500 hover:text-slate-800 transition-all";
+      }
+    }
+  </script>
+
+
+</body></html>

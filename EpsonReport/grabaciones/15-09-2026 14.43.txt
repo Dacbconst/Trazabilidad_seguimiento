@@ -1,0 +1,155 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+¿Este tipo de reporte lo vendría a estar rellenando de manera diaria o digamos algo mensual? De hecho deberían subirlo dependiendo la actividad o la carga, pero puede ser diario, puede ser semanal, dependiendo como los manes lo quieran subir. Solo debe apuntar al mes en el que se está subiendo. Ok, puede ser diario, puede ser semanal.
+
+Pero entonces, si yo le permito hacer un reporte diario, un registro diario, ¿al mes tiene que votarme lo que él, digamos, el día lunes me reporta? Claro, por ejemplo, ellos pueden subir cualquiera de estos reportes, o bien acumulado todo lo del mes, o bien por cada día que lo vienen haciendo. Pero si yo, por ejemplo, vengo el primero de septiembre, yo debo poder descargar todo lo que ya se subió de agosto. Y así sucesivamente con cada uno de los reportes, sea del módulo de actividades, del módulo de exhibiciones, del módulo de capacitaciones.
+
+El módulo que, bueno, ya digamos lo que hacemos es la descarga mensual. Entonces, digamos, de todos estos reportes le tendría, digamos, una suma total de todo, y ahí me sacan, digamos, las estadísticas finales, o cada reporte tiene su propia estadística común. Cada reporte tiene su diferente estadística.
+
+Ok, y al final entonces tendría, ejemplo, tendría treinta reportes por mes. Más o menos. Ya.
+
+Más o menos, no son tantos, son seis tipos diferentes de reportes, dos tipos diferentes de canales, son más o menos unos veinte. Más o menos. Y algún tipo de reporte especial, que eso yo por repositorio debería cargarlo.
+
+Por ejemplo, yo lo cargo por repositorio, que existe el reporte de activaciones, capacitaciones, colocación de POP. Pero si aquí mañana sale Back to School, yo debo poner actividades Back to School cierra. Y ahí, cuando yo ingrese a la página, debería aparecer actividades Back to School cierra.
+
+La lógica también me debería poder, también me debería permitir seleccionar el tipo de lógica. Por ejemplo, cuando yo haga eso por repositorio, por decirte, ¿a qué lógica ese reporte va a apuntar? A la lógica de eventos, a la lógica de activaciones, a la lógica de exhibiciones. Entonces que yo ponga en otra columna, no sé, que se llame lógica, que apunte a la lógica de activaciones, porque obviamente es activaciones.
+
+Pero es que ya está amarrado el tipo de actividad, al tipo de reporte. Lo que le estaba diciendo a él, porque él me dice cuántos reportes son mensuales, y eso va a variar. Son entre 12 a 15 fijos, y el resto puede ser variable hasta llegar a 20.
+
+Porque puede ser que salga alguna actividad de colocación preopestral binaria que haya, o viajes de los supervisores. Y ellos tienen que reportar, sustentar sus viajes, sus todos. Lo que le estaba diciendo a él es que debe haber un repositorio que me permita a mí crear, de la lista desplegable, el tipo de reportes que ellos quieren subir adicionales.
+
+Por decirlo, si a ellos hay 6 por default cargados, actividades, exhibiciones, capacitaciones, bla, bla, bla. Yo pueda crear el 7, el 8, el 9, el 10. Entonces digamos que el 8, el 7 se va a llamar actividades de autoexcursión.
+
+Y me diga en la siguiente columna que lógica yo quiero que aplique. Quiero que este reporte sea igualito en las exhibiciones. La lógica de cálculo, de estadística y todo.
+
+Y el tipo de formato debe ser igualito en la activación. Entonces pongo activaciones. Cuando yo ya le doy el gogo a eso, ellos al momento de ingresar a la página, cuando generen las estadísticas va a apuntar obviamente la misma métrica de activaciones.
+
+Porque es un reporte nuevo. Si de aquí a mañana yo cojo y lo quito, ya desapareció, no pasa nada. Pero cada reporte nuevo debe tener una lógica que ya pueda existir.
+
+Lo que yo necesito entonces de ti es saber cuál es el formulario por cada reporte. Por ejemplo, en el de... Yo tengo ese Excel ahí gordo, casi que todos son los mismos, yo te paso el Excel. Cada reporte tiene su formato fotográfico y su Excel.
+
+Que me imagino que es el relevo. En el de ventas tiene que ser el punto de venta, las personas que llegaron, cuántas vendí, etc. Y la foto ya.
+
+El de capacitaciones tiene que ser cuántas personas capacité y la foto. Así, a eso es a lo que me refiero. Por ejemplo, la estadística de capacitaciones.
+
+El estadístico de capacitaciones a diferencia del otro solamente tiene quiénes asistieron, cuántas interacciones tuviste y comentario. Eso también deben ellos poder escribir, comentar. Por ejemplo, hay así capacitación de imágenes, videoproyectores, impresoras, etc.
+
+Ya. Ahora. Hay este tema de las... De las llamadas fotos, ¿te acuerdas? Miren esto. 
+
+Esto tiene que salir gordo. Estos manes son bien desorganizados. Estos manes mandan el reporte.
+
+Esto debe salir. Cuando ellos ingresan en actividades, ellos deben salir. ¿Qué día hiciste la actividad? Ya.
+
+Entonces deben salir los días que hicieron la actividad, el horario, en qué punto. Ya. Quién lo hizo, el correo de la persona y la foto.
+
+La foto del usuario. Esa foto del usuario ya para ti existe. Tú ya tienes ese repositorio.
+
+Ya. Que es el de las credenciales que mandamos a crear, ¿te acuerdas? No, pero yo te puedo pasar el listado de la gente con fotos. Claro, esa sería la... Porque yo entiendo que la primera fase es elegir el reporte, poner todo lo que me pide el reporte y eventualmente eso que se acabó de setear, poner como mi fase 2 en el que ya tengo que subir la evidencia, y ya más detallado.
+
+Y la fase 3 ya es la exportación, que es esto. Correcto. Y las fotos que ellos tienen que poner están aquí, las N fotos de su actividad.
+
+Ajá, pero de ahí ya es fotográfico, ¿verdad? Todo es foto, foto, foto. De ahí, por ejemplo, mira, si ves que acá huele a ver estadísticas, porque esta es otra actividad que puede ser la misma actividad, pero es en otro punto. Ya no es en el mismo punto.
+
+De hecho, se tendría que separar porque la actividad es por punto, por día. Entonces, yo puedo estar 3 días en la actividad en el mismo punto. Obviamente, ahí sí va a ser un solo concatenado, porque fue del 19 al 21, en el mismo punto que es la tienda de Edgar.
+
+Ya, obviamente es uno solo. Pero, ¿qué pasa si yo tengo en la tienda de Don Carlos, en la tienda de Don Luis y en la tienda de Doña María? Son 3 reportes diferentes en 3 días diferentes. ¿Se me cacha? Sí. 
+
+Entonces, si yo estoy 3 días en un mismo punto, van a aparecer las estadísticas al inicio y luego todas las fotos por cada día. Pero si estoy en diferentes puntos, entonces la estadística va a aparecer por un punto. La estadística debe ser por día.
+
+Por día. O sea, esta huevadita va a aparecer cada día. Claro, esta huevadita va a apuntar a cuántos clientes atendí el día 10, cuántos clientes atendí el día 11 y cuántos clientes atendí el día 12.
+
+Entonces, cuando sea la misma persona en el mismo punto, como mencioné, entonces tendría el caso de que sea 3 veces en el mismo punto. Claro, esto no debería poder aparecer, porque las estadísticas deben darse por día. Sí.
+
+¿Ya? Entonces, el final tiene que ser esta carpetita, ¿no? Eso es el final de todo. Y eso lo tienen que descargar ellos o tú? Yo, solamente yo lo puedo descargar. Ellos solo hacen ingreso a la información.
+
+Tú lo que vas a ver es cada registro, cada registro, y tú vas a poder visualizar la carpetita. Sí, el único que va a poder descargar son las imágenes. Ya.
+
+Eso es con el módulo de actividades, o módulo de reportes. Es todo eso, ya. Les voy a necesitar entonces que me pasen los Excel, un ejemplo de esto, de los PPTs, y el Excel que tenga que tener el detalle del reporte de evidencia, con su detalle.
+
+Igual esto lo podemos ir viendo, ¿no? No, no, sí, ahorita lo que vamos a hacer es un mock-up, para mostrarte ya visualmente. Ah, es un mock-up, ahí mismo lo vamos acomodando. No tengo urgencias, pero tampoco tengo el tiempo de... El tiempo de Napoleón Bonaparte, que es... Vístame despacio, que ando deprisa.
+
+Pero tampoco quiero dormirme los laureles con esto. Hoy me gustaría contar con la esta de Fabrizio, pero Fabrizio está en el evento, no está. Belén, que es la ejecutiva, tampoco está.
+
+Pero con lo poco mucho que yo les puedo dar ahorita, vamos avanzando. Igual hay métricas para llegar a un acuerdo entre todos, entre la ejecutiva, el man de campo, y mi persona, lo vamos viendo. Pero ya por lo menos para que no vayas enterando, los mock-ups, las huevadas con esto, con esto pueden ir avanzando.
+
+Sí, porque yo necesito verlo así. Pero ya, sí, sí, lo entiendo. Lo que es a Belén es otro.
+
+¿Qué cosa? El tema de los metálicos, eso es netamente con este man de Fabrizio. No me puedes dar detalle de eso. Yo te puedo dar detalle, muy general.
+
+¿Qué pasa? Vamos a usar el mismo inicio de sesión que... Es el mismo inicio de sesión en la misma página web. Pero no sé ahora. Esto que te estoy diciendo es que no sé si apunte al tema de quién debe tener esto.
+
+Si las personas, los usuarios, o el coordinador de Trade, en este caso es Fabrizio. ¿Por qué? Porque eso debe tener una sola persona que lleve ese control. Porque si no, va a pasar lo mismo que una base de datos.
+
+¿Tú sabes que si cinco personas tienen la misma base se prostituyen? Porque no es lo mismo, como tú la llevas, como él la lleva, como yo la llevo. Igual nosotros lo que vamos a hacer es que cada edición, cada cosa, se vaya trazabilizando. Tiene la trazabilidad, así es.
+
+A qué hora, cuándo y todo. Entonces, ahora, ¿qué pasa? ¿Cuál es el meollo del peréquipo? Epson nos da a nosotros un número de muestras, ya de demos, como ustedes los conocen. Son equipos que son para poner en los puntos, sea para que el punto lo conozca, sea para que los chicos hagan las actividades que ustedes ven que están en los reportes.
+
+¿Qué pasa? De que yo me metí, digo, Lucho, toma, te doy el mouse para que luces en la actividad. Entonces, entró a la bodega, el primer ingreso es en bodega, porque por lógica todo debería entrar a la bodega. Después, ¿quién lo retiró de la bodega? ¿Quién se hizo cargo frente y yo lo retiré? Fabrizio, digamos así.
+
+Fabrizio distribuye a su gente. Fabrizio debe saber de las 5 impresoras que me dieron, ¿a quién le entregué cada una? Solo para esa actividad. No apuntemos para las actividades, apuntemos en general a quién es el responsable.
+
+Porque la puedo utilizar para una actividad como me la puedo dejar en uno de mis puntos de venta, es indistinto. Entonces, yo vengo y le doy una a Carlos, una a Cristian, una a... ¿a quién sea? Ya, tres. Entonces, hasta ahí ya sabemos qué pasó de la mano.
+
+De bodega a Fabrizio, de Fabrizio a Luis, Carlos y María. Ahora, Luis tiene que obviamente reflejar en esa página a qué cliente se la dejó y cuándo. Entonces, tiene que ingresar al formulario y decir oye, es que yo la dejé hoy 15 de septiembre.
+
+Y es como un timeline. O sea, hoy la dejé, mañana la retiro, después ahora la tengo yo, luego está en otro local, luego está en otro, así. Y ver dónde se va moviendo la cueva.
+
+Exacto, hoy 15 de septiembre. Pero, por ejemplo, hasta ahí lo veo factible para Fabrizio de que bueno, ya saqué 10 impresoras de bodega ahorita y se registran 10 impresoras fuera de bodega. Luego ya hago la distribución, ese de que Luis deja en tal punto de venta lo tiene que hacer el mercaderista o lo registra también Fabrizio.
+
+Ya, esa es una buena pregunta que nos debe contestar la ejecutiva. Si tú me preguntas a mí quién debe llevar el control completo de eso, debería ser Fabrizio. Porque él es el que sabe.
+
+Pero por otro lado, también predico que debería ser el mercaderista. Porque al final el mercaderista ya le actualiza la página por así decirlo y va a decir ah, tienes una impresora, esta impresora. Y ahí no se ingrese.
+
+Moverlo y saber en qué punto. Y debe ser rastreado con la serie que tiene ese equipo. Que eso está en el repositorio del producto o no? No, eso no existe.
+
+Eso Fabrizio debería ingresarlo en el momento en que sale de bodega. El repositorio. Es que hay un solo código.
+
+Y bueno, tengo que incluir lo que es la foto, es que debe tomarse una foto obligatoria tanto desde que sale de la bodega como cuando hay esa transaccional, esa transacción entre Fabrizio y quien lo entrega y cuando el fulano lo deja en el punto. Como cuando entregan P.O.P. Exacto, lo mismo. Por ejemplo, debe haber foto.
+
+Fabrizio está retirando la bodega, foto, aquí está, cuando yo retire la foto, aquí está el respaldo. Con la serie y con todo. Cuando Carlos Moreira recibe de Fabrizio, yo debo de tener una foto.
+
+Ahí está mi foto recibiendo el producto. Voy y se la entrego a Don Luis en su canal. Don Luis, disculpen, aquí está la foto de Don Luis recibiendo el demo.
+
+Lo retiro, la foto de Don Luis entregándome el demo. Voy y lo dejo en la tienda y le digo a Don Cristian, la foto suya recibiendo el demo. Y así, así hayan 500 fotos.
+
+Aquí está la transaccionabilidad del modelo. O sea, eso de la foto sí te consume bastante lo del espacio, lo de las tablas, la parte de la base de datos. O sea, vamos a ver cómo reducimos la cantidad de fotos para que no sea redundante también de que cada movimiento tenga una foto porque no es lo óptimo para ir exponiendo bloqueos.
+
+¿Qué pasó? De un momento a otro, el año pasado se perdió un demo. Ay, no sabía dónde estaba. Le tocó pagarlo al responsable que en ese tiempo fue Cristian Torres.
+
+A él le tocó pagar una impresora. ¿Ya? Una impresora que te estoy hablando que en ese momento costaba casi 600 dólares. Pues hubo porque la perdió.
+
+Pero no hubo nunca una trazabilidad de eso. ¿Por qué? Porque no hubo nunca un control que se fue para allá. Entonces, ¿qué pasa? De que los canales son sabidos.
+
+A mí no me has dejado nada. Y tras que nunca llegan un acta de entrega a recepción, es peor porque solo queda de boca y las palabras se les viene del viento. Entonces todo debe ser como un acta de entrega a recepción.
+
+Ya, esos son los módulos que me parecen principales. No hay otro más, ¿verdad? Hasta ahorita no, Eduardo, a Diego y a mí. La parte de la parte B y los Excel con todo eso.
+
+Solo necesitas el Excel con el detalle. Las estadísticas. Las estadísticas y qué es lo que el mercaderista tiene que subir.
+
+Todo lo que está ahí es lo que tiene que llenar. Ya, para que él más o menos ya selecciono evidencia ya me va a salir este formulario. Selecciono ventas y el resultado que sería el PPT.
+
+¿Quieres ver cómo se entrega el reporte? También un PPT. Uno o dos o varios ejemplos de PPT, lo que tengas. Ahora, te pregunto, ¿te sirve verlo como la foto como tal? Porque yo tengo este ejemplo.
+
+Solo tengo esta cámara de archivos porque con fotos se vuelve una mierda. Estos son los formatos y aquí está el formato fotográfico. El formato fotográfico yo se lo hice a ellos por usando diseño.
+
+Aquí por ejemplo, en este cuadrado va el calendario de actividades en curso. Pásanos el formato, mucho mejor si nos pasan el formato. Dentro de este cuadrado, la foto 1 corresponde al promotor junto con su Instagram y todos los materiales.
+
+¿Qué explicas? Mejor para nosotros. Una de formato y una real. Sería mucho mejor, no importa.
+
+Entre más detalle tengamos mejor porque esto lo vamos a armar programáticamente entonces tiene que estar todo en el mismo lugar. ¿No tienes un pendrive? No, no tengo pendrive. ¿Entonces te paso todo en Google Translate? Súbelo a la nube y dale un link del OneDrive y que lo pueda ver.
+
+¿Te paso todo en Google Translate? Ya. Porque va a pesar mucho. Nosotros no sé cuánto nos podemos estar demorando en darle un mock-up como para que lo vayamos espurando.
+
+Tranquilo, si quieres tómense una semana y vamos viendo el mock-up el viernes. Que vayan avanzando. No tengo apuro, pero tampoco tengo... Lo que usted ha mencionado es que también se seleccionara la lógica de que iba a tener cada evento.
+
+Pero es que la lógica es justamente lo que tiene que arreglar el mercaderista. Pensaba que era tipo seleccionaste la actividad y iba a tener un cálculo diferente. No, pero él dice los excepcionales o los extras.
+
+Si yo ya tengo seis reportes que ya están acá hay otro nuevo que no entra en estas mismas categorías ya sabes que existen. Actividades, exhibiciones, eventos. Digamos que fueran tres.
+
+Cuando yo cree el reporte cuatro que se llama actividades back to school yo le voy a decir a tu lógica a tu página web que el reporte debe ser igualito al de actividades. Entonces yo pongo actividades back to school lógica, actividades. Entonces él ya va a saber si el cálculo, formato, todo tiene que ser igualito como que fueran actividades.
+
+Vamos a utilizar el formulario en cualquiera de las categorías. Porque el cliente los ve por separado no puedo meter todos los huevos en la misma canasta. Eso es lo que me refiero.
+
+Si lo podemos hacer más. Pero no va a ser necesario que estén repositivos. ¿Ya les pasa? Sí, sí.
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)

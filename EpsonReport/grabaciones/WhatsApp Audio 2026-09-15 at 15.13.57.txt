@@ -1,0 +1,77 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+A ver señor, vamos punto a punto su dolor, esto es Epsom Diego por si acaso. A ver, cuéntanos. Gordo, necesito una placa, forma como la que hicimos para Sam.
+
+Ok. ¿Cuál es el pereque? Te explico. Mira, esta gente tenemos dolores de cabeza porque entregan tarde los reportes.
+
+Si lo suben al aplicativo, también no hacen la gestión que deberían hacer. ¿Cómo se llegó a hacer el reporte en mano? Precisamente por eso. A la anterior gestión del cliente dependía de que originalmente se hiciera por VI, pero dijeron no, necesitamos sacar los reportes, necesitamos que sea por PPT, ok, se los llevan los chicos, ok, entreguen de forma manual, ya.
+
+Eso por ese lado. Entonces bueno, con las nuevas actualizaciones y todo eso de los cambios que ha tenido el cliente, antes ¿qué hacían los chicos? Simplemente cogían la foto, la ponían, dependiendo del reporte, y para de contar. ¿Qué es esta foto? ¿Exhibiciones? De todos, hay de exhibiciones, hay de las activaciones que hacen, de las capacitaciones que dan, de la colocación del PPT que realizan, de eventos, de ferias, hay de todo.
+
+Por ejemplo, el reporte de activaciones. Pero eso todo está dentro del aplicativo, ¿verdad? ¿O cómo lo hacen? ¿Cómo tú obtienes estas fotos? Ellos la toman y la hacen manual. Antes, desde que yo cogí el tema, en el 2019 que cogí la cuenta, se habló con el cliente, el cliente dijo que no, lo que te decía, porque el cliente necesitaba sacar las fotos.
+
+En ese tiempo, te estoy hablando desde el 2019, no existía esto de la plataforma de que tú la podías descargar y usar la PPT y que ellos la podían modificar, ya, no existía. Entonces, se decidió hacerlo manual, desde esa época hasta el sol de hoy. ¿Y dónde se mandan esas fotos? Están colocadas en mi nube, yo tengo una carpeta por año, por mes, por reporte, todas esas vainas.
+
+Entonces, lo que ahora se debería hacer es, en efecto, así mismo, poder descargar el PPT. Pero, obviamente, que el cliente ya ingrese a la plataforma y descargue directamente. ¿Sí me explico? Sí.
+
+¿Y el relevo de información, dónde lo quieres tener? ¿En un aplicativo? No, el relevo, que en este caso sea la colocación de las fotos, debe ser por medio de una página web. Estas personas deben tener un usuario y una clave, y la página, y ellos deberían entrar. ¿Para recién ahí tomar la foto? No, bueno, para allá subir la foto.
+
+Entonces, de ahí, ellos van a tener que coger, cuando editar su teléfono, descargar las fotos, y dependiendo del reporte que seleccionen, la página web va a acoplar el formato. ¿Y cuál es el resultado que tiene que arrojar? Tienes que explicarme una cosa, yo tomo la foto de mi impresora, que está aquí, en mi activación tal, yo tomo la foto, voy a la plataforma, ¿y qué busco? ¿El módulo? ¿El reporte? ¿Qué busco? ¿Qué nos vas a pasar tú? Yo te paso todo lo que me pidas. Esto es el formato estadístico que debería tener la... Te voy a enseñar un reporte como tal para que lo veas.
+
+¿Ves? ¿Ves lo emocionante que me estás haciendo ruskear? ¿El reporte? ¿Tú quieres que nosotros te generemos este PPT? Ok. Entonces, por ejemplo, estas estadísticas que están aquí, son estas que están acá, ¿de dónde llenan ellos esto? Ellos lo llenan desde acá, por ejemplo, debería poder... Mira, por ejemplo, este 70%, ¿cuántas tiendas a nivel nacional tienen esa cadena? ¿Cuántas nosotros coberturamos? Eso da el porcentaje. De ahí, por ejemplo, en una actividad, que es algo puntual de ese día, entraron a la tienda 100 clientes, que ellos cuentan, ¿no? Pero interactuaron conmigo 30, de esos 100.
+
+Es decir, que estoy al 30% en interacción. De esos 30, que ahora es mi 100% de clientes que yo atendí, ¿cuántas ventas realicé? 10. O sea, esas 10, comparadas con esos 30, es el 33.333333% ¿Ya? Hasta ahí van los porcentajes.
+
+Ahora, ellos tienen que relevar qué SKUs vendieron y las cantidades. Eso debería estar amarrado, ¿ya? Por ejemplo, ¿de dónde sale el listado de los SKUs? De la base de SKUs que ya existe. Eso tienes que amarrarlo ahí.
+
+Asimismo, la base de usuarios. ¿Esto es general? ¿O solo es por este tipo de relevo? ¿O estos KPIs son los que siempre van a tener? Siempre van a tener por ahora. Porque lo que yo entiendo, entonces, es que el mercaderista o el promotor va a tener un formulario general, ¿o no? O sea, yo, para saber, anoto clientes, 100 clientes.
+
+Vendidos, 30. Ventas realizadas, 5. ¿Esto es por actividad? Por actividad. Ajá, en el punto de venta. 
+
+Por ejemplo, hoy, yo tengo mi actividad número 1, que es en mi comisionado. Mañana, mi segunda actividad es en el Megamax, pero son dos actividades diferentes, dos estadísticos diferentes, dos fotos diferentes, en el mismo reporte. Ya, actividades. 
+
+Entonces, todo se va a dividir por actividades. Ajá, y esas actividades deben ser divididas por canales y por retail. Por el usuario.
+
+Hay usuarios que solo reportan, o mejor dicho, por el punto de venta. ¿El mismo repositorio de usuarios que utiliza el aplicativo son los mismos mercaderistas que nosotros vamos a usar para el inicio de la sesión? Por supuesto. Los mismos puntos de venta están cargados en la base.
+
+Entonces, ¿cómo se divide entre canales y retail? Porque cuando yo subo la base, yo tengo una columna que dice canales o retail. O oficina. O bodega.
+
+Entonces, desde ahí, ya tú tienes la división. Entonces, si de aquí a mañana yo quiero descargar todo el reporte del mes de septiembre, digamos, de canales, yo pongo septiembre, canales, y todo lo que los usuarios, indistinto a quien haya sido, me reportó en algún punto que apunte a canales, lo tiene que descargar en este formato. Entonces, tú lo que quieres ver es filtros de canal, mercaderista, retail, bodega, lo que quieras filtros acá, y en base a esos filtros y a qué actividad te va a aparecer un dashboard así, como home.
+
+Es para entenderte, porque necesito estructurar bien la... Como home, no, gordo, ellos solamente deberían llenar la información. No, eso es para ti, ahorita para ti. Claro, a mi visual, mi visual sí me debería reflejar.
+
+Sí, correcto. Ellos no, ellos solo tienen que llenar. Por eso, ¿cuáles son los datos que tienen que llenar ellos? Todo lo que te estoy dando aquí.
+
+A ver, explícamelo. Detalle, dice tiendas a nivel nacional. Tiendas a nivel nacional, yo eso me imagino que es del repositorio de punto de venta.
+
+Eso sí lo tienen que editar ellos. Ya. Porque, por ejemplo, de aquí a mañana... Por ejemplo... Luis Ceballos tiene tiendas a nivel nacional, yo tengo 10 asignadas, eso es asignación.
+
+No, gordo, por ejemplo, yo tengo la cadena El Rosado, para que hablemos de El Rosado. El Rosado, a nivel nacional, digamos que tiene mil tiendas. Ellos van a tener que editar mil.
+
+Van a tener que escribir mil. Las tiendas coberturadas, me van a tener que decir a mí, en base a lo que yo tengo cargado en mi base de punto de venta, ¿cuántos que apuntan al Rosado yo tengo? Ah, en El Rosado dice Carlos Moreira que ha cargado 50 puntos, de esos mil, entonces nosotros coberturamos el tanto por ciento. O sea, 50 vídeos para mil... 50 vídeos.
+
+El de la spool pregunta, ¿50 vídeos para mil? 0.5%. El 5%. Eso quiere decir que yo, de los mil, cubro apenas el 5% de esa cadena. Pero igual él va a tener que subir el numerito nada más.
+
+Este número, el de tiendas a nivel nacional. Ya, tiendas a nivel nacional, 10. Eso es lo que suele preguntar.
+
+El de tiendas coberturadas sale de la base de punto de venta, porque ahí tú vas a ver todo lo que llega al Rosado. Ok. Ya, clientes que visitaron la tienda.
+
+Esto también lo tienen que tipear ellos, porque ellos son los que hacen el contador. Este es su primer formulario entonces. Exacto.
+
+Clientes que visitaron a la tienda, ellos tienen que saber cuántos clientes ese día visitaron. Dice 100. Ah, yo interactué con 30 y ahí la plataforma debe arrajar más o menos el peso porcentual nada más.
+
+De esos clientes, ¿cuántos te compraron? Ahí viene el primer bloqueo. Por ejemplo, si ellos cogen y dicen que le compraron 10, él tiene que redactarte 10 vendas. ¿Sí me explico? No es que dicen 10 y yo reporto acá en la cantidad vendida 9. O sea, otra fase de su relevo.
+
+O sea, yo reporté 10 y ahora tengo que subir esas 10 vendas. Decir qué categoría, qué es que yo vendí, exactamente. Ya, y eso también tiene que ser otros combos para seleccionar el SKU.
+
+Uso esto en la categoría y todo así. Y mi límite es 10, no puedo subir menos de 10 ni más de 10. Menos de 10 ni más de 10.
+
+Ya, porque ya dijiste que habías subido 10. Y digamos, lo que te entiendo más o menos antes de este formulario es, yo Luis Ceballos pertenezco al Rosado, entonces me va a salir todo el detalle del Rosado al iniciar sesión. Porque yo como pertenezco ya, o soy de la cadena del Rosado, yo voy a poner 10 y solito la plataforma me va a hacer la consulta de los coberturados 7. Porque eso es lo que está en base, en teoría.
+
+¿O no? Puede ser. Puede ser. Pero no debería apuntar a una sola cadena.
+
+Por ejemplo, el acceso principal debería ser digamos que la plataforma, usuario, así como en el aplicativo. Como en el aplicativo normal. El usuario es C. Moreira, clave 1, 2, 3. Entonces cuando ellos ingresan, ellos van a tener que seleccionar, por ejemplo, el tipo de reporte.
+
+¿Qué tipo de reporte vas a ingresar? Actividades, exhibiciones, cualquiera. ¿Cuántos reportes son? Hasta ahorita son... Gracias.
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)

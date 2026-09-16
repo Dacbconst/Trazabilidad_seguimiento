@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; background: #F6F5F1; }
+    h1, h2, h3 { font-family: 'Sora', sans-serif; margin: 0; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #FFFFFF; display: flex; font-family: 'IBM Plex Sans', sans-serif;">
+
+  <!-- Rail de iconos -->
+  <div style="width: 72px; flex-shrink: 0; background: #163832; display: flex; flex-direction: column; align-items: center; padding: 20px 0; gap: 22px; box-sizing: border-box;">
+    <div style="width: 34px; height: 34px; border-radius: 9px; background: #1E6F5C; display: flex; align-items: center; justify-content: center; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 13px; color: #EAF3F0;">ER</div>
+    <div style="width: 1px; align-self: stretch; margin: 0 16px; background: rgba(255,255,255,0.12);"></div>
+    <button aria-label="Actividades" style="width: 40px; height: 40px; border-radius: 10px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: #8FB3AA;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M8 16h5"/></svg>
+    </button>
+    <button aria-label="Historial" style="width: 40px; height: 40px; border-radius: 10px; border: none; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; color: #EAF3F0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    </button>
+  </div>
+
+  <!-- Contenido -->
+  <div style="flex-grow: 1; padding: 36px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; overflow: hidden;">
+
+    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+      <div>
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #6B7280; text-transform: uppercase;">Visibilidad</div>
+        <h1 style="font-size: 24px; font-weight: 600; color: #1F2420; margin-top: 4px;">Historial de registros</h1>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <div style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #E3E1DA; background: #FBFAF8; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1F2420;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          12 / 09 / 2026
+        </div>
+        <div style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #E3E1DA; background: #FBFAF8; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1F2420;">
+          Todas las actividades
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 24px; flex-grow: 1; min-height: 0;">
+
+      <!-- Lista de registros -->
+      <div style="width: 420px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+        <sc-for list="{{registros}}" as="reg" hint-placeholder-count="3">
+          <button onClick="{{reg.pick}}" style="{{reg.cardStyle}}">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 14px; font-weight: 600; color: #1F2420;">{{reg.actividad}}</span>
+              <span style="font-size: 12px; color: #6B7280;">{{reg.hora}}</span>
+            </div>
+            <span style="font-size: 13px; color: #6B7280;">{{reg.local}}</span>
+            <span style="{{reg.estadoStyle}}">{{reg.estado}}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <!-- Detalle -->
+      <div style="flex-grow: 1; border-radius: 14px; border: 1px solid #E3E1DA; background: #FBFAF8; padding: 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; overflow: hidden;">
+        <div>
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #6B7280; text-transform: uppercase;">Detalle del registro</div>
+          <h2 style="font-size: 19px; font-weight: 600; color: #1F2420; margin-top: 4px;">{{detalle.actividad}} · {{detalle.local}}</h2>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E3E1DA;">
+            <span style="font-size: 13px; color: #3A3F3B;">Resultado seleccionado</span>
+            <span style="font-size: 13px; font-weight: 600; color: #1E6F5C;">Opción #2</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E3E1DA;">
+            <span style="font-size: 13px; color: #3A3F3B;">Registrado por</span>
+            <span style="font-size: 13px; font-weight: 600; color: #1F2420;">Carlos Proaño</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <span style="font-size: 13px; font-weight: 500; color: #3A3F3B;">Evidencia fotográfica</span>
+          <div style="display: flex; gap: 14px;">
+            <div style="width: 180px; height: 130px; border-radius: 12px; border: 1.5px dashed #B8B5AA; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #B8B5AA;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+              <span style="font-size: 12px;">Foto 1</span>
+            </div>
+            <div style="width: 180px; height: 130px; border-radius: 12px; border: 1.5px dashed #B8B5AA; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #B8B5AA;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+              <span style="font-size: 12px;">Foto 2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+const DATA = [
+  { id: 1, actividad: 'Actividad 1', local: 'Distribuidora Central', hora: '09:40', estado: 'Completado' },
+  { id: 2, actividad: 'Actividad 2', local: 'Comercial Norte', hora: '10:15', estado: 'Completado' },
+  { id: 3, actividad: 'Actividad 1', local: 'Punto Sur S.A.', hora: '11:02', estado: 'Pendiente' },
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 1 };
+  }
+
+  renderVals() {
+    const picked = this.state.picked ?? 1;
+    const registros = DATA.map((r) => {
+      const selected = r.id === picked;
+      const ok = r.estado === 'Completado';
+      return {
+        ...r,
+        pick: () => this.setState({ picked: r.id }),
+        cardStyle: 'display:flex;flex-direction:column;gap:4px;text-align:left;padding:14px 16px;border-radius:12px;border:1px solid ' + (selected ? '#1E6F5C' : '#E3E1DA') + ';background:' + (selected ? '#E4F2EE' : '#FBFAF8') + ';',
+        estadoStyle: 'font-size:12px;font-weight:600;color:' + (ok ? '#1E6F5C' : '#B7791F') + ';',
+      };
+    });
+    const detalle = DATA.find((r) => r.id === picked) ?? DATA[0];
+    return { registros, detalle };
+  }
+}
+</script>
+</body>
+</html>

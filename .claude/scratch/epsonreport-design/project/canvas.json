@@ -1,0 +1,16 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-09-16T00:00:00Z" },
+  "title": "EpsonReport - Bocetos",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1120, "h": 700, "title": "Login", "is_interactive": true },
+    "Usuario.dc.html": { "x": 1200, "y": 0, "w": 1280, "h": 800, "title": "Usuario · Registrar actividad", "is_interactive": true },
+    "Admin.dc.html": { "x": 2560, "y": 0, "w": 1280, "h": 800, "title": "Admin · Nueva actividad", "is_interactive": true },
+    "Historial.dc.html": { "x": 3920, "y": 0, "w": 1280, "h": 800, "title": "Historial / Visibilidad", "is_interactive": true }
+  },
+  "order": ["Main.dc.html", "Usuario.dc.html", "Admin.dc.html", "Historial.dc.html"],
+  "notes": {},
+  "designSystems": []
+}

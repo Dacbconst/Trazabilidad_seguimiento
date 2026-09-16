@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; background: #F6F5F1; }
+    h1, h2, h3 { font-family: 'Sora', sans-serif; margin: 0; }
+    button { font-family: inherit; cursor: pointer; }
+  </style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #FFFFFF; display: flex; font-family: 'IBM Plex Sans', sans-serif;">
+
+  <!-- Rail de iconos -->
+  <div style="width: 72px; flex-shrink: 0; background: #163832; display: flex; flex-direction: column; align-items: center; padding: 20px 0; gap: 22px; box-sizing: border-box;">
+    <div style="width: 34px; height: 34px; border-radius: 9px; background: #1E6F5C; display: flex; align-items: center; justify-content: center; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 13px; color: #EAF3F0;">ER</div>
+    <div style="width: 1px; align-self: stretch; margin: 0 16px; background: rgba(255,255,255,0.12);"></div>
+    <button aria-label="Actividades" style="width: 40px; height: 40px; border-radius: 10px; border: none; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; color: #EAF3F0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M8 16h5"/></svg>
+    </button>
+    <button aria-label="Reportes" style="width: 40px; height: 40px; border-radius: 10px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: #8FB3AA;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M7 15l3-4 3 3 4-6"/></svg>
+    </button>
+  </div>
+
+  <!-- Columna de gestión / lista de actividades -->
+  <div style="width: 300px; flex-shrink: 0; border-right: 1px solid #E3E1DA; display: flex; flex-direction: column; padding: 24px 20px; box-sizing: border-box; gap: 18px; background: #FBFAF8;">
+    <div>
+      <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #6B7280; text-transform: uppercase;">Tipo de gestión</div>
+      <h2 style="font-size: 18px; font-weight: 600; color: #1F2420; margin-top: 4px;">Actividades</h2>
+    </div>
+
+    <div style="position: relative;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" style="position: absolute; left: 12px; top: 12px;"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" placeholder="Buscar actividad" style="width: 100%; height: 40px; border-radius: 10px; border: 1px solid #E3E1DA; padding: 0 14px 0 36px; font-size: 13px; color: #1F2420; background: #FFFFFF; box-sizing: border-box;">
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <sc-for list="{{actividades}}" as="act" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; background: transparent;">
+          <span style="width: 28px; height: 28px; border-radius: 8px; background: #E3E1DA; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M8 16h5"/></svg>
+          </span>
+          <span style="flex-grow: 1; font-size: 14px; font-weight: 500; color: #1F2420;">{{act.label}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <button type="button" style="margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; height: 42px; border-radius: 10px; border: 1px dashed #1E6F5C; background: #E4F2EE; color: #1E6F5C; font-size: 13px; font-weight: 600;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Nueva actividad
+    </button>
+  </div>
+
+  <!-- Constructor de actividad -->
+  <div style="flex-grow: 1; padding: 40px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; overflow: hidden;">
+    <div>
+      <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #6B7280; text-transform: uppercase;">Nueva actividad</div>
+      <h1 style="font-size: 24px; font-weight: 600; color: #1F2420; margin-top: 4px;">Configurar actividad</h1>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px; max-width: 420px;">
+      <label style="font-size: 13px; font-weight: 500; color: #3A3F3B;">Nombre de la actividad</label>
+      <input type="text" placeholder="Ej. Revisión de visibilidad" style="height: 44px; border-radius: 10px; border: 1px solid #E3E1DA; padding: 0 14px; font-size: 14px; color: #1F2420; background: #FBFAF8; box-sizing: border-box;">
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <label style="font-size: 13px; font-weight: 500; color: #3A3F3B;">Lógica del formulario</label>
+        <span style="font-size: 12px; color: #6B7280;">Orden de los campos que verá el usuario</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <sc-for list="{{pasos}}" as="paso" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid #E3E1DA; background: #FBFAF8;">
+            <span style="width: 24px; height: 24px; border-radius: 7px; background: #E3E1DA; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #3A3F3B; flex-shrink: 0;">{{paso.numero}}</span>
+            <div style="flex-grow: 1; height: 38px; border-radius: 8px; border: 1px solid #E3E1DA; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+              <span style="font-size: 13px; color: #1F2420;">{{paso.label}}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <button aria-label="Eliminar paso" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #E3E1DA; background: #FFFFFF; display: flex; align-items: center; justify-content: center; color: #C0392B; flex-shrink: 0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/></svg>
+            </button>
+          </div>
+        </sc-for>
+      </div>
+
+      <button type="button" style="align-self: flex-start; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 8px; border: 1px dashed #B8B5AA; background: transparent; color: #3A3F3B; font-size: 13px; font-weight: 600;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        Agregar campo
+      </button>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 4px;">
+      <button type="button" style="height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid #E3E1DA; background: #FFFFFF; color: #3A3F3B; font-size: 14px; font-weight: 600;">Cancelar</button>
+      <button type="button" style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #1E6F5C; color: #FFFFFF; font-size: 14px; font-weight: 600;">Guardar actividad</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      actividades: [
+        { label: 'Actividad 1 — Visibilidad' },
+        { label: 'Actividad 2 — Mantenimiento' },
+        { label: 'Actividad 3 — Auditoría' },
+      ],
+      pasos: [
+        { numero: 1, label: 'Nombre del local' },
+        { numero: 2, label: 'Categoría de producto' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
