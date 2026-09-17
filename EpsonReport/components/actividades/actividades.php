@@ -1,21 +1,6 @@
 <?php
-// Mockup: actividades de ejemplo, luego salen de un SELECT real contra luckyec_epson_nuevo.
-// "campos" representa la lógica de cada actividad (su formulario) — un reporte nuevo elige
-// una de estas lógicas existentes y hereda sus campos, nunca arma un formulario desde cero.
-$actividades = [
-	[
-		'id' => 1, 'label' => 'Actividad 1 — Visibilidad', 'badge' => 'Nuevo',
-		'campos' => ['Nombre del local / punto', 'Categoría de producto', 'Resultado de la visita'],
-	],
-	[
-		'id' => 2, 'label' => 'Actividad 2 — Mantenimiento', 'badge' => '',
-		'campos' => ['Equipo revisado', 'Estado del equipo', 'Observaciones técnicas'],
-	],
-	[
-		'id' => 3, 'label' => 'Actividad 3 — Auditoría', 'badge' => '',
-		'campos' => ['Punto auditado', 'Nivel de cumplimiento', 'Hallazgos'],
-	],
-];
+require_once __DIR__.'/../../includes/actividades_datos.php';
+$actividades = ep_actividades();
 $esAdmin = ep_rol_actual() === 'admin';
 ?>
 <aside class="ep-side">
@@ -60,17 +45,27 @@ $esAdmin = ep_rol_actual() === 'admin';
 	</div>
 	<?php endif; ?>
 
-	<div id="ep-panel-formulario" style="display:flex;flex-direction:column;gap:20px;max-width:560px;margin-top:28px;">
-		<?php foreach ($actividades[0]['campos'] as $campo): ?>
-			<div style="display:flex;flex-direction:column;gap:6px;">
-				<label class="ep-label"><?= htmlspecialchars($campo) ?></label>
-				<div class="ep-select"><span>Sin definir</span><?= ep_icon('chevron', 16) ?></div>
-			</div>
-		<?php endforeach; ?>
+	<div class="ep-actividad-layout">
+		<div id="ep-panel-formulario" class="ep-card">
+			<?php foreach ($actividades as $i => $actividad): ?>
+				<div class="ep-formulario-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
+					<?php include __DIR__.'/plantillas/'.$actividad['plantilla'].'.php'; ?>
+				</div>
+			<?php endforeach; ?>
 
-		<div style="display:flex;gap:12px;margin-top:8px;">
-			<button type="button" class="ep-btn-outline">Guardar borrador</button>
-			<button type="button" class="ep-btn-primary">Enviar registro</button>
+			<div style="display:flex;gap:12px;margin-top:8px;">
+				<button type="button" class="ep-btn-outline">Guardar borrador</button>
+				<button type="button" class="ep-btn-primary">Enviar registro</button>
+			</div>
+		</div>
+
+		<div id="ep-panel-estadisticas" class="ep-card">
+			<div class="ep-eyebrow">Así se ve el reporte final</div>
+			<?php foreach ($actividades as $i => $actividad): ?>
+				<div class="ep-estadisticas-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
+					<?php include __DIR__.'/plantillas-stats/'.$actividad['plantilla'].'.php'; ?>
+				</div>
+			<?php endforeach; ?>
 		</div>
 	</div>
 

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; background: #F6F5F1; }
+    h1, h2, h3 { font-family: 'Sora', sans-serif; margin: 0; }
+    input, textarea { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 28px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+    <div>
+      <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #6B7280; text-transform: uppercase;">Actividades · Activaciones</div>
+      <h1 style="font-size: 26px; font-weight: 600; color: #111111; margin-top: 4px;">Registrar activación — Mall del Sol</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #E9EBF6; color: #10218B; font-size: 13px; font-weight: 600;">
+      <span style="width: 8px; height: 8px; border-radius: 999px; background: #10218B;"></span>
+      Carlos Proaño
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 32px; align-items: start;">
+
+    <!-- Columna del formulario: timeline vertical numerada -->
+    <div style="display: flex; flex-direction: column;">
+
+      <!-- Paso 1: Cobertura -->
+      <div style="display: flex; gap: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+          <div style="width: 28px; height: 28px; border-radius: 999px; background: #10218B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">1</div>
+          <div style="width: 2px; flex-grow: 1; background: #DCDCDC; margin-top: 4px;"></div>
+        </div>
+        <div style="flex-grow: 1; padding-bottom: 28px;">
+          <h3 style="font-size: 15px; font-weight: 600; color: #111111;">Cobertura</h3>
+          <p style="margin: 4px 0 14px; font-size: 12px; color: #6B7280;">Cuántas tiendas del universo nacional tiene cubiertas esta activación.</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 13px; font-weight: 500; color: #1F2023;">Tiendas a Nivel Nacional</label>
+              <input type="number" placeholder="Ej. 10" style="height: 44px; border-radius: 10px; border: 1px solid #DCDCDC; padding: 0 14px; font-size: 14px; background: #FFFFFF;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 13px; font-weight: 500; color: #1F2023; display: flex; align-items: center; gap: 6px;">
+                Tiendas Coberturadas
+                <span style="font-size: 9px; font-weight: 700; color: #10218B; background: #E9EBF6; padding: 1px 6px; border-radius: 999px; letter-spacing: 0.03em;">AUTO</span>
+              </label>
+              <div style="height: 44px; border-radius: 10px; border: 1px dashed #C7C4D8; padding: 0 14px; font-size: 14px; background: #F5F5F7; color: #5B5D63; display: flex; align-items: center; font-weight: 600;">7</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 2: Embudo -->
+      <div style="display: flex; gap: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+          <div style="width: 28px; height: 28px; border-radius: 999px; background: #10218B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">2</div>
+          <div style="width: 2px; flex-grow: 1; background: #DCDCDC; margin-top: 4px;"></div>
+        </div>
+        <div style="flex-grow: 1; padding-bottom: 28px;">
+          <h3 style="font-size: 15px; font-weight: 600; color: #111111;">Embudo de clientes</h3>
+          <p style="margin: 4px 0 14px; font-size: 12px; color: #6B7280;">Cada paso no puede superar al anterior: interactuaron ≤ visitaron ≤ compraron.</p>
+
+          <div style="display: flex; align-items: stretch; gap: 2px; height: 92px;">
+            <div style="flex: 1 1 0; background: #10218B; border-radius: 10px 0 0 10px; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; box-sizing: border-box;">
+              <span style="font-size: 11px; color: #C6CBEE; text-transform: uppercase; letter-spacing: 0.03em;">Visitaron</span>
+              <input type="number" placeholder="100" style="margin-top: 4px; height: 32px; border-radius: 6px; border: none; padding: 0 10px; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.92);">
+            </div>
+            <div style="flex: 0.72 1 0; background: #3849A3; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; box-sizing: border-box;">
+              <span style="font-size: 11px; color: #D6DAF2; text-transform: uppercase; letter-spacing: 0.03em;">Interactuaron</span>
+              <input type="number" placeholder="30" style="margin-top: 4px; height: 32px; border-radius: 6px; border: none; padding: 0 10px; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.92);">
+            </div>
+            <div style="flex: 0.46 1 0; background: #6572BE; border-radius: 0 10px 10px 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; box-sizing: border-box;">
+              <span style="font-size: 11px; color: #E4E6F7; text-transform: uppercase; letter-spacing: 0.03em;">Compraron</span>
+              <input type="number" placeholder="10" style="margin-top: 4px; height: 32px; border-radius: 6px; border: none; padding: 0 10px; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.92);">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 3: Modelos -->
+      <div style="display: flex; gap: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+          <div style="width: 28px; height: 28px; border-radius: 999px; background: #10218B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">3</div>
+          <div style="width: 2px; flex-grow: 1; background: #DCDCDC; margin-top: 4px;"></div>
+        </div>
+        <div style="flex-grow: 1; padding-bottom: 28px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="font-size: 15px; font-weight: 600; color: #111111;">Modelos Activados</h3>
+            <span style="font-size: 12px; color: #6B7280;">Total: <strong style="color: #111111;">3 unidades</strong></span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 100px 34px; gap: 10px; align-items: center;">
+              <div style="height: 42px; border-radius: 10px; border: 1px solid #DCDCDC; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 13px; color: #111111; font-weight: 500;">
+                L3250
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <input type="number" placeholder="Cant." value="1" style="height: 42px; border-radius: 10px; border: 1px solid #DCDCDC; padding: 0 12px; font-size: 14px;">
+              <button style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #DCDCDC; background: #FFFFFF; color: #B3261E; display: flex; align-items: center; justify-content: center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/></svg>
+              </button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 100px 34px; gap: 10px; align-items: center;">
+              <div style="height: 42px; border-radius: 10px; border: 1px solid #DCDCDC; background: #FFFFFF; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 13px; color: #111111; font-weight: 500;">
+                L4360
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <input type="number" placeholder="Cant." value="2" style="height: 42px; border-radius: 10px; border: 1px solid #DCDCDC; padding: 0 12px; font-size: 14px;">
+              <button style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #DCDCDC; background: #FFFFFF; color: #B3261E; display: flex; align-items: center; justify-content: center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <button style="margin-top: 10px; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 8px; border: 1px dashed #A9A9A9; background: transparent; color: #1F2023; font-size: 13px; font-weight: 600;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar modelo
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 4: Cumplimiento -->
+      <div style="display: flex; gap: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+          <div style="width: 28px; height: 28px; border-radius: 999px; background: #10218B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">4</div>
+          <div style="width: 2px; flex-grow: 1; background: #DCDCDC; margin-top: 4px;"></div>
+        </div>
+        <div style="flex-grow: 1; padding-bottom: 28px;">
+          <h3 style="font-size: 15px; font-weight: 600; color: #111111;">Cumplimiento de Activaciones</h3>
+          <p style="margin: 4px 0 14px; font-size: 12px; color: #6B7280;">Realizadas no puede superar a Programadas.</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 13px; font-weight: 500; color: #1F2023;">Activaciones Programadas</label>
+              <input type="number" placeholder="Ej. 15" style="height: 44px; border-radius: 10px; border: 1px solid #DCDCDC; padding: 0 14px; font-size: 14px; background: #FFFFFF;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 13px; font-weight: 500; color: #1F2023;">Activaciones Realizadas</label>
+              <input type="number" placeholder="Ej. 8" style="height: 44px; border-radius: 10px; border: 1px solid #DCDCDC; padding: 0 14px; font-size: 14px; background: #FFFFFF;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 5: Comentarios (sin línea hacia abajo, es el último) -->
+      <div style="display: flex; gap: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+          <div style="width: 28px; height: 28px; border-radius: 999px; background: #10218B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">5</div>
+        </div>
+        <div style="flex-grow: 1;">
+          <h3 style="font-size: 15px; font-weight: 600; color: #111111;">Comentarios</h3>
+          <textarea rows="3" placeholder="Un comentario por línea..." style="margin-top: 10px; width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #DCDCDC; padding: 12px 14px; font-size: 14px; background: #FFFFFF; resize: vertical;"></textarea>
+
+          <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <button style="height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid #DCDCDC; background: #FFFFFF; color: #1F2023; font-size: 14px; font-weight: 600;">Guardar borrador</button>
+            <button style="height: 44px; padding: 0 20px; border-radius: 10px; border: none; background: #10218B; color: #fff; font-size: 14px; font-weight: 600;">Enviar registro</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna del reporte final, sticky -->
+    <div style="position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #6B7280; text-transform: uppercase;">Así se ve el reporte final</div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+        <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; overflow: hidden;">
+          <div style="background: #10218B; color: #fff; padding: 7px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+            Cobertura
+          </div>
+          <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 26px; font-weight: 700; color: #111111;">70%</div>
+            <div style="border-top: 1px solid #DCDCDC; padding-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7280; text-transform: uppercase;"><span>Nacional</span><strong style="color:#111; font-size:12px;">10</strong></div>
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7280; text-transform: uppercase;"><span>Coberturadas</span><strong style="color:#111; font-size:12px;">7</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; overflow: hidden;">
+          <div style="background: #10218B; color: #fff; padding: 7px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="18" cy="7" r="3"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/></svg>
+            Interacciones
+          </div>
+          <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 26px; font-weight: 700; color: #111111;">30%</div>
+            <div style="border-top: 1px solid #DCDCDC; padding-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7280; text-transform: uppercase;"><span>Visitaron</span><strong style="color:#111; font-size:12px;">100</strong></div>
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7280; text-transform: uppercase;"><span>Interactuaron</span><strong style="color:#111; font-size:12px;">30</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; overflow: hidden;">
+          <div style="background: #10218B; color: #fff; padding: 7px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+            Ventas
+          </div>
+          <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 26px; font-weight: 700; color: #111111;">33%</div>
+            <div style="border-top: 1px solid #DCDCDC; padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7280; text-transform: uppercase;"><span>Realizadas</span><strong style="color:#111; font-size:12px;">10</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 12px; align-items: stretch;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; padding: 14px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+            <span style="font-size: 20px; font-weight: 700; color: #111111;">40%</span>
+            <span style="font-size: 14px; font-weight: 700; color: #111111;">L4360</span>
+            <span style="width: 100%; font-size: 10px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.03em;">SKU con mayor venta</span>
+          </div>
+          <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; padding: 14px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+            <span style="font-size: 20px; font-weight: 700; color: #111111;">20%</span>
+            <span style="font-size: 14px; font-weight: 700; color: #111111;">L3250</span>
+            <span style="width: 100%; font-size: 10px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.03em;">SKU con menor venta</span>
+          </div>
+        </div>
+
+        <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #10218B; text-transform: uppercase; letter-spacing: 0.03em;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+            Detalle de Ventas
+          </div>
+          <div style="display: grid; grid-template-columns: 60px 1fr 20px; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; color: #6B7280;">L4360</span>
+            <div style="background: #F5F5F7; border-radius: 4px; height: 12px; overflow: hidden;"><div style="background: #10218B; height: 100%; width: 100%; border-radius: 4px;"></div></div>
+            <span style="font-size: 12px; font-weight: 600; text-align: right;">2</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 60px 1fr 20px; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; color: #6B7280;">L3250</span>
+            <div style="background: #F5F5F7; border-radius: 4px; height: 12px; overflow: hidden;"><div style="background: #10218B; height: 100%; width: 50%; border-radius: 4px;"></div></div>
+            <span style="font-size: 12px; font-weight: 600; text-align: right;">1</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #fff; border: 1px solid #DCDCDC; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #10218B; text-transform: uppercase; letter-spacing: 0.03em;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          Comentarios
+        </div>
+        <div style="font-size: 12px; color: #1F2023;">Buena rotación de EcoTank, faltó material POP.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
