@@ -37,6 +37,9 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			Cuotas Trimestrales
 			<span class="ac-repo-tab-count" id="repo-tab-cuotas-count">—</span>
 		</button>
+		<!-- Indicador deslizante (2026-09-18) — posición/ancho calculados en JS,
+		     ver posicionarIndicadorTab() en repositorios.js. -->
+		<div class="ac-repo-tabs-indicador" id="repo-tabs-indicador"></div>
 	</div>
 
 	<section class="ac-card">
@@ -46,12 +49,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<input type="text" class="ac-input" id="repo-buscar" placeholder="Buscar...">
 			</div>
 			<div class="ac-repo-actions">
-				<!-- "Exportar" se transforma in-place en 2 opciones (CSV/Excel) al
-				     hacer click, sin abrir modal ni dropdown flotante — pedido
-				     explícito 2026-08-24 ("no quiero otra ventanita, usa
-				     animaciones"). Truco de grid-template-columns 0fr->1fr para
-				     que el ancho se anime solo, sin medir nada por JS. -->
-				<div class="ac-repo-exportar" id="repo-exportar-wrap">
+				<!-- Oculto a pedido explícito (2026-09-17) — mismo criterio que
+				     "Eliminados"/"Pendientes de Asignar": mecanismo intacto
+				     (CSV/Excel, animación expand-in-place), solo se saca de la
+				     vista. Para reactivarlo: sacar la clase `hidden`. -->
+				<div class="ac-repo-exportar hidden" id="repo-exportar-wrap">
 					<button type="button" class="ac-btn-outline ac-btn-inline ac-repo-exportar-btn" id="repo-exportar-btn">
 						<span class="material-symbols-outlined">download</span>
 						Exportar
@@ -90,11 +92,33 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 					<span class="material-symbols-outlined">restore_from_trash</span>
 					Eliminados
 				</button>
-				<!-- .xlsx en blanco con columnas del importador, solo Rebate/Participación. Href en activarTab(). -->
+				<!-- .xlsx en blanco con columnas del importador — Rebate/Participación: link directo,
+				     Href en activarTab(). -->
 				<a class="ac-btn-outline ac-btn-inline" id="repo-plantilla-descargar" href="getters/repositorio_plantilla.php?tipo=rebate" target="_blank">
 					<span class="material-symbols-outlined">file_download</span>
 					Descargar Formato
 				</a>
+				<!-- Solo Cuotas — Directo y Distribuidor tienen columnas distintas (ver
+				     includes/repositorio_import.php), así que hace falta elegir cuál antes
+				     de descargar. Mismo patrón expand-in-place que "Exportar" (2026-08-24). -->
+				<div class="ac-repo-exportar hidden" id="repo-plantilla-cuotas-wrap">
+					<button type="button" class="ac-btn-outline ac-btn-inline ac-repo-exportar-btn" id="repo-plantilla-cuotas-btn">
+						<span class="material-symbols-outlined">file_download</span>
+						Descargar Formato
+					</button>
+					<div class="ac-repo-exportar-opciones-outer">
+						<div class="ac-repo-exportar-opciones">
+							<a class="ac-repo-exportar-opcion" id="repo-plantilla-cuotas-directo" href="getters/repositorio_plantilla.php?tipo=cuotas&canal=directo" target="_blank">
+								<span class="material-symbols-outlined">storefront</span>
+								Directo
+							</a>
+							<a class="ac-repo-exportar-opcion" id="repo-plantilla-cuotas-distribuidor" href="getters/repositorio_plantilla.php?tipo=cuotas&canal=distribuidor" target="_blank">
+								<span class="material-symbols-outlined">local_shipping</span>
+								Distribuidor
+							</a>
+						</div>
+					</div>
+				</div>
 				<button type="button" class="ac-btn-primary ac-btn-inline" id="repo-subir-abrir">
 					<span class="material-symbols-outlined">upload_file</span>
 					Subir Archivo
@@ -172,6 +196,16 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 					<div class="ac-archivo-chip-nombre" id="repo-preview-nombre-archivo">—</div>
 					<div class="ac-archivo-chip-detalle" id="repo-preview-cantidad">—</div>
 				</div>
+				<!-- Año, movido acá (2026-09-18, pedido explícito: "aprovecha ese espacio
+				     vacío que deja en su fila") — antes vivía en su propia fila suelta,
+				     entre el banner de trimestre y el de resumen. El Excel de Cuotas no
+				     trae el año (solo el trimestre, inferido del propio archivo por
+				     repositorio_parsear_cuotas()), lo elige el superdesarrollador acá
+				     antes de guardar. Oculto para Rebate/Participación (assets/js/repositorios.js). -->
+				<div class="ac-field ac-archivo-chip-anio hidden" id="repo-preview-anio-wrap">
+					<label class="ac-field-label" for="repo-preview-anio">Año de este trimestre</label>
+					<input type="number" class="ac-input" id="repo-preview-anio">
+				</div>
 			</div>
 			<!-- Trimestre (y canal) detectado en el archivo de Cuotas — bien visible a propósito
 			     (2026-09-15, pedido explícito: el aviso chico de antes, "(Directo, Q2)" dentro del
@@ -186,13 +220,20 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<!-- Canal detectado en el archivo (2026-09-16, pedido explícito): mismo estilo de badge que ya usa Registrar para el canal del usuario logueado, así se reconoce de un vistazo antes de confirmar el guardado. -->
 				<span class="ac-badge" id="repo-preview-canal-badge">—</span>
 			</div>
-			<!-- El Excel de Cuotas no trae el año (solo el trimestre, inferido del
-			     propio archivo por repositorio_parsear_cuotas()) — lo elige el
-			     superdesarrollador acá antes de guardar. Oculto para Rebate/
-			     Participación (assets/js/repositorios.js). -->
-			<div class="ac-field hidden" id="repo-preview-anio-wrap">
-				<label class="ac-field-label" for="repo-preview-anio">Año de este trimestre</label>
-				<input type="number" class="ac-input" id="repo-preview-anio" style="max-width:140px;">
+			<!-- Resumen de asignación de ESTE archivo (2026-09-17) — reemplaza el modal
+			     "Resumen" separado (panorama histórico global, poco relevante para "qué
+			     va a pasar si subo esto ahora"). Movido debajo del banner de trimestre
+			     (2026-09-18, pedido explícito: "ponlo abajo de [el banner de] Se están
+			     subiendo datos del trimestre"). Calculado en vivo sobre estadosPreview,
+			     ver renderPreviewResumen() en repositorios.js. Oculto para Rebate/
+			     Participación y hasta que termine de resolver (mismo criterio que el
+			     resto de esta sección). -->
+			<div class="ac-resumen-asignacion hidden" id="repo-preview-resumen">
+				<div class="ac-resumen-asignacion-titulo">
+					<span class="material-symbols-outlined">groups</span>
+					<span id="repo-preview-resumen-titulo">—</span>
+				</div>
+				<div class="ac-resumen-asignacion-chips" id="repo-preview-resumen-chips"></div>
 			</div>
 			<p class="ac-field-hint">Así vamos a guardar estos datos. Podés corregir cualquier campo antes de confirmar.</p>
 			<!-- Rojo (.ac-alert-error) solo si hubo errores reales, ámbar

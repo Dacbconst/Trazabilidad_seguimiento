@@ -394,6 +394,55 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 	return usuarioIdDePosId($mysqli, $posId);
 }
 
+// Mismo criterio de arriba (CEDI del Excel gana, maestro como respaldo), pero ANTES de
+// guardar — usada por la previsualización de Cuotas (2026-09-17) para mostrar "Se asigna
+// a" antes de confirmar. Recibe $cediExcel directo de la fila recién parseada (todavía no
+// existe en repositorio_cuota_cliente, por eso no puede reusar usuarioIdDeCuota() tal
+// cual) — es la MISMA fila que, una vez guardada, usuarioIdDeCuota() volvería a leer con
+// este mismo cedi_excel, así que el resultado coincide con lo que pasaría de verdad.
+// Devuelve ['nombre'=>string|null, 'tiene_cuenta'=>bool] — 2026-09-17, ampliado a pedido
+// explícito del usuario: un cliente cuyo `pos_id` SÍ se identificó pero cuyo supervisor
+// real (del maestro de Alicorp) todavía no tiene cuenta de usuario NO es lo mismo que un
+// cliente que ni siquiera se pudo identificar — antes ambos casos caían en el mismo balde
+// "sin identificar", perdiendo la distinción. Mismo criterio que ya usaba el modal
+// "Resumen" viejo (`resumen_cuotas()`, sección "Con cuenta"/"Sin cuenta todavía").
+function resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel) {
+	$cedi = trim((string) $cediExcel);
+	if ($cedi !== '') {
+		$stmt = $mysqli->prepare(
+			"SELECT usuario FROM repositorio_usuarios_acuerdos
+			 WHERE status = 'activo'
+			   AND (UPPER(TRIM(usuario)) = UPPER(TRIM(?)) OR UPPER(TRIM(supervisor)) = UPPER(TRIM(?)))
+			 LIMIT 1"
+		);
+		if ($stmt) {
+			$stmt->bind_param('ss', $cedi, $cedi);
+			$stmt->execute();
+			$fila = $stmt->get_result()->fetch_assoc();
+			$stmt->close();
+			if ($fila) return ['nombre' => $fila['usuario'], 'tiene_cuenta' => true];
+		}
+	}
+	// Respaldo del maestro: trae el supervisor real de ESE pos_id, con o sin cuenta activa
+	// (LEFT JOIN, no JOIN — antes un JOIN normal descartaba en silencio el caso "supervisor
+	// real pero sin cuenta todavía", indistinguible de "no se encontró nada").
+	$stmt = $mysqli->prepare(
+		"SELECT c.supervisor, u.usuario, (u.id IS NOT NULL) AS tiene_cuenta
+		 FROM repositorio_locales_supervisores_cliente c
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.supervisor = c.supervisor AND u.status = 'activo'
+		 WHERE c.pos_id = ? LIMIT 1"
+	);
+	if (!$stmt) return ['nombre' => null, 'tiene_cuenta' => false];
+	$stmt->bind_param('s', $posId);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	if (!$fila) return ['nombre' => null, 'tiene_cuenta' => false];
+	if ($fila['tiene_cuenta']) return ['nombre' => $fila['usuario'], 'tiene_cuenta' => true];
+	// Cliente identificado, supervisor real conocido, pero sin cuenta creada todavía.
+	return ['nombre' => $fila['supervisor'], 'tiene_cuenta' => false];
+}
+
 // ---------- Actas Precargadas (Repositorio de Cuotas) ---------- Resolución en vivo, nunca guardada. Agrupa por (pos_id, trimestre, anio): varias filas de sector de un cliente son UNA sola Acta.
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];

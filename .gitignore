@@ -1,2 +1,8 @@
 EpsonReport/epson/08. AGOSTO 2026/CANALES/CONSOLIDADO FOTOGRAFICO AGOSTO 2026.pptx
 /EpsonReport
+
+# Claude Code skills (installed via `npx skills add`, `npx impeccable install`)
+/.agents/
+/.claude/skills/
+/.claude/agents/
+/skills-lock.json

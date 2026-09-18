@@ -8383,6 +8383,123 @@ El usuario decidió **dejar Subcategoría/Marca como están** — no revertir a
 Código/RUC aunque el archivo real los tenga. Comentario del archivo corregido para no
 repetir el supuesto viejo.
 
+**⚠️ Superado 2026-09-16/18 — CODIGO/RUC SÍ se agregaron, ADEMÁS de
+Subcategoría/Marca (no en su lugar)**: otra sesión, en paralelo, resolvió
+el "no hay fuente real" de la nota vieja — agregó columnas `codigo`/`ruc`
+a `repositorio_cuota_cliente` y las conectó en
+`repositorio_parsear_cuotas_distribuidor()` (opcionales, mismo criterio
+que Subcategoría/Marca). El ciclo completo: `exportar_cuota_categoria_distribuidor.php`
+("Descargar Excel" de Historial) exporta Código/RUC vacíos → JW los llena
+a mano sobre ESE mismo archivo (tienen el dato, nosotros no) → ese Excel
+se vuelve a subir al Repositorio de Cuotas → se guarda en
+`repositorio_cuota_cliente` → la PRÓXIMA vez que se descargue el Excel
+para ese mismo cliente (cruce por `pos_id+sector+trimestre+año`), Código/RUC
+salen autocompletos solos. Actas creadas manualmente en Registrar (no
+desde una Acta Precargada) siguen sin esta info, quedan vacías — no hay
+forma de evitarlo, es la limitación real ya conocida. **A raíz de esto se
+agregaron también `CODIGO`/`RUC` a la plantilla de Repositorios > Cuotas
+Trimestrales > Distribuidor** (`getters/repositorio_plantilla.php`,
+2026-09-18, pedido explícito del usuario) — mismo orden que el resto del
+sistema (a la derecha de NOMBRE), para que alguien que arranque desde cero
+con la plantilla en blanco (en vez de reusar el Excel que el sistema ya
+exportó) también tenga dónde ponerlas. **Confirmado con la base real
+(solo lectura) que el mecanismo existe pero todavía no tiene datos reales
+cargados** (`SELECT` sobre `repositorio_cuota_cliente` con `codigo`/`ruc`
+no vacíos: 0 filas) — construido, sin probar con un archivo real todavía.
+`php -l` limpio en `repositorio_plantilla.php` tras el agregado.
+
+## Modal de Cuotas reordenado + indicador deslizante en las pestañas (2026-09-18)
+
+3 ajustes visuales pedidos con una captura real del modal:
+
+1. **Año movido junto al nombre del archivo** — antes vivía en su propia
+   fila suelta entre el banner de trimestre y el de resumen; ahora ocupa
+   el espacio vacío a la derecha de `.ac-archivo-chip` (pedido explícito:
+   "aprovecha ese espacio vacío que deja en su fila"). `margin-left:auto`
+   lo empuja al extremo derecho; `flex-wrap` en el chip lo manda a su
+   propia línea en pantallas angostas.
+2. **Resumen de asignación movido debajo del banner de trimestre** (antes
+   quedaba debajo de Año, que a su vez quedaba debajo del banner — con Año
+   movido, el resumen pasa a ser lo segundo que se ve, justo después de
+   "Se están subiendo datos del trimestre").
+   Orden final: chip de archivo (+ Año inline) → banner de trimestre →
+   resumen de asignación → hint → tabla.
+3. **Indicador deslizante en las pestañas de Repositorios** — antes cada
+   pestaña activa solo cambiaba de color en el momento (`border-bottom-color`
+   estático por botón), sin ningún movimiento perceptible al cambiar de
+   pestaña (pedido explícito: "no tengo algo visual... que se vaya
+   moviendo según elijo el que es"). Nuevo `<div id="repo-tabs-indicador">`
+   dentro de `.ac-repo-tabs`, posición/ancho calculados en JS
+   (`posicionarIndicadorTab()`) porque las 3 pestañas tienen anchos muy
+   distintos ("Rebate" vs "Cuotas Trimestrales") — imposible de animar con
+   CSS puro sin conocer esos anchos de antemano. Se llama desde
+   `activarTab()`, al cargar la página (pestaña "Rebate" por defecto), y
+   en `resize` de la ventana (los anchos de pestaña pueden variar si el
+   texto envuelve distinto). Se sacó el `border-bottom-color` estático de
+   `.ac-repo-tab.active` para que no compita con la barra nueva durante la
+   transición (antes aparecía/desaparecía de golpe, ahora se desliza).
+
+**Probado**: `php -l`/`node --check` limpios, CSS balanceado (893/893).
+Verificado visualmente con Playwright — 2 capturas (Rebate activo, Cuotas
+Trimestrales activo) confirman que la barra se posiciona y ensancha
+correcto bajo cada pestaña; el modal reordenado se ve limpio, con el Año
+bien acomodado a la derecha del chip. **Todavía sin probar en el
+navegador real de la app** (falta confirmar la animación de la barra al
+hacer click de verdad, y el comportamiento en mobile del chip con
+`flex-wrap`).
+
+## Modal de Cuotas: los 3 bloques unificados en tamaño/tipografía + Año ya no se recorta (2026-09-19)
+
+Pedido explícito, justo después del reordenado de arriba, viendo los 3
+bloques (chip de archivo + Año, banner de trimestre, resumen de
+asignación) ya juntos en pantalla: "has que tengan el mismo tamaño de
+forma y topografía" + "ajusta bien lo de año trimestre se ve recortado el
+2026" (después aclarado: "se ve recortado de los lados").
+
+**Causa real del recorte de Año**: `.ac-input` (la clase base de todos los
+inputs del proyecto) trae `padding: 12px 16px 12px 40px` — el `40px` de
+la izquierda está pensado para un ícono DENTRO del campo (patrón usado en
+otros inputs del proyecto), pero el campo de Año no tiene ícono. Con
+`max-width:110px` heredado, ese padding de sobra le dejaba al texto real
+solo ~54px utilizables — suficiente la mayoría de las veces, pero
+apretado, y con los margen del borde + la fuente de 16px terminaba
+viéndose recortado en los bordes. Corregido con un padding propio para
+este campo (`8px 10px`, sin el hueco del ícono) + `max-width:92px` +
+`text-align:center` — verificado con Playwright (mirror con el `style.css`
+real): "2026" entra centrado con aire de sobra a los lados.
+
+**Unificación de tamaño/forma/tipografía entre los 3 bloques**
+(`assets/css/style.css`) — antes cada uno tenía su propio radio de
+esquina, tamaño de ícono y escala de texto, aunque el padding ya era
+igual en los 3:
+- **Border-radius**: `.ac-archivo-chip` usaba `var(--radius)` (4px, más
+  chico) mientras el banner de trimestre y el resumen ya usaban
+  `var(--radius-lg)` (8px) — subido a `var(--radius-lg)` para que los 3
+  compartan la misma esquina.
+- **Ícono**: 24px en los 3 (antes: chip sin tamaño explícito/heredado,
+  banner en 28px, resumen en 22px).
+- **Texto principal**: 15px, `font-weight:700` en los 3 (antes:
+  `.ac-archivo-chip-nombre` en 13px/600, `.ac-cuotas-trimestre-banner-valor`
+  en 20px/800 —deliberadamente más grande en una ronda anterior, "a
+  propósito MUY notorio"—, `.ac-resumen-asignacion-titulo` sin tamaño
+  explícito). El texto secundario (`.ac-archivo-chip-detalle`, la etiqueta
+  en mayúsculas del banner) se dejó igual — son subtítulos/etiquetas, no
+  compiten por ser "el tamaño principal" de cada bloque.
+- **Fondo de cada bloque**: sin tocar — cada uno mantiene su color propio
+  (gris claro / azul sólido / lavanda suave) a propósito, para poder
+  distinguirlos de un vistazo; el pedido era igualar tamaño/forma/tipografía,
+  no aplanar todo al mismo color.
+
+**Probado**: llaves de `style.css` balanceadas (893/893, mismo conteo que
+antes — solo se editaron valores dentro de reglas ya existentes, no se
+agregó/quitó ninguna regla). Verificado visualmente con Playwright (mirror
+con el `style.css` real, los 3 bloques juntos como en el modal real): "2026"
+ya no se recorta, y los 3 bloques se leen como un mismo lenguaje visual
+(misma esquina, mismo ícono, mismo peso de texto principal) aunque
+conserven su color de fondo distinto. **Todavía sin probar en el navegador
+real de la app** (falta confirmar contra `index.php` real, no solo el
+mirror).
+
 **Investigado y descartado — NO son bugs, no tocar**:
 - **Label "REBATE MAXIMO 110%" vs "100%" del real**: el real dice 100% pero la fórmula
   calcula ×1.1 (110% real) — es un typo de JW en su propio archivo. Se mantiene
@@ -9706,3 +9823,243 @@ casos, ningún llenado del Excel va a lograr que el sistema encuentre un
 `pos_id` — la fila cae a "Pendientes de Asignar" para resolución manual
 (o queda sin resolver hasta que Alicorp complete su maestro). Esto no es
 arreglable desde este proyecto.
+
+## "Descargar Formato" extendido a Cuotas Trimestrales (2026-09-17)
+
+Pedido explícito del usuario, justo después de lo de arriba — para que
+quien sube el Excel de Cuotas tenga la plantilla correcta y así la
+asignación de Actas funcione bien desde el principio. Antes "Descargar
+Formato" solo existía para Rebate/Participación (2026-09-07); Cuotas lo
+tenía oculto a propósito porque en ese momento no hacía falta.
+
+- `getters/repositorio_plantilla.php` — nuevo `tipo=cuotas` (además de
+  `rebate`/`participacion`), con `canal=directo|distribuidor` — genera las
+  columnas EXACTAS que esperan `repositorio_parsear_cuotas_directo()`/
+  `_distribuidor()`: Directo = `CEDI | CLIENTE | PLAN | CATEGORIAS |
+  SUBCATEGORIA | MARCA | ENERO | FEBRERO | MARZO`; Distribuidor =
+  `DISTRIBUIDOR | CIUDAD | NOMBRE | CATEGORIA | SUBCATEGORIA | MARCA |
+  ENERO | FEBRERO | MARZO`. Meses de ejemplo ENERO/FEBRERO/MARZO (Q1) —
+  cualquier trimestre completo funciona,
+  `repositorio_cuotas_detectar_trimestre()` lo detecta solo por nombre.
+  Fila de ejemplo con los datos correctos según lo ya documentado arriba
+  (Directo: CEDI = nombre de un asesor, define a quién se asigna;
+  Distribuidor: DISTRIBUIDOR = nombre LEGAL completo de la empresa, ej.
+  "ASERTIA COMERCIAL SA", CIUDAD solo geográfica).
+- UI (`components/repositorios/repositorios.php`,
+  `assets/js/repositorios.js`): como Rebate/Participación no tienen
+  variantes de canal, "Descargar Formato" sigue siendo un link directo
+  ahí. Para Cuotas, es un picker expand-in-place (`#repo-plantilla-cuotas-wrap`)
+  con 2 opciones — Directo/Distribuidor — mismo patrón visual y de JS ya
+  usado por "Exportar" (reusa las clases `.ac-repo-exportar*`, ningún CSS
+  nuevo). Se togglea visible/oculto en `activarTab()`, igual que el resto
+  de botones específicos por pestaña de este módulo.
+
+**Probado**: `php -l`/`node --check` limpios en los 3 archivos tocados.
+No se pudo generar el `.xlsx` real en esta sesión (falta la extensión
+`zip` en el PHP CLI local, límite ya documentado varias veces en este
+archivo) — mismo patrón ya probado en producción para Rebate/Participación,
+bajo riesgo. **Todavía sin probar en navegador real.**
+
+## Previsualización de Cuotas: "Se asigna a" + agrupado visual + contador de categorías (2026-09-17)
+
+3 mejoras pedidas juntas por el usuario, tras la conversación sobre "cómo
+sabe el sistema a quién asignarle una fila" y "cómo detecta que varias
+filas son del mismo Acuerdo" (ver 2 secciones más arriba) — el hueco real
+encontrado fue que **nadie podía ver, antes de guardar, a quién le iba a
+llegar cada fila**, ni notar si una fila se "caía" de su grupo por un typo
+en el nombre del cliente (la agrupación es por `pos_id` resuelto, no por
+posición en el Excel — ver sección de arriba).
+
+- **`includes/functions.php`**: nueva `resolverNombreAsignadoCuota($mysqli,
+  $posId, $cediExcel)` — mismo criterio de 2 pasos que `usuarioIdDeCuota()`
+  (CEDI del Excel gana, maestro de Alicorp como respaldo), pero pensada
+  para ANTES de guardar: recibe `$cediExcel` directo de la fila recién
+  parseada (todavía no existe en `repositorio_cuota_cliente`, por eso no
+  puede reusar `usuarioIdDeCuota()` tal cual, que lee ese dato DE esa
+  tabla) y devuelve el nombre de usuario (no un id, la previsualización
+  solo necesita mostrarlo).
+- **`getters/cuotas_verificar_estado.php`**: cada fila del array `estados`
+  ahora incluye `pos_id` (el resuelto por `resolverPosIdCliente()`, ya se
+  calculaba antes pero no se exponía) y `asignado_a` (el resultado de la
+  función nueva).
+- **`assets/js/repositorios.js`, `renderPreviewTabla()`**: reescrita para
+  Cuotas —
+  1. Columna nueva **"Se asigna a"** entre las columnas de datos y "Al
+     guardar" — muestra el nombre real o "Sin identificar todavía".
+  2. Al lado, un contador **"N categoría(s) agrupadas"** — cuenta cuántas
+     filas de la previsualización completa resolvieron al mismo `pos_id`;
+     si un cliente se separó en 2 grupos por un typo, un grupo va a decir
+     "3 categorías" y el otro "1 categoría" con un nombre casi idéntico,
+     saltando a la vista.
+  3. **Agrupado visual por cliente** — reusa el concepto de colores
+     pastel por grupo que ya tiene la tabla principal de Cuotas
+     (`renderFilas()`, `agruparPor:'pos_id'`), pero con clases PROPIAS
+     (`ac-preview-grupo-a/b/c`) que solo pintan un borde izquierdo
+     (`box-shadow inset`), nunca `background` — la tabla de
+     previsualización YA usa `background` para pintar Nuevo/Actualiza/Ya
+     usada (`claseFilaEstado()`, ya existía) y las 2 señales tienen que
+     convivir en la misma fila sin que una tape a la otra. Mismos 3
+     colores que `.ac-repo-fila-grupo-a/b/c` para que el lenguaje visual
+     sea consistente.
+- **`assets/css/style.css`**: 3 reglas nuevas, `tr.ac-preview-grupo-a/b/c`
+  (solo `box-shadow`, ver el porqué arriba).
+
+**Probado**: `php -l`/`node --check` limpios en los 3 archivos, llaves de
+`style.css` balanceadas (884/884). `resolverNombreAsignadoCuota()` corrida
+de solo lectura contra 2 casos reales ya conocidos: Distribuidor
+(`EPVD12726`/ACOSTA HERNANDEZ SANTO AURELIO, con `cedi_excel='GUAYAQUIL'`
+—geográfico, no matchea a nadie— y también con `cedi_excel=''`) da
+**"ADRIAN VASQUEZ"** en los 2 casos, vía el respaldo del maestro — coincide
+exacto con lo ya confirmado a mano antes; Directo (`EPV3329`/YUCAILLA
+PADILLA, `cedi_excel='JAVIER MALDONADO'`) da **"JAVIER MALDONADO"** directo
+por el criterio de CEDI, sin necesitar el respaldo. **Todavía sin probar
+en navegador real** — falta confirmar visualmente el agrupado por color,
+el contador, y la columna "Se asigna a" con un Excel real de varias
+categorías por cliente.
+
+## "Exportar" oculto + bug real de "Descargar Formato" cortado ("DESCARGAR FORMAT") (2026-09-17)
+
+Pedido explícito del usuario ("oculta el botón de exportar y ajusta bien
+visualmente el formato de descarga porque se ve comido"):
+
+1. **"Exportar" (CSV/Excel de lo ya guardado) oculto** — mismo criterio
+   que "Eliminados"/"Pendientes de Asignar": se agregó la clase `hidden`
+   en `components/repositorios/repositorios.php` (`#repo-exportar-wrap`),
+   mecanismo intacto (nada de JS lo togglea, confirmado con `grep` — solo
+   togglea la clase de animación abierto/cerrado, inofensiva sobre un
+   elemento oculto).
+2. **Bug real encontrado y confirmado con una captura de Playwright antes
+   de tocar nada** (mirror con el `style.css` real, ver "Estado CERRADO"):
+   el botón "Descargar Formato" se veía literalmente **"DESCARGAR
+   FORMAT"**, con la última letra cortada — `.ac-repo-exportar-btn` (la
+   clase que reusa el trigger del picker de Cuotas, y antes también el de
+   "Exportar") tiene `max-width: 200px; overflow: hidden; white-space:
+   nowrap;`, un valor pensado para la palabra corta "Exportar" — nunca se
+   ajustó al reusar esta clase para la etiqueta más larga "Descargar
+   Formato" (2026-09-07/17). Corregido subiendo el límite a `260px` — no
+   afecta a "Exportar" ni a "CSV"/"Excel" (un `max-width` más grande nunca
+   fuerza un botón más angosto a estirarse, solo deja de recortar
+   contenido más ancho). Reconfirmado con una 2da captura tras el cambio:
+   "DESCARGAR FORMATO" completo, con aire de sobra.
+
+**Probado**: `php -l` limpio, llaves de `style.css` balanceadas (884/884).
+Verificado visualmente de punta a punta con Playwright (instalado en esta
+sesión, `npx playwright install chromium` — no estaba disponible antes)
+contra un mirror con el `style.css` real: antes del fix, "DESCARGAR
+FORMAT" cortado; después, "DESCARGAR FORMATO" completo. **Todavía sin
+probar en el navegador real de la app** (el mirror confirma el CSS, no
+reemplaza confirmar contra `index.php` real).
+
+## Agrupado visual de la previsualización de Cuotas: barra más gruesa (2026-09-17, mismo día)
+
+El usuario probó el agrupado por color de la sección de arriba en la app
+real y reportó que no se notaba — "veo más el verde [de fondo, Nuevo] que
+lo que noto ahí". Confirmado con una captura de Playwright ANTES de
+aplicar el cambio (mirror con `.ac-preview-fila-nueva` real de fondo
+verde + el borde de 3px original): el borde de 3px en tonos pastel
+(`#6b7fc7`/`#a97fd1`/`#cf9f5c`) prácticamente desaparece contra el fondo
+verde sólido de "Nuevo".
+
+**Corregido**: `tr.ac-preview-grupo-a/b/c` — de `inset 3px` a **`inset
+8px`**, y colores más saturados/oscuros (`#3346a8`/`#7a3ba8`/`#a3690a`
+en vez de los pasteles originales). Reconfirmado con otra captura antes/
+después, mismo mirror con fondo verde real de por medio — ahora se
+distingue con claridad cuál fila pertenece a qué grupo, incluso con el
+fondo de estado encima.
+
+**Probado**: llaves de `style.css` balanceadas (884/884). Verificado
+visualmente con Playwright, simulando el caso real que motivó el reporte
+(fondo verde de "Nuevo" + borde de grupo superpuestos) antes y después del
+cambio. **Todavía sin probar en el navegador real de la app.**
+
+## "Resumen" (modal separado) reemplazado por un resumen integrado en la previsualización (2026-09-17, mismo día)
+
+El usuario pidió explícito: el modal "Resumen" (botón aparte, panorama
+histórico global de TODAS las Actas Precargadas pendientes en toda la
+base, agrupadas por usuario — ver `resumen_cuotas()`) no era lo útil —
+"su propósito era saber cuántas actas estamos generando y a quiénes" pero
+mostraba un panorama histórico ajeno al archivo puntual que se está por
+subir, como "una tabla gigantesca". Pedido: mover ESE propósito adentro de
+la previsualización (donde ya vive "Se asigna a" + el agrupado, ver
+secciones de arriba), calculado sobre el archivo actual, no sobre toda la
+base.
+
+- **`#repo-resumen-abrir` oculto** — mismo criterio que "Exportar"/
+  "Eliminados"/"Pendientes de Asignar": el botón ya tenía la clase
+  `hidden` en el HTML estático (se togglea por tab), se sacó el
+  `classList.toggle()` de `activarTab()` — queda permanentemente oculto
+  con el mecanismo intacto (modal, `getters/cuotas_resumen.php`,
+  `resumen_cuotas()`) por si se retoma. No se tocó nada de ese código.
+- **Nuevo bloque `#repo-preview-resumen`** en el paso de previsualización
+  (`components/repositorios/repositorios.php`), justo antes del texto
+  "Así vamos a guardar estos datos" — un título ("Este archivo va a
+  generar N Actas para M usuarios") + chips por usuario (verde =
+  identificado, ámbar = "Sin identificar todavía"), mismo lenguaje de
+  color que ya usan `ac-badge-ok`/`ac-badge-revisar` en el resto de la
+  app.
+- **`renderPreviewResumen()`** (`assets/js/repositorios.js`) — cuenta
+  Actas por `pos_id` DISTINTO (no por fila — un cliente con 3 categorías
+  es 1 sola Acta, mismo criterio de agrupado ya usado en toda esta
+  sección), agrupadas por `asignado_a`. Se llama desde `renderPreviewTabla()`,
+  reusando el mismo `estadosPreview` que ya alimenta "Se asigna a" y el
+  agrupado por color — sin pedir ningún dato nuevo al servidor.
+- CSS nuevo `.ac-resumen-asignacion*` — fondo suave propio (no el azul
+  sólido de `.ac-cuotas-trimestre-banner`, para no competir con ese banner
+  que ya está arriba en la misma pantalla) + el mismo patrón `.hidden {
+  display:none }` explícito ya documentado varias veces en este archivo
+  como lección repetida (una clase con `display` propio necesita ese
+  override, si no el atributo/clase `hidden` no alcanza).
+
+**Probado**: `php -l`/`node --check` limpios, CSS balanceado (889/889).
+Verificado visualmente con Playwright (mirror con datos de ejemplo
+realistas — 2 usuarios reales del proyecto + 1 fila sin identificar) — el
+banner se ve limpio y legible, los chips diferencian bien identificado
+(verde) de sin identificar (ámbar). **Todavía sin probar en el navegador
+real de la app** — falta confirmar con un Excel real de varias categorías
+y usuarios distintos.
+
+## Resumen integrado: distinguir "sin cuenta todavía" de "sin identificar" (2026-09-17, mismo día)
+
+El usuario probó el resumen de arriba y encontró que el balde único "Sin
+identificar todavía" mezclaba 2 casos MUY distintos: (1) clientes cuyo
+`pos_id` ni siquiera se pudo resolver (genuinamente sin identificar), y
+(2) clientes SÍ identificados, con un supervisor real y conocido en el
+maestro de Alicorp, que simplemente no tiene cuenta de usuario creada
+todavía — pedido explícito: mostrar el nombre real de esa persona, en
+gris, no meterla en el mismo balde de alarma que el caso genuinamente sin
+resolver ("como sabés, pronto van a existir" — mismo espíritu que el
+"Sin cuenta todavía" del viejo modal Resumen, ahora recuperado acá).
+
+- **`includes/functions.php`, `resolverNombreAsignadoCuota()`** — ahora
+  devuelve `['nombre' => string|null, 'tiene_cuenta' => bool]` en vez de
+  un string suelto. El respaldo del maestro pasó de `JOIN` a `LEFT JOIN`
+  contra `repositorio_usuarios_acuerdos` — antes, si el supervisor real no
+  tenía cuenta, el `JOIN` descartaba la fila entera y no había forma de
+  distinguirlo de "no se encontró nada"; ahora siempre trae el
+  `supervisor` real del maestro, con o sin cuenta.
+- **`getters/cuotas_verificar_estado.php`** — cada fila de `estados` suma
+  `tiene_cuenta` junto a `asignado_a`.
+- **`assets/js/repositorios.js`**:
+  - `renderPreviewResumen()` — 3 grupos posibles por chip, ya no 2:
+    verde (`ac-badge-ok`, con cuenta), **gris nuevo** (`ac-badge-neutro`,
+    nombre real + "(sin cuenta todavía)"), ámbar (`ac-badge-revisar`,
+    "Sin identificar todavía" — balde único, sin nombre, para lo que ni
+    siquiera resolvió `pos_id`).
+  - Columna "Se asigna a" por fila — mismo criterio: el nombre se pinta
+    con `.ac-resumen-nombre-inactivo` (gris, clase ya existente del viejo
+    modal Resumen) + "Sin cuenta todavía" debajo, cuando `tiene_cuenta`
+    es `false` pero sí hay un nombre real.
+- **`assets/css/style.css`** — nueva `.ac-badge-neutro`, mismos tokens
+  neutros que ya usa `.ac-resumen-avatar-inactivo`/`-nombre-inactivo`
+  (`--color-surface-container`/`--color-outline`), no un color inventado.
+
+**Probado**: `php -l`/`node --check` limpios, CSS balanceado (890/890).
+`resolverNombreAsignadoCuota()` corrida de solo lectura contra 3 casos
+reales: un `pos_id` con supervisor real "SIXTO TRAVEZ" (sin cuenta
+activa) da `{nombre:"SIXTO TRAVEZ", tiene_cuenta:false}` — antes de este
+cambio hubiera dado `null`, indistinguible de un cliente sin identificar;
+`EPVD12726` (Adrián Vásquez, con cuenta) sigue dando
+`{tiene_cuenta:true}` sin cambios; un `pos_id` inventado sigue dando
+`{nombre:null}`. Verificado visualmente con Playwright (mirror con los 3
+estados juntos) — se distinguen bien verde/gris/ámbar. **Todavía sin
+probar en el navegador real de la app.**

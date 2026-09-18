@@ -82,9 +82,17 @@ foreach ($filas as $fila) {
 	} else {
 		$estado = 'actualiza';
 	}
+	// "Se asigna a" (2026-09-17): quién va a recibir esta Acta Precargada, resuelto ANTES
+	// de guardar — mismo criterio que usuarioIdDeCuota() (CEDI del Excel gana, maestro
+	// como respaldo), ver resolverNombreAsignadoCuota(). pos_id se manda también para que
+	// la previsualización pueda agrupar visualmente las filas de un mismo cliente.
+	// tiene_cuenta distingue "cliente identificado, supervisor real conocido, pero sin
+	// cuenta de usuario todavía" de "no se pudo identificar nada" (pedido explícito).
+	$asignado = resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel);
 	$estados[] = [
 		'estado' => $estado, 'sector_resuelto' => $sectorResuelto,
 		'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
+		'pos_id' => $posId, 'asignado_a' => $asignado['nombre'], 'tiene_cuenta' => $asignado['tiene_cuenta'],
 	];
 }
 if ($stmtExistente) $stmtExistente->close();

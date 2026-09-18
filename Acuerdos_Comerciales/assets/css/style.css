@@ -844,6 +844,10 @@ body {
 .ac-badge-superdesarrollador { background: #ffdbce; color: #802a00; }
 .ac-badge-ok { background: #d7f2db; color: #1e5c26; }
 .ac-badge-revisar { background: #fff2cc; color: #7a5b00; }
+/* Cliente identificado, supervisor real conocido, pero sin cuenta de usuario todavía —
+   no es un problema (2026-09-17, pedido explícito: "pronto existirán", no alarmar como
+   si fuera un error) — mismos tokens neutros que ya usa .ac-resumen-*-inactivo. */
+.ac-badge-neutro { background: var(--color-surface-container); color: var(--color-outline); }
 /* Más urgente que .ac-badge-revisar — mismo naranja de la campanita, reusable en Historial. */
 .ac-badge-urgente { background: #ffdbce; color: #802a00; }
 /* Nivel más urgente (0-1 día) — reusa los tokens de error existentes. */
@@ -1794,7 +1798,18 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
 
 /* overflow-x:auto: en celular angosto las 2 pestañas no entran en una fila, sin esto se recortaban en vez de poder deslizarse. */
-.ac-repo-tabs { display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); overflow-x: auto; }
+.ac-repo-tabs { position: relative; display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); overflow-x: auto; }
+/* Indicador que se DESLIZA entre pestañas (2026-09-18, pedido explícito: "no tengo algo
+   visual... que se vaya moviendo según elijo el que es") — antes cada pestaña activa solo
+   cambiaba de color en el momento, sin ningún movimiento perceptible entre una y otra.
+   Posición/ancho calculados en JS (posicionarIndicadorTab(), ver repositorios.js) porque
+   las 3 pestañas tienen anchos muy distintos ("Rebate" vs "Cuotas Trimestrales") — no se
+   puede animar con solo CSS sin saber esos anchos de antemano. */
+.ac-repo-tabs-indicador {
+	position: absolute; bottom: -1px; height: 3px; border-radius: 2px 2px 0 0;
+	background: var(--color-primary);
+	transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
 .ac-repo-tab {
 	display: flex; align-items: center; gap: var(--space-sm);
 	padding: var(--space-sm) var(--space-lg);
@@ -1805,7 +1820,10 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	flex-shrink: 0;
 	white-space: nowrap;
 }
-.ac-repo-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+/* border-bottom-color ya no se usa acá (2026-09-18) — el indicador deslizante de
+   .ac-repo-tabs-indicador reemplaza esa señal, evita 2 líneas compitiendo durante la
+   transición (la vieja aparecía/desaparecía de golpe, la nueva se desliza). */
+.ac-repo-tab.active { color: var(--color-primary); }
 .ac-repo-tab-count {
 	background: var(--color-surface-container-high); color: var(--color-on-surface-variant);
 	font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: var(--radius-full);
@@ -1819,7 +1837,7 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 /* "Exportar" morfa in-place a CSV/Excel, sin modal ni dropdown: el botón se encoge y las 2 opciones crecen en su lugar (CSS puro). */
 .ac-repo-exportar { position: relative; display: inline-flex; align-items: center; }
 .ac-repo-exportar-btn {
-	overflow: hidden; white-space: nowrap; max-width: 200px;
+	overflow: hidden; white-space: nowrap; max-width: 260px;
 	transition: max-width 0.25s ease, opacity 0.18s ease, padding 0.25s ease, margin 0.25s ease, transform 0.2s ease;
 }
 .ac-repo-exportar.ac-repo-exportar-abierto .ac-repo-exportar-btn {
@@ -1989,13 +2007,29 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-progreso-carga-track { height: 8px; border-radius: var(--radius-full); background: var(--color-surface-container-high); overflow: hidden; }
 .ac-progreso-carga-fill { height: 100%; width: 0%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.15s linear; }
 
-.ac-archivo-chip { display: flex; align-items: center; gap: var(--space-sm); background: var(--color-surface-container-low); border-radius: var(--radius); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); }
-.ac-archivo-chip .material-symbols-outlined { color: var(--color-primary); }
-.ac-archivo-chip-nombre { font-size: 13px; font-weight: 600; }
+/* Los 3 bloques de este paso (chip de archivo, banner de trimestre, resumen de
+   asignación) comparten a propósito el mismo molde — mismo padding, radio de esquina,
+   tamaño de ícono y escala tipográfica del texto principal (2026-09-19, pedido explícito
+   tras verlos juntos: "que tengan el mismo tamaño de forma y topografía") — el fondo de
+   cada uno sigue siendo distinto (ayuda a distinguirlos de un vistazo), todo lo demás es
+   el mismo lenguaje visual. */
+.ac-archivo-chip { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; background: var(--color-surface-container-low); border-radius: var(--radius-lg); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); }
+.ac-archivo-chip .material-symbols-outlined { color: var(--color-primary); font-size: 24px; flex-shrink: 0; }
+.ac-archivo-chip-nombre { font-size: 15px; font-weight: 700; }
 .ac-archivo-chip-detalle { font-size: 12px; color: var(--color-on-surface-variant); }
+/* Año, aprovechando el espacio vacío de esta fila (2026-09-18, pedido explícito) — antes
+   vivía en su propia fila suelta. margin-left:auto lo empuja al extremo derecho del chip
+   mientras haya espacio; con flex-wrap de arriba, en angosto cae a su propia línea. */
+.ac-archivo-chip-anio { margin-left: auto; flex: 0 0 auto; }
+/* .ac-input trae padding-left:40px pensado para un ícono adentro del campo (ver el resto
+   del proyecto) — acá no hay ícono, así que ese padding heredado dejaba muy poco ancho
+   real para el texto dentro de max-width:110px y "2026" se veía recortado de los lados
+   (2026-09-19, reportado por el usuario). Padding propio, sin el hueco del ícono. */
+.ac-archivo-chip-anio .ac-input { max-width: 92px; padding: 8px 10px; text-align: center; }
 
-/* Trimestre detectado en el archivo de Cuotas — a propósito MUY notorio (ver comentario en repositorios.php):
-   antes solo vivía como texto chico dentro de .ac-archivo-chip-detalle, fácil de pasar por alto. */
+/* Trimestre detectado en el archivo de Cuotas — a propósito notorio (ver comentario en
+   repositorios.php): antes solo vivía como texto chico dentro de .ac-archivo-chip-detalle,
+   fácil de pasar por alto. */
 .ac-cuotas-trimestre-banner {
 	display: flex; align-items: center; gap: var(--space-sm);
 	background: var(--color-secondary-fixed); color: var(--color-on-secondary-fixed);
@@ -2004,10 +2038,28 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 }
 .ac-cuotas-trimestre-banner.hidden { display: none; }
 .ac-cuotas-trimestre-banner .ac-badge { margin-left: auto; }
-.ac-cuotas-trimestre-banner .material-symbols-outlined { font-size: 28px; flex-shrink: 0; }
+.ac-cuotas-trimestre-banner .material-symbols-outlined { font-size: 24px; flex-shrink: 0; }
 .ac-cuotas-trimestre-banner-texto { display: flex; flex-direction: column; line-height: 1.25; }
 .ac-cuotas-trimestre-banner-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.85; }
-.ac-cuotas-trimestre-banner-valor { font-size: 20px; font-weight: 800; }
+.ac-cuotas-trimestre-banner-valor { font-size: 15px; font-weight: 700; }
+
+/* Resumen de asignación de ESTE archivo, dentro de la previsualización de Cuotas
+   (2026-09-17) — reemplaza el modal "Resumen" separado (panorama histórico global,
+   confuso para "qué va a pasar si subo esto ahora"). Fondo suave propio (no el mismo
+   azul sólido de .ac-cuotas-trimestre-banner, para no competir con ese banner que ya
+   está arriba en la misma pantalla). */
+.ac-resumen-asignacion {
+	display: flex; flex-direction: column; gap: var(--space-xs);
+	background: var(--color-surface-container-high); border-radius: var(--radius-lg);
+	padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-md);
+}
+/* Mismo patrón ya documentado varias veces en este archivo: un elemento oculto con el
+   atributo/clase `hidden` necesita su propio `display:none`, porque la regla de autor
+   de arriba (`display:flex`) gana por especificidad igual sobre el `[hidden]` nativo. */
+.ac-resumen-asignacion.hidden { display: none; }
+.ac-resumen-asignacion-titulo { display: flex; align-items: center; gap: var(--space-sm); font-size: 15px; font-weight: 700; }
+.ac-resumen-asignacion-titulo .material-symbols-outlined { font-size: 24px; color: var(--color-primary); flex-shrink: 0; }
+.ac-resumen-asignacion-chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 
 /* Sin resaltado de error a propósito: las celdas de previsualización son inputs simples, sin bordes rojos por campo. */
 .ac-preview-table-scroll { border: 1px solid var(--color-outline-variant); border-radius: var(--radius); }
@@ -2035,6 +2087,18 @@ tr.ac-preview-fila-actualiza { background: #fff2cc; }
 tr.ac-preview-fila-actualiza .ac-preview-input { background: #fff2cc; }
 tr.ac-preview-fila-usada { background: #ffdbce; }
 tr.ac-preview-fila-usada .ac-preview-input { background: #ffdbce; }
+
+/* Agrupado visual por cliente en la previsualización de Cuotas (2026-09-17) — solo borde
+   izquierdo (box-shadow inset), nunca `background`, a propósito: esta tabla ya usa
+   background para pintar Nuevo/Actualiza/Ya usada (arriba) y las 2 señales tienen que
+   convivir sin pisarse. Mismos 3 colores que .ac-repo-fila-grupo-a/b/c de la tabla
+   principal, mismo lenguaje visual, pero clase propia porque esas SÍ pintan background. */
+/* 8px + colores más saturados (2026-09-17, corregido tras feedback real: 3px con los
+   tonos pastel originales se perdía contra el fondo sólido verde/amarillo/naranja de
+   Nuevo/Actualiza/Ya usada — verificado con captura real antes y después del ajuste). */
+tr.ac-preview-grupo-a { box-shadow: inset 8px 0 0 0 #3346a8; }
+tr.ac-preview-grupo-b { box-shadow: inset 8px 0 0 0 #7a3ba8; }
+tr.ac-preview-grupo-c { box-shadow: inset 8px 0 0 0 #a3690a; }
 
 /* Resumen de errores post-guardado, en una caja aparte arriba de la tabla (no validación dentro de la tabla). */
 #repo-preview-errores { font-size: 13px; margin-bottom: var(--space-md); }

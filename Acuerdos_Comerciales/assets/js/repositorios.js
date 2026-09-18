@@ -102,9 +102,17 @@
 	var exportarCsvLink = document.getElementById('repo-exportar-csv');
 	var exportarXlsxLink = document.getElementById('repo-exportar-xlsx');
 	var plantillaDescargarLink = document.getElementById('repo-plantilla-descargar');
+	var plantillaCuotasWrap = document.getElementById('repo-plantilla-cuotas-wrap');
+	var plantillaCuotasBtn = document.getElementById('repo-plantilla-cuotas-btn');
+	var plantillaCuotasDirectoLink = document.getElementById('repo-plantilla-cuotas-directo');
+	var plantillaCuotasDistribuidorLink = document.getElementById('repo-plantilla-cuotas-distribuidor');
+	var previewResumenBanner = document.getElementById('repo-preview-resumen');
+	var previewResumenTitulo = document.getElementById('repo-preview-resumen-titulo');
+	var previewResumenChips = document.getElementById('repo-preview-resumen-chips');
 	var tabRebate = document.getElementById('repo-tab-rebate');
 	var tabParticipacion = document.getElementById('repo-tab-participacion');
 	var tabCuotas = document.getElementById('repo-tab-cuotas');
+	var tabsIndicador = document.getElementById('repo-tabs-indicador');
 	var raizRepo = document.getElementById('ac-repo-lista');
 	var pendientesAbrirBtn = document.getElementById('repo-pendientes-abrir');
 	var pendientesCount = document.getElementById('repo-pendientes-count');
@@ -336,6 +344,18 @@
 	}
 
 	// ---------- Tabs ----------
+	// Indicador deslizante de pestaña activa (2026-09-18, pedido explícito) — posición y
+	// ancho calculados en JS porque las 3 pestañas tienen anchos muy distintos ("Rebate"
+	// vs "Cuotas Trimestrales"), no hay forma de animar esto con CSS puro sin saber esos
+	// anchos de antemano. offsetLeft/offsetWidth son relativos al padre posicionado más
+	// cercano (.ac-repo-tabs, ya tiene position:relative), así que no hace falta restar
+	// nada más.
+	function posicionarIndicadorTab(tabEl) {
+		if (!tabsIndicador || !tabEl) return;
+		tabsIndicador.style.left = tabEl.offsetLeft + 'px';
+		tabsIndicador.style.width = tabEl.offsetWidth + 'px';
+	}
+
 	function activarTab(tipo) {
 		tipoActivo = tipo;
 		paginaActual = 1;
@@ -346,13 +366,22 @@
 		tabRebate.classList.toggle('active', tipo === 'rebate');
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
+		posicionarIndicadorTab(tipo === 'rebate' ? tabRebate : (tipo === 'participacion' ? tabParticipacion : tabCuotas));
 		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
 		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito "quita el botón de Pendientes de Asignar") — se deja el resto del mecanismo intacto (getters, modal), por si se retoma después.
-		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
+		// resumenAbrirBtn oculto a propósito (2026-09-17, pedido explícito) — su
+		// propósito ("cuántas Actas, a quién") se reemplazó por el resumen integrado
+		// en la previsualización (renderPreviewResumen()), calculado sobre el archivo
+		// que se está por subir en vez de un panorama histórico global poco relevante
+		// para esa decisión puntual. Mecanismo intacto (modal, getter, JS) por si se
+		// retoma — ya no se togglea por tab.
 		// eliminadosAbrirBtn oculto a propósito; mecanismo intacto por si se retoma.
 		plantillaDescargarLink.classList.toggle('hidden', tipo === 'cuotas');
 		if (tipo !== 'cuotas') plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
+		// Cuotas (2026-09-17): picker Directo/Distribuidor en vez de link directo —
+		// esos 2 canales tienen columnas distintas, ver includes/repositorio_import.php.
+		plantillaCuotasWrap.classList.toggle('hidden', tipo !== 'cuotas');
 		if (tipo === 'cuotas') actualizarContadorPendientes();
 		actualizarHrefsExportar();
 		cargarLista();
@@ -628,21 +657,125 @@
 		return html;
 	}
 
+	// Clases de agrupado SOLO para la previsualización (2026-09-17) — distintas de
+	// GRUPO_CLASES de renderFilas() (esas pintan `background`, que competiría con el
+	// background que ya usa claseFilaEstado() para Nuevo/Actualiza/Ya usada). Estas 3
+	// pintan únicamente un borde izquierdo (box-shadow inset), mismos 3 colores que ya
+	// usa el agrupado de la tabla principal, para que el lenguaje visual sea consistente
+	// sin pisar el color de estado.
+	var GRUPO_CLASES_PREVIEW = ['ac-preview-grupo-a', 'ac-preview-grupo-b', 'ac-preview-grupo-c'];
+
+	// "Se asigna a" + agrupado visual (2026-09-17, pedido explícito): antes no había forma
+	// de saber, ANTES de guardar, a quién le va a llegar cada fila, ni de notar si una fila
+	// de un mismo cliente se "cayó" del grupo por un typo en el nombre (quedaría como su
+	// propio grupo de 1 sola fila, con un color de borde distinto al resto de sus hermanas).
+	// Resumen "cuántas Actas, a quién" — pero de ESTE archivo puntual, no un panorama
+	// histórico global (2026-09-17, reemplaza el modal "Resumen" separado, ver nota en
+	// activarTab()). Cuenta Actas por `pos_id` distinto (no por fila — un cliente con 3
+	// categorías es 1 sola Acta), agrupadas por a quién se le asignaría cada una.
+	function renderPreviewResumen() {
+		if (tipoActivo !== 'cuotas' || !estadosPreview) { previewResumenBanner.classList.add('hidden'); return; }
+		// grupos: clave = nombre real, o 'Sin identificar todavía' (bucket único para lo que
+		// ni siquiera se pudo identificar). tieneCuentaPorGrupo guarda si ESE nombre tiene
+		// cuenta activa — un nombre real sin cuenta (2026-09-17, pedido explícito: "pronto
+		// existirán", no es lo mismo que "no se pudo identificar nada") queda en su propio
+		// grupo gris, con su nombre real, no mezclado en el balde de "sin identificar".
+		var actasPorGrupo = {}; // nombre -> { pos_id: true, ... }
+		var tieneCuentaPorGrupo = {};
+		var sinIdentificar = 0;
+		estadosPreview.forEach(function (e) {
+			if (!e || !e.pos_id) { sinIdentificar++; return; }
+			var nombre = e.asignado_a || 'Sin identificar todavía';
+			if (!actasPorGrupo[nombre]) actasPorGrupo[nombre] = {};
+			actasPorGrupo[nombre][e.pos_id] = true;
+			tieneCuentaPorGrupo[nombre] = e.asignado_a ? !!e.tiene_cuenta : false;
+		});
+		var nombres = Object.keys(actasPorGrupo);
+		var totalActas = {};
+		nombres.forEach(function (n) { Object.keys(actasPorGrupo[n]).forEach(function (p) { totalActas[p] = true; }); });
+		var nActas = Object.keys(totalActas).length;
+		if (!nActas && !sinIdentificar) { previewResumenBanner.classList.add('hidden'); return; }
+
+		previewResumenBanner.classList.remove('hidden');
+		var textoActas = nActas + (nActas === 1 ? ' Acta' : ' Actas');
+		var textoUsuarios = nombres.length + (nombres.length === 1 ? ' usuario' : ' usuarios');
+		var textoSinId = sinIdentificar ? ' — ' + sinIdentificar + (sinIdentificar === 1 ? ' fila sin identificar todavía' : ' filas sin identificar todavía') : '';
+		previewResumenTitulo.textContent = nActas
+			? ('Este archivo va a generar ' + textoActas + ' para ' + textoUsuarios + textoSinId + '.')
+			: ('Ninguna fila se pudo identificar todavía' + textoSinId.replace(' — ', ' (') + (sinIdentificar ? ')' : '') + '.');
+		previewResumenChips.innerHTML = nombres.map(function (n) {
+			var nActasGrupo = Object.keys(actasPorGrupo[n]).length;
+			var esSinIdentificar = n === 'Sin identificar todavía';
+			var claseBadge = esSinIdentificar ? 'ac-badge-revisar' : (tieneCuentaPorGrupo[n] ? 'ac-badge-ok' : 'ac-badge-neutro');
+			var sufijo = (!esSinIdentificar && !tieneCuentaPorGrupo[n]) ? ' (sin cuenta todavía)' : '';
+			return '<span class="ac-badge ' + claseBadge + '">' +
+				escapeHtml(n) + sufijo + ': ' + nActasGrupo + (nActasGrupo === 1 ? ' Acta' : ' Actas') + '</span>';
+		}).join('');
+	}
+
 	function renderPreviewTabla() {
 		var cols = columnasPreview();
 		var conEstado = tipoActivo === 'cuotas';
+		if (conEstado) renderPreviewResumen();
 		previewTablaHead.innerHTML = '<tr>' + cols.map(function (c) {
 			return '<th>' + escapeHtml(c.label) + '</th>';
-		}).join('') + (conEstado ? '<th>Al guardar</th>' : '') + '</tr>';
+		}).join('') + (conEstado ? '<th>Se asigna a</th><th>Al guardar</th>' : '') + '</tr>';
+
+		// Cuenta cuántas filas resolvieron al mismo pos_id — el chip de "N categoría(s)
+		// agrupadas" usa este número para que un cliente separado en 2 grupos (por typo)
+		// se note: un grupo dice "3 categorías", el otro dice "1 categoría" con nombre
+		// casi idéntico.
+		var conteoPorPosId = {};
+		if (conEstado && estadosPreview) {
+			estadosPreview.forEach(function (e) {
+				if (e && e.pos_id) conteoPorPosId[e.pos_id] = (conteoPorPosId[e.pos_id] || 0) + 1;
+			});
+		}
+		var grupoAnterior = null;
+		var grupoIndice = -1;
+
 		previewTablaBody.innerHTML = filasPreview.map(function (fila, i) {
 			var tds = cols.map(function (c) {
 				var valor = c.numero ? (parseFloat(fila[c.key]) * (c.key === 'rebate_pct' ? 100 : 1)).toString() : fila[c.key];
 				return '<td><input type="text" class="ac-preview-input" data-key="' + c.key + '" size="' + tamanoInput(valor) + '" value="' + escapeHtml(valor) + '"></td>';
 			}).join('');
 			var estadoFila = conEstado && estadosPreview ? estadosPreview[i] : null;
-			if (conEstado) tds += '<td>' + badgeEstadoPreview(estadoFila) + '</td>';
-			var claseFila = estadoFila ? claseFilaEstado(estadoFila.estado) : '';
-			return '<tr data-i="' + i + '"' + (claseFila ? ' class="' + claseFila + '"' : '') + '>' + tds + '</tr>';
+
+			var claseGrupo = '';
+			if (estadoFila && estadoFila.pos_id) {
+				if (estadoFila.pos_id !== grupoAnterior) {
+					grupoIndice = (grupoIndice + 1) % GRUPO_CLASES_PREVIEW.length;
+					grupoAnterior = estadoFila.pos_id;
+				}
+				claseGrupo = GRUPO_CLASES_PREVIEW[grupoIndice];
+			}
+
+			if (conEstado) {
+				var asignadoHtml;
+				if (!estadoFila) {
+					asignadoHtml = '<span class="ac-field-hint">…</span>';
+				} else if (!estadoFila.pos_id) {
+					asignadoHtml = '<span class="ac-field-hint">—</span>';
+				} else if (!estadoFila.asignado_a) {
+					asignadoHtml = '<span class="ac-field-hint">Sin identificar todavía</span>';
+				} else {
+					var n = conteoPorPosId[estadoFila.pos_id] || 1;
+					// Sin cuenta todavía (2026-09-17, pedido explícito): mismo gris que ya usa
+					// .ac-resumen-nombre-inactivo — no es un error, es un cliente identificado
+					// con un supervisor real conocido que "pronto va a existir" como cuenta.
+					var nombreHtml = estadoFila.tiene_cuenta
+						? escapeHtml(estadoFila.asignado_a)
+						: '<span class="ac-resumen-nombre-inactivo">' + escapeHtml(estadoFila.asignado_a) + '</span>';
+					var notaSinCuenta = estadoFila.tiene_cuenta ? '' : '<br><span class="ac-field-hint">Sin cuenta todavía</span>';
+					asignadoHtml = nombreHtml + notaSinCuenta +
+						'<br><span class="ac-field-hint">' + n + ' categoría' + (n === 1 ? '' : 's') + ' agrupada' + (n === 1 ? '' : 's') + '</span>';
+				}
+				tds += '<td>' + asignadoHtml + '</td><td>' + badgeEstadoPreview(estadoFila) + '</td>';
+			}
+
+			var claseEstado = estadoFila ? claseFilaEstado(estadoFila.estado) : '';
+			var clases = [claseGrupo, claseEstado].filter(Boolean).join(' ');
+			return '<tr data-i="' + i + '"' + (clases ? ' class="' + clases + '"' : '') + '>' + tds + '</tr>';
 		}).join('');
 	}
 
@@ -817,6 +950,22 @@
 	});
 	document.addEventListener('click', function (e) {
 		if (!exportarWrap.contains(e.target)) cerrarExportar();
+	});
+
+	// "Descargar Formato" de Cuotas (2026-09-17) — mismo patrón expand-in-place que "Exportar".
+	plantillaCuotasBtn.addEventListener('click', function () {
+		plantillaCuotasWrap.classList.add('ac-repo-exportar-abierto');
+	});
+	function cerrarPlantillaCuotas() {
+		plantillaCuotasWrap.classList.remove('ac-repo-exportar-abierto');
+	}
+	[plantillaCuotasDirectoLink, plantillaCuotasDistribuidorLink].forEach(function (link) {
+		link.addEventListener('click', function () {
+			setTimeout(cerrarPlantillaCuotas, 150);
+		});
+	});
+	document.addEventListener('click', function (e) {
+		if (!plantillaCuotasWrap.contains(e.target)) cerrarPlantillaCuotas();
 	});
 
 	// ---------- Pendientes de Asignar (solo Cuotas) ---------- Filas donde resolverPosIdCliente() no encontró exactamente un cliente (ver getters/cuotas_guardar.php) — mismo concepto visual que la pantalla homónima de Liquidación (assets/js/liquidacion.js): cada fila muestra los candidatos sugeridos (mismo nombre, sin filtrar por CEDI) como botones clicables, más un input libre por si el candidato correcto no aparece en la lista corta.
@@ -1134,6 +1283,14 @@
 
 	if (subtituloEl && CONFIG[tipoActivo].descripcion) subtituloEl.textContent = CONFIG[tipoActivo].descripcion;
 	actualizarHrefsExportar();
+	posicionarIndicadorTab(tabRebate); // "Rebate" activo por defecto en el HTML.
 	cargarLista();
 	cargarContadoresTabs();
+	// Recalcula si la ventana cambia de tamaño (los anchos de pestaña pueden variar,
+	// ej. si el texto envuelve distinto) — busca la pestaña con la clase activa en vez de
+	// asumir cuál es, para que siga funcionando sin importar en qué pestaña esté parado.
+	window.addEventListener('resize', function () {
+		var activa = document.querySelector('.ac-repo-tab.active');
+		if (activa) posicionarIndicadorTab(activa);
+	});
 })();

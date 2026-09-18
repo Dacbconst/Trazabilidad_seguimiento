@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "EpsonReport/assets/css/style.css"
+        ],
+        "createdAt": "2026-09-18T03:24:19.779Z",
+        "reason": "Pre-existing .ep-sidebar width transition (260px<->72px collapse), predates this session. Genuine layout change, not decorative motion -- transform:scaleX would distort the nav text instead of collapsing it. Not part of today's task scope."
+      }
+    ]
+  }
+}

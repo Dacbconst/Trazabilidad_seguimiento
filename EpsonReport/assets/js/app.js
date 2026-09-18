@@ -71,58 +71,18 @@ document.addEventListener('DOMContentLoaded', function () {
 	var actProgramadas = document.getElementById('ep-act-programadas');
 	var actRealizadas = document.getElementById('ep-act-realizadas');
 
-	if (actNacional && actCoberturadas) {
-		// Coberturadas es automático (repositorio de puntos de venta), no se tipea, pero nunca debería superar al nacional.
-		var coberturadasOriginal = parseFloat(actCoberturadas.dataset.valor) || 0;
-		actNacional.addEventListener('input', function () {
-			var nuevoValor = Math.min(coberturadasOriginal, parseFloat(actNacional.value) || 0);
-			if (nuevoValor < parseFloat(actCoberturadas.textContent)) destacarTope(actCoberturadas.closest('.ep-input'));
-			actCoberturadas.textContent = nuevoValor;
-			actualizarEstadisticasActivaciones();
-		});
-	}
+	// Coberturadas se tipea a mano, igual que los demás — solo no puede superar a Nacional (pedido explícito 2026-09-17).
+	if (actNacional && actCoberturadas) aplicarTope(actNacional, actCoberturadas);
 	if (actVisitaron && actInteractuaron) aplicarTope(actVisitaron, actInteractuaron);
 	if (actInteractuaron && actCompraron) aplicarTope(actInteractuaron, actCompraron);
 	if (actProgramadas && actRealizadas) aplicarTope(actProgramadas, actRealizadas);
 
 	// Cualquier campo de Activaciones cambia algo del panel de estadísticas de al lado.
-	[actVisitaron, actInteractuaron, actCompraron, actProgramadas, actRealizadas].forEach(function (input) {
+	[actNacional, actCoberturadas, actVisitaron, actInteractuaron, actCompraron, actProgramadas, actRealizadas].forEach(function (input) {
 		if (input) input.addEventListener('input', actualizarEstadisticasActivaciones);
 	});
 	var actComentarios = document.getElementById('ep-act-comentarios');
 	if (actComentarios) actComentarios.addEventListener('input', actualizarEstadisticasActivaciones);
-
-	// Formulario de Activaciones: filas de modelo dinámicas, cada una con un buscador (spinner) sobre el catálogo mock
-	var modeloFilas = document.getElementById('ep-modelo-filas');
-	var modeloAgregarBtn = document.getElementById('ep-modelo-agregar');
-	var modeloTotalValor = document.getElementById('ep-modelo-total-valor');
-
-	function filaModeloHTML() {
-		return '<div class="ep-modelo-fila-nueva">'
-			+ '<div class="ep-combo">'
-			+ '<button type="button" class="ep-input ep-combo-trigger" data-valor="">'
-			+ '<span class="ep-combo-trigger-texto">Elegir modelo...</span>'
-			+ epIconMarkup('chevron', 14)
-			+ '</button>'
-			+ '<div class="ep-combo-panel hidden">'
-			+ '<input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar modelo..." autocomplete="off">'
-			+ '<div class="ep-combo-opciones"></div>'
-			+ '</div>'
-			+ '</div>'
-			+ '<input type="number" min="0" class="ep-input ep-modelo-cantidad" placeholder="Cantidad">'
-			+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar modelo">' + epIconMarkup('trash', 14) + '</button>'
-			+ '</div>';
-	}
-
-	function actualizarTotalModelos() {
-		if (!modeloFilas || !modeloTotalValor) return;
-		var total = 0;
-		modeloFilas.querySelectorAll('.ep-modelo-cantidad').forEach(function (input) {
-			total += parseFloat(input.value) || 0;
-		});
-		modeloTotalValor.textContent = total;
-		actualizarEstadisticasActivaciones();
-	}
 
 	// Panel "Así se ve el reporte final": recalcula las cards del Excel en vivo con lo que hay en el formulario.
 	function escapeHtml(texto) {
@@ -135,22 +95,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!t) return '0%';
 		return Math.round((parseFloat(parte) || 0) / t * 100) + '%';
 	}
-	function modelosCargados() {
-		if (!modeloFilas) return [];
-		var filas = [];
-		modeloFilas.querySelectorAll('.ep-modelo-fila-nueva').forEach(function (fila) {
-			var nombre = fila.querySelector('.ep-combo-trigger').dataset.valor;
-			var cantidad = parseFloat(fila.querySelector('.ep-modelo-cantidad').value) || 0;
-			if (nombre && cantidad > 0) filas.push({ nombre: nombre, cantidad: cantidad });
-		});
-		return filas;
-	}
 	function actualizarEstadisticasActivaciones() {
 		var statCoberturaPct = document.getElementById('ep-stat-cobertura-pct');
 		if (!statCoberturaPct) return; // esta actividad no tiene panel de estadísticas todavía
 
 		var nacional = actNacional ? actNacional.value : 0;
-		var coberturadas = actCoberturadas ? actCoberturadas.textContent : 0;
+		var coberturadas = actCoberturadas ? actCoberturadas.value : 0;
 		var visitaron = actVisitaron ? actVisitaron.value : 0;
 		var interactuaron = actInteractuaron ? actInteractuaron.value : 0;
 		var compraron = actCompraron ? actCompraron.value : 0;
@@ -176,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		document.getElementById('ep-stat-bar-compraron').style.height = pctTexto(compraron, maxEmbudo);
 
 		var detalleVentas = document.getElementById('ep-stat-detalle-ventas');
-		var modelos = modelosCargados().sort(function (a, b) { return b.cantidad - a.cantidad; });
+		var modelos = (actModelos ? actModelos.modelos() : []).sort(function (a, b) { return b.cantidad - a.cantidad; });
 		var totalUnidades = modelos.reduce(function (s, m) { return s + m.cantidad; }, 0);
 
 		if (!modelos.length) {
@@ -220,59 +170,168 @@ document.addEventListener('DOMContentLoaded', function () {
 			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
 	}
 
-	function cerrarPanelesCombo() {
-		document.querySelectorAll('.ep-combo-panel').forEach(function (panel) { panel.classList.add('hidden'); });
+	var actModelos = crearGestorModelos('ep-modelo-filas', 'ep-modelo-agregar', 'ep-modelo-total-valor', actualizarEstadisticasActivaciones);
+	actualizarEstadisticasActivaciones(); // primer cálculo, con los valores de ejemplo que ya trae el formulario
+
+	// ---------- Capacitaciones ---------- Interacciones no puede superar el total de asistentes.
+	var capAsistJefe = document.getElementById('ep-cap-asist-jefe');
+	var capJefeTienda = document.getElementById('ep-cap-jefe-tienda');
+	var capVendedores = document.getElementById('ep-cap-vendedores');
+	var capInteracciones = document.getElementById('ep-cap-interacciones');
+	var capComentarios = document.getElementById('ep-cap-comentarios');
+
+	function actualizarTotalAsistentesCapacitaciones() {
+		var total = (parseFloat(capAsistJefe && capAsistJefe.value) || 0)
+			+ (parseFloat(capJefeTienda && capJefeTienda.value) || 0)
+			+ (parseFloat(capVendedores && capVendedores.value) || 0);
+		var total1 = document.getElementById('ep-cap-total-asistentes-1');
+		var total2 = document.getElementById('ep-cap-total-asistentes-2');
+		if (total1) total1.textContent = total;
+		if (total2) total2.textContent = total;
+
+		if (capInteracciones && (parseFloat(capInteracciones.value) || 0) > total) {
+			capInteracciones.value = total;
+			destacarTope(capInteracciones);
+		}
+		actualizarEstadisticasCapacitaciones();
 	}
 
-	function modelosElegidosEnOtrasFilas(comboActual) {
-		var elegidos = [];
-		modeloFilas.querySelectorAll('.ep-combo').forEach(function (combo) {
-			if (combo === comboActual) return;
-			var valor = combo.querySelector('.ep-combo-trigger').dataset.valor;
-			if (valor) elegidos.push(valor);
+	function actualizarEstadisticasCapacitaciones() {
+		var statAsistentes = document.getElementById('ep-cap-stat-asistentes');
+		if (!statAsistentes) return; // esta actividad no tiene panel de estadísticas todavía
+
+		var asistJefe = capAsistJefe ? (parseFloat(capAsistJefe.value) || 0) : 0;
+		var jefeTienda = capJefeTienda ? (parseFloat(capJefeTienda.value) || 0) : 0;
+		var vendedores = capVendedores ? (parseFloat(capVendedores.value) || 0) : 0;
+		var total = asistJefe + jefeTienda + vendedores;
+		var interacciones = capInteracciones ? (parseFloat(capInteracciones.value) || 0) : 0;
+
+		statAsistentes.textContent = total;
+		document.getElementById('ep-cap-stat-asist-jefe').textContent = asistJefe;
+		document.getElementById('ep-cap-stat-jefe-tienda').textContent = jefeTienda;
+		document.getElementById('ep-cap-stat-vendedores').textContent = vendedores;
+		document.getElementById('ep-cap-stat-interacciones').textContent = interacciones;
+		document.getElementById('ep-cap-stat-interaccion-pct').textContent = pctTexto(interacciones, total);
+
+		var maxBarraCap = Math.max(total, 1);
+		document.getElementById('ep-cap-stat-bar-asistentes-valor').textContent = total;
+		document.getElementById('ep-cap-stat-bar-asistentes').style.height = pctTexto(total, maxBarraCap);
+		document.getElementById('ep-cap-stat-bar-interacciones-valor').textContent = interacciones;
+		document.getElementById('ep-cap-stat-bar-interacciones').style.height = pctTexto(interacciones, maxBarraCap);
+
+		var detalleCargos = document.getElementById('ep-cap-stat-detalle-cargos');
+		var cargos = [
+			{ nombre: 'Vendedores', cantidad: vendedores },
+			{ nombre: 'Jefe de Tienda', cantidad: jefeTienda },
+			{ nombre: 'Asist. de Jefe Tienda', cantidad: asistJefe },
+		].filter(function (c) { return c.cantidad > 0; }).sort(function (a, b) { return b.cantidad - a.cantidad; });
+
+		if (!cargos.length) {
+			detalleCargos.innerHTML = '<span class="ep-stat-comentarios-vacio">Todavía no cargaste asistentes.</span>';
+		} else {
+			var maxCargo = cargos[0].cantidad;
+			detalleCargos.innerHTML = cargos.map(function (c) {
+				return '<div class="ep-venta-fila">'
+					+ '<span class="ep-venta-nombre">' + c.nombre + '</span>'
+					+ '<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:' + Math.round(c.cantidad / maxCargo * 100) + '%;"></div></div>'
+					+ '<span class="ep-venta-valor">' + c.cantidad + '</span>'
+					+ '</div>';
+			}).join('');
+		}
+
+		var comentariosBoxCap = document.getElementById('ep-cap-stat-comentarios');
+		var lineasCap = capComentarios ? capComentarios.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean) : [];
+		comentariosBoxCap.innerHTML = lineasCap.length
+			? lineasCap.map(function (l) { return '<div>' + escapeHtml(l) + '</div>'; }).join('')
+			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
+	}
+
+	[capAsistJefe, capJefeTienda, capVendedores].forEach(function (input) {
+		if (input) input.addEventListener('input', actualizarTotalAsistentesCapacitaciones);
+	});
+	if (capInteracciones) capInteracciones.addEventListener('input', actualizarEstadisticasCapacitaciones);
+	if (capComentarios) capComentarios.addEventListener('input', actualizarEstadisticasCapacitaciones);
+	actualizarEstadisticasCapacitaciones(); // primer cálculo
+
+	// Fábrica de combo+cantidad de modelos: busca en vivo contra repositorio_productos (getters/repositorio_productos_buscar.php).
+	function crearGestorModelos(idFilas, idAgregar, idTotal, onCambio) {
+		var filas = document.getElementById(idFilas);
+		if (!filas) return null;
+		var agregarBtn = document.getElementById(idAgregar);
+		var totalValor = document.getElementById(idTotal);
+		var buscarReqId = 0;
+		var buscarDebounce = null;
+
+		function filaHTML() {
+			return '<div class="ep-modelo-fila-nueva"><div class="ep-combo">'
+				+ '<button type="button" class="ep-input ep-combo-trigger" data-valor="">'
+				+ '<span class="ep-combo-trigger-texto">Elegir modelo...</span>' + epIconMarkup('chevron', 14) + '</button>'
+				+ '<div class="ep-combo-panel hidden"><input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar modelo..." autocomplete="off">'
+				+ '<div class="ep-combo-opciones"></div></div></div>'
+				+ '<input type="number" min="0" class="ep-input ep-modelo-cantidad" placeholder="Cantidad">'
+				+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar modelo">' + epIconMarkup('trash', 14) + '</button></div>';
+		}
+		function elegidosEnOtrasFilas(comboActual) {
+			var out = [];
+			filas.querySelectorAll('.ep-combo').forEach(function (c) {
+				if (c === comboActual) return;
+				var v = c.querySelector('.ep-combo-trigger').dataset.valor;
+				if (v) out.push(v);
+			});
+			return out;
+		}
+		function buscarModelos(combo, texto) {
+			var opciones = combo.querySelector('.ep-combo-opciones');
+			opciones.innerHTML = '<div class="ep-combo-vacio">Buscando...</div>';
+			var miReqId = ++buscarReqId;
+			fetch('getters/repositorio_productos_buscar.php?q=' + encodeURIComponent(texto || ''))
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (miReqId !== buscarReqId) return; // llegó una búsqueda más nueva antes que esta
+					var ya = elegidosEnOtrasFilas(combo);
+					var coincidencias = (data.ok ? data.productos : []).filter(function (m) { return ya.indexOf(m) === -1; });
+					opciones.innerHTML = coincidencias.length
+						? coincidencias.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m + '">' + m + '</button>'; }).join('')
+						: '<div class="ep-combo-vacio">Sin resultados</div>';
+				})
+				.catch(function () {
+					if (miReqId !== buscarReqId) return;
+					opciones.innerHTML = '<div class="ep-combo-vacio">Error al buscar, intenta de nuevo</div>';
+				});
+		}
+		function filtrarCombo(combo, texto) {
+			clearTimeout(buscarDebounce);
+			buscarDebounce = setTimeout(function () { buscarModelos(combo, texto); }, 250);
+		}
+		function cerrarPaneles() { filas.querySelectorAll('.ep-combo-panel').forEach(function (p) { p.classList.add('hidden'); }); }
+		function abrirPanel(combo) {
+			cerrarPaneles();
+			var buscador = combo.querySelector('.ep-combo-buscador');
+			buscador.value = '';
+			buscarModelos(combo, '');
+			combo.querySelector('.ep-combo-panel').classList.remove('hidden');
+			buscador.focus();
+		}
+		function actualizarTotal() {
+			var total = 0;
+			filas.querySelectorAll('.ep-modelo-cantidad').forEach(function (i) { total += parseFloat(i.value) || 0; });
+			if (totalValor) totalValor.textContent = total;
+			if (onCambio) onCambio();
+		}
+		function agregarFila() { filas.insertAdjacentHTML('beforeend', filaHTML()); }
+
+		agregarFila(); // arranca con una fila vacía, igual que Activaciones
+		filas.addEventListener('input', function (ev) {
+			if (ev.target.classList.contains('ep-combo-buscador')) filtrarCombo(ev.target.closest('.ep-combo'), ev.target.value);
+			if (ev.target.classList.contains('ep-modelo-cantidad')) actualizarTotal();
 		});
-		return elegidos;
-	}
-	// El buscador vive DENTRO del panel del spinner — el campo visible (el trigger) nunca se tipea, solo se elige de la lista.
-	function filtrarComboModelo(combo, texto) {
-		var opciones = combo.querySelector('.ep-combo-opciones');
-		var yaElegidos = modelosElegidosEnOtrasFilas(combo);
-		var catalogo = (window.EP_CATALOGO_MODELOS || []).filter(function (m) { return yaElegidos.indexOf(m) === -1; });
-		var coincidencias = catalogo.filter(function (m) { return m.toLowerCase().indexOf((texto || '').trim().toLowerCase()) !== -1; });
-
-		opciones.innerHTML = coincidencias.length
-			? coincidencias.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m + '">' + m + '</button>'; }).join('')
-			: '<div class="ep-combo-vacio">Ya elegiste todos los modelos disponibles, o no hay resultados</div>';
-	}
-
-	function abrirPanelCombo(combo) {
-		cerrarPanelesCombo();
-		var buscador = combo.querySelector('.ep-combo-buscador');
-		buscador.value = '';
-		filtrarComboModelo(combo, '');
-		combo.querySelector('.ep-combo-panel').classList.remove('hidden');
-		buscador.focus();
-	}
-
-	function agregarFilaModelo() {
-		if (!modeloFilas) return;
-		modeloFilas.insertAdjacentHTML('beforeend', filaModeloHTML());
-	}
-
-	if (modeloFilas) {
-		agregarFilaModelo(); // arranca con una fila vacía, igual que el resto de tablas de la app
-
-		modeloFilas.addEventListener('input', function (ev) {
-			if (ev.target.classList.contains('ep-combo-buscador')) filtrarComboModelo(ev.target.closest('.ep-combo'), ev.target.value);
-			if (ev.target.classList.contains('ep-modelo-cantidad')) actualizarTotalModelos();
-		});
-		modeloFilas.addEventListener('click', function (ev) {
+		filas.addEventListener('click', function (ev) {
 			var trigger = ev.target.closest('.ep-combo-trigger');
 			if (trigger) {
 				var combo = trigger.closest('.ep-combo');
 				var abierto = !combo.querySelector('.ep-combo-panel').classList.contains('hidden');
-				cerrarPanelesCombo();
-				if (!abierto) abrirPanelCombo(combo);
+				cerrarPaneles();
+				if (!abierto) abrirPanel(combo);
 				return;
 			}
 			var opcion = ev.target.closest('.ep-combo-opcion');
@@ -282,23 +341,179 @@ document.addEventListener('DOMContentLoaded', function () {
 				triggerElegido.dataset.valor = opcion.dataset.valor;
 				triggerElegido.querySelector('.ep-combo-trigger-texto').textContent = opcion.dataset.valor;
 				comboElegido.querySelector('.ep-combo-panel').classList.add('hidden');
-				actualizarEstadisticasActivaciones();
+				if (onCambio) onCambio();
 				return;
 			}
 			var quitar = ev.target.closest('.ep-modelo-quitar');
-			if (quitar) {
-				quitar.closest('.ep-modelo-fila-nueva').remove();
-				actualizarTotalModelos();
-			}
+			if (quitar) { quitar.closest('.ep-modelo-fila-nueva').remove(); actualizarTotal(); }
 		});
-	}
-	if (modeloAgregarBtn) modeloAgregarBtn.addEventListener('click', agregarFilaModelo);
-	actualizarEstadisticasActivaciones(); // primer cálculo, con los valores de ejemplo que ya trae el formulario
+		if (agregarBtn) agregarBtn.addEventListener('click', agregarFila);
+		document.addEventListener('click', function (ev) { if (!ev.target.closest('.ep-combo')) cerrarPaneles(); });
 
-	// Cierra cualquier panel de búsqueda abierto al hacer clic afuera.
-	document.addEventListener('click', function (ev) {
-		if (!ev.target.closest('.ep-combo')) cerrarPanelesCombo();
+		return { modelos: function () {
+			var out = [];
+			filas.querySelectorAll('.ep-modelo-fila-nueva').forEach(function (fila) {
+				var nombre = fila.querySelector('.ep-combo-trigger').dataset.valor;
+				var cantidad = parseFloat(fila.querySelector('.ep-modelo-cantidad').value) || 0;
+				if (nombre && cantidad > 0) out.push({ nombre: nombre, cantidad: cantidad });
+			});
+			return out;
+		} };
+	}
+
+	// ---------- Epson Day ---------- igual que Activaciones pero sin Cumplimiento (no está en su Excel).
+	var edayNacional = document.getElementById('ep-eday-nacional');
+	var edayCoberturadas = document.getElementById('ep-eday-coberturadas');
+	var edayVisitaron = document.getElementById('ep-eday-visitaron');
+	var edayInteractuaron = document.getElementById('ep-eday-interactuaron');
+	var edayCompraron = document.getElementById('ep-eday-compraron');
+	var edayComentarios = document.getElementById('ep-eday-comentarios');
+	if (edayNacional && edayCoberturadas) aplicarTope(edayNacional, edayCoberturadas);
+	if (edayVisitaron && edayInteractuaron) aplicarTope(edayVisitaron, edayInteractuaron);
+	if (edayInteractuaron && edayCompraron) aplicarTope(edayInteractuaron, edayCompraron);
+
+	var edayModelos = crearGestorModelos('ep-eday-modelo-filas', 'ep-eday-modelo-agregar', 'ep-eday-modelo-total-valor', function () { actualizarEstadisticasEpsonDay(); });
+
+	function actualizarEstadisticasEpsonDay() {
+		var statPct = document.getElementById('ep-eday-stat-cobertura-pct');
+		if (!statPct) return;
+
+		var nacional = edayNacional ? edayNacional.value : 0;
+		var coberturadas = edayCoberturadas ? edayCoberturadas.value : 0;
+		var visitaron = edayVisitaron ? edayVisitaron.value : 0;
+		var interactuaron = edayInteractuaron ? edayInteractuaron.value : 0;
+		var compraron = edayCompraron ? edayCompraron.value : 0;
+
+		statPct.textContent = pctTexto(coberturadas, nacional);
+		document.getElementById('ep-eday-stat-nacional').textContent = nacional || 0;
+		document.getElementById('ep-eday-stat-coberturadas').textContent = coberturadas || 0;
+		document.getElementById('ep-eday-stat-interaccion-pct').textContent = pctTexto(interactuaron, visitaron);
+		document.getElementById('ep-eday-stat-visitaron').textContent = visitaron || 0;
+		document.getElementById('ep-eday-stat-interactuaron').textContent = interactuaron || 0;
+		document.getElementById('ep-eday-stat-ventas-pct').textContent = pctTexto(compraron, interactuaron);
+		document.getElementById('ep-eday-stat-compraron').textContent = compraron || 0;
+
+		var maxEmbudo = Math.max(parseFloat(visitaron) || 0, 1);
+		document.getElementById('ep-eday-stat-bar-visitaron-valor').textContent = visitaron || 0;
+		document.getElementById('ep-eday-stat-bar-visitaron').style.height = pctTexto(visitaron, maxEmbudo);
+		document.getElementById('ep-eday-stat-bar-interactuaron-valor').textContent = interactuaron || 0;
+		document.getElementById('ep-eday-stat-bar-interactuaron').style.height = pctTexto(interactuaron, maxEmbudo);
+		document.getElementById('ep-eday-stat-bar-compraron-valor').textContent = compraron || 0;
+		document.getElementById('ep-eday-stat-bar-compraron').style.height = pctTexto(compraron, maxEmbudo);
+
+		var detalleVentas = document.getElementById('ep-eday-stat-detalle-ventas');
+		var modelos = (edayModelos ? edayModelos.modelos() : []).sort(function (a, b) { return b.cantidad - a.cantidad; });
+		var totalUnidades = modelos.reduce(function (s, m) { return s + m.cantidad; }, 0);
+
+		detalleVentas.innerHTML = !modelos.length
+			? '<span class="ep-stat-comentarios-vacio">Todavía no cargaste modelos.</span>'
+			: modelos.map(function (m) {
+				return '<div class="ep-venta-fila"><span class="ep-venta-nombre">' + escapeHtml(m.nombre) + '</span>'
+					+ '<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:' + Math.round(m.cantidad / modelos[0].cantidad * 100) + '%;"></div></div>'
+					+ '<span class="ep-venta-valor">' + m.cantidad + '</span></div>';
+			}).join('');
+
+		var mayorPct = document.getElementById('ep-eday-stat-mayor-pct');
+		var mayorNombre = document.getElementById('ep-eday-stat-mayor-nombre');
+		var menorPct = document.getElementById('ep-eday-stat-menor-pct');
+		var menorNombre = document.getElementById('ep-eday-stat-menor-nombre');
+		if (modelos.length) {
+			var mayorCant = modelos[0].cantidad;
+			var menorCant = modelos[modelos.length - 1].cantidad;
+			mayorPct.textContent = pctTexto(mayorCant, totalUnidades);
+			mayorNombre.textContent = modelos.filter(function (m) { return m.cantidad === mayorCant; }).map(function (m) { return m.nombre; }).join(' / ');
+			menorPct.textContent = pctTexto(menorCant, totalUnidades);
+			menorNombre.textContent = modelos.filter(function (m) { return m.cantidad === menorCant; }).map(function (m) { return m.nombre; }).join(' / ');
+		} else {
+			mayorPct.textContent = '0%'; mayorNombre.textContent = 'Sin datos';
+			menorPct.textContent = '0%'; menorNombre.textContent = 'Sin datos';
+		}
+
+		var comentariosBoxEday = document.getElementById('ep-eday-stat-comentarios');
+		var lineasEday = edayComentarios ? edayComentarios.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean) : [];
+		comentariosBoxEday.innerHTML = lineasEday.length
+			? lineasEday.map(function (l) { return '<div>' + escapeHtml(l) + '</div>'; }).join('')
+			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
+	}
+
+	[edayNacional, edayCoberturadas, edayVisitaron, edayInteractuaron, edayCompraron].forEach(function (input) {
+		if (input) input.addEventListener('input', actualizarEstadisticasEpsonDay);
 	});
+	if (edayComentarios) edayComentarios.addEventListener('input', actualizarEstadisticasEpsonDay);
+	actualizarEstadisticasEpsonDay(); // primer cálculo
+
+	// ---------- Evento o Ferias ---------- igual que Epson Day pero sin Cobertura (no está en su Excel).
+	var eventoVisitaron = document.getElementById('ep-evento-visitaron');
+	var eventoInteractuaron = document.getElementById('ep-evento-interactuaron');
+	var eventoCompraron = document.getElementById('ep-evento-compraron');
+	var eventoComentarios = document.getElementById('ep-evento-comentarios');
+	if (eventoVisitaron && eventoInteractuaron) aplicarTope(eventoVisitaron, eventoInteractuaron);
+	if (eventoInteractuaron && eventoCompraron) aplicarTope(eventoInteractuaron, eventoCompraron);
+
+	var eventoModelos = crearGestorModelos('ep-evento-modelo-filas', 'ep-evento-modelo-agregar', 'ep-evento-modelo-total-valor', function () { actualizarEstadisticasEvento(); });
+
+	function actualizarEstadisticasEvento() {
+		var statPct = document.getElementById('ep-evento-stat-interaccion-pct');
+		if (!statPct) return;
+
+		var visitaron = eventoVisitaron ? eventoVisitaron.value : 0;
+		var interactuaron = eventoInteractuaron ? eventoInteractuaron.value : 0;
+		var compraron = eventoCompraron ? eventoCompraron.value : 0;
+
+		statPct.textContent = pctTexto(interactuaron, visitaron);
+		document.getElementById('ep-evento-stat-visitaron').textContent = visitaron || 0;
+		document.getElementById('ep-evento-stat-interactuaron').textContent = interactuaron || 0;
+		document.getElementById('ep-evento-stat-ventas-pct').textContent = pctTexto(compraron, interactuaron);
+		document.getElementById('ep-evento-stat-compraron').textContent = compraron || 0;
+
+		var maxEmbudo = Math.max(parseFloat(visitaron) || 0, 1);
+		document.getElementById('ep-evento-stat-bar-visitaron-valor').textContent = visitaron || 0;
+		document.getElementById('ep-evento-stat-bar-visitaron').style.height = pctTexto(visitaron, maxEmbudo);
+		document.getElementById('ep-evento-stat-bar-interactuaron-valor').textContent = interactuaron || 0;
+		document.getElementById('ep-evento-stat-bar-interactuaron').style.height = pctTexto(interactuaron, maxEmbudo);
+		document.getElementById('ep-evento-stat-bar-compraron-valor').textContent = compraron || 0;
+		document.getElementById('ep-evento-stat-bar-compraron').style.height = pctTexto(compraron, maxEmbudo);
+
+		var detalleVentas = document.getElementById('ep-evento-stat-detalle-ventas');
+		var modelos = (eventoModelos ? eventoModelos.modelos() : []).sort(function (a, b) { return b.cantidad - a.cantidad; });
+		var totalUnidades = modelos.reduce(function (s, m) { return s + m.cantidad; }, 0);
+
+		detalleVentas.innerHTML = !modelos.length
+			? '<span class="ep-stat-comentarios-vacio">Todavía no cargaste modelos.</span>'
+			: modelos.map(function (m) {
+				return '<div class="ep-venta-fila"><span class="ep-venta-nombre">' + escapeHtml(m.nombre) + '</span>'
+					+ '<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:' + Math.round(m.cantidad / modelos[0].cantidad * 100) + '%;"></div></div>'
+					+ '<span class="ep-venta-valor">' + m.cantidad + '</span></div>';
+			}).join('');
+
+		var mayorPct = document.getElementById('ep-evento-stat-mayor-pct');
+		var mayorNombre = document.getElementById('ep-evento-stat-mayor-nombre');
+		var menorPct = document.getElementById('ep-evento-stat-menor-pct');
+		var menorNombre = document.getElementById('ep-evento-stat-menor-nombre');
+		if (modelos.length) {
+			var mayorCant = modelos[0].cantidad;
+			var menorCant = modelos[modelos.length - 1].cantidad;
+			mayorPct.textContent = pctTexto(mayorCant, totalUnidades);
+			mayorNombre.textContent = modelos.filter(function (m) { return m.cantidad === mayorCant; }).map(function (m) { return m.nombre; }).join(' / ');
+			menorPct.textContent = pctTexto(menorCant, totalUnidades);
+			menorNombre.textContent = modelos.filter(function (m) { return m.cantidad === menorCant; }).map(function (m) { return m.nombre; }).join(' / ');
+		} else {
+			mayorPct.textContent = '0%'; mayorNombre.textContent = 'Sin datos';
+			menorPct.textContent = '0%'; menorNombre.textContent = 'Sin datos';
+		}
+
+		var comentariosBoxEvento = document.getElementById('ep-evento-stat-comentarios');
+		var lineasEvento = eventoComentarios ? eventoComentarios.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean) : [];
+		comentariosBoxEvento.innerHTML = lineasEvento.length
+			? lineasEvento.map(function (l) { return '<div>' + escapeHtml(l) + '</div>'; }).join('')
+			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
+	}
+
+	[eventoVisitaron, eventoInteractuaron, eventoCompraron].forEach(function (input) {
+		if (input) input.addEventListener('input', actualizarEstadisticasEvento);
+	});
+	if (eventoComentarios) eventoComentarios.addEventListener('input', actualizarEstadisticasEvento);
+	actualizarEstadisticasEvento(); // primer cálculo
 
 	var buscarActividad = document.getElementById('ep-buscar-actividad');
 	if (buscarActividad && listaActividades) {

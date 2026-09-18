@@ -53,14 +53,14 @@ $esAdmin = ep_rol_actual() === 'admin';
 				</div>
 			<?php endforeach; ?>
 
-			<div style="display:flex;gap:12px;margin-top:8px;">
+			<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;">
 				<button type="button" class="ep-btn-outline">Guardar borrador</button>
 				<button type="button" class="ep-btn-primary">Enviar registro</button>
 			</div>
 		</div>
 
 		<div id="ep-panel-estadisticas" class="ep-card">
-			<div class="ep-eyebrow">Así se ve el reporte final</div>
+			<div class="ep-eyebrow">Estadísticas</div>
 			<?php foreach ($actividades as $i => $actividad): ?>
 				<div class="ep-estadisticas-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
 					<?php include __DIR__.'/plantillas-stats/'.$actividad['plantilla'].'.php'; ?>
