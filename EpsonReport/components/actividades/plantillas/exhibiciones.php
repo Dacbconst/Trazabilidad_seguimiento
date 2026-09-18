@@ -1,40 +1,44 @@
-<?php
-// Plantilla de Exhibiciones que Inspiran, basada en "ESTADISTICO EXHIBICIONES QUE INSPIRAN.xlsx". Sin porcentajes, eso se calcula en el reporte.
-?>
-<div class="ep-form-section ep-form-section-full">
-	<div class="ep-form-section-titulo">
-		<span class="ep-form-section-num">1</span>
-		<?= ep_icon('store', 16) ?>
-		<span>Detalle de Exhibiciones</span>
-	</div>
+<!-- IDs = contrato con assets/js/app.js. Basado en "ESTADISTICO EXHIBICIONES QUE INSPIRAN.xlsx", sin porcentajes en el formulario. -->
+<div class="ep-steps">
 
-	<div class="ep-form-grid-2">
-		<div style="display:flex;flex-direction:column;gap:6px;">
-			<label class="ep-label">Muebles</label>
-			<input class="ep-input" type="number" min="0" id="ep-exh-muebles" placeholder="Ej. 3">
+	<!-- Paso 1: Detalle de exhibiciones -->
+	<div class="ep-step">
+		<div class="ep-step-rail">
+			<div class="ep-step-num">1</div>
+			<div class="ep-step-line"></div>
 		</div>
-		<div style="display:flex;flex-direction:column;gap:6px;">
-			<label class="ep-label">Rumas</label>
-			<input class="ep-input" type="number" min="0" id="ep-exh-rumas" placeholder="Ej. 4">
-		</div>
-		<div style="display:flex;flex-direction:column;gap:6px;">
-			<label class="ep-label">Cabeceras</label>
-			<input class="ep-input" type="number" min="0" id="ep-exh-cabeceras" placeholder="Ej. 7">
-		</div>
-		<div style="display:flex;flex-direction:column;gap:6px;">
-			<label class="ep-label">Total</label>
-			<div class="ep-input ep-input-auto">
-				<span id="ep-exh-total">0</span>
+		<div class="ep-step-body">
+			<div class="ep-step-head">
+				<h3 class="ep-step-title">Detalle de Exhibiciones</h3>
+				<span class="ep-step-total">Total: <strong id="ep-exh-total">0</strong></span>
+			</div>
+			<p class="ep-step-hint">Cuántas exhibiciones de cada tipo se armaron.</p>
+			<div style="display:flex;flex-direction:column;gap:14px;">
+				<div style="display:flex;flex-direction:column;gap:6px;">
+					<label class="ep-label" for="ep-exh-muebles">Muebles</label>
+					<input type="number" min="0" class="ep-input" id="ep-exh-muebles" placeholder="Ej. 3">
+				</div>
+				<div style="display:flex;flex-direction:column;gap:6px;">
+					<label class="ep-label" for="ep-exh-rumas">Rumas</label>
+					<input type="number" min="0" class="ep-input" id="ep-exh-rumas" placeholder="Ej. 4">
+				</div>
+				<div style="display:flex;flex-direction:column;gap:6px;">
+					<label class="ep-label" for="ep-exh-cabeceras">Cabeceras</label>
+					<input type="number" min="0" class="ep-input" id="ep-exh-cabeceras" placeholder="Ej. 7">
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
 
-<div class="ep-form-section ep-form-section-full">
-	<div class="ep-form-section-titulo">
-		<span class="ep-form-section-num">2</span>
-		<?= ep_icon('file', 16) ?>
-		<span>Comentarios</span>
+	<!-- Paso 2: Comentarios (sin línea hacia abajo, es el último) -->
+	<div class="ep-step">
+		<div class="ep-step-rail">
+			<div class="ep-step-num">2</div>
+		</div>
+		<div class="ep-step-body">
+			<h3 class="ep-step-title">Comentarios</h3>
+			<textarea rows="3" class="ep-input" id="ep-exh-comentarios" placeholder="Un comentario por línea..." style="margin-top:10px;"></textarea>
+		</div>
 	</div>
-	<textarea class="ep-input" id="ep-exh-comentarios" rows="3" placeholder="Un comentario por línea..."></textarea>
+
 </div>

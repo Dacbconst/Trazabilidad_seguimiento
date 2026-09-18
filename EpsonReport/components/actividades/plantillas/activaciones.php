@@ -95,15 +95,17 @@
 		</div>
 	</div>
 
-	<!-- Paso 5: Comentarios (sin línea hacia abajo, es el último) -->
+	<!-- Paso 5: Comentarios -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
 			<div class="ep-step-num">5</div>
+			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
 			<h3 class="ep-step-title">Comentarios</h3>
 			<textarea rows="3" class="ep-input" id="ep-act-comentarios" placeholder="Un comentario por línea..." style="margin-top:10px;"></textarea>
 		</div>
 	</div>
+
 
 </div>

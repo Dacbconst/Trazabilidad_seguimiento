@@ -22,6 +22,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'store'   => '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
 		'arrow-right' => '<path d="M5 12h14M13 6l6 6-6 6"/>',
 		'printer' => '<path d="M6 9V4h12v5"/><rect x="5" y="9" width="14" height="8" rx="1"/><path d="M8 17v4h8v-4"/>',
+		'bar-chart' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20v-3"/>',
 	];
 	$paths = $iconos[$nombre] ?? '';
 	return '<svg width="'.$s.'" height="'.$s.'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'.$paths.'</svg>';

@@ -60,20 +60,29 @@ function ep_actividades(): array {
 				['label' => 'Comentarios', 'tipo' => 'manual'],
 			],
 		],
-		// Sin formulario propio todavía, ver plantillas/pendiente.php.
 		[
 			'id' => 5,
 			'label' => 'Exhibiciones que Inspiran',
 			'badge' => null,
-			'plantilla' => 'pendiente',
-			'campos' => [['label' => 'Pendiente de definir', 'tipo' => 'manual']],
+			'plantilla' => 'exhibiciones',
+			'campos' => [
+				['label' => 'Muebles', 'tipo' => 'manual'],
+				['label' => 'Rumas', 'tipo' => 'manual'],
+				['label' => 'Cabeceras', 'tipo' => 'manual'],
+				['label' => 'Comentarios', 'tipo' => 'manual'],
+			],
 		],
 		[
 			'id' => 6,
 			'label' => 'Colocación de POP',
 			'badge' => null,
-			'plantilla' => 'pendiente',
-			'campos' => [['label' => 'Pendiente de definir', 'tipo' => 'manual']],
+			'plantilla' => 'colocacion-pop',
+			'sin_estadisticas' => true,
+			'campos' => [
+				['label' => 'POP Recibido (Bodega / Canales / Retail por material)', 'tipo' => 'manual'],
+				['label' => 'Detalle de Entrega a Puntos de Venta', 'tipo' => 'manual'],
+				['label' => 'Comentarios', 'tipo' => 'manual'],
+			],
 		],
 	];
 }

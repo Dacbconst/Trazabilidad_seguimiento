@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/../../includes/actividades_datos.php';
+require_once __DIR__.'/../../includes/fotos_datos.php';
 $actividades = ep_actividades();
 $esAdmin = ep_rol_actual() === 'admin';
 ?>
@@ -45,7 +46,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 	</div>
 	<?php endif; ?>
 
-	<div class="ep-actividad-layout">
+	<div class="ep-actividad-layout<?= !empty($actividades[0]['sin_estadisticas']) ? ' ep-actividad-layout-sin-stats' : '' ?>" id="ep-actividad-layout">
 		<div id="ep-panel-formulario" class="ep-card">
 			<?php foreach ($actividades as $i => $actividad): ?>
 				<div class="ep-formulario-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
@@ -62,8 +63,19 @@ $esAdmin = ep_rol_actual() === 'admin';
 		<div id="ep-panel-estadisticas" class="ep-card">
 			<div class="ep-eyebrow">Estadísticas</div>
 			<?php foreach ($actividades as $i => $actividad): ?>
-				<div class="ep-estadisticas-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
+				<div class="ep-estadisticas-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>" data-sin-estadisticas="<?= !empty($actividad['sin_estadisticas']) ? '1' : '0' ?>">
 					<?php include __DIR__.'/plantillas-stats/'.$actividad['plantilla'].'.php'; ?>
+				</div>
+			<?php endforeach; ?>
+		</div>
+
+		<div class="ep-evidencia-wrap">
+			<?php foreach ($actividades as $i => $actividad):
+				$epEvidenciaFotos = ep_fotos_requeridas($actividad['id']);
+				$epEvidenciaPrefix = 'a' . $actividad['id'];
+			?>
+				<div class="ep-evidencia-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
+					<?php include __DIR__.'/partials/paso_evidencia.php'; ?>
 				</div>
 			<?php endforeach; ?>
 		</div>

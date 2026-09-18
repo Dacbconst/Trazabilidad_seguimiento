@@ -76,9 +76,22 @@
 		</div>
 	</div>
 
-	<div class="ep-stat-card-plano">
-		<div class="ep-stat-card-titulo"><?= ep_icon('file', 15) ?> Comentarios</div>
-		<div class="ep-stat-comentarios" id="ep-stat-comentarios"></div>
+	<div class="ep-stats-row-2">
+		<div class="ep-stat-card">
+			<div class="ep-stat-card-header"><?= ep_icon('bar-chart', 13) ?> Cumplimiento</div>
+			<div class="ep-stat-card-body">
+				<div class="ep-stat-card-pct" id="ep-stat-cumplimiento-pct">0%</div>
+				<div class="ep-stat-card-detalle">
+					<div class="ep-stat-card-fila"><span>Activaciones Programadas</span><strong id="ep-stat-programadas">0</strong></div>
+					<div class="ep-stat-card-fila"><span>Activaciones Ejecutadas</span><strong id="ep-stat-ejecutadas">0</strong></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="ep-stat-card-plano">
+			<div class="ep-stat-card-titulo"><?= ep_icon('file', 15) ?> Comentarios</div>
+			<div class="ep-stat-comentarios" id="ep-stat-comentarios"></div>
+		</div>
 	</div>
 
 </div>

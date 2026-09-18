@@ -310,11 +310,13 @@ html, body.ep-login-body { height: 100%; }
 }
 
 /* ---------- Layout de Actividades: formulario a un lado, reporte final calculado al otro ---------- */
-.ep-actividad-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; align-items: start; margin-top: 28px; }
+.ep-actividad-layout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 24px; align-items: start; margin-top: 28px; }
+.ep-actividad-layout-sin-stats { grid-template-columns: minmax(0, 1fr); }
+.ep-actividad-layout-sin-stats #ep-panel-estadisticas { display: none; }
 textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: vertical; font-family: inherit; }
 
 /* ---------- Formulario de actividades: una plantilla por lógica, en grid para aprovechar el ancho ---------- */
-.ep-formulario-actividad { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row dense; gap: 20px; align-items: start; }
+.ep-formulario-actividad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-flow: row dense; gap: 20px; align-items: start; }
 .ep-form-section {
 	display: flex; flex-direction: column; gap: 14px;
 	background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px;
@@ -329,7 +331,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	width: 20px; height: 20px; border-radius: 50%; background: var(--color-primary); color: #FFFFFF;
 	display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;
 }
-.ep-form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ep-form-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 
 /* ---------- Formulario: línea de pasos numerados ---------- */
 /* grid-column: 1/-1 para no quedarse en la mitad del ancho que reserva .ep-formulario-actividad. */
@@ -349,6 +351,25 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-step-total { font-size: 12px; color: var(--color-text-muted); }
 .ep-step-total strong { color: var(--color-ink); }
 
+/* ---------- Evidencia fotográfica: paso reutilizable en cualquier plantilla ---------- */
+.ep-evidencia-wrap { grid-column: 1 / -1; }
+.ep-evidencia-bloque { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--color-border); }
+.ep-evidencia-bloque-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.ep-evidencia-fila { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; }
+.ep-foto-slot { display: flex; flex-direction: column; gap: 8px; flex: 0 0 160px; }
+.ep-foto-dropzone {
+	position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 3;
+	border: 1.5px dashed var(--color-silver); border-radius: var(--radius-md); background: var(--color-surface-muted);
+	cursor: pointer; overflow: hidden; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ep-foto-dropzone:hover { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.ep-foto-dropzone-vacio { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.ep-foto-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ep-foto-slot-completa .ep-foto-dropzone { border-style: solid; border-color: var(--color-success); }
+.ep-foto-slot-info { display: flex; flex-direction: column; gap: 4px; }
+.ep-foto-slot-label { font-size: 12px; color: var(--color-text); line-height: 1.35; }
+.ep-foto-slot-estado { align-self: flex-start; }
+
 @keyframes ep-flash-tope {
 	0% { background: #FFF3D6; border-color: #E0A800; }
 	100% { background: var(--color-surface); border-color: var(--color-border); }
@@ -361,7 +382,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-funnel-conexion { display: flex; align-items: center; padding-bottom: 12px; flex-shrink: 0; color: var(--color-primary); }
 
 .ep-modelo-fila-nueva {
-	display: grid; grid-template-columns: 1fr 110px 34px; align-items: center; gap: 10px;
+	display: grid; grid-template-columns: minmax(0, 1fr) 110px 34px; align-items: center; gap: 10px;
 }
 .ep-modelo-fila-nueva .ep-input { height: 40px; }
 .ep-modelo-quitar {
@@ -396,10 +417,29 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-combo-opcion:hover { background: var(--color-primary-soft); }
 .ep-combo-vacio { padding: 8px 10px; font-size: 12px; color: var(--color-text-muted); }
 
+/* ---------- Colocación de POP: tabla de materiales + tarjetas de entrega por material ---------- */
+.ep-pop-tabla { display: flex; flex-direction: column; gap: 10px; }
+.ep-pop-fila-header, .ep-pop-fila { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 10px; align-items: center; }
+.ep-pop-fila-header { font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0 2px; }
+.ep-pop-fila .ep-input { height: 38px; }
+.ep-pop-material-nombre { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.ep-pop-fila-label-movil { display: none; }
+.ep-pop-disponible { display: flex; align-items: center; justify-content: center; height: 38px; border-radius: 8px; background: var(--color-surface-muted); font-weight: 700; color: var(--color-primary); font-size: 14px; }
+
+.ep-pop-material-card { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ep-pop-material-card + .ep-pop-material-card { margin-top: 12px; }
+.ep-pop-material-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ep-pop-material-head-info { font-size: 12px; color: var(--color-text-muted); }
+.ep-pop-material-head-info strong { color: var(--color-text); }
+.ep-pop-entrega-fila { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 90px 34px; align-items: center; gap: 8px; }
+.ep-pop-entrega-fila .ep-input { height: 38px; }
+.ep-hist-badge-pendiente { background: #FFF3D6; color: #8A6100; }
+.ep-hist-badge-danger { background: #FBEAE9; color: var(--color-danger); }
+
 /* ---------- Panel "Así se ve el reporte final": mismas cards que arma el Excel ---------- */
 .ep-stats-panel { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
-.ep-stats-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.ep-stats-row-2 { display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; align-items: stretch; }
+.ep-stats-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.ep-stats-row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; align-items: stretch; }
 .ep-stats-col { display: flex; flex-direction: column; gap: 14px; }
 
 .ep-stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
@@ -419,8 +459,9 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 }
 .ep-stat-card-titulo { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.03em; }
 
-.ep-venta-fila { display: grid; grid-template-columns: 90px 1fr 30px; align-items: center; gap: 10px; }
-.ep-venta-nombre { font-size: 13px; color: var(--color-text-muted); }
+.ep-venta-fila { display: grid; grid-template-columns: 90px minmax(0, 1fr) 30px; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ep-venta-fila:last-child { margin-bottom: 0; }
+.ep-venta-nombre { font-size: 13px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ep-venta-barra-track { background: var(--color-surface-muted); border-radius: 6px; height: 20px; overflow: hidden; }
 .ep-venta-barra-fill { background: var(--color-primary); height: 100%; border-radius: 6px; }
 .ep-venta-valor { font-size: 14px; font-weight: 600; color: var(--color-text); text-align: right; }
@@ -606,7 +647,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	/* 16px evita el zoom automático de iOS al enfocar un input. */
 	.ep-input, .ep-select { font-size: 16px; }
 
-	.ep-actividad-layout { grid-template-columns: 1fr; }
+	.ep-actividad-layout { grid-template-columns: minmax(0, 1fr); }
 
 	.ep-login-wrap { flex-direction: column; height: auto; min-height: 100vh; }
 	.ep-login-side { width: 100%; min-width: 0; padding: 32px 24px; }
@@ -632,11 +673,16 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	.ep-hist-record-cabecera { flex-direction: column; align-items: stretch; }
 	.ep-hist-record-cabecera > div:last-child { justify-content: space-between; }
 
-	.ep-formulario-actividad { grid-template-columns: 1fr; }
-	.ep-form-grid-2 { grid-template-columns: 1fr; }
-	.ep-stats-row-3 { grid-template-columns: 1fr; }
-	.ep-stats-row-2 { grid-template-columns: 1fr; }
+	.ep-formulario-actividad { grid-template-columns: minmax(0, 1fr); }
+	.ep-form-grid-2 { grid-template-columns: minmax(0, 1fr); }
+	.ep-stats-row-3 { grid-template-columns: minmax(0, 1fr); }
+	.ep-stats-row-2 { grid-template-columns: minmax(0, 1fr); }
 	.ep-funnel { flex-direction: column; align-items: stretch; }
 	.ep-funnel-conexion { flex-direction: row; padding-bottom: 0; justify-content: center; }
-	.ep-modelo-fila-nueva { grid-template-columns: 1fr 80px 34px; gap: 6px; }
+	.ep-funnel-step { min-width: 0; }
+	.ep-modelo-fila-nueva { grid-template-columns: minmax(0, 1fr) 80px 34px; gap: 6px; }
+	.ep-pop-fila-header { display: none; }
+	.ep-pop-fila { grid-template-columns: minmax(0, 1fr); gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+	.ep-pop-fila-label-movil { display: block; font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; margin-top: 6px; }
+	.ep-pop-entrega-fila { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }

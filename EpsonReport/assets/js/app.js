@@ -36,10 +36,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	// Cambia cuál de las plantillas (una por actividad, renderizadas todas en el servidor) se ve, formulario y estadísticas juntos.
 	function mostrarFormularioDeActividad(id) {
-		document.querySelectorAll('.ep-formulario-actividad, .ep-estadisticas-actividad').forEach(function (el) {
+		document.querySelectorAll('.ep-formulario-actividad, .ep-estadisticas-actividad, .ep-evidencia-actividad').forEach(function (el) {
 			el.classList.toggle('hidden', el.dataset.actividadId !== id);
 		});
+		var estadisticaVisible = document.querySelector('.ep-estadisticas-actividad[data-actividad-id="' + id + '"]');
+		var layout = document.getElementById('ep-actividad-layout');
+		if (layout && estadisticaVisible) {
+			layout.classList.toggle('ep-actividad-layout-sin-stats', estadisticaVisible.dataset.sinEstadisticas === '1');
+		}
 	}
+
+	// Evidencia fotográfica: genérico para cualquier actividad, reacciona a cualquier .ep-foto-input sin wiring por actividad.
+	document.addEventListener('change', function (ev) {
+		if (!ev.target.classList.contains('ep-foto-input')) return;
+		var input = ev.target;
+		var archivo = input.files && input.files[0];
+		if (!archivo) return;
+		var slot = input.closest('.ep-foto-slot');
+		var preview = slot.querySelector('.ep-foto-preview');
+		var vacio = slot.querySelector('.ep-foto-dropzone-vacio');
+		var estado = slot.querySelector('.ep-foto-slot-estado');
+		preview.src = URL.createObjectURL(archivo);
+		preview.classList.remove('hidden');
+		vacio.classList.add('hidden');
+		slot.classList.add('ep-foto-slot-completa');
+		estado.textContent = 'Cargada';
+		estado.classList.add('ep-hist-badge-ok');
+
+		var bloque = slot.closest('.ep-evidencia-bloque');
+		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
+		if (contador) contador.textContent = bloque.querySelectorAll('.ep-foto-slot-completa').length;
+	});
 
 	// Marca en amarillo un instante el campo que se acaba de topar, para que se note que el sistema lo corrigió solo.
 	function destacarTope(campo) {
@@ -104,7 +131,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		var visitaron = actVisitaron ? actVisitaron.value : 0;
 		var interactuaron = actInteractuaron ? actInteractuaron.value : 0;
 		var compraron = actCompraron ? actCompraron.value : 0;
-		var realizadas = actRealizadas ? actRealizadas.value : 0;
+		var programadas = actProgramadas ? actProgramadas.value : 0;
+		var ejecutadas = actRealizadas ? actRealizadas.value : 0;
 
 		statCoberturaPct.textContent = pctTexto(coberturadas, nacional);
 		document.getElementById('ep-stat-nacional').textContent = nacional || 0;
@@ -115,7 +143,11 @@ document.addEventListener('DOMContentLoaded', function () {
 		document.getElementById('ep-stat-interactuaron').textContent = interactuaron || 0;
 
 		document.getElementById('ep-stat-ventas-pct').textContent = pctTexto(compraron, interactuaron);
-		document.getElementById('ep-stat-ventas-realizadas').textContent = realizadas || 0;
+		document.getElementById('ep-stat-ventas-realizadas').textContent = compraron || 0;
+
+		document.getElementById('ep-stat-cumplimiento-pct').textContent = pctTexto(ejecutadas, programadas);
+		document.getElementById('ep-stat-programadas').textContent = programadas || 0;
+		document.getElementById('ep-stat-ejecutadas').textContent = ejecutadas || 0;
 
 		var maxEmbudo = Math.max(parseFloat(visitaron) || 0, 1);
 		document.getElementById('ep-stat-bar-visitaron-valor').textContent = visitaron || 0;
@@ -252,6 +284,56 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (capInteracciones) capInteracciones.addEventListener('input', actualizarEstadisticasCapacitaciones);
 	if (capComentarios) capComentarios.addEventListener('input', actualizarEstadisticasCapacitaciones);
 	actualizarEstadisticasCapacitaciones(); // primer cálculo
+
+	// ---------- Exhibiciones que Inspiran ---------- solo detalle (barras) + comentarios, sin porcentajes ni topes.
+	var exhMuebles = document.getElementById('ep-exh-muebles');
+	var exhRumas = document.getElementById('ep-exh-rumas');
+	var exhCabeceras = document.getElementById('ep-exh-cabeceras');
+	var exhComentarios = document.getElementById('ep-exh-comentarios');
+
+	function actualizarEstadisticasExhibiciones() {
+		var statDetalle = document.getElementById('ep-exh-stat-detalle');
+		if (!statDetalle) return; // esta actividad no tiene panel de estadísticas todavía
+
+		var muebles = exhMuebles ? (parseFloat(exhMuebles.value) || 0) : 0;
+		var rumas = exhRumas ? (parseFloat(exhRumas.value) || 0) : 0;
+		var cabeceras = exhCabeceras ? (parseFloat(exhCabeceras.value) || 0) : 0;
+		var total = muebles + rumas + cabeceras;
+
+		var totalSpan = document.getElementById('ep-exh-total');
+		if (totalSpan) totalSpan.textContent = total;
+
+		var items = [
+			{ nombre: 'Cabeceras', cantidad: cabeceras },
+			{ nombre: 'Rumas', cantidad: rumas },
+			{ nombre: 'Muebles', cantidad: muebles },
+		].filter(function (i) { return i.cantidad > 0; }).sort(function (a, b) { return b.cantidad - a.cantidad; });
+
+		if (!items.length) {
+			statDetalle.innerHTML = '<span class="ep-stat-comentarios-vacio">Todavía no cargaste exhibiciones.</span>';
+		} else {
+			var maxItem = items[0].cantidad;
+			statDetalle.innerHTML = items.map(function (i) {
+				return '<div class="ep-venta-fila">'
+					+ '<span class="ep-venta-nombre">' + i.nombre + '</span>'
+					+ '<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:' + Math.round(i.cantidad / maxItem * 100) + '%;"></div></div>'
+					+ '<span class="ep-venta-valor">' + i.cantidad + '</span>'
+					+ '</div>';
+			}).join('');
+		}
+
+		var comentariosBoxExh = document.getElementById('ep-exh-stat-comentarios');
+		var lineasExh = exhComentarios ? exhComentarios.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean) : [];
+		comentariosBoxExh.innerHTML = lineasExh.length
+			? lineasExh.map(function (l) { return '<div>' + escapeHtml(l) + '</div>'; }).join('')
+			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
+	}
+
+	[exhMuebles, exhRumas, exhCabeceras].forEach(function (input) {
+		if (input) input.addEventListener('input', actualizarEstadisticasExhibiciones);
+	});
+	if (exhComentarios) exhComentarios.addEventListener('input', actualizarEstadisticasExhibiciones);
+	actualizarEstadisticasExhibiciones(); // primer cálculo
 
 	// Fábrica de combo+cantidad de modelos: busca en vivo contra repositorio_productos (getters/repositorio_productos_buscar.php).
 	function crearGestorModelos(idFilas, idAgregar, idTotal, onCambio) {
@@ -515,6 +597,84 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (eventoComentarios) eventoComentarios.addEventListener('input', actualizarEstadisticasEvento);
 	actualizarEstadisticasEvento(); // primer cálculo
 
+	// ---------- Colocación de POP ---------- sin panel de estadísticas, pedido explícito (esta actividad solo tiene formulario).
+	var epPopMateriales = ['vibrin', 'hablador', 'rompe-trafico', 'bases', 'displays', 'cenefas'];
+	var epPopEntregas = {}; // key -> [{ pdv, ciudad, cantidad }]
+
+	function epPopFilaEntregaHTML() {
+		return '<div class="ep-pop-entrega-fila">'
+			+ '<input type="text" class="ep-input ep-pop-entrega-pdv" placeholder="PDV">'
+			+ '<input type="text" class="ep-input ep-pop-entrega-ciudad" placeholder="Ciudad">'
+			+ '<input type="number" min="0" class="ep-input ep-pop-entrega-cantidad" placeholder="Cant.">'
+			+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar entrega">' + epIconMarkup('trash', 14) + '</button></div>';
+	}
+
+	function epPopLeerDisponible(key) {
+		var bodega = parseFloat((document.getElementById('ep-pop-bodega-' + key) || {}).value) || 0;
+		var canales = parseFloat((document.getElementById('ep-pop-canales-' + key) || {}).value) || 0;
+		var retail = parseFloat((document.getElementById('ep-pop-retail-' + key) || {}).value) || 0;
+		return { bodega: bodega, canales: canales, retail: retail, disponible: bodega - canales - retail };
+	}
+
+	function epPopActualizarFilaMaterial(key) {
+		var d = epPopLeerDisponible(key);
+		var span = document.getElementById('ep-pop-disponible-' + key);
+		if (span) span.textContent = d.disponible;
+		epPopActualizarTarjetaMaterial(key);
+	}
+
+	function epPopActualizarTarjetaMaterial(key) {
+		var retail = epPopLeerDisponible(key).retail;
+		var filas = epPopEntregas[key] || [];
+		var entregado = filas.reduce(function (s, f) { return s + f.cantidad; }, 0);
+		var headerRetail = document.getElementById('ep-pop-header-retail-' + key);
+		var headerEntregado = document.getElementById('ep-pop-entregado-' + key);
+		if (headerRetail) headerRetail.textContent = retail;
+		if (headerEntregado) headerEntregado.textContent = entregado;
+
+		var badge = document.getElementById('ep-pop-badge-' + key);
+		if (badge) {
+			badge.className = 'ep-hist-badge';
+			if (retail <= 0 && entregado <= 0) { badge.textContent = 'Sin registrar'; }
+			else if (entregado === retail) { badge.className += ' ep-hist-badge-ok'; badge.textContent = 'Completo'; }
+			else if (entregado > retail) { badge.className += ' ep-hist-badge-danger'; badge.textContent = 'Excede el Retail'; }
+			else { badge.className += ' ep-hist-badge-pendiente'; badge.textContent = 'Pendiente'; }
+		}
+	}
+
+	function epPopCrearGestorEntregas(key) {
+		var filasEl = document.getElementById('ep-pop-entregas-' + key);
+		var agregarBtn = document.getElementById('ep-pop-entregas-agregar-' + key);
+		if (!filasEl) return;
+		epPopEntregas[key] = [];
+
+		function leerFilas() {
+			epPopEntregas[key] = [];
+			filasEl.querySelectorAll('.ep-pop-entrega-fila').forEach(function (fila) {
+				var pdv = fila.querySelector('.ep-pop-entrega-pdv').value.trim();
+				var ciudad = fila.querySelector('.ep-pop-entrega-ciudad').value.trim();
+				var cantidad = parseFloat(fila.querySelector('.ep-pop-entrega-cantidad').value) || 0;
+				if (pdv && cantidad > 0) epPopEntregas[key].push({ pdv: pdv, ciudad: ciudad, cantidad: cantidad });
+			});
+			epPopActualizarTarjetaMaterial(key);
+		}
+
+		filasEl.addEventListener('input', leerFilas);
+		filasEl.addEventListener('click', function (ev) {
+			var quitar = ev.target.closest('.ep-modelo-quitar');
+			if (quitar) { quitar.closest('.ep-pop-entrega-fila').remove(); leerFilas(); }
+		});
+		if (agregarBtn) agregarBtn.addEventListener('click', function () { filasEl.insertAdjacentHTML('beforeend', epPopFilaEntregaHTML()); });
+	}
+
+	epPopMateriales.forEach(function (key) {
+		['ep-pop-bodega-', 'ep-pop-canales-', 'ep-pop-retail-'].forEach(function (prefijo) {
+			var input = document.getElementById(prefijo + key);
+			if (input) input.addEventListener('input', function () { epPopActualizarFilaMaterial(key); });
+		});
+		epPopCrearGestorEntregas(key);
+		epPopActualizarFilaMaterial(key);
+	});
 	var buscarActividad = document.getElementById('ep-buscar-actividad');
 	if (buscarActividad && listaActividades) {
 		buscarActividad.addEventListener('input', function () {
