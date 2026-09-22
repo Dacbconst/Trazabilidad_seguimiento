@@ -46,8 +46,25 @@ $esAdmin = ep_rol_actual() === 'admin';
 	</div>
 	<?php endif; ?>
 
+	<!-- Pestañas móvil (Formulario / Fotos / Métricas) — ocultas en escritorio -->
+	<div class="ep-mobile-tabs" id="epMobileTabs">
+		<button type="button" class="ep-mobile-tab active" data-tab="formulario">
+			<?= ep_icon('file', 15) ?>
+			<span>Formulario</span>
+		</button>
+		<button type="button" class="ep-mobile-tab" data-tab="fotos">
+			<?= ep_icon('camera', 15) ?>
+			<span>Fotos</span>
+			<span class="ep-mobile-tab-count" id="epMobileTabFotosCount">0</span>
+		</button>
+		<button type="button" class="ep-mobile-tab<?= !empty($actividades[0]['sin_estadisticas']) ? ' hidden' : '' ?>" data-tab="metricas" id="epMobileTabMetricas">
+			<?= ep_icon('bar-chart', 15) ?>
+			<span>Métricas</span>
+		</button>
+	</div>
+
 	<?php
-	// Las actividades "copia" (Nueva actividad) apuntan a la misma plantilla que su origen — solo se renderiza UNA vez por origen real, para no duplicar IDs de campos en el DOM.
+	// Las actividades copia apuntan a la misma plantilla que su origen — solo se renderiza UNA vez por origen real.
 	$actividadesOriginales = array_filter($actividades, fn($a) => ($a['render_id'] ?? $a['id']) === $a['id']);
 	?>
 	<div class="ep-actividad-layout<?= !empty($actividades[0]['sin_estadisticas']) ? ' ep-actividad-layout-sin-stats' : '' ?>" id="ep-actividad-layout">
@@ -57,6 +74,13 @@ $esAdmin = ep_rol_actual() === 'admin';
 					<?php include __DIR__.'/plantillas/'.$actividad['plantilla'].'.php'; ?>
 				</div>
 			<?php endforeach; ?>
+
+			<div class="ep-form-acciones-movil">
+				<button type="button" class="ep-btn-siguiente-movil" id="epBtnIrAFotos">
+					<span>Continuar a Evidencia Fotográfica</span>
+					<?= ep_icon('arrow-right', 15) ?>
+				</button>
+			</div>
 
 			<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;">
 				<button type="button" class="ep-btn-outline">Guardar borrador</button>
@@ -71,9 +95,26 @@ $esAdmin = ep_rol_actual() === 'admin';
 					<?php include __DIR__.'/plantillas-stats/'.$actividad['plantilla'].'.php'; ?>
 				</div>
 			<?php endforeach; ?>
+
+			<div class="ep-metricas-acciones-movil">
+				<button type="button" class="ep-btn-outline ep-btn-volver-movil" id="epBtnVolverAFotos">
+					<?= ep_icon('arrow-left', 15) ?>
+					<span>Volver a Fotos</span>
+				</button>
+				<button type="button" class="ep-btn-primary ep-btn-enviar-movil" id="epBtnEnviarDesdeMetricas">
+					<span>Enviar registro</span>
+				</button>
+			</div>
 		</div>
 
 		<div class="ep-evidencia-wrap">
+			<!-- Acceso rápido móvil al asistente guiado paso a paso -->
+			<button type="button" class="ep-btn-reabrir-wizard" id="epBtnReabrirWizard">
+				<?= ep_icon('camera', 16) ?>
+				<span>Subir fotos paso a paso</span>
+				<?= ep_icon('arrow-right', 14) ?>
+			</button>
+
 			<?php foreach ($actividadesOriginales as $i => $actividad):
 				$epEvidenciaFotos = ep_fotos_requeridas($actividad['plantilla']);
 				$epEvidenciaPrefix = 'a' . $actividad['id'];
@@ -82,6 +123,95 @@ $esAdmin = ep_rol_actual() === 'admin';
 					<?php include __DIR__.'/partials/paso_evidencia.php'; ?>
 				</div>
 			<?php endforeach; ?>
+
+			<div class="ep-fotos-acciones-movil">
+				<button type="button" class="ep-btn-outline ep-btn-volver-movil" id="epBtnVolverAFormulario">
+					<?= ep_icon('arrow-left', 15) ?>
+					<span>Volver a Formulario</span>
+				</button>
+				<button type="button" class="ep-btn-siguiente-movil" id="epBtnIrAMetricas">
+					<span id="epBtnIrAMetricasTexto">Revisar Métricas</span>
+					<?= ep_icon('arrow-right', 15) ?>
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal Asistente de Captura Fotográfica Paso a Paso para móvil -->
+	<div class="ep-wizard-overlay hidden" id="epWizardFotosOverlay" aria-modal="true" role="dialog">
+		<div class="ep-wizard-sheet">
+			<!-- Cabecera del asistente con contador y barra segmentada -->
+			<div class="ep-wizard-head">
+				<div class="ep-wizard-head-row">
+					<div class="ep-wizard-badge-paso">
+						<?= ep_icon('camera', 14) ?>
+						<span id="epWizardPasoTexto">Foto 1 de 7</span>
+					</div>
+					<button type="button" class="ep-wizard-btn-cerrar" id="epWizardBtnCerrar" aria-label="Ver cuadrícula completa">
+						<?= ep_icon('close', 16) ?>
+					</button>
+				</div>
+				<div class="ep-wizard-track-segmentos" id="epWizardTrackSegmentos"></div>
+			</div>
+
+			<!-- Cuerpo del asistente con visor y tira de pasos -->
+			<div class="ep-wizard-body">
+				<div class="ep-wizard-info">
+					<span class="ep-wizard-subtitulo">Requerimiento</span>
+					<h3 class="ep-wizard-titulo" id="epWizardTituloFoto">Cargando...</h3>
+				</div>
+
+				<!-- Visor de captura con esquinas HUD fotográficas -->
+				<div class="ep-wizard-visor-wrap">
+					<div class="ep-wizard-visor" id="epWizardVisor">
+						<span class="ep-visor-corner top-left"></span>
+						<span class="ep-visor-corner top-right"></span>
+						<span class="ep-visor-corner bottom-left"></span>
+						<span class="ep-visor-corner bottom-right"></span>
+
+						<!-- Estado vacío interactivo -->
+						<div class="ep-wizard-visor-vacio" id="epWizardVisorVacio">
+							<div class="ep-wizard-cam-circle">
+								<?= ep_icon('camera', 30) ?>
+							</div>
+							<span class="ep-wizard-cam-label">Tomar foto o subir de galería</span>
+							<span class="ep-wizard-cam-sub">Toca para capturar este requerimiento</span>
+						</div>
+
+						<!-- Estado con imagen capturada -->
+						<div class="ep-wizard-visor-preview hidden" id="epWizardVisorPreview">
+							<img src="" id="epWizardPreviewImg" alt="Foto capturada">
+							<div class="ep-wizard-preview-overlay">
+								<span class="ep-wizard-check-chip">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+									<span>Foto lista</span>
+								</span>
+								<button type="button" class="ep-wizard-btn-cambiar" id="epWizardBtnCambiar">
+									<?= ep_icon('camera', 13) ?>
+									<span>Cambiar foto</span>
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Tira de miniaturas interactivas para navegación rápida -->
+				<div class="ep-wizard-reel-scroll">
+					<div class="ep-wizard-reel" id="epWizardReel"></div>
+				</div>
+			</div>
+
+			<!-- Barra de navegación inferior -->
+			<div class="ep-wizard-footer">
+				<button type="button" class="ep-btn-outline ep-wizard-btn-ant" id="epWizardBtnAnterior">
+					<?= ep_icon('arrow-left', 14) ?>
+					<span>Anterior</span>
+				</button>
+				<button type="button" class="ep-btn-primary ep-wizard-btn-sig" id="epWizardBtnSiguiente">
+					<span id="epWizardBtnSigTexto">Siguiente foto</span>
+					<?= ep_icon('arrow-right', 14) ?>
+				</button>
+			</div>
 		</div>
 	</div>
 

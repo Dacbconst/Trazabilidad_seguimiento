@@ -54,9 +54,9 @@ class XlsxWriter {
 		return count($this->fills) - 1;
 	}
 
-	// $numFmt: null (general) / 'money' (numFmtId 44) / 'pct' (numFmtId 10), ambos builtin de Excel.
+	// $numFmt: null (general) / 'money' (44, con $) / 'pct' (10) / 'numero' (2, sin $), todos builtin de Excel.
 	private function estiloId($negrita, $numFmt, $bgHex, $fontColorHex, $centrado = false) {
-		$numFmtId = $numFmt === 'money' ? 44 : ($numFmt === 'pct' ? 10 : 0);
+		$numFmtId = $numFmt === 'money' ? 44 : ($numFmt === 'pct' ? 10 : ($numFmt === 'numero' ? 2 : 0));
 		$clave = ($negrita ? 1 : 0).'|'.$numFmtId.'|'.($bgHex ?: '').'|'.($fontColorHex ?: '').'|'.($centrado ? 1 : 0);
 		if (isset($this->estiloCache[$clave])) return $this->estiloCache[$clave];
 		$this->estilos[] = [

@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			mostrarFormularioDeActividad(btn.dataset.renderId || btn.dataset.id);
 			// Elegir otra actividad mientras "Nueva actividad" está abierto vuelve al formulario normal.
 			mostrarFormulario();
+			// Centra suavemente el chip seleccionado en la tira horizontal móvil
+			btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 		});
 	}
 
@@ -42,8 +44,230 @@ document.addEventListener('DOMContentLoaded', function () {
 		var estadisticaVisible = document.querySelector('.ep-estadisticas-actividad[data-actividad-id="' + id + '"]');
 		var layout = document.getElementById('ep-actividad-layout');
 		if (layout && estadisticaVisible) {
-			layout.classList.toggle('ep-actividad-layout-sin-stats', estadisticaVisible.dataset.sinEstadisticas === '1');
+			var sinStats = estadisticaVisible.dataset.sinEstadisticas === '1';
+			layout.classList.toggle('ep-actividad-layout-sin-stats', sinStats);
+			var tabMetricas = document.getElementById('epMobileTabMetricas');
+			if (tabMetricas) {
+				tabMetricas.classList.toggle('hidden', sinStats);
+				if (sinStats && layout.getAttribute('data-mobile-tab') === 'metricas') {
+					activarTabMovil('formulario');
+				}
+			}
+			var btnIrAMetricasTexto = document.getElementById('epBtnIrAMetricasTexto');
+			if (btnIrAMetricasTexto) {
+				btnIrAMetricasTexto.textContent = sinStats ? 'Enviar registro' : 'Revisar Métricas';
+			}
 		}
+		actualizarContadorFotosMovil();
+	}
+
+	// Control de pestañas móvil para formulario, evidencia fotográfica y métricas en vivo.
+	var epMobileTabs = document.getElementById('epMobileTabs');
+	var epActividadLayout = document.getElementById('ep-actividad-layout');
+	function activarTabMovil(tab) {
+		if (!epMobileTabs || !epActividadLayout) return;
+		epMobileTabs.querySelectorAll('.ep-mobile-tab').forEach(function (b) {
+			b.classList.toggle('active', b.dataset.tab === tab);
+		});
+		epActividadLayout.setAttribute('data-mobile-tab', tab);
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+	function actualizarContadorFotosMovil() {
+		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var count = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot-completa').length : 0;
+		var badge = document.getElementById('epMobileTabFotosCount');
+		if (badge) badge.textContent = count;
+	}
+	function enviarRegistroActividad() {
+		var btnPrincipal = document.querySelector('#ep-panel-formulario .ep-btn-primary');
+		if (btnPrincipal) btnPrincipal.click();
+	}
+	if (epMobileTabs && epActividadLayout) {
+		epActividadLayout.setAttribute('data-mobile-tab', 'formulario');
+		epMobileTabs.addEventListener('click', function (ev) {
+			var btn = ev.target.closest('.ep-mobile-tab');
+			if (!btn) return;
+			activarTabMovil(btn.dataset.tab);
+		});
+		var btnIrAFotos = document.getElementById('epBtnIrAFotos');
+		if (btnIrAFotos) {
+			btnIrAFotos.addEventListener('click', function () {
+				if (window.innerWidth <= 900) {
+					abrirWizardFotos();
+				} else {
+					activarTabMovil('fotos');
+				}
+			});
+		}
+		var btnReabrirWizard = document.getElementById('epBtnReabrirWizard');
+		if (btnReabrirWizard) {
+			btnReabrirWizard.addEventListener('click', function () {
+				abrirWizardFotos();
+			});
+		}
+		var btnVolverAFormulario = document.getElementById('epBtnVolverAFormulario');
+		if (btnVolverAFormulario) {
+			btnVolverAFormulario.addEventListener('click', function () { activarTabMovil('formulario'); });
+		}
+		var btnIrAMetricas = document.getElementById('epBtnIrAMetricas');
+		if (btnIrAMetricas) {
+			btnIrAMetricas.addEventListener('click', function () {
+				var estadisticaVisible = document.querySelector('.ep-estadisticas-actividad:not(.hidden)');
+				var sinStats = estadisticaVisible ? estadisticaVisible.dataset.sinEstadisticas === '1' : false;
+				if (sinStats) {
+					enviarRegistroActividad();
+				} else {
+					activarTabMovil('metricas');
+				}
+			});
+		}
+		var btnVolverAFotos = document.getElementById('epBtnVolverAFotos');
+		if (btnVolverAFotos) {
+			btnVolverAFotos.addEventListener('click', function () { activarTabMovil('fotos'); });
+		}
+		var btnEnviarDesdeMetricas = document.getElementById('epBtnEnviarDesdeMetricas');
+		if (btnEnviarDesdeMetricas) {
+			btnEnviarDesdeMetricas.addEventListener('click', function () { enviarRegistroActividad(); });
+		}
+	}
+
+	// Asistente interactivo guiado para subir fotos paso a paso en móvil
+	var wizardOverlay = document.getElementById('epWizardFotosOverlay');
+	var wizardPasoTexto = document.getElementById('epWizardPasoTexto');
+	var wizardTrackSegmentos = document.getElementById('epWizardTrackSegmentos');
+	var wizardTituloFoto = document.getElementById('epWizardTituloFoto');
+	var wizardVisorVacio = document.getElementById('epWizardVisorVacio');
+	var wizardVisorPreview = document.getElementById('epWizardVisorPreview');
+	var wizardPreviewImg = document.getElementById('epWizardPreviewImg');
+	var wizardBtnCambiar = document.getElementById('epWizardBtnCambiar');
+	var wizardReel = document.getElementById('epWizardReel');
+	var wizardBtnAnterior = document.getElementById('epWizardBtnAnterior');
+	var wizardBtnSiguiente = document.getElementById('epWizardBtnSiguiente');
+	var wizardBtnSigTexto = document.getElementById('epWizardBtnSigTexto');
+	var wizardBtnCerrar = document.getElementById('epWizardBtnCerrar');
+
+	var wizardSlotsActuales = [];
+	var wizardPasoActual = 0;
+
+	function obtenerSlotsActividadVisible() {
+		var bloqueVisible = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		if (!bloqueVisible) return [];
+		return Array.from(bloqueVisible.querySelectorAll('.ep-foto-slot'));
+	}
+
+	function abrirWizardFotos() {
+		if (!wizardOverlay) return;
+		wizardSlotsActuales = obtenerSlotsActividadVisible();
+		if (wizardSlotsActuales.length === 0) {
+			activarTabMovil('fotos');
+			return;
+		}
+		var primerIncompleto = wizardSlotsActuales.findIndex(function (slot) {
+			return !slot.classList.contains('ep-foto-slot-completa');
+		});
+		wizardPasoActual = primerIncompleto !== -1 ? primerIncompleto : 0;
+		wizardOverlay.classList.remove('hidden');
+		document.body.style.overflow = 'hidden';
+		renderizarWizard();
+	}
+
+	function cerrarWizardFotos() {
+		if (!wizardOverlay) return;
+		wizardOverlay.classList.add('hidden');
+		document.body.style.overflow = '';
+		activarTabMovil('fotos');
+	}
+
+	function renderizarWizard() {
+		var total = wizardSlotsActuales.length;
+		if (total === 0) return;
+		var idx = wizardPasoActual;
+		var slot = wizardSlotsActuales[idx];
+
+		if (wizardPasoTexto) wizardPasoTexto.textContent = 'Foto ' + (idx + 1) + ' de ' + total;
+
+		if (wizardTrackSegmentos) {
+			wizardTrackSegmentos.innerHTML = '';
+			for (var i = 0; i < total; i++) {
+				var seg = document.createElement('div');
+				var comp = wizardSlotsActuales[i].classList.contains('ep-foto-slot-completa');
+				seg.className = 'ep-wizard-seg' + (i === idx ? ' activo' : '') + (comp ? ' completado' : '');
+				wizardTrackSegmentos.appendChild(seg);
+			}
+		}
+
+		var labelEl = slot.querySelector('.ep-foto-slot-label');
+		var labelTexto = labelEl ? labelEl.textContent.trim() : ('Foto ' + (idx + 1));
+		if (wizardTituloFoto) wizardTituloFoto.textContent = labelTexto;
+
+		var previewSlot = slot.querySelector('.ep-foto-preview');
+		var tieneFoto = slot.classList.contains('ep-foto-slot-completa') && previewSlot && previewSlot.src;
+		if (tieneFoto) {
+			if (wizardPreviewImg) wizardPreviewImg.src = previewSlot.src;
+			if (wizardVisorPreview) wizardVisorPreview.classList.remove('hidden');
+			if (wizardVisorVacio) wizardVisorVacio.classList.add('hidden');
+		} else {
+			if (wizardVisorPreview) wizardVisorPreview.classList.add('hidden');
+			if (wizardVisorVacio) wizardVisorVacio.classList.remove('hidden');
+		}
+
+		if (wizardReel) {
+			wizardReel.innerHTML = '';
+			for (var j = 0; j < total; j++) {
+				var btnReel = document.createElement('button');
+				btnReel.type = 'button';
+				var completado = wizardSlotsActuales[j].classList.contains('ep-foto-slot-completa');
+				btnReel.className = 'ep-wizard-reel-item' + (j === idx ? ' activo' : '') + (completado ? ' completado' : '');
+				btnReel.innerHTML = completado ? '✓ ' + (j + 1) : (j + 1);
+				btnReel.dataset.index = j;
+				btnReel.addEventListener('click', function () {
+					wizardPasoActual = parseInt(this.dataset.index, 10);
+					renderizarWizard();
+				});
+				wizardReel.appendChild(btnReel);
+			}
+		}
+
+		if (wizardBtnAnterior) {
+			wizardBtnAnterior.disabled = (idx === 0);
+		}
+		if (wizardBtnSigTexto) {
+			if (idx === total - 1) {
+				wizardBtnSigTexto.textContent = 'Finalizar y ver todo';
+			} else {
+				wizardBtnSigTexto.textContent = 'Siguiente foto';
+			}
+		}
+	}
+
+	function dispararCapturaActual() {
+		var slot = wizardSlotsActuales[wizardPasoActual];
+		if (!slot) return;
+		var input = slot.querySelector('.ep-foto-input');
+		if (input) input.click();
+	}
+
+	if (wizardVisorVacio) wizardVisorVacio.addEventListener('click', dispararCapturaActual);
+	if (wizardBtnCambiar) wizardBtnCambiar.addEventListener('click', dispararCapturaActual);
+	if (wizardBtnCerrar) wizardBtnCerrar.addEventListener('click', cerrarWizardFotos);
+	if (wizardBtnAnterior) {
+		wizardBtnAnterior.addEventListener('click', function () {
+			if (wizardPasoActual > 0) {
+				wizardPasoActual--;
+				renderizarWizard();
+			}
+		});
+	}
+	if (wizardBtnSiguiente) {
+		wizardBtnSiguiente.addEventListener('click', function () {
+			var total = wizardSlotsActuales.length;
+			if (wizardPasoActual < total - 1) {
+				wizardPasoActual++;
+				renderizarWizard();
+			} else {
+				cerrarWizardFotos();
+			}
+		});
 	}
 
 	// Evidencia fotográfica: genérico para cualquier actividad, reacciona a cualquier .ep-foto-input sin wiring por actividad.
@@ -66,6 +290,19 @@ document.addEventListener('DOMContentLoaded', function () {
 		var bloque = slot.closest('.ep-evidencia-bloque');
 		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
 		if (contador) contador.textContent = bloque.querySelectorAll('.ep-foto-slot-completa').length;
+		actualizarContadorFotosMovil();
+
+		// Si el asistente guiado está activo, actualiza el visor y avanza automáticamente al siguiente paso
+		if (wizardOverlay && !wizardOverlay.classList.contains('hidden')) {
+			renderizarWizard();
+			var totalSlots = wizardSlotsActuales.length;
+			if (wizardPasoActual < totalSlots - 1) {
+				setTimeout(function () {
+					wizardPasoActual++;
+					renderizarWizard();
+				}, 550);
+			}
+		}
 	});
 
 	// Marca en amarillo un instante el campo que se acaba de topar, para que se note que el sistema lo corrigió solo.
@@ -347,10 +584,10 @@ document.addEventListener('DOMContentLoaded', function () {
 		function filaHTML() {
 			return '<div class="ep-modelo-fila-nueva"><div class="ep-combo">'
 				+ '<button type="button" class="ep-input ep-combo-trigger" data-valor="">'
-				+ '<span class="ep-combo-trigger-texto">Elegir modelo...</span>' + epIconMarkup('chevron', 14) + '</button>'
+				+ '<span class="ep-combo-trigger-texto">Elegir modelo</span>' + epIconMarkup('chevron', 14) + '</button>'
 				+ '<div class="ep-combo-panel hidden"><input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar modelo..." autocomplete="off">'
 				+ '<div class="ep-combo-opciones"></div></div></div>'
-				+ '<input type="number" min="0" class="ep-input ep-modelo-cantidad" placeholder="Cantidad">'
+				+ '<input type="number" min="0" inputmode="numeric" class="ep-input ep-modelo-cantidad" placeholder="Cant.">'
 				+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar modelo">' + epIconMarkup('trash', 14) + '</button></div>';
 		}
 		function elegidosEnOtrasFilas(comboActual) {

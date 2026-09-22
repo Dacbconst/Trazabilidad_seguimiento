@@ -11,7 +11,7 @@ if (empty($epEvidenciaFotos)) return;
 		<?php foreach ($epEvidenciaFotos as $foto): ?>
 			<div class="ep-foto-slot">
 				<label class="ep-foto-dropzone">
-					<input type="file" accept="image/*" class="ep-foto-input" id="ep-foto-<?= $epEvidenciaPrefix ?>-<?= $foto['id'] ?>" hidden>
+					<input type="file" accept="image/*" capture="environment" class="ep-foto-input" id="ep-foto-<?= $epEvidenciaPrefix ?>-<?= $foto['id'] ?>" hidden>
 					<img class="ep-foto-preview hidden" alt="">
 					<span class="ep-foto-dropzone-vacio">
 						<?= ep_icon('camera', 22) ?>

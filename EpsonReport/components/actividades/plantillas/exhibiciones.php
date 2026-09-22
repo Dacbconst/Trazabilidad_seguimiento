@@ -16,15 +16,15 @@
 			<div style="display:flex;flex-direction:column;gap:14px;">
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-exh-muebles">Muebles</label>
-					<input type="number" min="0" class="ep-input" id="ep-exh-muebles" placeholder="Ej. 3">
+					<input type="number" min="0" class="ep-input" id="ep-exh-muebles" placeholder="Ej. 3" inputmode="numeric">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-exh-rumas">Rumas</label>
-					<input type="number" min="0" class="ep-input" id="ep-exh-rumas" placeholder="Ej. 4">
+					<input type="number" min="0" class="ep-input" id="ep-exh-rumas" placeholder="Ej. 4" inputmode="numeric">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-exh-cabeceras">Cabeceras</label>
-					<input type="number" min="0" class="ep-input" id="ep-exh-cabeceras" placeholder="Ej. 7">
+					<input type="number" min="0" class="ep-input" id="ep-exh-cabeceras" placeholder="Ej. 7" inputmode="numeric">
 				</div>
 			</div>
 		</div>

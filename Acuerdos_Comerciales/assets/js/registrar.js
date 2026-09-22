@@ -5,7 +5,7 @@
 	var TRIMESTRES = [[0, 2], [3, 5], [6, 8], [9, 11]];
 
 	// Catálogo y Distribuidores se cargan en vivo desde la base, nunca hardcodeados. segmentos: árbol Segmento->Categoría->Marca (Cabeceras/Rumas/Perchas). segmentosSector: árbol Segmento->Sector->Categoría->Marca, solo para Meta de Compras (ver bindCascadaComboConSector).
-	var catalogo = { segmentos: {}, marcasPercha: [], segmentosSector: {} };
+	var catalogo = { segmentos: {}, marcasPercha: [], categoriasPercha: [], segmentosSector: {} };
 	// canal/empresas/clientes filtrados por el `supervisor` del usuario (ver CANAL_USUARIO y canalDeSupervisor()). `empresas` solo tiene datos si canal==='distribuidor' (agrupado por tipo_distribuidor); `clientes` es la lista plana para Directo/Mayorista.
 	var catalogoDistribuidor = { canal: 'directo', empresas: {}, clientes: [] };
 
@@ -33,6 +33,13 @@
 		e.preventDefault();
 		e.returnValue = '';
 	});
+
+	// Autoguardado (2026-09-22, pedido explícito): cada 20 min, si hay cambios sin guardar y ya hay cliente+período elegidos, guarda como borrador solo.
+	setInterval(function () {
+		if (!formSucio || guardandoAcuerdo) return;
+		if (!distribuidorSelect.value || selectedStart === null || selectedEnd === null) return;
+		guardarAcuerdo('borrador', function () { mostrarToast('Borrador guardado automáticamente.', 'info'); }, null);
+	}, 20 * 60 * 1000);
 
 	// Canal Distribuidor mide en Cajas, no en Dólares: sin signo "$" ni formato de moneda. CANAL_USUARIO es fijo por usuario logueado, no cambia según qué cliente puntual se elija en el formulario.
 	var formatCurr = function (val) {
@@ -98,6 +105,7 @@
 			if (catRes.ok) {
 				catalogo.segmentos = catRes.segmentos;
 				catalogo.marcasPercha = catRes.marcas_percha;
+				catalogo.categoriasPercha = catRes.categorias_percha || [];
 				catalogo.segmentosSector = catRes.segmentos_sector || {};
 			}
 			if (distRes.ok) {
@@ -299,6 +307,10 @@
 			input.disabled = !habilitado;
 			input.placeholder = habilitado ? 'Marca...' : 'Elige un ' + etiquetaCampoLocal() + ' primero';
 		});
+		Array.prototype.forEach.call(document.querySelectorAll('#ac-perchas-body .categoria-input'), function (input) {
+			input.disabled = !habilitado;
+			input.placeholder = habilitado ? 'Categoría...' : 'Elige un ' + etiquetaCampoLocal() + ' primero';
+		});
 	}
 
 	// ---------- Distribuidor / Cliente (repositorio_locales_supervisores_cliente.pos_name) ----------
@@ -361,7 +373,7 @@
 			'<tr>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '</tr>';
 
 		perchasHead.innerHTML =
-			'<tr><th rowspan="3" class="ac-sticky-col">Marca Perchas</th><th rowspan="1">Participación</th><th rowspan="1">Cantidad</th>' +
+			'<tr><th rowspan="3" class="ac-sticky-col">Marca Perchas</th><th rowspan="3" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="1">Participación</th><th rowspan="1">Cantidad</th>' +
 			'<th colspan="' + (count + 1) + '">Pago Mensual</th><th rowspan="3"></th></tr>' +
 			'<tr><th colspan="' + (count + 2) + '">Pago x Mes x Percha' + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)') + '</th></tr>' +
 			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th class="ac-th-2l">Pago Total<br>Cajas</th></tr>';
@@ -525,6 +537,14 @@
 				aplicarMarca(marca, null, true);
 			}
 		};
+	}
+
+	// Categoría de Perchas (2026-09-22, pedido explícito): lista plana igual que Marca, SIN encadenar entre sí (a diferencia de Meta de Compras) — el usuario elige las 2 por separado, ninguna filtra a la otra.
+	function bindCategoriaPerchaCombo(tr) {
+		var catInput = tr.querySelector('.categoria-input'), catHidden = tr.querySelector('.categoria-select');
+		inicializarCombo(catInput, catHidden, function () {
+			return catalogo.categoriasPercha.map(function (c) { return { value: c, label: c }; });
+		}, function (value) { catHidden.value = value; catInput.value = value; });
 	}
 
 	// buscarYAplicarParticipacion() busca el % real en repositorio_participacion_percha, clave Ciudad+Marca (Ciudad = Localidad del cliente, o "TODAS" en Distribuidor). Si no hay match, el campo queda editable: nunca bloquea por falta de datos en un repositorio que se sigue poblando.
@@ -738,6 +758,7 @@
 		var tr = document.createElement('tr');
 		var html =
 			'<td class="ac-sticky-col" data-key="marca" data-label="Marca Perchas">' + comboCellHtml('marca', 'Marca...', false) + '</td>' +
+			'<td class="ac-sticky-col ac-sticky-col-2" data-key="categoria" data-label="Categoría">' + comboCellHtml('categoria', 'Categoría...', false) + '</td>' +
 			// Participación conectada al repositorio (ver buscarYAplicarParticipacion): arranca readonly/0%, mismo patrón que el Rebate % de Meta de Compras.
 			'<td data-key="participacion" data-label="Participación"><input type="text" class="ac-input ac-mini-input v-participacion" value="0%" readonly></td>' +
 			'<td data-key="cantidad" data-label="Max Percha"><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
@@ -749,6 +770,7 @@
 		tr.innerHTML = html;
 		perchasBody.appendChild(tr);
 		tr._comboMarca = bindMarcaPerchaCombo(tr);
+		bindCategoriaPerchaCombo(tr);
 		attachVisListeners(tr);
 
 		tr.querySelector('.v-cantidad').addEventListener('change', function () {
@@ -827,6 +849,7 @@
 		var percha = Array.prototype.map.call(perchasBody.querySelectorAll('tr'), function (r) {
 			return {
 				marca: r.querySelector('.marca-select').value,
+				categoria: r.querySelector('.categoria-select').value,
 				participacion: r.querySelector('.v-participacion').value,
 				cantidad_max_percha: parseInt(r.querySelector('.v-cantidad').value, 10) || 0,
 				precio_percha: 40,
@@ -1231,6 +1254,8 @@
 				addPerchaRow();
 				var tr = perchasBody.lastElementChild;
 				tr._comboMarca.sugerir(fila.marca);
+				tr.querySelector('.categoria-select').value = fila.categoria || '';
+				tr.querySelector('.categoria-input').value = fila.categoria || '';
 				tr.querySelector('.v-participacion').value = fila.participacion || '';
 				tr.querySelector('.v-cantidad').value = fila.cantidad_max_percha || 0;
 				llenarValoresMensuales(tr.querySelectorAll('.v-val'), fila.valores_mensuales);

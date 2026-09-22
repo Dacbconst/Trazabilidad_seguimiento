@@ -12,17 +12,17 @@
 			<div class="ep-funnel">
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-evento-visitaron">Visitaron</label>
-					<input type="number" min="0" class="ep-input" id="ep-evento-visitaron" placeholder="Ej. 100">
+					<input type="number" min="0" class="ep-input" id="ep-evento-visitaron" placeholder="Ej. 100" inputmode="numeric">
 				</div>
 				<div class="ep-funnel-conexion"><?= ep_icon('arrow-right', 16) ?></div>
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-evento-interactuaron">Interactuaron</label>
-					<input type="number" min="0" class="ep-input" id="ep-evento-interactuaron" placeholder="Ej. 30">
+					<input type="number" min="0" class="ep-input" id="ep-evento-interactuaron" placeholder="Ej. 30" inputmode="numeric">
 				</div>
 				<div class="ep-funnel-conexion"><?= ep_icon('arrow-right', 16) ?></div>
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-evento-compraron">Compraron</label>
-					<input type="number" min="0" class="ep-input" id="ep-evento-compraron" placeholder="Ej. 20">
+					<input type="number" min="0" class="ep-input" id="ep-evento-compraron" placeholder="Ej. 20" inputmode="numeric">
 				</div>
 			</div>
 		</div>

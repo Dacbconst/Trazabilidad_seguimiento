@@ -12,7 +12,7 @@
 				{ key: 'sector', label: 'Categoría' },
 				{ key: 'categoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
-				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(1) + '%'; } }
+				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(2) + '%'; } }
 			]
 		},
 		participacion: {
@@ -81,6 +81,8 @@
 	var tipoActivo = 'rebate';
 	var paginaActual = 1;
 	var busquedaActual = '';
+	// Filtro de Canal (2026-09-22, solo Rebate) — 'total'|'directo'|'distribuidor', ver repo-rebate-canal-group.
+	var canalRebateFiltro = 'total';
 	var buscarTimeout = null;
 	// Evita que una respuesta vieja pise a una más nueva (tipear rápido, o cambiar de tab justo cuando un fetch anterior sigue en vuelo). Mismo bug ya encontrado y corregido en Seguimiento de Equipo/Historial/ Gestión de Usuarios.
 	var listaReqId = 0;
@@ -117,6 +119,18 @@
 	var pendientesAbrirBtn = document.getElementById('repo-pendientes-abrir');
 	var pendientesCount = document.getElementById('repo-pendientes-count');
 	var resumenAbrirBtn = document.getElementById('repo-resumen-abrir');
+	var rebateCanalGroup = document.getElementById('repo-rebate-canal-group');
+	// Bug real: sin este "if", un HTML desactualizado (sin este elemento) tumbaba TODO el script acá mismo, al cargar la página.
+	if (rebateCanalGroup) {
+		rebateCanalGroup.addEventListener('click', function (e) {
+			var btn = e.target.closest('.ac-seg-pill');
+			if (!btn) return;
+			canalRebateFiltro = btn.dataset.canal;
+			Array.prototype.forEach.call(rebateCanalGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.toggle('ac-seg-pill-activo', b === btn); });
+			paginaActual = 1;
+			cargarLista();
+		});
+	}
 	var eliminadosAbrirBtn = document.getElementById('repo-eliminados-abrir');
 
 	function escapeHtml(str) {
@@ -302,6 +316,7 @@
 		renderCabecera();
 		tablaBody.innerHTML = '<tr><td class="ac-table-empty">Cargando...</td></tr>';
 		var params = new URLSearchParams({ tipo: tipoActivo, q: busquedaActual, pg: paginaActual });
+		if (tipoActivo === 'rebate') params.set('canal', canalRebateFiltro);
 		fetch('getters/repositorio_listar.php?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -372,6 +387,14 @@
 		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito "quita el botón de Pendientes de Asignar") — se deja el resto del mecanismo intacto (getters, modal), por si se retoma después.
 		// resumenAbrirBtn: vuelto a mostrar (2026-09-21, pedido explícito) — se había ocultado el 2026-09-17 porque su propósito se creyó reemplazado por renderPreviewResumen(), pero ese solo cubre el archivo que se está por subir, no el panorama histórico ("a quién le asigné cada Acta"); con el detalle expandible que se le agregó (ver filaResumenUsuario()), vuelve a tener un propósito propio. Solo visible en Cuotas, como el resto de los botones específicos de esta pestaña.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
+		// Filtro de Canal (2026-09-22): solo Rebate. Se resetea a "Todas" al cambiar de tab, no se arrastra a otra pestaña. Guardado con "if" (bug real: sin esto, un despliegue a medias sin este elemento en el HTML tiraba un error acá y cortaba la función ANTES de cargarLista(), dejando la tabla/paginación vieja pegada.
+		if (rebateCanalGroup) {
+			rebateCanalGroup.classList.toggle('hidden', tipo !== 'rebate');
+			if (tipo !== 'rebate' && canalRebateFiltro !== 'total') {
+				canalRebateFiltro = 'total';
+				Array.prototype.forEach.call(rebateCanalGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.toggle('ac-seg-pill-activo', b.dataset.canal === 'total'); });
+			}
+		}
 		// eliminadosAbrirBtn oculto a propósito; mecanismo intacto por si se retoma.
 		plantillaDescargarLink.classList.toggle('hidden', tipo === 'cuotas');
 		if (tipo !== 'cuotas') plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
@@ -539,8 +562,8 @@
 		previewAnioWrap.classList.add('hidden');
 		ocultarErroresPreview();
 		canalCuotasElegido = null;
-		subirCanalWrap.classList.toggle('hidden', tipoActivo !== 'cuotas');
-		Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (btn) { btn.classList.remove('ac-canal-picker-opcion-activa'); });
+		if (subirCanalWrap) subirCanalWrap.classList.toggle('hidden', tipoActivo !== 'cuotas');
+		if (subirCanalGroup) Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (btn) { btn.classList.remove('ac-canal-picker-opcion-activa'); });
 		actualizarDropzoneBloqueo();
 	}
 	function mostrarPasoPreview() {
@@ -558,13 +581,15 @@
 	document.getElementById('repo-subir-atras').addEventListener('click', mostrarPasoElegir);
 	// Sin cierre por click afuera (2026-08-25, pedido explícito: "se me cierra esta ventanita por clicks accidentales afuera") — el arrastre con mouse de la tabla de previsualización (activarArrastreScroll()) mueve el cursor bastante, y si el mouseup termina cayendo justo sobre el fondo oscuro del overlay, el `click` nativo podía disparar acá y cerrar el modal perdiendo lo que el usuario ya había corregido. Cerrar sigue disponible por la "X" (`repo-subir-modal-close`) y "Cancelar".
 
-	subirCanalGroup.addEventListener('click', function (e) {
-		var btn = e.target.closest('.ac-canal-picker-opcion');
-		if (!btn) return;
-		canalCuotasElegido = btn.getAttribute('data-canal');
-		Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (b) { b.classList.toggle('ac-canal-picker-opcion-activa', b === btn); });
-		actualizarDropzoneBloqueo();
-	});
+	if (subirCanalGroup) {
+		subirCanalGroup.addEventListener('click', function (e) {
+			var btn = e.target.closest('.ac-canal-picker-opcion');
+			if (!btn) return;
+			canalCuotasElegido = btn.getAttribute('data-canal');
+			Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (b) { b.classList.toggle('ac-canal-picker-opcion-activa', b === btn); });
+			actualizarDropzoneBloqueo();
+		});
+	}
 
 	dropzone.addEventListener('click', function () {
 		if (tipoActivo === 'cuotas' && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
@@ -1042,10 +1067,45 @@
 		};
 		if (tipoActivo === 'cuotas') {
 			confirmarAsignacionYGuardar(onDone);
+		} else if (tipoActivo === 'rebate') {
+			confirmarMaximoRebateYGuardar(onDone);
 		} else {
 			guardarFilas(leerFilasPreviewEditadas(), onDone);
 		}
 	});
+
+	// Alerta de máximo de Rebate (2026-09-22, pedido explícito: "el max es de 4.5%") — avisa pero deja guardar igual, mismo patrón que la confirmación de Cuotas. REBATE_MAXIMO_PCT en fracción (0.045), igual unidad que rebate_pct en la base.
+	var REBATE_MAXIMO_PCT = 0.045;
+	function confirmarMaximoRebateYGuardar(onDone) {
+		var filas = leerFilasPreviewEditadas();
+		var excedidas = filas.filter(function (f) { return (parseFloat(f.rebate_pct) || 0) > REBATE_MAXIMO_PCT; });
+		if (!excedidas.length) { guardarFilas(filas, onDone); return; }
+		var filasHtml = excedidas.map(function (f) {
+			return '<div class="ac-choque-row">' +
+				'<div class="ac-choque-side ac-choque-side-precarga">' +
+					'<p class="ac-choque-eyebrow ac-choque-eyebrow-precarga">' + escapeHtml([f.marca, f.categoria, f.ciudad].filter(Boolean).join(' / ')) + '</p>' +
+					'<p class="ac-choque-meta">Rebate cargado: <strong>' + (parseFloat(f.rebate_pct) * 100).toFixed(2) + '%</strong></p>' +
+				'</div>' +
+				'<div class="ac-choque-arrow"><span class="material-symbols-outlined">arrow_forward</span></div>' +
+				'<div class="ac-choque-side ac-choque-side-existente">' +
+					'<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">Máximo permitido</p>' +
+					'<p class="ac-choque-doc">' + (REBATE_MAXIMO_PCT * 100).toFixed(2) + '%</p>' +
+				'</div>' +
+			'</div>';
+		}).join('');
+		Swal.fire({
+			icon: 'warning',
+			title: excedidas.length + ' fila(s) superan el ' + (REBATE_MAXIMO_PCT * 100).toFixed(1) + '% de Rebate',
+			html: '¿Estás seguro de guardarlo así? Revisa cada caso antes de continuar.<br><br><div class="ac-choque-list">' + filasHtml + '</div>',
+			width: 720,
+			showCancelButton: true,
+			confirmButtonText: 'Guardar de todas formas',
+			cancelButtonText: 'Revisar el archivo',
+			confirmButtonColor: '#00288e'
+		}).then(function (r) {
+			if (r.isConfirmed) guardarFilas(filas, onDone);
+		});
+	}
 
 	// Botón "Exportar" que se transforma in-place en CSV/Excel (2026-08-24, pedido explícito: "no quiero otra ventanita, usa animaciones") — la animación en sí es CSS puro (ver style.css, .ac-repo-exportar), esto solo prende/apaga la clase y cierra al elegir una opción o al hacer click afuera, mismo patrón que el panel de combos de registrar.js.
 	exportarBtn.addEventListener('click', function () {
@@ -1338,7 +1398,7 @@
 				{ key: 'sector', label: 'Categoría' },
 				{ key: 'categoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
-				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(1) + '%'; } }
+				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(2) + '%'; } }
 			]
 			: [
 				{ key: 'ciudad', label: 'Ciudad' },

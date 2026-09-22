@@ -29,11 +29,11 @@ $epPopMateriales = [
 					<div class="ep-pop-fila">
 						<span class="ep-pop-material-nombre"><?= htmlspecialchars($nombre) ?></span>
 						<span class="ep-pop-fila-label-movil">Bodega</span>
-						<input type="number" min="0" class="ep-input" id="ep-pop-bodega-<?= $key ?>" placeholder="0">
+						<input type="number" min="0" class="ep-input" id="ep-pop-bodega-<?= $key ?>" placeholder="0" inputmode="numeric">
 						<span class="ep-pop-fila-label-movil">Canales</span>
-						<input type="number" min="0" class="ep-input" id="ep-pop-canales-<?= $key ?>" placeholder="0">
+						<input type="number" min="0" class="ep-input" id="ep-pop-canales-<?= $key ?>" placeholder="0" inputmode="numeric">
 						<span class="ep-pop-fila-label-movil">Retail</span>
-						<input type="number" min="0" class="ep-input" id="ep-pop-retail-<?= $key ?>" placeholder="0">
+						<input type="number" min="0" class="ep-input" id="ep-pop-retail-<?= $key ?>" placeholder="0" inputmode="numeric">
 						<span class="ep-pop-fila-label-movil">Disponible</span>
 						<div class="ep-pop-disponible" id="ep-pop-disponible-<?= $key ?>">0</div>
 					</div>

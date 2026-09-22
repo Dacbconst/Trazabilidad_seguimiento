@@ -2713,15 +2713,12 @@ contra la base (2026-08-20), no adivinado:**
 - **CATEGORIA** = `l.sector` de la línea `meta_compra` (mismo campo que
   CATEGORIAS en Directa, misma regla de "una fila por línea real, sin
   agrupar" ya establecida ahí).
-- **CODIGO / RUC: NO se incluyen (decisión explícita del usuario,
-  2026-08-20).** El archivo real de JW sí tiene esas 2 columnas (confirmado
-  leyendo D2/E2 vía Excel COM: celdas propias, no fusionadas, texto exacto
-  "CODIGO"/"RUC") — pero como no hay ninguna fuente real de esos datos en la
-  base (`repositorio_locales_supervisores_cliente` no tiene columnas `ruc`
-  ni `codigo`), el usuario prefirió no mostrarlas en vez de mostrar 2
-  columnas siempre vacías. Si se pide agregarlas después, hay que definir
-  primero de dónde saldría el dato real (no reintroducir columnas vacías sin
-  preguntar).
+- **CODIGO / RUC: SÍ se incluyen desde 2026-09-16 (obsoleta la decisión de
+  2026-08-20 de abajo).** `repositorio_cuota_cliente` ganó columnas
+  `codigo`/`ruc`, llenadas por `repositorio_parsear_cuotas_distribuidor()`
+  cuando JW las sube en el Excel de Cuotas — `exportar_cuota_categoria_distribuidor.php`
+  las cruza por `pos_id+sector+trimestre+año` y las llena si hay match, vacías
+  si no. Ver `includes/repositorio_import.php`.
 - Sin columna CARTERA (no existe en el archivo real de Distribuidor) y sin
   fila TOTAL al final (el archivo real tampoco la tiene — confirmado,
   `UsedRange` termina justo en la última fila de datos).
@@ -5378,13 +5375,17 @@ combinaciones**: `BARRA/LAVAVAJILLAS`, `BARRA/ROPA`, `CREMA/LAVAVAJILLAS`,
 `LIQUIDO/DESINFECTANTES`, `LIQUIDO/DETERGENTE`, `LIQUIDO/JABON TOCADOR`,
 `LIQUIDO/LAVAVAJILLAS`, `LIQUIDO/SUAVIZANTES`, `POLVO/DETERGENTE`.
 
-**Implementado — el usuario confirmó restringir las 4 tablas del Acta, no
-solo Meta de Compras** (vía `AskUserQuestion`, eligiendo el alcance más
-amplio de las 3 opciones ofrecidas). Un solo punto de cambio:
-`getters/acuerdo_catalogo.php` — array `$combosValidos` (las 9 parejas
-Sector+Categoría de arriba) armado en un `$filtroSectorCategoria` SQL
-(`(sector='X' AND categoria='Y') OR ...`, valores fijos del código, no de
-usuario) y agregado como `AND` extra en las 3 queries del archivo:
+**OBSOLETO desde 2026-09-22 — el `$combosValidos` hardcodeado de abajo ya NO
+existe.** El usuario pidió explícitamente "no me quemes datos en código":
+`getters/acuerdo_catalogo.php` ahora filtra con un `EXISTS` contra
+`repositorio_rebate_producto` (match por Sector+Marca, normalizando
+singular/plural — NO por Categoría, esa columna difiere de nombre entre las
+2 tablas para el mismo producto real, ver "Parche visual de Categoría" más
+abajo) en vez de la lista fija de 9 combos. Mismo resultado práctico (el
+Rebate real ya solo existe para esos productos), pero ahora se ajusta solo
+si JW agrega/saca Rebate de un producto, sin tocar código. Queda el resto de
+esta sección como historia de CÓMO se llegó a esos 9 combos, ya no como
+descripción del código actual:
 - `segmentos_sector` (Meta de Compras, tiene nivel Sector): filtra directo
   por el combo Sector+Categoría — de 18 combos reales pasa a mostrar
   exactamente los 9 confirmados.
@@ -5402,9 +5403,8 @@ usuario) y agregado como `AND` extra en las 3 queries del archivo:
   confirmado en el caso ya documentado más arriba).
 
 **No se tocó `repositorio_productos`** (maestro externo de Alicorp, regla
-de siempre) — el filtro vive 100% en la consulta de este getter, reversible
-con solo tocar `$combosValidos` si el alcance real cambia (ej. si JW agrega
-otra línea a Acuerdos Comerciales más adelante).
+de siempre) — el filtro vive 100% en la consulta de este getter (ver arriba,
+ya no es `$combosValidos`).
 
 **Probado con datos reales de solo lectura** (mismas queries que arma el
 getter, corridas directo contra la base): `segmentos_sector` da exacto los
@@ -10063,3 +10063,125 @@ cambio hubiera dado `null`, indistinguible de un cliente sin identificar;
 `{nombre:null}`. Verificado visualmente con Playwright (mirror con los 3
 estados juntos) — se distinguen bien verde/gris/ámbar. **Todavía sin
 probar en el navegador real de la app.**
+
+## Sesión 2026-09-22 — resumen para continuar en otra sesión
+
+Mucho terreno cubierto en una sola sesión larga. Lista de lo que quedó
+hecho y probado, más lo que sigue pendiente.
+
+### Hecho y validado
+
+1. **CODIGO/RUC en export Distribuidor** — ya se rellenan desde
+   `repositorio_cuota_cliente` (ver corrección arriba, sección "Alcance
+   real de Acuerdos Comerciales... obsoleta").
+2. **Fix real: trimestre duplicado en Cuotas Distribuidor** —
+   `repositorio_cuotas_detectar_trimestre()` ahora dedupe por mes (se
+   queda con la 1ra aparición) porque el Excel de Distribuidor trae el
+   bloque de meses 2 veces (Cuota y Venta).
+3. **Selector Directo/Distribuidor antes de subir Cuotas** — tarjetas
+   grandes (`.ac-canal-picker-*`) en el paso 1 del modal "Subir Archivo",
+   con aviso si el archivo no coincide con lo elegido.
+4. **Modal Resumen (Cuotas) con detalle expandible** — cada asesor se
+   puede desplegar para ver sus Actas pendientes reales (cliente,
+   período, categorías), no solo el conteo. Reescrito para ser 1 sola
+   resolución en lote (bug real: tardaba 34s con 81 pendientes por hacer
+   una consulta por fila — bajó a ~1.5-2.5s).
+5. **Botón "Resumen" vuelto a mostrar** en la pestaña Cuotas (se había
+   ocultado el 2026-09-17, ya no aplica esa decisión).
+6. **Validación al guardar Cuotas** — ventana de confirmación si hay
+   clientes sin identificar, sin asesor resuelto, o con CEDI/Ciudad que
+   no coincide con la base real (comparación normalizada, ignora tildes/ñ
+   para no generar falsos positivos). Ciudad solo aplica a Distribuidor;
+   Asesor solo aplica a Directo (son campos distintos por canal).
+7. **Historial**: columna "Generado por" (solo superdesarrollador, junto
+   a Canal) — antes había que abrir cada Acta para saber a quién quedó.
+   Filtro de Año: se sacó "Todos los años" (ya no debe permitirse elegir
+   eso), y se corrigió que la lista de años solo se calculaba una vez al
+   cargar la página — ahora se refresca en cada "Actualizar".
+8. **Acta PDF (Directo y Distribuidor)** — la columna "Categoría" de Meta
+   de Compras ahora muestra SOLO Categoría (nuestro `sector`), sin
+   Segmento/Subcategoría/Marca. Mismo cambio en la vista previa en vivo
+   (`previsualizar_acta_pdf.php` tenía un bug aparte: nunca capturaba
+   `sector`, ya corregido).
+9. **Categoría en Perchas (Registrar)** — nueva columna independiente de
+   Marca (no encadenada), en el formulario únicamente, no en el PDF.
+   Reversa la decisión vieja "Percha solo guarda Marca" — la columna
+   `categoria` de `repositorio_acuerdo_lineas` ya existía, no fue ALTER.
+10. **Parche visual de Categoría (BARRA+EL MACHO)** — `repositorio_productos`
+    dice "ROPA", `repositorio_rebate_producto` dice "DETERGENTE" para el
+    mismo producto real (dato inconsistente entre 2 tablas, no un bug).
+    Centralizado en `aplicarParcheCategoriaVisual()` (`functions.php`),
+    usado tanto por el catálogo del combo como por la resolución de Actas
+    Precargadas (`resolverProductoCuota()`) — antes solo cubría un camino.
+11. **Repositorio de Rebate**: filtro de Canal (Todas/Directo/Distribuidor)
+    en la tabla — sigue siendo 1 sola tabla (`repositorio_rebate_producto`
+    con columna `canal`), NO se creó una tabla separada para Distribuidor
+    (se evaluó y se descartó, ya funcionaba mezclado). Alerta de máximo
+    4.5% de Rebate al guardar (avisa, no bloquea). Formato: 2 decimales,
+    columnas "REBATE"/"REBATE MAXIMO 110%" sin signo de dólar (nuevo
+    formato `'numero'` en `XlsxWriter`, numFmtId 2, sin tocar `'money'`
+    donde sí corresponde $ real).
+12. **Sidebar se encoge solo** al hacer click afuera (desktop), sin pisar
+    la preferencia guardada en `localStorage`.
+13. **Botón "Subir/Ver Firma"** en Historial ahora es un botón real
+    (`.ac-btn-outline`), visible con texto también en desktop.
+14. **Validar/Rechazar firma** (Seguimiento de Equipo) — nuevas columnas
+    `firma_validada_en/_por`, `firma_rechazada_en/_por/_motivo` en
+    `repositorio_acuerdos`. Rechazar borra el archivo actual (vuelve a
+    NULL) para que el Acuerdo reaparezca como "pendiente de firma" y
+    reuse la notificación que ya existe (campanita), en vez de construir
+    un sistema de notificaciones aparte.
+15. **Sesión única por usuario** — nueva columna `sesion_token`. Un login
+    nuevo invalida cualquier sesión previa de esa misma cuenta en otro
+    dispositivo (`registrarSesionUnica()` + chequeo en `login_check()`,
+    con cache estático para 1 sola consulta por request).
+16. **Autoguardado de Registrar** cada 20 min si hay cambios sin guardar
+    y ya hay cliente+período elegidos — guarda como Borrador en silencio.
+17. **Bug real de robustez (Repositorios)**: 2 elementos nuevos del DOM
+    (`repo-rebate-canal-group`, `repo-subir-canal-group`) se usaban sin
+    verificar que existieran — si se sube el JS sin el PHP correspondiente
+    (o viceversa), tumbaba TODO el script o cortaba `activarTab()` a la
+    mitad, dejando la tabla/paginación de la pestaña anterior pegada.
+    Ahora todos con `if (elemento)` antes de usarlos.
+18. **Sesión anterior (bug arreglado y luego revertido)**: se intentó un
+    interceptor global de `fetch()` (`sesion.js`) para avisar sesión
+    expirada — rompió la navegación entre módulos, se revirtió por
+    completo. **No reintentar ese enfoque** sin entender antes por qué
+    rompía (sospecha: `this` no siendo `window` en algún call site, sin
+    confirmar).
+
+### ALTER TABLE ya corridos por el usuario esta sesión
+
+```sql
+ALTER TABLE repositorio_cuota_cliente ADD COLUMN codigo VARCHAR(20) NULL, ADD COLUMN ruc VARCHAR(20) NULL;
+ALTER TABLE repositorio_acuerdos
+  ADD COLUMN firma_validada_en DATETIME NULL,
+  ADD COLUMN firma_validada_por INT NULL,
+  ADD COLUMN firma_rechazada_en DATETIME NULL,
+  ADD COLUMN firma_rechazada_por INT NULL,
+  ADD COLUMN firma_rechazada_motivo VARCHAR(255) NULL;
+ALTER TABLE repositorio_usuarios_acuerdos ADD COLUMN sesion_token VARCHAR(64) NULL;
+```
+También corrido antes (índice único de `repositorio_cuota_cliente`, ver
+sección más arriba de esta misma sesión).
+
+### PENDIENTE — sin empezar, esperando instrucciones del usuario
+
+**Switch de Visibilidad por tabla en el Acta PDF.** El usuario pidió una
+condición nueva: cada tabla (Cabeceras, Rumas, Perchas) tendría su propio
+switch de visible/oculta (hoy solo existe 1 switch global "Visibilidad y
+Espacios" que las oculta las 3 juntas, ver `sin_visibilidad` en
+`repositorio_acuerdos`). Regla que dio:
+- Si solo la tabla Maestra (Meta de Compras) está activa → mandar formato
+  SIN visibilidad (como hoy).
+- Si alguna de las otras 3 está activa (Cabeceras/Rumas/Perchas) →
+  mandar el formato CON visibilidad, pero solo con la Maestra + la(s)
+  tabla(s) que estén activas — las que no, no se envían (no aparecen en
+  el PDF, ni vacías).
+
+Dijo explícitamente "el segundo caso ya lo manejamos mejor" y "ya te digo
+cómo manejar el segundo caso" — **todavía no dio esas instrucciones**. No
+empezar a diseñar el schema/UI de esto sin que las dé (probablemente
+necesita 3 columnas nuevas tipo `visible_cabeceras`/`visible_rumas`/
+`visible_perchas` en vez de la única `sin_visibilidad` actual, pero eso es
+una suposición mía, no confirmado).

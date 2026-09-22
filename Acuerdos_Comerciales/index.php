@@ -138,6 +138,14 @@ $pdf_preview_js_v = @filemtime(__DIR__.'/assets/js/pdf-preview.js') ?: time();
 			localStorage.setItem('ac_sidebar_colapsado', acSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
 
+		// Se encoge solo al interactuar afuera (2026-09-22, pedido explícito: "no lo mantengas abierto siempre") — desktop nomás, en mobile ya se cierra el drawer con cerrarDrawer() al tocar el fondo. NO toca localStorage: es un colapso momentáneo de la sesión, no cambia la preferencia guardada para el próximo login.
+		document.addEventListener('click', function (e) {
+			if (mqMobile.matches) return;
+			if (acSidebar.classList.contains('collapsed')) return;
+			if (acSidebar.contains(e.target) || acHeaderMenuBtn.contains(e.target)) return;
+			acSidebar.classList.add('collapsed');
+		});
+
 		// Drawer mobile: nunca se persiste (a diferencia del colapso desktop), siempre arranca cerrado.
 		function abrirDrawer() {
 			acSidebar.classList.add('open');

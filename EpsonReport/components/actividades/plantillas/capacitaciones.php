@@ -16,15 +16,15 @@
 			<div style="display:flex;flex-direction:column;gap:14px;">
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-cap-asist-jefe">Asistente de Jefe Tienda</label>
-					<input type="number" min="0" class="ep-input" id="ep-cap-asist-jefe" placeholder="Ej. 1">
+					<input type="number" min="0" class="ep-input" id="ep-cap-asist-jefe" placeholder="Ej. 1" inputmode="numeric">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-cap-jefe-tienda">Jefe de Tienda</label>
-					<input type="number" min="0" class="ep-input" id="ep-cap-jefe-tienda" placeholder="Ej. 1">
+					<input type="number" min="0" class="ep-input" id="ep-cap-jefe-tienda" placeholder="Ej. 1" inputmode="numeric">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-cap-vendedores">Vendedores</label>
-					<input type="number" min="0" class="ep-input" id="ep-cap-vendedores" placeholder="Ej. 15">
+					<input type="number" min="0" class="ep-input" id="ep-cap-vendedores" placeholder="Ej. 15" inputmode="numeric">
 				</div>
 			</div>
 		</div>
@@ -46,7 +46,7 @@
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-cap-interacciones">Interacciones</label>
-					<input type="number" min="0" class="ep-input" id="ep-cap-interacciones" placeholder="Ej. 8">
+					<input type="number" min="0" class="ep-input" id="ep-cap-interacciones" placeholder="Ej. 8" inputmode="numeric">
 				</div>
 			</div>
 		</div>

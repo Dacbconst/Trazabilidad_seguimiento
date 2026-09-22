@@ -144,6 +144,18 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/seguimiento.js') ?: time();
 				</div>
 			</div>
 		</div>
+		<!-- Validar/Rechazar (2026-09-22, pedido explícito) — solo tiene sentido acá: toda la pantalla de Seguimiento ya está restringida a superdesarrollador (ver el rolPermitido() al tope de este archivo), no hace falta otro chequeo de rol en JS. Rechazar pide motivo (SweetAlert2) y borra el archivo actual: el Acuerdo vuelve a verse "pendiente de firma" para que el asesor resuba, reusando el mecanismo de notificación que ya existe en vez de uno aparte. -->
+		<div class="ac-firma-modal-footer no-print" id="seg-firma-modal-footer">
+			<p class="ac-firma-modal-estado hidden" id="seg-firma-modal-estado"></p>
+			<div class="ac-firma-modal-acciones">
+				<button type="button" class="ac-btn-outline ac-btn-outline-success ac-btn-inline" id="seg-firma-validar-btn">
+					<span class="material-symbols-outlined">check_circle</span> Validar Firma
+				</button>
+				<button type="button" class="ac-btn-outline ac-btn-outline-danger ac-btn-inline" id="seg-firma-rechazar-btn">
+					<span class="material-symbols-outlined">cancel</span> Rechazar Firma
+				</button>
+			</div>
+		</div>
 	</div>
 </div>
 

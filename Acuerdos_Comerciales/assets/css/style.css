@@ -869,9 +869,11 @@ body {
 .ac-switch input:checked + .ac-slider::before { transform: translateX(20px); }
 .ac-switch input:disabled + .ac-slider { cursor: not-allowed; opacity: 0.5; }
 
-.ac-row-actions { display: flex; justify-content: flex-end; gap: var(--space-xs); }
-/* Texto del botón principal de fila oculto en desktop (un ícono más entre varios), visible en mobile como acción principal. */
-.ac-row-actions-primary-label { display: none; }
+.ac-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-xs); }
+/* "Subir/Ver Firma" como botón real (2026-09-22, pedido explícito: "ese iconito no es tan claro... hazlo un botón como tal") — reusa .ac-btn-outline (mismo que "Subir Archivo"/"Actualizar" en el resto de la app) en vez de forzarle texto a .ac-icon-btn (36x36, pensado para ícono solo), que quedaba apretado con el texto partido en 2 líneas. Padding reducido: el tamaño default de .ac-btn-outline es para un botón de página suelto, acá comparte fila con 3 íconos más. */
+.ac-row-actions-primary.ac-btn-outline { padding: 8px var(--space-md); font-size: 12px; flex-shrink: 0; }
+.ac-btn-outline-success { border-color: #1e9e5a; color: #1e5c26; }
+.ac-btn-outline-success:hover { background: #d7f2db; }
 .ac-icon-btn {
 	width: 36px; height: 36px;
 	display: flex; align-items: center; justify-content: center;
@@ -1531,16 +1533,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	}
 
 	#hist-tabla-body .ac-row-actions { justify-content: stretch; }
-	#hist-tabla-body .ac-row-actions-primary {
-		flex: 1 1 auto; width: auto; height: 40px;
-		border: 1px solid var(--color-primary);
-		border-radius: var(--radius);
-		gap: var(--space-xs);
-		padding: 0 var(--space-md);
-		font-family: var(--font-body); font-size: 13px; font-weight: 700;
-	}
-	#hist-tabla-body .ac-row-actions-primary.ac-icon-btn-success { border-color: #1e9e5a; }
-	#hist-tabla-body .ac-row-actions-primary-label { display: inline; }
+	/* .ac-row-actions-primary ya es .ac-btn-outline (ver base, fuera de este media query) — acá solo se estira a todo el ancho, mismo criterio de siempre para la acción principal en mobile. */
+	#hist-tabla-body .ac-row-actions-primary.ac-btn-outline { flex: 1 1 auto; justify-content: center; height: 40px; font-size: 13px; }
 
 	/* Fila con columnas Canal + Generado por extra (solo superdesarrollador): 2 <td> de más corren los nth-child(), esta clase remapea sin tocar la base. */
 	#hist-tabla-body tr.hist-fila-con-canal {
@@ -1587,6 +1581,13 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	overflow: hidden;
 }
 .ac-firma-panel { display: flex; flex-direction: column; min-height: 0; background: var(--color-surface-container-lowest); position: relative; }
+/* Barra Validar/Rechazar (2026-09-22) — mismo patrón de barra que .ac-firma-modal-bar arriba, flex:0 0 auto para no robarle alto a los 2 paneles de PDF. */
+.ac-firma-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--color-outline-variant); flex: 0 0 auto; flex-wrap: wrap; }
+.ac-firma-modal-estado { margin: 0; font-size: 13px; color: var(--color-on-surface-variant); }
+.ac-firma-modal-estado.hidden { display: none; }
+.ac-firma-modal-acciones { display: flex; gap: var(--space-sm); margin-left: auto; }
+.ac-btn-outline-danger { border-color: var(--color-error); color: var(--color-error); }
+.ac-btn-outline-danger:hover { background: var(--color-error-container); }
 /* Botón "Ampliar": las 2 previsualizaciones del modal de Firma son chicas, hace falta ver grande con zoom. Ver .ac-lightbox-* y lightbox.js. */
 .ac-firma-panel-ampliar {
 	position: absolute; top: var(--space-sm); right: var(--space-sm);

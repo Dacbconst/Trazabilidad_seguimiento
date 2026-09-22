@@ -48,6 +48,12 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<span class="material-symbols-outlined">search</span>
 				<input type="text" class="ac-input" id="repo-buscar" placeholder="Buscar...">
 			</div>
+			<!-- Filtro de Canal (2026-09-22, pedido explícito) — solo Rebate, el canal ya viene en cada fila del propio Excel (columna CANAL), no hay tabla separada por canal. Mismas pastillas .ac-seg-pill que ya usa Historial para lo mismo. -->
+			<div class="ac-seg-pill-group hidden" id="repo-rebate-canal-group">
+				<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-canal="total">Todas</button>
+				<button type="button" class="ac-seg-pill" data-canal="directo">Directo</button>
+				<button type="button" class="ac-seg-pill" data-canal="distribuidor">Distribuidor</button>
+			</div>
 			<div class="ac-repo-actions">
 				<!-- Oculto a pedido explícito (2026-09-17) — mismo criterio que
 				     "Eliminados"/"Pendientes de Asignar": mecanismo intacto

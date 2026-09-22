@@ -12,11 +12,11 @@
 			<div class="ep-form-grid-2">
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-eday-nacional">Tiendas a Nivel Nacional</label>
-					<input type="number" min="0" class="ep-input" id="ep-eday-nacional" placeholder="Ej. 5">
+					<input type="number" min="0" class="ep-input" id="ep-eday-nacional" placeholder="Ej. 5" inputmode="numeric">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-eday-coberturadas">Tiendas Coberturadas</label>
-					<input type="number" min="0" class="ep-input" id="ep-eday-coberturadas" placeholder="Ej. 2">
+					<input type="number" min="0" class="ep-input" id="ep-eday-coberturadas" placeholder="Ej. 2" inputmode="numeric">
 				</div>
 			</div>
 		</div>
@@ -33,17 +33,17 @@
 			<div class="ep-funnel">
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-eday-visitaron">Visitaron</label>
-					<input type="number" min="0" class="ep-input" id="ep-eday-visitaron" placeholder="Ej. 100">
+					<input type="number" min="0" class="ep-input" id="ep-eday-visitaron" placeholder="Ej. 100" inputmode="numeric">
 				</div>
 				<div class="ep-funnel-conexion"><?= ep_icon('arrow-right', 16) ?></div>
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-eday-interactuaron">Interactuaron</label>
-					<input type="number" min="0" class="ep-input" id="ep-eday-interactuaron" placeholder="Ej. 30">
+					<input type="number" min="0" class="ep-input" id="ep-eday-interactuaron" placeholder="Ej. 30" inputmode="numeric">
 				</div>
 				<div class="ep-funnel-conexion"><?= ep_icon('arrow-right', 16) ?></div>
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-eday-compraron">Compraron</label>
-					<input type="number" min="0" class="ep-input" id="ep-eday-compraron" placeholder="Ej. 20">
+					<input type="number" min="0" class="ep-input" id="ep-eday-compraron" placeholder="Ej. 20" inputmode="numeric">
 				</div>
 			</div>
 		</div>

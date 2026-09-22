@@ -29,9 +29,19 @@ if (!isset($secciones[$vista])) {
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__.'/assets/css/style.css') ?>">
 </head>
 <body>
-	<button type="button" id="epMenuBtn" class="ep-mobile-menu-btn" aria-label="Abrir menú">
-		<?= ep_icon('menu', 20) ?>
-	</button>
+	<header class="ep-mobile-header" id="epMobileHeader">
+		<button type="button" id="epMenuBtn" class="ep-mobile-menu-btn" aria-label="Abrir menú">
+			<?= ep_icon('menu', 20) ?>
+		</button>
+		<div class="ep-mobile-header-info">
+			<span class="ep-mobile-header-brand">EPSON REPORT</span>
+			<span class="ep-mobile-header-sep">/</span>
+			<span class="ep-mobile-header-vista"><?= htmlspecialchars($secciones[$vista]['label'] ?? 'Actividades') ?></span>
+		</div>
+		<div class="ep-mobile-header-user" title="<?= htmlspecialchars($_SESSION['usuario'] ?? '') ?>">
+			<?= strtoupper(substr($_SESSION['usuario'] ?? 'U', 0, 1)) ?>
+		</div>
+	</header>
 
 	<div class="ep-shell">
 		<?php require __DIR__.'/partials/sidebar.php'; ?>
@@ -44,6 +54,7 @@ if (!isset($secciones[$vista])) {
 		var epSidebar = document.getElementById('epSidebar');
 		var epSidebarBackdrop = document.getElementById('epSidebarBackdrop');
 		var epMenuBtn = document.getElementById('epMenuBtn');
+		var epSidebarCloseBtn = document.getElementById('epSidebarCloseBtn');
 		var mqMobile = window.matchMedia('(max-width: 900px)');
 
 		if (localStorage.getItem('ep_sidebar_colapsado') === '1') {
@@ -53,24 +64,31 @@ if (!isset($secciones[$vista])) {
 		function abrirDrawer() {
 			epSidebar.classList.add('open');
 			epSidebarBackdrop.classList.add('open');
+			document.body.style.overflow = 'hidden';
 		}
 		function cerrarDrawer() {
 			epSidebar.classList.remove('open');
 			epSidebarBackdrop.classList.remove('open');
+			document.body.style.overflow = '';
 		}
-		epMenuBtn.addEventListener('click', function () {
-			if (epSidebar.classList.contains('open')) {
-				cerrarDrawer();
-			} else {
-				abrirDrawer();
-			}
-		});
+		if (epMenuBtn) {
+			epMenuBtn.addEventListener('click', function () {
+				if (epSidebar.classList.contains('open')) {
+					cerrarDrawer();
+				} else {
+					abrirDrawer();
+				}
+			});
+		}
+		if (epSidebarCloseBtn) {
+			epSidebarCloseBtn.addEventListener('click', cerrarDrawer);
+		}
 		epSidebarBackdrop.addEventListener('click', cerrarDrawer);
 
-		// Clic en cualquier zona vacía del sidebar (nunca sobre un link real): en mobile cierra el drawer, en desktop colapsa el menú.
+		// Clic en zona vacía del sidebar: en mobile cierra el drawer, en desktop colapsa el menú.
 		epSidebar.addEventListener('click', function (ev) {
 			if (ev.target.closest('a')) return;
-			if (ev.target.closest('#epSidebarSubVolver')) return;
+			if (ev.target.closest('button')) return;
 			if (mqMobile.matches) {
 				cerrarDrawer();
 				return;
@@ -79,8 +97,9 @@ if (!isset($secciones[$vista])) {
 			localStorage.setItem('ep_sidebar_colapsado', epSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
 
-		// Submenú "Actividades" en celular: reemplaza el menú principal dentro del mismo panel, en vez de navegar de una.
+		// Submenú Actividades en celular: reemplaza el menú principal dentro del mismo panel.
 		var epSidebarSubVolver = document.getElementById('epSidebarSubVolver');
+		var epSidebarSubCloseBtn = document.getElementById('epSidebarSubCloseBtn');
 		epSidebar.querySelectorAll('[data-abre-submenu]').forEach(function (link) {
 			link.addEventListener('click', function (ev) {
 				if (!mqMobile.matches) return;
@@ -91,6 +110,30 @@ if (!isset($secciones[$vista])) {
 		if (epSidebarSubVolver) {
 			epSidebarSubVolver.addEventListener('click', function () {
 				epSidebar.classList.remove('ep-sidebar-mostrando-submenu');
+			});
+		}
+		if (epSidebarSubCloseBtn) {
+			epSidebarSubCloseBtn.addEventListener('click', cerrarDrawer);
+		}
+
+		// Al tocar una actividad en el submenú móvil: activa el formulario y cierra el drawer.
+		var epSidebarSubList = document.getElementById('epSidebarSubList');
+		if (epSidebarSubList) {
+			epSidebarSubList.addEventListener('click', function (ev) {
+				var btn = ev.target.closest('.ep-sidebar-sub-item');
+				if (!btn) return;
+				var id = btn.dataset.id;
+				var targetBtn = document.querySelector('#ep-lista-actividades .ep-activity-item[data-id="' + id + '"]');
+				if (targetBtn) {
+					targetBtn.click();
+					epSidebarSubList.querySelectorAll('.ep-sidebar-sub-item').forEach(function (el) {
+						el.classList.remove('selected');
+					});
+					btn.classList.add('selected');
+					cerrarDrawer();
+				} else {
+					window.location.href = 'index.php?vista=actividades';
+				}
 			});
 		}
 	</script>

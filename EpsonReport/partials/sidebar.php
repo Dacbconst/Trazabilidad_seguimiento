@@ -1,4 +1,7 @@
 <nav class="ep-sidebar" id="epSidebar" title="Clic en zona vacía: mostrar/ocultar menú">
+	<button type="button" class="ep-sidebar-close-btn" id="epSidebarCloseBtn" aria-label="Cerrar menú">
+		<?= ep_icon('close', 18) ?>
+	</button>
 	<div class="ep-sidebar-menu-principal" id="epSidebarMenuPrincipal">
 		<div class="ep-sidebar-user">
 			<div class="ep-sidebar-avatar"></div>
@@ -24,19 +27,36 @@
 		</div>
 	</div>
 
-	<!-- Submenú "Actividades" — solo en celular, mismo diseño que el panel de escritorio (.ep-side / .ep-activity-item). -->
+	<!-- Submenú Actividades en celular -->
 	<div class="ep-sidebar-submenu" id="epSidebarSubActividades">
-		<button type="button" class="ep-sidebar-submenu-volver" id="epSidebarSubVolver">
-			<?= ep_icon('chevron', 16) ?>
-			Volver
-		</button>
-		<div class="ep-eyebrow">Tipo de Gestión</div>
-		<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-			<?php foreach ($actividadesNav as $a): ?>
-				<a class="ep-activity-item" href="index.php?vista=actividades">
-					<span class="ep-activity-icon"><?= ep_icon('grid', 14) ?></span>
-					<span class="ep-activity-label"><?= htmlspecialchars($a['label']) ?></span>
-				</a>
+		<div class="ep-sidebar-sub-header">
+			<button type="button" class="ep-sidebar-sub-back" id="epSidebarSubVolver" aria-label="Volver al menú">
+				<?= ep_icon('arrow-left', 15) ?>
+				<span>Volver</span>
+			</button>
+			<button type="button" class="ep-sidebar-sub-close" id="epSidebarSubCloseBtn" aria-label="Cerrar menú">
+				<?= ep_icon('close', 16) ?>
+			</button>
+		</div>
+
+		<div class="ep-sidebar-sub-titleblock">
+			<div class="ep-sidebar-sub-eyebrow">Tipo de Gestión</div>
+			<h3 class="ep-sidebar-sub-heading">Actividades</h3>
+			<p class="ep-sidebar-sub-hint">Selecciona la actividad a reportar</p>
+		</div>
+
+		<div class="ep-sidebar-sub-list" id="epSidebarSubList">
+			<?php foreach ($actividadesNav as $i => $a): ?>
+				<button type="button" class="ep-sidebar-sub-item<?= $i === 0 ? ' selected' : '' ?>" data-id="<?= (int) $a['id'] ?>" data-render-id="<?= (int) ($a['render_id'] ?? $a['id']) ?>" data-nombre="<?= htmlspecialchars($a['label']) ?>">
+					<span class="ep-sidebar-sub-item-icon"><?= ep_icon('grid', 15) ?></span>
+					<div class="ep-sidebar-sub-item-content">
+						<span class="ep-sidebar-sub-item-name"><?= htmlspecialchars($a['label']) ?></span>
+						<?php if (!empty($a['badge'])): ?>
+							<span class="ep-sidebar-sub-item-badge"><?= htmlspecialchars($a['badge']) ?></span>
+						<?php endif; ?>
+					</div>
+					<span class="ep-sidebar-sub-item-arrow"><?= ep_icon('arrow-right', 13) ?></span>
+				</button>
 			<?php endforeach; ?>
 		</div>
 	</div>

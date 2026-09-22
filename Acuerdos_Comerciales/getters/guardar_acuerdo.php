@@ -183,8 +183,10 @@ foreach (($lineas['percha'] ?? []) as $orden => $fila) {
 		responder(false, 'La Participación de Perchas debe ser un número y no puede quedar vacía ni ser negativa.');
 	}
 	$valores = is_array($fila['valores'] ?? null) ? $fila['valores'] : [];
+	// Categoría (2026-09-22, pedido explícito): independiente de Marca, no una cascada — texto libre validado contra el catálogo real no hace falta acá, mismo criterio ya usado para Marca en esta tabla (no bloquea el guardado si no matchea nada, el campo ya viene de un combo real en el formulario).
 	$filasNormalizadas['percha'][] = [
 		'marca' => $marca,
+		'categoria' => trim($fila['categoria'] ?? ''),
 		'participacion' => $participacion,
 		'cantidad_max_percha' => $cantidadMaxPercha,
 		'precio_percha' => round((float) ($fila['precio_percha'] ?? 40), 2),
@@ -328,7 +330,8 @@ try {
 	foreach ($filasNormalizadas['percha'] as $fila) {
 		$segmento = null;
 		$sector = null;
-		$categoria = null;
+		// Categoría (2026-09-22, pedido explícito) — antes siempre NULL a propósito ("Percha solo guarda Marca"), ahora sí se guarda si el usuario la eligió.
+		$categoria = $fila['categoria'] !== '' ? $fila['categoria'] : null;
 		$rebate = null;
 		$valorMensualUnico = null;
 		$participacionPct = $fila['participacion'] !== '' ? $fila['participacion'] : null;

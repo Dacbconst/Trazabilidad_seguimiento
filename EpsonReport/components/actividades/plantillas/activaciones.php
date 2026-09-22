@@ -13,11 +13,11 @@
 			<div class="ep-form-grid-2">
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-act-nacional">Tiendas a Nivel Nacional</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-nacional" placeholder="Ej. 10">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-nacional" placeholder="Ej. 10">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-act-coberturadas">Tiendas Coberturadas</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-coberturadas" placeholder="Ej. 7">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-coberturadas" placeholder="Ej. 7">
 				</div>
 			</div>
 		</div>
@@ -35,17 +35,17 @@
 			<div class="ep-funnel">
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-act-visitaron">Visitaron</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-visitaron" placeholder="Ej. 100">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-visitaron" placeholder="Ej. 100">
 				</div>
 				<div class="ep-funnel-conexion"><?= ep_icon('arrow-right', 16) ?></div>
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-act-interactuaron">Interactuaron</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-interactuaron" placeholder="Ej. 30">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-interactuaron" placeholder="Ej. 30">
 				</div>
 				<div class="ep-funnel-conexion"><?= ep_icon('arrow-right', 16) ?></div>
 				<div class="ep-funnel-step">
 					<label class="ep-label" for="ep-act-compraron">Compraron</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-compraron" placeholder="Ej. 10">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-compraron" placeholder="Ej. 10">
 				</div>
 			</div>
 		</div>
@@ -85,11 +85,11 @@
 			<div class="ep-form-grid-2">
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-act-programadas">Activaciones Programadas</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-programadas" placeholder="Ej. 15">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-programadas" placeholder="Ej. 15">
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="ep-act-realizadas">Activaciones Realizadas</label>
-					<input type="number" min="0" class="ep-input" id="ep-act-realizadas" placeholder="Ej. 8">
+					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-realizadas" placeholder="Ej. 8">
 				</div>
 			</div>
 		</div>

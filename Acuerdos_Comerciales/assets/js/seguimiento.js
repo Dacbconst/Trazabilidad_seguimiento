@@ -235,7 +235,9 @@
 	function firmadaCeldaHtml(a) {
 		if (!a.tiene_firma) return '<span class="ac-text-center ac-field-hint">—</span>';
 		var fecha = a.acta_firmada_subido_en ? formatearFecha(a.acta_firmada_subido_en.split(' ')[0]) : '—';
-		return '<span class="ac-text-center"><a class="ac-seg-doc ac-seg-doc-link ac-seg-firma-link" href="#" data-id="' + encodeURIComponent(a.id) + '" data-doc="' + escapeHtml(a.documento_no) + '" data-mime="' + escapeHtml(a.acta_firmada_mime || '') + '" title="Ver Acta Firmada">' + escapeHtml(fecha) + '</a></span>';
+		// Validada/sin revisar (2026-09-22): ícono chico al lado de la fecha, mismo criterio visual que el resto de badges de la app — verde si ya se revisó, sin marca si está recién subida y todavía nadie la vio.
+		var iconoEstado = a.firma_validada_en ? '<span class="material-symbols-outlined ac-seg-firma-validada" title="Firma validada">verified</span>' : '';
+		return '<span class="ac-text-center"><a class="ac-seg-doc ac-seg-doc-link ac-seg-firma-link" href="#" data-id="' + encodeURIComponent(a.id) + '" data-doc="' + escapeHtml(a.documento_no) + '" data-mime="' + escapeHtml(a.acta_firmada_mime || '') + '" data-validada="' + (a.firma_validada_en ? '1' : '0') + '" title="Ver Acta Firmada">' + escapeHtml(fecha) + '</a>' + iconoEstado + '</span>';
 	}
 
 	function filasActasHtml(actas) {
@@ -511,7 +513,9 @@
 		}
 	}
 
-	function abrirFirmaSoloLectura(id, documentoNo, mime) {
+	function abrirFirmaSoloLectura(id, documentoNo, mime, validada) {
+		firmaIdActual = id;
+		actualizarBarraValidacion(!!validada);
 		firmaModalTitle.textContent = 'Acta Firmada — #' + documentoNo;
 		firmaOriginalUrlActual = 'getters/generar_acta_pdf.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
 		firmaFirmadaUrlActual  = 'getters/descargar_acta_firmada.php?id=' + encodeURIComponent(id) + '&t=' + Date.now();
@@ -553,7 +557,86 @@
 		var link = e.target.closest('.ac-seg-firma-link');
 		if (!link) return;
 		e.preventDefault();
-		abrirFirmaSoloLectura(link.dataset.id, link.dataset.doc, link.dataset.mime);
+		abrirFirmaSoloLectura(link.dataset.id, link.dataset.doc, link.dataset.mime, link.dataset.validada === '1');
+	});
+
+	// ---------- Validar / Rechazar (2026-09-22, pedido explícito) ---------- Toda esta pantalla ya está restringida a superdesarrollador (ver rolPermitido() en seguimiento.php), sin chequeo de rol aparte acá.
+	var firmaEstadoEl    = document.getElementById('seg-firma-modal-estado');
+	var firmaValidarBtn  = document.getElementById('seg-firma-validar-btn');
+	var firmaRechazarBtn = document.getElementById('seg-firma-rechazar-btn');
+	var firmaIdActual    = null;
+
+	function actualizarBarraValidacion(validada) {
+		if (validada) {
+			firmaEstadoEl.textContent = 'Firma ya validada.';
+			firmaEstadoEl.classList.remove('hidden');
+			firmaValidarBtn.classList.add('hidden');
+		} else {
+			firmaEstadoEl.classList.add('hidden');
+			firmaValidarBtn.classList.remove('hidden');
+		}
+	}
+
+	firmaValidarBtn.addEventListener('click', function () {
+		if (!firmaIdActual) return;
+		Swal.fire({
+			icon: 'question',
+			title: '¿Validar esta firma?',
+			text: 'Se va a marcar como revisada y correcta.',
+			showCancelButton: true,
+			confirmButtonText: 'Validar',
+			confirmButtonColor: '#00288e',
+			cancelButtonText: 'Cancelar'
+		}).then(function (r) {
+			if (!r.isConfirmed) return;
+			fetch('getters/firma_validar.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: 'id=' + encodeURIComponent(firmaIdActual)
+			})
+				.then(function (resp) { return resp.json(); })
+				.then(function (data) {
+					if (!data.ok) { mostrarToast(data.message, 'error'); return; }
+					mostrarToast(data.message, 'success');
+					cerrarFirmaSoloLectura();
+					cargarResumen();
+				})
+				.catch(function () { mostrarToast('Error de conexión.', 'error'); });
+		});
+	});
+
+	firmaRechazarBtn.addEventListener('click', function () {
+		if (!firmaIdActual) return;
+		Swal.fire({
+			icon: 'warning',
+			title: 'Rechazar firma',
+			html: 'El Acuerdo vuelve a quedar pendiente de firma para que el asesor suba una nueva.',
+			input: 'text',
+			inputPlaceholder: 'Motivo del rechazo (obligatorio)',
+			showCancelButton: true,
+			confirmButtonText: 'Rechazar',
+			confirmButtonColor: '#ba1a1a',
+			cancelButtonText: 'Cancelar',
+			inputValidator: function (valor) {
+				if (!valor || !valor.trim()) return 'Indica el motivo.';
+			}
+		}).then(function (r) {
+			if (!r.isConfirmed) return;
+			fetch('getters/firma_rechazar.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: firmaIdActual, motivo: r.value.trim() })
+			})
+				.then(function (resp) { return resp.json(); })
+				.then(function (data) {
+					if (!data.ok) { mostrarToast(data.message, 'error'); return; }
+					mostrarToast(data.message, 'success');
+					cerrarFirmaSoloLectura();
+					cargarResumen();
+					if (window.acAlertasFirmaRefrescar) window.acAlertasFirmaRefrescar();
+				})
+				.catch(function () { mostrarToast('Error de conexión.', 'error'); });
+		});
 	});
 
 	cargarResumen();

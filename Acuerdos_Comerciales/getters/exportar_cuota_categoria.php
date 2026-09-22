@@ -187,7 +187,7 @@ foreach ($mesesCols as $i => $mi) {
 }
 $wb->celda($s1, $filaEnc, $colTotalQ2, $tituloCuota, true, null, $bgEncabezado, '000000');
 $wb->celda($s1, $filaEnc, $colRebatePct, 'REBATE A APLICAR %', true, null, $bgEncabezado, '000000');
-$wb->celda($s1, $filaEnc, $colRebateDolar, 'REBATE $', true, null, $bgEncabezado, '000000');
+$wb->celda($s1, $filaEnc, $colRebateDolar, 'REBATE', true, null, $bgEncabezado, '000000');
 $wb->celda($s1, $filaEnc, $colRebateMax110, 'REBATE MAXIMO 110%', true, null, $bgEncabezado, '000000');
 
 $wb->celda($s1, 1, $colVentaInicio, $tituloVenta, true, null, $bgVenta, $fontVenta);
@@ -249,8 +249,8 @@ foreach ($filasFinal as $g) {
 	$rangoCuota = $cl($colCuotaInicio).$fila.':'.$cl($colCuotaInicio + $M - 1).$fila;
 	$wb->formula($s1, $fila, $colTotalQ2, 'SUM('.$rangoCuota.')', false, 'money', $bgCuotaDato, '000000');
 	$wb->celda($s1, $fila, $colRebatePct, round($g['rebate_pct'], 4), false, 'pct', $bgCuotaDato, '000000');
-	$wb->formula($s1, $fila, $colRebateDolar, $cl($colTotalQ2).$fila.'*'.$cl($colRebatePct).$fila, false, 'money');
-	$wb->formula($s1, $fila, $colRebateMax110, '('.$cl($colTotalQ2).$fila.'*1.1)*'.$cl($colRebatePct).$fila, false, 'money');
+	$wb->formula($s1, $fila, $colRebateDolar, $cl($colTotalQ2).$fila.'*'.$cl($colRebatePct).$fila, false, 'numero');
+	$wb->formula($s1, $fila, $colRebateMax110, '('.$cl($colTotalQ2).$fila.'*1.1)*'.$cl($colRebatePct).$fila, false, 'numero');
 	// Venta real: columnas vacías, las llena JW mes a mes cuando cierra el período.
 	for ($i = 0; $i < $M; $i++) {
 		$wb->celda($s1, $fila, $colVentaInicio + $i, '');

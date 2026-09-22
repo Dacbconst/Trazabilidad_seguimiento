@@ -16,12 +16,14 @@ $rolUsuario = $_SESSION['rol'] ?? '';
 $esSuperdev = $rolUsuario === 'superdesarrollador';
 $canal = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 $aniosDisponibles = listar_anios_disponibles($mysqli, $_SESSION['user_id'] ?? null, $rolUsuario);
-// Año: si no vino explícito por query, se autoselecciona el año en curso, pero solo si ese año realmente tiene Acuerdos (si no, "Todos los años").
+// Año: si no vino explícito por query, se autoselecciona el año en curso si tiene Acuerdos; si no, el más reciente disponible (ORDER BY anio DESC en listar_anios_disponibles(), el [0] es el más nuevo). "Todos los años" se sacó del selector (2026-09-22, pedido explícito) — sin años disponibles (cuenta nueva sin Acuerdos todavía), $anio queda en 0 y listar_historial_acuerdos() responde vacío, sin filtro roto.
 if (isset($_GET['anio'])) {
 	$anio = (int) $_GET['anio'];
 } else {
 	$anioActual = (int) date('Y');
-	$anio = in_array($anioActual, $aniosDisponibles, true) ? $anioActual : 0;
+	if (in_array($anioActual, $aniosDisponibles, true)) $anio = $anioActual;
+	elseif ($aniosDisponibles) $anio = $aniosDisponibles[0];
+	else $anio = 0;
 }
 // Filtro de firma (2026-08-21): activado desde los stat tiles de arriba, no un <select> — ver obtener_stats_historial()/listar_historial_acuerdos().
 $filtroFirma = in_array($_GET['firma'] ?? '', ['firmadas', 'pendientes'], true) ? $_GET['firma'] : 'todos';
@@ -132,7 +134,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<option value="4" <?= $trimestre === 4 ? 'selected' : '' ?>>Q4 (Oct-Dic)</option>
 			</select>
 			<select class="ac-select ac-hist-anio ac-select-bonito-auto" id="hist-anio">
-				<option value="0">Todos los años</option>
+				<!-- "Todos los años" sacado a propósito (2026-09-22, pedido explícito: "esa opción no debe permitirse") — sin años disponibles todavía (cuenta nueva) se deja un placeholder no elegible en vez de un valor real. -->
+				<?php if (!$aniosDisponibles): ?>
+					<option value="0" selected>Elige un año</option>
+				<?php endif; ?>
 				<?php foreach ($aniosDisponibles as $a): ?>
 					<option value="<?= $a ?>" <?= $anio === $a ? 'selected' : '' ?>><?= $a ?></option>
 				<?php endforeach; ?>

@@ -222,6 +222,17 @@
 		document.getElementById('hist-stat-pendientes-bar').style.width = pctPendientes + '%';
 	}
 
+	// Reconstruye las opciones de Año en cada refresco (2026-09-22) — antes se calculaban una sola vez al cargar la página completa, así que generar una Acta nueva sin recargar dejaba su año invisible en el selector hasta un F5. Mantiene la selección actual si sigue siendo válida (no le cambia el filtro al usuario en medio de una búsqueda); si no hay ningún año disponible, deja el placeholder "Elige un año" (value="0", nunca "Todos los años" — sacado a propósito).
+	function actualizarOpcionesAnio(anios) {
+		var valorActual = anioSelect.value;
+		var html = anios.length
+			? anios.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('')
+			: '<option value="0">Elige un año</option>';
+		anioSelect.innerHTML = html;
+		// Asignación explícita SIEMPRE (no solo cuando cambia): select-bonito.js sobreescribe el setter de .value para resincronizar su label propio con esto, un innerHTML solo no alcanza.
+		anioSelect.value = anios.indexOf(parseInt(valorActual, 10)) !== -1 ? valorActual : (anios.length ? String(anios[0]) : '0');
+	}
+
 	function actualizarTilesActivos() {
 		statTiles.firmadas.classList.toggle('ac-hist-stat-activo', firmaFiltroActual === 'firmadas');
 		statTiles.pendientes.classList.toggle('ac-hist-stat-activo', firmaFiltroActual === 'pendientes');
@@ -301,6 +312,7 @@
 				paginacionInfoEls.forEach(function (el) { if (el) el.innerHTML = infoHtml; });
 				renderPaginacionBtns(data.pagina, data.total_paginas);
 				if (data.stats) renderStats(data.stats);
+				if (data.anios_disponibles) actualizarOpcionesAnio(data.anios_disponibles);
 			})
 			.catch(function () {
 				if (miReqId !== historialReqId) return;

@@ -16,6 +16,18 @@ function iniciar_sesion() {
 	}
 }
 
+// Sesión única por usuario (2026-09-22, pedido explícito): un login nuevo invalida cualquier sesión previa de esa misma cuenta en otro dispositivo. Sin el ALTER de sesion_token, no hace nada (columna no existe, prepare() da false).
+function registrarSesionUnica($mysqli, $userId) {
+	$token = bin2hex(random_bytes(32));
+	$_SESSION['sesion_token'] = $token;
+	$stmt = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET sesion_token = ? WHERE id = ?');
+	if ($stmt) {
+		$stmt->bind_param('si', $token, $userId);
+		$stmt->execute();
+		$stmt->close();
+	}
+}
+
 // Login simple sin password_hash — la contraseña se compara tal cual está guardada (decisión explícita del cliente). Devuelve true/false/'bloqueado' (5 intentos fallidos bloquean 15 min); sin el ALTER de intentos_fallidos, cae al login de siempre sin bloqueo.
 function login($usuario, $password, $mysqli) {
 	$stmt = $mysqli->prepare(
@@ -67,6 +79,7 @@ function login($usuario, $password, $mysqli) {
 		$_SESSION['username']   = $row['usuario'];
 		$_SESSION['rol']        = $row['rol'];
 		$_SESSION['supervisor'] = $row['supervisor'] ?? null;
+		registrarSesionUnica($mysqli, $row['id']);
 		return true;
 	}
 
@@ -95,11 +108,33 @@ function login($usuario, $password, $mysqli) {
 	$_SESSION['username']   = $row['usuario'];
 	$_SESSION['rol']        = $row['rol'];
 	$_SESSION['supervisor'] = $row['supervisor'] ?? null;
+	registrarSesionUnica($mysqli, $row['id']);
 	return true;
 }
 
 function login_check() {
-	return isset($_SESSION['user_id'], $_SESSION['rol']);
+	if (!isset($_SESSION['user_id'], $_SESSION['rol'])) return false;
+	// Sesión única: si otro login más nuevo pisó el token de esta cuenta, esta sesión queda inválida. static: 1 sola consulta por request, sin importar cuántas veces se llame login_check().
+	static $valida = null;
+	if ($valida !== null) return $valida;
+	global $mysqli;
+	if (isset($_SESSION['sesion_token']) && isset($mysqli)) {
+		$stmt = $mysqli->prepare('SELECT sesion_token FROM repositorio_usuarios_acuerdos WHERE id = ? LIMIT 1');
+		if ($stmt) {
+			$stmt->bind_param('i', $_SESSION['user_id']);
+			$stmt->execute();
+			$fila = $stmt->get_result()->fetch_assoc();
+			$stmt->close();
+			if ($fila && $fila['sesion_token'] !== null && $fila['sesion_token'] !== $_SESSION['sesion_token']) {
+				session_unset();
+				session_destroy();
+				$valida = false;
+				return false;
+			}
+		}
+	}
+	$valida = true;
+	return true;
 }
 
 // El acceso por módulo NO es jerárquico — cada sección define su propia lista de roles permitidos en includes/secciones.php.
@@ -249,6 +284,17 @@ function resolverSectorReal($mysqli, $sectorCrudo) {
 	return count($sectores) === 1 ? $sectores[0] : null;
 }
 
+// Parche visual puntual (2026-09-22, pedido explícito: "no quiero tocar la base de productos, sería solo este caso") — repositorio_productos dice BARRA+EL MACHO=Categoría "ROPA", pero repositorio_rebate_producto tiene ese mismo Sector+Marca como "DETERGENTE" (dato real inconsistente entre las 2 tablas). Sin ALTER ni UPDATE, solo cambia lo que se MUESTRA/GUARDA para este combo puntual. Centralizado acá porque hay 2 caminos que leen Categoría de repositorio_productos: el catálogo del combo (getters/acuerdo_catalogo.php) y la resolución de Actas Precargadas (resolverProductoCuota() abajo) — un parche en un solo lugar no cubría el otro.
+function aplicarParcheCategoriaVisual($sector, $marca, $categoria) {
+	$parches = [
+		['BARRA', 'EL MACHO', 'DETERGENTE'],
+	];
+	foreach ($parches as $parche) {
+		if (strtoupper(trim($sector)) === $parche[0] && strtoupper(trim($marca)) === $parche[1]) return $parche[2];
+	}
+	return $categoria;
+}
+
 // Resuelve Segmento/Categoría/Marca reales desde SUBCATEGORIA/MARCA del Excel de Cuotas (opcionales), tolerando plural/singular. Solo devuelve algo si el match es único; si no, null y el llamador cae al historial del cliente.
 function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda) {
 	if ($subcategoriaCruda === '' || $marcaCruda === '') return null;
@@ -275,7 +321,11 @@ function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda
 			$stmt->bind_param('sss', $sectorProbar, $categoriaProbar, $marcaCruda);
 			$stmt->execute();
 			$fila = $stmt->get_result()->fetch_assoc();
-			if ($fila) { $stmt->close(); return $fila; }
+			if ($fila) {
+				$stmt->close();
+				$fila['categoria'] = aplicarParcheCategoriaVisual($sector, $fila['marca'], $fila['categoria']);
+				return $fila;
+			}
 		}
 	}
 	$stmt->close();
@@ -1132,8 +1182,8 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 
 	// .ac-row-actions-primary + <span> de texto (oculto en desktop): en mobile es el botón más importante, necesita texto visible y buen tamaño táctil.
 	$firmaBtn = $tieneFirma
-		? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'"'.$disabledAjeno.($esPropio ? ' title="Ver Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">task_alt</span><span class="ac-row-actions-primary-label">Ver Firma</span></button>'
-		: '<button type="button" class="ac-icon-btn ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0"'.$disabledAjeno.($esPropio ? ' title="Subir Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
+		? '<button type="button" class="ac-btn-outline ac-btn-inline ac-btn-outline-success ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="1" data-mime="'.htmlspecialchars($a['acta_firmada_mime'] ?? '').'"'.$disabledAjeno.($esPropio ? ' title="Ver Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">task_alt</span><span class="ac-row-actions-primary-label">Ver Firma</span></button>'
+		: '<button type="button" class="ac-btn-outline ac-btn-inline ac-row-actions-primary hist-btn-firma" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'" data-tiene-firma="0"'.$disabledAjeno.($esPropio ? ' title="Subir Acta Firmada"' : $tituloAjeno).'><span class="material-symbols-outlined">upload_file</span><span class="ac-row-actions-primary-label">Subir Firma</span></button>';
 
 	return '
 	<tr data-id="'.(int) $a['id'].'" class="hist-fila'.$filaUrgencia.($mostrarCanal ? ' hist-fila-con-canal' : '').'">
@@ -1247,15 +1297,19 @@ function listar_borradores_usuario($mysqli, $usuarioId) {
 }
 
 // ---------- Módulo Repositorios ---------- Dos catálogos self-service (Rebate, Participación de Percha) que autocompletan y bloquean esos campos en el Acta.
-function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10, $canal = 'total') {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
+	// Filtro de Canal (2026-09-22, pedido explícito): mismo criterio simple que ya usa este repositorio — el canal viene del propio Excel (columna CANAL), no hay tabla separada por canal.
+	$condicionCanal = '';
+	if ($canal === 'directo') $condicionCanal = " AND UPPER(canal) <> 'DISTRIBUIDOR'";
+	elseif ($canal === 'distribuidor') $condicionCanal = " AND UPPER(canal) = 'DISTRIBUIDOR'";
 
 	// eliminado_en IS NULL (borrado lógico) — el listado normal nunca muestra filas borradas, esas viven en "Eliminados".
 	$stmtTotal = $mysqli->prepare(
 		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto
-		 WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR canal LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)"
+		 WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR canal LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?) $condicionCanal"
 	);
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
 	$stmtTotal->bind_param('sssss', $like, $like, $like, $like, $like);
@@ -1270,7 +1324,7 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 		"SELECT r.id, r.ciudad, r.canal, r.sector, r.categoria, r.marca, r.rebate_pct, r.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_rebate_producto r
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = r.actualizado_por
-		 WHERE r.eliminado_en IS NULL AND (r.ciudad LIKE ? OR r.canal LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?)
+		 WHERE r.eliminado_en IS NULL AND (r.ciudad LIKE ? OR r.canal LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?) $condicionCanal
 		 ORDER BY r.ciudad, r.canal, r.sector, r.categoria, r.marca
 		 LIMIT ? OFFSET ?"
 	);
@@ -1521,6 +1575,7 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
 		        a.acta_firmada_subido_en, a.acta_firmada_mime,
+		        a.firma_validada_en, a.firma_rechazada_en, a.firma_rechazada_motivo,
 		        d.pos_name,
 		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a

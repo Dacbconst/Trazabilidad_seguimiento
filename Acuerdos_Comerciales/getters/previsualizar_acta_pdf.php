@@ -52,8 +52,11 @@ foreach (['meta_compra', 'cabecera'] as $tipo) {
 		$categoria = trim($fila['categoria'] ?? '');
 		$marca = trim($fila['marca'] ?? '');
 		if ($segmento === '' || $categoria === '' || $marca === '') continue;
+		// 'sector' (2026-09-22): antes no se capturaba acá aunque registrar.js ya lo mandaba en el payload (recolectarLineas()) — sin esto, la columna "Categoría" del Acta (ahora Sector+Categoría, ver includes/acta_pdf.php) salía vacía en la vista previa aunque en el Acta ya guardada sí aparecía (esa sí lee `sector` de la base).
+		$sector = $tipo === 'meta_compra' ? trim($fila['sector'] ?? '') : '';
 		$lineasNormalizadas[$tipo][] = [
 			'segmento'            => $segmento,
+			'sector'              => $sector,
 			'categoria'           => $categoria,
 			'marca'               => $marca,
 			'rebate_pct'          => $tipo === 'meta_compra' ? max(0, (float) ($fila['rebate_pct'] ?? 0)) : 0,

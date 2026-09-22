@@ -134,7 +134,7 @@ foreach ($mesesColsD as $i => $mi) {
 }
 $wbD->celda($sD1, $filaEncD, $colCuotaTotal, $tituloCuotaCol, true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colRebatePct, 'REBATE', true, null, $bgEncD, $fontEncD);
-$wbD->celda($sD1, $filaEncD, $colRebateDolar, 'REBATE $', true, null, $bgEncD, $fontEncD);
+$wbD->celda($sD1, $filaEncD, $colRebateDolar, 'REBATE', true, null, $bgEncD, $fontEncD);
 $wbD->celda($sD1, $filaEncD, $colRebateMax110, 'REBATE MAXIMO 110%', true, null, $bgEncD, $fontEncD);
 foreach ($mesesColsD as $i => $mi) {
 	$wbD->celda($sD1, $filaEncD, $colVentaInicio + $i, mb_strtoupper($mesesLargos[$mi]), true, null, $bgVentaD, $fontVentaD);
@@ -184,8 +184,8 @@ foreach ($filasFinalD as $g) {
 	$rangoCuotaD = XlsxWriter::colLetra($colCuotaInicio).$filaD.':'.XlsxWriter::colLetra($colCuotaInicio + $MD - 1).$filaD;
 	$wbD->formula($sD1, $filaD, $colCuotaTotal, 'SUM('.$rangoCuotaD.')', false, 'money');
 	$wbD->celda($sD1, $filaD, $colRebatePct, round($g['rebate_pct'], 4), false, 'pct');
-	$wbD->formula($sD1, $filaD, $colRebateDolar, XlsxWriter::colLetra($colCuotaTotal).$filaD.'*'.XlsxWriter::colLetra($colRebatePct).$filaD, false, 'money');
-	$wbD->formula($sD1, $filaD, $colRebateMax110, '('.XlsxWriter::colLetra($colCuotaTotal).$filaD.'*1.1)*'.XlsxWriter::colLetra($colRebatePct).$filaD, false, 'money');
+	$wbD->formula($sD1, $filaD, $colRebateDolar, XlsxWriter::colLetra($colCuotaTotal).$filaD.'*'.XlsxWriter::colLetra($colRebatePct).$filaD, false, 'numero');
+	$wbD->formula($sD1, $filaD, $colRebateMax110, '('.XlsxWriter::colLetra($colCuotaTotal).$filaD.'*1.1)*'.XlsxWriter::colLetra($colRebatePct).$filaD, false, 'numero');
 	for ($i = 0; $i < $MD; $i++) {
 		$wbD->celda($sD1, $filaD, $colVentaInicio + $i, '');
 	}

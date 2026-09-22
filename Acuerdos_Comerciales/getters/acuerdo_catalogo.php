@@ -41,7 +41,7 @@ while ($row = $res->fetch_assoc()) {
 	if (!in_array($mar, $segmentos[$seg][$cat], true)) $segmentos[$seg][$cat][] = $mar;
 }
 
-// La tabla de Perchas no usa Segmento/Categoría (ver CLAUDE.md), solo Marca.
+// La tabla de Perchas no usa Segmento/Subcategoría (ver CLAUDE.md), solo Marca. Categoría (2026-09-22, pedido explícito) sí se agregó — independiente de Marca, no encadenada (a diferencia del árbol de Meta de Compras más abajo), el usuario elige las 2 por separado.
 $marcasPercha = [];
 $res = $mysqli->query(
 	"SELECT DISTINCT marca FROM repositorio_productos
@@ -53,6 +53,19 @@ $res = $mysqli->query(
 );
 while ($row = $res->fetch_assoc()) {
 	$marcasPercha[] = $row['marca'];
+}
+
+$categoriasPercha = [];
+$res = $mysqli->query(
+	"SELECT DISTINCT sector FROM repositorio_productos
+	 WHERE fabricante = '".$mysqli->real_escape_string(FABRICANTE_ACUERDOS)."'
+	   AND activar = 'SI'
+	   AND sector IS NOT NULL AND sector <> ''
+	   AND $filtroSectorCategoria
+	 ORDER BY sector"
+);
+while ($row = $res->fetch_assoc()) {
+	$categoriasPercha[] = $row['sector'];
 }
 
 // Árbol Segmento -> Sector -> Categoría -> [Marcas], solo para Meta de Compras: el nombre impreso del Acta es "Sector + Categoría + Marca". Cabeceras/Rumas/Perchas siguen usando `segmentos` (sin Sector) a propósito.
@@ -69,10 +82,11 @@ $res = $mysqli->query(
 	   AND $filtroSectorCategoria
 	 ORDER BY segmento, sector, categoria, marca"
 );
+// Parche visual puntual — ver aplicarParcheCategoriaVisual() en includes/functions.php (mismo parche usado también al resolver Actas Precargadas, para que las 2 vías coincidan).
 while ($row = $res->fetch_assoc()) {
 	$seg = $row['segmento'];
 	$sec = $row['sector'];
-	$cat = $row['categoria'];
+	$cat = aplicarParcheCategoriaVisual($sec, $row['marca'], $row['categoria']);
 	$mar = $row['marca'];
 	if (!isset($segmentosSector[$seg])) $segmentosSector[$seg] = [];
 	if (!isset($segmentosSector[$seg][$sec])) $segmentosSector[$seg][$sec] = [];
@@ -82,8 +96,9 @@ while ($row = $res->fetch_assoc()) {
 
 echo json_encode([
 	'ok'               => true,
-	'segmentos'        => $segmentos,
-	'marcas_percha'    => $marcasPercha,
-	'segmentos_sector' => $segmentosSector,
+	'segmentos'          => $segmentos,
+	'marcas_percha'      => $marcasPercha,
+	'categorias_percha'  => $categoriasPercha,
+	'segmentos_sector'   => $segmentosSector,
 ]);
 ?>

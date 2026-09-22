@@ -33,13 +33,17 @@ if (!$resultado['acuerdos']) {
 // Stats de los 3 tiles: mismo alcance que la tabla pero sin el filtro de firma, para que no cuenten solo lo ya filtrado.
 $stats = obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuarioId, $rolUsuario, $canal);
 
+// Se manda en cada refresco (2026-09-22, bug real: el filtro de año solo se calculaba una vez al cargar la página completa — generar una Acta nueva sin recargar dejaba el año nuevo invisible en el selector hasta un F5). El frontend reconstruye las opciones con esto en cada "Actualizar".
+$aniosDisponibles = listar_anios_disponibles($mysqli, $usuarioId, $rolUsuario);
+
 echo json_encode([
-	'ok'            => true,
-	'filas'         => $filas,
-	'pagina'        => $resultado['pagina'],
-	'total_paginas' => $resultado['total_paginas'],
-	'total'         => $resultado['total'],
-	'mostrando'     => count($resultado['acuerdos']),
-	'stats'         => $stats,
+	'ok'                => true,
+	'filas'             => $filas,
+	'pagina'            => $resultado['pagina'],
+	'total_paginas'     => $resultado['total_paginas'],
+	'total'             => $resultado['total'],
+	'mostrando'         => count($resultado['acuerdos']),
+	'stats'             => $stats,
+	'anios_disponibles' => $aniosDisponibles,
 ]);
 ?>

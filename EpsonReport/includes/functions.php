@@ -20,6 +20,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'file'    => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
 		'users'   => '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="18" cy="7" r="3"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/>',
 		'store'   => '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
+		'arrow-left' => '<path d="M19 12H5M12 19l-7-7 7-7"/>',
 		'arrow-right' => '<path d="M5 12h14M13 6l6 6-6 6"/>',
 		'printer' => '<path d="M6 9V4h12v5"/><rect x="5" y="9" width="14" height="8" rx="1"/><path d="M8 17v4h8v-4"/>',
 		'bar-chart' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20v-3"/>',

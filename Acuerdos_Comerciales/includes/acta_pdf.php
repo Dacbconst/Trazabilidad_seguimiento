@@ -149,9 +149,9 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$mesesActivos  = range($detalle['mes_inicio'], $detalle['mes_fin']);
 	$cantidadMeses = count($mesesActivos);
 
-	// 1ra pasada: texto de cada categoría, para saber cuánto tiene que crecer esa columna antes de armar las filas (ver ancho_columna_categoria()).
+	// 1ra pasada: texto de cada categoría, para saber cuánto tiene que crecer esa columna antes de armar las filas (ver ancho_columna_categoria()). Solo Categoría (2026-09-22, pedido explícito, ajustado: "dejalo que diga lo de categoria nomas, o sea BARRA") — en el vocabulario de JW "Categoría" es nuestro campo `sector` (ver CLAUDE.md, "nuestro Sector = su Categoría"). Ni Segmento, ni Subcategoría (nuestro `categoria`), ni Marca se muestran en esta celda.
 	$categoriaTextos = array_map(function ($linea) {
-		return trim($linea['segmento'].' '.$linea['categoria'].' '.$linea['marca']);
+		return trim($linea['sector']);
 	}, $detalle['lineas']['meta_compra']);
 	// Tope de Categoría en 38% (no 48%) para dejar suficiente ancho al encabezado "REBATE" en 1 línea.
 	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, $tablaFuenteBase * $escalaTabla, $medirTexto, 22, 38), 2);
