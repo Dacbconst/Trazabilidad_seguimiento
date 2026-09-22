@@ -367,8 +367,8 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 
 '.($ocultarVisibilidad ? '' : '
 <p class="subtitulo">2. Visibilidad</p>
-<p class="subtitulo">2.a. Extravisibilidad: Cabeceras</p>
-<p class="hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro.<br>Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.</p>
+<p class="subtitulo">'.($esDistribuidor ? '2.1. Extravisibilidad: Cabeceras, exhibiciones adicionales y rumas' : '2.a. Extravisibilidad: Cabeceras').'</p>
+<p class="hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro.<br>Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.'.($esDistribuidor ? '<br>Se reconocerá el pago de visibilidad si el cliente cumple con las condiciones de compra del numeral 1.' : '').'</p>
 <table class="meta-tabla">
 	<thead><tr>'.$marcaHeadCab.$mesesHeadCab.$totalHeadCab.'</tr></thead>
 	<tbody>'.$cabecerasRows.'</tbody>

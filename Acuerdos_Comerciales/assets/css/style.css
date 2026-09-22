@@ -1542,22 +1542,25 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	#hist-tabla-body .ac-row-actions-primary.ac-icon-btn-success { border-color: #1e9e5a; }
 	#hist-tabla-body .ac-row-actions-primary-label { display: inline; }
 
-	/* Fila con columna Canal extra (solo superdesarrollador): un <td> de más corre los nth-child(), esta clase remapea sin tocar la base. */
+	/* Fila con columnas Canal + Generado por extra (solo superdesarrollador): 2 <td> de más corren los nth-child(), esta clase remapea sin tocar la base. */
 	#hist-tabla-body tr.hist-fila-con-canal {
 		grid-template-areas:
-			"doc      badge"
-			"dist     dist"
-			"cedi     cedi"
-			"canal    periodo"
-			"fecha    fecha"
-			"acciones acciones";
+			"doc       badge"
+			"dist      dist"
+			"cedi      cedi"
+			"canal     periodo"
+			"generador generador"
+			"fecha     fecha"
+			"acciones  acciones";
 	}
 	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(3) { text-align: left; }
 	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(4) { grid-area: canal; }
-	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(5) { grid-area: periodo; font-size: 13px; color: var(--color-on-surface-variant); text-align: right; }
-	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(6) { grid-area: badge; justify-self: end; align-self: center; }
-	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(7) { grid-area: fecha; font-size: 12px; color: var(--color-outline); text-align: left; }
-	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(8) {
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(5) { grid-area: generador; font-size: 13px; color: var(--color-on-surface-variant); }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(5)::before { content: "Generado por: "; color: var(--color-outline); }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(6) { grid-area: periodo; font-size: 13px; color: var(--color-on-surface-variant); text-align: right; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(7) { grid-area: badge; justify-self: end; align-self: center; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(8) { grid-area: fecha; font-size: 12px; color: var(--color-outline); text-align: left; }
+	#hist-tabla-body tr.hist-fila-con-canal td:nth-child(9) {
 		grid-area: acciones;
 		margin-top: 6px; padding-top: var(--space-sm);
 		border-top: 1px solid var(--color-outline-variant);
@@ -1728,9 +1731,15 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-resumen-grupo-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 var(--space-sm); }
 .ac-resumen-grupo-titulo-activo { color: var(--color-primary); }
 .ac-resumen-grupo-titulo-inactivo { color: var(--color-outline); }
-.ac-resumen-fila { display: flex; align-items: center; gap: var(--space-sm); border-radius: var(--radius-lg); }
+.ac-resumen-fila { display: flex; align-items: center; gap: var(--space-sm); border-radius: var(--radius-lg); width: 100%; text-align: left; background: none; border: none; font: inherit; cursor: pointer; }
 .ac-resumen-fila-activa { background: var(--color-surface); border: 1px solid var(--color-surface-container); padding: 10px 12px; }
 .ac-resumen-fila:not(.ac-resumen-fila-activa) { padding: 6px 12px; }
+.ac-resumen-fila-chevron { font-size: 20px; color: var(--color-outline); flex-shrink: 0; transition: transform 0.15s; }
+.ac-resumen-fila-abierta .ac-resumen-fila-chevron { transform: rotate(180deg); }
+.ac-resumen-detalle { margin: 4px 0 var(--space-sm) 44px; }
+.ac-resumen-detalle-tabla { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ac-resumen-detalle-tabla th, .ac-resumen-detalle-tabla td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-surface-container); }
+.ac-resumen-detalle-tabla th { color: var(--color-outline); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
 .ac-resumen-avatar-activo, .ac-resumen-avatar-inactivo {
 	width: 32px; height: 32px; border-radius: var(--radius);
 	display: flex; align-items: center; justify-content: center;
@@ -1997,6 +2006,29 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	text-align: center; cursor: pointer;
 }
 .ac-dropzone:hover, .ac-dropzone.ac-dropzone-hover { background: var(--color-surface-container-high); border-color: var(--color-primary); }
+.ac-dropzone-bloqueado { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+/* Selector Directo/Distribuidor del paso 1 de Subir Archivo (Cuotas) — tarjetas, no pastillas, porque es una elección obligatoria que bloquea el resto del paso. */
+.ac-canal-picker { display: flex; gap: var(--space-sm); }
+.ac-canal-picker-opcion {
+	flex: 1 1 0; display: flex; align-items: center; gap: var(--space-sm);
+	padding: var(--space-md); border-radius: var(--radius-lg);
+	border: 1.5px solid var(--color-outline-variant); background: var(--color-surface-container-lowest);
+	cursor: pointer; text-align: left; font: inherit; position: relative;
+	transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ac-canal-picker-opcion:hover { border-color: var(--color-outline); background: var(--color-surface-container-low); }
+.ac-canal-picker-icono { font-size: 26px; color: var(--color-outline); flex-shrink: 0; transition: color 0.15s ease; }
+.ac-canal-picker-texto { display: flex; flex-direction: column; gap: 2px; }
+.ac-canal-picker-titulo { font-size: 14px; font-weight: 700; color: var(--color-on-surface); }
+.ac-canal-picker-sub { font-size: 12px; color: var(--color-on-surface-variant); }
+.ac-canal-picker-check { position: absolute; top: 10px; right: 10px; font-size: 20px; color: var(--color-primary); opacity: 0; transform: scale(0.6); transition: opacity 0.15s ease, transform 0.15s ease; }
+.ac-canal-picker-opcion-activa { border-color: var(--color-primary); background: var(--color-secondary-fixed); }
+.ac-canal-picker-opcion-activa .ac-canal-picker-icono { color: var(--color-on-secondary-fixed); }
+.ac-canal-picker-opcion-activa .ac-canal-picker-check { opacity: 1; transform: scale(1); }
+@media (max-width: 480px) {
+	.ac-canal-picker { flex-direction: column; }
+}
 .ac-dropzone .material-symbols-outlined { font-size: 40px; color: var(--color-primary); }
 .ac-dropzone-title { font-size: 14px; font-weight: 600; margin: 0; }
 .ac-dropzone-sub { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; }
@@ -2006,6 +2038,14 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-progreso-carga-texto { font-size: 12px; color: var(--color-on-surface-variant); margin: 0; text-align: center; }
 .ac-progreso-carga-track { height: 8px; border-radius: var(--radius-full); background: var(--color-surface-container-high); overflow: hidden; }
 .ac-progreso-carga-fill { height: 100%; width: 0%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.15s linear; }
+/* Barra "sigue trabajando" (2026-09-21) — una vez que termina de subir el archivo, el servidor todavía tiene que leerlo antes de responder; sin esto la barra quedaba fija en 100% y parecía trabada. */
+.ac-progreso-carga-fill-indeterminado {
+	width: 40% !important; animation: ac-progreso-indeterminado 1.1s ease-in-out infinite;
+}
+@keyframes ac-progreso-indeterminado {
+	0% { transform: translateX(-100%); }
+	100% { transform: translateX(250%); }
+}
 
 /* Los 3 bloques de este paso (chip de archivo, banner de trimestre, resumen de
    asignación) comparten a propósito el mismo molde — mismo padding, radio de esquina,

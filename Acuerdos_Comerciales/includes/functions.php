@@ -3,7 +3,11 @@
 
 function iniciar_sesion() {
 	if (session_status() === PHP_SESSION_NONE) {
+		// 8 horas (2026-09-21, bug real reportado: "dejo la página sin usar un rato y me sale no autorizado") — el gc_maxlifetime del hosting es más corto que una jornada normal de uso, así que la sesión moría en el servidor a mitad de uso aunque la pestaña siguiera abierta. ini_set() antes de session_start() alcanza: PHP lee el valor recién al correr el GC probabilístico.
+		$vidaSegundos = 8 * 60 * 60;
+		ini_set('session.gc_maxlifetime', $vidaSegundos);
 		session_set_cookie_params([
+			'lifetime'  => $vidaSegundos,
 			'httponly' => true,
 			'secure'   => SECURE,
 			'samesite' => 'Lax',
@@ -605,115 +609,143 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 	];
 }
 
-// Resumen para el superdesarrollador: 4 números de panorama + desglose por usuario. "Actas" = grupo (pos_id, trimestre, anio), no fila de sector, mismo criterio de listar_actas_precargadas_pendientes().
-function resumen_cuotas($mysqli) {
-	$agrupador = "CONCAT(c.pos_id, '|', c.trimestre, '|', c.anio)";
+// Todas las Actas precargadas pendientes, sin acotar a un usuarioId — para el panorama del superdesarrollador (ver resumen_cuotas()). Mismo filtrado que listar_actas_precargadas_pendientes() (ignora "OTRAS CATEGORIAS" y categorías en $0), pero trae TODAS, con cedi_excel incluido para poder resolver a quién le toca cada una.
+function listar_actas_precargadas_todas($mysqli) {
+	$stmt = $mysqli->prepare(
+		"SELECT pos_id, cliente_excel, cedi_excel, trimestre, anio, sector, valores_mensuales, updated_at
+		 FROM repositorio_cuota_cliente WHERE estado = 'pendiente_uso'
+		 ORDER BY anio DESC, trimestre DESC, cliente_excel"
+	);
+	if (!$stmt) return [];
+	$stmt->execute();
+	$filasCrudas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
 
-	$pendientes = 0;
-	$r = $mysqli->query("SELECT COUNT(DISTINCT $agrupador) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_uso'");
-	if ($r) $pendientes = (int) $r->fetch_assoc()['n'];
+	$grupos = [];
+	foreach ($filasCrudas as $f) {
+		if (strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS') continue;
+		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
+		if (!is_array($valores) || array_sum($valores) <= 0) continue;
+		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
+		if (!isset($grupos[$clave])) {
+			$grupos[$clave] = [
+				'pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'cedi_excel' => $f['cedi_excel'],
+				'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at'],
+			];
+		}
+		$grupos[$clave]['categorias']++;
+		if ($f['updated_at'] > $grupos[$clave]['actualizado_en']) $grupos[$clave]['actualizado_en'] = $f['updated_at'];
+	}
+	return array_values($grupos);
+}
+
+// Resumen para el superdesarrollador: 4 números de panorama + desglose por usuario, con el detalle real de cada Acta (2026-09-21, pedido explícito: antes solo se veía "cuántas" tenía cada asesor, no "cuáles" — para verlas había que entrar con la cuenta de ese asesor). "Actas" = grupo (pos_id, trimestre, anio), no fila de sector, mismo criterio de listar_actas_precargadas_pendientes().
+function resumen_cuotas($mysqli) {
+	$grupos = listar_actas_precargadas_todas($mysqli);
+	$pendientes = count($grupos);
 
 	$usadas = 0;
-	$r = $mysqli->query("SELECT COUNT(DISTINCT $agrupador) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'usada'");
+	$r = $mysqli->query("SELECT COUNT(DISTINCT CONCAT(c.pos_id, '|', c.trimestre, '|', c.anio)) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'usada'");
 	if ($r) $usadas = (int) $r->fetch_assoc()['n'];
 
 	$pendientesMatch = 0;
 	$r = $mysqli->query("SELECT COUNT(DISTINCT c.cliente_excel, c.trimestre, c.anio) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_match'");
 	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
 
-	// Lista única: usuarios con cuenta activa + supervisores del maestro sin cuenta todavía (`tiene_cuenta: false`). Mismo criterio "CEDI del Excel gana" que usuarioIdDeCuota() — coincide con a quién le llega la Acta por la campanita.
-	$stmt = $mysqli->prepare(
-		"SELECT COALESCE(u_cedi.usuario, u_master.usuario) AS nombre,
-		        COUNT(DISTINCT $agrupador) AS actas_pendientes,
-		        (COALESCE(u_cedi.id, u_master.id) IS NOT NULL) AS tiene_cuenta
-		 FROM repositorio_cuota_cliente c
-		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
-		   ON u_cedi.status = 'activo'
-		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
-		 WHERE c.estado = 'pendiente_uso' AND COALESCE(u_cedi.id, u_master.id) IS NOT NULL
-		 GROUP BY COALESCE(u_cedi.id, u_master.id), nombre
-		 UNION ALL
-		 SELECT COALESCE(m.supervisor, c.cedi_excel) AS nombre, COUNT(DISTINCT $agrupador) AS actas_pendientes, 0 AS tiene_cuenta
-		 FROM repositorio_cuota_cliente c
-		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
-		   ON u_cedi.status = 'activo'
-		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
-		 WHERE c.estado = 'pendiente_uso' AND u_cedi.id IS NULL AND u_master.id IS NULL
-		 GROUP BY COALESCE(m.supervisor, c.cedi_excel)
-		 ORDER BY actas_pendientes DESC"
-	);
-	$porUsuario = [];
-	if ($stmt) {
-		$stmt->execute();
-		$porUsuario = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-		$stmt->close();
-		foreach ($porUsuario as &$fila) { $fila['tiene_cuenta'] = (bool) $fila['tiene_cuenta']; }
-		unset($fila);
+	// Resolución EN LOTE (2026-09-21, bug real de rendimiento reportado: 34 segundos con 81 pendientes — un resolverNombreAsignadoCuota() POR GRUPO hacía hasta 2 prepare()+execute() nuevos cada vez, ida y vuelta a Azure MySQL cada uno). Mismo criterio de 2 pasos que esa función (CEDI del Excel gana, maestro como respaldo), pero armado con 3 consultas fijas en vez de hasta 162.
+	$usuariosActivos = [];
+	$rUsuarios = $mysqli->query("SELECT usuario, supervisor FROM repositorio_usuarios_acuerdos WHERE status = 'activo'");
+	if ($rUsuarios) $usuariosActivos = $rUsuarios->fetch_all(MYSQLI_ASSOC);
+
+	// cedi_excel (usuario O supervisor de la cuenta) -> usuario activo. Mismo OR que la consulta real de usuarioIdDeCuota().
+	$porCedi = [];
+	// supervisor real -> usuario activo, para el respaldo del maestro.
+	$porSupervisor = [];
+	foreach ($usuariosActivos as $u) {
+		if (($u['usuario'] ?? '') !== '') $porCedi[strtoupper(trim($u['usuario']))] = $u['usuario'];
+		if (($u['supervisor'] ?? '') !== '') {
+			$porCedi[strtoupper(trim($u['supervisor']))] = $u['usuario'];
+			$porSupervisor[strtoupper(trim($u['supervisor']))] = $u['usuario'];
+		}
 	}
 
-	// Actas precargadas que ya no se van a poder generar (el Local ya tiene un Acuerdo activo en el mismo Período). Se detecta antes de que el asesor intente generar y el guardado se rechace en silencio.
-	$stmt = $mysqli->prepare(
-		"SELECT DISTINCT c.pos_id, c.trimestre, c.anio FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_uso'"
-	);
-	$grupos = [];
-	if ($stmt) {
-		$stmt->execute();
-		$grupos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-		$stmt->close();
+	// pos_id -> supervisor real del maestro (MIN igual que el resto de las funciones de Cuotas, un pos_id puede repetirse).
+	$supervisorPorPosId = [];
+	$rPos = $mysqli->query("SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id");
+	if ($rPos) { while ($f = $rPos->fetch_assoc()) $supervisorPorPosId[$f['pos_id']] = $f['supervisor']; }
+
+	$porUsuarioMapa = [];
+	$nombrePorClaveGrupo = [];
+	foreach ($grupos as $g) {
+		$cedi = strtoupper(trim((string) $g['cedi_excel']));
+		$nombre = null; $tieneCuenta = false;
+		if ($cedi !== '' && isset($porCedi[$cedi])) {
+			$nombre = $porCedi[$cedi]; $tieneCuenta = true;
+		} else {
+			$supervisorReal = $supervisorPorPosId[$g['pos_id']] ?? null;
+			if (($supervisorReal ?? '') !== '') {
+				$claveSup = strtoupper(trim($supervisorReal));
+				if (isset($porSupervisor[$claveSup])) { $nombre = $porSupervisor[$claveSup]; $tieneCuenta = true; }
+				else { $nombre = $supervisorReal; $tieneCuenta = false; }
+			}
+		}
+		$nombreClave = $nombre ?: 'Sin identificar';
+		if (!isset($porUsuarioMapa[$nombreClave])) {
+			$porUsuarioMapa[$nombreClave] = ['nombre' => $nombreClave, 'actas_pendientes' => 0, 'tiene_cuenta' => $tieneCuenta, 'actas' => []];
+		}
+		$porUsuarioMapa[$nombreClave]['actas_pendientes']++;
+		$porUsuarioMapa[$nombreClave]['actas'][] = [
+			'pos_id' => $g['pos_id'], 'cliente' => $g['cliente_excel'], 'trimestre' => (int) $g['trimestre'],
+			'anio' => (int) $g['anio'], 'categorias' => $g['categorias'], 'actualizado_en' => $g['actualizado_en'],
+		];
+		// Reusado por "chocan" más abajo: mismo nombre ya resuelto arriba, sin repetir la búsqueda por pos_id.
+		$nombrePorClaveGrupo[$g['pos_id'].'|'.$g['trimestre'].'|'.$g['anio']] = $nombre;
 	}
+	$porUsuario = array_values($porUsuarioMapa);
+	usort($porUsuario, function ($a, $b) { return $b['actas_pendientes'] <=> $a['actas_pendientes']; });
+
+	// Actas precargadas que ya no se van a poder generar (el Local ya tiene un Acuerdo activo en el mismo Período). Se detecta antes de que el asesor intente generar y el guardado se rechace en silencio. En lote (2026-09-21, mismo bug de rendimiento de arriba): 2 consultas fijas en vez de hasta 3 por grupo.
 	$chocan = [];
 	if ($grupos) {
-		$stmtExistente = $mysqli->prepare(
-			"SELECT a.documento_no, a.created_at, u.usuario
+		$existentesPorClave = [];
+		$rExist = $mysqli->query(
+			"SELECT a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.documento_no, a.created_at, u.usuario
 			 FROM repositorio_acuerdos a
 			 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
-			 WHERE a.pos_id = ? AND a.anio = ? AND a.mes_inicio = ? AND a.mes_fin = ?
-			   AND a.estado NOT IN ('borrador', 'anulado')
-			 LIMIT 1"
+			 WHERE a.estado NOT IN ('borrador', 'anulado')"
 		);
-		$stmtCliente = $mysqli->prepare(
-			"SELECT pos_name FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1"
-		);
+		if ($rExist) {
+			while ($f = $rExist->fetch_assoc()) {
+				$existentesPorClave[$f['pos_id'].'|'.$f['anio'].'|'.$f['mes_inicio'].'|'.$f['mes_fin']] = $f;
+			}
+		}
+
+		$posIds = array_unique(array_column($grupos, 'pos_id'));
+		$nombreClientePorPosId = [];
+		if ($posIds) {
+			$listaEscapada = implode(',', array_map(function ($id) use ($mysqli) { return "'".$mysqli->real_escape_string($id)."'"; }, $posIds));
+			$rNombres = $mysqli->query("SELECT pos_id, MIN(pos_name) AS pos_name FROM repositorio_locales_supervisores_cliente WHERE pos_id IN ($listaEscapada) GROUP BY pos_id");
+			if ($rNombres) { while ($f = $rNombres->fetch_assoc()) $nombreClientePorPosId[$f['pos_id']] = $f['pos_name']; }
+		}
+
 		foreach ($grupos as $g) {
 			$mesInicio = ($g['trimestre'] - 1) * 3;
 			$mesFin = $mesInicio + 2;
-			$stmtExistente->bind_param('siii', $g['pos_id'], $g['anio'], $mesInicio, $mesFin);
-			$stmtExistente->execute();
-			$existente = $stmtExistente->get_result()->fetch_assoc();
-			if (!$existente) continue;
-
-			$posName = $g['pos_id'];
-			if ($stmtCliente) {
-				$stmtCliente->bind_param('s', $g['pos_id']);
-				$stmtCliente->execute();
-				$fc = $stmtCliente->get_result()->fetch_assoc();
-				if ($fc && $fc['pos_name']) $posName = $fc['pos_name'];
-			}
-			$duenoId = usuarioIdDeCuota($mysqli, $g['pos_id'], $g['trimestre'], $g['anio']);
-			$duenoNombre = null;
-			if ($duenoId) {
-				$ru = $mysqli->query('SELECT usuario FROM repositorio_usuarios_acuerdos WHERE id = '.(int) $duenoId);
-				$fu = $ru ? $ru->fetch_assoc() : null;
-				$duenoNombre = $fu ? $fu['usuario'] : null;
-			}
+			$clave = $g['pos_id'].'|'.$g['anio'].'|'.$mesInicio.'|'.$mesFin;
+			if (!isset($existentesPorClave[$clave])) continue;
+			$existente = $existentesPorClave[$clave];
 
 			$chocan[] = [
 				'pos_id'             => $g['pos_id'],
-				'local'              => $posName,
+				'local'              => $nombreClientePorPosId[$g['pos_id']] ?? $g['pos_id'],
 				'trimestre'          => (int) $g['trimestre'],
 				'anio'               => (int) $g['anio'],
-				'asignado_a'         => $duenoNombre,
+				'asignado_a'         => $nombrePorClaveGrupo[$g['pos_id'].'|'.$g['trimestre'].'|'.$g['anio']] ?? null,
 				'existente_documento_no' => $existente['documento_no'],
 				'existente_usuario'  => $existente['usuario'],
 				'existente_fecha'    => $existente['created_at'],
 			];
 		}
-		$stmtExistente->close();
-		if ($stmtCliente) $stmtCliente->close();
 	}
 
 	return [
@@ -926,8 +958,10 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	if ($filtroFirma === 'firmadas') $condicionFirma = ' AND a.acta_firmada_azure_path IS NOT NULL';
 	elseif ($filtroFirma === 'pendientes') $condicionFirma = ' AND a.acta_firmada_azure_path IS NULL';
 
+	// LEFT JOIN para "Generado por" (2026-09-21, pedido explícito: el admin no tenía forma de ver quién generó cada Acta sin abrirla una por una) — LEFT, no JOIN, porque un Acta huérfana (creado_por NULL) no debe desaparecer de Historial.
 	$sqlBase = "FROM repositorio_acuerdos a
 		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		LEFT JOIN repositorio_usuarios_acuerdos ug ON ug.id = a.creado_por
 		WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
 		  AND (? = 1 OR a.creado_por = ?)
 		  AND d.pos_name LIKE ?
@@ -957,7 +991,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma, a.acta_firmada_mime,
-		        d.pos_name, d.cedi, $canalCanonico
+		        d.pos_name, d.cedi, $canalCanonico, ug.usuario AS generado_por
 		 $sqlBase
 		 GROUP BY a.id
 		 ORDER BY a.fecha_generacion DESC, a.id DESC
@@ -967,7 +1001,7 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		$stmt = $mysqli->prepare(
 			"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
 			        0 AS tiene_firma, NULL AS acta_firmada_mime,
-			        d.pos_name, d.cedi, $canalCanonico
+			        d.pos_name, d.cedi, $canalCanonico, ug.usuario AS generado_por
 			 $sqlBase
 			 GROUP BY a.id
 			 ORDER BY a.fecha_generacion DESC, a.id DESC
@@ -1061,9 +1095,12 @@ function listar_anios_disponibles($mysqli, $usuarioId, $rol = null) {
 function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	$fecha = $a['fecha_generacion'] ? date('d/m/Y', strtotime($a['fecha_generacion'])) : '—';
 	$celdaCanal = '';
+	$celdaGenerador = '';
 	if ($mostrarCanal) {
 		$esDistribuidor = ($a['canal'] ?? '') === 'DISTRIBUIDOR';
 		$celdaCanal = '<td><span class="ac-badge ac-badge-canal-'.($esDistribuidor ? 'distribuidor' : 'directo').'">'.($esDistribuidor ? 'Distribuidor' : 'Directo').'</span></td>';
+		// "Generado por" (2026-09-21, pedido explícito, solo superdesarrollador): antes había que abrir cada Acta individualmente para saber a quién se le asignó.
+		$celdaGenerador = '<td>'.htmlspecialchars($a['generado_por'] ?: '—').'</td>';
 	}
 
 	// Un solo botón por fila que cambia de ícono/acción según el estado: subir si falta la firma, ver el archivo si ya está.
@@ -1103,7 +1140,7 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 		<td><button type="button" class="ac-link-id hist-btn-ver" data-id="'.(int) $a['id'].'">#'.htmlspecialchars($a['documento_no']).'</button></td>
 		<td class="ac-hist-distribuidor">'.htmlspecialchars($a['pos_name']).'</td>
 		<td>'.htmlspecialchars($a['cedi'] ?: '—').'</td>
-		'.$celdaCanal.'
+		'.$celdaCanal.$celdaGenerador.'
 		<td class="ac-text-center">'.htmlspecialchars(periodoCorto((int) $a['mes_inicio'], (int) $a['mes_fin'])).'</td>
 		<td class="ac-text-center">'.$firmaBadge.'</td>
 		<td class="ac-text-right ac-tabular">'.$fecha.'</td>

@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			});
 			btn.classList.add('selected');
 			if (labelSeleccion) labelSeleccion.textContent = btn.dataset.nombre || '';
-			mostrarFormularioDeActividad(btn.dataset.id);
+			mostrarFormularioDeActividad(btn.dataset.renderId || btn.dataset.id);
 			// Elegir otra actividad mientras "Nueva actividad" está abierto vuelve al formulario normal.
 			mostrarFormulario();
 		});
@@ -814,24 +814,41 @@ document.addEventListener('DOMContentLoaded', function () {
 	var previewBotonLabel = document.getElementById('ep-preview-boton-label');
 	var previewFormTitulo = document.getElementById('ep-preview-form-titulo');
 	var previewFormCampos = document.getElementById('ep-preview-form-campos');
+	var previewFormFotos = document.getElementById('ep-preview-form-fotos');
+	var nuevaError = document.getElementById('ep-nueva-error');
+	var guardarActividadBtn = document.getElementById('ep-guardar-actividad-btn');
 
+	var ultimaPlantillaPreview = null;
 	function actualizarVistaPrevia() {
 		if (!nuevaLogica || !window.EP_LOGICAS) return;
 		var nombre = epFormatoTitulo(nuevaNombre.value) || 'Nombre de la actividad';
-		var logica = window.EP_LOGICAS[nuevaLogica.value] || window.EP_LOGICAS[0];
+		var logica = window.EP_LOGICAS[nuevaLogica.value] || window.EP_LOGICAS[Object.keys(window.EP_LOGICAS)[0]];
 
 		if (previewBotonLabel) previewBotonLabel.textContent = nombre;
 		if (previewFormTitulo) previewFormTitulo.textContent = nombre;
 
-		if (previewFormCampos) {
-			previewFormCampos.innerHTML = '';
-			logica.campos.forEach(function (campo) {
-				var fila = document.createElement('div');
-				fila.className = 'ep-preview-campo';
-				var nota = campo.tipo === 'auto' ? 'Se completa automático' : 'Campo de esta lógica';
-				fila.innerHTML = '<span style="font-weight:600;">' + campo.label + '</span><span style="color:var(--color-text-muted);">' + nota + '</span>';
-				previewFormCampos.appendChild(fila);
-			});
+		// El formulario real solo cambia si cambió la plantilla elegida — evita re-pedirlo en cada letra tipeada del nombre.
+		if (previewFormCampos && logica.plantilla !== ultimaPlantillaPreview) {
+			ultimaPlantillaPreview = logica.plantilla;
+			previewFormCampos.innerHTML = '<span style="font-size:12px;color:var(--color-text-muted);">Cargando...</span>';
+			fetch('getters/vista_previa_formulario.php?plantilla=' + encodeURIComponent(logica.plantilla))
+				.then(function (r) { return r.text(); })
+				.then(function (html) { previewFormCampos.innerHTML = html; })
+				.catch(function () { previewFormCampos.innerHTML = '<span style="font-size:12px;color:var(--color-text-muted);">No se pudo cargar la vista previa.</span>'; });
+		}
+
+		if (previewFormFotos) {
+			previewFormFotos.innerHTML = '';
+			if (!logica.fotos || !logica.fotos.length) {
+				previewFormFotos.innerHTML = '<span style="font-size:12px;color:var(--color-text-muted);">Esta lógica no pide fotos todavía.</span>';
+			} else {
+				logica.fotos.forEach(function (foto) {
+					var fila = document.createElement('div');
+					fila.className = 'ep-preview-campo';
+					fila.innerHTML = '<span style="font-weight:600;">' + escapeHtml(foto.label) + '</span><span style="color:var(--color-text-muted);">Foto requerida</span>';
+					previewFormFotos.appendChild(fila);
+				});
+			}
 		}
 	}
 
@@ -843,6 +860,33 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	}
 	if (nuevaLogica) nuevaLogica.addEventListener('change', actualizarVistaPrevia);
+
+	// "Guardar actividad": crea de verdad (persiste en sesión), recarga para que aparezca en sidebar/gestión/paneles.
+	if (guardarActividadBtn) {
+		guardarActividadBtn.addEventListener('click', function () {
+			var nombre = epFormatoTitulo(nuevaNombre ? nuevaNombre.value : '');
+			if (nuevaError) { nuevaError.classList.add('hidden'); nuevaError.textContent = ''; }
+			if (!nombre) {
+				if (nuevaError) { nuevaError.textContent = 'Ponle un nombre a la actividad.'; nuevaError.classList.remove('hidden'); }
+				return;
+			}
+			guardarActividadBtn.disabled = true;
+			var datos = new FormData();
+			datos.append('nombre', nombre);
+			datos.append('logica_id', nuevaLogica ? nuevaLogica.value : '');
+			fetch('getters/crear_actividad.php', { method: 'POST', body: datos })
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (data.ok) { location.reload(); return; }
+					guardarActividadBtn.disabled = false;
+					if (nuevaError) { nuevaError.textContent = data.message || 'No se pudo crear la actividad.'; nuevaError.classList.remove('hidden'); }
+				})
+				.catch(function () {
+					guardarActividadBtn.disabled = false;
+					if (nuevaError) { nuevaError.textContent = 'Error de conexión, intenta de nuevo.'; nuevaError.classList.remove('hidden'); }
+				});
+		});
+	}
 
 	// Gestión de actividades existentes (mockup, solo visual — sin borrado real todavía)
 	var gestionLista = document.getElementById('ep-gestion-lista');

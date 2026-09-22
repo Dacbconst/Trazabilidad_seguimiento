@@ -27,7 +27,7 @@ foreach ($resultado['acuerdos'] as $a) {
 	$filas .= renderFilaHistorial($a, $esSuperdev);
 }
 if (!$resultado['acuerdos']) {
-	$filas = '<tr><td colspan="'.($esSuperdev ? 8 : 7).'" class="ac-table-empty">No se encontraron acuerdos.</td></tr>';
+	$filas = '<tr><td colspan="'.($esSuperdev ? 9 : 7).'" class="ac-table-empty">No se encontraron acuerdos.</td></tr>';
 }
 
 // Stats de los 3 tiles: mismo alcance que la tabla pero sin el filtro de firma, para que no cuenten solo lo ya filtrado.

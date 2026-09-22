@@ -189,7 +189,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 						<th>ID</th>
 						<th>Distribuidor</th>
 						<th>Localidad</th>
-						<?php if ($esSuperdev): ?><th>Canal</th><?php endif; ?>
+						<?php if ($esSuperdev): ?><th>Canal</th><th>Generado por</th><?php endif; ?>
 						<th class="ac-text-center">Periodo</th>
 						<th class="ac-text-center">Firma</th>
 						<th class="ac-text-right">Fecha Generada</th>
@@ -202,7 +202,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 							<?= renderFilaHistorial($a, $esSuperdev) ?>
 						<?php endforeach; ?>
 					<?php else: ?>
-						<tr><td colspan="<?= $esSuperdev ? 8 : 7 ?>" class="ac-table-empty">No se encontraron acuerdos.</td></tr>
+						<tr><td colspan="<?= $esSuperdev ? 9 : 7 ?>" class="ac-table-empty">No se encontraron acuerdos.</td></tr>
 					<?php endif; ?>
 				</tbody>
 			</table>

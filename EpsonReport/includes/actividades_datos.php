@@ -1,7 +1,7 @@
 <?php
 // Actividades registradas — mock temporal hasta que exista tabla real (mismo criterio que ep_rol_actual()).
 function ep_actividades(): array {
-	return [
+	$base = [
 		[
 			'id' => 1,
 			'label' => 'Activaciones',
@@ -85,4 +85,6 @@ function ep_actividades(): array {
 			],
 		],
 	];
+	// "Nueva actividad" (constructor, solo admin) las agrega acá — mismo criterio mock hasta que exista tabla real.
+	return array_merge($base, $_SESSION['ep_actividades_extra'] ?? []);
 }

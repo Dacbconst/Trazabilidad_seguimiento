@@ -13,23 +13,12 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 
 define('FABRICANTE_ACUERDOS', 'JABONERIA WILSON');
 
-// Restringido a los 4 Sectores que realmente usa el módulo (BARRA/CREMA/LIQUIDO/POLVO) — ver CLAUDE.md "Alcance real de Acuerdos Comerciales". Filtra las 4 tablas del Acta, no solo Meta de Compras.
-$combosValidos = [
-	['BARRA', 'LAVAVAJILLAS'],
-	['BARRA', 'ROPA'],
-	['CREMA', 'LAVAVAJILLAS'],
-	['LIQUIDO', 'DESINFECTANTES'],
-	['LIQUIDO', 'DETERGENTE'],
-	['LIQUIDO', 'JABON TOCADOR'],
-	['LIQUIDO', 'LAVAVAJILLAS'],
-	['LIQUIDO', 'SUAVIZANTES'],
-	['POLVO', 'DETERGENTE'],
-];
-$condicionesCombo = [];
-foreach ($combosValidos as $combo) {
-	$condicionesCombo[] = "(sector = '".$mysqli->real_escape_string($combo[0])."' AND categoria = '".$mysqli->real_escape_string($combo[1])."')";
-}
-$filtroSectorCategoria = '('.implode(' OR ', $condicionesCombo).')';
+// Restringido a lo que JW realmente configuró en el Repositorio de Rebate (2026-09-22, pedido explícito: "no me quemes datos en código", reemplaza el arreglo hardcodeado que había acá antes) — si un Sector+Marca no tiene Rebate configurado, no es un producto real de Acuerdos Comerciales, sin importar qué diga repositorio_productos (tabla compartida entre fabricantes/módulos). Match por Sector+Marca, NO por Categoría — confirmado con datos reales que el nombre de Categoría difiere entre las 2 tablas para el mismo producto real (ej. BARRA+EL MACHO: Rebate dice "DETERGENTE", el catálogo de productos dice "ROPA"), decisión explícita del usuario de ignorar esa columna acá. TRIM(TRAILING 'S'...) tolera singular/plural (LIQUIDO/LIQUIDOS, LAVAVAJILLA/LAVAVAJILLAS), mismo criterio ya usado en buscarRebateProducto().
+$filtroSectorCategoria = "EXISTS (
+	SELECT 1 FROM repositorio_rebate_producto r
+	WHERE r.eliminado_en IS NULL
+	  AND TRIM(TRAILING 'S' FROM UPPER(TRIM(r.sector))) = TRIM(TRAILING 'S' FROM UPPER(TRIM(repositorio_productos.sector)))
+	  AND UPPER(TRIM(r.marca)) = UPPER(TRIM(repositorio_productos.marca)))";
 
 $segmentos = [];
 $res = $mysqli->query(

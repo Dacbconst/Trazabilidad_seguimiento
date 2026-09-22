@@ -370,12 +370,8 @@
 		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
 		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito "quita el botón de Pendientes de Asignar") — se deja el resto del mecanismo intacto (getters, modal), por si se retoma después.
-		// resumenAbrirBtn oculto a propósito (2026-09-17, pedido explícito) — su
-		// propósito ("cuántas Actas, a quién") se reemplazó por el resumen integrado
-		// en la previsualización (renderPreviewResumen()), calculado sobre el archivo
-		// que se está por subir en vez de un panorama histórico global poco relevante
-		// para esa decisión puntual. Mecanismo intacto (modal, getter, JS) por si se
-		// retoma — ya no se togglea por tab.
+		// resumenAbrirBtn: vuelto a mostrar (2026-09-21, pedido explícito) — se había ocultado el 2026-09-17 porque su propósito se creyó reemplazado por renderPreviewResumen(), pero ese solo cubre el archivo que se está por subir, no el panorama histórico ("a quién le asigné cada Acta"); con el detalle expandible que se le agregó (ver filaResumenUsuario()), vuelve a tener un propósito propio. Solo visible en Cuotas, como el resto de los botones específicos de esta pestaña.
+		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
 		// eliminadosAbrirBtn oculto a propósito; mecanismo intacto por si se retoma.
 		plantillaDescargarLink.classList.toggle('hidden', tipo === 'cuotas');
 		if (tipo !== 'cuotas') plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
@@ -424,6 +420,10 @@
 	var previewTrimestreBanner = document.getElementById('repo-preview-trimestre-banner');
 	var previewTrimestreValor = document.getElementById('repo-preview-trimestre-valor');
 	var previewCanalBadge = document.getElementById('repo-preview-canal-badge');
+	// Canal elegido a mano ANTES de subir el archivo (2026-09-21, pedido explícito, solo Cuotas) — el canal real lo sigue detectando repositorio_parsear_cuotas() del propio Excel; esto es la intención de quien sube, para avisar de entrada si no coincide.
+	var subirCanalWrap = document.getElementById('repo-subir-canal-wrap');
+	var subirCanalGroup = document.getElementById('repo-subir-canal-group');
+	var canalCuotasElegido = null;
 
 	// Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito: "que pueda con el mouse mover la tabla sosteniendo y moviendo el mouse" — con el ancho auto-ajustado la tabla de previsualización puede quedar más ancha que el modal, y el scrollbar nativo del navegador solo se ve pegado abajo del todo, no arriba). Mantener click y arrastrar mueve el contenido, sin depender de encontrar el scrollbar. Se excluye el arrastre si el click empezó en un input/botón/link — si no, no se podría hacer foco normal para editar una celda.
 	function activarArrastreScroll(contenedor) {
@@ -521,6 +521,11 @@
 	function cerrarModalSubir() {
 		subirOverlay.classList.remove('ac-modal-open');
 	}
+	function actualizarDropzoneBloqueo() {
+		var bloqueado = tipoActivo === 'cuotas' && !canalCuotasElegido;
+		dropzone.classList.toggle('ac-dropzone-bloqueado', bloqueado);
+	}
+
 	function mostrarPasoElegir() {
 		pasoElegir.classList.remove('hidden');
 		pasoPreview.classList.add('hidden');
@@ -533,6 +538,10 @@
 		estadosPreview = null;
 		previewAnioWrap.classList.add('hidden');
 		ocultarErroresPreview();
+		canalCuotasElegido = null;
+		subirCanalWrap.classList.toggle('hidden', tipoActivo !== 'cuotas');
+		Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (btn) { btn.classList.remove('ac-canal-picker-opcion-activa'); });
+		actualizarDropzoneBloqueo();
 	}
 	function mostrarPasoPreview() {
 		pasoElegir.classList.add('hidden');
@@ -549,12 +558,24 @@
 	document.getElementById('repo-subir-atras').addEventListener('click', mostrarPasoElegir);
 	// Sin cierre por click afuera (2026-08-25, pedido explícito: "se me cierra esta ventanita por clicks accidentales afuera") — el arrastre con mouse de la tabla de previsualización (activarArrastreScroll()) mueve el cursor bastante, y si el mouseup termina cayendo justo sobre el fondo oscuro del overlay, el `click` nativo podía disparar acá y cerrar el modal perdiendo lo que el usuario ya había corregido. Cerrar sigue disponible por la "X" (`repo-subir-modal-close`) y "Cancelar".
 
-	dropzone.addEventListener('click', function () { archivoInput.click(); });
+	subirCanalGroup.addEventListener('click', function (e) {
+		var btn = e.target.closest('.ac-canal-picker-opcion');
+		if (!btn) return;
+		canalCuotasElegido = btn.getAttribute('data-canal');
+		Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (b) { b.classList.toggle('ac-canal-picker-opcion-activa', b === btn); });
+		actualizarDropzoneBloqueo();
+	});
+
+	dropzone.addEventListener('click', function () {
+		if (tipoActivo === 'cuotas' && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
+		archivoInput.click();
+	});
 	dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('ac-dropzone-hover'); });
 	dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('ac-dropzone-hover'); });
 	dropzone.addEventListener('drop', function (e) {
 		e.preventDefault();
 		dropzone.classList.remove('ac-dropzone-hover');
+		if (tipoActivo === 'cuotas' && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
 		if (e.dataTransfer.files.length) previsualizarArchivo(e.dataTransfer.files[0]);
 	});
 	archivoInput.addEventListener('change', function () {
@@ -577,6 +598,11 @@
 			progresoCargaFill.style.width = pct + '%';
 			progresoCargaTexto.textContent = 'Subiendo… ' + pct + '%';
 		});
+		// Bug real reportado 2026-09-21 ("se me queda en Subiendo... 100% y debo esperar, van a pensar que está dañado") — el progreso de arriba solo mide bytes ENVIADOS, llega a 100% en cuanto el navegador termina de mandar el archivo, pero el servidor todavía tiene que leerlo (ZipArchive + XML del .xlsx) antes de responder. Ese hueco quedaba con el texto congelado en "100%" sin ninguna señal de que seguía trabajando. `upload.load` marca justo ese momento: sube termina, empieza a procesar.
+		xhr.upload.addEventListener('load', function () {
+			progresoCargaFill.classList.add('ac-progreso-carga-fill-indeterminado');
+			progresoCargaTexto.textContent = 'Procesando archivo…';
+		});
 		xhr.addEventListener('load', function () {
 			ocultarProgresoCarga();
 			var data;
@@ -585,6 +611,20 @@
 				return;
 			}
 			if (!data.ok) { mostrarMensaje(data.message, false); return; }
+			// El archivo elegido no coincide con lo que la persona dijo que iba a subir (2026-09-21) — el canal REAL lo sigue mandando el propio Excel (repositorio_parsear_cuotas()), esto solo avisa de entrada en vez de que se entere recién guardando.
+			if (tipoActivo === 'cuotas' && canalCuotasElegido && data.canal_detectado && data.canal_detectado !== canalCuotasElegido) {
+				var etiquetaElegido = canalCuotasElegido === 'distribuidor' ? 'Distribuidor' : 'Directo';
+				var etiquetaDetectado = data.canal_detectado === 'distribuidor' ? 'Distribuidor' : 'Directo';
+				Swal.fire({
+					icon: 'warning',
+					title: 'El archivo no coincide',
+					html: 'Elegiste <strong>' + etiquetaElegido + '</strong>, pero este archivo tiene el formato de <strong>' + etiquetaDetectado + '</strong>.<br><br>Verifica que sea el archivo correcto antes de continuar.',
+					confirmButtonText: 'Entendido',
+					confirmButtonColor: '#00288e'
+				});
+				archivoInput.value = '';
+				return;
+			}
 			filasPreview = data.filas;
 			trimestrePreview = data.trimestre || null;
 			canalCuotasPreview = data.canal_detectado || null;
@@ -623,6 +663,7 @@
 
 	function mostrarProgresoCarga() {
 		dropzone.classList.add('hidden');
+		progresoCargaFill.classList.remove('ac-progreso-carga-fill-indeterminado');
 		progresoCargaFill.style.width = '0%';
 		progresoCargaTexto.textContent = 'Subiendo…';
 		progresoCarga.classList.remove('hidden');
@@ -842,6 +883,77 @@
 			.catch(function () { ponerGuardarCargando(false); mostrarMensaje('Error de conexión al guardar.', false); });
 	}
 
+	// Sin tildes ni ñ/n (2026-09-21, pedido explícito tras caso real: "CARLOS PROAÑO" del maestro vs "CARLOS PROANO" tipeado en el Excel disparaba la alerta por una sola letra) — acá el universo es chico y conocido (nombres reales de asesores/ciudades ya en el sistema), el riesgo de que ignorar un acento tape un error real es prácticamente nulo, y disparar la alerta por esto solo entrena a la gente a hacer click en "Guardar de todas formas" sin leer, tapando los casos que sí importan.
+	function normalizarParaComparar(texto) {
+		return (texto || '').trim().toUpperCase().replace(/\s+/g, ' ')
+			.replace(/[ÁÀÄÂ]/g, 'A').replace(/[ÉÈËÊ]/g, 'E').replace(/[ÍÌÏÎ]/g, 'I')
+			.replace(/[ÓÒÖÔ]/g, 'O').replace(/[ÚÙÜÛ]/g, 'U').replace(/Ñ/g, 'N');
+	}
+
+	// Confirmación visual antes de guardar Cuotas (2026-09-21, pedido explícito) — 3 casos, TODOS los que apliquen por cliente (no uno solo, pedido explícito: "si tiene error en ciudad Y el asesor, lánzame los dos"): cliente no identificado, cliente identificado pero sin asesor resuelto, y CEDI/Ciudad del Excel que no coincide con el real en base. La comparación de Ciudad SOLO aplica a Distribuidor (bug real reportado: en Directo el campo CEDI del Excel es el NOMBRE DEL ASESOR, no una ciudad — comparado contra el campo geográfico de la base, TODA fila de Directo salía "no coincide" aunque estuviera bien). Deduplicado por cliente+CEDI: un cliente con 4 categorías no debe listarse 4 veces por el mismo problema.
+	function filasConProblemaDeAsignacion() {
+		if (!estadosPreview) return [];
+		var filas = leerFilasPreviewEditadas();
+		var vistos = {};
+		var problemas = [];
+		estadosPreview.forEach(function (e, i) {
+			if (!e || e.estado === 'invalido') return;
+			var f = filas[i];
+			var clave = f ? (f.cliente_excel + '|' + f.cedi_excel) : i;
+			if (vistos[clave]) return;
+			var sinCliente = e.estado === 'sin_cliente';
+			var sinAsesor = !!e.pos_id && !e.asignado_a;
+			var cediExcelNorm = normalizarParaComparar(f ? f.cedi_excel : '');
+			var cediRealNorm = normalizarParaComparar(e.cedi_real);
+			var cediNoCoincide = canalCuotasPreview === 'distribuidor' && !!e.pos_id && !!e.cedi_real && cediExcelNorm !== '' && cediExcelNorm !== cediRealNorm;
+			// Solo Directo (2026-09-21, caso real reportado: "puse CARLOS en vez de CARLOS PROAÑO") — el CEDI del Excel ahí SÍ es el nombre del asesor. Como no matcheó exacto contra ninguna cuenta activa, resolverNombreAsignadoCuota() cayó al respaldo del maestro y encontró bien al asesor real (por eso sinAsesor da false) — pero nadie avisaba que lo tipeado no coincidía con lo encontrado. Sin equivalente en Distribuidor: ahí el Excel nunca especifica asesor, se resuelve siempre del maestro.
+			var asignadoNorm = normalizarParaComparar(e.asignado_a);
+			var asesorNoCoincide = canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
+			if (!sinCliente && !sinAsesor && !cediNoCoincide && !asesorNoCoincide) return;
+			vistos[clave] = true;
+			var motivos = [];
+			if (sinCliente) motivos.push({ texto: 'No se pudo identificar este cliente en el maestro' });
+			if (sinAsesor) motivos.push({ texto: 'Cliente identificado, pero no se pudo resolver a qué asesor pertenece' });
+			if (cediNoCoincide) motivos.push({ texto: 'En la base, la Ciudad de este cliente es', valor: e.cedi_real });
+			if (asesorNoCoincide) motivos.push({ texto: 'El asesor real de este cliente es', valor: e.asignado_a });
+			problemas.push({ cliente: f ? f.cliente_excel : '', cedi: f ? f.cedi_excel : '', motivos: motivos });
+		});
+		return problemas;
+	}
+
+	// Mismas clases .ac-choque-* que ya usa el modal "Resumen" para comparar Acta precargada vs Acuerdo existente — acá el lado izquierdo es el cliente+CEDI tal cual viene del Excel, el derecho TODOS los motivos que apliquen para ese cliente (2026-09-21, antes solo mostraba el primero por un if/else, pedido explícito de mostrar todos a la vez).
+	function confirmarAsignacionYGuardar(onDone) {
+		var problemas = filasConProblemaDeAsignacion();
+		if (!problemas.length) { guardarCuotas(onDone); return; }
+		var filasHtml = problemas.map(function (p) {
+			var ladoDerecho = p.motivos.map(function (m) {
+				return '<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">' + escapeHtml(m.texto) + '</p>' +
+					(m.valor ? '<p class="ac-choque-doc" style="margin-bottom:8px;">' + escapeHtml(m.valor) + '</p>' : '<p class="ac-choque-meta" style="margin-bottom:8px;"></p>');
+			}).join('');
+			return '<div class="ac-choque-row">' +
+				'<div class="ac-choque-side ac-choque-side-precarga">' +
+					'<p class="ac-choque-eyebrow ac-choque-eyebrow-precarga">Cliente del Excel</p>' +
+					'<p class="ac-choque-local">' + escapeHtml(p.cliente || '(sin nombre)') + '</p>' +
+					'<p class="ac-choque-meta">CEDI/Ciudad en el Excel: <strong>' + escapeHtml(p.cedi || '—') + '</strong></p>' +
+				'</div>' +
+				'<div class="ac-choque-arrow"><span class="material-symbols-outlined">arrow_forward</span></div>' +
+				'<div class="ac-choque-side ac-choque-side-existente">' + ladoDerecho + '</div>' +
+			'</div>';
+		}).join('');
+		Swal.fire({
+			icon: 'warning',
+			title: problemas.length + ' cliente(s) para revisar antes de guardar',
+			html: '¿Estás seguro de guardarlo así? Revisa cada caso antes de continuar.<br><br><div class="ac-choque-list">' + filasHtml + '</div>',
+			width: 720,
+			showCancelButton: true,
+			confirmButtonText: 'Guardar de todas formas',
+			cancelButtonText: 'Revisar el archivo',
+			confirmButtonColor: '#00288e'
+		}).then(function (r) {
+			if (r.isConfirmed) guardarCuotas(onDone);
+		});
+	}
+
 	// Guarda el paso 2 de la subida de Cuotas — endpoint y payload distintos a Rebate/Participación (getters/cuotas_guardar.php espera {filas, trimestre, anio}, no {tipo, filas}), y el año lo tipeó el usuario a mano (el Excel no lo trae, ver previsualizarArchivo()).
 	function guardarCuotas(onDone) {
 		var anio = parseInt(previewAnioInput.value, 10);
@@ -929,7 +1041,7 @@
 			}
 		};
 		if (tipoActivo === 'cuotas') {
-			guardarCuotas(onDone);
+			confirmarAsignacionYGuardar(onDone);
 		} else {
 			guardarFilas(leerFilasPreviewEditadas(), onDone);
 		}
@@ -1093,17 +1205,32 @@
 		return ((partes[0] || '')[0] || '') + ((partes[1] || '')[0] || '');
 	}
 
-	function filaResumenUsuario(u, conCuenta) {
+	// Detalle real de las Actas de un asesor (2026-09-21, pedido explícito: el admin quiere ver CUÁLES Actas está cargando, no solo cuántas, sin entrar a la cuenta de cada asesor) — fila clickeable que despliega una tabla chica con cliente/período/categorías/actualizado, dato que ya viene en u.actas desde resumen_cuotas().
+	function filaResumenDetalleActas(actas) {
+		if (!actas || !actas.length) return '';
+		return '<table class="ac-resumen-detalle-tabla"><thead><tr><th>Cliente</th><th>Período</th><th>Categorías</th><th>Actualizado</th></tr></thead><tbody>' +
+			actas.map(function (a) {
+				return '<tr><td>' + escapeHtml(a.cliente) + '</td><td>' + TRIMESTRE_LABEL[a.trimestre] + ' ' + a.anio + '</td><td>' + a.categorias + '</td><td>' + formatoFechaHora(a.actualizado_en) + '</td></tr>';
+			}).join('') +
+			'</tbody></table>';
+	}
+
+	function filaResumenUsuario(u, conCuenta, idx) {
 		var avatarClase = conCuenta ? 'ac-resumen-avatar-activo' : 'ac-resumen-avatar-inactivo';
 		var filaClase = conCuenta ? 'ac-resumen-fila-activa' : '';
 		var barraClase = conCuenta ? 'ac-resumen-barra-activa' : 'ac-resumen-barra-inactiva';
 		var nombreClase = conCuenta ? 'ac-resumen-nombre-activo' : 'ac-resumen-nombre-inactivo';
-		return '<div class="ac-resumen-fila ' + filaClase + '">' +
-			'<div class="' + avatarClase + '">' + escapeHtml(inicialesDe(u.nombre).toUpperCase()) + '</div>' +
-			'<span class="ac-resumen-nombre ' + nombreClase + '">' + escapeHtml(u.nombre) + '</span>' +
-			'<div class="ac-chart-track"><div class="ac-chart-seg ' + barraClase + '" style="width:' + Math.max((u.actas_pendientes / u._max) * 100, 6) + '%;" title="' + escapeHtml(u.nombre) + ': ' + u.actas_pendientes + ' Acta(s) pendiente(s)"></div></div>' +
-			'<span class="ac-chart-row-value">' + u.actas_pendientes + '</span>' +
-			'</div>';
+		var detalleId = 'ac-resumen-detalle-' + idx;
+		return '<div class="ac-resumen-fila-wrap">' +
+			'<button type="button" class="ac-resumen-fila ' + filaClase + '" data-detalle-toggle="' + detalleId + '">' +
+				'<div class="' + avatarClase + '">' + escapeHtml(inicialesDe(u.nombre).toUpperCase()) + '</div>' +
+				'<span class="ac-resumen-nombre ' + nombreClase + '">' + escapeHtml(u.nombre) + '</span>' +
+				'<div class="ac-chart-track"><div class="ac-chart-seg ' + barraClase + '" style="width:' + Math.max((u.actas_pendientes / u._max) * 100, 6) + '%;" title="' + escapeHtml(u.nombre) + ': ' + u.actas_pendientes + ' Acta(s) pendiente(s)"></div></div>' +
+				'<span class="ac-chart-row-value">' + u.actas_pendientes + '</span>' +
+				'<span class="material-symbols-outlined ac-resumen-fila-chevron">expand_more</span>' +
+			'</button>' +
+			'<div class="ac-resumen-detalle hidden" id="' + detalleId + '">' + filaResumenDetalleActas(u.actas) + '</div>' +
+		'</div>';
 	}
 
 	// Agrupado en 2 secciones — "Con cuenta de usuario" / "Sin cuenta todavía" — en vez de una lista sola con un badge chico al lado del nombre (2026-08-26, rediseño hecho primero en Claude Design y aprobado por el usuario): separar espacialmente los dos grupos se distingue de un vistazo, sin tener que leer cada fila una por una.
@@ -1113,22 +1240,33 @@
 			return;
 		}
 		var max = Math.max.apply(null, porUsuario.map(function (u) { return u.actas_pendientes; })) || 1;
-		porUsuario.forEach(function (u) { u._max = max; });
+		var idxGlobal = 0;
+		porUsuario.forEach(function (u) { u._max = max; u._idx = idxGlobal++; });
 		var conCuenta = porUsuario.filter(function (u) { return u.tiene_cuenta; });
 		var sinCuenta = porUsuario.filter(function (u) { return !u.tiene_cuenta; });
 
 		var html = '';
 		if (conCuenta.length) {
 			html += '<p class="ac-resumen-grupo-titulo ac-resumen-grupo-titulo-activo">Con cuenta de usuario</p>' +
-				'<div class="ac-chart-rows" style="margin-bottom:16px;">' + conCuenta.map(function (u) { return filaResumenUsuario(u, true); }).join('') + '</div>';
+				'<div class="ac-chart-rows" style="margin-bottom:16px;">' + conCuenta.map(function (u) { return filaResumenUsuario(u, true, u._idx); }).join('') + '</div>';
 		}
 		if (sinCuenta.length) {
 			html += '<p class="ac-resumen-grupo-titulo ac-resumen-grupo-titulo-inactivo">Sin cuenta todavía</p>' +
-				'<div class="ac-chart-rows">' + sinCuenta.map(function (u) { return filaResumenUsuario(u, false); }).join('') + '</div>' +
+				'<div class="ac-chart-rows">' + sinCuenta.map(function (u) { return filaResumenUsuario(u, false, u._idx); }).join('') + '</div>' +
 				'<p class="ac-resumen-nota"><span class="material-symbols-outlined" style="font-size:16px;">info</span>Sus Actas quedan asignadas solas apenas se les cree la cuenta en Gestión de Usuarios.</p>';
 		}
 		resumenChart.innerHTML = html;
 	}
+
+	// Delegado, no por fila (renderResumenChart() reescribe innerHTML cada vez que se abre el modal) — clickear la fila despliega/oculta su tabla de detalle, gira la flecha.
+	resumenChart.addEventListener('click', function (e) {
+		var btn = e.target.closest('[data-detalle-toggle]');
+		if (!btn) return;
+		var detalle = document.getElementById(btn.getAttribute('data-detalle-toggle'));
+		if (!detalle) return;
+		detalle.classList.toggle('hidden');
+		btn.classList.toggle('ac-resumen-fila-abierta', !detalle.classList.contains('hidden'));
+	});
 
 	// Actas que YA NO se pueden generar porque el Local ya tiene un Acuerdo activo en el mismo Período (2026-08-28, ver resumen_cuotas() en functions.php — misma regla que getters/guardar_acuerdo.php, detectada acá ANTES de que el asesor intente generar y se lo rechacen en silencio). Diseñado primero en Claude Design y aprobado por el usuario ("me parece perfecto") — cuadro comparativo: a la izquierda la Acta precargada (Local + Período + a quién se le iba a asignar), a la derecha el Acuerdo existente con el que choca (documento, quién lo generó, fecha).
 	var TRIMESTRE_LABEL = ['', 'Q1', 'Q2', 'Q3', 'Q4'];

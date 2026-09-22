@@ -30,8 +30,13 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 // Cachea dentro de esta verificación: resolverSectorReal()/resolverPosIdCliente() escanean sin índice útil y esto corre en cada cambio de Año.
 $cacheSector = [];
 $cachePosId  = [];
+$cacheCediReal = [];
 $stmtExistente = $mysqli->prepare(
 	'SELECT estado FROM repositorio_cuota_cliente WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? LIMIT 1'
+);
+// CEDI/Ciudad real del cliente ya identificado (2026-09-21, pedido explícito: "si en base dice Guayaquil pero el Excel me pone Quito, avisar antes de guardar") — MIN() por si el pos_id se repite en el maestro.
+$stmtCediReal = $mysqli->prepare(
+	'SELECT MIN(cedi) AS cedi FROM repositorio_locales_supervisores_cliente WHERE pos_id = ?'
 );
 
 $estados = [];
@@ -89,13 +94,27 @@ foreach ($filas as $fila) {
 	// tiene_cuenta distingue "cliente identificado, supervisor real conocido, pero sin
 	// cuenta de usuario todavía" de "no se pudo identificar nada" (pedido explícito).
 	$asignado = resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel);
+
+	if (!array_key_exists($posId, $cacheCediReal)) {
+		$cediReal = null;
+		if ($stmtCediReal) {
+			$stmtCediReal->bind_param('s', $posId);
+			$stmtCediReal->execute();
+			$filaCedi = $stmtCediReal->get_result()->fetch_assoc();
+			$cediReal = $filaCedi ? $filaCedi['cedi'] : null;
+		}
+		$cacheCediReal[$posId] = $cediReal;
+	}
+
 	$estados[] = [
 		'estado' => $estado, 'sector_resuelto' => $sectorResuelto,
 		'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
 		'pos_id' => $posId, 'asignado_a' => $asignado['nombre'], 'tiene_cuenta' => $asignado['tiene_cuenta'],
+		'cedi_real' => $cacheCediReal[$posId],
 	];
 }
 if ($stmtExistente) $stmtExistente->close();
+if ($stmtCediReal) $stmtCediReal->close();
 
 responder(true, 'ok', ['estados' => $estados]);
 ?>

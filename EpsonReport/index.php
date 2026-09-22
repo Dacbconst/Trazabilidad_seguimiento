@@ -10,8 +10,10 @@ if (empty($_SESSION['usuario'])) {
 
 require_once __DIR__.'/includes/functions.php';
 require_once __DIR__.'/includes/secciones.php';
+require_once __DIR__.'/includes/actividades_datos.php';
 
 $secciones = ep_secciones();
+$actividadesNav = ep_actividades();
 $vista = $_GET['vista'] ?? 'actividades';
 if (!isset($secciones[$vista])) {
 	$vista = 'actividades';
@@ -27,13 +29,9 @@ if (!isset($secciones[$vista])) {
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__.'/assets/css/style.css') ?>">
 </head>
 <body>
-	<header class="ep-mobile-header">
-		<button type="button" id="epMenuBtn" class="ep-mobile-menu-btn" aria-label="Abrir menú">
-			<?= ep_icon('menu', 22) ?>
-		</button>
-		<div class="ep-brand-mark">ER</div>
-		<span class="ep-mobile-header-title">EpsonReport</span>
-	</header>
+	<button type="button" id="epMenuBtn" class="ep-mobile-menu-btn" aria-label="Abrir menú">
+		<?= ep_icon('menu', 20) ?>
+	</button>
 
 	<div class="ep-shell">
 		<?php require __DIR__.'/partials/sidebar.php'; ?>
@@ -60,12 +58,19 @@ if (!isset($secciones[$vista])) {
 			epSidebar.classList.remove('open');
 			epSidebarBackdrop.classList.remove('open');
 		}
-		epMenuBtn.addEventListener('click', abrirDrawer);
+		epMenuBtn.addEventListener('click', function () {
+			if (epSidebar.classList.contains('open')) {
+				cerrarDrawer();
+			} else {
+				abrirDrawer();
+			}
+		});
 		epSidebarBackdrop.addEventListener('click', cerrarDrawer);
 
 		// Clic en cualquier zona vacía del sidebar (nunca sobre un link real): en mobile cierra el drawer, en desktop colapsa el menú.
 		epSidebar.addEventListener('click', function (ev) {
 			if (ev.target.closest('a')) return;
+			if (ev.target.closest('#epSidebarSubVolver')) return;
 			if (mqMobile.matches) {
 				cerrarDrawer();
 				return;
@@ -73,6 +78,21 @@ if (!isset($secciones[$vista])) {
 			epSidebar.classList.toggle('collapsed');
 			localStorage.setItem('ep_sidebar_colapsado', epSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
+
+		// Submenú "Actividades" en celular: reemplaza el menú principal dentro del mismo panel, en vez de navegar de una.
+		var epSidebarSubVolver = document.getElementById('epSidebarSubVolver');
+		epSidebar.querySelectorAll('[data-abre-submenu]').forEach(function (link) {
+			link.addEventListener('click', function (ev) {
+				if (!mqMobile.matches) return;
+				ev.preventDefault();
+				epSidebar.classList.add('ep-sidebar-mostrando-submenu');
+			});
+		});
+		if (epSidebarSubVolver) {
+			epSidebarSubVolver.addEventListener('click', function () {
+				epSidebar.classList.remove('ep-sidebar-mostrando-submenu');
+			});
+		}
 	</script>
 	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>
 </body>

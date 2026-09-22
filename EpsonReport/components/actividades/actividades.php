@@ -17,7 +17,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 
 	<div id="ep-lista-actividades" style="display:flex;flex-direction:column;gap:8px;">
 		<?php foreach ($actividades as $i => $a): ?>
-			<button type="button" class="ep-activity-item<?= $i === 0 ? ' selected' : '' ?>" data-id="<?= (int) $a['id'] ?>" data-actividad="<?= htmlspecialchars($a['label']) ?>" data-nombre="<?= htmlspecialchars($a['label']) ?>">
+			<button type="button" class="ep-activity-item<?= $i === 0 ? ' selected' : '' ?>" data-id="<?= (int) $a['id'] ?>" data-render-id="<?= (int) ($a['render_id'] ?? $a['id']) ?>" data-actividad="<?= htmlspecialchars($a['label']) ?>" data-nombre="<?= htmlspecialchars($a['label']) ?>">
 				<span class="ep-activity-icon"><?= ep_icon('grid', 14) ?></span>
 				<span class="ep-activity-label"><?= htmlspecialchars($a['label']) ?></span>
 				<?php if ($a['badge']): ?><span class="ep-activity-badge"><?= htmlspecialchars($a['badge']) ?></span><?php endif; ?>
@@ -46,9 +46,13 @@ $esAdmin = ep_rol_actual() === 'admin';
 	</div>
 	<?php endif; ?>
 
+	<?php
+	// Las actividades "copia" (Nueva actividad) apuntan a la misma plantilla que su origen — solo se renderiza UNA vez por origen real, para no duplicar IDs de campos en el DOM.
+	$actividadesOriginales = array_filter($actividades, fn($a) => ($a['render_id'] ?? $a['id']) === $a['id']);
+	?>
 	<div class="ep-actividad-layout<?= !empty($actividades[0]['sin_estadisticas']) ? ' ep-actividad-layout-sin-stats' : '' ?>" id="ep-actividad-layout">
 		<div id="ep-panel-formulario" class="ep-card">
-			<?php foreach ($actividades as $i => $actividad): ?>
+			<?php foreach ($actividadesOriginales as $i => $actividad): ?>
 				<div class="ep-formulario-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
 					<?php include __DIR__.'/plantillas/'.$actividad['plantilla'].'.php'; ?>
 				</div>
@@ -62,7 +66,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 
 		<div id="ep-panel-estadisticas" class="ep-card">
 			<div class="ep-eyebrow">Estadísticas</div>
-			<?php foreach ($actividades as $i => $actividad): ?>
+			<?php foreach ($actividadesOriginales as $i => $actividad): ?>
 				<div class="ep-estadisticas-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>" data-sin-estadisticas="<?= !empty($actividad['sin_estadisticas']) ? '1' : '0' ?>">
 					<?php include __DIR__.'/plantillas-stats/'.$actividad['plantilla'].'.php'; ?>
 				</div>
@@ -70,8 +74,8 @@ $esAdmin = ep_rol_actual() === 'admin';
 		</div>
 
 		<div class="ep-evidencia-wrap">
-			<?php foreach ($actividades as $i => $actividad):
-				$epEvidenciaFotos = ep_fotos_requeridas($actividad['id']);
+			<?php foreach ($actividadesOriginales as $i => $actividad):
+				$epEvidenciaFotos = ep_fotos_requeridas($actividad['plantilla']);
 				$epEvidenciaPrefix = 'a' . $actividad['id'];
 			?>
 				<div class="ep-evidencia-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
@@ -96,16 +100,18 @@ $esAdmin = ep_rol_actual() === 'admin';
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label">Lógica a replicar</label>
 					<select class="ep-input" id="ep-nueva-logica">
-						<?php foreach ($actividades as $i => $a): ?>
-							<option value="<?= $i ?>"><?= htmlspecialchars($a['label']) ?></option>
+						<?php foreach ($actividades as $a): ?>
+							<option value="<?= (int) $a['id'] ?>"><?= htmlspecialchars($a['label']) ?></option>
 						<?php endforeach; ?>
 					</select>
 					<span style="font-size:12px;color:var(--color-text-muted);">El nuevo reporte usa el mismo formulario, cálculo y formato de fotos que la lógica elegida.</span>
 				</div>
 
+				<div id="ep-nueva-error" class="hidden" style="color:var(--color-danger);font-size:12px;"></div>
+
 				<div style="display:flex;gap:12px;margin-top:8px;">
 					<button type="button" class="ep-btn-outline" id="ep-cancelar-nueva-actividad">Cancelar</button>
-					<button type="button" class="ep-btn-primary">Guardar actividad</button>
+					<button type="button" class="ep-btn-primary" id="ep-guardar-actividad-btn">Guardar actividad</button>
 				</div>
 			</div>
 
@@ -148,7 +154,15 @@ $esAdmin = ep_rol_actual() === 'admin';
 			<div>
 				<div class="ep-eyebrow">Vista previa · formulario</div>
 				<h3 id="ep-preview-form-titulo" style="font-size:18px;margin-top:8px;">Nombre de la actividad</h3>
-				<div id="ep-preview-form-campos" style="display:flex;flex-direction:column;gap:12px;margin-top:16px;"></div>
+				<p style="font-size:12px;color:var(--color-text-muted);margin:4px 0 0;">Así se ve el formulario real de esta lógica — es solo de referencia, no se puede tipear acá.</p>
+				<div id="ep-preview-form-campos" class="ep-preview-formulario-real" style="margin-top:16px;"></div>
+			</div>
+
+			<div class="ep-builder-preview-divider"></div>
+
+			<div>
+				<div class="ep-eyebrow">Vista previa · evidencia fotográfica</div>
+				<div id="ep-preview-form-fotos" style="display:flex;flex-direction:column;gap:12px;margin-top:16px;"></div>
 			</div>
 		</div>
 	</div>
@@ -159,6 +173,6 @@ $esAdmin = ep_rol_actual() === 'admin';
 <?php if ($esAdmin): ?>
 <script>
 	// Mockup: lógicas disponibles para que "Nueva actividad" arme su vista previa en vivo.
-	window.EP_LOGICAS = <?= json_encode(array_map(fn($a) => ['label' => $a['label'], 'campos' => $a['campos']], $actividades), JSON_UNESCAPED_UNICODE) ?>;
+	window.EP_LOGICAS = <?= json_encode(array_combine(array_column($actividades, 'id'), array_map(fn($a) => ['label' => $a['label'], 'plantilla' => $a['plantilla'], 'campos' => $a['campos'], 'fotos' => ep_fotos_requeridas($a['plantilla'])], $actividades)), JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <?php endif; ?>

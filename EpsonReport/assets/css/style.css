@@ -189,6 +189,15 @@ html, body.ep-login-body { height: 100%; }
 	font-size: 14px;
 }
 
+.ep-login-clave-wrap { position: relative; }
+.ep-login-clave-wrap .ep-input { padding-right: 44px; }
+.ep-login-clave-toggle {
+	position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+	width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+	border: none; background: transparent; color: var(--color-text-muted); border-radius: 8px;
+}
+.ep-login-clave-toggle:hover { color: var(--color-primary); background: var(--color-primary-soft); }
+
 /* ---------- Shell autenticado ---------- */
 .ep-shell { display: flex; height: 100vh; overflow: hidden; }
 
@@ -204,20 +213,34 @@ html, body.ep-login-body { height: 100%; }
 	transition: width 0.18s ease;
 	overflow: hidden;
 	cursor: pointer;
+	position: relative;
 }
 .ep-sidebar-nav a, .ep-sidebar-logout { cursor: pointer; }
 
-.ep-sidebar-brand {
-	width: 100%;
-	border: none;
-	background: transparent;
-	padding: 6px 4px 16px;
-	border-radius: var(--radius-sm);
-	text-align: left;
+.ep-sidebar-menu-principal { display: flex; flex-direction: column; flex-grow: 1; gap: 4px; min-height: 0; overflow-y: auto; }
+
+.ep-sidebar-user { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 4px 20px; text-align: center; }
+.ep-sidebar-avatar {
+	width: 64px; height: 64px; border-radius: 999px; flex-shrink: 0;
+	background: rgba(255,255,255,0.14); border: 1.5px dashed rgba(255,255,255,0.35);
 }
-.ep-sidebar-brand:hover .ep-brand-mark { background: rgba(255,255,255,0.28); }
-.ep-sidebar-brand-row { display: flex; align-items: center; gap: 10px; }
-.ep-sidebar-brand-text { flex-grow: 1; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 15px; color: #FFFFFF; white-space: nowrap; }
+.ep-sidebar-user-name { color: #FFFFFF; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ep-sidebar.collapsed .ep-sidebar-user { flex-direction: row; padding: 6px 4px 16px; }
+.ep-sidebar.collapsed .ep-sidebar-avatar { width: 34px; height: 34px; }
+
+/* Submenú "Actividades" en celular: mismo panel, mismo diseño que el aside de escritorio (fondo blanco, .ep-activity-item). */
+.ep-sidebar-submenu {
+	display: none; flex-direction: column; flex-grow: 1; min-height: 0; overflow-y: auto;
+	background: var(--color-surface); margin: -20px -16px; padding: 16px;
+}
+.ep-sidebar.ep-sidebar-mostrando-submenu .ep-sidebar-menu-principal { display: none; }
+.ep-sidebar.ep-sidebar-mostrando-submenu .ep-sidebar-submenu { display: flex; }
+.ep-sidebar-submenu-volver {
+	display: flex; align-items: center; gap: 8px; border: none; background: transparent; cursor: pointer;
+	color: var(--color-text-muted); font-size: 13px; font-weight: 600; padding: 4px 0 14px;
+}
+.ep-sidebar-submenu-volver:hover { color: var(--color-primary); }
+.ep-sidebar-submenu-volver svg { transform: rotate(90deg); }
 
 .ep-sidebar-nav { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ep-sidebar-nav a {
@@ -251,8 +274,8 @@ html, body.ep-login-body { height: 100%; }
 .ep-sidebar-logout:hover { background: rgba(255,255,255,0.08); }
 
 .ep-sidebar.collapsed { width: 72px; }
-.ep-sidebar.collapsed .ep-sidebar-brand-row { justify-content: center; }
-.ep-sidebar.collapsed .ep-sidebar-brand-text,
+.ep-sidebar.collapsed .ep-sidebar-user { justify-content: center; }
+.ep-sidebar.collapsed .ep-sidebar-user-name,
 .ep-sidebar.collapsed .ep-nav-label { display: none; }
 .ep-sidebar.collapsed .ep-sidebar-nav a,
 .ep-sidebar.collapsed .ep-sidebar-logout { justify-content: center; padding-left: 0; padding-right: 0; }
@@ -283,6 +306,8 @@ html, body.ep-login-body { height: 100%; }
 	border-radius: var(--radius-md);
 	border: 1px solid transparent;
 	background: transparent;
+	color: inherit;
+	text-decoration: none;
 }
 .ep-activity-item.selected { background: var(--color-primary-soft); border-color: var(--color-primary); }
 .ep-activity-icon {
@@ -502,6 +527,30 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface);
 }
 .ep-preview-campo span { font-size: 13px; color: var(--color-text); }
+.ep-preview-formulario-real {
+	max-height: 520px; overflow-y: auto; overflow-x: hidden; padding: 16px;
+	border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-muted);
+}
+.ep-preview-formulario-real .ep-input:disabled,
+.ep-preview-formulario-real select:disabled,
+.ep-preview-formulario-real textarea:disabled { opacity: 0.75; cursor: default; pointer-events: none; }
+.ep-preview-formulario-real button:disabled { opacity: 0.5; pointer-events: none; }
+/* Riel de numeritos más chico acá — en un espacio tan angosto, el tamaño real le come lugar al contenido sin aportar nada. */
+.ep-preview-formulario-real .ep-step { gap: 12px; }
+.ep-preview-formulario-real .ep-step-num { width: 20px; height: 20px; font-size: 11px; }
+.ep-preview-formulario-real .ep-step-body { padding-bottom: 18px; }
+.ep-preview-formulario-real .ep-step-title { font-size: 13px; }
+.ep-preview-formulario-real .ep-step-hint { font-size: 11px; margin-bottom: 10px; }
+/* La columna de vista previa siempre es angosta — se fuerza el mismo layout de mobile, sin importar el ancho real de la pantalla. */
+.ep-preview-formulario-real .ep-formulario-actividad,
+.ep-preview-formulario-real .ep-form-grid-2 { grid-template-columns: minmax(0, 1fr); }
+.ep-preview-formulario-real .ep-funnel { flex-direction: column; align-items: stretch; }
+.ep-preview-formulario-real .ep-funnel-conexion { flex-direction: row; padding-bottom: 0; justify-content: center; }
+.ep-preview-formulario-real .ep-modelo-fila-nueva { grid-template-columns: minmax(0, 1fr) 80px 34px; gap: 6px; }
+.ep-preview-formulario-real .ep-pop-fila-header { display: none; }
+.ep-preview-formulario-real .ep-pop-fila { grid-template-columns: minmax(0, 1fr); gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+.ep-preview-formulario-real .ep-pop-fila-label-movil { display: block; font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; margin-top: 6px; }
+.ep-preview-formulario-real .ep-pop-entrega-fila { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 
 .ep-gestion-fila {
 	display: flex; align-items: center; gap: 12px; padding: 10px 12px;
@@ -590,36 +639,27 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 
 .hidden { display: none !important; }
 
-/* ---------- Mobile: header + drawer (mismo mecanismo que Acuerdos Comerciales) ---------- */
-.ep-mobile-header {
-	display: none;
-	align-items: center;
-	gap: 10px;
-	height: 56px;
-	padding: 0 16px;
-	background: var(--color-primary-dark);
-	position: sticky;
-	top: 0;
-	z-index: 30;
-}
+/* ---------- Mobile: botón hamburguesa flotante + drawer, sin barra de header ---------- */
 .ep-mobile-menu-btn {
-	width: 36px; height: 36px; border-radius: var(--radius-sm); border: none;
-	background: rgba(255,255,255,0.12); color: #FFFFFF;
-	display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+	display: none;
+	width: 40px; height: 40px; border-radius: 999px; border: none;
+	background: var(--color-primary-dark); color: #FFFFFF; box-shadow: 0 4px 14px rgba(11,24,99,0.35);
+	align-items: center; justify-content: center; flex-shrink: 0;
+	position: fixed; top: 14px; left: 14px; z-index: 45;
 }
-.ep-mobile-header-title { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 15px; color: #FFFFFF; }
 
 .ep-sidebar-backdrop { display: none; }
 
 @media (max-width: 900px) {
-	.ep-mobile-header { display: flex; }
-	.ep-shell { height: calc(100vh - 56px); }
+	.ep-mobile-menu-btn { display: flex; }
+	.ep-shell { height: 100vh; height: 100dvh; }
 
 	.ep-sidebar {
 		position: fixed;
-		top: 56px;
+		top: 0;
 		left: -260px;
-		height: calc(100vh - 56px);
+		height: 100vh;
+		height: 100dvh;
 		width: 260px;
 		z-index: 40;
 		transition: left 0.2s ease;
@@ -627,7 +667,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	.ep-sidebar.open { left: 0; }
 	/* El drawer se ve siempre completo, sin importar si venía "collapsed" de una sesión de escritorio previa. */
 	.ep-sidebar.collapsed:not(.open) { left: -260px; width: 260px; }
-	.ep-sidebar.collapsed .ep-sidebar-brand-text,
+	.ep-sidebar.collapsed .ep-sidebar-user-name,
 	.ep-sidebar.collapsed .ep-nav-label { display: revert; }
 	.ep-sidebar.collapsed .ep-sidebar-nav a,
 	.ep-sidebar.collapsed .ep-sidebar-logout { justify-content: flex-start; padding-left: 12px; padding-right: 12px; }
@@ -635,14 +675,14 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	.ep-sidebar-backdrop {
 		display: none;
 		position: fixed;
-		inset: 56px 0 0 0;
+		inset: 0;
 		background: rgba(0,0,0,0.4);
 		z-index: 35;
 	}
 	.ep-sidebar-backdrop.open { display: block; }
 
-	.ep-content { padding: 24px 20px; }
-	.ep-side { padding: 20px 16px; }
+	.ep-content { padding: 64px 20px 24px; }
+	.ep-side { padding: 64px 16px 20px; }
 
 	/* 16px evita el zoom automático de iOS al enfocar un input. */
 	.ep-input, .ep-select { font-size: 16px; }
@@ -659,6 +699,54 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 @media (max-width: 700px) {
 	.ep-shell { flex-direction: column; overflow-y: auto; }
 	.ep-side { width: 100%; }
+
+	/* ---------- Login en celular: pantalla única, sin panel azul, esquinas con trama diagonal (boceto del usuario) ---------- */
+	.ep-login-wrap { position: relative; overflow: hidden; background: var(--color-surface-muted); padding: 0 16px 20px; }
+
+	.ep-login-blob {
+		position: absolute; z-index: 0; pointer-events: none; filter: blur(50px);
+		background: var(--color-primary);
+	}
+	.ep-login-blob-1 { width: 220px; height: 220px; top: -60px; right: -70px; opacity: 0.16; border-radius: 58% 42% 63% 37% / 41% 55% 45% 59%; }
+	.ep-login-blob-2 { width: 260px; height: 260px; bottom: 140px; left: -90px; opacity: 0.10; border-radius: 46% 54% 38% 62% / 55% 42% 58% 45%; }
+	.ep-login-wrap::before, .ep-login-wrap::after {
+		content: ''; position: absolute; width: 110px; height: 110px; z-index: 2; pointer-events: none;
+		background: repeating-linear-gradient(45deg, var(--color-primary) 0 3px, transparent 3px 10px);
+		opacity: 0.55;
+	}
+	.ep-login-wrap::before { top: -28px; left: -28px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+	.ep-login-wrap::after { bottom: -28px; right: -28px; clip-path: polygon(100% 100%, 0 100%, 100% 0); }
+
+	.ep-login-side {
+		position: relative; z-index: 1; background: transparent; background-image: none;
+		align-items: center; text-align: center; gap: 12px; padding: 32px 8px 6px;
+	}
+	.ep-login-side .ep-brand-mark { background: var(--color-primary); }
+	.ep-login-side .ep-brand-name { color: var(--color-primary); }
+
+	.ep-login-desktop-only { display: none !important; }
+	.ep-login-mobile-only { display: flex; }
+	.ep-login-photo-placeholder {
+		width: 100%; max-width: 220px; align-items: center; justify-content: center;
+		color: var(--color-text-muted); font-size: 13px;
+	}
+	.ep-login-photo-placeholder:not(:has(img)) {
+		aspect-ratio: 3 / 4; border: 1.5px dashed var(--color-silver); border-radius: var(--radius-md); background: var(--color-surface-muted);
+	}
+	.ep-login-photo-placeholder img { width: 100%; height: auto; max-height: 120px; object-fit: contain; }
+
+	.ep-login-wrap { min-height: 100dvh; }
+	.ep-login-form {
+		flex-grow: 0; justify-content: flex-start;
+		position: relative; z-index: 1; overflow: hidden; background: var(--color-surface); border-radius: 22px;
+		box-shadow: 0 10px 30px rgba(17,17,17,0.08); padding: 24px 22px 28px; margin: -16px 2px 0;
+	}
+	.ep-login-form::before, .ep-login-form::after {
+		content: ''; position: absolute; z-index: 0; pointer-events: none; border-radius: 50%;
+	}
+	.ep-login-form::before { width: 130px; height: 130px; top: -50px; right: -40px; background: var(--color-primary); opacity: 0.08; }
+	.ep-login-form::after { width: 90px; height: 90px; bottom: -30px; left: -20px; background: #7A5CF0; opacity: 0.08; }
+	.ep-login-form-inner { position: relative; z-index: 1; }
 
 	.ep-side {
 		border-right: none;

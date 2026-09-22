@@ -172,6 +172,28 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 
 		<div class="ac-modal-body" id="repo-subir-paso-elegir">
 			<p class="ac-field-hint">El archivo actualiza los registros que coincidan y agrega los nuevos. No borra el resto del repositorio.</p>
+			<!-- Elegir canal ANTES del archivo (2026-09-21, pedido explícito, solo Cuotas): el canal real igual se sigue detectando solo del Excel (repositorio_parsear_cuotas()) — esto es la intención de quien sube, para avisar de entrada si el archivo no coincide en vez de que se entere recién en la previsualización. Mismos íconos storefront/local_shipping que ya usa "Descargar Formato" para Directo/Distribuidor, tarjetas grandes en vez de pastillas chicas porque acá es una elección obligatoria que bloquea el resto del paso, no un filtro secundario. Oculto para Rebate/Participación (assets/js/repositorios.js). -->
+			<div class="ac-field hidden" id="repo-subir-canal-wrap">
+				<label class="ac-field-label">¿Vas a subir Directo o Distribuidor?</label>
+				<div class="ac-canal-picker" id="repo-subir-canal-group">
+					<button type="button" class="ac-canal-picker-opcion" data-canal="directo">
+						<span class="material-symbols-outlined ac-canal-picker-icono">storefront</span>
+						<span class="ac-canal-picker-texto">
+							<span class="ac-canal-picker-titulo">Directo</span>
+				
+						</span>
+						<span class="material-symbols-outlined ac-canal-picker-check">check_circle</span>
+					</button>
+					<button type="button" class="ac-canal-picker-opcion" data-canal="distribuidor">
+						<span class="material-symbols-outlined ac-canal-picker-icono">local_shipping</span>
+						<span class="ac-canal-picker-texto">
+							<span class="ac-canal-picker-titulo">Distribuidor</span>
+						
+						</span>
+						<span class="material-symbols-outlined ac-canal-picker-check">check_circle</span>
+					</button>
+				</div>
+			</div>
 			<div class="ac-dropzone" id="repo-dropzone">
 				<span class="material-symbols-outlined">upload_file</span>
 				<p class="ac-dropzone-title">Arrastra tu Excel acá o hacé click para elegirlo</p>
