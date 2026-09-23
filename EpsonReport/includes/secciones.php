@@ -9,7 +9,7 @@ function ep_secciones(): array {
 			'icon'  => 'grid',
 		],
 		'historial' => [
-			'label' => 'Historial / Visibilidad',
+			'label' => 'Registros de Actividades',
 			'icon'  => 'clock',
 		],
 	];

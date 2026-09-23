@@ -4,7 +4,8 @@ session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 
 if (empty($_SESSION['usuario'])) {
-	header('Location: login.php');
+	$redirectParam = !empty($_SERVER['REQUEST_URI']) ? '?redirect='.urlencode($_SERVER['REQUEST_URI']) : '';
+	header('Location: login.php'.$redirectParam);
 	exit;
 }
 
@@ -15,6 +16,9 @@ require_once __DIR__.'/includes/actividades_datos.php';
 $secciones = ep_secciones();
 $actividadesNav = ep_actividades();
 $vista = $_GET['vista'] ?? 'actividades';
+if ($vista === 'registros') {
+	$vista = 'historial';
+}
 if (!isset($secciones[$vista])) {
 	$vista = 'actividades';
 }

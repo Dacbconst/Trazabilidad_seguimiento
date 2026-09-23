@@ -9,6 +9,7 @@ if (!empty($_SESSION['usuario'])) {
 }
 
 $error = isset($_GET['error']) ? 'Usuario o contraseña incorrectos.' : '';
+$redirect = trim($_GET['redirect'] ?? $_POST['redirect'] ?? '');
 require_once __DIR__.'/includes/functions.php';
 
 // Foto del login en celular: poner el archivo en assets/img/login.png (o .jpg/.jpeg) — se detecta solo, sin tocar código.
@@ -33,50 +34,48 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 	<div class="ep-login-wrap">
 		<div class="ep-login-blob ep-login-blob-1"></div>
 		<div class="ep-login-blob ep-login-blob-2"></div>
+
+		<!-- Panel lateral corporativo (Escritorio) -->
 		<div class="ep-login-side">
 			<div class="ep-brand">
-				<div class="ep-brand-mark">ER</div>
-				<span class="ep-brand-name">EPSON REPORT</span>
-			</div>
-
-			<div class="ep-login-mobile-only ep-login-photo-placeholder">
 				<?php if ($loginFotoUrl): ?>
-					<img src="<?= htmlspecialchars($loginFotoUrl) ?>" alt="">
+					<img src="<?= htmlspecialchars($loginFotoUrl) ?>" alt="Epson" class="ep-brand-logo">
 				<?php else: ?>
-					<span>Foto.png</span>
+					<span class="ep-brand-name">EPSON</span>
 				<?php endif; ?>
 			</div>
 
-			<div class="ep-login-desktop-only" style="display:flex;flex-direction:column;gap:18px;">
-				<h1>Trazabilidad de actividades en campo</h1>
-				<p style="margin:0;font-size:15px;line-height:1.6;color:#C6CBEE;max-width:360px;">
-					Registra, revisa y da seguimiento a las actividades de los técnicos, con historial de visibilidad y evidencia fotográfica.
-				</p>
+			<div class="ep-login-side-main">
+				<h1>Control y trazabilidad de actividades</h1>
+				<p>Seguimiento operativo y visibilidad en punto de venta.</p>
 			</div>
 
-			<div class="ep-login-desktop-only" style="display:flex;align-items:center;gap:10px;font-size:13px;color:#A9B0DE;">
-				<?= ep_icon('lock', 16) ?>
-				Acceso restringido al personal autorizado
+			<div class="ep-login-footer">
+				<?= ep_icon('lock', 14) ?>
+				<span>Acceso seguro autorizado</span>
 			</div>
 		</div>
 
+		<!-- Formulario de acceso -->
 		<div class="ep-login-form">
 			<form class="ep-login-form-inner" method="post" action="getters/procesar_login.php">
-				<div>
-					<h2 style="font-size:26px;">Iniciar sesión</h2>
-					<p style="margin:6px 0 0;font-size:14px;color:var(--color-text-muted);">Ingresa tus credenciales para continuar.</p>
+				<?php if ($redirect !== ''): ?>
+					<input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
+				<?php endif; ?>
+				<div class="ep-login-header">
+					<h2>Iniciar sesión</h2>
 				</div>
 
 				<?php if ($error): ?>
 					<div class="ep-login-error"><?= htmlspecialchars($error) ?></div>
 				<?php endif; ?>
 
-				<div style="display:flex;flex-direction:column;gap:16px;">
-					<div style="display:flex;flex-direction:column;gap:6px;">
+				<div class="ep-login-fields">
+					<div class="ep-login-field">
 						<label class="ep-label" for="ep-usuario">Usuario</label>
 						<input class="ep-input" id="ep-usuario" name="usuario" type="text" placeholder="nombre.apellido" required autofocus>
 					</div>
-					<div style="display:flex;flex-direction:column;gap:6px;">
+					<div class="ep-login-field">
 						<label class="ep-label" for="ep-clave">Contraseña</label>
 						<div class="ep-login-clave-wrap">
 							<input class="ep-input" id="ep-clave" name="clave" type="password" placeholder="••••••••" required>

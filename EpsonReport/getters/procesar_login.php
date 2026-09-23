@@ -14,5 +14,12 @@ if ($usuario === '' || $clave === '') {
 
 $_SESSION['usuario'] = $usuario;
 $_SESSION['rol'] = (stripos($usuario, 'admin') !== false) ? 'admin' : 'usuario'; // MOCK: rol real vendrá de la tabla de usuarios.
-header('Location: ../index.php');
+
+$redirect = trim($_POST['redirect'] ?? '');
+// Validar que sea una ruta local segura que no sea login.php y no empiece con protocolo externo
+if ($redirect !== '' && !preg_match('#^(https?:)?//#i', $redirect) && stripos($redirect, 'login.php') === false) {
+	header('Location: ' . $redirect);
+} else {
+	header('Location: ../index.php');
+}
 exit;

@@ -34,9 +34,17 @@ $esAdmin = ep_rol_actual() === 'admin';
 </aside>
 
 <main class="ep-content">
-	<div id="ep-header-formulario">
-		<div class="ep-eyebrow">Formulario</div>
-		<h1 id="ep-seleccion-label" style="font-size:24px;margin-top:4px;"><?= htmlspecialchars($actividades[0]['label']) ?></h1>
+	<div id="ep-header-formulario" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+		<div>
+			<div class="ep-eyebrow">Formulario</div>
+			<h1 id="ep-seleccion-label" style="font-size:24px;margin-top:4px;"><?= htmlspecialchars($actividades[0]['label']) ?></h1>
+		</div>
+		<div style="display:flex;align-items:center;gap:10px;">
+			<a href="index.php?vista=historial" class="ep-btn ep-btn-secondary" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:8px 14px;text-decoration:none;border-radius:10px;font-weight:600;" title="Ver reportes y métricas de campo generados">
+				<?= ep_icon('clock', 15) ?>
+				<span>Ver registros generados</span>
+			</a>
+		</div>
 	</div>
 
 	<?php if ($esAdmin): ?>
@@ -83,8 +91,8 @@ $esAdmin = ep_rol_actual() === 'admin';
 			</div>
 
 			<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;">
-				<button type="button" class="ep-btn-outline">Guardar borrador</button>
-				<button type="button" class="ep-btn-primary">Enviar registro</button>
+				<button type="button" class="ep-btn-outline" id="epBtnGuardarBorrador">Guardar borrador</button>
+				<button type="button" class="ep-btn-primary" id="epBtnEnviarRegistro">Enviar registro</button>
 			</div>
 		</div>
 
@@ -282,9 +290,12 @@ $esAdmin = ep_rol_actual() === 'admin';
 			<div class="ep-builder-preview-divider"></div>
 
 			<div>
-				<div class="ep-eyebrow">Vista previa · formulario</div>
+				<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+					<div class="ep-eyebrow">Vista previa · formulario</div>
+					<span class="ep-hist-badge" style="background:#EBF1FD;color:var(--color-primary);border-color:#CAD9F8;font-size:11px;">Solo lectura</span>
+				</div>
 				<h3 id="ep-preview-form-titulo" style="font-size:18px;margin-top:8px;">Nombre de la actividad</h3>
-				<p style="font-size:12px;color:var(--color-text-muted);margin:4px 0 0;">Así se ve el formulario real de esta lógica — es solo de referencia, no se puede tipear acá.</p>
+				<p style="font-size:12px;color:var(--color-text-muted);margin:4px 0 0;">Así se ve el formulario real de esta lógica — idéntico al diseño en producción.</p>
 				<div id="ep-preview-form-campos" class="ep-preview-formulario-real" style="margin-top:16px;"></div>
 			</div>
 
@@ -292,7 +303,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 
 			<div>
 				<div class="ep-eyebrow">Vista previa · evidencia fotográfica</div>
-				<div id="ep-preview-form-fotos" style="display:flex;flex-direction:column;gap:12px;margin-top:16px;"></div>
+				<div id="ep-preview-form-fotos" style="margin-top:12px;"></div>
 			</div>
 		</div>
 	</div>
