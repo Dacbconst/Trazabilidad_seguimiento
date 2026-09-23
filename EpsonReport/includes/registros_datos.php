@@ -3,7 +3,7 @@
 // Conecta los datos reales capturados en los formularios con persistencia dinámica.
 
 function ep_registros_archivo_path(): string {
-	return __DIR__.'/../data/registros_guardados.json';
+	return dirname(__DIR__) . '/data/registros_guardados.json';
 }
 
 function ep_registros_datos_semilla(): array {

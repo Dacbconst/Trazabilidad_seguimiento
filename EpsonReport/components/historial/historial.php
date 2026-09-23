@@ -4,6 +4,16 @@ require_once __DIR__.'/../../includes/fotos_datos.php';
 require_once __DIR__.'/../../includes/registros_datos.php';
 
 $todosRegistros = ep_registros_datos();
+if (empty($todosRegistros)) {
+	if (function_exists('ep_registros_datos_semilla')) {
+		$todosRegistros = ep_registros_datos_semilla();
+	} else {
+		$pathJson = dirname(dirname(__DIR__)) . '/data/registros_guardados.json';
+		if (file_exists($pathJson)) {
+			$todosRegistros = json_decode(file_get_contents($pathJson), true) ?: [];
+		}
+	}
+}
 
 // Agrupación por día
 $gruposPorDia = [];
