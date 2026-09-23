@@ -494,7 +494,11 @@
 	firmaAmpliarFirmadaBtn.addEventListener('click', function () {
 		var img = firmaPreviewArea.querySelector('img');
 		if (img && img.src) { window.acAbrirLightbox(img.src); return; }
-		if (firmaFirmadaUrlActual) window.open(firmaFirmadaUrlActual, '_blank');
+		// &ver=1 solo si es la URL real del servidor — así la pestaña muestra el número de Acta en el título.
+		if (!firmaFirmadaUrlActual) return;
+		var urlAbrir = firmaFirmadaUrlActual.indexOf('descargar_acta_firmada.php') !== -1
+			? firmaFirmadaUrlActual + '&ver=1' : firmaFirmadaUrlActual;
+		window.open(urlAbrir, '_blank');
 	});
 
 	// PDF en el panel derecho: desktop usa <iframe>; móvil real dibuja con PDF.js en <canvas> (mismo arreglo que el panel izquierdo) — sin esto salía la "sub-ventanita" rota que muestra Chrome de Android cuando no puede embeber un PDF.

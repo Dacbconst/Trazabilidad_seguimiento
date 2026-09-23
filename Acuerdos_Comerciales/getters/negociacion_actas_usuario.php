@@ -18,7 +18,8 @@ if (!isset($_GET['usuario_id']) || $_GET['usuario_id'] === '') {
 $usuarioId = (int) $_GET['usuario_id'];
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
 $anio      = (int) ($_GET['anio'] ?? 0);
+$canal     = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 $tipo      = in_array($_GET['tipo'] ?? '', ['todas', 'rebate', 'cabeceras', 'rumas', 'perchas'], true) ? $_GET['tipo'] : 'todas';
 
-echo json_encode(['ok' => true, 'actas' => listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre, $anio, $tipo)]);
+echo json_encode(['ok' => true, 'actas' => listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre, $anio, $tipo, $canal)]);
 ?>

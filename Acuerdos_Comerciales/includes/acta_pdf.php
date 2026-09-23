@@ -56,6 +56,18 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 
 function px($n, $escala) { return round($n * $escala, 2) . 'px'; }
 
+// Línea en blanco con border-bottom (no guiones bajos en texto): con guiones bajos, en columnas angostas (firma de 3), el texto se envolvía a 2 líneas. 100% del ancho disponible (2026-09-24, pedido explícito): mismo largo que la línea de firma de arriba.
+function nombre_linea_vacia_html() {
+	return '<span style="display:inline-block; width:100%; border-bottom:1px solid #000000;">&nbsp;</span>';
+}
+
+// "Nombre:" en su propia línea + valor/línea en blanco debajo, SIEMPRE con esta misma estructura de 2 líneas tenga o no nombre real — antes "Nombre: " + línea al 100% (que no cabe en la misma línea) hacía que las columnas con nombre real (1 línea) y las vacías (2 líneas, la de abajo se envolvía sola) quedaran desalineadas entre sí (bug real reportado 2026-09-24, "se descuadra").
+function bloque_nombre_firma_html($nombreReal, $fGeneral, $escala) {
+	$valor = $nombreReal !== '' && $nombreReal !== null ? h($nombreReal) : nombre_linea_vacia_html();
+	return '<p class="label" style="margin:0;">Nombre:</p>'
+		.'<p style="margin:0; font-weight:bold; font-size:'.px($fGeneral * 1.3, $escala).';">'.$valor.'</p>';
+}
+
 // Igual criterio que ancho_columna_categoria()/fuente_una_linea(), pero para columnas numéricas: mide el valor más ancho para que no se corte al envolver.
 function fuente_columna_valores(array $textos, $fuenteBasePx, $anchoColPct, $medirTexto, $paddingPx = 10) {
 	$anchoMax = 0;
@@ -135,12 +147,12 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	// "Sin visibilidad" es independiente del canal (switch de Registrar) — oculta 2.a/2.b para Directo y Distribuidor por igual. Con el switch prendido pero sin datos reales en ninguna tabla, igual sale sin visibilidad.
 	$sinVisibilidad = !empty($detalle['sin_visibilidad']) || !$hayVisibilidadReal;
 
-	// "Con visibilidad" ya está aprobado, no tocar. "Sin visibilidad" tiene menos contenido y queda con espacio en blanco de más, por eso la letra ajusta distinto.
-	$fGeneral = $sinVisibilidad ? 13.5 : 24;
+	// fGeneral/fHintExtra subidos (2026-09-24, pedido explícito): letra de los bloques de texto fuera de tabla (CONDICIONES, VISIBILIDAD, descripciones) más grande — hay espacio libre ahí. fH1/fDocNo/fDocNoStrong y las tablas quedan igual, sin tocar (pedido explícito de no agrandar tablas).
+	$fGeneral = $sinVisibilidad ? 15 : 26;
 	$fH1 = $sinVisibilidad ? 19 : 31;
 	$fDocNo = $sinVisibilidad ? 10.5 : 17;
 	$fDocNoStrong = $sinVisibilidad ? 14.5 : 25;
-	$fHintExtra = $sinVisibilidad ? 12.5 : 27;
+	$fHintExtra = $sinVisibilidad ? 14 : 29;
 	// Tablas: base normal (18.5/16.5) en "con visibilidad" (ya aprobado, sin tocar); más grande SOLO en "sin visibilidad".
 	$tablaFuenteBase = $sinVisibilidad ? 22 : 18.5;
 	$legendFuenteBase = $sinVisibilidad ? 20 : 16.5;
@@ -330,10 +342,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	// Nombres largos envuelven a 2 líneas y se ven "chicos" frente a Localidad/Fecha. Forzar 1 línea no es viable (letra microscópica); en cambio se le da más ancho a la columna (34%→44%) para que la mayoría entre en 1 línea sin achicar nada.
 	$estimadoTexto = $esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor'];
 
-	// Nombre del Ejecutivo Comercial = quien generó el acuerdo (creado_por); la firma sigue siendo física siempre. Sin creado_por (acuerdo huérfano) cae a la línea en blanco de siempre.
-	$nombreEjecutivoHtml = ($detalle['ejecutivo_comercial'] ?? '') !== ''
-		? 'Nombre: '.h($detalle['ejecutivo_comercial'])
-		: 'Nombre: ________________________________________';
+	// Nombre del Ejecutivo Comercial = quien generó el acuerdo (creado_por); la firma sigue siendo física siempre. Sin creado_por (acuerdo huérfano) cae a la línea en blanco de siempre (ver bloque_nombre_firma_html()).
+	$nombreEjecutivoRaw = $detalle['ejecutivo_comercial'] ?? '';
 
 	// Dompdf usa el <title> del HTML como metadato /Title del PDF; sin esto la pestaña del navegador mostraba el nombre del script, no el documento.
 	$html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.h($detalle['documento_no']).'</title><style>
@@ -439,37 +449,56 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:0; font-weight:bold;">'.$nombreEjecutivoHtml.'</p>
-		<p class="label" style="margin-top:'.px(8, $escala).';">Desarrollador de Mercado</p>
+		'.bloque_nombre_firma_html($nombreEjecutivoRaw, $fGeneral, $escala).'
+		<p class="label" style="margin-top:'.px(8, $escala).';">Desarrollador de Negocio</p>
 	</td>
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
 		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial (distribuidor)</p>
 	</td>
-</tr></table>' : '
+</tr></table>' : ($esDistribuidor ? '
 <table style="border:none;"><tr>
 	<td style="border:none; width:50%; text-align:center; padding-right:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:0; font-weight:bold;">'.$nombreEjecutivoHtml.'</p>
-		<p class="label" style="margin-top:'.px(8, $escala).';">'.($esDistribuidor ? 'Desarrollador de Mercado' : 'Ejecutivo Comercial').'</p>
+		'.bloque_nombre_firma_html($nombreEjecutivoRaw, $fGeneral, $escala).'
+		<p class="label" style="margin-top:'.px(8, $escala).';">Desarrollador de Negocio</p>
 	</td>
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
 		<div class="firma-linea-firmar"></div>
-		<p style="margin:0; font-weight:bold;">Nombre: ________________________________________</p>
+		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
+		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial (distribuidor)</p>
+	</td>
+</tr></table>' : '
+<!-- Directo: 3 firmas (Asesor Comercial / Jefe Comercial / Supervisor Comercial), pedido explícito 2026-09-23. Nombre/línea alineados a la izquierda (pedido explícito 2026-09-24: centrado no dejaba espacio cómodo para escribir el nombre a mano). Las 3 usan la MISMA estructura de 2 líneas (bloque_nombre_firma_html) tengan o no nombre real, para que no se desalineen entre sí. -->
+<table style="border:none;"><tr>
+	<td style="border:none; width:33.33%; text-align:left; padding-right:10px;">
+		<div class="firma-linea-firmar"></div>
+		'.bloque_nombre_firma_html($nombreEjecutivoRaw, $fGeneral, $escala).'
+		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial</p>
+	</td>
+	<td style="border:none; width:33.33%; text-align:left; padding:0 10px;">
+		<div class="firma-linea-firmar"></div>
+		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
 		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe Comercial</p>
 	</td>
-</tr></table>').'
+	<td style="border:none; width:33.33%; text-align:left; padding-left:10px;">
+		<div class="firma-linea-firmar"></div>
+		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
+		<p class="label" style="margin-top:'.px(8, $escala).';">Supervisor Comercial</p>
+	</td>
+</tr></table>')).'
 
-<div style="text-align:center; margin-top:'.px(20, $escala).';">
+<div style="text-align:center; margin-top:'.px(12, $escala).';">
 	<p style="margin:0;">Jabonería Wilson<br><strong>ACEPTACIÓN DEL PRESENTE CONVENIO POR PARTE DEL CLIENTE</strong></p>
 	<p style="font-size:'.px($fGeneral, $escala).'; color:#000000;">El CLIENTE declara expresamente que ha suscrito este Acuerdo a su entera satisfacción y entendimiento, de manera libre y voluntaria, por lo que nada tiene que reclamar sobre el contenido, la aplicación y/o ejecución del mismo.</p>
-	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(36, $escala).' auto;"></div>
+	<div class="firma-linea-firmar" style="width:'.px(220, $escala).'; margin:'.px(22, $escala).' auto;"></div>
 	<p class="label" style="margin:0;">Firma del Cliente</p>'
 	.($esDistribuidor ? '
 	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>
 	<p class="label" style="margin-top:'.px(4, $escala).'; padding-left:'.px(40, $escala).';">C.I.: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>' : '
-	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social: <span style="font-weight:bold; text-transform:none;">'.h($detalle['distribuidor']).'</span></p>').'
+	<p class="label" style="margin-top:'.px(8, $escala).';">Razón Social: <span style="font-weight:bold; text-transform:none;">'.h($detalle['distribuidor']).'</span></p>
+	<p class="label" style="margin-top:'.px(4, $escala).';">C.I.: <span style="display:inline-block; width:'.px(220, $escala).'; border-bottom:1px solid #000000;">&nbsp;</span></p>').'
 </div>
 
 </div>
@@ -534,7 +563,7 @@ function generar_acta_pdf_binario(array $detalle) {
 
 	$escalaFinal = 1.0;
 	if ($dompdf->getCanvas()->get_page_count() > 1) {
-		$escalonesGenerales = escalones_desde_uno(0.3);
+		$escalonesGenerales = escalones_desde_uno(0.25);
 		list($escalaFinal, $dompdf) = buscar_escalon_que_entre($escalonesGenerales, function ($escala) use ($renderizar, $escalaTablaFinal) {
 			return $renderizar($escala, $escalaTablaFinal);
 		});

@@ -13,26 +13,43 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 $tipo     = $_GET['tipo'] ?? '';
 $busqueda = trim($_GET['q'] ?? '');
 $formato  = in_array($_GET['formato'] ?? '', ['csv', 'xlsx'], true) ? $_GET['formato'] : 'csv';
-if (!in_array($tipo, ['rebate', 'participacion'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'jerarquia'], true)) {
 	http_response_code(400);
 	echo 'Tipo de repositorio inválido.';
 	exit;
 }
 
 // porPagina alto para traer "todo" en una sola pasada: un catálogo de referencia no llega a miles de filas.
-$resultado = $tipo === 'rebate'
-	? listar_repositorio_rebate($mysqli, $busqueda, 1, 100000)
-	: listar_repositorio_participacion($mysqli, $busqueda, 1, 100000);
+if ($tipo === 'rebate') {
+	$resultado = listar_repositorio_rebate($mysqli, $busqueda, 1, 100000);
+} elseif ($tipo === 'jerarquia') {
+	$resultado = listar_repositorio_jerarquia($mysqli, $busqueda, 1, 100000);
+} else {
+	$resultado = listar_repositorio_participacion($mysqli, $busqueda, 1, 100000);
+}
 
-$nombreBase = ($tipo === 'rebate' ? 'Rebate' : 'Participacion_Percha').'_'.date('Y-m-d');
+$nombreBaseTipo = ['rebate' => 'Rebate', 'jerarquia' => 'Jerarquia_Supervisores'][$tipo] ?? 'Participacion_Percha';
+$nombreBase = $nombreBaseTipo.'_'.date('Y-m-d');
 
 if ($formato === 'xlsx') {
 	require_once __DIR__.'/../includes/xlsx_writer.php'; // escritor propio, sin librería externa (ver cabecera de ese archivo)
 
 	$wb = new XlsxWriter();
-	$hoja = $wb->agregarHoja($tipo === 'rebate' ? 'REBATE' : 'PARTICIPACION PERCHA');
+	$nombreHoja = ['rebate' => 'REBATE', 'jerarquia' => 'JERARQUIA SUPERVISORES'][$tipo] ?? 'PARTICIPACION PERCHA';
+	$hoja = $wb->agregarHoja($nombreHoja);
 
-	if ($tipo === 'rebate') {
+	if ($tipo === 'jerarquia') {
+		$cols = ['Supervisor Campo', 'Supervisor Real', 'Actualizado por', 'Última Modificación'];
+		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
+		$fila = 2;
+		foreach ($resultado['filas'] as $f) {
+			$wb->celda($hoja, $fila, 1, $f['supervisor_campo']);
+			$wb->celda($hoja, $fila, 2, $f['supervisor_real']);
+			$wb->celda($hoja, $fila, 3, $f['actualizado_por_usuario'] ?? '');
+			$wb->celda($hoja, $fila, 4, $f['updated_at']);
+			$fila++;
+		}
+	} elseif ($tipo === 'rebate') {
 		$cols = ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
@@ -76,7 +93,12 @@ header('Content-Disposition: attachment; filename="'.$nombreBase.'.csv"');
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8, para que Excel no rompa las tildes al abrir el CSV.
 
-if ($tipo === 'rebate') {
+if ($tipo === 'jerarquia') {
+	fputcsv($out, ['Supervisor Campo', 'Supervisor Real', 'Actualizado por', 'Última Modificación']);
+	foreach ($resultado['filas'] as $f) {
+		fputcsv($out, [$f['supervisor_campo'], $f['supervisor_real'], $f['actualizado_por_usuario'] ?? '', $f['updated_at']]);
+	}
+} elseif ($tipo === 'rebate') {
 	fputcsv($out, ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [

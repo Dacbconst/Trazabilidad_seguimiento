@@ -18,7 +18,7 @@ if (!in_array($plantilla, $plantillasValidas, true)) {
 }
 
 ob_start();
-include __DIR__.'/../components/actividades/plantillas/'.$plantilla.'.php';
+include __DIR__.'/../components/actividades/formularios/'.$plantilla.'.php';
 $html = ob_get_clean();
 
 // Si la plantilla incluye un contenedor de modelos vacío, inyectamos una fila inicial igual a la que crea app.js en producción

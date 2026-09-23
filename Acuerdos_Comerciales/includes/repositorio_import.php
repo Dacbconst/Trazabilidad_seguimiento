@@ -225,6 +225,35 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'distribuidor'];
 }
 
+// Jerarquía de Supervisores (2026-09-24): SUPERVISOR CAMPO (nombre del maestro de Alicorp, sin cuenta propia) -> SUPERVISOR REAL (a quién reporta, con cuenta). Ver repositorio_jerarquia_supervisores / supervisorRealDeJerarquia() en functions.php.
+function repositorio_parsear_jerarquia($rutaArchivo) {
+	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
+	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
+	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
+	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
+
+	$enc = xlsx_encontrar_encabezado($filas, ['SUPERVISOR CAMPO']);
+	if (!$enc) return ['error' => 'No se encontró la columna Supervisor Campo en el archivo.'];
+	$m = $enc['mapa'];
+
+	$colReal = null;
+	foreach (['SUPERVISOR REAL', 'SUPERVISOR', 'REPORTA A'] as $candidato) {
+		if (xlsx_col($m, $candidato) !== null) { $colReal = $candidato; break; }
+	}
+	if ($colReal === null) return ['error' => 'No se encontró la columna Supervisor Real en el archivo.'];
+
+	$resultado = [];
+	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
+		$fila = $filas[$i];
+		$campo = repositorio_normalizar_texto($fila[xlsx_col($m, 'SUPERVISOR CAMPO')] ?? '');
+		$real  = repositorio_normalizar_texto($fila[xlsx_col($m, $colReal)] ?? '');
+		if ($campo === '' && $real === '') continue; // fila vacía (hueco o fin de hoja)
+		$resultado[] = ['supervisor_campo' => $campo, 'supervisor_real' => $real];
+	}
+	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
+	return ['filas' => $resultado, 'aviso' => null];
+}
+
 // Columnas reales: CIUDAD | CATEGORIA | SUBCATEGORIA | MARCA | %. Categoria/Subcategoria solo detectan filas vacías, nunca se guardan (Percha solo guarda Marca). Ciudad sí importa (ej. LAVA varía por ciudad, "RESTO CIUDADES" es catch-all); sin columna de Canal, aplica igual a Directo y Distribuidor.
 function repositorio_parsear_participacion($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);

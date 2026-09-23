@@ -716,7 +716,11 @@
 	firmaAmpliarFirmadaBtn.addEventListener('click', function () {
 		var img = firmaPreviewArea.querySelector('img');
 		if (img && img.src) { window.acAbrirLightbox(img.src); return; }
-		if (firmaFirmadaUrlActual) window.open(firmaFirmadaUrlActual, '_blank');
+		// &ver=1 solo si es la URL real del servidor (no un blob: local todavía sin subir) — así la pestaña muestra el número de Acta en el título.
+		if (!firmaFirmadaUrlActual) return;
+		var urlAbrir = firmaFirmadaUrlActual.indexOf('descargar_acta_firmada.php') !== -1
+			? firmaFirmadaUrlActual + '&ver=1' : firmaFirmadaUrlActual;
+		window.open(urlAbrir, '_blank');
 	});
 
 	function abrirModalFirma(id, documentoNo, tieneFirma, mime) {

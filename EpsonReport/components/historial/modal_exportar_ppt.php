@@ -54,17 +54,12 @@
 						<div style="display:flex;align-items:center;justify-content:space-between;">
 							<label class="ep-label-compact" for="epPptSelectFecha">
 								<?= ep_icon('calendar', 13) ?>
-								<span>2. Día de Gestión (Fecha):</span>
+								<span>2. Mes del reporte:</span>
 							</label>
-							<span class="ep-field-hint-compact">Consolidación diaria</span>
+							<span class="ep-field-hint-compact">Incluye todos los registros del mes</span>
 						</div>
 						<div class="ep-ppt-date-row">
-							<input type="date" id="epPptSelectFecha" class="ep-input-compact ep-ppt-input-date" value="2024-10-24">
-							<div class="ep-ppt-quick-dates-group">
-								<button type="button" class="ep-ppt-quick-date active" data-fecha="2024-10-24">24 Oct</button>
-								<button type="button" class="ep-ppt-quick-date" data-fecha="2024-10-23">23 Oct</button>
-								<button type="button" class="ep-ppt-quick-date" data-fecha="2024-10-22">22 Oct</button>
-							</div>
+							<input type="month" id="epPptSelectFecha" class="ep-input-compact ep-ppt-input-date" value="<?= date('Y-m') ?>">
 						</div>
 					</div>
 

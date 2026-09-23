@@ -18,7 +18,7 @@ function responder($ok, $message, $extra = []) {
 }
 
 $tipo = $_POST['tipo'] ?? '';
-if (!in_array($tipo, ['rebate', 'participacion'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'jerarquia'], true)) {
 	responder(false, 'Tipo de repositorio inválido.');
 }
 
@@ -49,9 +49,13 @@ if (strtolower(pathinfo($nombreArchivo, PATHINFO_EXTENSION)) !== 'xlsx') {
 	responder(false, 'El archivo tiene que ser .xlsx (Excel). "'.$nombreArchivo.'" no lo es.');
 }
 
-$resultado = $tipo === 'rebate'
-	? repositorio_parsear_rebate($rutaTmp)
-	: repositorio_parsear_participacion($rutaTmp);
+if ($tipo === 'rebate') {
+	$resultado = repositorio_parsear_rebate($rutaTmp);
+} elseif ($tipo === 'jerarquia') {
+	$resultado = repositorio_parsear_jerarquia($rutaTmp);
+} else {
+	$resultado = repositorio_parsear_participacion($rutaTmp);
+}
 
 if (isset($resultado['error'])) {
 	responder(false, $resultado['error']);

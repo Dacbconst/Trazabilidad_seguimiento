@@ -78,6 +78,7 @@ foreach ($filas as $f) {
 		'gana_total'       => $f['gana_total'],
 		'rebate_real_vol'  => round((float) $f['rebate_real_vol'], 2),
 		'cambio'           => $cambio,
+		'categoria_valida' => (bool) $f['categoria_valida'],
 	];
 }
 

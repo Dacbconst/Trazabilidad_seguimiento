@@ -5,9 +5,11 @@ session_start();
 
 header('Content-Type: application/json; charset=utf-8');
 
-if (empty($_SESSION['usuario'])) {
+require_once __DIR__.'/../includes/functions.php';
+
+if (!ep_login_check()) {
 	http_response_code(401);
-	echo json_encode(['success' => false, 'error' => 'Sesión expirada']);
+	echo json_encode(['success' => false, 'error' => 'Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo, o expiró.', 'redirect' => 'login.php?error=sesion']);
 	exit;
 }
 
@@ -20,6 +22,11 @@ $payload = json_decode($raw, true);
 
 if (!is_array($payload)) {
 	$payload = $_POST;
+}
+
+// Cantidades de los formularios: enteros de 0 a 999.
+function ep_entero($v) {
+	return min(999, max(0, (int) $v));
 }
 
 $tipo = trim($payload['tipo'] ?? 'activaciones');
@@ -54,7 +61,7 @@ $fechaTexto = $diaNom . ', ' . date('j', $ts) . ' de ' . $mesNom . ' ' . date('Y
 $hora = date('H:i', $ts);
 $grupoDia = 'Hoy — ' . $diaNom . ', ' . date('j', $ts) . ' de ' . $mesNom;
 
-$id = 'REG-' . date('Y-md', $ts) . '-' . str_pad((string) mt_rand(1, 99), 2, '0', STR_PAD_LEFT);
+$id = 'REG-' . date('Ymd-His', $ts) . '-' . mt_rand(100, 999);
 
 $registro = [
 	'id'              => $id,
@@ -64,7 +71,7 @@ $registro = [
 	'fecha_iso'       => $fechaIso,
 	'fecha_texto'     => $fechaTexto,
 	'hora'            => $hora,
-	'duracion'        => '1h 30m',
+	'duracion'        => '',
 	'grupo_dia'       => $grupoDia,
 	'estado'          => 'Aprobado',
 	'estado_tipo'     => 'ok',
@@ -72,18 +79,18 @@ $registro = [
 	'cadena'          => $cadena,
 	'ciudad'          => $ciudad,
 	'canal'           => $canal,
-	'promotor'        => ucwords(str_replace('.', ' ', $usuario)),
+	'promotor'        => $_SESSION['nombre'] ?? ucwords(str_replace('.', ' ', $usuario)),
 	'promotor_usuario'=> $usuario,
 	'promotor_avatar' => $avatar,
 ];
 
 // Procesar según formulario
 if ($tipo === 'activaciones' || $tipo === 'epson-day') {
-	$nac = max(0, (int) ($valores['nacional'] ?? 0));
-	$cob = max(0, (int) ($valores['coberturadas'] ?? 0));
-	$vis = max(0, (int) ($valores['visitaron'] ?? 0));
-	$inte = max(0, (int) ($valores['interactuaron'] ?? 0));
-	$com = max(0, (int) ($valores['compraron'] ?? 0));
+	$nac = ep_entero($valores['nacional'] ?? 0);
+	$cob = ep_entero($valores['coberturadas'] ?? 0);
+	$vis = ep_entero($valores['visitaron'] ?? 0);
+	$inte = ep_entero($valores['interactuaron'] ?? 0);
+	$com = ep_entero($valores['compraron'] ?? 0);
 
 	$registro['cobertura'] = [
 		'nacional'     => $nac,
@@ -102,28 +109,30 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 	if (!empty($valores['modelos']) && is_array($valores['modelos'])) {
 		$totMods = 0;
 		foreach ($valores['modelos'] as $m) {
-			$totMods += (int) ($m['cantidad'] ?? 0);
+			$totMods += ep_entero($m['cantidad'] ?? 0);
 		}
 		$mods = [];
 		foreach ($valores['modelos'] as $m) {
-			$cant = (int) ($m['cantidad'] ?? 0);
+			$nombreModelo = trim((string) ($m['modelo'] ?? ''));
+			if ($nombreModelo === '') {
+				continue;
+			}
+			$cant = ep_entero($m['cantidad'] ?? 0);
 			$pct = $totMods > 0 ? round(($cant / $totMods) * 100, 1) . '%' : '0%';
 			$mods[] = [
-				'modelo'   => $m['modelo'] ?? 'EcoTank L3250',
+				'modelo'   => $nombreModelo,
 				'cantidad' => $cant,
 				'pct'      => $pct,
 			];
 		}
 		$registro['modelos'] = $mods;
 	} else {
-		$registro['modelos'] = [
-			['modelo' => 'EcoTank L3250', 'cantidad' => max(1, $com), 'pct' => '100%']
-		];
+		$registro['modelos'] = [];
 	}
 
 	if ($tipo === 'activaciones') {
-		$prog = max(0, (int) ($valores['programadas'] ?? 10));
-		$real = max(0, (int) ($valores['realizadas'] ?? 8));
+		$prog = ep_entero($valores['programadas'] ?? 0);
+		$real = ep_entero($valores['realizadas'] ?? 0);
 		$registro['cumplimiento'] = [
 			'programadas' => $prog,
 			'realizadas'  => $real,
@@ -131,10 +140,10 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 		];
 	}
 } elseif ($tipo === 'capacitaciones') {
-	$asis = max(0, (int) ($valores['asistentes'] ?? 0));
-	$apro = max(0, (int) ($valores['aprobados'] ?? 0));
-	$horas = max(1, (int) ($valores['horas'] ?? 2));
-	$temas = trim($valores['temas'] ?? 'Portafolio EcoTank Serie L y consumibles originales');
+	$asis = ep_entero($valores['asistentes'] ?? 0);
+	$apro = ep_entero($valores['aprobados'] ?? 0);
+	$horas = ep_entero($valores['horas'] ?? 0);
+	$temas = trim($valores['temas'] ?? '');
 
 	$registro['capacitacion'] = [
 		'asistentes'     => $asis,
@@ -144,16 +153,12 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 		'temas'          => $temas,
 	];
 } elseif ($tipo === 'colocacion-pop') {
-	$popLista = is_array($valores['pop_materiales'] ?? null) ? $valores['pop_materiales'] : [
-		['material' => 'Vibrines (Retail)', 'bodega' => 20, 'canales' => 5, 'retail' => 12, 'disponible' => 3],
-		['material' => 'Banners Roll Up (1.80m)', 'bodega' => 5, 'canales' => 1, 'retail' => 3, 'disponible' => 1],
-		['material' => 'Glorificadores Acrílico L3250', 'bodega' => 8, 'canales' => 2, 'retail' => 5, 'disponible' => 1],
-	];
+	$popLista = is_array($valores['pop_materiales'] ?? null) ? $valores['pop_materiales'] : [];
 	$registro['pop_materiales'] = $popLista;
 } elseif ($tipo === 'exhibiciones') {
-	$muebles = max(0, (int) ($valores['muebles'] ?? 0));
-	$rumas = max(0, (int) ($valores['rumas'] ?? 0));
-	$cabeceras = max(0, (int) ($valores['cabeceras'] ?? 0));
+	$muebles = ep_entero($valores['muebles'] ?? 0);
+	$rumas = ep_entero($valores['rumas'] ?? 0);
+	$cabeceras = ep_entero($valores['cabeceras'] ?? 0);
 	$tot = $muebles + $rumas + $cabeceras;
 
 	$registro['exhibiciones'] = [
@@ -166,9 +171,9 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 		'cabeceras_pct' => $tot > 0 ? round(($cabeceras / $tot) * 100, 1) . '%' : '0%',
 	];
 } elseif ($tipo === 'evento-ferias') {
-	$vis = max(0, (int) ($valores['visitaron'] ?? 0));
-	$inte = max(0, (int) ($valores['interactuaron'] ?? 0));
-	$com = max(0, (int) ($valores['compraron'] ?? 0));
+	$vis = ep_entero($valores['visitaron'] ?? 0);
+	$inte = ep_entero($valores['interactuaron'] ?? 0);
+	$com = ep_entero($valores['compraron'] ?? 0);
 
 	$registro['feria'] = [
 		'visitaron'             => $vis,
@@ -181,21 +186,27 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 	if (!empty($valores['modelos']) && is_array($valores['modelos'])) {
 		$registro['modelos'] = $valores['modelos'];
 	} else {
-		$registro['modelos'] = [
-			['modelo' => 'EcoTank L3250', 'cantidad' => max(1, $com), 'pct' => '100%']
-		];
+		$registro['modelos'] = [];
 	}
 }
 
 // Evidencias fotográficas requeridas según tipo de actividad
 $reqFotos = ep_fotos_requeridas($tipo);
 $fotosFinal = [];
+$fotosSubidas = is_array($payload['fotos'] ?? null) ? $payload['fotos'] : [];
 foreach ($reqFotos as $rf) {
+	$ruta = (string) ($fotosSubidas[$rf['id']] ?? '');
+	// Solo se acepta una ruta que esté dentro de la carpeta de Epson en Azure.
+	if ($ruta !== '' && strpos($ruta, 'AppEpson/EpsonReport/') !== 0) {
+		$ruta = '';
+	}
 	$fotosFinal[] = [
 		'id'     => $rf['id'],
 		'label'  => $rf['label'],
 		'hora'   => $hora,
 		'estado' => 'Verificada',
+		'ruta'   => $ruta,
+		'url'    => $ruta !== '' ? 'https://luckyecuadorweb.blob.core.windows.net/app/'.$ruta : '',
 	];
 }
 $registro['fotos'] = $fotosFinal;
@@ -206,12 +217,10 @@ if ($comentarioTexto !== '') {
 	$lineas = array_filter(array_map('trim', explode("\n", $comentarioTexto)));
 	$registro['comentarios'] = !empty($lineas) ? array_values($lineas) : [$comentarioTexto];
 } else {
-	$registro['comentarios'] = [
-		'Reporte registrado exitosamente desde el punto de venta conforme a los requerimientos operativos.'
-	];
+	$registro['comentarios'] = [];
 }
 
-$ok = ep_guardar_nuevo_registro($registro);
+$ok = ep_guardar_nuevo_registro($registro, (int) $_SESSION['usuario_id']);
 
 if ($ok) {
 	echo json_encode([
@@ -224,6 +233,6 @@ if ($ok) {
 	http_response_code(500);
 	echo json_encode([
 		'success' => false,
-		'error'   => 'No se pudo guardar el registro en el archivo de datos.',
+		'error'   => 'No se pudo guardar el registro. Intenta de nuevo.',
 	]);
 }

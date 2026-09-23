@@ -104,7 +104,8 @@ try {
 		$sectorResuelto = $cacheSector[$sectorCrudo];
 		$sector = $sectorCrudo;
 		if ($sectorResuelto === null) {
-			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo identificar la categoría "'.$sectorCrudo.'" en el catálogo. Revisar con JW.'];
+			// tipo propio (2026-09-24, pedido explícito): ya no interrumpe con ventanita, se revisa desde la tabla en vez de aquí.
+			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo identificar la categoría "'.$sectorCrudo.'" en el catálogo. Revisar con JW.', 'tipo' => 'categoria_no_reconocida'];
 		} elseif ($sectorResuelto !== $sectorCrudo) {
 			$sector = $sectorResuelto;
 			$etiqueta = $clienteExcel.' / '.$sector;

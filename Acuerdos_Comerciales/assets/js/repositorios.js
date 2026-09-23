@@ -26,6 +26,16 @@
 				{ key: 'participacion_pct', label: 'Participación %', numero: true, formato: function (v) { return parseFloat(v).toFixed(1) + '%'; } }
 			]
 		},
+		// Jerarquía de Supervisores (2026-09-24, pedido explícito, mismas mecánicas que Rebate/Participación): supervisor_campo = nombre del maestro de Alicorp sin cuenta propia, supervisor_real = a quién reporta (con cuenta). Ver supervisorRealDeJerarquia() en functions.php.
+		jerarquia: {
+			label: 'Jerarquía de Supervisores',
+			descripcion: 'Mapea un supervisor "de campo" (sin cuenta propia) al supervisor real que debe validar/recibir sus Actas.',
+			buscarPlaceholder: 'Buscar por supervisor de campo o supervisor real...',
+			columnas: [
+				{ key: 'supervisor_campo', label: 'Supervisor Campo' },
+				{ key: 'supervisor_real', label: 'Supervisor Real' }
+			]
+		},
 		// Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md "Repositorio de Cuotas trimestrales + Actas precargadas") — a diferencia de Rebate/Participación, SÍ tiene cliente y el pos_id se resuelve en el servidor (cuotas_guardar.php), no en el Excel. Por eso tiene 2 juegos de columnas: `columnasPreview` (lo que trae el Excel crudo, antes de guardar) y `columnas` (lo que se ve en la tabla principal ya guardada, con pos_id/período/estado resueltos). Sin edición inline (`editable: false`) — estos datos vienen de un match automático, no de texto libre como Rebate/Participación.
 		cuotas: {
 			label: 'Cuotas Trimestrales',
@@ -114,6 +124,7 @@
 	var tabRebate = document.getElementById('repo-tab-rebate');
 	var tabParticipacion = document.getElementById('repo-tab-participacion');
 	var tabCuotas = document.getElementById('repo-tab-cuotas');
+	var tabJerarquia = document.getElementById('repo-tab-jerarquia');
 	var tabsIndicador = document.getElementById('repo-tabs-indicador');
 	var raizRepo = document.getElementById('ac-repo-lista');
 	var pendientesAbrirBtn = document.getElementById('repo-pendientes-abrir');
@@ -360,7 +371,7 @@
 			.catch(function () {});
 	}
 	function cargarContadoresTabs() {
-		['rebate', 'participacion', 'cuotas'].forEach(function (tipo) {
+		['rebate', 'participacion', 'cuotas', 'jerarquia'].forEach(function (tipo) {
 			if (tipo !== tipoActivo) cargarContadorTab(tipo); // el de la pestaña activa ya lo llena cargarLista()
 		});
 	}
@@ -395,7 +406,9 @@
 		tabRebate.classList.toggle('active', tipo === 'rebate');
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
-		posicionarIndicadorTab(tipo === 'rebate' ? tabRebate : (tipo === 'participacion' ? tabParticipacion : tabCuotas));
+		if (tabJerarquia) tabJerarquia.classList.toggle('active', tipo === 'jerarquia');
+		var tabsPorTipo = { rebate: tabRebate, participacion: tabParticipacion, cuotas: tabCuotas, jerarquia: tabJerarquia };
+		posicionarIndicadorTab(tabsPorTipo[tipo]);
 		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
 		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito "quita el botón de Pendientes de Asignar") — se deja el resto del mecanismo intacto (getters, modal), por si se retoma después.
@@ -422,6 +435,7 @@
 	tabRebate.addEventListener('click', function () { activarTab('rebate'); });
 	tabParticipacion.addEventListener('click', function () { activarTab('participacion'); });
 	tabCuotas.addEventListener('click', function () { activarTab('cuotas'); });
+	if (tabJerarquia) tabJerarquia.addEventListener('click', function () { activarTab('jerarquia'); });
 
 	// ---------- Búsqueda ----------
 	buscarInput.addEventListener('input', function () {
@@ -1090,11 +1104,18 @@
 
 	// Alerta de máximo de Rebate por canal (2026-09-22, pedido explícito): 3% Distribuidor, 5% Directo — avisa pero deja guardar igual, mismo patrón que la confirmación de Cuotas.
 	function maximoRebatePorCanal(canal) { return String(canal).toUpperCase() === 'DISTRIBUIDOR' ? 0.03 : 0.05; }
+	// Acumulado entre subidas (2026-09-24, pedido explícito: "si subo Distribuidor y luego Directo, ambos deben salir juntos, no una alerta por cada subida"). Vive en memoria de la pestaña, se resetea al recargar la página. Clave = canal+marca+categoria+ciudad, para no duplicar la misma fila si se vuelve a subir el mismo archivo.
+	var rebateExcedidasAcumuladas = {};
 	function confirmarMaximoRebateYGuardar(onDone) {
 		var filas = leerFilasPreviewEditadas();
 		var excedidas = filas.filter(function (f) { return (parseFloat(f.rebate_pct) || 0) > maximoRebatePorCanal(f.canal); });
 		if (!excedidas.length) { guardarFilas(filas, onDone); return; }
-		var filasHtml = excedidas.map(function (f) {
+		excedidas.forEach(function (f) {
+			var clave = [f.canal, f.marca, f.categoria, f.ciudad].join('|');
+			rebateExcedidasAcumuladas[clave] = f;
+		});
+		var excedidasMostrar = Object.keys(rebateExcedidasAcumuladas).map(function (k) { return rebateExcedidasAcumuladas[k]; });
+		var filasHtml = excedidasMostrar.map(function (f) {
 			var maximo = maximoRebatePorCanal(f.canal);
 			return '<div class="ac-choque-row">' +
 				'<div class="ac-choque-side ac-choque-side-precarga">' +
@@ -1103,21 +1124,22 @@
 				'</div>' +
 				'<div class="ac-choque-arrow"><span class="material-symbols-outlined">arrow_forward</span></div>' +
 				'<div class="ac-choque-side ac-choque-side-existente">' +
-					'<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">Máximo permitido</p>' +
+					'<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">Máximo ' +(String(f.canal).toUpperCase() === 'DISTRIBUIDOR' ? 'Distribuidor' : 'Directo') + '</p>' +
 					'<p class="ac-choque-doc">' + (maximo * 100).toFixed(2) + '%</p>' +
 				'</div>' +
 			'</div>';
 		}).join('');
 		Swal.fire({
 			icon: 'warning',
-			title: excedidas.length + ' fila(s) superan el máximo de Rebate de su canal',
-			html: '¿Estás seguro de guardarlo así? Revisa cada caso antes de continuar.<br><br><div class="ac-choque-list">' + filasHtml + '</div>',
+			title: excedidasMostrar.length + ' fila(s) superan el máximo de Rebate de su canal',
+			html: 'Máximo: <strong>Directo 5%</strong> · <strong>Distribuidor 3%</strong><br><br><div class="ac-choque-list">' + filasHtml + '</div>',
 			width: 720,
 			showCancelButton: true,
 			confirmButtonText: 'Guardar de todas formas',
 			cancelButtonText: 'Revisar el archivo',
 			confirmButtonColor: '#00288e'
 		}).then(function (r) {
+			// A propósito NO se limpia rebateExcedidasAcumuladas al confirmar: debe seguir apareciendo en la próxima subida de esta sesión, ese es el pedido (verlas todas juntas, no una alerta aislada por cada subida).
 			if (r.isConfirmed) guardarFilas(filas, onDone);
 		});
 	}

@@ -20,7 +20,7 @@ $body = json_decode(file_get_contents('php://input'), true);
 $tipo = $body['tipo'] ?? '';
 $id   = (int) ($body['id'] ?? 0);
 
-if (!in_array($tipo, ['rebate', 'participacion', 'cuotas'], true) || $id <= 0) {
+if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia'], true) || $id <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
@@ -28,6 +28,7 @@ $tablasPorTipo = [
 	'rebate'        => 'repositorio_rebate_producto',
 	'participacion' => 'repositorio_participacion_percha',
 	'cuotas'        => 'repositorio_cuota_cliente',
+	'jerarquia'     => 'repositorio_jerarquia_supervisores',
 ];
 $tabla = $tablasPorTipo[$tipo];
 

@@ -1,4 +1,4 @@
-<!-- Igual que plantillas-stats/epson-day.php, sin la tarjeta de Cobertura (no aplica a Eventos o Ferias). -->
+<!-- Igual que estadisticas/epson-day.php, sin la tarjeta de Cobertura (no aplica a Eventos o Ferias). -->
 <div class="ep-stats-panel">
 
 	<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">

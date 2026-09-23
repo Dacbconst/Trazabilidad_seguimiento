@@ -1,4 +1,4 @@
-<!-- Mismo layout que plantillas-stats/activaciones.php, con prefijo ep-eday- para no chocar de IDs. -->
+<!-- Mismo layout que estadisticas/activaciones.php, con prefijo ep-eday- para no chocar de IDs. -->
 <div class="ep-stats-panel">
 
 	<div class="ep-stats-row-3">

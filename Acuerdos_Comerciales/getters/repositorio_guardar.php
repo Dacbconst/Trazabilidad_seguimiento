@@ -21,7 +21,7 @@ $body  = json_decode(file_get_contents('php://input'), true);
 $tipo  = $body['tipo'] ?? '';
 $filas = is_array($body['filas'] ?? null) ? $body['filas'] : [];
 
-if (!in_array($tipo, ['rebate', 'participacion'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'jerarquia'], true)) {
 	responder(false, 'Tipo de repositorio inválido.');
 }
 if (!$filas) {
@@ -38,6 +38,11 @@ $clavesVistas = []; // clave normalizada -> índice de la última fila que la us
 function repositorio_identificar_fila($tipo, $fila) {
 	if ($tipo === 'rebate') {
 		$partes = array_filter([$fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['ciudad'] ?? '', $fila['canal'] ?? '']);
+		return $partes ? implode(' / ', $partes) : '(fila vacía)';
+	}
+	// jerarquia (2026-09-24): Supervisor Campo -> Supervisor Real.
+	if ($tipo === 'jerarquia') {
+		$partes = array_filter([$fila['supervisor_campo'] ?? '', $fila['supervisor_real'] ?? '']);
 		return $partes ? implode(' / ', $partes) : '(fila vacía)';
 	}
 	// participacion (2026-08-30): Ciudad + Marca, mismo criterio que Rebate.
@@ -89,6 +94,46 @@ try {
 			$clavesVistas[$clave] = $indice;
 
 			$stmt->bind_param('sssssdi', $ciudad, $canal, $sector, $categoria, $marca, $rebatePct, $usuarioSesion);
+			if ($stmt->execute()) {
+				$guardadas++;
+			} else {
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo guardar esta fila'];
+			}
+		}
+		$stmt->close();
+	} elseif ($tipo === 'jerarquia') {
+		// eliminado_en/eliminado_por en NULL, mismo motivo que Rebate. Clave única = supervisor_campo (1 nombre de campo reporta a 1 solo real).
+		$stmt = $mysqli->prepare(
+			'INSERT INTO repositorio_jerarquia_supervisores (supervisor_campo, supervisor_real, actualizado_por)
+			 VALUES (?, ?, ?)
+			 ON DUPLICATE KEY UPDATE supervisor_real = VALUES(supervisor_real), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
+		);
+		if (!$stmt) throw new Exception('El repositorio de Jerarquía de Supervisores todavía no está disponible. Avisa al equipo técnico.');
+
+		foreach ($filas as $indice => $fila) {
+			$campo = repositorio_normalizar_texto($fila['supervisor_campo'] ?? '');
+			$real  = repositorio_normalizar_texto($fila['supervisor_real'] ?? '');
+			$etiqueta = repositorio_identificar_fila($tipo, $fila);
+
+			$faltantes = [];
+			if ($campo === '') $faltantes[] = 'Supervisor Campo';
+			if ($real === '') $faltantes[] = 'Supervisor Real';
+			if ($faltantes) {
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)];
+				continue;
+			}
+			if ($campo === $real) {
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Supervisor Campo y Supervisor Real no pueden ser el mismo nombre'];
+				continue;
+			}
+
+			$clave = $campo;
+			if (isset($clavesVistas[$clave])) {
+				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Supervisor Campo repetido en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
+			}
+			$clavesVistas[$clave] = $indice;
+
+			$stmt->bind_param('ssi', $campo, $real, $usuarioSesion);
 			if ($stmt->execute()) {
 				$guardadas++;
 			} else {

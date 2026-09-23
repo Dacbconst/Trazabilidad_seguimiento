@@ -76,61 +76,29 @@ $esAdmin = ep_rol_actual() === 'admin';
 	$actividadesOriginales = array_filter($actividades, fn($a) => ($a['render_id'] ?? $a['id']) === $a['id']);
 	?>
 	<div class="ep-actividad-layout<?= !empty($actividades[0]['sin_estadisticas']) ? ' ep-actividad-layout-sin-stats' : '' ?>" id="ep-actividad-layout">
+		
+		<!-- 1. Card Izquierda: Formulario de Datos Cuantitativos de la Actividad -->
 		<div id="ep-panel-formulario" class="ep-card">
 			<?php foreach ($actividadesOriginales as $i => $actividad): ?>
 				<div class="ep-formulario-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
-					<?php include __DIR__.'/plantillas/'.$actividad['plantilla'].'.php'; ?>
+					<?php include __DIR__.'/formularios/'.$actividad['plantilla'].'.php'; ?>
 				</div>
 			<?php endforeach; ?>
 
-			<!-- Banner de Flujo Continuo a Evidencias Fotográficas en Desktop -->
-			<div class="ep-desktop-foto-flow-card" id="epDesktopFotoFlowCard">
-				<div class="ep-desktop-flow-body">
-					<div class="ep-desktop-flow-icon-box">
-						<?= ep_icon('camera', 20) ?>
-					</div>
-					<div class="ep-desktop-flow-content">
-						<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-							<span class="ep-desktop-flow-step-tag">Paso 2</span>
-							<strong class="ep-desktop-flow-heading">Evidencia Fotográfica Obligatoria</strong>
-							<span class="ep-desktop-flow-status-pill pendiente" id="epDesktopFlowBadge">Pendiente</span>
-						</div>
-						<p class="ep-desktop-flow-sub">
-							Para auditar este reporte ante Epson, carga las fotos requeridas de campo.
-						</p>
-						<div class="ep-desktop-flow-meter-wrap">
-							<div class="ep-desktop-flow-meter-track">
-								<div class="ep-desktop-flow-meter-bar" id="epDesktopFotoProgressFill" style="width:0%;"></div>
-							</div>
-							<span class="ep-desktop-flow-meter-lbl" id="epDesktopFotoCount">0 fotos cargadas</span>
-						</div>
-					</div>
-				</div>
-				<button type="button" class="ep-btn-desktop-start-wizard" id="epBtnDesktopStartWizard">
-					<?= ep_icon('camera', 15) ?>
-					<span>Subir Fotos con Asistente</span>
-					<?= ep_icon('arrow-right', 13) ?>
-				</button>
-			</div>
-
 			<div class="ep-form-acciones-movil">
 				<button type="button" class="ep-btn-siguiente-movil" id="epBtnIrAFotos">
-					<span>Continuar a Evidencia Fotográfica</span>
+					<span>Continuar a Fotos de Evidencia</span>
 					<?= ep_icon('arrow-right', 15) ?>
 				</button>
 			</div>
-
-			<div class="ep-form-submit-row-desktop" style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;">
-				<button type="button" class="ep-btn-outline" id="epBtnGuardarBorrador">Guardar borrador</button>
-				<button type="button" class="ep-btn-primary" id="epBtnEnviarRegistro">Enviar registro</button>
-			</div>
 		</div>
 
+		<!-- 2. Card Derecha: Estadísticas y KPIs en Vivo -->
 		<div id="ep-panel-estadisticas" class="ep-card">
 			<div class="ep-eyebrow">Estadísticas</div>
 			<?php foreach ($actividadesOriginales as $i => $actividad): ?>
 				<div class="ep-estadisticas-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>" data-sin-estadisticas="<?= !empty($actividad['sin_estadisticas']) ? '1' : '0' ?>">
-					<?php include __DIR__.'/plantillas-stats/'.$actividad['plantilla'].'.php'; ?>
+					<?php include __DIR__.'/estadisticas/'.$actividad['plantilla'].'.php'; ?>
 				</div>
 			<?php endforeach; ?>
 
@@ -145,34 +113,29 @@ $esAdmin = ep_rol_actual() === 'admin';
 			</div>
 		</div>
 
-		<div class="ep-evidencia-wrap">
-			<!-- Acceso rápido móvil al asistente guiado paso a paso -->
-			<button type="button" class="ep-btn-reabrir-wizard" id="epBtnReabrirWizard">
-				<?= ep_icon('camera', 16) ?>
-				<span>Subir fotos paso a paso</span>
-				<?= ep_icon('arrow-right', 14) ?>
-			</button>
-
-			<?php foreach ($actividadesOriginales as $i => $actividad):
+		<!-- 3. Card Separada Abajo: Evidencia Fotográfica Obligatoria -->
+		<div id="ep-panel-evidencia" class="ep-card ep-panel-evidencia-card">
+			<?php foreach ($actividadesOriginales as $i => $actividad): 
 				$epEvidenciaFotos = ep_fotos_requeridas($actividad['plantilla']);
 				$epEvidenciaPrefix = 'a' . $actividad['id'];
 			?>
 				<div class="ep-evidencia-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
-					<?php include __DIR__.'/partials/paso_evidencia.php'; ?>
+					<?php include __DIR__.'/compartidos/paso_evidencia.php'; ?>
 				</div>
 			<?php endforeach; ?>
 
-			<div class="ep-fotos-acciones-movil">
-				<button type="button" class="ep-btn-outline ep-btn-volver-movil" id="epBtnVolverAFormulario">
-					<?= ep_icon('arrow-left', 15) ?>
-					<span>Volver a Formulario</span>
-				</button>
-				<button type="button" class="ep-btn-siguiente-movil" id="epBtnIrAMetricas">
-					<span id="epBtnIrAMetricasTexto">Revisar Métricas</span>
-					<?= ep_icon('arrow-right', 15) ?>
-				</button>
+			<!-- Cierre del Proceso: Botones de Acción al Final de la Card de Fotos -->
+			<div class="ep-form-submit-row-desktop">
+				<div class="ep-form-submit-hint">
+					<span>Completa los datos de campo arriba y las fotos obligatorias antes de enviar el reporte oficial.</span>
+				</div>
+				<div class="ep-form-submit-btns">
+					<button type="button" class="ep-btn-outline" id="epBtnGuardarBorrador">Guardar borrador</button>
+					<button type="button" class="ep-btn-primary" id="epBtnEnviarRegistro">Enviar registro</button>
+				</div>
 			</div>
 		</div>
+
 	</div>
 
 	<!-- Modal Asistente de Captura Fotográfica Paso a Paso (Móvil y Desktop) -->

@@ -25,6 +25,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/resumen-negociacion.js') ?: time();
 			</button>
 		</div>
 		<div class="ac-seg-periodo">
+			<div class="ac-seg-pill-group" id="neg-canal-group">
+				<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-canal="total">Todas</button>
+				<button type="button" class="ac-seg-pill" data-canal="directo">Directo</button>
+				<button type="button" class="ac-seg-pill" data-canal="distribuidor">Distribuidor</button>
+			</div>
 			<div class="ac-seg-pill-group" id="neg-trimestre-group">
 				<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-trimestre="0">Todos</button>
 				<button type="button" class="ac-seg-pill" data-trimestre="1">Q1</button>

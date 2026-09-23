@@ -37,6 +37,12 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			Cuotas Trimestrales
 			<span class="ac-repo-tab-count" id="repo-tab-cuotas-count">—</span>
 		</button>
+		<!-- Jerarquía de Supervisores (2026-09-24, pedido explícito) — mismas mecánicas que Rebate/Participación (subir/editar/exportar/plantilla), mapea el supervisor "de campo" del maestro de Alicorp al supervisor real que debe validar/recibir sus Actas. Ver supervisorRealDeJerarquia() en functions.php. -->
+		<button type="button" class="ac-repo-tab" id="repo-tab-jerarquia" data-tipo="jerarquia">
+			<span class="material-symbols-outlined">account_tree</span>
+			Jerarquía de Supervisores
+			<span class="ac-repo-tab-count" id="repo-tab-jerarquia-count">—</span>
+		</button>
 		<!-- Indicador deslizante (2026-09-18) — posición/ancho calculados en JS,
 		     ver posicionarIndicadorTab() en repositorios.js. -->
 		<div class="ac-repo-tabs-indicador" id="repo-tabs-indicador"></div>

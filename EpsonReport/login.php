@@ -3,12 +3,20 @@ require_once __DIR__.'/config.php';
 session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 
-if (!empty($_SESSION['usuario'])) {
+require_once __DIR__.'/includes/functions.php';
+
+if (ep_login_check()) {
 	header('Location: index.php');
 	exit;
 }
 
-$error = isset($_GET['error']) ? 'Usuario o contraseña incorrectos.' : '';
+$mensajesError = [
+	'bloqueado' => 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.',
+	'sesion'    => 'Tu sesión se cerró porque iniciaste sesión en otro dispositivo.',
+	'inactividad' => 'Tu sesión se cerró por 20 minutos de inactividad. Inicia sesión de nuevo.',
+	'servidor'  => 'No se pudo conectar con el servidor. Intenta de nuevo en unos minutos.',
+];
+$error = isset($_GET['error']) ? ($mensajesError[$_GET['error']] ?? 'Usuario o contraseña incorrectos.') : '';
 $redirect = trim($_GET['redirect'] ?? $_POST['redirect'] ?? '');
 require_once __DIR__.'/includes/functions.php';
 
@@ -29,6 +37,7 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 	<title>EpsonReport — Iniciar sesión</title>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__.'/assets/css/style.css') ?>">
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 </head>
 <body class="ep-login-body">
 	<div class="ep-login-wrap">
@@ -58,7 +67,7 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 
 		<!-- Formulario de acceso -->
 		<div class="ep-login-form">
-			<form class="ep-login-form-inner" method="post" action="getters/procesar_login.php">
+			<form class="ep-login-form-inner" id="epLoginForm" method="post" action="getters/procesar_login.php">
 				<?php if ($redirect !== ''): ?>
 					<input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
 				<?php endif; ?>
@@ -104,6 +113,48 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 				toggle.innerHTML = mostrar ? iconoOcultar : iconoVer;
 				toggle.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
 			});
+		})();
+	</script>
+	<script>
+		// Login por fetch: si la cuenta ya está abierta en otro dispositivo, se pregunta antes de cerrar esa sesión.
+		(function () {
+			var form = document.getElementById('epLoginForm');
+			var boton = form.querySelector('button[type="submit"]');
+			form.addEventListener('submit', function (e) {
+				e.preventDefault();
+				enviar(false);
+			});
+			function enviar(forzar) {
+				var datos = new FormData(form);
+				datos.append('forzar', forzar ? '1' : '0');
+				boton.disabled = true;
+				fetch('getters/procesar_login.php', { method: 'POST', body: datos })
+					.then(function (r) { return r.json(); })
+					.then(function (data) {
+						if (data.ok) { window.location.href = data.redirect || 'index.php'; return; }
+						boton.disabled = false;
+						if (data.motivo === 'sesion_activa') {
+							Swal.fire({
+								icon: 'warning',
+								title: 'Ya tienes una sesión activa',
+								text: 'Este usuario ya está conectado en otro dispositivo. ¿Deseas cerrar esa sesión para ingresar aquí?',
+								showCancelButton: true,
+								confirmButtonText: 'Cerrar esa sesión y entrar aquí',
+								cancelButtonText: 'Cancelar'
+							}).then(function (res) { if (res.isConfirmed) enviar(true); });
+						} else if (data.motivo === 'bloqueado') {
+							Swal.fire({ icon: 'error', title: 'Cuenta bloqueada', text: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
+						} else if (data.motivo === 'servidor') {
+							Swal.fire({ icon: 'error', title: 'Sin conexión', text: 'No se pudo conectar con el servidor. Intenta de nuevo en unos minutos.' });
+						} else {
+							Swal.fire({ icon: 'error', title: 'Datos incorrectos', text: 'Usuario o contraseña incorrectos.' });
+						}
+					})
+					.catch(function () {
+						boton.disabled = false;
+						Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar. Intenta de nuevo.' });
+					});
+			}
 		})();
 	</script>
 </body>

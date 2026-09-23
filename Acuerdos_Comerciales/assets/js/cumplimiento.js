@@ -165,8 +165,12 @@ document.addEventListener('DOMContentLoaded', function () {
 				'Bajó desde la última subida</div>';
 		}
 		// Rebate ganado oculta por CSS (ver .ac-cumpl-col-header): el `<div>` se sigue generando con su dato real, solo no se muestra.
+		// Categoría no reconocida en el catálogo (2026-09-24, pedido explícito): ya no interrumpe con ventanita, solo un badge acá.
+		var categoriaAvisoHtml = cat.categoria_valida === false
+			? '<span class="ac-cumpl-categoria-aviso" title="No se reconoce esta categoría en el catálogo. Revisar con JW."><span class="material-symbols-outlined">warning</span></span>'
+			: '';
 		return '<div class="ac-cumpl-fila-cat ' + grupoClase + '">' +
-			'<div>' + escapeHtml(cat.sector) + cambioHtml + '</div>' +
+			'<div>' + escapeHtml(cat.sector) + categoriaAvisoHtml + cambioHtml + '</div>' +
 			'<div>' + valorMonetario(cat.cuota_total, canalCliente) + '</div>' +
 			'<div>' + valorMonetario(cat.venta_total, canalCliente) + '</div>' +
 			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
@@ -577,7 +581,8 @@ document.addEventListener('DOMContentLoaded', function () {
 					mostrarErroresPreview(errores, avisos);
 					return;
 				}
-				var avisosRelevantes = avisos.filter(function (a) { return a.tipo !== 'duplicado_archivo'; });
+				// categoria_no_reconocida ya no interrumpe con ventanita (2026-09-24, pedido explícito): se revisa con el badge en la tabla.
+				var avisosRelevantes = avisos.filter(function (a) { return a.tipo !== 'duplicado_archivo' && a.tipo !== 'categoria_no_reconocida'; });
 				if (avisosRelevantes.length) {
 					var grupos = {};
 					var ordenMotivos = [];

@@ -3,9 +3,14 @@ require_once __DIR__.'/config.php';
 session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 
-if (empty($_SESSION['usuario'])) {
+require_once __DIR__.'/includes/functions.php';
+
+if (!ep_login_check()) {
+	$motivoCierre = $GLOBALS['ep_motivo_cierre'] ?? '';
 	$redirectParam = !empty($_SERVER['REQUEST_URI']) ? '?redirect='.urlencode($_SERVER['REQUEST_URI']) : '';
-	header('Location: login.php'.$redirectParam);
+	$errorParam = $motivoCierre === 'inactividad' ? 'inactividad' : ($motivoCierre !== '' ? 'sesion' : '');
+	$extra = $errorParam !== '' ? ($redirectParam !== '' ? '&' : '?').'error='.$errorParam : '';
+	header('Location: login.php'.$redirectParam.$extra);
 	exit;
 }
 
@@ -31,6 +36,7 @@ if (!isset($secciones[$vista])) {
 	<title>EpsonReport</title>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__.'/assets/css/style.css') ?>">
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 </head>
 <body>
 	<header class="ep-mobile-header" id="epMobileHeader">
@@ -48,7 +54,7 @@ if (!isset($secciones[$vista])) {
 	</header>
 
 	<div class="ep-shell">
-		<?php require __DIR__.'/partials/sidebar.php'; ?>
+		<?php require __DIR__.'/layout/sidebar.php'; ?>
 		<div class="ep-sidebar-backdrop" id="epSidebarBackdrop"></div>
 
 		<?php require __DIR__.'/components/'.$vista.'/'.$vista.'.php'; ?>
@@ -141,6 +147,8 @@ if (!isset($secciones[$vista])) {
 			});
 		}
 	</script>
+	<script src="assets/js/sesion-watch.js?v=<?= filemtime(__DIR__.'/assets/js/sesion-watch.js') ?>"></script>
+	<script src="assets/js/historial.js?v=<?= filemtime(__DIR__.'/assets/js/historial.js') ?>"></script>
 	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>
 </body>
 </html>

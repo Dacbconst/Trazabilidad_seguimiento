@@ -40,8 +40,8 @@ Cliente/marca del reporte es Epson. Identidad visual específica (paleta, tipogr
 
 ## Evidence on Hand
 
-- `diseños/code.html` y `diseños/screen.png`: mockup de referencia usado para la estructura/interacción de `historial.php` (no para paleta/tipografía Epson — el comentario en el código aclara que se cambió paleta y tipografía respecto al mockup original).
-- `diseños/DESIGN.md`: registra tokens de un sistema llamado "Modern Productivity Workspace" (paleta azul/índigo genérica). Tratar como evidencia de un intento previo, no como la identidad Epson confirmada — no se generó en este init y no está enlazado desde la raíz del proyecto.
+- `docs/diseno/code.html` y `docs/diseno/screen.png`: mockup de referencia usado para la estructura/interacción de `historial.php` (no para paleta/tipografía Epson — el comentario en el código aclara que se cambió paleta y tipografía respecto al mockup original).
+- `docs/diseno/DESIGN.md`: registra tokens de un sistema llamado "Modern Productivity Workspace" (paleta azul/índigo genérica). Tratar como evidencia de un intento previo, no como la identidad Epson confirmada — no se generó en este init y no está enlazado desde la raíz del proyecto.
 
 ## Product Principles
 

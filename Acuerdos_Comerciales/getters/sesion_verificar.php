@@ -4,5 +4,14 @@ require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../db_connect.php';
 iniciar_sesion();
 header('Content-Type: application/json; charset=utf-8');
-echo json_encode(['ok' => login_check()]);
+$valida = login_check();
+if ($valida) {
+	$stmt = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET sesion_ultima_actividad = NOW() WHERE id = ? AND sesion_token = ?');
+	if ($stmt) {
+		$stmt->bind_param('is', $_SESSION['user_id'], $_SESSION['sesion_token']);
+		$stmt->execute();
+		$stmt->close();
+	}
+}
+echo json_encode(['ok' => $valida]);
 ?>

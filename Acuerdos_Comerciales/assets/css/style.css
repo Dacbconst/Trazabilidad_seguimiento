@@ -2372,6 +2372,10 @@ tr.ac-preview-grupo-c { box-shadow: inset 8px 0 0 0 #a3690a; }
 .ac-cumpl-cambio-mejora { color: #1e9e5a; }
 .ac-cumpl-cambio-empeora { color: #ba1a1a; }
 
+/* Categoría no reconocida en el catálogo (ver cumplimiento_listar.php / functions.php categoria_valida) — badge discreto, no interrumpe con ventanita. */
+.ac-cumpl-categoria-aviso { display: inline-flex; vertical-align: middle; margin-left: 5px; color: #9a6700; cursor: help; }
+.ac-cumpl-categoria-aviso .material-symbols-outlined { font-size: 15px; }
+
 .ac-cumpl-fila-usuario {
 	display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap;
 	padding: 14px var(--space-lg);

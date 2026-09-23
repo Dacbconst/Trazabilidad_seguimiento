@@ -72,20 +72,33 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 		epActividadLayout.setAttribute('data-mobile-tab', tab);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
+		// En móvil las fotos se suben solo con el asistente: al entrar a la pestaña se abre solo si aún faltan fotos.
+		if (tab === 'fotos' && window.matchMedia('(max-width: 900px)').matches) {
+			actualizarContadorFotosMovil();
+			var bloqueFotos = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+			if (bloqueFotos && !bloqueFotos.classList.contains('ep-evidencia-completa')) {
+				setTimeout(abrirWizardFotos, 150);
+			}
+		}
 	}
 	function actualizarContadorFotosMovil() {
-		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var bloqueEv = document.querySelector('#ep-panel-evidencia .ep-evidencia-actividad:not(.hidden)') || document.querySelector('.ep-evidencia-actividad:not(.hidden)');
 		var slots = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot') : [];
 		var count = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot-completa').length : 0;
 		var total = slots.length;
+		if (bloqueEv) {
+			var completo = total > 0 && count >= total;
+			bloqueEv.classList.toggle('ep-evidencia-completa', completo);
+			bloqueEv.querySelectorAll('.ep-evidencia-actividad').forEach(function (el) { el.classList.toggle('ep-evidencia-completa', completo); });
+		}
 
 		var badge = document.getElementById('epMobileTabFotosCount');
 		if (badge) badge.textContent = count;
 
-		// Sincronizar tarjeta de flujo en Desktop
-		var desktopCount = document.getElementById('epDesktopFotoCount');
-		var desktopFill = document.getElementById('epDesktopFotoProgressFill');
-		var desktopBadge = document.getElementById('epDesktopFlowBadge');
+		// Sincronizar contador y barra del paso
+		var desktopCount = bloqueEv ? (bloqueEv.querySelector('.ep-desktop-flow-meter-lbl') || document.getElementById('epDesktopFotoCount')) : document.getElementById('epDesktopFotoCount');
+		var desktopFill = bloqueEv ? (bloqueEv.querySelector('.ep-desktop-flow-meter-bar') || document.getElementById('epDesktopFotoProgressFill')) : document.getElementById('epDesktopFotoProgressFill');
+		var desktopBadge = bloqueEv ? (bloqueEv.querySelector('.ep-desktop-flow-status-pill') || document.getElementById('epDesktopFlowBadge')) : document.getElementById('epDesktopFlowBadge');
 
 		if (desktopCount) {
 			desktopCount.textContent = count + ' de ' + total + ' listas';
@@ -93,11 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (desktopFill && total > 0) {
 			var pct = Math.round((count / total) * 100);
 			desktopFill.style.width = pct + '%';
-			if (pct === 100) {
-				desktopFill.style.background = '#137A3E';
-			} else {
-				desktopFill.style.background = '#0B1863';
-			}
+			desktopFill.style.background = (pct === 100) ? '#137A3E' : '#0B1863';
 		}
 		if (desktopBadge) {
 			if (total > 0 && count >= total) {
@@ -110,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 	function enviarRegistroActividad() {
-		var btnPrincipal = document.querySelector('#ep-panel-formulario .ep-btn-primary');
+		var btnPrincipal = document.getElementById('epBtnEnviarRegistro') || document.querySelector('.ep-btn-primary');
 		if (btnPrincipal) btnPrincipal.click();
 	}
 	if (epMobileTabs && epActividadLayout) {
@@ -120,29 +129,16 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (!btn) return;
 			activarTabMovil(btn.dataset.tab);
 		});
+		// Delegación para botones de apertura del asistente fotográfico
+		document.addEventListener('click', function (ev) {
+			var btn = ev.target.closest('.ep-btn-desktop-start-wizard, #epBtnDesktopStartWizard, .ep-btn-reabrir-wizard, .ep-btn-reabrir-wizard-desktop');
+			if (btn) {
+				abrirWizardFotos();
+			}
+		});
 		var btnIrAFotos = document.getElementById('epBtnIrAFotos');
 		if (btnIrAFotos) {
-			btnIrAFotos.addEventListener('click', function () {
-				abrirWizardFotos();
-			});
-		}
-		var btnDesktopStartWizard = document.getElementById('epBtnDesktopStartWizard');
-		if (btnDesktopStartWizard) {
-			btnDesktopStartWizard.addEventListener('click', function () {
-				abrirWizardFotos();
-			});
-		}
-		var btnReabrirWizardDesktop = document.getElementById('epBtnReabrirWizardDesktop');
-		if (btnReabrirWizardDesktop) {
-			btnReabrirWizardDesktop.addEventListener('click', function () {
-				abrirWizardFotos();
-			});
-		}
-		var btnReabrirWizard = document.getElementById('epBtnReabrirWizard');
-		if (btnReabrirWizard) {
-			btnReabrirWizard.addEventListener('click', function () {
-				abrirWizardFotos();
-			});
+			btnIrAFotos.addEventListener('click', function () { activarTabMovil('fotos'); });
 		}
 		var btnVolverAFormulario = document.getElementById('epBtnVolverAFormulario');
 		if (btnVolverAFormulario) {
@@ -192,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	var wizardPasoActual = 0;
 
 	function obtenerSlotsActividadVisible() {
-		var bloqueVisible = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var bloqueVisible = document.querySelector('.ep-formulario-actividad:not(.hidden) .ep-evidencia-actividad') || document.querySelector('.ep-evidencia-actividad:not(.hidden)');
 		if (!bloqueVisible) return [];
 		return Array.from(bloqueVisible.querySelectorAll('.ep-foto-slot'));
 	}
@@ -201,7 +197,6 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!wizardOverlay) return;
 		wizardSlotsActuales = obtenerSlotsActividadVisible();
 		if (wizardSlotsActuales.length === 0) {
-			activarTabMovil('fotos');
 			return;
 		}
 		var primerIncompleto = wizardSlotsActuales.findIndex(function (slot) {
@@ -217,9 +212,6 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!wizardOverlay) return;
 		wizardOverlay.classList.add('hidden');
 		document.body.style.overflow = '';
-		if (window.innerWidth <= 900) {
-			activarTabMovil('fotos');
-		}
 	}
 
 	function renderizarWizard() {
@@ -353,6 +345,90 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	}
 
+	// Tipo de actividad activa (mismo criterio que usa el envío del formulario).
+	function tipoActividadActiva() {
+		var item = document.querySelector('.ep-activity-item.selected');
+		var nom = (item ? (item.dataset.nombre || '') : '').toLowerCase();
+		if (nom.indexOf('capacita') !== -1) return 'capacitaciones';
+		if (nom.indexOf('pop') !== -1) return 'colocacion-pop';
+		if (nom.indexOf('day') !== -1) return 'epson-day';
+		if (nom.indexOf('exhibi') !== -1) return 'exhibiciones';
+		if (nom.indexOf('feria') !== -1 || nom.indexOf('evento') !== -1) return 'evento-ferias';
+		return 'activaciones';
+	}
+
+	// Deja cada foto liviana (objetivo ~120 KB, máx. 1000px): son miles de fotos que luego irán a presentaciones PPT, el peso manda.
+	var FOTO_PASOS = [[1000, 0.72], [900, 0.65], [800, 0.6], [720, 0.55], [640, 0.5]];
+	var FOTO_OBJETIVO_BYTES = 120 * 1024;
+	function comprimirFoto(archivo) {
+		return new Promise(function (resolve) {
+			var img = new Image();
+			var url = URL.createObjectURL(archivo);
+			img.onerror = function () { URL.revokeObjectURL(url); resolve(archivo); };
+			img.onload = function () {
+				URL.revokeObjectURL(url);
+				var mejor = null;
+				function probar(i) {
+					var paso = FOTO_PASOS[i];
+					var escala = Math.min(1, paso[0] / Math.max(img.width, img.height));
+					var canvas = document.createElement('canvas');
+					canvas.width = Math.round(img.width * escala);
+					canvas.height = Math.round(img.height * escala);
+					var ctx = canvas.getContext('2d');
+					ctx.fillStyle = '#FFFFFF'; // fondo blanco: un PNG con transparencia saldría negro en JPEG
+					ctx.fillRect(0, 0, canvas.width, canvas.height);
+					ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+					canvas.toBlob(function (blob) {
+						if (blob) mejor = blob;
+						if (blob && blob.size <= FOTO_OBJETIVO_BYTES || i === FOTO_PASOS.length - 1) {
+							resolve(mejor && mejor.size < archivo.size ? mejor : archivo);
+						} else {
+							probar(i + 1);
+						}
+					}, 'image/jpeg', paso[1]);
+				}
+				probar(0);
+			};
+			img.src = url;
+		});
+	}
+
+	// Sube la foto del slot a Azure (carpeta de Epson) y guarda la ruta en el slot para el envío del registro.
+	function subirFotoDeSlot(archivo, slot) {
+		var estado = slot.querySelector('.ep-foto-slot-estado');
+		function marcar(texto, ok) {
+			if (!estado) return;
+			estado.textContent = texto;
+			estado.classList.toggle('ep-hist-badge-ok', !!ok);
+		}
+		slot.dataset.fotoRuta = '';
+		slot.dataset.subiendo = '1';
+		marcar('Subiendo...', false);
+		comprimirFoto(archivo).then(function (blob) {
+			var fd = new FormData();
+			fd.append('archivo', blob, 'foto.jpg');
+			fd.append('tipo', tipoActividadActiva());
+			fd.append('foto_id', slot.dataset.fotoId || 'foto');
+			return fetch('getters/subir_foto.php', { method: 'POST', body: fd }).then(function (r) { return r.json(); });
+		}).then(function (data) {
+			slot.dataset.subiendo = '';
+			if (data && data.success) {
+				slot.dataset.fotoRuta = data.path;
+				marcar('Cargada', true);
+			} else {
+				slot.classList.remove('ep-foto-slot-completa');
+				marcar('Error al subir', false);
+				epToast('error', (data && data.error) || 'No se pudo subir la foto.');
+				if (data && data.redirect) setTimeout(function () { window.location.href = data.redirect; }, 1800);
+			}
+		}).catch(function () {
+			slot.dataset.subiendo = '';
+			slot.classList.remove('ep-foto-slot-completa');
+			marcar('Error al subir', false);
+			epToast('error', 'Error de conexión al subir la foto.');
+		});
+	}
+
 	// Función reutilizable para procesar archivo soltado o cargado
 	function cargarArchivoEnSlot(archivo, slot) {
 		if (!archivo || !archivo.type.startsWith('image/')) return;
@@ -369,6 +445,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			estado.textContent = 'Cargada';
 			estado.classList.add('ep-hist-badge-ok');
 		}
+
+		subirFotoDeSlot(archivo, slot);
 
 		var bloque = slot.closest('.ep-evidencia-bloque');
 		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
@@ -450,8 +528,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		preview.classList.remove('hidden');
 		vacio.classList.add('hidden');
 		slot.classList.add('ep-foto-slot-completa');
-		estado.textContent = 'Cargada';
-		estado.classList.add('ep-hist-badge-ok');
+		subirFotoDeSlot(archivo, slot);
 
 		var bloque = slot.closest('.ep-evidencia-bloque');
 		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
@@ -470,6 +547,18 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		}
 	});
+
+	// Campos numéricos de todos los formularios (incluidos los creados dinámicamente): solo enteros, máximo 3 dígitos.
+	document.addEventListener('keydown', function (ev) {
+		if (ev.target.type !== 'number') return;
+		if (['e', 'E', '+', '-', '.', ','].indexOf(ev.key) !== -1) ev.preventDefault();
+	});
+	document.addEventListener('input', function (ev) {
+		var campo = ev.target;
+		if (campo.type !== 'number') return;
+		var limpio = String(campo.value).replace(/D/g, '').slice(0, 3);
+		if (campo.value !== limpio) campo.value = limpio;
+	}, true);
 
 	// Marca en amarillo un instante el campo que se acaba de topar, para que se note que el sistema lo corrigió solo.
 	function destacarTope(campo) {
@@ -1249,7 +1338,59 @@ document.addEventListener('DOMContentLoaded', function () {
 	// =========================================================================
 	// ENVÍO DE FORMULARIO DE CAMPO EN VIVO (MÓDULO ACTIVIDADES)
 	// =========================================================================
+	// Ventanas de aviso (SweetAlert2); si no cargó, cae al alert nativo.
+	function epAviso(icono, titulo, texto, boton) {
+		if (!window.Swal) { alert(titulo); return Promise.resolve(); }
+		return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#10218B', allowOutsideClick: false });
+	}
+	function epToast(icono, titulo) {
+		if (!window.Swal) { alert(titulo); return; }
+		Swal.mixin({ toast: true, position: 'top', showConfirmButton: false, timer: 3500, timerProgressBar: true }).fire({ icon: icono, title: titulo });
+	}
+
+	// Validador del envío: todos los campos visibles del formulario y todas las fotos son obligatorios; solo comentarios es opcional.
+	function validarRegistroActivo() {
+		var panel = document.querySelector('.ep-formulario-actividad:not(.hidden)');
+		var camposVacios = [];
+		if (panel) {
+			panel.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]), select, textarea').forEach(function (el) {
+				if (el.disabled || el.readOnly || /comentario/i.test(el.id) || el.offsetParent === null) return;
+				if (String(el.value).trim() === '') camposVacios.push(el);
+			});
+			panel.querySelectorAll('.ep-combo-trigger').forEach(function (el) {
+				if (el.offsetParent !== null && !el.dataset.valor) camposVacios.push(el);
+			});
+		}
+		var bloqueFotos = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var fotosFaltan = [];
+		if (bloqueFotos) {
+			bloqueFotos.querySelectorAll('.ep-foto-slot').forEach(function (s) {
+				if (!s.dataset.fotoRuta) fotosFaltan.push(s);
+			});
+		}
+		document.querySelectorAll('.ep-campo-error, .ep-foto-error').forEach(function (el) { el.classList.remove('ep-campo-error', 'ep-foto-error'); });
+		camposVacios.forEach(function (el) { el.classList.add('ep-campo-error'); });
+		fotosFaltan.forEach(function (s) { s.classList.add('ep-foto-error'); });
+		if (camposVacios.length === 0 && fotosFaltan.length === 0) return true;
+
+		var partes = [];
+		if (camposVacios.length) partes.push('<b>' + camposVacios.length + '</b> campo' + (camposVacios.length === 1 ? '' : 's') + ' del formulario sin llenar');
+		if (fotosFaltan.length) partes.push('<b>' + fotosFaltan.length + '</b> foto' + (fotosFaltan.length === 1 ? '' : 's') + ' sin subir');
+		epAviso('warning', 'Falta información', 'Antes de enviar completa:<br>' + partes.join('<br>') + '<br><small>Solo los comentarios son opcionales.</small>').then(function () {
+			var primero = camposVacios[0] || fotosFaltan[0];
+			if (camposVacios.length) { activarTabMovil('formulario'); } else { activarTabMovil('fotos'); }
+			if (primero) {
+				primero.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				if (camposVacios.length && primero.focus) primero.focus({ preventScroll: true });
+			}
+		});
+		return false;
+	}
+	document.addEventListener('input', function (ev) { ev.target.classList.remove('ep-campo-error'); });
+	document.addEventListener('click', function (ev) { var t = ev.target.closest('.ep-combo-opcion'); if (t) { var c = t.closest('.ep-combo'); if (c) { var tr = c.querySelector('.ep-combo-trigger'); if (tr) tr.classList.remove('ep-campo-error'); } } });
+
 	function enviarFormularioActivo() {
+		if (!validarRegistroActivo()) return;
 		var itemSeleccionado = document.querySelector('.ep-activity-item.selected');
 		var actNombre = itemSeleccionado ? (itemSeleccionado.dataset.nombre || 'Activaciones') : 'Activaciones';
 		var actBadge = itemSeleccionado ? (itemSeleccionado.querySelector('.ep-activity-badge') ? itemSeleccionado.querySelector('.ep-activity-badge').textContent.trim() : '') : '';
@@ -1326,6 +1467,21 @@ document.addEventListener('DOMContentLoaded', function () {
 			valores.comentarios = document.getElementById('ep-fer-comentarios') ? document.getElementById('ep-fer-comentarios').value : '';
 		}
 
+		// Fotos ya subidas a Azure: id de la foto requerida -> ruta del blob.
+		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var fotos = {};
+		var subiendo = false;
+		if (bloqueEv) {
+			bloqueEv.querySelectorAll('.ep-foto-slot').forEach(function (s) {
+				if (s.dataset.subiendo) subiendo = true;
+				if (s.dataset.fotoRuta) fotos[s.dataset.fotoId] = s.dataset.fotoRuta;
+			});
+		}
+		if (subiendo) {
+			epAviso('info', 'Subiendo fotos', 'Hay fotos subiéndose todavía. Espera unos segundos e intenta de nuevo.');
+			return;
+		}
+
 		var payload = {
 			tipo: tipo,
 			actividad_label: actNombre,
@@ -1334,7 +1490,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			cadena: 'Sukasa',
 			ciudad: 'GUAYAQUIL',
 			canal: 'RETAIL',
-			valores: valores
+			valores: valores,
+			fotos: fotos
 		};
 
 		var btnEnviar = document.getElementById('epBtnEnviarRegistro');
@@ -1351,10 +1508,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		.then(function(res) { return res.json(); })
 		.then(function(data) {
 			if (data.success) {
-				alert('¡Formulario enviado y registrado exitosamente!\nCódigo de auditoría: ' + data.id);
-				window.location.href = data.redirect || 'index.php?vista=historial';
+epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente.<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#EEF3FD;color:#10218B;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros').then(function () {					window.location.href = data.redirect || 'index.php?vista=historial';				});
 			} else {
-				alert('Error al guardar: ' + (data.error || 'Ocurrió un inconveniente'));
+				epAviso('error', 'No se pudo enviar', data.error || 'Ocurrió un inconveniente. Intenta de nuevo.').then(function () {
+					if (data.redirect) window.location.href = data.redirect;
+				});
+				if (data.redirect) return;
 				if (btnEnviar) {
 					btnEnviar.disabled = false;
 					btnEnviar.textContent = 'Enviar registro';
@@ -1362,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		})
 		.catch(function() {
-			alert('Error de conexión al enviar el formulario.');
+			epAviso('error', 'Sin conexión', 'No se pudo enviar el formulario. Revisa tu conexión e intenta de nuevo.');
 			if (btnEnviar) {
 				btnEnviar.disabled = false;
 				btnEnviar.textContent = 'Enviar registro';
@@ -1377,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	var btnBorrador = document.getElementById('epBtnGuardarBorrador');
 	if (btnBorrador) {
 		btnBorrador.addEventListener('click', function() {
-			alert('Borrador guardado localmente en su dispositivo.');
+			epAviso('info', 'Borradores', 'Guardar borradores todavía no está disponible.');
 		});
 	}
 
@@ -1899,7 +2058,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		// Pre-seleccionar fecha si viene en config
 		if (config.fecha && selectPptFecha) {
-			selectPptFecha.value = config.fecha;
+			selectPptFecha.value = String(config.fecha).slice(0, 7);
 		}
 
 		// Pre-seleccionar tienda si viene en config
@@ -2080,13 +2239,13 @@ document.addEventListener('DOMContentLoaded', function () {
 		abrirModalPPT({ tipo: tpl, promotor: promotor, fecha: fecha, tienda: tienda });
 	});
 
-	// Simulación de descarga del archivo PPTX
+	// Descarga del archivo PPTX (real para Activaciones)
 	if (btnEjecutarDescargaPPT) {
 		btnEjecutarDescargaPPT.addEventListener('click', function() {
 			var radSel = templatesList ? templatesList.querySelector('input[name="epPptTemplate"]:checked') : null;
 			var tpl = radSel ? radSel.value : 'activaciones';
 			var user = selectPptUsuario ? selectPptUsuario.value : 'all';
-			var fecha = selectPptFecha ? selectPptFecha.value : '2024-10-24';
+			var fecha = (selectPptFecha && selectPptFecha.value) ? selectPptFecha.value : new Date().toISOString().slice(0, 7);
 
 			var userClean = (user === 'all') ? 'Consolidado' : user.replace(/\s+/g, '_');
 			var fileName = 'Reporte_Epson_' + (tpl.toUpperCase()) + '_' + userClean + '_' + fecha.replace(/-/g, '') + '.pptx';
@@ -2099,15 +2258,44 @@ document.addEventListener('DOMContentLoaded', function () {
 				if (pptStatusSub) pptStatusSub.textContent = 'Aplicando la plantilla oficial de ' + (nombresPlantillas[tpl] || tpl) + ' con slots fotográficos y métricas.';
 			}
 
-			// Simulación de respuesta con feedback visual
-			setTimeout(function() {
-				if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = 'Descargar Nuevamente (.pptx)';
+			function terminar(ok, titulo, sub) {
+				if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = ok ? 'Descargar Nuevamente (.pptx)' : 'Descargar Presentación (.pptx)';
 				if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = false;
-				if (pptDescargaStatus) {
-					if (pptStatusTitulo) pptStatusTitulo.innerHTML = '&#10003; ¡Presentación lista: <strong>' + fileName + '</strong>!';
-					if (pptStatusSub) pptStatusSub.textContent = 'Mecánica de plantilla lista y verificada. Lista para enlazar la exportación binaria nativa en el backend.';
-				}
-			}, 1100);
+				if (pptStatusTitulo) pptStatusTitulo.innerHTML = titulo;
+				if (pptStatusSub) pptStatusSub.textContent = sub;
+			}
+
+			// Por ahora solo Activaciones genera el archivo real; los demás formatos se habilitan uno a uno.
+			if (tpl !== 'activaciones') {
+				terminar(false, 'Formato aún no disponible', 'Por ahora solo se puede descargar la presentación de Activaciones.');
+				return;
+			}
+
+			var url = 'getters/exportar_ppt.php?tipo=activaciones&mes=' + encodeURIComponent(fecha.slice(0, 7)) + '&usuario=' + encodeURIComponent(user);
+			fetch(url)
+				.then(function (res) {
+					var tipoRespuesta = res.headers.get('Content-Type') || '';
+					if (tipoRespuesta.indexOf('json') !== -1) {
+						return res.json().then(function (d) { throw new Error(d.error || 'No se pudo generar la presentación.'); });
+					}
+					// Solo se guarda si de verdad es un PowerPoint (un 404/500 del servidor llega como HTML).
+					if (!res.ok || tipoRespuesta.indexOf('presentationml') === -1) {
+						throw new Error('El servidor no pudo generar la presentación (código ' + res.status + '). Avisa al equipo técnico.');
+					}
+					return res.blob();
+				})
+				.then(function (blob) {
+					var enlace = document.createElement('a');
+					enlace.href = URL.createObjectURL(blob);
+					enlace.download = fileName;
+					document.body.appendChild(enlace);
+					enlace.click();
+					enlace.remove();
+					terminar(true, '&#10003; ¡Presentación lista: <strong>' + fileName + '</strong>!', 'La descarga comenzó. Revisa tu carpeta de descargas.');
+				})
+				.catch(function (err) {
+					terminar(false, 'No se pudo generar', err.message || 'Intenta de nuevo.');
+				});
 		});
 	}
 

@@ -23,21 +23,25 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - **Promotores / Mercaderistas en Campo (`usuario`)**:
   - Acceden primordialmente desde dispositivos móviles (diseño *mobile-first*).
   - Seleccionan la actividad correspondiente y completan el formulario guiado paso a paso con riel numerado.
-  - Suben evidencia fotográfica obligatoria mediante el asistente guiado o slots directos.
+  - Suben evidencia fotográfica obligatoria mediante el asistente guiado o slots directos con Drag & Drop.
   - Visualizan las estadísticas de su gestión calculadas en tiempo real.
 - **Supervisores / Administradores (`admin`)**:
   - Cuentan con todas las facultades del promotor.
   - Tienen acceso exclusivo al panel del **Constructor de Actividades** (`#ep-panel-constructor`), donde pueden crear nuevos botones de actividad, definir su lógica a replicar, y activar/desactivar o eliminar actividades.
-  - Monitorean y auditan el **Módulo de Registros**, filtrando por promotores, estados de validación y KPIs de cumplimiento.
+  - Monitorean y auditan el **Módulo de Registros de Actividades** (`index.php?vista=historial`), filtrando por promotores, estados de validación y KPIs de cumplimiento.
+  - Generan y previsualizan reportes en PowerPoint (`.pptx`) con 7 plantillas oficiales.
 
 ---
 
 ## 3. Arquitectura Técnica y Stack Tecnológico
 
 - **Backend**: PHP 8.x nativo, estructurado en módulos, sin frameworks pesados, garantizando máxima velocidad de respuesta y bajo consumo de recursos en Azure App Service.
-- **Base de Datos**: Azure Database for MySQL (`luckyec_epson_nuevo`), conectada mediante PDO en [db_connect.php](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/db_connect.php).
-- **Estilos**: Vanilla CSS modular en [assets/css/style.css](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/assets/css/style.css). Se prohíbe el uso de TailwindCSS u otros frameworks de utilidad ad-hoc para preservar el control exacto de la identidad corporativa.
-- **JavaScript**: Vanilla JS en [assets/js/app.js](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/assets/js/app.js), modularizado mediante delegación de eventos y llamadas `fetch()` asíncronas a endpoints ligeros en `getters/`.
+- **Base de Datos & Persistencia**:
+  - Base de Datos: Azure Database for MySQL (`luckyec_epson_nuevo`), conectada mediante PDO en [db_connect.php](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/db_connect.php).
+  - Almacenamiento Dinámico de Reportes: Endpoint [getters/guardar_registro.php](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/getters/guardar_registro.php) y archivo JSON estructurado [data/registros_guardados.json](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/data/registros_guardados.json).
+  - Semilla / Fallback Azure: Función `ep_registros_datos_semilla()` en [includes/registros_datos.php](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/includes/registros_datos.php) para asegurar carga resiliente de registros reales ante reinicios o despliegues.
+- **Estilos**: Vanilla CSS modular en [assets/css/style.css](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/assets/css/style.css). Se prohíbe el uso de TailwindCSS u otros frameworks de utilidad ad-hoc para preservar el control exacto de la identidad corporativa.
+- **JavaScript**: Vanilla JS en [assets/js/app.js](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/assets/js/app.js), modularizado mediante delegación de eventos y llamadas `fetch()` asíncronas a endpoints ligeros en `getters/`.
 - **Tipografía**: Google Fonts corporativas:
   - **Sora** (titulares, marcas, números y badges clave).
   - **IBM Plex Sans** (cuerpo de texto, etiquetas de formulario y tablas).
@@ -57,16 +61,38 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
   6. `evento-ferias`: Gestión de stands en ferias y eventos tecnológicos especiales.
   7. `generico`: Plantilla fallback para actividades dinámicas creadas por el admin sin código especializado.
   8. `pendiente`: Estado temporal para actividades en definición.
+
+- **Arquitectura de 3 Tarjetas Visualmente Separadas (`.ep-actividad-layout`)**:
+  1. **Card Izquierda: Formulario de Datos (`#ep-panel-formulario`)**:
+     - Tarjeta blanca independiente (`.ep-card`).
+     - Aloja exclusivamente los pasos cuantitativos de la actividad seleccionada (Paso 1..N: Cobertura, Embudo, Modelos, etc.).
+     - En móvil (< 900px) incluye el botón *"Continuar a Fotos de Evidencia"* para navegación fluida.
+  2. **Card Derecha: Estadísticas en Vivo (`#ep-panel-estadisticas`)**:
+     - Tarjeta blanca independiente (`.ep-card`).
+     - Renderiza los gráficos, KPIs y cálculos automáticos reactivos al tipeo del usuario en tiempo real.
+  3. **Card Inferior: Evidencia Fotográfica Obligatoria (`#ep-panel-evidencia`)**:
+     - Tarjeta blanca independiente (`.ep-card.ep-panel-evidencia-card`), ubicada debajo de ambas columnas y abarcando todo el ancho (`grid-column: 1 / -1`).
+     - **No está unida visualmente al formulario**, garantizando una clara separación estética entre datos cuantitativos y auditoría fotográfica.
+     - **Cabecera**: Título oficial, subtítulo de auditoría ante Epson, badge de estado reactivo (`Pendiente` / `✓ Completa`), barra de progreso interactiva (`0 de X listas`) y botón principal *"Subir con Asistente"*.
+     - **Grilla Panorámica (`.ep-evidencia-grid-panoramica`)**: Rejilla responsiva de 3 a 7 columnas que distribuye las casillas fotográficas a todo lo ancho de la tarjeta sin barras de scroll horizontal forzado.
+     - **Cierre del Proceso**: Fila de botones de envío (`Guardar borrador` y `Enviar registro`) ubicada al pie de esta tarjeta de evidencia, respetando la cronología natural del proceso operativo:
+       $$\text{1. Datos Cuantitativos} \longrightarrow \text{2. Evidencia Fotográfica} \longrightarrow \text{3. Enviar Registro}$$
+
+- **Estudio Asistente Fotográfico Desktop (`.ep-wizard-overlay` > 900px)**:
+  - *Columna Izquierda*: Checklist vertical de requerimientos obligatorios con estado interactivo (`Pendiente` / `✓ Cargada`) y navegación instantánea.
+  - *Columna Derecha*: Visor amplio con esquinas HUD fotográficas Epson y **soporte Drag & Drop nativo desde Windows o WhatsApp Web**.
+  - *Auto-Avance Guiado*: Al cargar cada foto, el sistema confirma visualmente con check verde y salta de forma automática al siguiente requerimiento pendiente.
+
+- **Navegación Móvil (< 900px)**:
+  - 3 pestañas ordenadas: `[ Formulario ] [ Fotos ] [ Métricas ]`.
+  - Cada pestaña activa de manera limpia e independiente su tarjeta correspondiente.
+
 - **Constructor de Actividades (Solo Admin)**:
   - Permite nombrar una nueva actividad y vincularla a una de las lógicas base.
   - Ofrece vista previa idéntica al formulario original en producción.
   - Permite el encendido/apagado de botones mediante switch de gestión.
-- **Flujo de Evidencia Fotográfica en Desktop**:
-  - **Tarjeta de Transición de Paso en Formulario (`.ep-desktop-foto-flow-card`)**: Conector explícito entre el Paso 1 (Datos de campo) y el Paso 2 (Fotos requeridas) con contador en vivo (`0 de X listas`), barra de progreso animada e indicador de obligatoriedad.
-  - **Estudio Fotográfico Desktop en 2 Columnas (`.ep-wizard-overlay` > 900px)**:
-    - *Columna Izquierda*: Checklist vertical de requerimientos obligatorios con estado interactivo (`Pendiente` / `✓ Cargada`) y navegación instantánea.
-    - *Columna Derecha*: Visor amplio con esquinas HUD fotográficas Epson y **Soporte Drag & Drop nativo desde Windows** (permite arrastrar fotos directamente desde carpetas locales o WhatsApp Web al visor).
-    - *Auto-Avance Guiado*: Al cargar cada fotografía, el sistema confirma visualmente con check verde y avanza automáticamente al siguiente requerimiento pendiente.
+
+---
 
 ### Módulo 2: Registros de Actividades (`index.php?vista=historial`)
 - **Propósito**: Módulo de auditoría, reportería y visibilidad ejecutiva adaptado por rol operativo.
@@ -84,15 +110,15 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
   - Reemplazo de franjas estadísticas masivas por una barra de resumen ejecutiva en una sola línea (~28px).
   - Filas de registro reducidas a ~38px de altura con insignia de fecha de calendario (`24 OCT`).
   - Indicador circular minimalista para divulgación progresiva (acordeón).
-- **Campos Auténticos (Cero Invenciones)**:
+- **Campos Auténticos en Detalle de Formulario ([detalle_formulario.php](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/components/historial/detalle_formulario.php))**:
   - Sin tags inventados como *"Auditoría Regular"*, *"Aprobado"*, *"En revisión"* ni píldoras de canales (*"Departamental"*, *"Retail"*).
-  - Muestra exclusivamente los campos reales capturados en las plantillas oficiales: Cobertura, Embudo, Modelos, Cumplimiento, Asistentes por cargo, Inventario POP y Evidencias fotográficas.
+  - Muestra exclusivamente los campos reales capturados en las plantillas oficiales: Cobertura nacional vs. coberturadas, Embudo de clientes (*Visitaron → Interactuaron → Compraron*), desglose de Modelos EcoTank con unidades exactas, Cumplimiento de visitas, Asistentes por cargo en Capacitaciones, Matriz de inventario POP y galería de Evidencias fotográficas con visualizador.
 - **Mecánica de Descarga PowerPoint (.pptx) (Solo Administrador)**:
   - **Ubicación Estratégica de Botones**:
     1. *Barra Principal de Herramientas*: Botón primario azul con icono de presentación (`#epBtnAbrirExportadorPPT`). Abre el configurador global.
     2. *Cabecera de Grupo de Promotor*: Botón compacto `PPT Diario` (`.ep-btn-user-ppt`). Pre-selecciona automáticamente a ese promotor específico y la fecha de sus reportes.
     3. *Fila Individual de Registro*: Botón `Slide` (`.ep-btn-record-ppt`). Pre-selecciona la actividad puntual, promotor y fecha exacta.
-  - **Modal Interactivo de Exportación (`modal_exportar_ppt.php`)**:
+  - **Modal Interactivo de Exportación ([modal_exportar_ppt.php](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/components/historial/modal_exportar_ppt.php))**:
     - **Panel de Control (Izquierda)**:
       - Selector de Promotor: "Todos los promotores (Consolidado)" o selección de cualquiera de los 70+ usuarios individuales.
       - Selector de Día: Campo de fecha con accesos directos rápidos (`24 Oct`, `23 Oct`, `Ayer`).
@@ -121,9 +147,67 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 
 ---
 
-## 7. Reglas de Trabajo del Asistente
+## 6. Reglas de Trabajo del Asistente
 
 1. **Control de Versiones (Git)**:
    - **NUNCA realizar `git commit` ni `git push` por iniciativa propia.** Los commits y subidas a ramas remotas deben ser solicitados o confirmados expresamente por el usuario.
 2. **Resumen Obligatorio**:
    - **SIEMPRE presentar un resumen claro, conciso y ordenado** de cada acción realizada y los archivos intervenidos al responder.
+
+## Subida real de fotos a Azure (2026-09-23)
+
+- Cada foto de evidencia se sube apenas se elige (drag/drop, input o asistente móvil): `app.js` la comprime a 1280px JPEG y la manda a `getters/subir_foto.php`, que valida el tipo real con `finfo` y la sube a Azure Blob con `includes/azure_storage.php` (REST + Shared Key, sin SDK).
+- Destino: cuenta `luckyecuadorweb`, contenedor `app`, carpeta `AppEpson/EpsonReport/<tipo>/<año-mes>/` (lectura pública, igual que Jabonería/Pintuco). No existe contenedor propio de Epson; la carpeta `AppEpson/` solo tenía fotos históricas de la app vieja.
+- La clave de Azure NO se duplica: `azure_storage.php` la toma de `Acuerdos_Comerciales/includes/azure_storage.php` (si EpsonReport se despliega solo, hay que definir `AZURE_STORAGE_ACCOUNT`/`AZURE_STORAGE_KEY` en `config.php`).
+- El slot guarda la ruta en `data-foto-ruta`; `enviarFormularioActivo()` manda `fotos: {id: ruta}` y bloquea el envío mientras haya fotos subiendo. `guardar_registro.php` guarda `ruta` y `url` en cada foto del registro (solo acepta rutas bajo `AppEpson/EpsonReport/`).
+- Sin probar contra Azure real (no se hicieron subidas de prueba para no escribir basura en el storage compartido).
+
+## Estructura de carpetas (2026-09-23)
+
+- `components/actividades/formularios/` (antes `plantillas/`): formulario de cada tipo de actividad. `estadisticas/` (antes `plantillas-stats/`): métricas en vivo de cada tipo. `compartidos/` (antes `partials/`): piezas comunes, hoy el paso de evidencia fotográfica.
+- `layout/` (antes `partials/` de la raíz): sidebar y estructura común.
+- `docs/`: material de referencia que no se despliega como código: `docs/diseno/` (mockup), `docs/grabaciones/` (transcripciones de reuniones). `epson/` (PPTX/XLSX originales) sigue en la raíz porque Windows no dejó moverla (archivos abiertos); pasarla a `docs/formatos-epson/` cuando se pueda.
+- Se eliminó `scratch/` (scripts de prueba) y `db_connect.php` (reemplazado por `includes/db.php`).
+- La clave interna `plantilla` de `ep_actividades()` no cambió de nombre (solo las carpetas).
+
+## Registros en base de datos (2026-09-23)
+
+- `data/registros_guardados.json` y los registros de ejemplo (semilla) ya no existen. Los reportes se guardan en `insert_reporte_registro` vía `includes/registros_datos.php`.
+- `guardar_registro.php` arma el registro y lo inserta con `usuario_id` de la sesión; columnas para filtrar/contar (`tipo`, `fecha`, `pos_id`, `total_fotos`...) y el detalle completo en `valores` (JSON), `fotos` y `comentarios`. Código del registro: `REG-YYYYMMDD-HHMMSS-NNN` (único).
+- `ep_registros_datos()` reconstruye cada registro con la misma forma que ya consumía Historial; el usuario `promotor` solo ve los suyos, el admin ve todos.
+- Pendiente: `pos_id`/punto de venta siguen fijos ('SUKASA - MALL DEL SOL') hasta conectar `repositorio_locales_dtt2`.
+
+## Sesión única con ventanas (2026-09-23), mismo patrón que Acuerdos_Comerciales
+
+- Login por fetch (`getters/procesar_login.php` responde JSON `{ok, motivo, redirect}`): si la cuenta ya tiene sesión en otro dispositivo (`sesion_token` no vacío), se muestra una ventana (SweetAlert2) "¿cerrar esa sesión y entrar aquí?"; al confirmar se reenvía con `forzar=1`.
+- `assets/js/sesion-watch.js` + `getters/sesion_verificar.php`: ping cada 15s; tras 2 fallos seguidos muestra la ventana "Tu sesión se cerró" y manda al login. De paso refresca `ultima_actividad`.
+- Cerrar sesión (`logout.php`) limpia el token; si solo se cierra el navegador, el token queda y el siguiente login preguntará.
+
+## Exportación PPT de Activaciones (2026-09-23)
+
+- Plantilla oficial: `recursos/ppt/activaciones.pptx` (copia del formato de Epson). `includes/ppt_activaciones.php` la usa como base con `ZipArchive`: deja portada y título del mes ("ACTIVACIONES / JUNIO 2026") una sola vez y por cada registro clona las diapositivas 3-6 (calendario + cumplimiento, estadísticas, fotos 1-3, fotos 4-6), reemplazando textos, ancho de barras y los cuadros de foto por las fotos reales (recorte tipo "cover", descarga en paralelo desde Azure).
+- Endpoint `getters/exportar_ppt.php?tipo=activaciones&mes=YYYY-MM&usuario=all|nombre`: el admin elige usuario, el promotor solo exporta lo suyo. Modal de Historial conectado a este endpoint (los demás formatos muestran "aún no disponible").
+- Probado abriendo el archivo generado en PowerPoint (sin pedir reparación, textos/barras/fotos correctos). Para probar con PHP CLI local: `php -d extension=zip`.
+- Se quita de la diapositiva de estadísticas la foto de ejemplo del promotor (no existe foto de perfil aún) y los cuadros de foto sin foto. El correo del promotor queda vacío (no hay dato).
+- Para agregar otro formato (capacitaciones, etc.): copiar su PPTX a `recursos/ppt/`, mapear nombres de forma a datos como en `ppt_activaciones.php`.
+
+## Historial rediseñado (2026-09-23)
+
+- `components/historial/historial.php`: lista compacta (una fila por registro) + panel de detalle a la derecha; en móvil el detalle abre a pantalla completa. Filtros: actividad, texto, promotor (admin) y fechas; "Mostrar más" de 40 en 40.
+- `components/historial/detalle_registro.php`: estadísticas con las mismas tarjetas del formulario (`ep-stat-*`, cobertura/interacciones/ventas, embudo, detalle de ventas, cumplimiento, comentarios) según el tipo, y fotos reales de Azure como miniaturas; clic abre el visor con flechas (`assets/js/historial.js`).
+- Botón "Slide PPT" por registro y "Descargar PPT" (admin) siguen abriendo el modal de exportación.
+- Quedó sin uso el controlador viejo del historial en `app.js` (fichas/tabla/agrupaciones) y su CSS; solo corre si existe `.ep-registros-main`, que ya no se renderiza. Limpiar cuando se quiera.
+- Fix de fotos: al comprimir en el navegador se rellena el fondo en blanco (un PNG con transparencia salía negro en JPEG).
+
+## Inactividad de 20 minutos y limpieza de sesiones (2026-09-23)
+
+- `ep_login_check()` cierra la sesión si `ultima_actividad` supera 20 min (`EP_MINUTOS_INACTIVIDAD`) y en ese momento limpia `sesion_token` en la base.
+- El ping de `sesion-watch.js` (cada 15s) ya no cuenta como actividad: solo lo hace una interacción real (mouse, teclado, toque, scroll), informada con `?activo=1`.
+- El aviso "ya tienes una sesión activa" del login solo sale si esa sesión tuvo actividad en los últimos 20 min; una sesión abandonada (navegador cerrado, pestaña olvidada) ya no genera el aviso.
+- Mensajes distintos: cierre por otro dispositivo vs. inactividad (`login.php?error=inactividad`).
+
+### Ajuste (mismo día): cierre de sesión igual que Acuerdos_Comerciales
+
+- Sesión "activa" para otro login = token guardado + latido en `ultima_actividad` de menos de 3 min (el ping de 15s es el latido). Ya no depende de la inactividad.
+- La inactividad de 20 min se mide con la última interacción real, guardada en la sesión de PHP (`ult_interaccion`), no en la base.
+- `logout.php` libera el token solo si coincide con el de la sesión, aunque esa sesión ya esté vencida, y destruye la sesión.

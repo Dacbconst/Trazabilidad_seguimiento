@@ -11,7 +11,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 }
 
 $tipo = $_GET['tipo'] ?? '';
-if (!in_array($tipo, ['rebate', 'participacion', 'cuotas'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia'], true)) {
 	http_response_code(400);
 	echo 'Tipo de repositorio inválido.';
 	exit;
@@ -42,6 +42,11 @@ if ($tipo === 'rebate') {
 	$wb->celda($hoja, 2, 4, 'EJEMPLO');
 	$wb->celda($hoja, 2, 5, 0.5, false, 'pct');
 	$nombreBase = 'Formato_Participacion_Percha';
+} elseif ($tipo === 'jerarquia') {
+	$hoja = $wb->agregarHoja('JERARQUIA SUPERVISORES');
+	$cols = ['SUPERVISOR CAMPO', 'SUPERVISOR REAL'];
+	foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
+	$nombreBase = 'Formato_Jerarquia_Supervisores';
 } else {
 	// Cuotas Trimestrales — 2 formatos según canal (repositorio_parsear_cuotas()
 	// detecta cuál es solo, sin picker: Directo por CEDI/CLIENTE/CATEGORIAS,

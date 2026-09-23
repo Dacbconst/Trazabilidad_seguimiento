@@ -31,6 +31,7 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
 	<link rel="stylesheet" href="assets/css/style.css?v=<?= $style_v ?>">
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 </head>
 <body>
 
@@ -56,7 +57,7 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 			<div class="ac-alert-error">Usuario o contraseña incorrectos.</div>
 			<?php endif; ?>
 
-			<form method="post" action="getters/procesar_acceso.php">
+			<form id="acLoginForm" method="post" action="getters/procesar_acceso.php">
 				<div class="ac-field">
 					<label class="ac-field-label" for="usuario">Usuario</label>
 					<div class="ac-input-wrap">
@@ -93,6 +94,59 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 			const showing = pwInput.type === 'text';
 			pwInput.type = showing ? 'password' : 'text';
 			pwIcon.textContent = showing ? 'visibility' : 'visibility_off';
+		}
+
+		// Quita ?error= de la URL: al recargar, el aviso ya no reaparece.
+		if (window.location.search.indexOf('error=') !== -1) history.replaceState(null, '', window.location.pathname);
+
+		// Login por fetch (2026-09-24, pedido explícito): antes de cerrar una sesión activa en otro dispositivo, se pregunta.
+		var acLoginForm = document.getElementById('acLoginForm');
+		var acLoginBtn = acLoginForm.querySelector('button[type="submit"]');
+
+		acLoginForm.addEventListener('submit', function (e) {
+			e.preventDefault();
+			enviarLogin(false);
+		});
+
+		function enviarLogin(forzar) {
+			var usuario = document.getElementById('usuario').value;
+			var password = document.getElementById('password').value;
+			acLoginBtn.disabled = true;
+			fetch('getters/procesar_acceso.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: 'usuario='+encodeURIComponent(usuario)+'&password='+encodeURIComponent(password)+'&forzar='+(forzar ? '1' : '0')
+			})
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (data.ok) {
+					window.location.href = 'index.php';
+					return;
+				}
+				acLoginBtn.disabled = false;
+				if (data.motivo === 'sesion_activa') {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Ya tienes una sesión activa',
+						text: 'Este usuario ya está conectado en otro dispositivo. ¿Deseas cerrar esa sesión para ingresar aquí?',
+						showCancelButton: true,
+						confirmButtonText: 'Cerrar esa sesión y entrar aquí',
+						cancelButtonText: 'Cancelar'
+					}).then(function (res) {
+						if (res.isConfirmed) enviarLogin(true);
+					});
+				} else if (data.motivo === 'bloqueado') {
+					Swal.fire({ icon: 'error', title: 'Cuenta bloqueada', text: 'Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en unos minutos.' });
+				} else if (data.motivo === 'inactivo') {
+					Swal.fire({ icon: 'error', title: 'Cuenta inactiva', text: 'Esta cuenta está desactivada. Avisa al administrador para que la reactive.' });
+				} else {
+					Swal.fire({ icon: 'error', title: 'Datos incorrectos', text: 'Usuario o contraseña incorrectos.' });
+				}
+			})
+			.catch(function () {
+				acLoginBtn.disabled = false;
+				Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar. Intenta de nuevo.' });
+			});
 		}
 	</script>
 </body>

@@ -13,7 +13,7 @@
 	var kpisResetBtn    = document.getElementById('neg-kpis-reset');
 
 	// filtroDetalle es LOCAL al usuario abierto (pedido explícito: clickear un KPI de arriba no debe reordenar/filtrar la lista de Equipo, solo el panel del usuario seleccionado). deseleccionExplicita distingue "todavía no elegiste a nadie" (auto-selecciona el primero) de "elegiste sacar tu selección a propósito" (se queda en Equipo completo aunque se refresque la lista).
-	var estado = { trimestre: 0, anio: parseInt(anioSelect.value, 10) || 0, busqueda: '', selectedId: null, filtroDetalle: 'todas', deseleccionExplicita: false };
+	var estado = { canal: 'total', trimestre: 0, anio: parseInt(anioSelect.value, 10) || 0, busqueda: '', selectedId: null, filtroDetalle: 'todas', deseleccionExplicita: false };
 	var equipoActual  = [];
 	var statsActual   = { total: 0, rebate: 0, cabeceras: 0, rumas: 0, perchas: 0 };
 	var filaActual    = null;
@@ -258,8 +258,9 @@
 			return '<div class="ac-neg-acta">' +
 				'<div class="ac-neg-acta-fila" data-toggle="' + a.id + '">' +
 				'<span class="material-symbols-outlined ac-neg-acta-chevron">chevron_right</span>' +
-				'<span class="ac-neg-acta-nombre">#' + escapeHtml(a.documento_no) + '</span>' +
-				'<a class="ac-icon-btn ac-neg-acta-firma" href="getters/descargar_acta_firmada.php?id=' + encodeURIComponent(a.id) + '" target="_blank" title="Ver Acta Firmada"><span class="material-symbols-outlined">verified</span></a>' +
+				'<span class="ac-neg-acta-nombre">#' + escapeHtml(a.documento_no) + (a.cliente ? ' - ' + escapeHtml(a.cliente) : '') + '</span>' +
+				// &ver=1: abre envuelto en HTML con <title> real (el número de Acta), no crudo — así la pestaña no muestra "descargar_acta_firmada.php".
+				'<a class="ac-icon-btn ac-neg-acta-firma" href="getters/descargar_acta_firmada.php?id=' + encodeURIComponent(a.id) + '&ver=1" target="_blank" title="Ver Acta Firmada"><span class="material-symbols-outlined">verified</span></a>' +
 				'</div>' +
 				'<div class="ac-neg-acta-detalle hidden" id="neg-acta-detalle-' + a.id + '"></div>' +
 				'</div>';
@@ -331,7 +332,7 @@
 	}
 
 	function claveDetalle(usuarioId) {
-		return usuarioId + '|' + estado.filtroDetalle + '|' + estado.trimestre + '|' + estado.anio;
+		return usuarioId + '|' + estado.filtroDetalle + '|' + estado.trimestre + '|' + estado.anio + '|' + estado.canal;
 	}
 
 	function cargarDetalle(filaUsuario) {
@@ -340,7 +341,7 @@
 		var key = claveDetalle(filaUsuario.id);
 		detalleCard.innerHTML = '<div class="ac-seg-cargando">Cargando...</div>';
 		var url = 'getters/negociacion_actas_usuario.php?usuario_id=' + filaUsuario.id +
-			'&trimestre=' + estado.trimestre + '&anio=' + estado.anio + '&tipo=' + estado.filtroDetalle;
+			'&trimestre=' + estado.trimestre + '&anio=' + estado.anio + '&tipo=' + estado.filtroDetalle + '&canal=' + estado.canal;
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -410,7 +411,7 @@
 		var miReqId = ++resumenReqId;
 		acBotonCargando(actualizarBtn, true);
 		Array.prototype.forEach.call(tarjetas, function (c) { acMostrarCargando(c); });
-		var url = 'getters/negociacion_resumen.php?trimestre=' + estado.trimestre + '&anio=' + estado.anio;
+		var url = 'getters/negociacion_resumen.php?trimestre=' + estado.trimestre + '&anio=' + estado.anio + '&canal=' + estado.canal;
 		fetch(url)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
@@ -439,6 +440,18 @@
 			Array.prototype.forEach.call(trimestreGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.remove('ac-seg-pill-activo'); });
 			btn.classList.add('ac-seg-pill-activo');
 			estado.trimestre = parseInt(btn.dataset.trimestre, 10);
+			estado.selectedId = null;
+			estado.filtroDetalle = 'todas';
+			cargarResumen();
+		});
+	});
+	var canalGroup = document.getElementById('neg-canal-group');
+	Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
+		btn.addEventListener('click', function () {
+			if (btn.classList.contains('ac-seg-pill-activo')) return;
+			Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.remove('ac-seg-pill-activo'); });
+			btn.classList.add('ac-seg-pill-activo');
+			estado.canal = btn.dataset.canal;
 			estado.selectedId = null;
 			estado.filtroDetalle = 'todas';
 			cargarResumen();

@@ -41,6 +41,10 @@ ejecute en su lugar. Una instrucción explícita del usuario en el momento
 ("corrélo vos", "dale sí") **no** habilita una excepción — la regla es
 absoluta y no depende de una autorización puntual.
 
+## Comentarios de código: máximo 1 línea, siempre (regla fija)
+
+Nunca bloques de varias líneas ni párrafos largos explicando el "por qué". Un comentario corto (≤1 línea) o ninguno. Sin excepción, no hace falta que el usuario lo repita.
+
 ## PDF y Acta firmada movidos de LONGBLOB a Azure Blob Storage (2026-09-05)
 
 **Motivo**: `pdf_documento` y `acta_firmada_archivo` guardaban el binario
@@ -10165,26 +10169,37 @@ ALTER TABLE repositorio_usuarios_acuerdos ADD COLUMN sesion_token VARCHAR(64) NU
 También corrido antes (índice único de `repositorio_cuota_cliente`, ver
 sección más arriba de esta misma sesión).
 
-### PENDIENTE — sin empezar, esperando instrucciones del usuario
+### RESUELTO (por otra sesión, no la mía) — Switch de Visibilidad por tabla en el Acta PDF
 
-**Switch de Visibilidad por tabla en el Acta PDF.** El usuario pidió una
-condición nueva: cada tabla (Cabeceras, Rumas, Perchas) tendría su propio
-switch de visible/oculta (hoy solo existe 1 switch global "Visibilidad y
-Espacios" que las oculta las 3 juntas, ver `sin_visibilidad` en
-`repositorio_acuerdos`). Regla que dio:
-- Si solo la tabla Maestra (Meta de Compras) está activa → mandar formato
-  SIN visibilidad (como hoy).
-- Si alguna de las otras 3 está activa (Cabeceras/Rumas/Perchas) →
-  mandar el formato CON visibilidad, pero solo con la Maestra + la(s)
-  tabla(s) que estén activas — las que no, no se envían (no aparecen en
-  el PDF, ni vacías).
+Lo que documenté como pendiente arriba **ya se implementó** (commit "sss",
+2026-09-23) — sin necesitar las columnas nuevas que suponía. Solución real,
+más simple: `generar_acta_html()` en `acta_pdf.php` detecta solo con los
+datos que ya vienen (`$detalle['lineas']['cabecera'/'ruma'/'percha']`) si
+cada tabla tiene alguna línea con `marca !== ''`. Sin ninguna con datos
+reales → PDF sin visibilidad (`$sinVisibilidad = true`, igual que si el
+switch estuviera apagado). Con al menos una → arma bloques HTML separados
+(`$bloqueCabeceras`, `$bloqueEspacio`) y solo imprime los que sí tienen
+datos; "2.b" cambia de título dinámicamente ("Espacio en Perchas" / "...en
+Rumas" / "...en Perchas & Rumas") según cuáles estén presentes. No tocó
+`sin_visibilidad` como columna, la sigue usando el switch manual de
+Registrar, solo se le agregó el OR con `!$hayVisibilidadReal`.
 
-Dijo explícitamente "el segundo caso ya lo manejamos mejor" y "ya te digo
-cómo manejar el segundo caso" — **todavía no dio esas instrucciones**. No
-empezar a diseñar el schema/UI de esto sin que las dé (probablemente
-necesita 3 columnas nuevas tipo `visible_cabeceras`/`visible_rumas`/
-`visible_perchas` en vez de la única `sin_visibilidad` actual, pero eso es
-una suposición mía, no confirmado).
+### Otros cambios de otra sesión (commit "sss", 2026-09-23) — no construidos por mí, anotados para contexto
+
+- **Módulo nuevo "Resumen de Negociación"** (`components/resumen-negociacion/`,
+  `assets/js/resumen-negociacion.js`, getters `negociacion_*`) — cuenta
+  ACUERDOS (no filas) que tienen al menos 1 línea de cada tipo
+  (Rebate/Cabeceras/Rumas/Perchas), por miembro del equipo. Mismo patrón
+  visual que Seguimiento de Equipo. Agregado a `includes/secciones.php`.
+- **`assets/js/sesion-watch.js`** — cierra el loop de "Sesión única" de la
+  sesión anterior: ping propio a `getters/sesion_verificar.php` cada 15s
+  (no cada 1s, evita falsos positivos), exige 2 fallos seguidos antes de
+  redirigir a `login.php?error=sesion` (mensaje: "Tu sesión se cerró porque
+  iniciaste sesión con este usuario en otro dispositivo"). Comentario
+  propio en el archivo aclara que a propósito NO es un interceptor de
+  `fetch()` — leyó la advertencia que dejé en esta misma sección de
+  CLAUDE.md sobre el intento revertido y evitó ese enfoque. Buena señal de
+  que documentar el "qué NO hacer" en este archivo sirve.
 
 **Actualización 2026-09-23: el "segundo caso" de arriba ya se resolvió, ver
 sección "Visibilidad del PDF condicionada a datos reales" más abajo — no

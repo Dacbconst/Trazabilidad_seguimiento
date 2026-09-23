@@ -37,7 +37,64 @@ function ep_icon(string $nombre, int $size = 18): string {
 	return '<svg width="'.$s.'" height="'.$s.'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'.$paths.'</svg>';
 }
 
-// Rol actual, mock temporal hasta que exista la tabla de usuarios real ('usuario' o 'admin').
+// Rol actual desde la sesión real ('usuario' o 'admin').
 function ep_rol_actual(): string {
 	return $_SESSION['rol'] ?? 'usuario';
+}
+
+// Sesión única + inactividad, mismo esquema que Acuerdos_Comerciales:
+// - "Latido": el ping de sesion-watch.js (cada 15s) refresca ultima_actividad en la base; un login nuevo solo pregunta si ese latido es de hace menos de 3 min.
+// - Inactividad: 20 min sin interacción real (mouse/teclado/toque, guardada en la sesión de PHP) cierra la sesión y libera el token.
+const EP_MINUTOS_INACTIVIDAD = 20;
+const EP_SEGUNDOS_SESION_VIVA = 180;
+
+// $interaccion=false para el ping automático (solo latido, no cuenta como actividad del usuario); el motivo del cierre queda en $GLOBALS['ep_motivo_cierre'].
+function ep_login_check(bool $interaccion = true): bool {
+	static $resultado = null;
+	if ($resultado !== null) {
+		return $resultado;
+	}
+	if (empty($_SESSION['usuario_id']) || empty($_SESSION['sesion_token'])) {
+		return $resultado = false;
+	}
+	require_once __DIR__.'/db.php';
+	$db = ep_db();
+	if (!$db) {
+		return $resultado = true; // base caída: no expulsar a nadie por un fallo de infraestructura
+	}
+	$stmt = $db->prepare('SELECT sesion_token, status FROM repositorio_usuarios_reporte WHERE id = ? LIMIT 1');
+	$stmt->bind_param('i', $_SESSION['usuario_id']);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	if (!$fila || $fila['status'] !== 'activo' || !hash_equals((string) $fila['sesion_token'], (string) $_SESSION['sesion_token'])) {
+		$GLOBALS['ep_motivo_cierre'] = 'otro_dispositivo';
+		$_SESSION = [];
+		return $resultado = false;
+	}
+	$ultimaInteraccion = (int) ($_SESSION['ult_interaccion'] ?? time());
+	if (time() - $ultimaInteraccion > EP_MINUTOS_INACTIVIDAD * 60) {
+		// Limpieza: se libera el token para que el próximo login no pregunte por una sesión que ya no existe.
+		$up = $db->prepare('UPDATE repositorio_usuarios_reporte SET sesion_token = NULL WHERE id = ? AND sesion_token = ?');
+		$up->bind_param('is', $_SESSION['usuario_id'], $_SESSION['sesion_token']);
+		$up->execute();
+		$up->close();
+		$GLOBALS['ep_motivo_cierre'] = 'inactividad';
+		$_SESSION = [];
+		return $resultado = false;
+	}
+	if ($interaccion) {
+		$_SESSION['ult_interaccion'] = time();
+	} elseif (!isset($_SESSION['ult_interaccion'])) {
+		$_SESSION['ult_interaccion'] = time();
+	}
+	// Latido en la base (máx. cada 10s por sesión).
+	if (time() - (int) ($_SESSION['ult_actividad'] ?? 0) >= 10) {
+		$up = $db->prepare('UPDATE repositorio_usuarios_reporte SET ultima_actividad = NOW() WHERE id = ?');
+		$up->bind_param('i', $_SESSION['usuario_id']);
+		$up->execute();
+		$up->close();
+		$_SESSION['ult_actividad'] = time();
+	}
+	return $resultado = true;
 }

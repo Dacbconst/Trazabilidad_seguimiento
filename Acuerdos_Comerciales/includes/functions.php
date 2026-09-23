@@ -20,7 +20,8 @@ function iniciar_sesion() {
 function registrarSesionUnica($mysqli, $userId) {
 	$token = bin2hex(random_bytes(32));
 	$_SESSION['sesion_token'] = $token;
-	$stmt = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET sesion_token = ? WHERE id = ?');
+	$stmt = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET sesion_token = ?, sesion_ultima_actividad = NOW() WHERE id = ?');
+	if (!$stmt) $stmt = $mysqli->prepare('UPDATE repositorio_usuarios_acuerdos SET sesion_token = ? WHERE id = ?');
 	if ($stmt) {
 		$stmt->bind_param('si', $token, $userId);
 		$stmt->execute();
@@ -28,10 +29,18 @@ function registrarSesionUnica($mysqli, $userId) {
 	}
 }
 
-// Login simple sin password_hash — la contraseña se compara tal cual está guardada (decisión explícita del cliente). Devuelve true/false/'bloqueado' (5 intentos fallidos bloquean 15 min); sin el ALTER de intentos_fallidos, cae al login de siempre sin bloqueo.
-function login($usuario, $password, $mysqli) {
+// Sesión activa de verdad = token guardado Y actividad reciente (ping de sesion-watch.js cada 15s). Un token viejo sin actividad (pestaña cerrada, sesión vencida) ya no cuenta. Sin la columna sesion_ultima_actividad, cae al criterio anterior (token no vacío).
+function sesionAnteriorSigueActiva($row) {
+	if (empty($row['sesion_token'])) return false;
+	if (!array_key_exists('sesion_ultima_actividad', $row)) return true;
+	if ($row['sesion_ultima_actividad'] === null) return false;
+	return (time() - strtotime($row['sesion_ultima_actividad'])) < 180;
+}
+
+// Login simple sin password_hash — la contraseña se compara tal cual está guardada (decisión explícita del cliente). Devuelve true/false/'bloqueado'/'sesion_activa' (5 intentos fallidos bloquean 15 min); sin el ALTER de intentos_fallidos, cae al login de siempre sin bloqueo. $forzar=true confirma cerrar la sesión activa en otro dispositivo (2026-09-24, pedido explícito: antes de cerrarla, se pregunta).
+function login($usuario, $password, $mysqli, $forzar = false) {
 	$stmt = $mysqli->prepare(
-		"SELECT id, usuario, rol, supervisor, contrasena, intentos_fallidos, bloqueado_hasta
+		"SELECT id, usuario, rol, supervisor, contrasena, intentos_fallidos, bloqueado_hasta, sesion_token, sesion_ultima_actividad
 		 FROM repositorio_usuarios_acuerdos WHERE usuario = ? AND status = 'activo' LIMIT 1"
 	);
 	if ($stmt) {
@@ -41,7 +50,7 @@ function login($usuario, $password, $mysqli) {
 		$stmt->close();
 
 		if (!$row) {
-			return false;
+			return cuentaInactivaConClaveCorrecta($mysqli, $usuario, $password) ? 'inactivo' : false;
 		}
 
 		if ($row['bloqueado_hasta'] !== null && strtotime($row['bloqueado_hasta']) > time()) {
@@ -74,6 +83,11 @@ function login($usuario, $password, $mysqli) {
 			$stmtReset->close();
 		}
 
+		// Ya hay una sesión activa en otro dispositivo: pide confirmación antes de cerrarla, salvo que ya haya confirmado ($forzar).
+		if (!$forzar && sesionAnteriorSigueActiva($row)) {
+			return 'sesion_activa';
+		}
+
 		session_regenerate_id();
 		$_SESSION['user_id']    = $row['id'];
 		$_SESSION['username']   = $row['usuario'];
@@ -83,11 +97,21 @@ function login($usuario, $password, $mysqli) {
 		return true;
 	}
 
-	// ---------- Fallback: columnas de fuerza bruta todavía no existen ---------- Mismo login de siempre sin bloqueo (con fallback anidado si tampoco existe `supervisor`).
+	// ---------- Fallback: columnas de fuerza bruta todavía no existen ---------- Mismo login de siempre sin bloqueo (con fallback anidado si tampoco existe `supervisor`). sesion_token sí se pide acá también: sin esto, este bloque nunca preguntaba antes de cerrar la sesión activa (bug real, 2026-09-24).
 	$stmt = $mysqli->prepare(
-		"SELECT id, usuario, rol, supervisor FROM repositorio_usuarios_acuerdos
+		"SELECT id, usuario, rol, supervisor, sesion_token, sesion_ultima_actividad FROM repositorio_usuarios_acuerdos
 		 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
 	);
+	if (!$stmt) $stmt = $mysqli->prepare(
+		"SELECT id, usuario, rol, supervisor, sesion_token FROM repositorio_usuarios_acuerdos
+		 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
+	);
+	if (!$stmt) {
+		$stmt = $mysqli->prepare(
+			"SELECT id, usuario, rol, sesion_token FROM repositorio_usuarios_acuerdos
+			 WHERE usuario = ? AND contrasena = ? AND status = 'activo' LIMIT 1"
+		);
+	}
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
 			"SELECT id, usuario, rol FROM repositorio_usuarios_acuerdos
@@ -100,7 +124,11 @@ function login($usuario, $password, $mysqli) {
 	$stmt->close();
 
 	if (!$row) {
-		return false;
+		return cuentaInactivaConClaveCorrecta($mysqli, $usuario, $password) ? 'inactivo' : false;
+	}
+
+	if (!$forzar && sesionAnteriorSigueActiva($row)) {
+		return 'sesion_activa';
 	}
 
 	session_regenerate_id();
@@ -110,6 +138,19 @@ function login($usuario, $password, $mysqli) {
 	$_SESSION['supervisor'] = $row['supervisor'] ?? null;
 	registrarSesionUnica($mysqli, $row['id']);
 	return true;
+}
+
+// Distingue "usuario/clave incorrectos" de "la cuenta existe, la clave es correcta, pero está inactiva" (2026-09-24, pedido explícito: mensaje confuso cuando en realidad era una cuenta desactivada). Requiere clave correcta para no revelar el status de una cuenta a quien no la tiene.
+function cuentaInactivaConClaveCorrecta($mysqli, $usuario, $password) {
+	$stmt = $mysqli->prepare(
+		"SELECT 1 FROM repositorio_usuarios_acuerdos WHERE usuario = ? AND contrasena = ? AND status <> 'activo' LIMIT 1"
+	);
+	if (!$stmt) return false;
+	$stmt->bind_param('ss', $usuario, $password);
+	$stmt->execute();
+	$existe = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return (bool) $existe;
 }
 
 function login_check() {
@@ -403,19 +444,51 @@ function buscarParticipacionPercha($mysqli, $ciudad, $marca) {
 	return null;
 }
 
-// Dado un pos_id resuelto, encuentra el usuario responsable vía su supervisor real. Null si no tiene supervisor asignado o ese supervisor aún no tiene cuenta activa.
+// Supervisor de campo del maestro de Alicorp sin cuenta propia que en realidad reporta a otro supervisor que sí tiene cuenta (2026-09-24, pedido explícito: caso Xavier Alvarado / Jaime Salgado). Sin el CREATE de repositorio_jerarquia_supervisores, prepare() da false y no hace nada.
+function supervisorRealDeJerarquia($mysqli, $supervisorCampo) {
+	if (!$supervisorCampo) return null;
+	$stmt = $mysqli->prepare(
+		'SELECT supervisor_real FROM repositorio_jerarquia_supervisores WHERE UPPER(TRIM(supervisor_campo)) = UPPER(TRIM(?)) LIMIT 1'
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('s', $supervisorCampo);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $fila ? $fila['supervisor_real'] : null;
+}
+
+// Dado un pos_id resuelto, encuentra el usuario responsable vía su supervisor real. Null si no tiene supervisor asignado o ese supervisor aún no tiene cuenta activa (ni tampoco reporta a alguien con cuenta, ver supervisorRealDeJerarquia()).
 function usuarioIdDePosId($mysqli, $posId) {
 	$stmt = $mysqli->prepare(
 		"SELECT u.id FROM repositorio_locales_supervisores_cliente c
 		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = c.supervisor AND u.status = 'activo'
 		 WHERE c.pos_id = ? LIMIT 1"
 	);
-	if (!$stmt) return null;
-	$stmt->bind_param('s', $posId);
-	$stmt->execute();
-	$fila = $stmt->get_result()->fetch_assoc();
-	$stmt->close();
-	return $fila ? (int) $fila['id'] : null;
+	if ($stmt) {
+		$stmt->bind_param('s', $posId);
+		$stmt->execute();
+		$fila = $stmt->get_result()->fetch_assoc();
+		$stmt->close();
+		if ($fila) return (int) $fila['id'];
+	}
+
+	$stmtSup = $mysqli->prepare('SELECT supervisor FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1');
+	if (!$stmtSup) return null;
+	$stmtSup->bind_param('s', $posId);
+	$stmtSup->execute();
+	$filaSup = $stmtSup->get_result()->fetch_assoc();
+	$stmtSup->close();
+	$real = $filaSup ? supervisorRealDeJerarquia($mysqli, $filaSup['supervisor']) : null;
+	if (!$real) return null;
+
+	$stmtReal = $mysqli->prepare("SELECT id FROM repositorio_usuarios_acuerdos WHERE supervisor = ? AND status = 'activo' LIMIT 1");
+	if (!$stmtReal) return null;
+	$stmtReal->bind_param('s', $real);
+	$stmtReal->execute();
+	$filaReal = $stmtReal->get_result()->fetch_assoc();
+	$stmtReal->close();
+	return $filaReal ? (int) $filaReal['id'] : null;
 }
 
 // Dueño real de una fila de Cuotas — el CEDI del Excel manda siempre sobre el maestro de Alicorp (pueden diverger entre sí). Alcance acotado a Actas Precargadas de Cuotas; si el CEDI no matchea ningún usuario activo, cae al maestro como respaldo.
@@ -493,6 +566,20 @@ function resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel) {
 	$stmt->close();
 	if (!$fila) return ['nombre' => null, 'tiene_cuenta' => false];
 	if ($fila['tiene_cuenta']) return ['nombre' => $fila['usuario'], 'tiene_cuenta' => true];
+
+	// Jerarquía manual: el supervisor de campo del maestro no tiene cuenta propia, pero reporta a alguien que sí (ver supervisorRealDeJerarquia()).
+	$real = supervisorRealDeJerarquia($mysqli, $fila['supervisor']);
+	if ($real) {
+		$stmtReal = $mysqli->prepare("SELECT usuario FROM repositorio_usuarios_acuerdos WHERE supervisor = ? AND status = 'activo' LIMIT 1");
+		if ($stmtReal) {
+			$stmtReal->bind_param('s', $real);
+			$stmtReal->execute();
+			$filaReal = $stmtReal->get_result()->fetch_assoc();
+			$stmtReal->close();
+			if ($filaReal) return ['nombre' => $filaReal['usuario'], 'tiene_cuenta' => true];
+		}
+	}
+
 	// Cliente identificado, supervisor real conocido, pero sin cuenta creada todavía.
 	return ['nombre' => $fila['supervisor'], 'tiene_cuenta' => false];
 }
@@ -1337,6 +1424,39 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 
+// Jerarquía de Supervisores (2026-09-24, pedido explícito): mapea el nombre "de campo" del maestro de Alicorp (sin cuenta propia) al supervisor real que debe validar/recibir sus Actas — ver supervisorRealDeJerarquia(), usuarioIdDePosId(), resolverNombreAsignadoCuota(). Mismo patrón que listar_repositorio_participacion().
+function listar_repositorio_jerarquia($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+
+	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_jerarquia_supervisores WHERE eliminado_en IS NULL AND (supervisor_campo LIKE ? OR supervisor_real LIKE ?)');
+	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmtTotal->bind_param('ss', $like, $like);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
+
+	$stmt = $mysqli->prepare(
+		"SELECT j.id, j.supervisor_campo, j.supervisor_real, j.updated_at, u.usuario AS actualizado_por_usuario
+		 FROM repositorio_jerarquia_supervisores j
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = j.actualizado_por
+		 WHERE j.eliminado_en IS NULL AND (j.supervisor_campo LIKE ? OR j.supervisor_real LIKE ?)
+		 ORDER BY j.supervisor_real, j.supervisor_campo
+		 LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmt->bind_param('ssii', $like, $like, $porPagina, $offset);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
+}
+
 function listar_repositorio_participacion($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
@@ -1600,8 +1720,14 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	return $filas;
 }
 
+function condicionCanalNegociacion($canal) {
+	if ($canal === "directo") return " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	if ($canal === "distribuidor") return " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	return "";
+}
+
 // ---------- Módulo "Resumen de Negociación" ---------- Cuenta ACUERDOS (COUNT DISTINCT a.id), no filas de repositorio_acuerdo_lineas: un acuerdo con 5 filas de cabecera cuenta 1.
-function resumen_negociacion_equipo($mysqli, $trimestre = 0, $anio = 0) {
+function resumen_negociacion_equipo($mysqli, $trimestre = 0, $anio = 0, $canal = "total") {
 	barrer_actas_vencidas($mysqli);
 
 	$bounds          = trimestreABounds($trimestre);
@@ -1625,6 +1751,7 @@ function resumen_negociacion_equipo($mysqli, $trimestre = 0, $anio = 0) {
 		 WHERE a.estado <> 'anulado' AND a.acta_firmada_azure_path IS NOT NULL
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
+		   ".condicionCanalNegociacion($canal)."
 		 GROUP BY u.id, u.usuario
 		 ORDER BY total DESC"
 	);
@@ -1651,7 +1778,7 @@ function resumen_negociacion_equipo($mysqli, $trimestre = 0, $anio = 0) {
 }
 
 // $tipo: todas/rebate/cabeceras/rumas/perchas -> mapea al ENUM real de repositorio_acuerdo_lineas.tipo. $tipoLinea sale de whitelist fija, seguro interpolar en el EXISTS.
-function listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre = 0, $anio = 0, $tipo = 'todas') {
+function listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre = 0, $anio = 0, $tipo = 'todas', $canal = 'total') {
 	$usuarioId = (int) $usuarioId;
 	if (!$usuarioId) return [];
 
@@ -1668,13 +1795,14 @@ function listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre = 0, $
 
 	// Solo el nombre del Acta acá (pedido explícito) — el detalle de qué tabla tiene se pide aparte, al expandir, vía obtener_negociacion_detalle_acuerdo().
 	$stmt = $mysqli->prepare(
-		"SELECT a.id, a.documento_no
+		"SELECT a.id, a.documento_no, (SELECT MIN(m.pos_name) FROM repositorio_locales_supervisores_cliente m WHERE m.pos_id = a.pos_id) AS cliente
 		 FROM repositorio_acuerdos a
 		 WHERE a.creado_por = ?
 		   AND a.estado <> 'anulado' AND a.acta_firmada_azure_path IS NOT NULL
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
 		   $condicionTipo
+		   ".condicionCanalNegociacion($canal)."
 		 ORDER BY a.fecha_generacion DESC"
 	);
 	if (!$stmt) return [];
@@ -1788,7 +1916,8 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		        c.rebate_real_vol, c.updated_at,
 		        COALESCE(u_cedi.id, u_master.id) AS usuario_id,
 		        COALESCE(u_cedi.usuario, u_master.usuario) AS usuario_nombre,
-		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal
+		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal,
+		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_productos p WHERE p.fabricante = 'JABONERIA WILSON' AND p.sector = c.sector AND p.activar = 'SI') THEN 1 ELSE 0 END) AS categoria_valida
 		 FROM repositorio_cumplimiento_cuota c
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'

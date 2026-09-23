@@ -13,6 +13,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 
 $trimestre = (int) ($_GET['trimestre'] ?? 0);
 $anio      = (int) ($_GET['anio'] ?? 0);
+$canal     = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 
-echo json_encode(['ok' => true] + resumen_negociacion_equipo($mysqli, $trimestre, $anio));
+echo json_encode(['ok' => true] + resumen_negociacion_equipo($mysqli, $trimestre, $anio, $canal));
 ?>
