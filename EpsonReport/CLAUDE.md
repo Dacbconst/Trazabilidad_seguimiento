@@ -211,3 +211,11 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - Sesión "activa" para otro login = token guardado + latido en `ultima_actividad` de menos de 3 min (el ping de 15s es el latido). Ya no depende de la inactividad.
 - La inactividad de 20 min se mide con la última interacción real, guardada en la sesión de PHP (`ult_interaccion`), no en la base.
 - `logout.php` libera el token solo si coincide con el de la sesión, aunque esa sesión ya esté vencida, y destruye la sesión.
+
+## Reportes mensuales (2026-09-23)
+
+- Sección `Reportes mensuales` (solo admin; `secciones.php` la oculta al rol usuario): lista de reportes guardados + asistente de 3 pasos (tipo y mes → foto del calendario y programadas → selección de registros con casillas).
+- Tabla `insert_reporte_mensual`: guarda solo la selección (ids de `insert_reporte_registro` en `registros`, ruta relativa del calendario en Azure `Reportes/...`, `programadas`); el PPTX NO se guarda, se arma en cada descarga (`getters/reporte_descargar.php`).
+- Generador (`includes/ppt_activaciones.php`): 1 diapositiva de calendario y cumplimiento por reporte (programadas = escritas por el admin o iguales a las ejecutadas; ejecutadas = registros elegidos) + 3 diapositivas por registro (estadísticas, fotos 1-3, fotos 4-6).
+- Getters: `reportes_registros.php` (registros elegibles), `reporte_guardar.php`, `reporte_descargar.php`, `reporte_eliminar.php` (borrado lógico). Todos exigen admin.
+- Pendiente: quitar del formulario de Activaciones la foto del calendario y los campos programadas/realizadas; decidir qué pasa con el "Descargar PPT" viejo de Historial; otros tipos de actividad (solo Activaciones tiene plantilla).

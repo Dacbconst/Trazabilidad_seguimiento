@@ -41,7 +41,11 @@ $tipo = $limpiar($_POST['tipo'] ?? '') ?: 'general';
 $fotoId = $limpiar($_POST['foto_id'] ?? '') ?: 'foto';
 $usuario = $limpiar(str_replace('.', '_', $_SESSION['usuario'])) ?: 'usuario';
 
-$nombre = $tipo.'/'.date('Y-m').'/'.$usuario.'_'.$fotoId.'_'.date('Ymd_His').'_'.bin2hex(random_bytes(3)).'.'.$extensiones[$mime];
+// Nombre al estilo de las demás tablas de Epson: Carpeta/ddmmaaaaHHMMSS + USUARIO + FOTO.ext (ruta relativa, sin URL).
+$carpetas = ['activaciones' => 'Activaciones', 'capacitaciones' => 'Capacitaciones', 'colocacion-pop' => 'ColocacionPOP', 'epson-day' => 'EpsonDay', 'exhibiciones' => 'Exhibiciones', 'evento-ferias' => 'EventoFerias'];
+$carpeta = $carpetas[$tipo] ?? 'General';
+$sinSimbolos = function ($v) { return preg_replace('/[^A-Z0-9]/', '', strtoupper((string) $v)); };
+$nombre = $carpeta.'/'.date('dmYHis').$sinSimbolos($_SESSION['usuario']).$sinSimbolos($fotoId).'.'.$extensiones[$mime];
 $contenido = file_get_contents($archivo['tmp_name']);
 
 // Red de seguridad: si llega una foto pesada (cliente sin comprimir), se reduce aquí a 1000px JPEG para no inflar las presentaciones PPT.
@@ -71,4 +75,5 @@ if ($blobPath === false) {
 	ep_subir_foto_responder(false, ['error' => 'No se pudo subir la foto. Intenta de nuevo.'], 502);
 }
 
-ep_subir_foto_responder(true, ['path' => $blobPath, 'url' => ep_azure_url($blobPath)]);
+// Se devuelve la ruta relativa (lo que se guarda en la base); la URL pública se arma al leer.
+ep_subir_foto_responder(true, ['path' => substr($blobPath, strlen(EP_AZURE_PREFIX)), 'url' => ep_azure_url($blobPath)]);

@@ -158,7 +158,8 @@ function ep_ppt_pct($v): string {
 }
 
 // Devuelve la ruta de un .pptx temporal con los registros dados. El llamador lo envía y lo borra.
-function ep_ppt_activaciones(array $registros, string $tituloMes): string {
+// $opciones: 'calendario_url' (imagen del calendario del reporte) y 'programadas' (actividades programadas; vacío = igual a las ejecutadas).
+function ep_ppt_activaciones(array $registros, string $tituloMes, array $opciones = []): string {
 	$plantilla = __DIR__.'/../recursos/ppt/activaciones.pptx';
 	$tpl = new ZipArchive();
 	if ($tpl->open($plantilla) !== true) {
@@ -173,6 +174,9 @@ function ep_ppt_activaciones(array $registros, string $tituloMes): string {
 				$urls[] = $f['url'];
 			}
 		}
+	}
+	if (!empty($opciones['calendario_url'])) {
+		$urls[] = $opciones['calendario_url'];
 	}
 	$fotos = ep_ppt_descargar_fotos($urls);
 
@@ -199,8 +203,40 @@ function ep_ppt_activaciones(array $registros, string $tituloMes): string {
 	$out->addFromString('ppt/slides/slide2.xml', $dom2->saveXML());
 
 	$slidesNuevas = [];
-	$contador = 3;
+	$contador = 4;
 	$relFotos = [];
+
+	// Diapositiva 3 (una sola vez por reporte): calendario de activaciones y cumplimiento.
+	$totalEjecutadas = count($registros);
+	$programadas = isset($opciones['programadas']) && $opciones['programadas'] !== null ? (int) $opciones['programadas'] : $totalEjecutadas;
+	$comentariosReporte = [];
+	foreach ($registros as $regC) {
+		foreach ((array) ($regC['comentarios'] ?? []) as $com) {
+			if (count($comentariosReporte) < 3 && trim((string) $com) !== '') {
+				$comentariosReporte[] = strtoupper((string) $com);
+			}
+		}
+	}
+	[$dom3, $xp3] = ep_ppt_cargar($leer('ppt/slides/slide3.xml'));
+	$rels3 = $leer('ppt/slides/_rels/slide3.xml.rels');
+	$relsExtra3 = '';
+	ep_ppt_texto($dom3, $xp3, 'CuadroTexto 12', [ep_ppt_pct($programadas > 0 ? $totalEjecutadas / $programadas * 100 : 0)]);
+	ep_ppt_texto($dom3, $xp3, 'CuadroTexto 13', [$programadas.' ACTIVACIONES PROGRAMADAS', $totalEjecutadas.' EJECUTADAS']);
+	foreach (['CuadroTexto 27', 'CuadroTexto 28', 'CuadroTexto 33'] as $i => $nom) {
+		ep_ppt_texto($dom3, $xp3, $nom, [$comentariosReporte[$i] ?? '']);
+	}
+	$calUrl = $opciones['calendario_url'] ?? '';
+	if ($calUrl !== '' && isset($fotos[$calUrl])) {
+		[$bytesCal, $anCal, $alCal, $extCal] = $fotos[$calUrl];
+		$relFotos['calendario.'.$extCal] = $bytesCal;
+		$relsExtra3 .= '<Relationship Id="rIdCal" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/calendario.'.$extCal.'"/>';
+		ep_ppt_foto($dom3, $xp3, 'Rectángulo 14', 'rIdCal', $anCal, $alCal);
+	} else {
+		ep_ppt_quitar($xp3, 'Rectángulo 14'); // sin imagen del calendario: se quita el cuadro de ejemplo
+	}
+	$out->addFromString('ppt/slides/slide3.xml', $dom3->saveXML());
+	$out->addFromString('ppt/slides/_rels/slide3.xml.rels', str_replace('</Relationships>', $relsExtra3.'</Relationships>', $rels3));
+	$slidesNuevas[] = 3;
 
 	foreach ($registros as $k => $reg) {
 		$mapaFotos = [];
@@ -210,7 +246,7 @@ function ep_ppt_activaciones(array $registros, string $tituloMes): string {
 			}
 		}
 		$numeroSlide = [];
-		for ($t = 3; $t <= 6; $t++) {
+		for ($t = 4; $t <= 6; $t++) {
 			$numeroSlide[$t] = $contador++;
 		}
 		$emb = $reg['embudo'] ?? [];
@@ -226,23 +262,16 @@ function ep_ppt_activaciones(array $registros, string $tituloMes): string {
 
 		// Fotos de esta diapositiva: [nombre del rectángulo => id de foto]
 		$plan = [
-			3 => ['Rectángulo 14' => 'calendario'],
 			5 => ['Rectángulo 4' => 'stand', 'Rectángulo 33' => 'interaccion-1', 'Rectángulo 34' => 'interaccion-2'],
 			6 => ['Rectángulo 4' => 'venta-1', 'Rectángulo 33' => 'venta-2', 'Rectángulo 34' => 'venta-3'],
 		];
 
-		for ($t = 3; $t <= 6; $t++) {
+		for ($t = 4; $t <= 6; $t++) {
 			[$dom, $xp] = ep_ppt_cargar($leer('ppt/slides/slide'.$t.'.xml'));
 			$rels = $leer('ppt/slides/_rels/slide'.$t.'.xml.rels');
 			$relsExtra = '';
 
-			if ($t === 3) {
-				ep_ppt_texto($dom, $xp, 'CuadroTexto 12', [ep_ppt_pct($cum['pct'] ?? 0)]);
-				ep_ppt_texto($dom, $xp, 'CuadroTexto 13', [($cum['programadas'] ?? 0).' ACTIVACIONES PROGRAMADAS', ($cum['realizadas'] ?? 0).' EJECUTADAS']);
-				foreach (['CuadroTexto 27', 'CuadroTexto 28', 'CuadroTexto 33'] as $i => $nom) {
-					ep_ppt_texto($dom, $xp, $nom, [strtoupper($comentarios[$i] ?? '')]);
-				}
-			} elseif ($t === 4) {
+			if ($t === 4) {
 				ep_ppt_quitar($xp, 'Gráfico 19'); // foto de ejemplo del promotor de la plantilla
 				ep_ppt_texto($dom, $xp, 'CuadroTexto 16', [strtoupper($reg['promotor'] ?? '')]);
 				ep_ppt_texto($dom, $xp, 'CuadroTexto 17', ['']);

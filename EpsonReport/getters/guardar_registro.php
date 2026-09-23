@@ -130,15 +130,6 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 		$registro['modelos'] = [];
 	}
 
-	if ($tipo === 'activaciones') {
-		$prog = ep_entero($valores['programadas'] ?? 0);
-		$real = ep_entero($valores['realizadas'] ?? 0);
-		$registro['cumplimiento'] = [
-			'programadas' => $prog,
-			'realizadas'  => $real,
-			'pct'         => $prog > 0 ? round(($real / $prog) * 100, 1) : 0,
-		];
-	}
 } elseif ($tipo === 'capacitaciones') {
 	$asis = ep_entero($valores['asistentes'] ?? 0);
 	$apro = ep_entero($valores['aprobados'] ?? 0);
@@ -194,11 +185,18 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 $reqFotos = ep_fotos_requeridas($tipo);
 $fotosFinal = [];
 $fotosSubidas = is_array($payload['fotos'] ?? null) ? $payload['fotos'] : [];
+$sinSimbolos = function ($v) { return preg_replace('/[^A-Z0-9]/', '', strtoupper((string) $v)); };
+$usuarioLimpio = $sinSimbolos($_SESSION['usuario']);
+$faltantes = 0;
 foreach ($reqFotos as $rf) {
 	$ruta = (string) ($fotosSubidas[$rf['id']] ?? '');
-	// Solo se acepta una ruta que esté dentro de la carpeta de Epson en Azure.
-	if ($ruta !== '' && strpos($ruta, 'AppEpson/EpsonReport/') !== 0) {
+	// Solo vale una ruta relativa "Carpeta/ddmmaaaaHHMMSS+USUARIO+FOTO.ext" que haya subido este mismo usuario para esta casilla.
+	$esperado = $usuarioLimpio . $sinSimbolos($rf['id']);
+	if ($ruta !== '' && !preg_match('#^[A-Za-z]+/\d{14}' . preg_quote($esperado, '#') . '\.(jpg|png|webp)$#', $ruta)) {
 		$ruta = '';
+	}
+	if ($ruta === '') {
+		$faltantes++;
 	}
 	$fotosFinal[] = [
 		'id'     => $rf['id'],
@@ -206,8 +204,14 @@ foreach ($reqFotos as $rf) {
 		'hora'   => $hora,
 		'estado' => 'Verificada',
 		'ruta'   => $ruta,
-		'url'    => $ruta !== '' ? 'https://luckyecuadorweb.blob.core.windows.net/app/'.$ruta : '',
+		'url'    => $ruta !== '' ? 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta : '',
 	];
+}
+// Todas las fotos son obligatorias.
+if ($faltantes > 0) {
+	http_response_code(422);
+	echo json_encode(['success' => false, 'error' => 'Faltan '.$faltantes.' foto(s) por subir. Todas las fotos son obligatorias.']);
+	exit;
 }
 $registro['fotos'] = $fotosFinal;
 

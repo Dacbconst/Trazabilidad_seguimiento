@@ -393,8 +393,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	}
 
-	// Sube la foto del slot a Azure (carpeta de Epson) y guarda la ruta en el slot para el envío del registro.
-	function subirFotoDeSlot(archivo, slot) {
+	// Al elegir la foto solo se comprime y se guarda en memoria; la subida a Azure ocurre al enviar el registro.
+	function prepararFotoDeSlot(archivo, slot) {
 		var estado = slot.querySelector('.ep-foto-slot-estado');
 		function marcar(texto, ok) {
 			if (!estado) return;
@@ -402,30 +402,60 @@ document.addEventListener('DOMContentLoaded', function () {
 			estado.classList.toggle('ep-hist-badge-ok', !!ok);
 		}
 		slot.dataset.fotoRuta = '';
+		slot._blob = null;
 		slot.dataset.subiendo = '1';
-		marcar('Subiendo...', false);
+		marcar('Preparando...', false);
 		comprimirFoto(archivo).then(function (blob) {
-			var fd = new FormData();
-			fd.append('archivo', blob, 'foto.jpg');
-			fd.append('tipo', tipoActividadActiva());
-			fd.append('foto_id', slot.dataset.fotoId || 'foto');
-			return fetch('getters/subir_foto.php', { method: 'POST', body: fd }).then(function (r) { return r.json(); });
-		}).then(function (data) {
+			slot._blob = blob;
 			slot.dataset.subiendo = '';
-			if (data && data.success) {
-				slot.dataset.fotoRuta = data.path;
-				marcar('Cargada', true);
-			} else {
-				slot.classList.remove('ep-foto-slot-completa');
-				marcar('Error al subir', false);
-				epToast('error', (data && data.error) || 'No se pudo subir la foto.');
-				if (data && data.redirect) setTimeout(function () { window.location.href = data.redirect; }, 1800);
-			}
+			marcar('Cargada', true);
 		}).catch(function () {
 			slot.dataset.subiendo = '';
 			slot.classList.remove('ep-foto-slot-completa');
-			marcar('Error al subir', false);
-			epToast('error', 'Error de conexión al subir la foto.');
+			marcar('Error', false);
+			epToast('error', 'No se pudo preparar la foto. Elige otra.');
+		});
+	}
+
+	// Sube UNA foto ya preparada a Azure (carpeta de Epson) y guarda su ruta en el slot.
+	function subirFotoSlot(slot) {
+		var fd = new FormData();
+		fd.append('archivo', slot._blob, 'foto.jpg');
+		fd.append('tipo', tipoActividadActiva());
+		fd.append('foto_id', slot.dataset.fotoId || 'foto');
+		return fetch('getters/subir_foto.php', { method: 'POST', body: fd })
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (data && data.success) { slot.dataset.fotoRuta = data.path; return; }
+				var e = new Error((data && data.error) || 'No se pudo subir la foto.');
+				e.foto = true;
+				e.redirect = data && data.redirect;
+				throw e;
+			});
+	}
+
+	// Sube todas las fotos pendientes (una por una) mostrando el avance; devuelve el mapa id de foto -> ruta.
+	function subirFotosPendientes(slots) {
+		var pendientes = slots.filter(function (s) { return s._blob && !s.dataset.fotoRuta; });
+		var hechas = 0;
+		if (pendientes.length && window.Swal) {
+			Swal.fire({ title: 'Subiendo fotos', html: '<span id="epSubidaProg">0 de ' + pendientes.length + '</span>', allowOutsideClick: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });
+		}
+		var seguir = Promise.resolve();
+		pendientes.forEach(function (s) {
+			seguir = seguir.then(function () {
+				return subirFotoSlot(s).then(function () {
+					hechas++;
+					var prog = document.getElementById('epSubidaProg');
+					if (prog) prog.textContent = hechas + ' de ' + pendientes.length;
+				});
+			});
+		});
+		return seguir.then(function () {
+			if (pendientes.length && window.Swal) Swal.close();
+			var fotos = {};
+			slots.forEach(function (s) { if (s.dataset.fotoRuta) fotos[s.dataset.fotoId] = s.dataset.fotoRuta; });
+			return fotos;
 		});
 	}
 
@@ -446,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			estado.classList.add('ep-hist-badge-ok');
 		}
 
-		subirFotoDeSlot(archivo, slot);
+		prepararFotoDeSlot(archivo, slot);
 
 		var bloque = slot.closest('.ep-evidencia-bloque');
 		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
@@ -528,7 +558,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		preview.classList.remove('hidden');
 		vacio.classList.add('hidden');
 		slot.classList.add('ep-foto-slot-completa');
-		subirFotoDeSlot(archivo, slot);
+		prepararFotoDeSlot(archivo, slot);
 
 		var bloque = slot.closest('.ep-evidencia-bloque');
 		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
@@ -587,17 +617,14 @@ document.addEventListener('DOMContentLoaded', function () {
 	var actVisitaron = document.getElementById('ep-act-visitaron');
 	var actInteractuaron = document.getElementById('ep-act-interactuaron');
 	var actCompraron = document.getElementById('ep-act-compraron');
-	var actProgramadas = document.getElementById('ep-act-programadas');
-	var actRealizadas = document.getElementById('ep-act-realizadas');
 
 	// Coberturadas se tipea a mano, igual que los demás — solo no puede superar a Nacional (pedido explícito 2026-09-17).
 	if (actNacional && actCoberturadas) aplicarTope(actNacional, actCoberturadas);
 	if (actVisitaron && actInteractuaron) aplicarTope(actVisitaron, actInteractuaron);
 	if (actInteractuaron && actCompraron) aplicarTope(actInteractuaron, actCompraron);
-	if (actProgramadas && actRealizadas) aplicarTope(actProgramadas, actRealizadas);
 
 	// Cualquier campo de Activaciones cambia algo del panel de estadísticas de al lado.
-	[actNacional, actCoberturadas, actVisitaron, actInteractuaron, actCompraron, actProgramadas, actRealizadas].forEach(function (input) {
+	[actNacional, actCoberturadas, actVisitaron, actInteractuaron, actCompraron].forEach(function (input) {
 		if (input) input.addEventListener('input', actualizarEstadisticasActivaciones);
 	});
 	var actComentarios = document.getElementById('ep-act-comentarios');
@@ -623,8 +650,6 @@ document.addEventListener('DOMContentLoaded', function () {
 		var visitaron = actVisitaron ? actVisitaron.value : 0;
 		var interactuaron = actInteractuaron ? actInteractuaron.value : 0;
 		var compraron = actCompraron ? actCompraron.value : 0;
-		var programadas = actProgramadas ? actProgramadas.value : 0;
-		var ejecutadas = actRealizadas ? actRealizadas.value : 0;
 
 		statCoberturaPct.textContent = pctTexto(coberturadas, nacional);
 		document.getElementById('ep-stat-nacional').textContent = nacional || 0;
@@ -636,10 +661,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		document.getElementById('ep-stat-ventas-pct').textContent = pctTexto(compraron, interactuaron);
 		document.getElementById('ep-stat-ventas-realizadas').textContent = compraron || 0;
-
-		document.getElementById('ep-stat-cumplimiento-pct').textContent = pctTexto(ejecutadas, programadas);
-		document.getElementById('ep-stat-programadas').textContent = programadas || 0;
-		document.getElementById('ep-stat-ejecutadas').textContent = ejecutadas || 0;
 
 		var maxEmbudo = Math.max(parseFloat(visitaron) || 0, 1);
 		document.getElementById('ep-stat-bar-visitaron-valor').textContent = visitaron || 0;
@@ -1365,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		var fotosFaltan = [];
 		if (bloqueFotos) {
 			bloqueFotos.querySelectorAll('.ep-foto-slot').forEach(function (s) {
-				if (!s.dataset.fotoRuta) fotosFaltan.push(s);
+				if (!s._blob && !s.dataset.fotoRuta) fotosFaltan.push(s);
 			});
 		}
 		document.querySelectorAll('.ep-campo-error, .ep-foto-error').forEach(function (el) { el.classList.remove('ep-campo-error', 'ep-foto-error'); });
@@ -1410,8 +1431,6 @@ document.addEventListener('DOMContentLoaded', function () {
 			valores.visitaron = document.getElementById('ep-act-visitaron') ? document.getElementById('ep-act-visitaron').value : '';
 			valores.interactuaron = document.getElementById('ep-act-interactuaron') ? document.getElementById('ep-act-interactuaron').value : '';
 			valores.compraron = document.getElementById('ep-act-compraron') ? document.getElementById('ep-act-compraron').value : '';
-			valores.programadas = document.getElementById('ep-act-programadas') ? document.getElementById('ep-act-programadas').value : '';
-			valores.realizadas = document.getElementById('ep-act-realizadas') ? document.getElementById('ep-act-realizadas').value : '';
 			valores.comentarios = document.getElementById('ep-act-comentarios') ? document.getElementById('ep-act-comentarios').value : '';
 			var mods = [];
 			document.querySelectorAll('#ep-modelo-filas .ep-modelo-fila').forEach(function(f) {
@@ -1467,18 +1486,11 @@ document.addEventListener('DOMContentLoaded', function () {
 			valores.comentarios = document.getElementById('ep-fer-comentarios') ? document.getElementById('ep-fer-comentarios').value : '';
 		}
 
-		// Fotos ya subidas a Azure: id de la foto requerida -> ruta del blob.
+		// Fotos: se comprimen al elegirlas y se suben a Azure recién ahora, al enviar.
 		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
-		var fotos = {};
-		var subiendo = false;
-		if (bloqueEv) {
-			bloqueEv.querySelectorAll('.ep-foto-slot').forEach(function (s) {
-				if (s.dataset.subiendo) subiendo = true;
-				if (s.dataset.fotoRuta) fotos[s.dataset.fotoId] = s.dataset.fotoRuta;
-			});
-		}
-		if (subiendo) {
-			epAviso('info', 'Subiendo fotos', 'Hay fotos subiéndose todavía. Espera unos segundos e intenta de nuevo.');
+		var slotsFotos = bloqueEv ? Array.prototype.slice.call(bloqueEv.querySelectorAll('.ep-foto-slot')) : [];
+		if (slotsFotos.some(function (s) { return s.dataset.subiendo; })) {
+			epAviso('info', 'Preparando fotos', 'Hay fotos preparándose todavía. Espera unos segundos e intenta de nuevo.');
 			return;
 		}
 
@@ -1491,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			ciudad: 'GUAYAQUIL',
 			canal: 'RETAIL',
 			valores: valores,
-			fotos: fotos
+			fotos: {}
 		};
 
 		var btnEnviar = document.getElementById('epBtnEnviarRegistro');
@@ -1500,10 +1512,13 @@ document.addEventListener('DOMContentLoaded', function () {
 			btnEnviar.textContent = 'Enviando formulario...';
 		}
 
-		fetch('getters/guardar_registro.php', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
+		subirFotosPendientes(slotsFotos).then(function (fotos) {
+			payload.fotos = fotos;
+			return fetch('getters/guardar_registro.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
 		})
 		.then(function(res) { return res.json(); })
 		.then(function(data) {
@@ -1520,8 +1535,13 @@ epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente
 				}
 			}
 		})
-		.catch(function() {
-			epAviso('error', 'Sin conexión', 'No se pudo enviar el formulario. Revisa tu conexión e intenta de nuevo.');
+		.catch(function(err) {
+			if (window.Swal) Swal.close();
+			if (err && err.foto) {
+				epAviso('error', 'No se pudo subir una foto', err.message + ' Intenta de nuevo.').then(function () { if (err.redirect) window.location.href = err.redirect; });
+			} else {
+				epAviso('error', 'Sin conexión', 'No se pudo enviar el formulario. Revisa tu conexión e intenta de nuevo.');
+			}
 			if (btnEnviar) {
 				btnEnviar.disabled = false;
 				btnEnviar.textContent = 'Enviar registro';

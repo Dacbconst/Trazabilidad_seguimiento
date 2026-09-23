@@ -73,32 +73,10 @@
 		</div>
 	</div>
 
-	<!-- Paso 4: Cumplimiento -->
+	<!-- Paso 4: Comentarios -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
 			<div class="ep-step-num">4</div>
-			<div class="ep-step-line"></div>
-		</div>
-		<div class="ep-step-body">
-			<h3 class="ep-step-title">Cumplimiento de Activaciones</h3>
-			<p class="ep-step-hint">Programadas vs. realizadas.</p>
-			<div class="ep-form-grid-2">
-				<div style="display:flex;flex-direction:column;gap:6px;">
-					<label class="ep-label" for="ep-act-programadas">Activaciones Programadas</label>
-					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-programadas" placeholder="Ej. 15">
-				</div>
-				<div style="display:flex;flex-direction:column;gap:6px;">
-					<label class="ep-label" for="ep-act-realizadas">Activaciones Realizadas</label>
-					<input type="number" min="0" inputmode="numeric" class="ep-input" id="ep-act-realizadas" placeholder="Ej. 8">
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- Paso 5: Comentarios -->
-	<div class="ep-step">
-		<div class="ep-step-rail">
-			<div class="ep-step-num">5</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">

@@ -148,6 +148,7 @@ if (!isset($secciones[$vista])) {
 		}
 	</script>
 	<script src="assets/js/sesion-watch.js?v=<?= filemtime(__DIR__.'/assets/js/sesion-watch.js') ?>"></script>
+	<script src="assets/js/reportes.js?v=<?= filemtime(__DIR__.'/assets/js/reportes.js') ?>"></script>
 	<script src="assets/js/historial.js?v=<?= filemtime(__DIR__.'/assets/js/historial.js') ?>"></script>
 	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>
 </body>

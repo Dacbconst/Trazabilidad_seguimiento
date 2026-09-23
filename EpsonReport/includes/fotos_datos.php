@@ -3,7 +3,6 @@
 function ep_fotos_requeridas(string $plantilla): array {
 	if ($plantilla === 'activaciones') {
 		return [
-			['id' => 'calendario', 'label' => 'Calendario de Activación'],
 			['id' => 'stand', 'label' => 'Promotor en su stand con todos los materiales y POP correctamente ubicados'],
 			['id' => 'interaccion-1', 'label' => 'Promotor en una interacción con el cliente (1)'],
 			['id' => 'interaccion-2', 'label' => 'Promotor en una interacción con el cliente (2)'],
