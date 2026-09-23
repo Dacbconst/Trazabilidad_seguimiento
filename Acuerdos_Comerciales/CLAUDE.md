@@ -10185,3 +10185,203 @@ empezar a diseñar el schema/UI de esto sin que las dé (probablemente
 necesita 3 columnas nuevas tipo `visible_cabeceras`/`visible_rumas`/
 `visible_perchas` en vez de la única `sin_visibilidad` actual, pero eso es
 una suposición mía, no confirmado).
+
+**Actualización 2026-09-23: el "segundo caso" de arriba ya se resolvió, ver
+sección "Visibilidad del PDF condicionada a datos reales" más abajo — no
+necesitó columnas nuevas, la solución fue más simple de lo que se suponía.**
+
+## Sesión 2026-09-23 — módulo nuevo "Resumen de Negociación" + varios fixes pedidos por el cliente
+
+Sesión larga, mucho terreno. Resumen para continuar en otra sesión.
+
+### Módulo nuevo: "Resumen de Negociación" (sidebar, `superdesarrollador`)
+
+Pedido: poder ver cuántos Acuerdos **firmados** negociaron cada tipo de
+espacio (Rebate/Cabeceras/Rumas/Perchas), por miembro del equipo comercial.
+**Ojo con la unidad de conteo**: cuenta ACUERDOS que tienen al menos 1 línea
+de ese tipo en `repositorio_acuerdo_lineas` (`COUNT(DISTINCT a.id)`), nunca
+filas — un Acuerdo con 5 filas de Cabecera cuenta 1, no 5. Archivos:
+`components/resumen-negociacion/resumen-negociacion.php`,
+`assets/js/resumen-negociacion.js`, `getters/negociacion_resumen.php`,
+`getters/negociacion_actas_usuario.php`, `getters/negociacion_acta_lineas.php`
++ `resumen_negociacion_equipo()`/`listar_actas_negociacion_usuario()`/
+`obtener_negociacion_detalle_acuerdo()` en `includes/functions.php`. Entrada
+de sidebar en `includes/secciones.php`, hook de refresco en `index.php`
+(`window.acNegociacionRefrescar`).
+
+**Diseño final, tras varias rondas de feedback del usuario en la misma sesión**:
+- Solo cuenta Acuerdos con `acta_firmada_azure_path IS NOT NULL` (excluye
+  `anulado`) — pedido explícito: "la condición aquí es que solo salgan
+  acuerdos firmados".
+- **5 tarjetas KPI arriba son SOLO informativas** (nunca reordenan/filtran la
+  lista de Equipo al hacer click) — decisión final tras iterar: al principio
+  eran clickeables y filtraban todo el panel, el usuario se quejó de que
+  "si le doy al KPI de afuera se mueve todo" cuando solo quería filtrar a UN
+  usuario ya seleccionado. Ahora muestran el **equipo completo por default**,
+  o **cambian de foco al usuario que tengas seleccionado** en la lista de
+  Equipo (ver `actualizarKpis()` en el JS) — con un botón "Ver equipo
+  completo" (`#neg-kpis-reset`, estilo de pill con ícono, no un link de texto
+  chico — el usuario pidió hacerlo más visible) para volver. **Podés
+  deseleccionar** clickeando de nuevo al mismo usuario (antes solo andaba en
+  mobile, ahora también en desktop) — `estado.deseleccionExplicita` evita que
+  `refrescarListaYDetalle()` vuelva a auto-seleccionar al primero después de
+  un refresco/búsqueda mientras estés deseleccionado a propósito.
+- El filtro de TIPO (Rebate/Cabeceras/Rumas/Perchas) es **local a cada
+  usuario abierto** — pastillas chicas (`.ac-seg-pill`, mismo estilo que los
+  períodos Q1-Q4) DENTRO del panel de detalle, no arriba. `estado.filtroDetalle`
+  se resetea a `'todas'` al cambiar de usuario o de período.
+- La lista de Actas de cada usuario es un **droplist**: solo el nombre/número
+  (`#ADN-2026-0001`), sin descarga de PDF acá (se sacó a propósito — "para
+  bajar el PDF hay que ir a Historial"). Click expande un acordeón inline con
+  **tabla real por cada tipo presente** (checklist de qué tablas tiene +
+  valores), fetch lazy cacheado por Acta id (`cacheLineas`).
+- **Con un tipo filtrado** (ej. clickeaste la pastilla "Cabeceras" del panel
+  de ese usuario), el droplist de cada Acta muestra SOLO esa tabla —
+  ninguna de las otras 3, ni el checklist (ya está implícito en cuál
+  pastilla está activa). Con "Todas" sí se ve el checklist + las tablas que
+  tenga.
+- **Columnas de cada tabla replicadas EXACTO de `acta_pdf.php`** (pedido
+  explícito: "la misma tabla que armamos en los PDF, replica la
+  funcionalidad y lo que mostramos"), no una variante propia:
+  - Rebate: **Categoría** (nuestro `sector`, ej. "LIQUIDOS" — NO Subcategoría
+    ni Marca, igual que el PDF real) | mes a mes | Total | Rebate% |
+    Estimado, + fila de suma vertical (`<tfoot>` real, replicado de
+    `acta_pdf.php`: suma cada mes hacia abajo + Total/Estimado generales,
+    columna Rebate en "—").
+  - Cabeceras/Rumas: **Marca** (solo eso, sin Categoría/Subcategoría —
+    replicado de `tabla_marca_html()`) | mes a mes | Total.
+  - Perchas: **Marca | Participación | Max Percha** | mes a mes | Total —
+    acá se encontró un bug real: nunca se traía `participacion_pct` de la
+    base (columna real, no `precio_percha` que sí se mostraba antes sin
+    corresponder al PDF real).
+  - **Total** es SIEMPRE la suma mensual cruda (sin rebate), igual
+    significado en las 4 tablas. **Estimado** (solo Rebate) usa la fórmula
+    EXACTA de `acta_pdf.php` (`$est`): Distribuidor = Total × Rebate% (solo
+    el bono), Directo = Total × (1+Rebate%) (valor total del trato) — esto
+    corrigió un bug real donde yo había inventado mi propio cálculo
+    (`suma × rebate`) y lo llamaba "Total", el usuario lo detectó
+    ("no debías hacer un nuevo cálculo ni mostrarme otro total diferente").
+  - Formato numérico **canal-aware**: Distribuidor mide en Cajas (sin "$"),
+    Directo en Dólares con separador de miles — mismo `formatCurr()` que ya
+    usa `registrar.js`, aplicado acá como `formatearNumero()`. Necesitó
+    traer el canal real del Acuerdo (`pos_id` → `repositorio_locales_supervisores_cliente.canal`)
+    en `obtener_negociacion_detalle_acuerdo()`.
+  - Tabla real (`<table>` HTML, no divs con grid por fila) — el diseño
+    anterior con un grid independiente por fila no garantizaba que las
+    columnas quedaran alineadas entre filas distintas (bug visual real
+    reportado con screenshot).
+- Ícono "Ver Acta Firmada" (✓ verde) al lado del nombre de cada Acta, abre
+  `getters/descargar_acta_firmada.php` en pestaña nueva — con
+  `e.stopPropagation` lógico (guard en el listener delegado) para no
+  disparar también el toggle de la fila.
+
+### Sesión única — redirect limpio en vez de "Error de conexión"
+
+La feature de sesión única (login nuevo invalida la sesión vieja, ver
+`registrarSesionUnica()`/`login_check()`) ya existía de antes, pero el lado
+viejo se quedaba viendo toasts de "Error de conexión al cargar..." en vez de
+ser redirigido. Nuevo: `getters/sesion_verificar.php` (ping liviano,
+`{ok: login_check()}`) + `assets/js/sesion-watch.js` — polling **cada 1
+segundo** (empezó en 30s, el usuario pidió bajarlo) que redirige a
+`login.php?error=sesion` si la sesión ya no es válida. **A propósito NO es
+un interceptor de `fetch()` global** — ya se había intentado eso antes y se
+revirtió por romper la navegación entre módulos (ver sección vieja de este
+mismo archivo sobre "Sesión anterior"); un ping propio e independiente no
+puede romper otro fetch de la app. Conectado en `index.php` (script global).
+`login.php` tiene mensaje nuevo para `?error=sesion`.
+
+### Registrar Acuerdo PDV — 3 ajustes
+
+- **Campos de valores mensuales: máx 4 dígitos enteros + 2 decimales**, en
+  las 4 tablas — un solo punto centralizado, el listener delegado que ya
+  existía en `registrar.js` para "nunca negativo" (`.month-input, .v-val,
+  .ac-ruma-legend-input`), no se tocó cada tabla por separado.
+- **Campo "Distribuidor" → siempre "Local"** en los 2 canales (antes Directo
+  decía "Distribuidor", Distribuidor decía "Local" — pedido explícito del
+  cliente de sacar esa diferencia). `etiquetaCampoLocal()` en `registrar.js`
+  ahora retorna `'Local'` fijo (antes ternario por `CANAL_USUARIO`), mismo
+  cambio en el label server-side de `registrar.php`. El campo "Empresa
+  Distribuidora" (solo canal Distribuidor, elegir la empresa) NO se tocó,
+  sigue diciendo "Distribuidor" — es un campo distinto.
+- **Rebate % visible con el signo "%"** (antes mostraba "4.50" a secas) — el
+  input `.ac-rebate-input` es siempre `readonly` (nunca se tipea a mano, se
+  autocompleta del repositorio), así que se cambió de `type="number"` a
+  `type="text"` y se armó `formatearRebatePct()` para formatear "4.50%" en
+  los 4 lugares donde se setea el valor. `parseFloat()` sigue leyendo bien
+  el número real en los lugares donde se usa para cálculos (para en el
+  primer carácter no numérico, "%").
+
+### Repositorios — 2 fixes
+
+- **Paginación rota con listas grandes**: con 712 filas de Cuotas Trimestrales
+  y 10 x página salían 72 botones de página, el ">" quedaba empujado fuera
+  de la vista sin scroll ni ningún indicio. Fix: paginación truncada (1 ...
+  alrededor de la actual ... última, `paginasAMostrar()` en
+  `repositorios.js`, compartida por las 3 pestañas Rebate/Participación/
+  Cuotas) + subió `porPagina` de 10 a 50 en `getters/repositorio_listar.php`
+  (con eso, 712 filas dan ~15 páginas en vez de 72).
+- **Rebate — tope máximo por canal**: antes un único 4.5% para cualquier
+  canal (`REBATE_MAXIMO_PCT` fijo). Ahora **3% Distribuidor, 5% Directo**
+  (`maximoRebatePorCanal()` en `repositorios.js`, lee la columna real
+  `canal` de cada fila del Excel de JW). **Sigue siendo aviso, no bloquea**
+  el guardado — confirmado explícito por el usuario.
+
+### Excel Distribuidor — bug real de formato $ corregido
+
+En `exportar_cuota_categoria_distribuidor.php`, las columnas "PRE REBATE" y
+"REBATE REAL VOL" tenían formato `'money'` (con signo $) copiado sin querer
+de la versión Directo — pero Distribuidor se mide en **Cajas**, no dólares.
+Corregido a `'numero'` (sin $), mismo criterio que el resto del export
+Distribuidor. Encontrado verificando a nivel de código un ítem que el
+usuario había dado por resuelto ("esto ya está") — no lo estaba, vale la
+pena verificar siempre en vez de solo confiar en la memoria del usuario.
+
+### Visibilidad del PDF condicionada a datos reales — resuelve el pendiente viejo de arriba
+
+Regla nueva del cliente, reemplaza la idea vieja de 3 switches nuevos
+(`visible_cabeceras`/`visible_rumas`/`visible_perchas`) — **no hicieron
+falta columnas nuevas**, la solución fue puramente de lectura de datos en
+`includes/acta_pdf.php` → `generar_acta_html()`:
+- Se calcula si Cabeceras/Rumas/Perchas tienen **datos reales** (al menos 1
+  línea con `marca !== ''`) — `$tieneCabecera`/`$tieneRuma`/`$tienePercha`.
+- Si **ninguna** tiene datos → sale el formato **sin visibilidad** (solo
+  Meta de Compras), **aunque el switch de Registrar esté prendido**. Esto
+  aplica igual para Directo y Distribuidor.
+- Si el switch está apagado, sigue mandando sin visibilidad como siempre
+  (sin cambios en ese caso).
+- Si **al menos una** tiene datos → sale con visibilidad, pero **solo se
+  imprime la sección de la(s) que sí tengan datos** — ni título, ni texto
+  de condiciones, ni tabla vacía de la que no se llenó.
+- Caso particular: Rumas y Perchas comparten el título "2.b. Espacio en...".
+  Si solo una de las dos tiene datos, el título se arma dinámico (ej. "2.b.
+  Espacio en Rumas" en vez de "Perchas & Rumas") y se omite la tabla de la
+  que no tiene — sin renumerar (si falta 2.a Cabeceras, igual queda "2.b"
+  fijo, no se corrió a "2.a").
+- La variable `$sinVisibilidad` ahora representa la DECISIÓN FINAL (switch
+  + datos reales combinados), y de eso dependen también el tamaño de letra
+  general del PDF y el layout de 2 firmas de Distribuidor — efecto
+  colateral correcto, no un bug, ya que esos ajustes están pensados para
+  cuando el PDF tiene menos contenido.
+- Como `previsualizar_acta_pdf.php` también llama a `generar_acta_html()`,
+  la Previsualización en vivo de Registrar hereda este comportamiento gratis,
+  sin tocarla aparte.
+- 2 ajustes de texto/estilo pedidos en la misma sesión sobre este PDF: el
+  hint de Rumas/Perchas ahora dice "...durante el periodo de acuerdo." al
+  final; la fila Estimado(a)/Localidad/Fecha (el nombre del cliente, ciudad
+  y fecha arriba del Acta) tiene la letra un poco más grande que su
+  etiqueta, para que se note más.
+
+**Sin probar en un PDF real generado de verdad** (sin `php.exe` disponible en
+esta sesión) — probar con un Acuerdo real de cada combinación (solo
+Cabeceras, solo Rumas, solo Perchas, ninguna, combinaciones mixtas) antes de
+darlo por cerrado del todo.
+
+### Pendiente — sin empezar
+
+**Pestaña "Resumen" nueva** (distinta del módulo "Resumen de Negociación" de
+arriba): total de clientes con Acuerdo Comercial, filtrable Directo/
+Distribuidor, desglose de clientes abajo, y al hacer click ver su Acuerdo +
+estado firmado/pendiente. Viene de una lista de cambios "pactados" que
+compartió el cliente por correo — el resto de esa lista ya se resolvió en
+esta sesión (ver checklist completo arriba en el chat de esa fecha), esto
+es lo único que queda.

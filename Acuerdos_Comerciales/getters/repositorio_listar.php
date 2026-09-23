@@ -23,12 +23,13 @@ if (!in_array($tipo, ['rebate', 'participacion', 'cuotas'], true)) {
 	exit;
 }
 
+// 50 x página (antes 10) — con listas grandes (ej. 712 filas de Cuotas) 10 x página daba ~72 páginas, empujando el botón ">" fuera de la vista. Con 50 quedan ~15.
 if ($tipo === 'rebate') {
-	$resultado = listar_repositorio_rebate($mysqli, $busqueda, $pagina, 10, $canal);
+	$resultado = listar_repositorio_rebate($mysqli, $busqueda, $pagina, 50, $canal);
 } elseif ($tipo === 'participacion') {
-	$resultado = listar_repositorio_participacion($mysqli, $busqueda, $pagina);
+	$resultado = listar_repositorio_participacion($mysqli, $busqueda, $pagina, 50);
 } else {
-	$resultado = listar_repositorio_cuotas($mysqli, $busqueda, $pagina);
+	$resultado = listar_repositorio_cuotas($mysqli, $busqueda, $pagina, 50);
 }
 
 echo json_encode(['ok' => true] + $resultado);

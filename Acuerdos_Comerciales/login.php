@@ -11,6 +11,7 @@ if (login_check()) {
 
 $error = isset($_GET['error']);
 $bloqueado = ($_GET['error'] ?? '') === 'bloqueado';
+$sesionCerrada = ($_GET['error'] ?? '') === 'sesion';
 
 // Cache-busting: mismo criterio que usa Proyectos/style.css.
 $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
@@ -49,6 +50,8 @@ $style_v = @filemtime(__DIR__.'/assets/css/style.css') ?: time();
 
 			<?php if ($bloqueado): ?>
 			<div class="ac-alert-error">Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en unos minutos.</div>
+			<?php elseif ($sesionCerrada): ?>
+			<div class="ac-alert-error">Tu sesión se cerró porque iniciaste sesión con este usuario en otro dispositivo.</div>
 			<?php elseif ($error): ?>
 			<div class="ac-alert-error">Usuario o contraseña incorrectos.</div>
 			<?php endif; ?>

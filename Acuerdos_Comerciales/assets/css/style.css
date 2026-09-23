@@ -910,7 +910,9 @@ body {
 /* Paginación arriba: mismo bloque que abajo, pero el divisor va del lado contrario (separa de la tabla, no de lo ya pasado). */
 .ac-pagination-top { border-top: none; border-bottom: 1px solid var(--color-outline-variant); }
 .ac-pagination-info { font-size: 14px; line-height: 20px; color: var(--color-on-surface-variant); }
-.ac-pagination-btns { display: flex; gap: var(--space-xs); }
+.ac-pagination-btns { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+/* "…" entre tramos de páginas salteados — sin esto, listas grandes (ej. 712 registros = 72 páginas) pintaban un botón por cada una y el ">" quedaba empujado fuera de la vista, sin scroll ni ningún indicio de que seguía habiendo más. */
+.ac-page-ellipsis { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--color-outline); font-size: 13px; }
 .ac-page-btn {
 	width: 32px; height: 32px;
 	border: 1px solid var(--color-outline-variant);
@@ -2249,6 +2251,59 @@ tr.ac-preview-grupo-c { box-shadow: inset 8px 0 0 0 #a3690a; }
 .ac-seg-doc-link:hover { text-decoration: underline; }
 
 .ac-seg-cargando { padding: var(--space-xl); text-align: center; color: var(--color-outline); font-size: 13px; }
+
+/* ---- Resumen de Negociación ---- */
+.ac-neg-kpis-foco { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: var(--space-md) 0 0; font-size: 12px; color: var(--color-outline); }
+.ac-neg-kpis-foco strong { color: var(--color-on-surface); }
+/* Botón real, no un link de texto chico — pedido explícito (costaba notar que había que volver a Equipo completo). */
+.ac-neg-kpis-reset { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px 5px 10px; border-radius: var(--radius-full); border: 1px solid var(--color-primary); background: var(--color-surface-container-lowest); color: var(--color-primary); font-family: var(--font-body); font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+.ac-neg-kpis-reset .material-symbols-outlined { font-size: 14px; }
+.ac-neg-kpis-reset:hover { background: var(--color-primary); color: #ffffff; }
+.ac-neg-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-sm); margin: var(--space-sm) 0 var(--space-md); }
+.ac-hist-stat-purple .ac-hist-stat-icon { background: #ede4fb; color: #8a4fd6; }
+
+/* Pastillas de tipo LOCALES a un usuario (mismo look que los períodos Q1-Q4), dentro del panel de detalle. */
+.ac-neg-subfiltros { margin: var(--space-md) var(--space-lg) 0; flex-wrap: wrap; }
+
+.ac-neg-lista { padding: var(--space-sm) 0; }
+.ac-neg-acta { border-bottom: 1px solid var(--color-surface-container); }
+.ac-neg-acta:last-child { border-bottom: none; }
+.ac-neg-acta-fila { display: flex; align-items: center; gap: 8px; padding: 12px var(--space-lg); cursor: pointer; }
+.ac-neg-acta-fila:hover { background: var(--color-surface-container-low); }
+.ac-neg-acta-chevron { font-size: 20px; color: var(--color-outline); transition: transform 0.15s ease; }
+.ac-neg-acta-fila.is-open .ac-neg-acta-chevron { transform: rotate(90deg); }
+.ac-neg-acta-nombre { font-size: 13px; font-weight: 700; color: var(--color-primary); flex: 1 1 auto; }
+.ac-neg-acta-firma { color: #1e9e5a; }
+.ac-neg-acta-detalle { padding: 4px var(--space-lg) var(--space-md) calc(var(--space-lg) + 28px); }
+
+/* Checklist: qué tablas tiene la Acta — mismos 4 colores que los KPI de arriba (ok/warn/purple/bad), gris cuando no aplica. */
+.ac-neg-checklist { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-md); }
+.ac-neg-check { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 4px 10px 4px 8px; border-radius: 999px; background: var(--color-surface-container); color: var(--color-outline-variant); }
+.ac-neg-check .material-symbols-outlined { font-size: 14px; }
+.ac-neg-check-on.ac-neg-check-ok { background: #d7f2db; color: #1e9e5a; }
+.ac-neg-check-on.ac-neg-check-warn { background: #fff2cc; color: #b3760f; }
+.ac-neg-check-on.ac-neg-check-purple { background: #ede4fb; color: #8a4fd6; }
+.ac-neg-check-on.ac-neg-check-bad { background: var(--color-error-container); color: var(--color-on-error-container); }
+
+/* Cada tabla con acento de color a la izquierda, mismo criterio que el checklist. */
+.ac-neg-tabla { margin-bottom: var(--space-sm); padding: var(--space-sm) var(--space-md); border-left: 3px solid var(--color-outline-variant); background: var(--color-surface-container-lowest); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.ac-neg-tabla:last-child { margin-bottom: 0; }
+.ac-neg-tabla-ok { border-left-color: #1e9e5a; }
+.ac-neg-tabla-warn { border-left-color: #d98c1f; }
+.ac-neg-tabla-purple { border-left-color: #8a4fd6; }
+.ac-neg-tabla-bad { border-left-color: #ba1a1a; }
+.ac-neg-tabla-titulo { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-outline); }
+.ac-neg-tabla-titulo .material-symbols-outlined { font-size: 15px; }
+/* Tabla real (no divs con flex/grid propio) para que las columnas queden ALINEADAS entre todas las filas, algo que el layout anterior por fila independiente no garantizaba. El navegador ancha cada columna sola según su contenido más largo. */
+.ac-neg-tabla-scroll { overflow-x: auto; }
+.ac-neg-tabla-real { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.ac-neg-tabla-real th, .ac-neg-tabla-real td { padding: 6px 10px; text-align: right; }
+.ac-neg-tabla-real th:first-child, .ac-neg-tabla-real td:first-child { text-align: left; white-space: normal; font-weight: 700; }
+.ac-neg-tabla-real thead th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--color-outline); background: var(--color-surface-container-low); border-bottom: 1px solid var(--color-outline-variant); }
+.ac-neg-tabla-real tbody td { border-top: 1px solid var(--color-surface-container); font-variant-numeric: tabular-nums; }
+.ac-neg-tabla-real tbody tr:first-child td { border-top: none; }
+.ac-neg-tabla-real tfoot td { border-top: 2px solid var(--color-outline-variant); font-weight: 700; text-transform: uppercase; font-size: 11px; }
+.ac-neg-mes-total { font-weight: 700; color: var(--color-primary) !important; }
 
 @media (max-width: 600px) {
 	.ac-seg-filtro { flex: 1 1 45%; }

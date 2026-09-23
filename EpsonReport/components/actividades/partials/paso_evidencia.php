@@ -4,8 +4,14 @@ if (empty($epEvidenciaFotos)) return;
 ?>
 <div class="ep-evidencia-bloque">
 	<div class="ep-evidencia-bloque-head">
-		<span class="ep-eyebrow">Evidencia Fotográfica</span>
-		<span class="ep-step-total">Subidas: <strong class="ep-evidencia-contador">0</strong>/<?= count($epEvidenciaFotos) ?></span>
+		<div>
+			<span class="ep-eyebrow">Evidencia Fotográfica</span>
+			<span class="ep-step-total">Subidas: <strong class="ep-evidencia-contador">0</strong>/<?= count($epEvidenciaFotos) ?></span>
+		</div>
+		<button type="button" class="ep-btn-reabrir-wizard-desktop" id="epBtnReabrirWizardDesktop" title="Abrir asistente guiado paso a paso">
+			<?= ep_icon('camera', 14) ?>
+			<span>Asistente Paso a Paso</span>
+		</button>
 	</div>
 	<div class="ep-evidencia-fila">
 		<?php foreach ($epEvidenciaFotos as $foto): ?>

@@ -285,14 +285,28 @@
 		});
 	}
 
+	// Truncada (1 ... alrededor de la actual ... última) — con listas grandes (ej. 712 registros = 72 páginas) pintar un botón por página empujaba el ">" fuera de la vista sin que se notara que faltaba.
+	function paginasAMostrar(pagina, totalPaginas) {
+		var paginas = [];
+		for (var i = 1; i <= totalPaginas; i++) {
+			if (i === 1 || i === totalPaginas || (i >= pagina - 1 && i <= pagina + 1)) {
+				paginas.push(i);
+			} else if (paginas[paginas.length - 1] !== '...') {
+				paginas.push('...');
+			}
+		}
+		return paginas;
+	}
+
 	// Pinta los botones en AMBOS contenedores (arriba y abajo) — mismo HTML, cada uno con sus propios listeners, para que cambiar de página funcione igual sin importar cuál de los 2 el usuario tenga a la vista.
 	function renderPaginacion(pagina, totalPaginas) {
 		var html = '';
 		html += '<button type="button" class="ac-page-btn" data-pg="' + (pagina - 1) + '" ' + (pagina <= 1 ? 'disabled' : '') + '>' +
 			'<span class="material-symbols-outlined">chevron_left</span></button>';
-		for (var i = 1; i <= totalPaginas; i++) {
-			html += '<button type="button" class="ac-page-btn' + (i === pagina ? ' ac-page-btn-active' : '') + '" data-pg="' + i + '">' + i + '</button>';
-		}
+		paginasAMostrar(pagina, totalPaginas).forEach(function (p) {
+			if (p === '...') { html += '<span class="ac-page-ellipsis">…</span>'; return; }
+			html += '<button type="button" class="ac-page-btn' + (p === pagina ? ' ac-page-btn-active' : '') + '" data-pg="' + p + '">' + p + '</button>';
+		});
 		html += '<button type="button" class="ac-page-btn" data-pg="' + (pagina + 1) + '" ' + (pagina >= totalPaginas ? 'disabled' : '') + '>' +
 			'<span class="material-symbols-outlined">chevron_right</span></button>';
 
@@ -1074,28 +1088,29 @@
 		}
 	});
 
-	// Alerta de máximo de Rebate (2026-09-22, pedido explícito: "el max es de 4.5%") — avisa pero deja guardar igual, mismo patrón que la confirmación de Cuotas. REBATE_MAXIMO_PCT en fracción (0.045), igual unidad que rebate_pct en la base.
-	var REBATE_MAXIMO_PCT = 0.045;
+	// Alerta de máximo de Rebate por canal (2026-09-22, pedido explícito): 3% Distribuidor, 5% Directo — avisa pero deja guardar igual, mismo patrón que la confirmación de Cuotas.
+	function maximoRebatePorCanal(canal) { return String(canal).toUpperCase() === 'DISTRIBUIDOR' ? 0.03 : 0.05; }
 	function confirmarMaximoRebateYGuardar(onDone) {
 		var filas = leerFilasPreviewEditadas();
-		var excedidas = filas.filter(function (f) { return (parseFloat(f.rebate_pct) || 0) > REBATE_MAXIMO_PCT; });
+		var excedidas = filas.filter(function (f) { return (parseFloat(f.rebate_pct) || 0) > maximoRebatePorCanal(f.canal); });
 		if (!excedidas.length) { guardarFilas(filas, onDone); return; }
 		var filasHtml = excedidas.map(function (f) {
+			var maximo = maximoRebatePorCanal(f.canal);
 			return '<div class="ac-choque-row">' +
 				'<div class="ac-choque-side ac-choque-side-precarga">' +
-					'<p class="ac-choque-eyebrow ac-choque-eyebrow-precarga">' + escapeHtml([f.marca, f.categoria, f.ciudad].filter(Boolean).join(' / ')) + '</p>' +
+					'<p class="ac-choque-eyebrow ac-choque-eyebrow-precarga">' + escapeHtml([f.canal, f.marca, f.categoria, f.ciudad].filter(Boolean).join(' / ')) + '</p>' +
 					'<p class="ac-choque-meta">Rebate cargado: <strong>' + (parseFloat(f.rebate_pct) * 100).toFixed(2) + '%</strong></p>' +
 				'</div>' +
 				'<div class="ac-choque-arrow"><span class="material-symbols-outlined">arrow_forward</span></div>' +
 				'<div class="ac-choque-side ac-choque-side-existente">' +
 					'<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">Máximo permitido</p>' +
-					'<p class="ac-choque-doc">' + (REBATE_MAXIMO_PCT * 100).toFixed(2) + '%</p>' +
+					'<p class="ac-choque-doc">' + (maximo * 100).toFixed(2) + '%</p>' +
 				'</div>' +
 			'</div>';
 		}).join('');
 		Swal.fire({
 			icon: 'warning',
-			title: excedidas.length + ' fila(s) superan el ' + (REBATE_MAXIMO_PCT * 100).toFixed(1) + '% de Rebate',
+			title: excedidas.length + ' fila(s) superan el máximo de Rebate de su canal',
 			html: '¿Estás seguro de guardarlo así? Revisa cada caso antes de continuar.<br><br><div class="ac-choque-list">' + filasHtml + '</div>',
 			width: 720,
 			showCancelButton: true,

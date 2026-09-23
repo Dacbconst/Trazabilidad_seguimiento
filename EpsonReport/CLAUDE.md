@@ -61,16 +61,46 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
   - Permite nombrar una nueva actividad y vincularla a una de las lógicas base.
   - Ofrece vista previa idéntica al formulario original en producción.
   - Permite el encendido/apagado de botones mediante switch de gestión.
+- **Flujo de Evidencia Fotográfica en Desktop**:
+  - **Tarjeta de Transición de Paso en Formulario (`.ep-desktop-foto-flow-card`)**: Conector explícito entre el Paso 1 (Datos de campo) y el Paso 2 (Fotos requeridas) con contador en vivo (`0 de X listas`), barra de progreso animada e indicador de obligatoriedad.
+  - **Estudio Fotográfico Desktop en 2 Columnas (`.ep-wizard-overlay` > 900px)**:
+    - *Columna Izquierda*: Checklist vertical de requerimientos obligatorios con estado interactivo (`Pendiente` / `✓ Cargada`) y navegación instantánea.
+    - *Columna Derecha*: Visor amplio con esquinas HUD fotográficas Epson y **Soporte Drag & Drop nativo desde Windows** (permite arrastrar fotos directamente desde carpetas locales o WhatsApp Web al visor).
+    - *Auto-Avance Guiado*: Al cargar cada fotografía, el sistema confirma visualmente con check verde y avanza automáticamente al siguiente requerimiento pendiente.
 
 ### Módulo 2: Registros de Actividades (`index.php?vista=historial`)
-- **Propósito**: Módulo de auditoría, reportería y visibilidad ejecutiva.
-- **Estructura y Características**:
-  - **Filtros Dinámicos**: Por tipo de actividad (con contadores en vivo), rangos de fecha rápidos (*Hoy*, *7 días*, *Este mes*, *Todo*), fecha puntual y barra de búsqueda predictiva en tiempo real.
-  - **Agrupación Cronológica**: Reportes ordenados por fecha y hora de intervención.
-  - **Cabeceras de Registro**: Identificación clara del Punto de Venta, Cadena (Mall del Sol, Sukasa, Marcimex, etc.), Promotor responsable, Ciudad, y Badges de estado (`Aprobado`, `En revisión`, `Completado`).
-  - **KPIs Inmediatos**: Chips destacados con porcentajes de cobertura, totales de asistentes, modelos activados o balances POP.
-  - **Detalle Desplegable**: Desglose campo por campo de la información reportada, métricas calculadas y comentarios de campo.
-  - **Galería Fotográfica y Visor Lightbox**: Muestra las evidencias fotográficas requeridas con sus respectivas etiquetas de verificación (*Fachada*, *Exhibición*, *POP*, etc.) y permite ampliar cualquier imagen en un modal interactivo para inspección detallada.
+- **Propósito**: Módulo de auditoría, reportería y visibilidad ejecutiva adaptado por rol operativo.
+- **Versiones por Rol**:
+  - **Versión Usuario / Promotor (`rol=usuario`)**:
+    - Vista personal (*"Mis Registros de Actividades"*). Solo lista los formularios recolectados por dicho promotor.
+    - Se ocultan selectores irrelevantes como el filtro de usuarios.
+    - Agrupación cronológica directa de sus formularios diarios.
+  - **Versión Administrador (`rol=admin`)**:
+    - Supervisión consolidada de los 70+ promotores a nivel nacional.
+    - **Agrupado por Usuarios**: Bloques compactos y ligeros por promotor con avatar, conteo de formularios y tiendas intervenidas.
+    - Selector dual de agrupación: `[ Por Usuario | Por Fecha ]`.
+    - Selector desplegable de 70+ promotores y selector de vistas (Fichas vs Tabla Data Grid).
+- **Diseño Ultra Compacto & Ligero**:
+  - Reemplazo de franjas estadísticas masivas por una barra de resumen ejecutiva en una sola línea (~28px).
+  - Filas de registro reducidas a ~38px de altura con insignia de fecha de calendario (`24 OCT`).
+  - Indicador circular minimalista para divulgación progresiva (acordeón).
+- **Campos Auténticos (Cero Invenciones)**:
+  - Sin tags inventados como *"Auditoría Regular"*, *"Aprobado"*, *"En revisión"* ni píldoras de canales (*"Departamental"*, *"Retail"*).
+  - Muestra exclusivamente los campos reales capturados en las plantillas oficiales: Cobertura, Embudo, Modelos, Cumplimiento, Asistentes por cargo, Inventario POP y Evidencias fotográficas.
+- **Mecánica de Descarga PowerPoint (.pptx) (Solo Administrador)**:
+  - **Ubicación Estratégica de Botones**:
+    1. *Barra Principal de Herramientas*: Botón primario azul con icono de presentación (`#epBtnAbrirExportadorPPT`). Abre el configurador global.
+    2. *Cabecera de Grupo de Promotor*: Botón compacto `PPT Diario` (`.ep-btn-user-ppt`). Pre-selecciona automáticamente a ese promotor específico y la fecha de sus reportes.
+    3. *Fila Individual de Registro*: Botón `Slide` (`.ep-btn-record-ppt`). Pre-selecciona la actividad puntual, promotor y fecha exacta.
+  - **Modal Interactivo de Exportación (`modal_exportar_ppt.php`)**:
+    - **Panel de Control (Izquierda)**:
+      - Selector de Promotor: "Todos los promotores (Consolidado)" o selección de cualquiera de los 70+ usuarios individuales.
+      - Selector de Día: Campo de fecha con accesos directos rápidos (`24 Oct`, `23 Oct`, `Ayer`).
+      - Selector Visual de Plantilla PPT con badges corporativos: `Activaciones` (ACT), `Capacitaciones` (CAP), `Epson Day` (EPD), `Colocación POP` (POP), `Exhibiciones` (EXH), `Eventos y Ferias` (EVT), y `Consolidado Multi-Slide` (ALL).
+    - **Lienzo de Previsualización en Vivo 16:9 (`#epPptSlideCanvas`)**:
+      - Emula una diapositiva panorámica real de PowerPoint con cabecera oficial Epson, barra de datos dinámicos (tienda, promotor, fecha) y layout reactivo que cambia según la plantilla seleccionada (embudo/cobertura, lista de asistentes, matriz de inventario POP, o slots fotográficos de auditoría).
+    - **Mecánica de Descarga / Simulación**:
+      - Botón de generación con spinner de progreso y confirmación de archivo con nomenclatura estándar corporativa: `Reporte_Epson_[TPL]_[Usuario]_[Fecha].pptx`.
 
 ---
 
@@ -88,3 +118,12 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - **Responsividad**:
   - Escritorio: Distribución multipanel en cuadrícula de alta densidad y respiración visual.
   - Móvil (< 900px): Navegación mediante Drawer lateral, pestañas rápidas y adaptación fluida de tarjetas sin scroll horizontal no deseado.
+
+---
+
+## 7. Reglas de Trabajo del Asistente
+
+1. **Control de Versiones (Git)**:
+   - **NUNCA realizar `git commit` ni `git push` por iniciativa propia.** Los commits y subidas a ramas remotas deben ser solicitados o confirmados expresamente por el usuario.
+2. **Resumen Obligatorio**:
+   - **SIEMPRE presentar un resumen claro, conciso y ordenado** de cada acción realizada y los archivos intervenidos al responder.

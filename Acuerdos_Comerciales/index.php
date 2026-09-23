@@ -24,6 +24,7 @@ $cargando_js_v = @filemtime(__DIR__.'/assets/js/cargando.js') ?: time();
 $lightbox_js_v = @filemtime(__DIR__.'/assets/js/lightbox.js') ?: time();
 $alertas_firma_js_v = @filemtime(__DIR__.'/assets/js/alertas-firma.js') ?: time();
 $pdf_preview_js_v = @filemtime(__DIR__.'/assets/js/pdf-preview.js') ?: time();
+$sesion_watch_js_v = @filemtime(__DIR__.'/assets/js/sesion-watch.js') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -47,6 +48,7 @@ $pdf_preview_js_v = @filemtime(__DIR__.'/assets/js/pdf-preview.js') ?: time();
 	<script src="assets/js/lightbox.js?v=<?= $lightbox_js_v ?>" defer></script>
 	<script src="assets/js/alertas-firma.js?v=<?= $alertas_firma_js_v ?>" defer></script>
 	<script src="assets/js/pdf-preview.js?v=<?= $pdf_preview_js_v ?>" defer></script>
+	<script src="assets/js/sesion-watch.js?v=<?= $sesion_watch_js_v ?>" defer></script>
 </head>
 <body>
 
@@ -165,6 +167,7 @@ $pdf_preview_js_v = @filemtime(__DIR__.'/assets/js/pdf-preview.js') ?: time();
 			'#sec-liquidacion':      function () { if (window.acLiquidacionRefrescar) window.acLiquidacionRefrescar(); },
 			'#sec-repositorios':     function () { if (window.acRepositoriosRefrescar) window.acRepositoriosRefrescar(); },
 			'#sec-seguimiento':      function () { if (window.acSeguimientoRefrescar) window.acSeguimientoRefrescar(); },
+			'#sec-resumen-negociacion': function () { if (window.acNegociacionRefrescar) window.acNegociacionRefrescar(); },
 			'#sec-cumplimiento':     function () { if (window.acCumplimientoRefrescar) window.acCumplimientoRefrescar(); }
 		};
 

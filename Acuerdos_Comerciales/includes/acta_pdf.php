@@ -123,9 +123,17 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	// Formato Distribuidor: título/firma distintos, C.I. en la firma del cliente, mide en Cajas (ver $fmt), y "Estimado a Ganar" = Total x Rebate% (Directo usa Total x (1+Rebate%)).
 	$esDistribuidor = !empty($detalle['es_distribuidor']);
 
-	// "Sin visibilidad" es independiente del canal (switch de Registrar) — oculta 2.a/2.b para Directo y Distribuidor por igual.
-	$sinVisibilidad = !empty($detalle['sin_visibilidad']);
-	$ocultarVisibilidad = $sinVisibilidad;
+	// Solo se muestra una tabla de Visibilidad si tiene datos reales cargados (2026-09-22, pedido explícito) — nunca una sección vacía.
+	$tieneCabecera = false;
+	foreach ($detalle['lineas']['cabecera'] as $linea) { if (($linea['marca'] ?? '') !== '') { $tieneCabecera = true; break; } }
+	$tieneRuma = false;
+	foreach ($detalle['lineas']['ruma'] as $linea) { if (($linea['marca'] ?? '') !== '') { $tieneRuma = true; break; } }
+	$tienePercha = false;
+	foreach ($detalle['lineas']['percha'] as $linea) { if (($linea['marca'] ?? '') !== '') { $tienePercha = true; break; } }
+	$hayVisibilidadReal = $tieneCabecera || $tieneRuma || $tienePercha;
+
+	// "Sin visibilidad" es independiente del canal (switch de Registrar) — oculta 2.a/2.b para Directo y Distribuidor por igual. Con el switch prendido pero sin datos reales en ninguna tabla, igual sale sin visibilidad.
+	$sinVisibilidad = !empty($detalle['sin_visibilidad']) || !$hayVisibilidadReal;
 
 	// "Con visibilidad" ya está aprobado, no tocar. "Sin visibilidad" tiene menos contenido y queda con espacio en blanco de más, por eso la letra ajusta distinto.
 	$fGeneral = $sinVisibilidad ? 13.5 : 24;
@@ -267,6 +275,55 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		$perchaRows = '<tr><td colspan="'.$colspanPercha.'" class="vacio">Sin datos</td></tr>';
 	}
 
+	// Cabeceras y Rumas/Perchas arman su propio bloque HTML acá, cada uno vacío si esa tabla no tiene datos reales.
+	$bloqueCabeceras = '';
+	if ($tieneCabecera) {
+		$bloqueCabeceras = '
+<p class="subtitulo">'.($esDistribuidor ? '2.1. Extravisibilidad: Cabeceras, exhibiciones adicionales y rumas' : '2.a. Extravisibilidad: Cabeceras').'</p>
+<p class="hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro.<br>Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.'.($esDistribuidor ? '<br>Se reconocerá el pago de visibilidad si el cliente cumple con las condiciones de compra del numeral 1.' : '').'</p>
+<table class="meta-tabla">
+	<thead><tr>'.$marcaHeadCab.$mesesHeadCab.$totalHeadCab.'</tr></thead>
+	<tbody>'.$cabecerasRows.'</tbody>
+</table>
+';
+	}
+
+	$bloqueEspacio = '';
+	if ($tieneRuma || $tienePercha) {
+		$partesTitulo = [];
+		if ($tienePercha) $partesTitulo[] = 'Perchas';
+		if ($tieneRuma) $partesTitulo[] = 'Rumas';
+		$tituloEspacio = '2.b. Espacio en '.implode(' &amp; ', $partesTitulo);
+
+		$tablaRuma = !$tieneRuma ? '' : '
+<table style="border:none;"><tr>
+	<td style="border:none; width:78%; vertical-align:top; padding:0;">
+		<table class="meta-tabla" style="margin-top:0;">
+			<thead><tr>'.$marcaHeadRuma.$mesesHeadRuma.$totalHeadRuma.'</tr></thead>
+			<tbody>'.$rumasRows.'</tbody>
+		</table>
+	</td>
+	<td style="border:none; width:2%;"></td>
+	<td style="border:none; width:20%; vertical-align:top; padding:0;">
+		<div class="legend-box">
+			<span class="label">Valor Ruma x Marca x Mes</span>
+			<table style="margin-top:'.px(4, $escalaTabla).';"><tbody>'.$rumaLegendRows.'</tbody></table>
+		</div>
+	</td>
+</tr></table>
+';
+		$tablaPercha = !$tienePercha ? '' : '
+<table class="meta-tabla">
+	<thead>'.$perchaHeadRow1.$perchaHeadRow2.$perchaHeadRow3.'</thead>
+	<tbody>'.$perchaRows.'</tbody>
+</table>
+';
+		$bloqueEspacio = '
+<p class="subtitulo">'.$tituloEspacio.'</p>
+<p class="hint">Se cancelará el valor acordado si, durante todo el período del acuerdo, las categorías mantienen el espacio acordado. La participación se considerará por número de caras/display.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.<br>El espacio debe estar demarcado con preciadores, polipasacalle, cenefas y cualquier otro elemento de visibilidad durante el periodo de acuerdo.</p>
+'.$tablaRuma.$tablaPercha;
+	}
+
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
@@ -323,9 +380,9 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 <h1>'.($esDistribuidor ? 'Acuerdo Comercial Canal Distribuidores' : 'Acuerdo de Desarrollo de Negocios Canal Directo').'</h1>
 
 <table style="border-top:1px solid #757684; border-bottom:1px solid #757684; margin-bottom:'.px(5, $escala).';"><tr>
-	<td style="border:none; width:44%;"><span class="label">Estimado(a)</span><br><strong>'.h($estimadoTexto).'</strong></td>
-	<td style="border:none; width:28%;"><span class="label">Localidad</span><br><strong>'.h($detalle['localidad']).'</strong></td>
-	<td style="border:none; width:28%;"><span class="label">Fecha</span><br><strong>'.h($fechaTexto).'</strong></td>
+	<td style="border:none; width:44%;"><span class="label">Estimado(a)</span><br><strong style="font-size:'.px($fGeneral * 1.15, $escala).';">'.h($estimadoTexto).'</strong></td>
+	<td style="border:none; width:28%;"><span class="label">Localidad</span><br><strong style="font-size:'.px($fGeneral * 1.15, $escala).';">'.h($detalle['localidad']).'</strong></td>
+	<td style="border:none; width:28%;"><span class="label">Fecha</span><br><strong style="font-size:'.px($fGeneral * 1.15, $escala).';">'.h($fechaTexto).'</strong></td>
 </tr></table>
 
 <p>JABONERÍA WILSON S.A. y '.h($detalle['distribuidor']).' celebran el presente acuerdo de desarrollo de negocios para el fortalecimiento mutuo en el mercado regional.</p>
@@ -365,38 +422,9 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	</ul>
 </div>
 
-'.($ocultarVisibilidad ? '' : '
+'.($sinVisibilidad ? '' : '
 <p class="subtitulo">2. Visibilidad</p>
-<p class="subtitulo">'.($esDistribuidor ? '2.1. Extravisibilidad: Cabeceras, exhibiciones adicionales y rumas' : '2.a. Extravisibilidad: Cabeceras').'</p>
-<p class="hint">Son prestaciones del cliente y por el cual se define un valor fijo a cancelar según el cuadro.<br>Se cancelará el valor acordado si, durante todo el período del acuerdo, se mantiene el o los espacios acordados.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.'.($esDistribuidor ? '<br>Se reconocerá el pago de visibilidad si el cliente cumple con las condiciones de compra del numeral 1.' : '').'</p>
-<table class="meta-tabla">
-	<thead><tr>'.$marcaHeadCab.$mesesHeadCab.$totalHeadCab.'</tr></thead>
-	<tbody>'.$cabecerasRows.'</tbody>
-</table>
-
-<p class="subtitulo">2.b. Espacio en Perchas &amp; Rumas</p>
-<p class="hint">Se cancelará el valor acordado si, durante todo el período del acuerdo, las categorías mantienen el espacio acordado. La participación se considerará por número de caras/display.<br>En el caso de desabastecimientos y se incumple con el espacio acordado durante el lapso mínimo de 7 días, la bonificación total del mes no será cancelada.<br>El espacio debe estar demarcado con preciadores, polipasacalle, cenefas y cualquier otro elemento de visibilidad.</p>
-<table style="border:none;"><tr>
-	<td style="border:none; width:78%; vertical-align:top; padding:0;">
-		<table class="meta-tabla" style="margin-top:0;">
-			<thead><tr>'.$marcaHeadRuma.$mesesHeadRuma.$totalHeadRuma.'</tr></thead>
-			<tbody>'.$rumasRows.'</tbody>
-		</table>
-	</td>
-	<td style="border:none; width:2%;"></td>
-	<td style="border:none; width:20%; vertical-align:top; padding:0;">
-		<div class="legend-box">
-			<span class="label">Valor Ruma x Marca x Mes</span>
-			<table style="margin-top:'.px(4, $escalaTabla).';"><tbody>'.$rumaLegendRows.'</tbody></table>
-		</div>
-	</td>
-</tr></table>
-
-<table class="meta-tabla">
-	<thead>'.$perchaHeadRow1.$perchaHeadRow2.$perchaHeadRow3.'</thead>
-	<tbody>'.$perchaRows.'</tbody>
-</table>
-').'
+'.$bloqueCabeceras.$bloqueEspacio).'
 
 <p class="subtitulo">Consideraciones Generales</p>
 <p style="margin:'.px(3, $escala).' 0; font-size:'.px($fHintExtra, $escala).';">Al cierre de cada mes, usted nos facilitará la información de su inventario. <strong>OBLIGATORIO</strong>.</p>

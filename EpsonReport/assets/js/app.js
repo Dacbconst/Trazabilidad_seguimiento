@@ -75,9 +75,39 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 	function actualizarContadorFotosMovil() {
 		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var slots = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot') : [];
 		var count = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot-completa').length : 0;
+		var total = slots.length;
+
 		var badge = document.getElementById('epMobileTabFotosCount');
 		if (badge) badge.textContent = count;
+
+		// Sincronizar tarjeta de flujo en Desktop
+		var desktopCount = document.getElementById('epDesktopFotoCount');
+		var desktopFill = document.getElementById('epDesktopFotoProgressFill');
+		var desktopBadge = document.getElementById('epDesktopFlowBadge');
+
+		if (desktopCount) {
+			desktopCount.textContent = count + ' de ' + total + ' listas';
+		}
+		if (desktopFill && total > 0) {
+			var pct = Math.round((count / total) * 100);
+			desktopFill.style.width = pct + '%';
+			if (pct === 100) {
+				desktopFill.style.background = '#137A3E';
+			} else {
+				desktopFill.style.background = '#0B1863';
+			}
+		}
+		if (desktopBadge) {
+			if (total > 0 && count >= total) {
+				desktopBadge.textContent = '✓ Completa (' + count + '/' + total + ')';
+				desktopBadge.className = 'ep-desktop-flow-status-pill completado';
+			} else {
+				desktopBadge.textContent = 'Pendiente (' + (total - count) + ' faltantes)';
+				desktopBadge.className = 'ep-desktop-flow-status-pill pendiente';
+			}
+		}
 	}
 	function enviarRegistroActividad() {
 		var btnPrincipal = document.querySelector('#ep-panel-formulario .ep-btn-primary');
@@ -93,11 +123,19 @@ document.addEventListener('DOMContentLoaded', function () {
 		var btnIrAFotos = document.getElementById('epBtnIrAFotos');
 		if (btnIrAFotos) {
 			btnIrAFotos.addEventListener('click', function () {
-				if (window.innerWidth <= 900) {
-					abrirWizardFotos();
-				} else {
-					activarTabMovil('fotos');
-				}
+				abrirWizardFotos();
+			});
+		}
+		var btnDesktopStartWizard = document.getElementById('epBtnDesktopStartWizard');
+		if (btnDesktopStartWizard) {
+			btnDesktopStartWizard.addEventListener('click', function () {
+				abrirWizardFotos();
+			});
+		}
+		var btnReabrirWizardDesktop = document.getElementById('epBtnReabrirWizardDesktop');
+		if (btnReabrirWizardDesktop) {
+			btnReabrirWizardDesktop.addEventListener('click', function () {
+				abrirWizardFotos();
 			});
 		}
 		var btnReabrirWizard = document.getElementById('epBtnReabrirWizard');
@@ -137,6 +175,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	var wizardPasoTexto = document.getElementById('epWizardPasoTexto');
 	var wizardTrackSegmentos = document.getElementById('epWizardTrackSegmentos');
 	var wizardTituloFoto = document.getElementById('epWizardTituloFoto');
+	var wizardVisor = document.getElementById('epWizardVisor');
 	var wizardVisorVacio = document.getElementById('epWizardVisorVacio');
 	var wizardVisorPreview = document.getElementById('epWizardVisorPreview');
 	var wizardPreviewImg = document.getElementById('epWizardPreviewImg');
@@ -146,6 +185,8 @@ document.addEventListener('DOMContentLoaded', function () {
 	var wizardBtnSiguiente = document.getElementById('epWizardBtnSiguiente');
 	var wizardBtnSigTexto = document.getElementById('epWizardBtnSigTexto');
 	var wizardBtnCerrar = document.getElementById('epWizardBtnCerrar');
+	var wizardSidebarList = document.getElementById('epWizardSidebarList');
+	var wizardSidebarCount = document.getElementById('epWizardSidebarCount');
 
 	var wizardSlotsActuales = [];
 	var wizardPasoActual = 0;
@@ -176,7 +217,9 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!wizardOverlay) return;
 		wizardOverlay.classList.add('hidden');
 		document.body.style.overflow = '';
-		activarTabMovil('fotos');
+		if (window.innerWidth <= 900) {
+			activarTabMovil('fotos');
+		}
 	}
 
 	function renderizarWizard() {
@@ -212,6 +255,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (wizardVisorVacio) wizardVisorVacio.classList.remove('hidden');
 		}
 
+		// Sincronizar tira de miniaturas inferior
 		if (wizardReel) {
 			wizardReel.innerHTML = '';
 			for (var j = 0; j < total; j++) {
@@ -229,12 +273,50 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		}
 
+		// Sincronizar checklist lateral de requerimientos para Desktop
+		if (wizardSidebarList) {
+			wizardSidebarList.innerHTML = '';
+			var totalComp = 0;
+			for (var k = 0; k < total; k++) {
+				var sK = wizardSlotsActuales[k];
+				var lK = sK.querySelector('.ep-foto-slot-label');
+				var txtK = lK ? lK.textContent.trim() : ('Foto ' + (k + 1));
+				var isDone = sK.classList.contains('ep-foto-slot-completa');
+				if (isDone) totalComp++;
+
+				var itemDiv = document.createElement('div');
+				itemDiv.className = 'ep-wizard-sidebar-item' + (k === idx ? ' activo' : '') + (isDone ? ' completado' : '');
+				itemDiv.dataset.index = k;
+
+				var numSpan = document.createElement('span');
+				numSpan.className = 'ep-wizard-sidebar-num' + (isDone ? ' done' : '');
+				numSpan.textContent = isDone ? '✓' : (k + 1);
+
+				var infoDiv = document.createElement('div');
+				infoDiv.className = 'ep-wizard-sidebar-item-info';
+				infoDiv.innerHTML = '<strong>' + txtK + '</strong><span>' + (isDone ? '✓ Cargada' : 'Pendiente') + '</span>';
+
+				itemDiv.appendChild(numSpan);
+				itemDiv.appendChild(infoDiv);
+
+				itemDiv.addEventListener('click', function () {
+					wizardPasoActual = parseInt(this.dataset.index, 10);
+					renderizarWizard();
+				});
+
+				wizardSidebarList.appendChild(itemDiv);
+			}
+			if (wizardSidebarCount) {
+				wizardSidebarCount.textContent = totalComp + '/' + total;
+			}
+		}
+
 		if (wizardBtnAnterior) {
 			wizardBtnAnterior.disabled = (idx === 0);
 		}
 		if (wizardBtnSigTexto) {
 			if (idx === total - 1) {
-				wizardBtnSigTexto.textContent = 'Finalizar y ver todo';
+				wizardBtnSigTexto.textContent = 'Finalizar y revisar';
 			} else {
 				wizardBtnSigTexto.textContent = 'Siguiente foto';
 			}
@@ -270,6 +352,89 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		});
 	}
+
+	// Función reutilizable para procesar archivo soltado o cargado
+	function cargarArchivoEnSlot(archivo, slot) {
+		if (!archivo || !archivo.type.startsWith('image/')) return;
+		var preview = slot.querySelector('.ep-foto-preview');
+		var vacio = slot.querySelector('.ep-foto-dropzone-vacio');
+		var estado = slot.querySelector('.ep-foto-slot-estado');
+		if (preview) {
+			preview.src = URL.createObjectURL(archivo);
+			preview.classList.remove('hidden');
+		}
+		if (vacio) vacio.classList.add('hidden');
+		slot.classList.add('ep-foto-slot-completa');
+		if (estado) {
+			estado.textContent = 'Cargada';
+			estado.classList.add('ep-hist-badge-ok');
+		}
+
+		var bloque = slot.closest('.ep-evidencia-bloque');
+		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
+		if (contador) contador.textContent = bloque.querySelectorAll('.ep-foto-slot-completa').length;
+		actualizarContadorFotosMovil();
+
+		if (wizardOverlay && !wizardOverlay.classList.contains('hidden')) {
+			renderizarWizard();
+			var totalSlots = wizardSlotsActuales.length;
+			if (wizardPasoActual < totalSlots - 1) {
+				setTimeout(function () {
+					wizardPasoActual++;
+					renderizarWizard();
+				}, 550);
+			}
+		}
+	}
+
+	// Drag & Drop nativo en el Visor del Asistente
+	if (wizardVisor) {
+		wizardVisor.addEventListener('dragover', function (e) {
+			e.preventDefault();
+			wizardVisor.classList.add('drag-active');
+		});
+		wizardVisor.addEventListener('dragleave', function (e) {
+			e.preventDefault();
+			wizardVisor.classList.remove('drag-active');
+		});
+		wizardVisor.addEventListener('drop', function (e) {
+			e.preventDefault();
+			wizardVisor.classList.remove('drag-active');
+			var files = e.dataTransfer && e.dataTransfer.files;
+			if (files && files.length > 0) {
+				var slot = wizardSlotsActuales[wizardPasoActual];
+				if (slot) cargarArchivoEnSlot(files[0], slot);
+			}
+		});
+	}
+
+	// Drag & Drop en slots directos de la página
+	document.addEventListener('dragover', function (e) {
+		var dz = e.target.closest('.ep-foto-dropzone');
+		if (dz) {
+			e.preventDefault();
+			dz.classList.add('drag-active');
+		}
+	});
+	document.addEventListener('dragleave', function (e) {
+		var dz = e.target.closest('.ep-foto-dropzone');
+		if (dz) {
+			e.preventDefault();
+			dz.classList.remove('drag-active');
+		}
+	});
+	document.addEventListener('drop', function (e) {
+		var dz = e.target.closest('.ep-foto-dropzone');
+		if (dz) {
+			e.preventDefault();
+			dz.classList.remove('drag-active');
+			var slot = dz.closest('.ep-foto-slot');
+			var files = e.dataTransfer && e.dataTransfer.files;
+			if (slot && files && files.length > 0) {
+				cargarArchivoEnSlot(files[0], slot);
+			}
+		}
+	});
 
 	// Evidencia fotográfica: genérico para cualquier actividad, reacciona a cualquier .ep-foto-input sin wiring por actividad.
 	document.addEventListener('change', function (ev) {
@@ -924,220 +1089,10 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	}
 
-	// ---------- Módulo Registros de Actividades: Filtros combinados y auditoría ----------
-	var gruposHistorial = document.getElementById('ep-hist-grupos');
-	var pillsActividades = document.getElementById('epPillsActividades');
-	var buscarRegistroInput = document.getElementById('epBuscarRegistro');
-	var filtroEstadoSelect = document.getElementById('epFiltroEstado');
-	var rangoBotones = document.getElementById('epRangoBotones');
-	var histResumen = document.getElementById('ep-hist-resumen');
-	var limpiarFiltrosBtn = document.getElementById('epLimpiarFiltros');
-	var expandirTodosBtn = document.getElementById('ep-hist-expandir-todos');
-	var expandirTodosTexto = document.getElementById('epExpandirTodosTexto');
+	// ---------- Módulo Registros de Actividades ----------
+	// La interactividad completa (filtros, paginación, conmutador de vistas y lightbox)
+	// se gestiona en el controlador unificado de alta escala al final del archivo.
 
-	var filtroActualTipo = 'all';
-	var filtroActualRango = 'all';
-	var filtroActualEstado = 'all';
-	var filtroActualTexto = '';
-
-	function aplicarFiltrosRegistros() {
-		if (!gruposHistorial) return;
-		var totalVisibles = 0;
-		var hayFiltrosActivos = (filtroActualTipo !== 'all') || (filtroActualRango !== 'all') || (filtroActualEstado !== 'all') || (filtroActualTexto !== '');
-
-		if (limpiarFiltrosBtn) {
-			limpiarFiltrosBtn.classList.toggle('hidden', !hayFiltrosActivos);
-		}
-
-		gruposHistorial.querySelectorAll('.ep-hist-day').forEach(function (dia) {
-			var registrosEnDia = dia.querySelectorAll('.ep-hist-record');
-			var visiblesEnDia = 0;
-
-			registrosEnDia.forEach(function (registro) {
-				var tipo = registro.dataset.tipo || '';
-				var estado = registro.dataset.estado || '';
-				var fecha = registro.dataset.fecha || '';
-				var texto = registro.dataset.busqueda || '';
-
-				var cumpleTipo = (filtroActualTipo === 'all') || (tipo === filtroActualTipo);
-				var cumpleEstado = (filtroActualEstado === 'all') || (estado === filtroActualEstado);
-				var cumpleTexto = (!filtroActualTexto) || (texto.indexOf(filtroActualTexto) !== -1);
-				var cumpleRango = true;
-
-				if (filtroActualRango === 'hoy') {
-					cumpleRango = (fecha === '2024-10-24');
-				} else if (filtroActualRango === 'ayer') {
-					cumpleRango = (fecha === '2024-10-23');
-				} else if (filtroActualRango === '7dias') {
-					cumpleRango = (fecha >= '2024-10-18');
-				}
-
-				var esVisible = cumpleTipo && cumpleEstado && cumpleTexto && cumpleRango;
-				registro.classList.toggle('hidden', !esVisible);
-				if (esVisible) {
-					visiblesEnDia++;
-					totalVisibles++;
-				}
-			});
-
-			dia.classList.toggle('hidden', visiblesEnDia === 0);
-		});
-
-		if (histResumen) {
-			histResumen.textContent = 'Mostrando ' + totalVisibles + (totalVisibles === 1 ? ' reporte' : ' reportes');
-		}
-	}
-
-	// Filtro por píldoras de tipo de actividad
-	if (pillsActividades) {
-		pillsActividades.addEventListener('click', function (ev) {
-			var pill = ev.target.closest('.ep-reg-pill');
-			if (!pill) return;
-			pillsActividades.querySelectorAll('.ep-reg-pill').forEach(function (p) { p.classList.remove('selected'); });
-			pill.classList.add('selected');
-			filtroActualTipo = pill.dataset.tipo || 'all';
-			aplicarFiltrosRegistros();
-		});
-	}
-
-	// Filtro por búsqueda en texto en vivo
-	if (buscarRegistroInput) {
-		buscarRegistroInput.addEventListener('input', function () {
-			filtroActualTexto = (buscarRegistroInput.value || '').trim().toLowerCase();
-			aplicarFiltrosRegistros();
-		});
-	}
-
-	// Filtro por estado
-	if (filtroEstadoSelect) {
-		filtroEstadoSelect.addEventListener('change', function () {
-			filtroActualEstado = filtroEstadoSelect.value;
-			aplicarFiltrosRegistros();
-		});
-	}
-
-	// Filtro por botones de rango rápido
-	if (rangoBotones) {
-		rangoBotones.addEventListener('click', function (ev) {
-			var btn = ev.target.closest('.ep-hist-rango-btn');
-			if (!btn) return;
-			rangoBotones.querySelectorAll('.ep-hist-rango-btn').forEach(function (b) { b.classList.remove('ep-hist-rango-activo'); });
-			btn.classList.add('ep-hist-rango-activo');
-			filtroActualRango = btn.dataset.rango || 'all';
-			aplicarFiltrosRegistros();
-		});
-	}
-
-	// Botón limpiar filtros
-	if (limpiarFiltrosBtn) {
-		limpiarFiltrosBtn.addEventListener('click', function () {
-			filtroActualTipo = 'all';
-			filtroActualRango = 'all';
-			filtroActualEstado = 'all';
-			filtroActualTexto = '';
-
-			if (buscarRegistroInput) buscarRegistroInput.value = '';
-			if (filtroEstadoSelect) filtroEstadoSelect.value = 'all';
-
-			if (pillsActividades) {
-				pillsActividades.querySelectorAll('.ep-reg-pill').forEach(function (p) {
-					p.classList.toggle('selected', p.dataset.tipo === 'all');
-				});
-			}
-			if (rangoBotones) {
-				rangoBotones.querySelectorAll('.ep-hist-rango-btn').forEach(function (b) {
-					b.classList.toggle('ep-hist-rango-activo', b.dataset.rango === 'all');
-				});
-			}
-
-			aplicarFiltrosRegistros();
-		});
-	}
-
-	// Plegar / Expandir registros individuales
-	function toggleRegistro(btn, forzarAbierto) {
-		var detalle = document.getElementById(btn.dataset.target);
-		if (!detalle) return;
-		var abrir = forzarAbierto !== undefined ? forzarAbierto : detalle.classList.contains('hidden');
-		detalle.classList.toggle('hidden', !abrir);
-		btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
-		var txt = btn.querySelector('.ep-hist-toggle-text');
-		if (txt) txt.textContent = abrir ? 'Plegar' : 'Detalles';
-		var icoDown = btn.querySelector('.ep-hist-toggle-icon-down');
-		var icoUp = btn.querySelector('.ep-hist-toggle-icon-up');
-		if (icoDown) icoDown.classList.toggle('hidden', abrir);
-		if (icoUp) icoUp.classList.toggle('hidden', !abrir);
-		var article = btn.closest('.ep-hist-record');
-		if (article) article.classList.toggle('ep-hist-record-abierto', abrir);
-	}
-
-	if (gruposHistorial) {
-		gruposHistorial.addEventListener('click', function (ev) {
-			var btn = ev.target.closest('.ep-hist-toggle');
-			if (!btn) return;
-			toggleRegistro(btn);
-		});
-	}
-
-	// Botón "Plegar todos" / "Expandir todos"
-	if (expandirTodosBtn && gruposHistorial) {
-		expandirTodosBtn.addEventListener('click', function () {
-			var abrir = expandirTodosBtn.dataset.estado === 'abrir';
-			gruposHistorial.querySelectorAll('.ep-hist-toggle').forEach(function (btn) {
-				toggleRegistro(btn, abrir);
-			});
-			expandirTodosBtn.dataset.estado = abrir ? 'cerrar' : 'abrir';
-			expandirTodosBtn.innerHTML = (abrir ? epIconMarkup('chevron-up', 15) : epIconMarkup('chevron', 15))
-				+ ' <span id="epExpandirTodosTexto">' + (abrir ? 'Plegar todos' : 'Expandir todos') + '</span>';
-		});
-	}
-
-	// Modal Lightbox para Inspección de Fotos de Evidencia
-	var lightboxModal = document.getElementById('epLightboxModal');
-	var lightboxBackdrop = document.getElementById('epLightboxBackdrop');
-	var lightboxCerrar = document.getElementById('epLightboxCerrar');
-	var lightboxTitulo = document.getElementById('epLightboxTitulo');
-	var lightboxSub = document.getElementById('epLightboxSub');
-	var lightboxWatermarkText = document.getElementById('epLightboxWatermarkText');
-	var lightboxWatermarkMeta = document.getElementById('epLightboxWatermarkMeta');
-
-	function abrirLightbox(card) {
-		if (!lightboxModal) return;
-		var label = card.dataset.fotoLabel || 'Evidencia Fotográfica';
-		var tienda = card.dataset.fotoTienda || '';
-		var promotor = card.dataset.fotoPromotor || '';
-		var hora = card.dataset.fotoHora || '';
-
-		if (lightboxTitulo) lightboxTitulo.textContent = label;
-		if (lightboxSub) lightboxSub.textContent = tienda + ' · ' + promotor + ' · ' + hora;
-		if (lightboxWatermarkText) lightboxWatermarkText.textContent = label.toUpperCase();
-		if (lightboxWatermarkMeta) lightboxWatermarkMeta.textContent = 'Registrado a las ' + hora + ' por ' + promotor + ' (' + tienda + ')';
-
-		lightboxModal.classList.remove('hidden');
-		document.body.style.overflow = 'hidden';
-	}
-
-	function cerrarLightbox() {
-		if (!lightboxModal) return;
-		lightboxModal.classList.add('hidden');
-		document.body.style.overflow = '';
-	}
-
-	if (gruposHistorial) {
-		gruposHistorial.addEventListener('click', function (ev) {
-			var card = ev.target.closest('.ep-reg-foto-card');
-			if (!card) return;
-			abrirLightbox(card);
-		});
-	}
-
-	if (lightboxCerrar) lightboxCerrar.addEventListener('click', cerrarLightbox);
-	if (lightboxBackdrop) lightboxBackdrop.addEventListener('click', cerrarLightbox);
-	document.addEventListener('keydown', function (ev) {
-		if (ev.key === 'Escape' && lightboxModal && !lightboxModal.classList.contains('hidden')) {
-			cerrarLightbox();
-		}
-	});
 
 	// Toggle entre "Formulario" y "Nueva actividad" (mismo módulo, solo rol admin lo ve)
 	var nuevaActividadBtn = document.getElementById('ep-nueva-actividad-btn');
@@ -1427,138 +1382,463 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 
 	// =========================================================================
-	// INTERACTIVIDAD DE REGISTROS DE ACTIVIDADES (FILTROS, ACORDEÓN Y LIGHTBOX)
+	// CONTROLADOR DE REGISTROS DE ACTIVIDADES: ALTA DENSIDAD & DUAL VERSION
+	// (USUARIOS VS ADMIN, AGRUPACIÓN POR USUARIO, FILTROS, PAGINACIÓN Y LIGHTBOX)
 	// =========================================================================
 	var epPillsActividades = document.getElementById('epPillsActividades');
 	var epBuscarRegistro = document.getElementById('epBuscarRegistro');
-	var epFiltroEstado = document.getElementById('epFiltroEstado');
+	var epFiltroPromotor = document.getElementById('epFiltroPromotor');
+	var epPorPagina = document.getElementById('epPorPagina');
+	var epRangoBotones = document.getElementById('epRangoBotones');
+	var epFechaDesde = document.getElementById('epFechaDesde');
+	var epFechaHasta = document.getElementById('epFechaHasta');
 	var epLimpiarFiltros = document.getElementById('epLimpiarFiltros');
 	var epHistResumen = document.getElementById('ep-hist-resumen');
+	var epBtnVistaFichas = document.getElementById('epBtnVistaFichas');
+	var epBtnVistaTabla = document.getElementById('epBtnVistaTabla');
+	var epBtnAgruparUsuario = document.getElementById('epBtnAgruparUsuario');
+	var epBtnAgruparFecha = document.getElementById('epBtnAgruparFecha');
+	var epModoUsuarios = document.getElementById('ep-hist-modo-usuarios');
+	var epModoFechas = document.getElementById('ep-hist-modo-fechas');
+	var epHistTablaContainer = document.getElementById('ep-hist-tabla-container');
+	var btnExpandirTodos = document.getElementById('ep-hist-expandir-todos');
+	var epPaginacionWrap = document.getElementById('epPaginacionWrap');
+	var epPaginaRango = document.getElementById('epPaginaRango');
+	var epPaginaTotal = document.getElementById('epPaginaTotal');
+	var epPaginacionControles = document.getElementById('epPaginacionControles');
 
-	function aplicarFiltrosRegistros() {
-		var pillActiva = epPillsActividades ? epPillsActividades.querySelector('.ep-reg-pill.selected') : null;
-		var tipoFiltro = pillActiva ? pillActiva.dataset.tipo : 'all';
-		var texto = epBuscarRegistro ? epBuscarRegistro.value.trim().toLowerCase() : '';
-		var estadoFiltro = epFiltroEstado ? epFiltroEstado.value : 'all';
+	var vistaActual = 'fichas';
+	var agrupacionActual = epModoUsuarios ? 'usuario' : 'fecha';
+	var filtroActualTipo = 'all';
+	var filtroActualPromotor = 'all';
+	var filtroActualTexto = '';
+	var filtroActualRango = 'all';
+	var filtroFechaDesde = '';
+	var filtroFechaHasta = '';
+	var porPagina = epPorPagina ? epPorPagina.value : '15';
+	var paginaActual = 1;
+	var indicesFiltrados = [];
 
-		var registros = document.querySelectorAll('.ep-expediente-card, .ep-hist-record');
-		var visibles = 0;
+	function scrollHaciaLista() {
+		var target = (vistaActual === 'tabla') ? epHistTablaContainer : (agrupacionActual === 'usuario' ? epModoUsuarios : epModoFechas);
+		if (target) {
+			target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+	}
 
-		registros.forEach(function(card) {
-			var tipoCard = card.dataset.tipo || '';
-			var estadoCard = card.dataset.estado || '';
-			var busquedaCard = card.dataset.busqueda || '';
+	function cambiarModoVista(nuevoModo) {
+		vistaActual = nuevoModo;
+		var esTabla = (vistaActual === 'tabla');
 
-			var coincideTipo = (tipoFiltro === 'all' || tipoCard === tipoFiltro);
-			var coincideEstado = (estadoFiltro === 'all' || estadoCard === estadoFiltro);
-			var coincideTexto = (texto === '' || busquedaCard.indexOf(texto) !== -1);
+		if (esTabla) {
+			if (epModoUsuarios) epModoUsuarios.classList.add('hidden');
+			if (epModoFechas) epModoFechas.classList.add('hidden');
+			if (epHistTablaContainer) epHistTablaContainer.classList.remove('hidden');
+		} else {
+			if (epHistTablaContainer) epHistTablaContainer.classList.add('hidden');
+			if (agrupacionActual === 'usuario' && epModoUsuarios) {
+				epModoUsuarios.classList.remove('hidden');
+				if (epModoFechas) epModoFechas.classList.add('hidden');
+			} else {
+				if (epModoFechas) epModoFechas.classList.remove('hidden');
+				if (epModoUsuarios) epModoUsuarios.classList.add('hidden');
+			}
+		}
 
-			var visible = coincideTipo && coincideEstado && coincideTexto;
-			card.classList.toggle('hidden', !visible);
-			if (visible) visibles++;
+		if (epBtnVistaFichas) epBtnVistaFichas.classList.toggle('ep-view-btn-activo', !esTabla);
+		if (epBtnVistaTabla) epBtnVistaTabla.classList.toggle('ep-view-btn-activo', esTabla);
+
+		if (btnExpandirTodos) {
+			btnExpandirTodos.style.display = esTabla ? 'none' : 'inline-flex';
+		}
+		if (epBtnAgruparUsuario && epBtnAgruparFecha) {
+			epBtnAgruparUsuario.parentElement.style.display = esTabla ? 'none' : 'inline-flex';
+		}
+	}
+
+	// Conmutador de Agrupación para Administrador: Por Usuario vs Por Fecha
+	if (epBtnAgruparUsuario && epBtnAgruparFecha) {
+		epBtnAgruparUsuario.addEventListener('click', function() {
+			agrupacionActual = 'usuario';
+			epBtnAgruparUsuario.classList.add('ep-group-btn-activo');
+			epBtnAgruparFecha.classList.remove('ep-group-btn-activo');
+			if (vistaActual !== 'tabla') {
+				if (epModoUsuarios) epModoUsuarios.classList.remove('hidden');
+				if (epModoFechas) epModoFechas.classList.add('hidden');
+			}
+		});
+		epBtnAgruparFecha.addEventListener('click', function() {
+			agrupacionActual = 'fecha';
+			epBtnAgruparFecha.classList.add('ep-group-btn-activo');
+			epBtnAgruparUsuario.classList.remove('ep-group-btn-activo');
+			if (vistaActual !== 'tabla') {
+				if (epModoFechas) epModoFechas.classList.remove('hidden');
+				if (epModoUsuarios) epModoUsuarios.classList.add('hidden');
+			}
+		});
+	}
+
+	function renderizarBotonesPaginacion(totalPaginas) {
+		if (!epPaginacionControles) return;
+		epPaginacionControles.innerHTML = '';
+
+		if (totalPaginas <= 1) {
+			return;
+		}
+
+		// Botón Anterior
+		var btnAnt = document.createElement('button');
+		btnAnt.type = 'button';
+		btnAnt.className = 'ep-pag-btn';
+		btnAnt.innerHTML = '&lsaquo; Ant';
+		btnAnt.disabled = (paginaActual <= 1);
+		btnAnt.addEventListener('click', function() {
+			if (paginaActual > 1) {
+				paginaActual--;
+				aplicarFiltrosYPaginar(false);
+				scrollHaciaLista();
+			}
+		});
+		epPaginacionControles.appendChild(btnAnt);
+
+		// Lista dinámica de páginas con elipsis
+		var paginasAMostrar = [];
+		if (totalPaginas <= 7) {
+			for (var p = 1; p <= totalPaginas; p++) paginasAMostrar.push(p);
+		} else {
+			paginasAMostrar.push(1);
+			if (paginaActual > 3) paginasAMostrar.push('...');
+			var start = Math.max(2, paginaActual - 1);
+			var end = Math.min(totalPaginas - 1, paginaActual + 1);
+			for (var i = start; i <= end; i++) {
+				if (paginasAMostrar.indexOf(i) === -1) paginasAMostrar.push(i);
+			}
+			if (paginaActual < totalPaginas - 2) paginasAMostrar.push('...');
+			if (paginasAMostrar.indexOf(totalPaginas) === -1) paginasAMostrar.push(totalPaginas);
+		}
+
+		paginasAMostrar.forEach(function(item) {
+			if (item === '...') {
+				var span = document.createElement('span');
+				span.className = 'ep-pag-puntos';
+				span.textContent = '…';
+				epPaginacionControles.appendChild(span);
+			} else {
+				var btnNum = document.createElement('button');
+				btnNum.type = 'button';
+				btnNum.className = 'ep-pag-btn' + (item === paginaActual ? ' activo' : '');
+				btnNum.textContent = item;
+				btnNum.addEventListener('click', function() {
+					paginaActual = item;
+					aplicarFiltrosYPaginar(false);
+					scrollHaciaLista();
+				});
+				epPaginacionControles.appendChild(btnNum);
+			}
 		});
 
+		// Botón Siguiente
+		var btnSig = document.createElement('button');
+		btnSig.type = 'button';
+		btnSig.className = 'ep-pag-btn';
+		btnSig.innerHTML = 'Sig &rsaquo;';
+		btnSig.disabled = (paginaActual >= totalPaginas);
+		btnSig.addEventListener('click', function() {
+			if (paginaActual < totalPaginas) {
+				paginaActual++;
+				aplicarFiltrosYPaginar(false);
+				scrollHaciaLista();
+			}
+		});
+		epPaginacionControles.appendChild(btnSig);
+	}
+
+	function aplicarFiltrosYPaginar(resetearPagina) {
+		if (resetearPagina !== false) {
+			paginaActual = 1;
+		}
+
+		var activeContainer = (agrupacionActual === 'usuario' && epModoUsuarios) ? epModoUsuarios : epModoFechas;
+		var cards = activeContainer ? activeContainer.querySelectorAll('.ep-expediente-card') : document.querySelectorAll('.ep-expediente-card');
+		var rows = document.querySelectorAll('.ep-datagrid-row');
+		var totalItems = Math.max(cards.length, rows.length);
+
+		var pillActiva = epPillsActividades ? epPillsActividades.querySelector('.selected') : null;
+		filtroActualTipo = pillActiva ? (pillActiva.dataset.tipo || 'all') : 'all';
+		filtroActualPromotor = epFiltroPromotor ? epFiltroPromotor.value : 'all';
+		filtroActualTexto = epBuscarRegistro ? epBuscarRegistro.value.trim().toLowerCase() : '';
+		filtroFechaDesde = epFechaDesde ? epFechaDesde.value : '';
+		filtroFechaHasta = epFechaHasta ? epFechaHasta.value : '';
+		porPagina = epPorPagina ? epPorPagina.value : '15';
+
+		indicesFiltrados = [];
+
+		for (var i = 0; i < totalItems; i++) {
+			var itemEl = cards[i] || rows[i];
+			if (!itemEl) continue;
+
+			var tipo = itemEl.dataset.tipo || '';
+			var promotor = itemEl.dataset.promotor || '';
+			var fecha = itemEl.dataset.fecha || '';
+			var busqueda = itemEl.dataset.busqueda || '';
+
+			var coincideTipo = (filtroActualTipo === 'all' || tipo === filtroActualTipo);
+			var coincidePromotor = (filtroActualPromotor === 'all' || promotor === filtroActualPromotor);
+			var coincideTexto = (filtroActualTexto === '' || busqueda.indexOf(filtroActualTexto) !== -1);
+
+			var coincideFechasManuales = true;
+			if (filtroFechaDesde && fecha && fecha < filtroFechaDesde) coincideFechasManuales = false;
+			if (filtroFechaHasta && fecha && fecha > filtroFechaHasta) coincideFechasManuales = false;
+
+			if (coincideTipo && coincidePromotor && coincideTexto && coincideFechasManuales) {
+				indicesFiltrados.push(i);
+			}
+		}
+
+		var totalFiltrados = indicesFiltrados.length;
+		var numPorPagina = (porPagina === 'all') ? Infinity : parseInt(porPagina, 10);
+		var totalPaginas = (numPorPagina === Infinity) ? 1 : (Math.ceil(totalFiltrados / numPorPagina) || 1);
+
+		if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+		if (paginaActual < 1) paginaActual = 1;
+
+		var inicio = (numPorPagina === Infinity) ? 0 : (paginaActual - 1) * numPorPagina;
+		var fin = (numPorPagina === Infinity) ? totalFiltrados : Math.min(inicio + numPorPagina, totalFiltrados);
+
+		var setVisibles = {};
+		for (var k = inicio; k < fin; k++) {
+			setVisibles[indicesFiltrados[k]] = true;
+		}
+
+		// Visibilidad en Fichas del contenedor activo
+		cards.forEach(function(card, idx) {
+			card.classList.toggle('hidden', !setVisibles[idx]);
+		});
+
+		// Visibilidad en Grupos de Usuario (Admin)
+		document.querySelectorAll('.ep-user-group-card').forEach(function(uCard) {
+			var hayVisibles = uCard.querySelectorAll('.ep-hist-record:not(.hidden)').length > 0;
+			uCard.classList.toggle('hidden', !hayVisibles);
+			// Auto-expandir grupo si el admin buscó un usuario o texto específico
+			if (hayVisibles && (filtroActualPromotor !== 'all' || filtroActualTexto !== '')) {
+				uCard.classList.add('ep-user-group-abierto');
+				var head = uCard.querySelector('.ep-user-group-header');
+				if (head) head.setAttribute('aria-expanded', 'true');
+			}
+		});
+
+		// Visibilidad en Secciones de Día
 		document.querySelectorAll('.ep-hist-day').forEach(function(sec) {
 			var hayVisibles = sec.querySelectorAll('.ep-hist-record:not(.hidden)').length > 0;
 			sec.classList.toggle('hidden', !hayVisibles);
 		});
 
+		// Visibilidad en Tabla Data Grid
+		rows.forEach(function(row, idx) {
+			row.classList.toggle('hidden', !setVisibles[idx]);
+		});
+
+		// Resumen y Paginación UI
 		if (epHistResumen) {
-			epHistResumen.textContent = 'Mostrando ' + visibles + ' formulario' + (visibles === 1 ? '' : 's') + ' recolectado' + (visibles === 1 ? '' : 's');
+			epHistResumen.textContent = 'Mostrando ' + totalFiltrados + ' formulario' + (totalFiltrados === 1 ? '' : 's');
 		}
 
-		if (epLimpiarFiltros) {
-			var hayFiltro = (tipoFiltro !== 'all' || texto !== '' || estadoFiltro !== 'all');
-			epLimpiarFiltros.classList.toggle('hidden', !hayFiltro);
+		if (epPaginaTotal) {
+			epPaginaTotal.textContent = totalFiltrados;
 		}
+		if (epPaginaRango) {
+			if (totalFiltrados === 0) {
+				epPaginaRango.textContent = '0';
+			} else {
+				epPaginaRango.textContent = (inicio + 1) + '–' + fin;
+			}
+		}
+
+		// Botón Limpiar Filtros
+		if (epLimpiarFiltros) {
+			var hayFiltroActivo = (filtroActualTipo !== 'all' || filtroActualPromotor !== 'all' || filtroActualTexto !== '' || filtroFechaDesde !== '' || filtroFechaHasta !== '');
+			epLimpiarFiltros.classList.toggle('hidden', !hayFiltroActivo);
+		}
+
+		renderizarBotonesPaginacion(totalPaginas);
 	}
 
-	if (epPillsActividades) {
-		epPillsActividades.addEventListener('click', function(ev) {
-			var pill = ev.target.closest('.ep-reg-pill');
-			if (!pill) return;
-			epPillsActividades.querySelectorAll('.ep-reg-pill').forEach(function(p) { p.classList.remove('selected'); });
-			pill.classList.add('selected');
-			aplicarFiltrosRegistros();
+	// Conmutador de vistas
+	if (epBtnVistaFichas) {
+		epBtnVistaFichas.addEventListener('click', function() {
+			cambiarModoVista('fichas');
+		});
+	}
+	if (epBtnVistaTabla) {
+		epBtnVistaTabla.addEventListener('click', function() {
+			cambiarModoVista('tabla');
 		});
 	}
 
+	// Filtro por píldoras de actividad
+	if (epPillsActividades) {
+		epPillsActividades.addEventListener('click', function(ev) {
+			var pill = ev.target.closest('.ep-reg-pill-compact, .ep-reg-pill');
+			if (!pill) return;
+			epPillsActividades.querySelectorAll('.ep-reg-pill-compact, .ep-reg-pill').forEach(function(p) { p.classList.remove('selected'); });
+			pill.classList.add('selected');
+			aplicarFiltrosYPaginar(true);
+		});
+	}
+
+	// Filtro por usuario / promotor
+	if (epFiltroPromotor) {
+		epFiltroPromotor.addEventListener('change', function() {
+			aplicarFiltrosYPaginar(true);
+		});
+	}
+
+	// Buscador de texto
 	if (epBuscarRegistro) {
-		epBuscarRegistro.addEventListener('input', aplicarFiltrosRegistros);
+		epBuscarRegistro.addEventListener('input', function() {
+			aplicarFiltrosYPaginar(true);
+		});
 	}
 
-	if (epFiltroEstado) {
-		epFiltroEstado.addEventListener('change', aplicarFiltrosRegistros);
+	// Selector de registros por página
+	if (epPorPagina) {
+		epPorPagina.addEventListener('change', function() {
+			aplicarFiltrosYPaginar(true);
+		});
 	}
 
+	// Inputs de fecha manual Desde / Hasta
+	if (epFechaDesde) {
+		epFechaDesde.addEventListener('change', function() {
+			aplicarFiltrosYPaginar(true);
+		});
+	}
+	if (epFechaHasta) {
+		epFechaHasta.addEventListener('change', function() {
+			aplicarFiltrosYPaginar(true);
+		});
+	}
+
+	// Limpiar todos los filtros
 	if (epLimpiarFiltros) {
 		epLimpiarFiltros.addEventListener('click', function() {
 			if (epBuscarRegistro) epBuscarRegistro.value = '';
-			if (epFiltroEstado) epFiltroEstado.value = 'all';
+			if (epFiltroPromotor) epFiltroPromotor.value = 'all';
+			if (epFechaDesde) epFechaDesde.value = '';
+			if (epFechaHasta) epFechaHasta.value = '';
 			if (epPillsActividades) {
-				epPillsActividades.querySelectorAll('.ep-reg-pill').forEach(function(p, idx) {
+				epPillsActividades.querySelectorAll('.ep-reg-pill-compact, .ep-reg-pill').forEach(function(p, idx) {
 					p.classList.toggle('selected', idx === 0);
 				});
 			}
-			aplicarFiltrosRegistros();
+			aplicarFiltrosYPaginar(true);
 		});
 	}
 
-	// Acordeones individuales en cada registro
+	// Acordeones de Grupo de Usuario (Admin Mode)
 	document.addEventListener('click', function(ev) {
-		var toggle = ev.target.closest('.ep-hist-toggle-btn');
-		if (!toggle) return;
-		var record = toggle.closest('.ep-hist-record');
-		if (!record) return;
-		var detalle = record.querySelector('.ep-hist-record-detalle');
-		if (!detalle) return;
-
-		var abierto = record.classList.contains('ep-hist-record-abierto');
-		record.classList.toggle('ep-hist-record-abierto', !abierto);
-		toggle.setAttribute('aria-expanded', !abierto ? 'true' : 'false');
-		var lbl = toggle.querySelector('.ep-hist-toggle-label');
-		if (lbl) lbl.textContent = !abierto ? 'Plegar' : 'Ver formulario';
+		var uHead = ev.target.closest('.ep-user-group-header');
+		if (!uHead) return;
+		var uCard = uHead.closest('.ep-user-group-card');
+		if (!uCard) return;
+		var estaAbierto = uCard.classList.toggle('ep-user-group-abierto');
+		uHead.setAttribute('aria-expanded', estaAbierto ? 'true' : 'false');
 	});
 
-	// Plegar / Desplegar todos los registros
-	var btnExpandirTodos = document.getElementById('ep-hist-expandir-todos');
+	// Acordeones: click en la cabecera del registro para desplegar/plegar suavemente
+	document.addEventListener('click', function(ev) {
+		var cabecera = ev.target.closest('.ep-hist-record-cabecera');
+		if (!cabecera) return;
+		if (ev.target.closest('a') || ev.target.closest('button')) return;
+
+		var record = cabecera.closest('.ep-hist-record');
+		if (!record) return;
+		var abierto = record.classList.contains('ep-hist-record-abierto');
+		record.classList.toggle('ep-hist-record-abierto', !abierto);
+
+		var indicator = record.querySelector('.ep-accordion-indicator-compact, .ep-accordion-indicator');
+		if (indicator) {
+			indicator.setAttribute('aria-expanded', !abierto ? 'true' : 'false');
+		}
+	});
+
+	// Plegar / Expandir todos los registros (en vista Fichas)
 	if (btnExpandirTodos) {
 		btnExpandirTodos.addEventListener('click', function() {
 			var estado = btnExpandirTodos.getAttribute('data-estado');
 			var abrir = (estado === 'abrir');
-			document.querySelectorAll('.ep-hist-record').forEach(function(record) {
+
+			// Abrir o cerrar grupos de usuario si existen
+			document.querySelectorAll('.ep-user-group-card:not(.hidden)').forEach(function(uCard) {
+				uCard.classList.toggle('ep-user-group-abierto', abrir);
+				var uHead = uCard.querySelector('.ep-user-group-header');
+				if (uHead) uHead.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+			});
+
+			// Abrir o cerrar fichas individuales
+			document.querySelectorAll('.ep-hist-record:not(.hidden)').forEach(function(record) {
 				record.classList.toggle('ep-hist-record-abierto', abrir);
-				var toggle = record.querySelector('.ep-hist-toggle-btn');
-				if (toggle) {
-					toggle.setAttribute('aria-expanded', abrir ? 'true' : 'false');
-					var lbl = toggle.querySelector('.ep-hist-toggle-label');
-					if (lbl) lbl.textContent = abrir ? 'Plegar' : 'Ver formulario';
+				var indicator = record.querySelector('.ep-accordion-indicator-compact, .ep-accordion-indicator');
+				if (indicator) {
+					indicator.setAttribute('aria-expanded', abrir ? 'true' : 'false');
 				}
 			});
 			btnExpandirTodos.setAttribute('data-estado', abrir ? 'cerrar' : 'abrir');
 			var txt = document.getElementById('epExpandirTodosTexto');
-			if (txt) txt.textContent = abrir ? 'Plegar todos' : 'Desplegar todos';
+			if (txt) txt.textContent = abrir ? 'Plegar' : 'Expandir';
 		});
 	}
 
-	// Lightbox Modal para evidencias fotográficas
-	var lightboxModal = document.getElementById('epLightboxModal');
-	var lightboxBackdrop = document.getElementById('epLightboxBackdrop');
-	var lightboxCerrar = document.getElementById('epLightboxCerrar');
-	var lightboxTitulo = document.getElementById('epLightboxTitulo');
-	var lightboxSub = document.getElementById('epLightboxSub');
-	var lightboxWatermarkText = document.getElementById('epLightboxWatermarkText');
-	var lightboxWatermarkMeta = document.getElementById('epLightboxWatermarkMeta');
+	// Desde la tabla: Inspeccionar ficha correspondiente
+	document.addEventListener('click', function(ev) {
+		var btnVer = ev.target.closest('.ep-datagrid-ver-btn');
+		if (!btnVer) return;
+		var targetCardId = btnVer.dataset.targetCard;
+		if (!targetCardId) return;
+		var card = document.getElementById(targetCardId);
+		if (!card) return;
 
-	function cerrarLightbox() {
-		if (lightboxModal) lightboxModal.classList.add('hidden');
+		// 1. Cambiar a vista Fichas
+		cambiarModoVista('fichas');
+
+		// 2. Si está dentro de un grupo de usuario, asegurar que el grupo esté abierto
+		var parentGroup = card.closest('.ep-user-group-card');
+		if (parentGroup) {
+			parentGroup.classList.add('ep-user-group-abierto');
+			var uHead = parentGroup.querySelector('.ep-user-group-header');
+			if (uHead) uHead.setAttribute('aria-expanded', 'true');
+		}
+
+		// 3. Abrir la ficha
+		card.classList.add('ep-hist-record-abierto');
+		var indicator = card.querySelector('.ep-accordion-indicator-compact, .ep-accordion-indicator');
+		if (indicator) {
+			indicator.setAttribute('aria-expanded', 'true');
+		}
+
+		// 4. Scroll suave y efecto resalte
+		card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		card.classList.remove('ep-card-highlight');
+		void card.offsetWidth;
+		card.classList.add('ep-card-highlight');
+	});
+
+	// Modal para inspección de evidencias fotográficas
+	var modalFoto = document.getElementById('epModalFotoEvidencia');
+	var modalBackdrop = document.getElementById('epModalFotoBackdrop');
+	var modalCerrar = document.getElementById('epModalFotoCerrar');
+	var modalFotoDesc = document.getElementById('epModalFotoDesc');
+	var modalFotoTienda = document.getElementById('epModalFotoTienda');
+	var modalFotoPromotor = document.getElementById('epModalFotoPromotor');
+
+	function cerrarModalFoto() {
+		if (modalFoto) modalFoto.classList.add('hidden');
 	}
-
-	if (lightboxBackdrop) lightboxBackdrop.addEventListener('click', cerrarLightbox);
-	if (lightboxCerrar) lightboxCerrar.addEventListener('click', cerrarLightbox);
+	if (modalBackdrop) modalBackdrop.addEventListener('click', cerrarModalFoto);
+	if (modalCerrar) modalCerrar.addEventListener('click', cerrarModalFoto);
 	document.addEventListener('keydown', function(ev) {
-		if (ev.key === 'Escape' && lightboxModal && !lightboxModal.classList.contains('hidden')) {
-			cerrarLightbox();
+		if (ev.key === 'Escape' && modalFoto && !modalFoto.classList.contains('hidden')) {
+			cerrarModalFoto();
 		}
 	});
 
@@ -1568,13 +1848,271 @@ document.addEventListener('DOMContentLoaded', function () {
 		var label = fotoCard.dataset.fotoLabel || 'Evidencia Fotográfica';
 		var tienda = fotoCard.dataset.fotoTienda || 'Punto de Venta';
 		var promotor = fotoCard.dataset.fotoPromotor || 'Promotor';
-		var hora = fotoCard.dataset.fotoHora || '';
 
-		if (lightboxTitulo) lightboxTitulo.textContent = label;
-		if (lightboxSub) lightboxSub.textContent = tienda + ' · ' + promotor + (hora ? ' (' + hora + ')' : '');
-		if (lightboxWatermarkText) lightboxWatermarkText.textContent = label.toUpperCase();
-		if (lightboxWatermarkMeta) lightboxWatermarkMeta.textContent = 'Lucky Ecuador · ' + tienda + ' · ' + promotor;
-
-		if (lightboxModal) lightboxModal.classList.remove('hidden');
+		if (modalFotoDesc) modalFotoDesc.textContent = label;
+		if (modalFotoTienda) modalFotoTienda.textContent = tienda;
+		if (modalFotoPromotor) modalFotoPromotor.textContent = promotor;
+		if (modalFoto) modalFoto.classList.remove('hidden');
 	});
+
+	// =========================================================================
+	// MECÁNICA DE EXPORTACIÓN Y SELECCIÓN DE PLANTILLAS POWERPOINT (PPTX)
+	// =========================================================================
+	var modalPPT = document.getElementById('epModalExportarPPT');
+	var modalPptBackdrop = document.getElementById('epModalPptBackdrop');
+	var modalPptCerrar = document.getElementById('epModalPptCerrar');
+	var modalPptCancelar = document.getElementById('epModalPptCancelar');
+	var btnAbrirExportadorPPT = document.getElementById('epBtnAbrirExportadorPPT');
+	var selectPptUsuario = document.getElementById('epPptSelectUsuario');
+	var selectPptFecha = document.getElementById('epPptSelectFecha');
+	var templatesList = document.getElementById('epPptTemplatesList');
+	var slidePreviewFecha = document.getElementById('epSlidePreviewFecha');
+	var slidePreviewTag = document.getElementById('epSlidePreviewTag');
+	var slidePreviewTienda = document.getElementById('epSlidePreviewTienda');
+	var slidePreviewPromotor = document.getElementById('epSlidePreviewPromotor');
+	var slideDynamicContent = document.getElementById('epSlideDynamicContent');
+	var btnEjecutarDescargaPPT = document.getElementById('epBtnEjecutarDescargaPPT');
+	var pptDescargaStatus = document.getElementById('epPptDescargaStatus');
+	var pptStatusTitulo = document.getElementById('epPptStatusTitulo');
+	var pptStatusSub = document.getElementById('epPptStatusSub');
+	var btnDescargaPptTexto = document.getElementById('epBtnDescargaPptTexto');
+
+	var nombresPlantillas = {
+		'activaciones': 'ACTIVACIONES DE CAMPO',
+		'capacitaciones': 'CAPACITACIONES A LA FUERZA DE VENTAS',
+		'epson-day': 'JORNADA EPSON DAY',
+		'colocacion-pop': 'COLOCACIÓN DE MATERIAL POP',
+		'exhibiciones': 'EXHIBICIONES QUE INSPIRAN',
+		'evento-ferias': 'EVENTO O FERIAS',
+		'consolidado': 'REPORTE DIARIO CONSOLIDADO (TODAS)'
+	};
+
+	function abrirModalPPT(config) {
+		if (!modalPPT) return;
+		config = config || {};
+
+		// Pre-seleccionar usuario si viene en config
+		if (config.promotor && selectPptUsuario) {
+			selectPptUsuario.value = config.promotor;
+			if (!selectPptUsuario.value) selectPptUsuario.selectedIndex = 0;
+		}
+
+		// Pre-seleccionar fecha si viene en config
+		if (config.fecha && selectPptFecha) {
+			selectPptFecha.value = config.fecha;
+		}
+
+		// Pre-seleccionar tienda si viene en config
+		if (config.tienda && slidePreviewTienda) {
+			slidePreviewTienda.textContent = config.tienda;
+		}
+
+		// Pre-seleccionar plantilla si viene en config
+		if (config.tipo && templatesList) {
+			var opt = templatesList.querySelector('.ep-ppt-tpl-option[data-template="' + config.tipo + '"]');
+			if (opt) {
+				actualizarPlantillaPPT(config.tipo, opt);
+			}
+		}
+
+		actualizarSlidePreview();
+		if (pptDescargaStatus) pptDescargaStatus.classList.add('hidden');
+		if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = false;
+		if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = 'Descargar Presentación (.pptx)';
+		modalPPT.classList.remove('hidden');
+	}
+
+	var pptFootMeta = document.getElementById('epPptFootMeta');
+
+	function cerrarModalPPT() {
+		if (modalPPT) modalPPT.classList.add('hidden');
+	}
+
+	function actualizarPlantillaPPT(tplKey, optionEl) {
+		if (!templatesList) return;
+		templatesList.querySelectorAll('.ep-ppt-tpl-option').forEach(function(o) {
+			o.classList.remove('selected');
+			var radio = o.querySelector('input[type="radio"]');
+			if (radio) radio.checked = false;
+		});
+
+		if (optionEl) {
+			optionEl.classList.add('selected');
+			var radioSel = optionEl.querySelector('input[type="radio"]');
+			if (radioSel) radioSel.checked = true;
+		}
+
+		// Cambiar tag de la diapositiva
+		if (slidePreviewTag) {
+			slidePreviewTag.textContent = nombresPlantillas[tplKey] || 'ACTIVIDAD DE CAMPO';
+		}
+
+		// Mostrar la vista interna del slide correspondiente a esa plantilla
+		if (slideDynamicContent) {
+			slideDynamicContent.querySelectorAll('.ep-slide-tpl-view').forEach(function(v) {
+				v.classList.add('hidden');
+			});
+			var vistaActiva = slideDynamicContent.querySelector('.ep-slide-view-' + tplKey);
+			if (vistaActiva) {
+				vistaActiva.classList.remove('hidden');
+			}
+		}
+
+		actualizarSlidePreview();
+	}
+
+	function actualizarSlidePreview() {
+		var userText = 'Todos los usuarios';
+		if (selectPptUsuario && slidePreviewPromotor) {
+			var val = selectPptUsuario.value;
+			userText = (val === 'all') ? 'Todos los usuarios (Consolidado)' : val;
+			slidePreviewPromotor.textContent = 'Promotor: ' + userText;
+		}
+		var fechaText = '24 Oct 2024';
+		if (selectPptFecha && slidePreviewFecha) {
+			var fVal = selectPptFecha.value;
+			if (fVal) {
+				var partesF = fVal.split('-');
+				var meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+				var mesNom = meses[parseInt(partesF[1], 10) - 1] || 'OCT';
+				fechaText = (partesF[2] || '24') + ' ' + mesNom + ' ' + (partesF[0] || '2024');
+				slidePreviewFecha.textContent = fechaText;
+			}
+		}
+
+		// Sincronizar pastilla de metadatos en el footer del modal
+		if (pptFootMeta) {
+			var radSel = templatesList ? templatesList.querySelector('input[name="epPptTemplate"]:checked') : null;
+			var tpl = radSel ? radSel.value : 'activaciones';
+			var tplNom = nombresPlantillas[tpl] || 'Activaciones de Campo';
+			var slideTipo = (tpl === 'consolidado') ? 'Multi-Slide Pack' : '1 Diapositiva';
+			pptFootMeta.textContent = slideTipo + ' · ' + tplNom + ' · ' + (userText.length > 25 ? userText.substring(0, 22) + '...' : userText) + ' · ' + fechaText;
+		}
+	}
+
+	if (btnAbrirExportadorPPT) {
+		btnAbrirExportadorPPT.addEventListener('click', function() {
+			abrirModalPPT();
+		});
+	}
+
+	if (modalPptBackdrop) modalPptBackdrop.addEventListener('click', cerrarModalPPT);
+	if (modalPptCerrar) modalPptCerrar.addEventListener('click', cerrarModalPPT);
+	if (modalPptCancelar) modalPptCancelar.addEventListener('click', cerrarModalPPT);
+	document.addEventListener('keydown', function(ev) {
+		if (ev.key === 'Escape' && modalPPT && !modalPPT.classList.contains('hidden')) {
+			cerrarModalPPT();
+		}
+	});
+
+	// Cambio de usuario en el modal
+	if (selectPptUsuario) {
+		selectPptUsuario.addEventListener('change', actualizarSlidePreview);
+	}
+
+	// Cambio de fecha en el modal
+	if (selectPptFecha) {
+		selectPptFecha.addEventListener('change', function() {
+			var val = selectPptFecha.value;
+			document.querySelectorAll('.ep-ppt-quick-date').forEach(function(b) {
+				if (b.dataset.fecha === val) {
+					b.classList.add('active');
+				} else {
+					b.classList.remove('active');
+				}
+			});
+			actualizarSlidePreview();
+		});
+	}
+
+	// Botones rápidos de fecha en modal
+	document.querySelectorAll('.ep-ppt-quick-date').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			var f = btn.dataset.fecha;
+			if (f && selectPptFecha) {
+				selectPptFecha.value = f;
+				document.querySelectorAll('.ep-ppt-quick-date').forEach(function(b) { b.classList.remove('active'); });
+				btn.classList.add('active');
+				actualizarSlidePreview();
+			}
+		});
+	});
+
+	// Click en las tarjetas de plantillas PPTX
+	if (templatesList) {
+		templatesList.addEventListener('click', function(ev) {
+			var opt = ev.target.closest('.ep-ppt-tpl-option');
+			if (!opt) return;
+			var tpl = opt.dataset.template;
+			actualizarPlantillaPPT(tpl, opt);
+		});
+		// Navegación con teclado Enter/Espacio
+		templatesList.addEventListener('keydown', function(ev) {
+			if (ev.key === 'Enter' || ev.key === ' ') {
+				var opt = ev.target.closest('.ep-ppt-tpl-option');
+				if (opt) {
+					ev.preventDefault();
+					var tpl = opt.dataset.template;
+					actualizarPlantillaPPT(tpl, opt);
+				}
+			}
+		});
+	}
+
+	// Click en botón contextual "PPT Diario" desde la cabecera de grupo de usuario
+	document.addEventListener('click', function(ev) {
+		var btnUserPpt = ev.target.closest('.ep-btn-user-ppt');
+		if (!btnUserPpt) return;
+		ev.stopPropagation(); // No alternar el acordeón de apertura
+		var promotor = btnUserPpt.dataset.promotor;
+		abrirModalPPT({ promotor: promotor, fecha: '2024-10-24' });
+	});
+
+	// Click en botón contextual "Slide" desde cada registro individual
+	document.addEventListener('click', function(ev) {
+		var btnRecPpt = ev.target.closest('.ep-btn-record-ppt');
+		if (!btnRecPpt) return;
+		ev.stopPropagation(); // No alternar el acordeón de apertura
+		var tpl = btnRecPpt.dataset.tipo || 'activaciones';
+		var promotor = btnRecPpt.dataset.promotor || '';
+		var fecha = btnRecPpt.dataset.fecha || '2024-10-24';
+		var tienda = btnRecPpt.dataset.tienda || 'Punto de Venta';
+		abrirModalPPT({ tipo: tpl, promotor: promotor, fecha: fecha, tienda: tienda });
+	});
+
+	// Simulación de descarga del archivo PPTX
+	if (btnEjecutarDescargaPPT) {
+		btnEjecutarDescargaPPT.addEventListener('click', function() {
+			var radSel = templatesList ? templatesList.querySelector('input[name="epPptTemplate"]:checked') : null;
+			var tpl = radSel ? radSel.value : 'activaciones';
+			var user = selectPptUsuario ? selectPptUsuario.value : 'all';
+			var fecha = selectPptFecha ? selectPptFecha.value : '2024-10-24';
+
+			var userClean = (user === 'all') ? 'Consolidado' : user.replace(/\s+/g, '_');
+			var fileName = 'Reporte_Epson_' + (tpl.toUpperCase()) + '_' + userClean + '_' + fecha.replace(/-/g, '') + '.pptx';
+
+			if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = true;
+			if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = 'Compilando diapositivas...';
+			if (pptDescargaStatus) {
+				pptDescargaStatus.classList.remove('hidden');
+				if (pptStatusTitulo) pptStatusTitulo.textContent = 'Generando archivo PowerPoint (.pptx)...';
+				if (pptStatusSub) pptStatusSub.textContent = 'Aplicando la plantilla oficial de ' + (nombresPlantillas[tpl] || tpl) + ' con slots fotográficos y métricas.';
+			}
+
+			// Simulación de respuesta con feedback visual
+			setTimeout(function() {
+				if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = 'Descargar Nuevamente (.pptx)';
+				if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = false;
+				if (pptDescargaStatus) {
+					if (pptStatusTitulo) pptStatusTitulo.innerHTML = '&#10003; ¡Presentación lista: <strong>' + fileName + '</strong>!';
+					if (pptStatusSub) pptStatusSub.textContent = 'Mecánica de plantilla lista y verificada. Lista para enlazar la exportación binaria nativa en el backend.';
+				}
+			}, 1100);
+		});
+	}
+
+	// Inicializar en carga
+	if (document.querySelector('.ep-registros-main')) {
+		aplicarFiltrosYPaginar(true);
+	}
 });

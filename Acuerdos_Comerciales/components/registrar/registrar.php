@@ -50,10 +50,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 				</div>
 			</div>
 			<div class="ac-field" id="ac-distribuidor-field">
-				<!-- Etiqueta condicional por canal; IDs/variables internas sin cambiar. -->
-				<label class="ac-field-label" for="ac-distribuidor-search"><?= $canalUsuario === 'distribuidor' ? 'Local' : 'Distribuidor' ?></label>
+				<!-- Siempre "Local" en los 2 canales (2026-09-22, pedido explícito) — antes Directo decía "Distribuidor". IDs/variables internas sin cambiar. -->
+				<label class="ac-field-label" for="ac-distribuidor-search">Local</label>
 				<div class="ac-combo" id="ac-distribuidor-combo">
-					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="<?= $canalUsuario === 'distribuidor' ? 'Buscar local...' : 'Buscar distribuidor...' ?>" autocomplete="off">
+					<input type="text" class="ac-select ac-combo-input" id="ac-distribuidor-search" placeholder="Buscar local..." autocomplete="off">
 					<input type="hidden" id="ac-distribuidor" value="">
 				</div>
 			</div>

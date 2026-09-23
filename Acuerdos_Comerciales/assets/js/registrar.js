@@ -9,8 +9,11 @@
 	// canal/empresas/clientes filtrados por el `supervisor` del usuario (ver CANAL_USUARIO y canalDeSupervisor()). `empresas` solo tiene datos si canal==='distribuidor' (agrupado por tipo_distribuidor); `clientes` es la lista plana para Directo/Mayorista.
 	var catalogoDistribuidor = { canal: 'directo', empresas: {}, clientes: [] };
 
-	// Etiqueta dinámica del campo pos_id: Directo dice "Distribuidor", Distribuidor dice "Local" para no pisar el campo de empresa ("Distribuidor").
-	function etiquetaCampoLocal() { return CANAL_USUARIO === 'distribuidor' ? 'Local' : 'Distribuidor'; }
+	// Campo pos_id: siempre "Local" en los 2 canales (2026-09-22, pedido explícito) — antes Directo decía "Distribuidor", cambió solo el texto, la lógica de canal sigue igual.
+	function etiquetaCampoLocal() { return 'Local'; }
+
+	// Rebate % visible con el signo "%" (pedido explícito) — solo texto, el valor numérico real sigue siendo parseFloat() de siempre.
+	function formatearRebatePct(v) { return (parseFloat(v) || 0).toFixed(2) + '%'; }
 
 	var selectedStart = 0;
 	var selectedEnd = 2;
@@ -82,10 +85,18 @@
 	var acuerdoContainer = document.querySelector('.ac-acuerdo');
 	acuerdoContainer.addEventListener('input', marcarSucio);
 
-	// Montos en dólares: nunca negativos. El rebate NO se toca acá, va a salir de un repositorio nuevo, no tiene sentido validarle un rango a mano.
+	// Montos en dólares: nunca negativos, máximo 4 dígitos enteros y 2 decimales (pedido explícito, aplica a las 4 tablas). El rebate NO se toca acá, va a salir de un repositorio nuevo, no tiene sentido validarle un rango a mano.
 	acuerdoContainer.addEventListener('input', function (e) {
-		if (e.target.matches && e.target.matches('.month-input, .v-val, .ac-ruma-legend-input') && parseFloat(e.target.value) < 0) {
-			e.target.value = 0;
+		if (e.target.matches && e.target.matches('.month-input, .v-val, .ac-ruma-legend-input')) {
+			if (parseFloat(e.target.value) < 0) e.target.value = 0;
+			var v = e.target.value;
+			if (v.indexOf('.') !== -1) {
+				var partes = v.split('.');
+				var recortado = partes[0].slice(0, 4) + '.' + partes[1].slice(0, 2);
+				if (recortado !== v) e.target.value = recortado;
+			} else if (v.length > 4) {
+				e.target.value = v.slice(0, 4);
+			}
 		}
 		// Participación de Perchas: texto libre (ej. "50%") pero nunca negativo.
 		if (e.target.matches && e.target.matches('.v-participacion') && e.target.value.indexOf('-') !== -1) {
@@ -459,7 +470,7 @@
 		// Rebate % conectado al repositorio (ver buscarYAplicarRebate): cualquier cambio en la cascada por encima de Marca invalida el % mostrado. `silencioso=true` (usado por sugerir()) lo salta a propósito: restaurar un borrador no debe tocar el rebate_pct ya guardado.
 		function resetearRebate() {
 			if (!rebateInput) return;
-			rebateInput.value = 0;
+			rebateInput.value = formatearRebatePct(0);
 			// Bloqueado siempre: este campo nunca se tipea a mano, ni mientras se espera la fila ni cuando el repositorio no tiene el dato (ver buscarYAplicarRebate).
 			rebateInput.readOnly = true;
 			rebateInput.title = '';
@@ -611,7 +622,7 @@
 				// La fila puede haber cambiado de Marca mientras esta consulta estaba en vuelo; solo aplica si el combo sigue mostrando la misma Marca.
 				if (tr.querySelector('.marca-select').value !== marca) return;
 				if (data && data.ok && data.encontrado) {
-					rebateInput.value = (parseFloat(data.rebate_pct) * 100).toFixed(2);
+					rebateInput.value = formatearRebatePct(parseFloat(data.rebate_pct) * 100);
 					rebateInput.readOnly = true;
 					rebateInput.title = 'Bloqueado — viene del repositorio de Rebate.';
 				} else {
@@ -640,7 +651,7 @@
 		html +=
 			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell" data-key="total" data-label="Total Período">$0.00</td>' +
 			// Rebate % conectado al repositorio (ver buscarYAplicarRebate): arranca readonly/0 porque la fila todavía no tiene la cascada completa.
-			'<td class="ac-text-right ac-col-highlight" data-key="rebate" data-label="Rebate %"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-rebate-input" value="0" readonly></td>' +
+			'<td class="ac-text-right ac-col-highlight" data-key="rebate" data-label="Rebate %"><input type="text" class="ac-input ac-mini-input ac-rebate-input" value="0.00%" readonly></td>' +
 			'<td class="ac-text-right ac-col-highlight ac-tabular est-cell" data-key="estimado" data-label="Valor Estimado a Ganar">$0.00</td>' +
 			'<td class="ac-text-center" data-key="acciones"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar Fila</span></button></td>';
 		tr.innerHTML = html;
@@ -1215,7 +1226,7 @@
 				var tr = purchaseBody.lastElementChild;
 				tr._combo.sugerir(fila.segmento, fila.sector || null, fila.categoria, fila.marca);
 				llenarValoresMensuales(tr.querySelectorAll('.month-input'), fila.valores_mensuales);
-				tr.querySelector('.ac-rebate-input').value = ((fila.rebate_pct || 0) * 100).toFixed(2);
+				tr.querySelector('.ac-rebate-input').value = formatearRebatePct((fila.rebate_pct || 0) * 100);
 				updatePurchaseRow(tr);
 			});
 		} else {

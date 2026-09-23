@@ -237,10 +237,10 @@ if ($ultimaFilaD2 >= $primeraFilaD2) {
 		$wbD->formula($sD1, $filaD, $colGanaTotal, 'VLOOKUP('.XlsxWriter::colLetra($colNombre).$filaD.','.$rangoBuscarvD.',5,FALSE)');
 		$wbD->formula($sD1, $filaD, $colPreRebate,
 			'IF(AND('.XlsxWriter::colLetra($colGanaTotal).$filaD.'="GANA",'.XlsxWriter::colLetra($colGanaCategoria).$filaD.'="GANA"),'.
-			XlsxWriter::colLetra($colVentaTotal).$filaD.'*'.XlsxWriter::colLetra($colRebatePct).$filaD.',0)', false, 'money');
+			XlsxWriter::colLetra($colVentaTotal).$filaD.'*'.XlsxWriter::colLetra($colRebatePct).$filaD.',0)', false, 'numero');
 		$wbD->formula($sD1, $filaD, $colRebateRealVol,
 			'IF('.XlsxWriter::colLetra($colPreRebate).$filaD.'<='.XlsxWriter::colLetra($colRebateMax110).$filaD.','.XlsxWriter::colLetra($colPreRebate).$filaD.','.XlsxWriter::colLetra($colRebateMax110).$filaD.')',
-			false, 'money');
+			false, 'numero');
 	}
 }
 

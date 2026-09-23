@@ -1600,6 +1600,158 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	return $filas;
 }
 
+// ---------- Módulo "Resumen de Negociación" ---------- Cuenta ACUERDOS (COUNT DISTINCT a.id), no filas de repositorio_acuerdo_lineas: un acuerdo con 5 filas de cabecera cuenta 1.
+function resumen_negociacion_equipo($mysqli, $trimestre = 0, $anio = 0) {
+	barrer_actas_vencidas($mysqli);
+
+	$bounds          = trimestreABounds($trimestre);
+	$trimestreActivo = $bounds ? 1 : 0;
+	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
+	$anio            = (int) $anio;
+
+	$vacio = ['stats' => ['total' => 0, 'rebate' => 0, 'cabeceras' => 0, 'rumas' => 0, 'perchas' => 0], 'equipo' => []];
+
+	$stmt = $mysqli->prepare(
+		"SELECT u.id AS usuario_id, u.usuario AS nombre,
+		        COUNT(DISTINCT a.id) AS total,
+		        COUNT(DISTINCT CASE WHEN l.tipo = 'meta_compra' THEN a.id END) AS rebate,
+		        COUNT(DISTINCT CASE WHEN l.tipo = 'cabecera' THEN a.id END) AS cabeceras,
+		        COUNT(DISTINCT CASE WHEN l.tipo = 'ruma' THEN a.id END) AS rumas,
+		        COUNT(DISTINCT CASE WHEN l.tipo = 'percha' THEN a.id END) AS perchas
+		 FROM repositorio_acuerdos a
+		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 LEFT JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id
+		 WHERE a.estado <> 'anulado' AND a.acta_firmada_azure_path IS NOT NULL
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)
+		 GROUP BY u.id, u.usuario
+		 ORDER BY total DESC"
+	);
+	if (!$stmt) return $vacio;
+	$stmt->bind_param('iiiii', $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->execute();
+	$equipo = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$stats = ['total' => 0, 'rebate' => 0, 'cabeceras' => 0, 'rumas' => 0, 'perchas' => 0];
+	foreach ($equipo as &$u) {
+		$u['usuario_id'] = (int) $u['usuario_id'];
+		$u['total']      = (int) $u['total'];
+		$u['rebate']     = (int) $u['rebate'];
+		$u['cabeceras']  = (int) $u['cabeceras'];
+		$u['rumas']      = (int) $u['rumas'];
+		$u['perchas']    = (int) $u['perchas'];
+		$u['iniciales']  = inicialesUsuario($u['nombre']);
+		foreach (['total', 'rebate', 'cabeceras', 'rumas', 'perchas'] as $k) $stats[$k] += $u[$k];
+	}
+	unset($u);
+
+	return ['stats' => $stats, 'equipo' => $equipo];
+}
+
+// $tipo: todas/rebate/cabeceras/rumas/perchas -> mapea al ENUM real de repositorio_acuerdo_lineas.tipo. $tipoLinea sale de whitelist fija, seguro interpolar en el EXISTS.
+function listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre = 0, $anio = 0, $tipo = 'todas') {
+	$usuarioId = (int) $usuarioId;
+	if (!$usuarioId) return [];
+
+	$mapaTipos = ['rebate' => 'meta_compra', 'cabeceras' => 'cabecera', 'rumas' => 'ruma', 'perchas' => 'percha'];
+	$tipoLinea = $mapaTipos[$tipo] ?? null;
+
+	$bounds          = trimestreABounds($trimestre);
+	$trimestreActivo = $bounds ? 1 : 0;
+	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
+	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
+	$anio            = (int) $anio;
+
+	$condicionTipo = $tipoLinea ? "AND EXISTS (SELECT 1 FROM repositorio_acuerdo_lineas l WHERE l.acuerdo_id = a.id AND l.tipo = '$tipoLinea')" : '';
+
+	// Solo el nombre del Acta acá (pedido explícito) — el detalle de qué tabla tiene se pide aparte, al expandir, vía obtener_negociacion_detalle_acuerdo().
+	$stmt = $mysqli->prepare(
+		"SELECT a.id, a.documento_no
+		 FROM repositorio_acuerdos a
+		 WHERE a.creado_por = ?
+		   AND a.estado <> 'anulado' AND a.acta_firmada_azure_path IS NOT NULL
+		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
+		   AND (? = 0 OR a.anio = ?)
+		   $condicionTipo
+		 ORDER BY a.fecha_generacion DESC"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('iiiiii', $usuarioId, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	return $filas;
+}
+
+// Detalle de un Acta para el droplist de Resumen de Negociación: qué tablas tiene y los valores cargados en cada una. Mismas fórmulas de total ya documentadas en CLAUDE.md (nunca se guarda un total, siempre se calcula al vuelo).
+function obtener_negociacion_detalle_acuerdo($mysqli, $acuerdoId) {
+	$acuerdoId = (int) $acuerdoId;
+	if (!$acuerdoId) return null;
+
+	$stmt = $mysqli->prepare('SELECT mes_inicio, mes_fin, pos_id FROM repositorio_acuerdos WHERE id = ?');
+	if (!$stmt) return null;
+	$stmt->bind_param('i', $acuerdoId);
+	$stmt->execute();
+	$acuerdo = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	if (!$acuerdo) return null;
+
+	// Mismo criterio que acta_pdf.php: mes_inicio/mes_fin son 0=Ene...11=Dic, valores_mensuales viene indexado por esa misma clave.
+	$mesesCortoTodos = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+	$mesesActivos    = range((int) $acuerdo['mes_inicio'], (int) $acuerdo['mes_fin']);
+	$mesesCorto      = array_map(function ($m) use ($mesesCortoTodos) { return $mesesCortoTodos[$m]; }, $mesesActivos);
+
+	// Mismo canónico de canal que el resto de la app (listar_historial_acuerdos(), etc.) — necesario para "Estimado" de Rebate, que se calcula distinto por canal (ver acta_pdf.php).
+	$esDistribuidor = false;
+	$stmtCanal = $mysqli->prepare("SELECT 1 FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? AND canal = 'DISTRIBUIDOR' LIMIT 1");
+	if ($stmtCanal) {
+		$stmtCanal->bind_param('s', $acuerdo['pos_id']);
+		$stmtCanal->execute();
+		$esDistribuidor = (bool) $stmtCanal->get_result()->fetch_assoc();
+		$stmtCanal->close();
+	}
+
+	$stmt = $mysqli->prepare(
+		'SELECT tipo, sector, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, valores_mensuales, valor_mensual_unico
+		 FROM repositorio_acuerdo_lineas WHERE acuerdo_id = ? ORDER BY tipo, orden'
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('i', $acuerdoId);
+	$stmt->execute();
+	$lineas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	// Misma etiqueta por fila que acta_pdf.php (2026-09-22, replicado exacto, no una variante propia): Rebate muestra SOLO Categoría (nuestro sector) — ni Subcategoría ni Marca (ver $categoriaTextos en acta_pdf.php). Cabecera/Ruma muestran SOLO Marca (ver tabla_marca_html()). Percha también Marca, más Participación/Max Percha como columnas propias.
+	$porTipo = ['meta_compra' => [], 'cabecera' => [], 'ruma' => [], 'percha' => []];
+	foreach ($lineas as $l) {
+		// Ruma: un solo valor tipeado que se repite en todos los meses del período (ver CLAUDE.md, "valor_mensual_unico"), nunca JSON por mes.
+		if ($l['tipo'] === 'ruma') {
+			$valoresPorMes = array_fill(0, count($mesesActivos), (float) $l['valor_mensual_unico']);
+		} else {
+			$decoded = $l['valores_mensuales'] ? json_decode($l['valores_mensuales'], true) : [];
+			$valoresPorMes = array_map(function ($m) use ($decoded) { return (float) ($decoded[(string) $m] ?? 0); }, $mesesActivos);
+		}
+		// "Total" es SIEMPRE la suma mensual cruda, igual en las 4 tablas (mismo significado que en el PDF). Rebate además tiene "Estimado", fórmula EXACTA de acta_pdf.php ($est): Distribuidor = Total x Rebate% (solo el bono), Directo = Total x (1+Rebate%) (valor total del trato) — NO es un cálculo nuevo, es la misma fórmula copiada tal cual, para no divergir del PDF real.
+		$sumaMensual = array_sum($valoresPorMes);
+		$rebateRaw = (float) $l['rebate_pct'];
+		$estimado = $l['tipo'] === 'meta_compra' ? ($esDistribuidor ? ($sumaMensual * $rebateRaw) : ($sumaMensual * (1 + $rebateRaw))) : null;
+
+		$porTipo[$l['tipo']][] = [
+			'etiqueta'            => $l['tipo'] === 'meta_compra' ? $l['sector'] : $l['marca'],
+			'participacion'       => $l['tipo'] === 'percha' ? ($l['participacion_pct'] !== null && $l['participacion_pct'] !== '' ? $l['participacion_pct'] : null) : null,
+			'rebate_pct'          => $l['tipo'] === 'meta_compra' ? round($rebateRaw * 100, 2) : null,
+			'cantidad_max_percha' => $l['tipo'] === 'percha' ? (int) $l['cantidad_max_percha'] : null,
+			'valores'             => array_map(function ($v) { return round($v, 2); }, $valoresPorMes),
+			'total'               => round($sumaMensual, 2),
+			'estimado'            => $estimado !== null ? round($estimado, 2) : null,
+		];
+	}
+	// Mismo criterio que $fmt en generar_acta_html(): Distribuidor mide en Cajas (sin "$"), Directo en Dólares — faltaba acá, todo se mostraba como dólares aunque fuera Distribuidor.
+	return ['meses' => $mesesCorto, 'formato' => $esDistribuidor ? 'numero' : 'moneda', 'tablas' => $porTipo];
+}
+
 // ---------- Módulo "Cumplimiento de Cuota" ---------- Resolución de dueño: "CEDI del Excel gana sobre el maestro" (LEFT JOIN + COALESCE). $canal filtra por el SUPERVISOR ya resuelto, no por pos_id crudo.
 function condicionCanalCumplimiento($canal, $columnaSupervisor) {
 	if ($canal === 'directo') {
