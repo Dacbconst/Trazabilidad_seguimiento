@@ -39,18 +39,16 @@ if ($formato === 'xlsx') {
 	$hoja = $wb->agregarHoja($nombreHoja);
 
 	if ($tipo === 'jerarquia') {
-		$cols = ['Supervisor Campo', 'Supervisor Real', 'Actualizado por', 'Última Modificación'];
+		$cols = ['Supervisor Campo', 'Supervisor Real'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
 			$wb->celda($hoja, $fila, 1, $f['supervisor_campo']);
 			$wb->celda($hoja, $fila, 2, $f['supervisor_real']);
-			$wb->celda($hoja, $fila, 3, $f['actualizado_por_usuario'] ?? '');
-			$wb->celda($hoja, $fila, 4, $f['updated_at']);
 			$fila++;
 		}
 	} elseif ($tipo === 'rebate') {
-		$cols = ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación'];
+		$cols = ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
@@ -60,20 +58,16 @@ if ($formato === 'xlsx') {
 			$wb->celda($hoja, $fila, 4, $f['categoria']);
 			$wb->celda($hoja, $fila, 5, $f['marca']);
 			$wb->celda($hoja, $fila, 6, (float) $f['rebate_pct'], false, 'pct'); // ya es fracción (0.025), 'pct' formatea como %.
-			$wb->celda($hoja, $fila, 7, $f['actualizado_por_usuario'] ?? '');
-			$wb->celda($hoja, $fila, 8, $f['updated_at']);
 			$fila++;
 		}
 	} else {
-		$cols = ['Ciudad', 'Marca', 'Participación %', 'Actualizado por', 'Última Modificación'];
+		$cols = ['Ciudad', 'Marca', 'Participación %'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
 			$wb->celda($hoja, $fila, 1, $f['ciudad']);
 			$wb->celda($hoja, $fila, 2, $f['marca']);
 			$wb->celda($hoja, $fila, 3, ((float) $f['participacion_pct']) / 100, false, 'pct'); // acá SÍ se guarda como entero (55.00) -> se divide para que 'pct' lo muestre bien.
-			$wb->celda($hoja, $fila, 4, $f['actualizado_por_usuario'] ?? '');
-			$wb->celda($hoja, $fila, 5, $f['updated_at']);
 			$fila++;
 		}
 	}
@@ -94,25 +88,23 @@ $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8, para que Excel no rompa las tildes al abrir el CSV.
 
 if ($tipo === 'jerarquia') {
-	fputcsv($out, ['Supervisor Campo', 'Supervisor Real', 'Actualizado por', 'Última Modificación']);
+	fputcsv($out, ['Supervisor Campo', 'Supervisor Real']);
 	foreach ($resultado['filas'] as $f) {
-		fputcsv($out, [$f['supervisor_campo'], $f['supervisor_real'], $f['actualizado_por_usuario'] ?? '', $f['updated_at']]);
+		fputcsv($out, [$f['supervisor_campo'], $f['supervisor_real']]);
 	}
 } elseif ($tipo === 'rebate') {
-	fputcsv($out, ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Actualizado por', 'Última Modificación']);
+	fputcsv($out, ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [
 			$f['ciudad'], $f['canal'], $f['sector'], $f['categoria'], $f['marca'],
 			number_format((float) $f['rebate_pct'] * 100, 2).'%',
-			$f['actualizado_por_usuario'] ?? '', $f['updated_at'],
 		]);
 	}
 } else {
-	fputcsv($out, ['Ciudad', 'Marca', 'Participación %', 'Actualizado por', 'Última Modificación']);
+	fputcsv($out, ['Ciudad', 'Marca', 'Participación %']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [
 			$f['ciudad'], $f['marca'], number_format((float) $f['participacion_pct'], 2).'%',
-			$f['actualizado_por_usuario'] ?? '', $f['updated_at'],
 		]);
 	}
 }

@@ -1340,7 +1340,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-acta-zoom-controls { order: 1; }
 	.ac-modal-close { order: 2; }
 	.ac-acta-modal-actions { order: 3; margin-left: 0; width: 100%; }
-	.ac-acta-modal-actions .ac-btn-secondary, .ac-acta-modal-actions .ac-btn-primary { flex: 1 1 auto; justify-content: center; }
+	/* Iguala tamaños: lado a lado se veían desparejos. */
+	.ac-acta-modal-actions .ac-btn-secondary, .ac-acta-modal-actions .ac-btn-primary { flex: 1 1 auto; justify-content: center; padding: 10px var(--space-sm); font-size: 12px; white-space: nowrap; }
 }
 
 /* Antes se forzaba la tabla a min-width:0 y se recortaba (col. Distribuidor). Ahora modal más ancho + scroll horizontal propio. */
@@ -1673,7 +1674,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	.ac-firma-panel { min-height: 45vh; }
 	.ac-firma-modal-footer { flex-wrap: wrap; }
 	.ac-firma-modal-botones { width: 100%; }
-	.ac-firma-modal-botones .ac-btn-outline, .ac-firma-modal-botones .ac-btn-primary { flex: 1 1 auto; justify-content: center; }
+	/* Mismo motivo que .ac-acta-modal-actions arriba. */
+	.ac-firma-modal-botones .ac-btn-outline, .ac-firma-modal-botones .ac-btn-primary { flex: 1 1 auto; justify-content: center; padding: 10px var(--space-sm); font-size: 12px; white-space: nowrap; }
 }
 
 /* ---------- Resumen de Pagos (Liquidación): stat tiles, filtros, gráfico ----------

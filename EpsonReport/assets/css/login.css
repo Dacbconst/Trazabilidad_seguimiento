@@ -1,0 +1,199 @@
+/* ---------- Login ---------- */
+html, body.ep-login-body {
+	height: 100%;
+	min-height: 100%;
+	margin: 0;
+}
+
+body.ep-login-body {
+	background: var(--color-surface-muted);
+}
+
+.ep-login-wrap {
+	min-height: 100vh;
+	min-height: 100dvh;
+	width: 100%;
+	display: flex;
+	background: var(--color-surface-muted);
+	position: relative;
+	overflow-x: hidden;
+}
+
+/* Los blobs decorativos son exclusivos para la vista móvil con fondo claro */
+.ep-login-blob {
+	display: none;
+}
+
+.ep-login-side {
+	width: 44%;
+	min-width: 380px;
+	max-width: 560px;
+	flex-shrink: 0;
+	background: linear-gradient(165deg, #10218B 0%, #0B1863 55%, #060E3B 100%);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: clamp(28px, 4.5vh, 56px) clamp(28px, 3.5vw, 52px);
+	color: #EDEFFB;
+	position: relative;
+	z-index: 1;
+	box-shadow: 4px 0 24px rgba(5, 12, 51, 0.18);
+	overflow-y: auto;
+}
+
+.ep-brand {
+	display: flex;
+	align-items: center;
+}
+
+.ep-brand-logo {
+	height: clamp(42px, 5.5vh, 58px);
+	width: auto;
+	max-width: 240px;
+	object-fit: contain;
+	filter: brightness(0) invert(1);
+	opacity: 0.98;
+	display: block;
+	image-rendering: -webkit-optimize-contrast;
+}
+
+.ep-brand-name {
+	font-family: 'Sora', sans-serif;
+	font-weight: 700;
+	font-size: clamp(28px, 3.5vh, 38px);
+	letter-spacing: 0.08em;
+	color: #FFFFFF;
+}
+
+.ep-login-side-main {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: auto 0;
+}
+
+.ep-login-side-main h1 {
+	font-size: clamp(24px, 2.2vw, 32px);
+	line-height: 1.25;
+	font-weight: 600;
+	color: #FFFFFF;
+	margin: 0;
+}
+
+.ep-login-side-main p {
+	margin: 0;
+	font-size: clamp(13px, 0.95vw, 15px);
+	line-height: 1.55;
+	color: #C6CBEE;
+	max-width: 360px;
+}
+
+.ep-login-footer {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12.5px;
+	color: #A9B0DE;
+	padding-top: 16px;
+}
+
+.ep-login-form {
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	padding: clamp(24px, 4vh, 48px) clamp(20px, 3vw, 40px);
+	position: relative;
+	z-index: 1;
+	overflow-y: auto;
+}
+
+.ep-login-form-inner {
+	width: 100%;
+	max-width: 360px;
+	display: flex;
+	flex-direction: column;
+	gap: clamp(16px, 2.2vh, 22px);
+	background: #FFFFFF;
+	padding: clamp(24px, 3.4vh, 34px) clamp(22px, 2.6vw, 30px);
+	border-radius: 20px;
+	border: 1px solid #E5EBF4;
+	box-shadow: 0 12px 36px rgba(16, 33, 139, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.ep-login-header h2 {
+	font-size: clamp(22px, 2vw, 28px);
+	margin: 0;
+	font-weight: 700;
+	color: var(--color-ink);
+}
+
+.ep-login-header p {
+	margin: 6px 0 0;
+	font-size: 14px;
+	color: var(--color-text-muted);
+}
+
+.ep-login-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.ep-login-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.ep-login-form-inner .ep-label { font-size: 13.5px; font-weight: 600; color: #162454; }
+.ep-login-form-inner .ep-input {
+	height: 44px;
+	font-size: 15px;
+	border-radius: var(--radius-md);
+	border: 1.5px solid #D6E0F2;
+	background: #F8FAFD;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.ep-login-form-inner .ep-input:focus {
+	background: #FFFFFF;
+	border-color: var(--color-primary);
+	box-shadow: 0 0 0 3px rgba(16, 33, 139, 0.12);
+}
+
+.ep-login-form-inner .ep-btn-primary {
+	height: 44px;
+	font-size: 15px;
+	border-radius: var(--radius-md);
+	margin-top: 4px;
+	background: linear-gradient(135deg, #10218B 0%, #0B1863 100%);
+	box-shadow: 0 4px 14px rgba(16, 33, 139, 0.24);
+	transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.ep-login-form-inner .ep-btn-primary:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 18px rgba(16, 33, 139, 0.32);
+}
+.ep-login-form-inner .ep-btn-primary:active {
+	transform: scale(0.98);
+}
+
+.ep-login-error {
+	background: #FBEAE9;
+	border: 1px solid #F1C4C1;
+	color: var(--color-danger);
+	border-radius: var(--radius-md);
+	padding: 12px 16px;
+	font-size: 14px;
+}
+
+.ep-login-clave-wrap { position: relative; }
+.ep-login-clave-wrap .ep-input { padding-right: 44px; }
+.ep-login-clave-toggle {
+	position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+	width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+	border: none; background: transparent; color: var(--color-text-muted); border-radius: 8px;
+}
+.ep-login-clave-toggle:hover { color: var(--color-primary); background: var(--color-primary-soft); }
+

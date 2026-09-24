@@ -1,0 +1,117 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+No, o sea, quiero un tema de los helados. La gran inquietud que tengo con los helados es a Stephanie. A Stephanie, perdón.
+
+Stephanie, ¿está en la conferencia o no? Está en la webinar. ¿O verón? En la televisión. Señor, una pregunta de qué está... No.
+
+...el tema de... sí. Bueno, bueno. Ya voy, ya voy.
+
+Hola. Hola. Ya.
+
+Quiero que ustedes... bueno. ¿Qué resuelve este calendario de elecciones? El supervisor. El supervisor, ¿cómo tal? Ajá, este es el que tiene que subir el supervisor.
+
+Ya, esto, ¿cómo tal?, yo puedo hacer... ...por ahora se me ocurre, porque... ...este... porque lo que está leyendo, lo que es las... ...los... aquí las PPT, tiene que cuadrar lo que me está poniendo aquí con lo que está poniendo acá. Por supuesto. Exacto.
+
+Ya, y como actualmente no tengo yo un validador, ¿cómo tal?, actualmente puedo hacer algo similar a esto. Al momento de yo tomarlo, digamos, a generar mi reporte, primero te voy a pedir la foto de... ...de aquí, ¿o quieres que esto lo resuelva el aplicativo también? No, si quieres que le pida la foto al supervisor. Pero... y eso no va a poder leer la cantidad que dice, solamente va a ser un archivo.
+
+Claro, tomaría la foto y aquí, aparte, yo tendría un modal donde voy a ir seleccionando los registros que van a... yo quiero que aparezcan en ese reporte. Por ejemplo, voy a seleccionar este registro de aquí, este registro de acá, este registro de acá. Ya sería cuestión visual, y bueno, más que todo le voy a estar dando detalles, ¿no?, de que lo que me está seleccionando, para que tú veas que realmente concuerda con lo que está acá.
+
+Ya, ok. Gracias, Jorge. Si es así, para proseguir con esa idea, o... porque, digamos, si yo ya resuelvo el aplicativo, resolví esto, ya como tal, podría tener un validador como tal, y ya seleccionar cuáles eran los correspondientes.
+
+O sea, ese validador va a validar sin efecto si el supervisor dice que debía haber habido una actividad aquí, debería aparecer en este listado de... Ah, ya, sí lo subió el chico. Ajá, así el validador ya lo haría... Claro, si el aplicativo lo resuelve, lo haría eso. Pero, digamos, si ahorita no quieren que resuelva todo el aplicativo, y esto nomás sea con una foto nomás, y yo visualmente estar seleccionando los registros que quiero que vayan para este reporte, entonces ya sería más cuestión humana.
+
+Ah, esa hueá está bacán. Para entender. El personal de campo, digamos, que sube desde el 15 hasta el 27 de cada mes las activaciones, ¿ya? Todas las que tuvieron, digamos, que todo esto.
+
+Técnicamente eso debería aparecer en una lista desplegable que el supervisor va a probar que en efecto esto sucedió. Cuando él apruebe, esto se va a ir llenando, porque obviamente es a la de la información que ellos ya subieron. Y ahí el aplicativo lo coge y dice, go.
+
+Eso sería para mí. Si es que el aplicativo lo resuelve. Ya, ajá.
+
+En el caso de que no quieran... En el caso de que no, solo el supervisor sube la foto. Pone la foto que ya tenga armada así, y luego acá tendríamos un drop list, un poco todo en la lista de los registros, y yo voy diciendo, este registro es para este acuerdo que estoy generando. Selecciono todo y al final me arma el exe como tal, y ya tendría el exe generado.
+
+A mí me gusta más el supervisor. Entonces eso sí va a tener un poco más de... De tiempo. Ajá, si quiere que lo resuelva como tal.
+
+Y como tal tendría que saber cómo es que rellena esta... Ya, déjame preguntarle al ejecutivo y al supervisor. Porque por factor tiempo... O sea, ya ahorita ya esto, el reporte fotográfico este mes ya no debería entrar, porque ya los chicos ya lo están haciendo. Pero si lo quieren así, a ver qué me dicen.
+
+Y la parte, digamos, tanto de usuario y administrador, ¿el usuario que vendría a ser los supervisores? El usuario solamente van a ser todos los promotores. Toda la gente que tiene que hacer el reporte. ¿Los promotores qué solo me quieren que haga en el aplicativo? ¿Solo subir fotos? Ellos no van a poder manipular nada, ni reglas, ni aprobar, ni nada.
+
+Ellos solamente van a ser usuarios como tal. Van a ingresar, a seleccionar cada reporte y a llenarlo. Pares de contar, eso es todo lo que vamos a hacer.
+
+En la parte de lo que va a estar rellenando solo vendrá a ser esta información de aquí. Correcto. Ellos ni siquiera van a poder crear una nueva actividad.
+
+Esto lo tengo que crear yo. Yo como perfil administrador. Y en la parte que lo que dice versión móvil... Bueno, esto va a cambiar a la versión móvil.
+
+Ellos tendrían aquí lo que es como una guía para que estén subiendo foto por foto, así como tal. Y al final tendríamos lo que debería ser la parte que no carga porque no está en móvil. Aquí tendría lo igual, le indico acá.
+
+Tenemos una review de todas las fotos que estamos subiendo para que luego ya comiencen a tener el reporte como tal. Ya, vengan. Ese registro lo guardaríamos.
+
+Y ahí es donde pasaríamos al... Al perfil del supervisor para que... Claro, y el supervisor ahorita vería algo similar a esto que todavía no estoy construyendo. Que aquí veo este registro. Ahí en mi estación estadística estas son mis fotos que han subido a la subida.
+
+Estas fotos negras son las que estaba vendiendo yo. Ya, y ahí va a comenzar a resolver lo que es el lugar de la depositada como tal. Que aquí entra la segunda parte, que es esta partecita aquí.
+
+Ya, eso sí, déjame preguntarlo. A ver si es que quieren que lo suba el supervisor nada más como foto. O si es que eso quieren que aplique a una nueva jurisdicción.
+
+Entonces la parte del usuario como tal. El usuario estaría solo generando, digamos, esta sección de aquí. Claro, el usuario solo tiene que subir las fotos y rellenar sus estadísticas, nada más.
+
+Eso es lo que tiene que hacer el usuario. El supervisor debería hacer todo lo que es aprobación. Ya.
+
+Las fotos yo te las pongo al final o las necesitas ahorita. Por ahora no es tan urgente, pero yo ya puedo dejarlo como plantilla ahí en un repositorio más o menos. Ya, yo te lo paso.
+
+¿Eso quiere que se maneje? Te lo paso como nombre. ¿Un repositorio? Sí, como un repositorio. Ya.
+
+Porque de aquí a mañana, donde alguien más viene y... ¿Cómo es que se llama? Y sale uno y entra otro, es un pelé que el... Ya, aquí yo también tengo otra pregunta. Ejemplo, el formato de activaciones. Abre acá este formato.
+
+Yo tengo entendido que aquí tenemos el calendario de lo que yo les preguntaba. Estos son los supervisores, ajá. Ya, y estas son las fotos que tienen que subir el promotor.
+
+En total deben ser seis fotos. Pueden ser más o pueden ser menos, Gordo. Ya.
+
+Dependiendo. Eso no es delimitante. De esta categoría de fotos que me estás pidiendo aquí, ¿puedo tener dos o tres de esta misma? ¿De la del listán? Ajá.
+
+No, eso solo debería ser uno. Sí pueden ser dos o más, pero no es que necesariamente este recuadro, o sea, el primer recuadro ellos ya saben que sí tiene que ser la foto de ellos con el listán. Pero las otras sí pueden ser, o sea, mínimo debe haber una foto con el listán, una foto interactuando y una foto con la ejecución de la venta.
+
+Ya. Tal como dice aquí. De ahí para allá las otras pueden ser lo mismo.
+
+Más ejecuciones, pueden ser más interacciones, más ventas, dependiendo. Pero esas tres son las principales. Ah, ya.
+
+Entonces, ¿puedo ponerle un límite de tres fotos y que esencialmente que tengan tres actividades? Puedes poner un mínimo de tres fotos, que son esas tres que están ahí, un máximo de hasta seis por actividad, no sé. Ya. Como para que no se empiece a llenar tanto el carrete, por decirlo así, porque si no, después van a subir quinientas fotos y entonces no me sirve llenarme de fotos.
+
+Un máximo hasta seis. Ya. Pero un mínimo de tres que son esas tres principales, pues, ¿no? Ya, y lo que, al momento de registrar lo que es el registro de aquí del mismo promotor, o sea, el mismo promotor ahorita.
+
+Y yo, digamos, esto aquí tiene a nivel nacional. Este es un dato nomás entero que voy a tener, no tengo que detallar cuáles son las tiendas que estoy visitando. No abordo.
+
+Por ahora, no. Ya. Entonces, nomás esto va a ser un registro tal cual, lo vemos ahí, solo por un numerito que vamos a poner.
+
+nos va a ir, bueno, los modelos que están por ahí, dejando de los modelos existentes que hay. Sí, eso debería venir cargado desde el... Desde el repositorio del producto. Correcto.
+
+De eso. Sí. Ya.
+
+Eso es lo que me pregunto más que todo. Y lo de los puntos de venta también. Cuando ellos seleccionan, ¿te acuerdas que acá abajo está el nombre del punto de venta? En activaciones también aparece, por si acaso.
+
+Debería aparecer el nombre del punto de venta de donde lo ejecutaron. Eso debería estar en base a la lista de puntos de venta que están ya cargados. Y ese es en base, digamos, cada usuario tiene ya en ruta ese punto de venta o es lo que me va a planificar en la parte de acá de... No es verdad.
+
+Todos los que les aparezcan todos los puntos. Ah, ya. Y entonces aquí me falta una opción de que seleccione el punto de venta.
+
+Sí. Selecciona el punto de venta y sí vas a encontrarte con este... la opción de canales o retain. Hay una columna que se llama, creo que es sección o canal, algo así.
+
+¿Es retail o canal? Entonces, yo te voy a decir. Estos son los usuarios de canales. A ellos solo les deberían aparecer los canales.
+
+Estos son los usuarios de retail. A ellos solo pueden ver los retail. Ya.
+
+Ajá. Y ahí pinta donde deberían hacer los puntos de venta dependiendo del canal. Exacto.
+
+Este... La parte de canales, retail y eso ya está por separado, digamos. Sí, en la base de puntos de venta. Ah, ya.
+
+Entonces de ahí vamos a tomar. Hay una columna que determina si computrón es canal o retail. Ahí está.
+
+Es retail. Es de los filtros. Entonces, yo te voy a decir, mira, ellos tres son de retail.
+
+Entonces ellos solo van a poder ver toda la base que dice retail. Acá nosotros tres somos canales. Solo cuando entremos, nuestro perfil nos va a apuntar a todo lo que diga canal.
+
+No vamos a poder ver nada de retail. Ok. Entonces, claro.
+
+Bueno, eso merece mi pregunta. Entonces, yo mañana le presento esa parte toda armada. Ya, bueno, déjame darle pronto al coordinador de Drake, que él es el jefe de estos manes y al ejecutivo y te respondo el dato de ahorita.
+
+Ya. Ya. Bueno, muchas gracias.
+
+De nada. gracias, nos vemos.
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)

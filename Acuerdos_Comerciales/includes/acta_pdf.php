@@ -1,9 +1,9 @@
 <?php
-// Arma el HTML del Acta (compatible con Dompdf: tablas, no flexbox/grid). Separado de getters/generar_acta_pdf.php para poder probarlo sin sesión ni base real.
+// Arma el HTML del Acta (compatible con Dompdf: tablas, no flexbox/grid), separado de generar_acta_pdf.php para probarlo sin sesión.
 
 function h($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); }
 function moneda($v) { return '$' . number_format((float) $v, 2); }
-// Distribuidor mide en cajas, no dólares (ver $fmt en generar_acta_html) — mismo formato que moneda() sin el signo "$".
+// Distribuidor mide en cajas, no dólares: mismo formato que moneda() sin el signo "$".
 function numero($v) { return number_format((float) $v, 2); }
 
 function valores_por_mes(array $linea, array $mesesActivos) {
@@ -12,10 +12,10 @@ function valores_por_mes(array $linea, array $mesesActivos) {
 	}, $mesesActivos);
 }
 
-// Dompdf ignora <colgroup>/<col> con table-layout:fixed — el ancho de columna solo se lee del `width` en % puesto en cada <th> (px no funciona).
+// Dompdf ignora <colgroup>/<col>: el ancho de columna solo se lee del `width` en % puesto en cada <th>.
 function ancho_style($pct) { return 'width:'.round($pct, 2).'%'; }
 
-// Tablas de 2.a/2.b: solo Marca (sin Segmento/Categoría, igual que el preview del navegador). $fmt: 'moneda' (Directo) o 'numero' (Distribuidor, sin signo "$" — ver generar_acta_html).
+// Tablas de 2.a/2.b: solo Marca, igual que el preview. $fmt: 'moneda' (Directo) o 'numero' (Distribuidor, sin signo "$").
 function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct, $fmt = 'moneda', $fuenteBasePx = 20, $medirTexto = null) {
 	$filas = [];
 	foreach ($lineas as $linea) {
@@ -24,7 +24,7 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 		$filas[] = ['marca' => $linea['marca'], 'valores' => $valores, 'total' => array_sum($valores)];
 	}
 	$anchoMesPct = count($mesesActivos) > 0 ? $anchoMesesPct / count($mesesActivos) : 0;
-	// Mide el valor más ancho de cada columna (meses/total) entre todas las filas reales, para que ningún número se corte a la mitad al envolver.
+	// Mide el valor más ancho de cada columna entre todas las filas reales, para que ningún número se corte al envolver.
 	$fuenteMeses = $fuenteBasePx; $fuenteTotal = $fuenteBasePx;
 	if ($medirTexto !== null && $filas) {
 		$mesesTextos = []; $totalTextos = [];
@@ -49,26 +49,26 @@ function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valo
 		return '<th class="num" style="'.ancho_style($anchoMesPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
 	$marcaHead = '<th style="'.ancho_style($anchoMarcaPct).'">Marca</th>';
-	// Distribuidor dice "Pago Total Cajas", Directo se queda con "Pago Total" ($fmt distingue el canal).
+	// Distribuidor dice "Pago Total Cajas", Directo "Pago Total" ($fmt distingue el canal).
 	$totalHead = '<th style="'.ancho_style($anchoTotalPct).'">'.($fmt === 'numero' ? 'Pago Total Cajas' : 'Pago Total').'</th>';
 	return [$rows, $marcaHead, $mesesHead, $totalHead];
 }
 
 function px($n, $escala) { return round($n * $escala, 2) . 'px'; }
 
-// Línea en blanco con border-bottom (no guiones bajos en texto): con guiones bajos, en columnas angostas (firma de 3), el texto se envolvía a 2 líneas. 100% del ancho disponible (2026-09-24, pedido explícito): mismo largo que la línea de firma de arriba.
+// Línea en blanco con border-bottom, no guiones bajos: con guiones, en columnas angostas el texto se envolvía a 2 líneas.
 function nombre_linea_vacia_html() {
 	return '<span style="display:inline-block; width:100%; border-bottom:1px solid #000000;">&nbsp;</span>';
 }
 
-// "Nombre:" en su propia línea + valor/línea en blanco debajo, SIEMPRE con esta misma estructura de 2 líneas tenga o no nombre real — antes "Nombre: " + línea al 100% (que no cabe en la misma línea) hacía que las columnas con nombre real (1 línea) y las vacías (2 líneas, la de abajo se envolvía sola) quedaran desalineadas entre sí (bug real reportado 2026-09-24, "se descuadra").
+// "Nombre:" + línea debajo, SIEMPRE con la misma estructura de 2 líneas tenga o no nombre real, para no desalinear columnas.
 function bloque_nombre_firma_html($nombreReal, $fGeneral, $escala) {
 	$valor = $nombreReal !== '' && $nombreReal !== null ? h($nombreReal) : nombre_linea_vacia_html();
 	return '<p class="label" style="margin:0;">Nombre:</p>'
 		.'<p style="margin:0; font-weight:bold; font-size:'.px($fGeneral * 1.3, $escala).';">'.$valor.'</p>';
 }
 
-// Igual criterio que ancho_columna_categoria()/fuente_una_linea(), pero para columnas numéricas: mide el valor más ancho para que no se corte al envolver.
+// Igual criterio que ancho_columna_categoria()/fuente_una_linea(), pero para columnas numéricas.
 function fuente_columna_valores(array $textos, $fuenteBasePx, $anchoColPct, $medirTexto, $paddingPx = 10) {
 	$anchoMax = 0;
 	foreach ($textos as $t) $anchoMax = max($anchoMax, $medirTexto($t, $fuenteBasePx));
@@ -78,7 +78,7 @@ function fuente_columna_valores(array $textos, $fuenteBasePx, $anchoColPct, $med
 	return $fuenteBasePx * ($anchoDisponible / $anchoMax);
 }
 
-// Data URI evita depender de cómo Dompdf resuelve rutas en el servidor. Sin la extensión GD de PHP se cae todo el PDF, así que se omite el logo si no está disponible.
+// Data URI evita depender de rutas en el servidor. Sin GD se cae todo el PDF, así que se omite el logo si falta.
 function logo_base64() {
 	static $cache = null;
 	if ($cache === null) {
@@ -93,7 +93,7 @@ function logo_base64() {
 
 if (!defined('ACTA_ANCHO_UTIL_PX')) define('ACTA_ANCHO_UTIL_PX', (210 - 24) * 96 / 25.4);
 
-// Mide el ancho real del texto con el motor de fuentes de Dompdf, no un ratio de caracter inventado.
+// Mide el ancho real del texto con el motor de Dompdf, no un ratio de caracter inventado.
 function crear_medidor_texto() {
 	$options = new \Dompdf\Options();
 	$options->set('isRemoteEnabled', false);
@@ -103,7 +103,7 @@ function crear_medidor_texto() {
 	return function ($texto, $tamanoFuente) use ($fontMetrics, $font) {
 		if ($texto === '') return 0;
 		$ancho = $font ? $fontMetrics->getTextWidth($texto, $font, $tamanoFuente) : 0;
-		// Si el medidor real falla (fuentes incompletas en el servidor) no confiar en un 0 falso; usa el estimado por caracter como red de seguridad.
+		// Si el medidor real falla, no confiar en un 0 falso: usa el estimado por caracter como red de seguridad.
 		if ($ancho <= 0) $ancho = mb_strlen($texto) * $tamanoFuente * 0.66;
 		return $ancho;
 	};
@@ -118,7 +118,7 @@ function fuente_una_linea($texto, $fuenteBasePx, $anchoColPct, $medirTexto, $pad
 	return $fuenteBasePx * ($anchoDisponible / $anchoTexto);
 }
 
-// Ensancha la columna Categoría según el nombre más largo, restando ese % a meses/totales. anchoMinPct/anchoMaxPct limitan cuánto puede crecer.
+// Ensancha la columna Categoría según el nombre más largo. anchoMinPct/anchoMaxPct limitan cuánto puede crecer.
 function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anchoMinPct = 22, $anchoMaxPct = 48, $paddingPx = 10) {
 	$anchoMaxTextoPx = 0;
 	foreach ($textos as $t) $anchoMaxTextoPx = max($anchoMaxTextoPx, $medirTexto($t, $fuenteBasePx));
@@ -128,14 +128,14 @@ function ancho_columna_categoria(array $textos, $fuenteBasePx, $medirTexto, $anc
 	return max($anchoMinPct, min($anchoMaxPct, $pct));
 }
 
-// Sector/% Participación no se guardan en repositorio_acuerdo_lineas, por eso este PDF no las muestra. $escala reduce texto general (título/condiciones/firmas); $escalaTabla reduce solo las celdas de tabla, independiente entre sí.
+// $escala reduce texto general (título/condiciones/firmas); $escalaTabla reduce solo las celdas de tabla, independiente entre sí.
 function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $escalaTabla = 1.0) {
 	if ($medirTexto === null) $medirTexto = crear_medidor_texto();
 
-	// Formato Distribuidor: título/firma distintos, C.I. en la firma del cliente, mide en Cajas (ver $fmt), y "Estimado a Ganar" = Total x Rebate% (Directo usa Total x (1+Rebate%)).
+	// Formato Distribuidor: título/firma distintos, C.I. en la firma del cliente, mide en Cajas, "Estimado a Ganar" = Total x Rebate%.
 	$esDistribuidor = !empty($detalle['es_distribuidor']);
 
-	// Solo se muestra una tabla de Visibilidad si tiene datos reales cargados (2026-09-22, pedido explícito) — nunca una sección vacía.
+	// Solo se muestra una tabla de Visibilidad si tiene datos reales cargados, nunca una sección vacía.
 	$tieneCabecera = false;
 	foreach ($detalle['lineas']['cabecera'] as $linea) { if (($linea['marca'] ?? '') !== '') { $tieneCabecera = true; break; } }
 	$tieneRuma = false;
@@ -144,16 +144,16 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	foreach ($detalle['lineas']['percha'] as $linea) { if (($linea['marca'] ?? '') !== '') { $tienePercha = true; break; } }
 	$hayVisibilidadReal = $tieneCabecera || $tieneRuma || $tienePercha;
 
-	// "Sin visibilidad" es independiente del canal (switch de Registrar) — oculta 2.a/2.b para Directo y Distribuidor por igual. Con el switch prendido pero sin datos reales en ninguna tabla, igual sale sin visibilidad.
+	// "Sin visibilidad" oculta 2.a/2.b para Directo y Distribuidor por igual, sin datos reales igual sale sin visibilidad.
 	$sinVisibilidad = !empty($detalle['sin_visibilidad']) || !$hayVisibilidadReal;
 
-	// fGeneral/fHintExtra subidos (2026-09-24, pedido explícito): letra de los bloques de texto fuera de tabla (CONDICIONES, VISIBILIDAD, descripciones) más grande — hay espacio libre ahí. fH1/fDocNo/fDocNoStrong y las tablas quedan igual, sin tocar (pedido explícito de no agrandar tablas).
+	// fGeneral/fHintExtra subidos: letra de los bloques de texto fuera de tabla más grande. Tablas quedan igual, no agrandar.
 	$fGeneral = $sinVisibilidad ? 15 : 26;
 	$fH1 = $sinVisibilidad ? 19 : 31;
 	$fDocNo = $sinVisibilidad ? 10.5 : 17;
 	$fDocNoStrong = $sinVisibilidad ? 14.5 : 25;
 	$fHintExtra = $sinVisibilidad ? 14 : 29;
-	// Tablas: base normal (18.5/16.5) en "con visibilidad" (ya aprobado, sin tocar); más grande SOLO en "sin visibilidad".
+	// Tablas: base normal en "con visibilidad", más grande SOLO en "sin visibilidad".
 	$tablaFuenteBase = $sinVisibilidad ? 22 : 18.5;
 	$legendFuenteBase = $sinVisibilidad ? 20 : 16.5;
 
@@ -169,14 +169,14 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$mesesActivos  = range($detalle['mes_inicio'], $detalle['mes_fin']);
 	$cantidadMeses = count($mesesActivos);
 
-	// 1ra pasada: texto de cada categoría, para saber cuánto tiene que crecer esa columna antes de armar las filas (ver ancho_columna_categoria()). Solo Categoría (2026-09-22, pedido explícito, ajustado: "dejalo que diga lo de categoria nomas, o sea BARRA") — en el vocabulario de JW "Categoría" es nuestro campo `sector` (ver CLAUDE.md, "nuestro Sector = su Categoría"). Ni Segmento, ni Subcategoría (nuestro `categoria`), ni Marca se muestran en esta celda.
+	// 1ra pasada: texto de cada categoría, para saber cuánto crecer esa columna antes de armar filas. Solo Categoría (=nuestro `sector`).
 	$categoriaTextos = array_map(function ($linea) {
 		return trim($linea['sector']);
 	}, $detalle['lineas']['meta_compra']);
-	// Tope de Categoría en 38% (no 48%) para dejar suficiente ancho al encabezado "REBATE" en 1 línea.
+	// Tope de Categoría en 38% para dejar ancho al encabezado "REBATE" en 1 línea.
 	$categoriaPct = round(ancho_columna_categoria($categoriaTextos, $tablaFuenteBase * $escalaTabla, $medirTexto, 22, 38), 2);
 	$restoPct = 100 - $categoriaPct;
-	// Rebate pesa 16 (doble de Total Período/Estimado a Ganar, 12 cada uno) para que "REBATE" entre en 1 línea; denominador 74 sin cambios.
+	// Rebate pesa 16 (doble del resto) para que "REBATE" entre en 1 línea; denominador 74 sin cambios.
 	$mesesPct    = round(34 * $restoPct / 74, 2);
 	$totalPct    = round(12 * $restoPct / 74, 2);
 	$rebatePct   = round(16 * $restoPct / 74, 2);
@@ -189,13 +189,13 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		foreach ($valores as $j => $v) $metaSums[$j] += $v;
 		$total  = array_sum($valores);
 		$rebate = (float) $linea['rebate_pct'];
-		// Distribuidor: Total x Rebate% (solo el bono). Directo: Total x (1+Rebate%) (valor total del trato).
+		// Distribuidor: Total x Rebate% (bono). Directo: Total x (1+Rebate%) (valor total del trato).
 		$est    = $esDistribuidor ? ($total * $rebate) : ($total * (1 + $rebate));
 		$metaGrandTotal += $total; $metaGrandEst += $est;
 		$metaFilas[] = ['categoria' => $categoriaTextos[$i], 'valores' => $valores, 'total' => $total, 'rebate' => $rebate, 'est' => $est];
 	}
 
-	// Los números también necesitan medirse (mismo criterio que Categoría), si no el más ancho se corta al envolver en vez de quedar en 1 línea.
+	// Los números también necesitan medirse, si no el más ancho se corta al envolver en vez de quedar en 1 línea.
 	$mesesTextos = []; $totalTextos = [$fmt($metaGrandTotal)]; $estTextos = [$fmt($metaGrandEst)];
 	foreach ($metaFilas as $fila) {
 		foreach ($fila['valores'] as $v) $mesesTextos[] = $fmt($v);
@@ -210,7 +210,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$metaRows = '';
 	foreach ($metaFilas as $fila) {
 		$fuenteCategoria = fuente_una_linea($fila['categoria'], $tablaFuenteBase * $escalaTabla, $categoriaPct, $medirTexto);
-		// Una sola línea horizontal SIEMPRE (requisito explícito, sin excepción): nowrap fuerza 1 línea y el tamaño ya viene calculado para que quepa.
+		// Una sola línea horizontal siempre: nowrap fuerza 1 línea y el tamaño ya viene calculado para que quepa.
 		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($fila['categoria']).'</td>';
 		foreach ($fila['valores'] as $v) $metaRows .= '<td class="num" style="font-size:'.round($fuenteMesesMeta, 2).'px;">'.$fmt($v).'</td>';
 		$metaRows .= '<td class="num" style="font-size:'.round($fuenteTotalMeta, 2).'px;">'.$fmt($fila['total']).'</td>';
@@ -240,12 +240,12 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	}
 	if ($rumaLegendRows === '') $rumaLegendRows = '<tr><td colspan="2" class="vacio">Sin datos</td></tr>';
 
-	// Sin subtítulo propio a propósito: va bajo el título combinado "2.b. Espacio en Perchas & Rumas".
+	// Sin subtítulo propio: va bajo el título combinado "2.b. Espacio en Perchas & Rumas".
 	$anchoMesPerchaPct = $cantidadMeses > 0 ? 38 / $cantidadMeses : 0;
 	$perchaRows = ''; $mesesHeadPercha = implode('', array_map(function ($m) use ($mesesCorto, $anchoMesPerchaPct) {
 		return '<th class="num" style="'.ancho_style($anchoMesPerchaPct).'">'.$mesesCorto[$m].'</th>';
 	}, $mesesActivos));
-	// Mismo encabezado de 3 filas (rowspan/colspan) que la tabla de Perchas del formulario interactivo, sin la columna "eliminar fila".
+	// Mismo encabezado que la tabla de Perchas del formulario interactivo, sin la columna "eliminar fila".
 	$perchaHeadRow1 = '<tr>'
 		.'<th rowspan="3" style="'.ancho_style(18).'">Marca Perchas</th>'
 		.'<th style="'.ancho_style(14).'">Participación</th>'
@@ -253,7 +253,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		.'<th colspan="'.($cantidadMeses + 1).'">Pago Mensual</th>'
 		.'</tr>';
 	$perchaHeadRow2 = '<tr><th colspan="'.($cantidadMeses + 2).'">Pago x Mes x Percha ($)</th></tr>';
-	// "Pago Total Cajas" (2026-08-25, pedido explícito, solo Distribuidor, mismo criterio que tabla_marca_html() más arriba).
+	// "Pago Total Cajas", solo Distribuidor, mismo criterio que tabla_marca_html() más arriba.
 	$perchaHeadRow3 = '<tr>'
 		.'<th style="'.ancho_style(14).'">% de Peso</th>'
 		.'<th style="'.ancho_style(10).'">Max Percha</th>'
@@ -266,7 +266,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		$valores = valores_por_mes($linea, $mesesActivos);
 		$perchaFilas[] = ['marca' => $linea['marca'], 'participacion' => $linea['participacion'], 'cantidad_max_percha' => $linea['cantidad_max_percha'], 'valores' => $valores, 'total' => array_sum($valores)];
 	}
-	// Mismo criterio de medición que Meta de Compras/Cabeceras/Rumas: el valor más ancho de meses/Pago Total decide la fuente de toda la columna.
+	// Mismo criterio de medición que las otras tablas: el valor más ancho decide la fuente de toda la columna.
 	$fuenteMesesPercha = $tablaFuenteBase * $escalaTabla; $fuenteTotalPercha = $tablaFuenteBase * $escalaTabla;
 	if ($perchaFilas) {
 		$mesesTextosPercha = []; $totalTextosPercha = [];
@@ -287,7 +287,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		$perchaRows = '<tr><td colspan="'.$colspanPercha.'" class="vacio">Sin datos</td></tr>';
 	}
 
-	// Cabeceras y Rumas/Perchas arman su propio bloque HTML acá, cada uno vacío si esa tabla no tiene datos reales.
+	// Cabeceras y Rumas/Perchas arman su propio bloque HTML, vacío si esa tabla no tiene datos reales.
 	$bloqueCabeceras = '';
 	if ($tieneCabecera) {
 		$bloqueCabeceras = '
@@ -339,13 +339,13 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$periodoTexto = implode(' ', array_map(function ($m) use ($mesesLargo) { return $mesesLargo[$m]; }, $mesesActivos));
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
-	// Nombres largos envuelven a 2 líneas y se ven "chicos" frente a Localidad/Fecha. Forzar 1 línea no es viable (letra microscópica); en cambio se le da más ancho a la columna (34%→44%) para que la mayoría entre en 1 línea sin achicar nada.
+	// Nombres largos envuelven a 2 líneas: se le da más ancho a la columna (34%→44%) en vez de achicar la letra.
 	$estimadoTexto = $esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor'];
 
-	// Nombre del Ejecutivo Comercial = quien generó el acuerdo (creado_por); la firma sigue siendo física siempre. Sin creado_por (acuerdo huérfano) cae a la línea en blanco de siempre (ver bloque_nombre_firma_html()).
+	// Nombre del Ejecutivo Comercial = quien generó el acuerdo. Sin creado_por (huérfano) cae a la línea en blanco de siempre.
 	$nombreEjecutivoRaw = $detalle['ejecutivo_comercial'] ?? '';
 
-	// Dompdf usa el <title> del HTML como metadato /Title del PDF; sin esto la pestaña del navegador mostraba el nombre del script, no el documento.
+	// Dompdf usa el <title> del HTML como metadato /Title del PDF, sin esto la pestaña mostraba el nombre del script.
 	$html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'.h($detalle['documento_no']).'</title><style>
 @page { size: A4; margin: 1cm 1.2cm; }
 * { box-sizing: border-box; }
@@ -508,14 +508,14 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	return $html;
 }
 
-// Renderiza el Acta completa a bytes de PDF (Dompdf), usada por guardar_acuerdo.php y generar_acta_pdf.php (fallback). El caller debe hacer require de vendor/autoload.php antes de llamar esto. Devuelve los escalones descendentes exactos 1.00, 0.95, 0.90... hasta $minimo (mismos valores de siempre, solo cambia CÓMO se recorren).
+// Devuelve los escalones descendentes 1.00, 0.95, 0.90... hasta $minimo (mismos valores de siempre, solo cambia cómo se recorren).
 function escalones_desde_uno($minimo) {
 	$out = [];
 	for ($e = 1.0; $e >= $minimo - 0.0001; $e -= 0.05) $out[] = round($e, 2);
 	return $out;
 }
 
-// Búsqueda binaria sobre una lista de escalones YA ORDENADA de mayor a menor (monotonía asumida: un escalón más chico nunca ocupa más páginas que uno más grande) — encuentra el escalón MÁS GRANDE que entra en 1 página, con ~log2(n) renders de Dompdf en vez de recorrer los n escalones uno por uno. $dompdfEnUno ya viene renderizado con el escalón [0] (1.00) — si ya entraba, ni siquiera se llama acá.
+// Búsqueda binaria sobre escalones ya ordenados: encuentra el más grande que entra en 1 página, ~log2(n) renders en vez de n.
 function buscar_escalon_que_entre(array $escalones, callable $renderizar) {
 	$lo = 1; $hi = count($escalones) - 1; // el [0] (1.00) ya se descartó por el caller, siempre entra 1 en 1 página como mínimo
 	$mejorEscalon = $escalones[$hi];
@@ -531,7 +531,7 @@ function buscar_escalon_que_entre(array $escalones, callable $renderizar) {
 			$lo = $mid + 1;
 		}
 	}
-	// Ningún escalón intermedio entró — el último (el más chico) es la red de seguridad final, se renderiza si no se probó ya.
+	// Ningún escalón intermedio entró: el último (más chico) es la red de seguridad final.
 	if ($mejorDompdf === null) $mejorDompdf = $renderizar($escalones[count($escalones) - 1]);
 	return [$mejorEscalon, $mejorDompdf];
 }
@@ -542,7 +542,7 @@ function generar_acta_pdf_binario(array $detalle) {
 	$renderizar = function ($escala, $escalaTabla) use ($detalle, $medirTexto) {
 		$options = new \Dompdf\Options();
 		$options->set('isRemoteEnabled', false);
-		// Subsetting recalcula qué glyphs de la fuente hace falta embeber — trabajo real de CPU por render, innecesario para un documento de 1 sola hoja en español (el ahorro de peso de archivo no compensa el costo, y este PDF puede rendersearse hasta varias veces seguidas por el auto-ajuste de abajo). Deshabilitado por rendimiento — no cambia cómo se ve el documento, solo cómo se embebe la fuente.
+		// Subsetting deshabilitado por rendimiento: no cambia cómo se ve el documento, solo cómo se embebe la fuente.
 		$options->set('isFontSubsettingEnabled', false);
 		$dompdf = new \Dompdf\Dompdf($options);
 		$dompdf->loadHtml(generar_acta_html($detalle, $escala, $medirTexto, $escalaTabla));
@@ -551,7 +551,7 @@ function generar_acta_pdf_binario(array $detalle) {
 		return $dompdf;
 	};
 
-	// Primero se reduce SOLO $escalaTabla (nunca toca el texto general). Si ni con el piso de 0.35 alcanza, se reduce $escala como último recurso, piso 0.3 — mismos 2 pisos y mismos escalones de 0.05 de siempre, ahora recorridos con búsqueda binaria (ver funciones de arriba) en vez de uno por uno: la inmensa mayoría de Actas entra ya al primer intento (escala=1.0, cero renders extra), pero una con muchas líneas (ej. varias categorías de una Acta Precargada, que ahora también llenan Cabeceras/Rumas/Perchas) podía necesitar hasta ~27 renders completos de Dompdf en el peor caso con el barrido lineal — con binaria son ~8 como mucho, Dompdf es caro por render.
+	// Se reduce primero $escalaTabla (piso 0.35), luego $escala como último recurso (piso 0.3), recorridos con búsqueda binaria.
 	$escalonesTabla = escalones_desde_uno(0.35);
 	$dompdf = $renderizar(1.0, $escalonesTabla[0]);
 	$escalaTablaFinal = $escalonesTabla[0];

@@ -1,10 +1,10 @@
 (function () {
-	// Config por tipo de repositorio — todo lo que cambia entre Rebate y Participación de Percha vive acá (columnas, formato, placeholder de búsqueda) para no duplicar la lógica de render/edición en 2 copias.
+	// Config por tipo de repositorio: todo lo que cambia entre Rebate y Participación vive acá, para no duplicar la lógica de render/edición.
 	var CONFIG = {
 		rebate: {
 			label: 'Rebate',
 			descripcion: 'Catálogo de % de Rebate por producto. Autocompleta y bloquea el campo en Registrar Acuerdo PDV.',
-			// Ciudad/Canal reemplazan a Segmento (2026-08-27) — el Excel real de JW (datos/RABATE.xlsx) no trae Segmento, pero sí Ciudad y Canal, que cambian el % del mismo Sector+Categoría+Marca (ver CLAUDE.md "Rebate: el Excel real de JW no usa el vocabulario..."). Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría") — mismo criterio que ya se aplicó en Meta de Compras de Registrar: la columna interna `sector`/`categoria` no cambia de nombre, solo el texto visible, para que se lea igual que el Excel real que sube JW (su "Categoría" = nuestro Sector, su "Subcategoría" = nuestra Categoría).
+			// Ciudad/Canal reemplazan a Segmento: el Excel real de JW no trae Segmento, y Ciudad+Canal cambian el % del mismo producto. Etiquetas "Categoría"/"Subcategoría" solo cambian el texto visible, la columna interna sigue siendo `sector`/`categoria`.
 			buscarPlaceholder: 'Buscar por ciudad, canal, categoría, subcategoría o marca...',
 			columnas: [
 				{ key: 'ciudad', label: 'Ciudad' },
@@ -18,7 +18,7 @@
 		participacion: {
 			label: 'Participación de Percha',
 			descripcion: 'Catálogo de % de Participación de Percha por marca. Autocompleta y bloquea el campo en Registrar Acuerdo PDV.',
-			// Ciudad agregada 2026-08-30 (Excel real confirmado por el usuario, datos/PARTICIPACION PERCHA.xlsx) — la misma Marca puede tener % distinto por ciudad (ej. LAVA: 50% Guayaquil, 60% Quito, 55% "RESTO CIUDADES", catch-all real del archivo). Sin Categoría/ Subcategoría a propósito — no se guardan, ver repositorio_parsear_participacion() en repositorio_import.php.
+			// Ciudad agregada: la misma Marca puede tener % distinto por ciudad. Sin Categoría/Subcategoría a propósito, no se guardan.
 			buscarPlaceholder: 'Buscar por ciudad o marca...',
 			columnas: [
 				{ key: 'ciudad', label: 'Ciudad' },
@@ -26,7 +26,7 @@
 				{ key: 'participacion_pct', label: 'Participación %', numero: true, formato: function (v) { return parseFloat(v).toFixed(1) + '%'; } }
 			]
 		},
-		// Jerarquía de Supervisores (2026-09-24, pedido explícito, mismas mecánicas que Rebate/Participación): supervisor_campo = nombre del maestro de Alicorp sin cuenta propia, supervisor_real = a quién reporta (con cuenta). Ver supervisorRealDeJerarquia() en functions.php.
+		// Jerarquía de Supervisores: supervisor_campo = nombre del maestro sin cuenta propia, supervisor_real = a quién reporta (con cuenta).
 		jerarquia: {
 			label: 'Jerarquía de Supervisores',
 			descripcion: 'Mapea un supervisor "de campo" (sin cuenta propia) al supervisor real que debe validar/recibir sus Actas.',
@@ -36,38 +36,38 @@
 				{ key: 'supervisor_real', label: 'Supervisor Real' }
 			]
 		},
-		// Cuotas trimestrales por cliente (2026-08-25, ver CLAUDE.md "Repositorio de Cuotas trimestrales + Actas precargadas") — a diferencia de Rebate/Participación, SÍ tiene cliente y el pos_id se resuelve en el servidor (cuotas_guardar.php), no en el Excel. Por eso tiene 2 juegos de columnas: `columnasPreview` (lo que trae el Excel crudo, antes de guardar) y `columnas` (lo que se ve en la tabla principal ya guardada, con pos_id/período/estado resueltos). Sin edición inline (`editable: false`) — estos datos vienen de un match automático, no de texto libre como Rebate/Participación.
+		// Cuotas trimestrales por cliente: el pos_id se resuelve en el servidor, no en el Excel. 2 juegos de columnas: `columnasPreview` (crudo) y `columnas` (ya guardada). Sin edición inline.
 		cuotas: {
 			label: 'Cuotas Trimestrales',
 			descripcion: 'Sube el Excel de cuotas del trimestre para asignar Actas Precargadas de forma masiva: cada categoría queda lista para que el asesor dueño del cliente la genere desde su lista de Actas Asignadas.',
-			// Ampliado 2026-08-30 (bug real reportado: "no sé si me anda buscando por columna") — antes solo buscaba por Cliente/pos_id/ Categoría, dejaba afuera CEDI/Plan/Subcategoría/Marca aunque son columnas visibles en esta misma tabla (ver listar_repositorio_cuotas()).
+			// Ampliado: antes solo buscaba por Cliente/pos_id/Categoría, dejaba afuera CEDI/Plan/Subcategoría/Marca aunque son columnas visibles.
 			buscarPlaceholder: 'Buscar por CEDI, cliente, plan, categoría, subcategoría o marca...',
 			editable: false,
 			agruparPor: 'pos_id',
-			// mes1/mes2/mes3 (2026-08-25, corregido — la primera versión asumía mal que los 3 meses del trimestre siempre traían el mismo monto): posición dentro del trimestre, no el índice real de mes — el índice real (0-11) se calcula recién en cuotas_guardar.php a partir de `trimestre`. Etiquetados genéricos "Mes 1/2/3" porque acá todavía no se sabe qué trimestre es (recién se conoce al leer data.trimestre de la respuesta de previsualizar, ver previsualizarArchivo() más abajo). Mismo orden que trae el Excel real (CEDI, CLIENTE, PLAN, CATEGORIAS, ...meses) — pedido explícito 2026-08-25, para que la previsualización se lea igual que el archivo original.
+			// mes1/mes2/mes3: posición dentro del trimestre, no el índice real de mes (eso se calcula en cuotas_guardar.php). Etiquetados "Mes 1/2/3" porque acá todavía no se sabe qué trimestre es.
 			columnasPreview: [
 				{ key: 'cedi_excel', label: 'CEDI' },
 				{ key: 'cliente_excel', label: 'Cliente' },
 				{ key: 'plan', label: 'Plan' },
 				{ key: 'sector', label: 'Categoría' },
-				// SUBCATEGORIA/MARCA (2026-08-28, opcionales — mismo orden que las trae el Excel real): si el archivo no las trae, vienen vacías del parser y el usuario las puede escribir a mano acá mismo antes de confirmar — igual sirve como referencia de qué se va a intentar matchear contra el catálogo real al generar la Acta (ver resolverProductoCuota() en functions.php).
+				// SUBCATEGORIA/MARCA opcionales: si el archivo no las trae, vienen vacías y el usuario las puede escribir a mano antes de confirmar.
 				{ key: 'subcategoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
-				// Sin columna de Rebate (2026-08-30, pedido explícito del usuario: nunca pidió que Cuotas tomara Rebate del Excel — se sacó por completo del parser/guardado, ver includes/repositorio_import.php y getters/cuotas_guardar.php).
+				// Sin columna de Rebate: nunca se pidió que Cuotas tomara Rebate del Excel, se sacó por completo del parser/guardado.
 				{ key: 'mes1', label: 'Mes 1', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
 				{ key: 'mes2', label: 'Mes 2', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
 				{ key: 'mes3', label: 'Mes 3', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } }
 			],
-			// Mismo orden y mismas columnas "de origen" que columnasPreview (CEDI, Cliente, Plan, Categoría) — pedido explícito 2026-08-25, el usuario esperaba poder comparar la previsualización contra la tabla ya guardada sin que las columnas cambien de golpe. Pos ID se sigue resolviendo y guardando igual, solo se dejó de mostrar acá (pedido explícito) — sigue disponible en `fila.pos_id` para agruparPor y para Fase 2. Período va antes de los 3 meses independientes. Sin columna "Estado" (2026-08-30, pedido explícito: el usuario la encontraba confusa — no entendía cómo una categoría podía quedar "sin usar" si la tabla maestra no permite eliminar filas una vez precargada. `fila.estado` sigue existiendo en los datos y sigue gobernando la lógica real (bloquea "Descartar" -> "Reactivar" más abajo, cuenta en el modal de Resumen, saca la Acta de la campanita al usarse) — solo se dejó de MOSTRAR en esta tabla.
+			// Mismo orden que columnasPreview, para comparar previsualización contra la tabla ya guardada. Pos ID sigue en `fila.pos_id` sin mostrarse. Sin columna "Estado": `fila.estado` sigue gobernando la lógica real, solo se dejó de mostrar.
 			columnas: [
 				{ key: 'cedi_excel', label: 'CEDI' },
 				{ key: 'cliente_excel', label: 'Cliente' },
 				{ key: 'plan', label: 'Plan' },
 				{ key: 'sector', label: 'Categoría' },
-				// Subcategoría/Marca (2026-08-28) — faltaban acá, la tabla ya guardada nunca las mostraba aunque el backend las guardara bien (bug real reportado por el usuario). `render` en vez de `key` simple para mostrar "—" cuando el Excel no las trajo (archivos viejos, o el formato real de JW que hoy no las tiene).
+				// Subcategoría/Marca: faltaban acá, la tabla nunca las mostraba aunque el backend las guardara bien. `render` para mostrar "—" si el Excel no las trajo.
 				{ key: 'subcategoria', label: 'Subcategoría', render: function (fila) { return fila.subcategoria || '—'; } },
 				{ key: 'marca', label: 'Marca', render: function (fila) { return fila.marca || '—'; } },
-				// Sin columna de Rebate acá tampoco (2026-08-30, mismo pedido que columnasPreview más arriba).
+				// Sin columna de Rebate acá tampoco, mismo pedido que columnasPreview.
 				{
 					key: 'periodo', label: 'Período',
 					render: function (fila) { return 'Q' + fila.trimestre + ' ' + fila.anio; }
@@ -91,21 +91,21 @@
 	var tipoActivo = 'rebate';
 	var paginaActual = 1;
 	var busquedaActual = '';
-	// Filtro de Canal (2026-09-22, solo Rebate) — 'total'|'directo'|'distribuidor', ver repo-rebate-canal-group.
+	// Filtro de Canal (solo Rebate): 'total'|'directo'|'distribuidor'.
 	var canalRebateFiltro = 'total';
 	var buscarTimeout = null;
-	// Evita que una respuesta vieja pise a una más nueva (tipear rápido, o cambiar de tab justo cuando un fetch anterior sigue en vuelo). Mismo bug ya encontrado y corregido en Seguimiento de Equipo/Historial/ Gestión de Usuarios.
+	// Evita que una respuesta vieja pise a una más nueva. Mismo bug ya corregido en Seguimiento de Equipo/Historial/Gestión de Usuarios.
 	var listaReqId = 0;
 	var filasPreview = null; // filas leídas del Excel, en edición dentro del modal
 	var trimestrePreview = null; // solo cuotas: inferido del propio Excel por repositorio_parsear_cuotas()
 	var estadosPreview = null; // solo cuotas: nuevo/actualiza/usada/sin_cliente por fila, ver verificarEstadosPreview()
-	// solo cuotas: 'directo'/'distribuidor', detectado por repositorio_parsear_cuotas() según qué columnas trae el Excel (CEDI/CLIENTE vs DISTRIBUIDOR/CIUDAD/NOMBRE) — decide el desempate de resolverPosIdCliente() al verificar/guardar (ver includes/functions.php).
+	// solo cuotas: 'directo'/'distribuidor', detectado según qué columnas trae el Excel, decide el desempate al verificar/guardar.
 	var canalCuotasPreview = null;
 
 	var tablaHead = document.getElementById('repo-tabla-head');
 	var tablaBody = document.getElementById('repo-tabla-body');
 	var subtituloEl = document.getElementById('repo-subtitulo');
-	// Paginación arriba Y abajo (2026-08-25) — ambos pares se pintan siempre juntos, ver renderPaginacion() más abajo.
+	// Paginación arriba Y abajo: ambos pares se pintan siempre juntos.
 	var paginacionInfoEls = [document.getElementById('repo-paginacion-info-top'), document.getElementById('repo-paginacion-info')];
 	var paginacionBtnsEls = [document.getElementById('repo-paginacion-btns-top'), document.getElementById('repo-paginacion-btns')];
 	var buscarInput = document.getElementById('repo-buscar');
@@ -131,7 +131,7 @@
 	var pendientesCount = document.getElementById('repo-pendientes-count');
 	var resumenAbrirBtn = document.getElementById('repo-resumen-abrir');
 	var rebateCanalGroup = document.getElementById('repo-rebate-canal-group');
-	// Bug real: sin este "if", un HTML desactualizado (sin este elemento) tumbaba TODO el script acá mismo, al cargar la página.
+	// Bug real: sin este "if", un HTML desactualizado tumbaba todo el script al cargar la página.
 	if (rebateCanalGroup) {
 		rebateCanalGroup.addEventListener('click', function (e) {
 			var btn = e.target.closest('.ac-seg-pill');
@@ -154,14 +154,14 @@
 		mostrarToast(texto, ok ? 'success' : 'error');
 	}
 
-	// "{"3": 600, "4": 650, "5": 700}" -> "$600.00 / $650.00 / $700.00" — mismo formato JSON que repositorio_acuerdo_lineas.valores_mensuales, ordenado por índice de mes (las claves de un objeto no garantizan orden numérico en JS si vinieran como texto "10" antes que "3").
+	// "{"3": 600, "4": 650}" -> "$600.00 / $650.00", ordenado por índice de mes (las claves de un objeto no garantizan orden numérico).
 	function montosMensualesTexto(valoresMensuales) {
 		var meses = Object.keys(valoresMensuales || {}).sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
 		if (!meses.length) return '—';
 		return meses.map(function (m) { return '$' + parseFloat(valoresMensuales[m]).toFixed(2); }).join(' / ');
 	}
 
-	// Valor de un mes puntual por posición (0=primero, 1=segundo, 2=tercero) dentro del trimestre — para las 3 columnas independientes de la tabla principal de Cuotas (2026-08-25, pedido explícito: separar en vez de un solo texto "$a / $b / $c").
+	// Valor de un mes puntual por posición dentro del trimestre, para las 3 columnas independientes de la tabla principal de Cuotas.
 	function mesMensualPorPosicion(valoresMensuales, posicion) {
 		var meses = Object.keys(valoresMensuales || {}).sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); });
 		var clave = meses[posicion];
@@ -194,7 +194,7 @@
 			tablaBody.innerHTML = '<tr><td colspan="' + (cols.length + 1) + '" class="ac-table-empty">Sin registros.</td></tr>';
 			return;
 		}
-		// Color pastel por GRUPO (no por fila) cuando hay agruparPor — antes era solo una alternancia par/impar muy sutil (2026-08-25), el usuario la encontró insuficiente para distinguir dónde termina un cliente y empieza el siguiente. Reemplazado 2026-08-30 (mockup "Opción A" aprobado por el usuario) por 3 tonos pastel que rotan por grupo (nunca por fila) + un borde de color a la izquierda — tonos elegidos deliberadamente FUERA de la familia verde/ámbar que ya usan los badges de estado en el resto de la app, para no confundir "grupo" con "estado". Se mantiene el texto completo en cada fila (a diferencia de un rowspan que lo ocultaría) para que la vista mobile en tarjetas siga mostrando el cliente en cada una, sin quedar una tarjeta "vacía".
+		// Color pastel por GRUPO (no por fila) cuando hay agruparPor: 3 tonos que rotan, fuera de la familia verde/ámbar de los badges de estado.
 		var GRUPO_CLASES = ['ac-repo-fila-grupo-a', 'ac-repo-fila-grupo-b', 'ac-repo-fila-grupo-c'];
 		var grupoAnterior = null;
 		var grupoIndice = -1;
@@ -203,11 +203,11 @@
 				var claveGrupo = fila[agruparPor];
 				if (claveGrupo !== grupoAnterior) { grupoIndice = (grupoIndice + 1) % GRUPO_CLASES.length; grupoAnterior = claveGrupo; }
 			}
-			// data-key/data-label (2026-08-24): Rebate y Participación de Percha tienen distinta cantidad de columnas (5 vs 2) — la vista mobile (ver style.css, tarjetas por fila) arma el layout por estos atributos en vez de nth-child, para no depender de una posición fija de columna que solo calza con uno de los 2 tipos.
+			// data-key/data-label: Rebate y Participación tienen distinta cantidad de columnas, la vista mobile arma el layout por estos atributos en vez de nth-child.
 			var tds = cols.map(function (c) {
 				return '<td' + (c.numero ? ' class="ac-text-right"' : '') + ' data-key="' + c.key + '" data-label="' + escapeHtml(c.label) + '">' + celdaValor(c, fila) + '</td>';
 			}).join('');
-			// Cuotas descartada (2026-08-25, borrado lógico): "Eliminar" se reemplaza por "Reactivar" — no tiene sentido "descartar de nuevo" algo que ya está descartado, y sí tiene sentido poder deshacerlo.
+			// Cuotas descartada (borrado lógico): "Eliminar" se reemplaza por "Reactivar", no tiene sentido descartar 2 veces.
 			var accionesHtml = (fila.estado === 'descartada')
 				? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-repo-reactivar" title="Reactivar"><span class="material-symbols-outlined">restore</span><span class="ac-btn-text">Reactivar</span></button>'
 				: (editable ? '<button type="button" class="ac-icon-btn ac-repo-editar" title="Editar"><span class="material-symbols-outlined">edit</span><span class="ac-btn-text">Editar</span></button>' : '') +
@@ -244,7 +244,7 @@
 		});
 	}
 
-	// Convierte una fila de la tabla en inputs editables in-place (mismo componente visual .ac-preview-input que usa el modal de subida) — sin abrir un modal aparte para un cambio puntual de 1-2 campos.
+	// Convierte una fila en inputs editables in-place, sin abrir un modal aparte para un cambio puntual de 1-2 campos.
 	function activarEdicionFila(tr, fila) {
 		var cols = CONFIG[tipoActivo].columnas;
 		var tds = tr.querySelectorAll('td');
@@ -296,7 +296,7 @@
 		});
 	}
 
-	// Truncada (1 ... alrededor de la actual ... última) — con listas grandes (ej. 712 registros = 72 páginas) pintar un botón por página empujaba el ">" fuera de la vista sin que se notara que faltaba.
+	// Truncada (1 ... alrededor de la actual ... última): con listas grandes pintar un botón por página empujaba el ">" fuera de la vista.
 	function paginasAMostrar(pagina, totalPaginas) {
 		var paginas = [];
 		for (var i = 1; i <= totalPaginas; i++) {
@@ -309,7 +309,7 @@
 		return paginas;
 	}
 
-	// Pinta los botones en AMBOS contenedores (arriba y abajo) — mismo HTML, cada uno con sus propios listeners, para que cambiar de página funcione igual sin importar cuál de los 2 el usuario tenga a la vista.
+	// Pinta los botones en AMBOS contenedores, cada uno con sus propios listeners, sin importar cuál tenga el usuario a la vista.
 	function renderPaginacion(pagina, totalPaginas) {
 		var html = '';
 		html += '<button type="button" class="ac-page-btn" data-pg="' + (pagina - 1) + '" ' + (pagina <= 1 ? 'disabled' : '') + '>' +
@@ -360,8 +360,7 @@
 			});
 	}
 
-	// El numerito de cada pestaña (Rebate/Participación/Cuotas) mostraba "—" hasta entrar ahí: cargarLista() solo
-	// actualiza el contador de la pestaña ACTIVA. Esto llena los otros 2 aparte, sin tocar tabla/paginación de esa pestaña.
+	// El numerito de cada pestaña mostraba "—" hasta entrar ahí: cargarLista() solo actualiza la activa, esto llena los otros 2.
 	function cargarContadorTab(tipo) {
 		var contador = document.getElementById('repo-tab-' + tipo + '-count');
 		if (!contador) return;
@@ -411,10 +410,10 @@
 		posicionarIndicadorTab(tabsPorTipo[tipo]);
 		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
-		// pendientesAbrirBtn: oculto a propósito (2026-08-26, pedido explícito "quita el botón de Pendientes de Asignar") — se deja el resto del mecanismo intacto (getters, modal), por si se retoma después.
-		// resumenAbrirBtn: vuelto a mostrar (2026-09-21, pedido explícito) — se había ocultado el 2026-09-17 porque su propósito se creyó reemplazado por renderPreviewResumen(), pero ese solo cubre el archivo que se está por subir, no el panorama histórico ("a quién le asigné cada Acta"); con el detalle expandible que se le agregó (ver filaResumenUsuario()), vuelve a tener un propósito propio. Solo visible en Cuotas, como el resto de los botones específicos de esta pestaña.
+		// pendientesAbrirBtn: oculto a propósito, se deja el resto del mecanismo intacto por si se retoma después.
+		// resumenAbrirBtn: vuelto a mostrar, cubre el panorama histórico ("a quién le asigné cada Acta"), no solo el archivo por subir.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
-		// Filtro de Canal (2026-09-22): solo Rebate. Se resetea a "Todas" al cambiar de tab, no se arrastra a otra pestaña. Guardado con "if" (bug real: sin esto, un despliegue a medias sin este elemento en el HTML tiraba un error acá y cortaba la función ANTES de cargarLista(), dejando la tabla/paginación vieja pegada.
+		// Filtro de Canal: solo Rebate, se resetea a "Todas" al cambiar de tab. Guardado con "if": sin esto, un despliegue a medias cortaba la función antes de cargarLista().
 		if (rebateCanalGroup) {
 			rebateCanalGroup.classList.toggle('hidden', tipo !== 'rebate');
 			if (tipo !== 'rebate' && canalRebateFiltro !== 'total') {
@@ -471,12 +470,12 @@
 	var previewTrimestreBanner = document.getElementById('repo-preview-trimestre-banner');
 	var previewTrimestreValor = document.getElementById('repo-preview-trimestre-valor');
 	var previewCanalBadge = document.getElementById('repo-preview-canal-badge');
-	// Canal elegido a mano ANTES de subir el archivo (2026-09-21, pedido explícito, solo Cuotas) — el canal real lo sigue detectando repositorio_parsear_cuotas() del propio Excel; esto es la intención de quien sube, para avisar de entrada si no coincide.
+	// Canal elegido a mano antes de subir (solo Cuotas): el canal real lo sigue detectando el parser del Excel, esto avisa si no coincide.
 	var subirCanalWrap = document.getElementById('repo-subir-canal-wrap');
 	var subirCanalGroup = document.getElementById('repo-subir-canal-group');
 	var canalCuotasElegido = null;
 
-	// Arrastre horizontal con mouse, tipo touch (2026-08-25, pedido explícito: "que pueda con el mouse mover la tabla sosteniendo y moviendo el mouse" — con el ancho auto-ajustado la tabla de previsualización puede quedar más ancha que el modal, y el scrollbar nativo del navegador solo se ve pegado abajo del todo, no arriba). Mantener click y arrastrar mueve el contenido, sin depender de encontrar el scrollbar. Se excluye el arrastre si el click empezó en un input/botón/link — si no, no se podría hacer foco normal para editar una celda.
+	// Arrastre horizontal con mouse, tipo touch: mantener click y arrastrar mueve el contenido, sin depender del scrollbar. Se excluye si el click empezó en un input/botón/link.
 	function activarArrastreScroll(contenedor) {
 		if (!contenedor) return;
 		var arrastrando = false;
@@ -505,7 +504,7 @@
 	}
 	activarArrastreScroll(document.querySelector('.ac-preview-table-scroll'));
 
-	// Columnas a usar en la previsualización — para Cuotas es un juego distinto al de la tabla principal (ver comentario de CONFIG.cuotas más arriba); para Rebate/Participación es el mismo de siempre.
+	// Columnas de la previsualización: para Cuotas es distinto al de la tabla principal; para Rebate/Participación es el mismo de siempre.
 	function columnasPreview() {
 		return CONFIG[tipoActivo].columnasPreview || CONFIG[tipoActivo].columnas;
 	}
@@ -516,7 +515,7 @@
 	}
 
 
-	// Muestra el detalle post-guardado (2026-08-24, pedido explícito: "que el sistema pueda defenderse solo, sin estar yo detrás de él") — qué fila NO se guardó y por qué (errores) y qué fila SÍ se guardó pero conviene revisar (avisos, ej. un producto repetido en el mismo archivo). No toca la tabla en sí (sin bordes rojos por celda), es una caja de resumen aparte arriba de la tabla. Mismo formato comparativo ya aprobado en Claude Design para "Actas en Choque" del Resumen — Cuotas Trimestrales (2026-08-31, pedido explícito: "por qué sale 'esta categoría' en vez del significado real... no diseñé algo visual para esto?") — reusa las clases `.ac-choque-*` globales (no están escopeadas a ese modal), solo cambia el texto de los "eyebrow" porque acá el caso es distinto: no es una Acta precargada que TODAVÍA no se generó y choca con otra, es una fila que ya se usó para generar la que se ve a la derecha, así que no se modificó de nuevo.
+	// Muestra el detalle post-guardado: qué fila no se guardó (errores) y qué fila sí pero conviene revisar (avisos). Caja de resumen aparte, sin bordes rojos por celda. Reusa las clases `.ac-choque-*` globales.
 	function filaAvisoYaUsada(a) {
 		return '<div class="ac-choque-row">' +
 			'<div class="ac-choque-side ac-choque-side-precarga">' +
@@ -555,11 +554,11 @@
 				'<div class="ac-choque-list">' + avisosYaUsada.map(filaAvisoYaUsada).join('') + '</div>';
 		}
 		previewErrores.innerHTML = html;
-		// Rojo SOLO si de verdad hubo algo que no se guardó — un aviso sin errores (2026-08-30, bug real reportado: "sacás una alerta roja por todo, da a entender que hubo error") no es una falla, es solo "esto se guardó pero convendría revisarlo" — mismo ámbar que el resto de la app usa para "revisar" (.ac-badge-revisar), nunca rojo si nada falló de verdad.
+		// Rojo solo si de verdad hubo algo que no se guardó; un aviso sin errores usa el mismo ámbar de "revisar" (.ac-badge-revisar).
 		previewErrores.classList.toggle('ac-alert-error', errores.length > 0);
 		previewErrores.classList.toggle('ac-alert-warning', errores.length === 0);
 		previewErrores.classList.remove('hidden');
-		// La caja puede quedar fuera de la vista si el usuario ya había scrolleado la tabla antes de guardar (2026-08-30, mismo reporte: "está mal ubicado") — se asegura que quede visible apenas aparece, en vez de depender de que el usuario note que algo cambió arriba.
+		// La caja puede quedar fuera de la vista si el usuario ya había scrolleado: se asegura que quede visible apenas aparece.
 		previewErrores.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 	}
 
@@ -607,7 +606,7 @@
 	document.getElementById('repo-subir-modal-close').addEventListener('click', cerrarModalSubir);
 	document.getElementById('repo-subir-cancelar').addEventListener('click', cerrarModalSubir);
 	document.getElementById('repo-subir-atras').addEventListener('click', mostrarPasoElegir);
-	// Sin cierre por click afuera (2026-08-25, pedido explícito: "se me cierra esta ventanita por clicks accidentales afuera") — el arrastre con mouse de la tabla de previsualización (activarArrastreScroll()) mueve el cursor bastante, y si el mouseup termina cayendo justo sobre el fondo oscuro del overlay, el `click` nativo podía disparar acá y cerrar el modal perdiendo lo que el usuario ya había corregido. Cerrar sigue disponible por la "X" (`repo-subir-modal-close`) y "Cancelar".
+	// Sin cierre por click afuera: el arrastre de la tabla mueve el cursor, y si el mouseup cae sobre el overlay cerraba el modal por error.
 
 	if (subirCanalGroup) {
 		subirCanalGroup.addEventListener('click', function (e) {
@@ -635,7 +634,7 @@
 		if (archivoInput.files.length) previsualizarArchivo(archivoInput.files[0]);
 	});
 
-	// Paso 1 -> 2: sube el archivo a repositorio_previsualizar_excel.php, que SOLO lo parsea (no toca la base) y devuelve las filas leídas — ver comentario de cabecera en ese getter. Sin límite de tamaño propio acá (pedido explícito 2026-08-24: "no limites la subida") — vía XHR en vez de fetch() porque fetch() no expone progreso de subida, y con un archivo pesado el pedido fue justamente mostrar una barra de carga real, no dejar la ventana "trabada" sin feedback.
+	// Paso 1 -> 2: sube el archivo, que SOLO se parsea (no toca la base). Sin límite de tamaño propio. XHR en vez de fetch() para mostrar progreso real.
 	function previsualizarArchivo(archivo) {
 		var formData = new FormData();
 		formData.append('tipo', tipoActivo);
@@ -651,7 +650,7 @@
 			progresoCargaFill.style.width = pct + '%';
 			progresoCargaTexto.textContent = 'Subiendo… ' + pct + '%';
 		});
-		// Bug real reportado 2026-09-21 ("se me queda en Subiendo... 100% y debo esperar, van a pensar que está dañado") — el progreso de arriba solo mide bytes ENVIADOS, llega a 100% en cuanto el navegador termina de mandar el archivo, pero el servidor todavía tiene que leerlo (ZipArchive + XML del .xlsx) antes de responder. Ese hueco quedaba con el texto congelado en "100%" sin ninguna señal de que seguía trabajando. `upload.load` marca justo ese momento: sube termina, empieza a procesar.
+		// El progreso solo mide bytes enviados, llega a 100% antes de que el servidor termine de procesar. `upload.load` marca ese cambio.
 		xhr.upload.addEventListener('load', function () {
 			progresoCargaFill.classList.add('ac-progreso-carga-fill-indeterminado');
 			progresoCargaTexto.textContent = 'Procesando archivo…';
@@ -664,7 +663,7 @@
 				return;
 			}
 			if (!data.ok) { mostrarMensaje(data.message, false); return; }
-			// El archivo elegido no coincide con lo que la persona dijo que iba a subir (2026-09-21) — el canal REAL lo sigue mandando el propio Excel (repositorio_parsear_cuotas()), esto solo avisa de entrada en vez de que se entere recién guardando.
+			// El archivo elegido no coincide con lo que la persona dijo que iba a subir; el canal real lo sigue detectando el Excel.
 			if (tipoActivo === 'cuotas' && canalCuotasElegido && data.canal_detectado && data.canal_detectado !== canalCuotasElegido) {
 				var etiquetaElegido = canalCuotasElegido === 'distribuidor' ? 'Distribuidor' : 'Directo';
 				var etiquetaDetectado = data.canal_detectado === 'distribuidor' ? 'Distribuidor' : 'Directo';
@@ -691,7 +690,7 @@
 				previewAnioWrap.classList.remove('hidden');
 				if (trimestrePreview) {
 					previewTrimestreValor.textContent = 'Q' + trimestrePreview;
-					// Badge de canal (2026-09-16): mismo par de clases que ya usa Registrar para su badge de canal, así se reconoce de un vistazo antes de confirmar el guardado.
+					// Badge de canal: mismo par de clases que usa Registrar, así se reconoce de un vistazo antes de confirmar.
 					previewCanalBadge.textContent = canalCuotasPreview === 'distribuidor' ? 'Distribuidor' : 'Canal Directo';
 					previewCanalBadge.className = 'ac-badge ac-badge-canal-' + (canalCuotasPreview === 'distribuidor' ? 'distribuidor' : 'directo');
 					previewTrimestreBanner.classList.remove('hidden');

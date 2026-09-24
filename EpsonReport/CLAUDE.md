@@ -153,6 +153,21 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
    - **NUNCA realizar `git commit` ni `git push` por iniciativa propia.** Los commits y subidas a ramas remotas deben ser solicitados o confirmados expresamente por el usuario.
 2. **Resumen Obligatorio**:
    - **SIEMPRE presentar un resumen claro, conciso y ordenado** de cada acción realizada y los archivos intervenidos al responder.
+3. **Principio de Responsabilidad Única (SRP)**:
+   - Cada archivo, función o endpoint debe tener una sola razón para cambiar. Un `getters/*.php` hace una sola consulta o acción; una plantilla en `formularios/` solo arma el formulario de UN tipo de actividad; su par en `estadisticas/` solo arma las métricas de esa misma actividad.
+   - Antes de agregar lógica a un archivo existente, preguntarse si esa lógica es "la misma responsabilidad" del archivo o si merece su propio archivo/función. Ante la duda, separar en vez de amontonar.
+   - No mezclar consulta a base de datos, cálculo de negocio y armado de HTML/JSON en el mismo bloque cuando ya existe (o conviene crear) una función/archivo separado para cada cosa.
+4. **Postura general: Desarrollador Senior pragmático** (código limpio, mantenible y eficiente; aplicar antes de escribir cualquier línea):
+   - **YAGNI (You Aren't Gonna Need It)**: implementar únicamente lo necesario para el requerimiento actual. Prohibido código "por si acaso", configuraciones futuras, ganchos o abstracciones especulativas no pedidas explícitamente.
+   - **KISS (Keep It Simple, Stupid)**: elegir siempre la solución más directa, legible y sencilla. Evitar over-engineering y patrones complejos (Factories, Abstract Factories, Singletons, etc.) salvo que sean estrictamente indispensables y justificados.
+   - **Estándares de código y estructura**: archivos en un rango ideal de 100 a 300 líneas (evitar monolitos de más de 500, aplicando SRP). Evitar anidaciones profundas de `if/else`/`switch`, preferir guard clauses o retorno temprano. Funciones y métodos cortos, enfocados en hacer una sola cosa bien.
+   - **Mantenibilidad**: comentarios únicamente donde la lógica de negocio sea compleja o no evidente a primera vista (el código debe ser autoexplicativo) — recordar que en este repo todo comentario va en una sola línea. Manejar errores de forma pragmática para los casos de fallo esperados, sin redundancias.
+
+### Excepción documentada: `assets/js/app.js` (2026-09-23)
+
+- Este archivo (~1850 líneas) queda como excepción justificada al límite de 500 líneas. Al auditarlo para dividirlo se encontró que casi todas sus funciones se llaman entre sí (selección de actividad, tabs móvil, asistente de fotos, cálculo de estadísticas por tipo de actividad, constructor, envío del formulario) — no son módulos independientes concatenados, es un solo controlador de la página de Actividades con estado compartido real.
+- Dividirlo en archivos separados obligaría a pasar casi cada función por un espacio de nombres global (`window.EP.*`) para seguir siendo visible entre archivos, agregando indirección real solo para cumplir un número de líneas — eso va en contra de KISS, no a favor.
+- `reportes.js`, `historial.js` y `sesion-watch.js` ya están correctamente separados porque sí son independientes (otras páginas/funciones). Si en el futuro se agregan secciones a `app.js` que sean genuinamente independientes del resto (no se llaman entre sí), esas sí deben salir a su propio archivo.
 
 ## Subida real de fotos a Azure (2026-09-23)
 
@@ -161,6 +176,12 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - La clave de Azure NO se duplica: `azure_storage.php` la toma de `Acuerdos_Comerciales/includes/azure_storage.php` (si EpsonReport se despliega solo, hay que definir `AZURE_STORAGE_ACCOUNT`/`AZURE_STORAGE_KEY` en `config.php`).
 - El slot guarda la ruta en `data-foto-ruta`; `enviarFormularioActivo()` manda `fotos: {id: ruta}` y bloquea el envío mientras haya fotos subiendo. `guardar_registro.php` guarda `ruta` y `url` en cada foto del registro (solo acepta rutas bajo `AppEpson/EpsonReport/`).
 - Sin probar contra Azure real (no se hicieron subidas de prueba para no escribir basura en el storage compartido).
+
+## CSS dividido por módulo (2026-09-23)
+
+- `assets/css/style.css` (4969 líneas, ~1500 muertas del viejo Historial fichas/tabla/expediente/lightbox ya reemplazado por `.ep-h2-*`) se eliminó. Ahora son 9 archivos: `base.css` (tokens), `login.css`, `shell.css` (sidebar), `actividades.css` (pasos, embudo, modelos, evidencia, POP, stats, constructor), `wizard-fotos.css` (tabs móvil + asistente de fotos móvil), `ppt-export.css` (botones y modal de exportación PPT), `wizard-fotos-desktop.css` (estudio de fotos escritorio), `historial.css` (rediseño `.ep-h2-*`), `reportes.css`.
+- `index.php` carga todas menos `login.css`; `login.php` carga solo `base.css` + `login.css`. Cada uno con su propio `filemtime()` para cache-busting.
+- Antes de borrar cualquier regla CSS por "no usada", cruzarla contra TODO el PHP/JS del proyecto (no solo el archivo que se está editando) — SweetAlert2 y otras libs de terceros generan sus propias clases (`swal2-*`) que nunca aparecen literalmente en nuestro código; no son código muerto.
 
 ## Estructura de carpetas (2026-09-23)
 

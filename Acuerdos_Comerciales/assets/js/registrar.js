@@ -1,18 +1,18 @@
 (function () {
 	var allMonthsShort = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 	var allMonthsLong = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
-	// El periodo se maneja en trimestres fijos (Q1-Q4), no rango libre: cada entrada es [mesInicio, mesFin] (0=Ene) = value de #ac-periodo-select.
+	// El periodo se maneja en trimestres fijos (Q1-Q4): cada entrada es [mesInicio, mesFin] (0=Ene).
 	var TRIMESTRES = [[0, 2], [3, 5], [6, 8], [9, 11]];
 
-	// Catálogo y Distribuidores se cargan en vivo desde la base, nunca hardcodeados. segmentos: árbol Segmento->Categoría->Marca (Cabeceras/Rumas/Perchas). segmentosSector: árbol Segmento->Sector->Categoría->Marca, solo para Meta de Compras (ver bindCascadaComboConSector).
+	// Catálogo y Distribuidores se cargan en vivo, nunca hardcodeados. segmentos: árbol para Cabeceras/Rumas/Perchas; segmentosSector: árbol con Sector, solo Meta de Compras.
 	var catalogo = { segmentos: {}, marcasPercha: [], categoriasPercha: [], segmentosSector: {} };
-	// canal/empresas/clientes filtrados por el `supervisor` del usuario (ver CANAL_USUARIO y canalDeSupervisor()). `empresas` solo tiene datos si canal==='distribuidor' (agrupado por tipo_distribuidor); `clientes` es la lista plana para Directo/Mayorista.
+	// canal/empresas/clientes filtrados por el `supervisor` del usuario. `empresas` solo con datos si canal==='distribuidor'; `clientes` es la lista plana.
 	var catalogoDistribuidor = { canal: 'directo', empresas: {}, clientes: [] };
 
-	// Campo pos_id: siempre "Local" en los 2 canales (2026-09-22, pedido explícito) — antes Directo decía "Distribuidor", cambió solo el texto, la lógica de canal sigue igual.
+	// Campo pos_id: siempre "Local" en los 2 canales, cambió solo el texto, la lógica de canal sigue igual.
 	function etiquetaCampoLocal() { return 'Local'; }
 
-	// Rebate % visible con el signo "%" (pedido explícito) — solo texto, el valor numérico real sigue siendo parseFloat() de siempre.
+	// Rebate % visible con el signo "%": solo texto, el valor numérico real sigue siendo parseFloat() de siempre.
 	function formatearRebatePct(v) { return (parseFloat(v) || 0).toFixed(2) + '%'; }
 
 	var selectedStart = 0;
@@ -20,15 +20,15 @@
 	var activeMonthsIndices = [0, 1, 2];
 	var acuerdoId = null;
 	var documentoNo = null;
-	// Evita el doble click en "Generar PDF"/"Guardar Borrador": 2 clicks seguidos disparaban 2 requests en paralelo y chocaban los mensajes. Mientras hay un guardado en vuelo, cualquier click nuevo se ignora en silencio.
+	// Evita el doble click en "Generar PDF"/"Guardar Borrador": mientras hay un guardado en vuelo, cualquier click nuevo se ignora.
 	var guardandoAcuerdo = false;
-	// Si el formulario vino de una Acta precargada (cargarPrecarga()), se manda junto con el guardado para marcar esas filas como 'usada'. null en cualquier otro caso (Nuevo Acuerdo, Borrador).
+	// Si el formulario vino de una Acta precargada, se manda junto con el guardado para marcar esas filas como 'usada'.
 	var origenPrecarga = null;
 
-	// ---------- Switch "Visibilidad y Espacios" ---------- Activado por defecto. Al desactivarlo, el Acta sale "sin visibilidad" (sin Cabeceras ni Rumas&Perchas, ver includes/acta_pdf.php $sinVisibilidad).
+	// ---------- Switch "Visibilidad y Espacios" ---------- activado por defecto. Al desactivarlo, el Acta sale "sin visibilidad".
 	var visibilidadActiva = true;
 
-	// ---------- Cambios sin guardar ---------- Cambiar de módulo nunca destruye este formulario (solo se oculta con CSS). formSucio se marca true en cualquier edición y se limpia al guardar.
+	// ---------- Cambios sin guardar ---------- formSucio se marca true en cualquier edición y se limpia al guardar.
 	var formSucio = false;
 	function marcarSucio() { formSucio = true; }
 	window.addEventListener('beforeunload', function (e) {
@@ -37,14 +37,14 @@
 		e.returnValue = '';
 	});
 
-	// Autoguardado (2026-09-22, pedido explícito): cada 20 min, si hay cambios sin guardar y ya hay cliente+período elegidos, guarda como borrador solo.
+	// Autoguardado: cada 20 min, si hay cambios sin guardar y ya hay cliente+período elegidos, guarda como borrador.
 	setInterval(function () {
 		if (!formSucio || guardandoAcuerdo) return;
 		if (!distribuidorSelect.value || selectedStart === null || selectedEnd === null) return;
 		guardarAcuerdo('borrador', function () { mostrarToast('Borrador guardado automáticamente.', 'info'); }, null);
 	}, 20 * 60 * 1000);
 
-	// Canal Distribuidor mide en Cajas, no en Dólares: sin signo "$" ni formato de moneda. CANAL_USUARIO es fijo por usuario logueado, no cambia según qué cliente puntual se elija en el formulario.
+	// Canal Distribuidor mide en Cajas, no en Dólares: sin signo "$" ni formato de moneda.
 	var formatCurr = function (val) {
 		var num = isNaN(val) ? 0 : val;
 		if (CANAL_USUARIO === 'distribuidor') {
@@ -81,11 +81,11 @@
 		mostrarToast(texto, ok ? 'success' : 'error');
 	}
 
-	// Un solo listener delegado cubre todos los campos tipeados sin importar que las filas se creen/destruyan dinámicamente. Los combos no disparan 'input' nativo (comboSeleccionar asigna .value directo), así que marcan sucio aparte en su propio flujo.
+	// Un solo listener delegado cubre todos los campos tipeados. Los combos no disparan 'input' nativo, marcan sucio aparte.
 	var acuerdoContainer = document.querySelector('.ac-acuerdo');
 	acuerdoContainer.addEventListener('input', marcarSucio);
 
-	// Montos en dólares: nunca negativos, máximo 4 dígitos enteros y 2 decimales (pedido explícito, aplica a las 4 tablas). El rebate NO se toca acá, va a salir de un repositorio nuevo, no tiene sentido validarle un rango a mano.
+	// Montos: nunca negativos, máximo 4 dígitos enteros y 2 decimales, aplica a las 4 tablas. El rebate no se toca acá.
 	acuerdoContainer.addEventListener('input', function (e) {
 		if (e.target.matches && e.target.matches('.month-input, .v-val, .ac-ruma-legend-input')) {
 			if (parseFloat(e.target.value) < 0) e.target.value = 0;
@@ -104,7 +104,7 @@
 		}
 	});
 
-	// ---------- Carga inicial ---------- El badge de Canal ya lo arma registrar.php server-side desde CANAL_USUARIO; acá solo se usa para la cascada Empresa->Cliente.
+	// ---------- Carga inicial ---------- el badge de Canal ya lo arma registrar.php server-side; acá solo se usa para Empresa->Cliente.
 	function cargarDatosIniciales() {
 		Promise.all([
 			fetch('getters/acuerdo_catalogo.php').then(function (r) { return r.json(); }),
@@ -125,7 +125,7 @@
 				catalogoDistribuidor.clientes = distRes.clientes || [];
 			}
 
-			// Distribuidor: el switch arranca desactivado por defecto (esas 2 tablas siempre se ocultaban en el Acta de Distribuidor). Directo sigue activado. Solo aplica a un Acuerdo nuevo: un borrador ya guardado restaura su propio valor en aplicarBorrador().
+			// Distribuidor: el switch arranca desactivado por defecto. Directo sigue activado. Solo aplica a un Acuerdo nuevo.
 			if (catalogoDistribuidor.canal === 'distribuidor') {
 				visibilidadActiva = false;
 				visibilidadToggle.checked = false;
@@ -140,12 +140,12 @@
 		});
 	}
 
-	// Localidad nunca se guarda: siempre se deriva del `cedi` del cliente elegido al mostrarla, nunca de un valor tipeado. El maestro solo tiene `cedi`.
+	// Localidad nunca se guarda: siempre se deriva del `cedi` del cliente elegido, nunca de un valor tipeado.
 	function formatLocalidad(d) {
 		return (d && d.cedi) ? d.cedi : '—';
 	}
 
-	// Junta clientes sin importar si vienen agrupados por empresa (Distribuidor) o en lista plana (Directo/Mayorista), para buscar por pos_id.
+	// Junta clientes agrupados por empresa (Distribuidor) o en lista plana (Directo), para buscar por pos_id.
 	function todosLosClientesDisponibles() {
 		if (catalogoDistribuidor.canal === 'distribuidor') {
 			var todos = [];
@@ -161,7 +161,7 @@
 		return todosLosClientesDisponibles().filter(function (x) { return x.pos_id === distribuidorSelect.value; })[0];
 	}
 
-	// Solo Meta de Compras persiste Sector; al restaurar un borrador se infiere buscando en qué Sector aparece esa combinación Categoría+Marca. Si la marca vende en más de un Sector con la misma Categoría, se toma el primero: limitación conocida, Sector nunca se guardó en la tabla.
+	// Solo Meta de Compras persiste Sector; al restaurar un borrador se infiere por Categoría+Marca. Si hay 2+ Sectores posibles, se toma el primero.
 	function inferirSectorDesde(segmento, categoria, marca) {
 		var porSector = catalogo.segmentosSector[segmento] || {};
 		return Object.keys(porSector).filter(function (sec) {
@@ -169,7 +169,7 @@
 		})[0] || '';
 	}
 
-	// ---------- Sistema genérico de combobox (buscador + panel flotante) ---------- Un solo panel compartido para todos los campos: más liviano, position:fixed con getBoundingClientRect() para que nunca lo recorte un ancestro.
+	// ---------- Combobox genérico ---------- un solo panel compartido, position:fixed para que nunca lo recorte un ancestro.
 	function normalizarBusqueda(str) {
 		return (str || '')
 			.toString()
@@ -189,7 +189,7 @@
 	document.body.appendChild(comboPanel);
 	var comboActivo = null; // { input, hidden, getOpciones, onSeleccionar }
 
-	// Clamp de left: sin esto, un combo cerca del borde derecho en pantalla angosta hacía que left + width se saliera del viewport.
+	// Clamp de left: sin esto, un combo cerca del borde derecho hacía que left + width se saliera del viewport.
 	function posicionarPanelCombo(input) {
 		var r = input.getBoundingClientRect();
 		var ancho = Math.max(r.width, 220);
@@ -240,7 +240,7 @@
 		comboActivo = null;
 	}
 
-	// getOpciones: función (no array fijo) porque en combos encadenados las opciones cambian según lo elegido antes en la fila. Se puede tipear para filtrar; al perder el foco, si el texto no coincide exacto con la opción elegida, el campo se limpia solo.
+	// getOpciones: función, no array fijo, porque en combos encadenados las opciones cambian según lo elegido antes.
 	function inicializarCombo(input, hidden, getOpciones, onSeleccionar) {
 		function abrir() {
 			comboActivo = { input: input, hidden: hidden, getOpciones: getOpciones, onSeleccionar: onSeleccionar };
@@ -255,16 +255,16 @@
 			abrir();
 			input.select();
 		});
-		// 'focus' no se dispara de nuevo si el campo ya estaba enfocado; sin este listener de 'click' aparte el panel se sentía "trabado".
+		// 'focus' no se dispara si el campo ya estaba enfocado; sin este 'click' aparte el panel se sentía "trabado".
 		input.addEventListener('click', function () {
 			if (!comboActivo || comboActivo.input !== input) abrir();
 		});
-		// Filtra la lista en vivo mientras se tipea, no toca `hidden.value` acá; si el usuario tipea y se va sin elegir, el blur de abajo limpia todo.
+		// Filtra la lista en vivo, no toca `hidden.value` acá; si el usuario se va sin elegir, el blur de abajo limpia todo.
 		input.addEventListener('input', function () {
 			if (!comboActivo || comboActivo.input !== input) abrir();
 			else comboRender(input.value);
 		});
-		// Sin esto, salir con Tab dejaba el panel abierto apuntando al campo anterior. mousedown+preventDefault() de las opciones evita el blur al elegir.
+		// Sin esto, salir con Tab dejaba el panel abierto. mousedown+preventDefault() de las opciones evita el blur al elegir.
 		input.addEventListener('blur', function () {
 			if (comboActivo && comboActivo.input === input) comboCerrar();
 			// Nunca dejar un valor tipeado que no coincide con una opción real seleccionada.
@@ -278,19 +278,19 @@
 	document.addEventListener('click', function (e) {
 		if (comboActivo && comboActivo.input !== e.target && !comboPanel.contains(e.target)) comboCerrar();
 	});
-	// capture:true para detectar scroll en la tabla/página (el panel es fixed y no la sigue), excluyendo el scroll dentro del propio panel.
+	// capture:true para detectar scroll en la página (el panel es fixed y no la sigue), excluyendo el scroll del panel.
 	document.addEventListener('scroll', function (e) {
 		if (comboActivo && !comboPanel.contains(e.target)) comboCerrar();
 	}, true);
 
-	// Seleccionar todo el texto al enfocar un campo de monto, para que tipear un valor nuevo lo reemplace de una. Delegado porque las filas se crean/destruyen.
+	// Selecciona todo el texto al enfocar un campo de monto, para que tipear un valor nuevo lo reemplace de una.
 	document.addEventListener('focusin', function (e) {
 		if (e.target.matches && e.target.matches('.month-input, .v-val, .ac-ruma-legend-input')) {
 			e.target.select();
 		}
 	});
 
-	// ---------- Empresa Distribuidora (solo canal Distribuidor) ---------- Un supervisor puede manejar varias empresas: hay que elegirla antes de ver sus clientes, igual que Categoría depende de Segmento.
+	// ---------- Empresa Distribuidora (solo canal Distribuidor) ---------- un supervisor puede manejar varias empresas, hay que elegirla antes de ver sus clientes.
 	if (CANAL_USUARIO === 'distribuidor') distribuidorSearch.disabled = true;
 
 	function limpiarClienteElegido() {
@@ -307,7 +307,7 @@
 		limpiarClienteElegido();
 	});
 
-	// El primer campo de cada tabla queda deshabilitado hasta elegir Distribuidor: no tiene sentido armar líneas antes de saber para quién es.
+	// El primer campo de cada tabla queda deshabilitado hasta elegir Distribuidor.
 	function actualizarBloqueoPorDistribuidor() {
 		var habilitado = !!distribuidorSelect.value;
 		Array.prototype.forEach.call(document.querySelectorAll('#ac-purchase-body .seg-input, #ac-cabeceras-body .seg-input, #ac-rumas-body .seg-input'), function (input) {
@@ -342,7 +342,7 @@
 		aplicarTrimestre(parseInt(periodoSelect.value, 10));
 	});
 
-	// value: índice en TRIMESTRES (0=Q1...3=Q4). Separado del listener de arriba para reusarlo desde limpiarFormularioParaNuevoAcuerdo()/aplicarBorrador().
+	// value: índice en TRIMESTRES (0=Q1...3=Q4), separado para reusarlo desde limpiarFormularioParaNuevoAcuerdo()/aplicarBorrador().
 	function aplicarTrimestre(value) {
 		var t = TRIMESTRES[value];
 		selectedStart = t[0];
@@ -360,13 +360,13 @@
 			: 'Sin selección';
 	}
 
-	// ---------- Construcción de tablas ---------- Separado de syncTables() para que poblarTablasConLineas() reconstruya los encabezados según el período guardado sin resetear las filas.
+	// ---------- Construcción de tablas ---------- separado de syncTables() para reconstruir encabezados sin resetear filas.
 	function renderTableHeaders() {
 		var months = activeMonthsIndices.map(function (i) { return allMonthsShort[i]; });
 		var count = months.length;
 
 		purchaseHead.innerHTML =
-			// Etiquetas "Categoría"/"Subcategoría" (no "Sector"/"Categoría") por pedido de JW: solo texto visible, la columna interna sigue siendo 'sector'.
+			// Etiquetas "Categoría"/"Subcategoría" por pedido de JW: solo texto visible, la columna interna sigue siendo 'sector'.
 			'<tr><th class="ac-sticky-col">Segmento</th><th class="ac-sticky-col ac-sticky-col-2">Categoría</th><th class="ac-sticky-col ac-sticky-col-3">Subcategoría</th><th class="ac-sticky-col ac-sticky-col-4">Marca</th>' +
 			// "($)" solo en canal Directo, Distribuidor mide en Cajas (mismo fix que formatCurr()).
 			months.map(function (m) { return '<th class="ac-text-right">' + m + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)') + '</th>'; }).join('') +
@@ -377,7 +377,7 @@
 			'<th colspan="' + count + '">Cabecera Pago x Mes</th><th rowspan="2" class="ac-th-2l">Pago Total<br>Cajas</th><th rowspan="2"></th></tr>' +
 			'<tr>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '</tr>';
 
-		// Rumas visualmente tiene una columna por mes, pero las celdas están espejadas al mismo valor: el negocio exige "valor_mensual_unico" único.
+		// Rumas tiene una columna por mes visualmente, pero las celdas están espejadas al mismo valor (valor_mensual_unico).
 		rumasHead.innerHTML =
 			'<tr><th rowspan="2" class="ac-sticky-col">Segmento</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-3">Marca</th>' +
 			'<th colspan="' + count + '">Valor Ruma x Mes (se edita en la mini tabla de la derecha)</th><th rowspan="2" class="ac-th-2l">Pago Total<br>Cajas</th><th rowspan="2"></th></tr>' +
@@ -401,12 +401,12 @@
 		addCabeceraRow();
 		addRumaRow();
 		addPerchaRow();
-		// La leyenda "Valor Ruma x Marca x Mes" no se limpia sola, solo se actualiza al cambiar un combo o eliminar una fila (ver addRumaRow()). Sin este llamado quedaba mostrando las filas de la Acta anterior.
+		// La leyenda "Valor Ruma x Marca x Mes" no se limpia sola. Sin este llamado quedaba mostrando filas de la Acta anterior.
 		updateRumaLegend();
 		updateGrandTotals();
 	}
 
-	// Celda con buscador (input visible) + valor real (input oculto, mismo nombre de clase que antes usaba el <select>, sin tocar el resto del código). Ya no es readonly: `inicializarCombo()` sigue sin dejar un valor tipeado sin elegir de verdad, mismo resultado sin el efecto colateral de antes.
+	// Celda con buscador (input visible) + valor real (input oculto). Ya no es readonly: `inicializarCombo()` no deja tipear sin elegir.
 	function comboCellHtml(tipo, placeholder, disabled) {
 		return '<div class="ac-combo ac-combo-cell">' +
 			'<input type="text" class="ac-input ac-mini-input ac-combo-input ' + tipo + '-input" placeholder="' + placeholder + '" autocomplete="off"' + (disabled ? ' disabled' : '') + '>' +
@@ -414,7 +414,7 @@
 			'</div>';
 	}
 
-	// Encadena Segmento -> Categoría -> Marca. Usado por Cabeceras y Rumas (Meta de Compras usa bindCascadaComboConSector, orden distinto). onCambio (opcional) se llama tras cualquier selección; devuelve .sugerir(seg, cat, marca) para aplicar sugerencia sin pisar lo ya elegido.
+	// Encadena Segmento -> Categoría -> Marca, usado por Cabeceras y Rumas. .sugerir(seg, cat, marca) aplica sugerencia sin pisar lo ya elegido.
 	function bindCascadaCombo(tr, onCambio) {
 		var segInput = tr.querySelector('.seg-input'), segHidden = tr.querySelector('.seg-select');
 		var catInput = tr.querySelector('.cat-input'), catHidden = tr.querySelector('.cat-select');
@@ -449,7 +449,7 @@
 		}, aplicarMarca);
 
 		return {
-			// Solo rellena si la fila sigue vacía, nunca pisa una selección que el usuario ya hizo a mano.
+			// Solo rellena si la fila sigue vacía, nunca pisa una selección ya hecha a mano.
 			sugerir: function (segmento, categoria, marca) {
 				if (segHidden.value) return;
 				aplicarSeg(segmento);
@@ -459,7 +459,7 @@
 		};
 	}
 
-	// Encadena Segmento -> Sector -> Categoría -> Marca, solo Meta de Compras: el nombre impreso de cada categoría es "Sector + Categoría + Marca". onMarcaElegida se llama solo cuando la Marca queda con valor real; lo usa Meta de Compras para sugerir en Cabeceras/Rumas/Perchas (sin Sector).
+	// Encadena Segmento -> Sector -> Categoría -> Marca, solo Meta de Compras. onMarcaElegida se llama al completarse la Marca, para sugerir en las demás tablas.
 	function bindCascadaComboConSector(tr, onMarcaElegida) {
 		var segInput = tr.querySelector('.seg-input'), segHidden = tr.querySelector('.seg-select');
 		var sectorInput = tr.querySelector('.sector-input'), sectorHidden = tr.querySelector('.sector-select');
@@ -467,11 +467,11 @@
 		var marcaInput = tr.querySelector('.marca-input'), marcaHidden = tr.querySelector('.marca-select');
 		var rebateInput = tr.querySelector('.ac-rebate-input');
 
-		// Rebate % conectado al repositorio (ver buscarYAplicarRebate): cualquier cambio en la cascada por encima de Marca invalida el % mostrado. `silencioso=true` (usado por sugerir()) lo salta a propósito: restaurar un borrador no debe tocar el rebate_pct ya guardado.
+		// Cualquier cambio por encima de Marca invalida el % mostrado. `silencioso=true` (sugerir()) lo salta: no tocar el rebate_pct guardado.
 		function resetearRebate() {
 			if (!rebateInput) return;
 			rebateInput.value = formatearRebatePct(0);
-			// Bloqueado siempre: este campo nunca se tipea a mano, ni mientras se espera la fila ni cuando el repositorio no tiene el dato (ver buscarYAplicarRebate).
+			// Bloqueado siempre: este campo nunca se tipea a mano, ni mientras espera ni si el repositorio no tiene el dato.
 			rebateInput.readOnly = true;
 			rebateInput.title = '';
 			updatePurchaseRow(tr);
@@ -517,7 +517,7 @@
 		}, aplicarMarca);
 
 		return {
-			// sector es opcional (null al restaurar un borrador); si no viene, se infiere antes de aplicar para seguir la cascada normal.
+			// sector es opcional; si no viene, se infiere antes de aplicar para seguir la cascada normal.
 			sugerir: function (segmento, sector, categoria, marca) {
 				if (segHidden.value) return;
 				if (!sector) sector = inferirSectorDesde(segmento, categoria, marca);
@@ -529,7 +529,7 @@
 		};
 	}
 
-	// Marca de Perchas: lista plana, sin cascada. Participación % conectada al repositorio (ver buscarYAplicarParticipacion): al elegir Marca se busca el % real y se bloquea el campo si hay match. `silencioso=true` lo salta, mismo criterio que Rebate.
+	// Marca de Perchas: lista plana, sin cascada. Al elegir Marca se busca el % real y se bloquea si hay match. `silencioso=true` lo salta.
 	function bindMarcaPerchaCombo(tr) {
 		var marcaInput = tr.querySelector('.marca-input'), marcaHidden = tr.querySelector('.marca-select');
 		function aplicarMarca(value, label, silencioso) {
@@ -550,7 +550,7 @@
 		};
 	}
 
-	// Categoría de Perchas (2026-09-22, pedido explícito): lista plana igual que Marca, SIN encadenar entre sí (a diferencia de Meta de Compras) — el usuario elige las 2 por separado, ninguna filtra a la otra.
+	// Categoría de Perchas: lista plana igual que Marca, sin encadenar entre sí, el usuario elige las 2 por separado.
 	function bindCategoriaPerchaCombo(tr) {
 		var catInput = tr.querySelector('.categoria-input'), catHidden = tr.querySelector('.categoria-select');
 		inicializarCombo(catInput, catHidden, function () {
@@ -558,7 +558,7 @@
 		}, function (value) { catHidden.value = value; catInput.value = value; });
 	}
 
-	// buscarYAplicarParticipacion() busca el % real en repositorio_participacion_percha, clave Ciudad+Marca (Ciudad = Localidad del cliente, o "TODAS" en Distribuidor). Si no hay match, el campo queda editable: nunca bloquea por falta de datos en un repositorio que se sigue poblando.
+	// buscarYAplicarParticipacion() busca el % real, clave Ciudad+Marca (Ciudad = Localidad, o "TODAS" en Distribuidor).
 	function resetearParticipacion(tr) {
 		var input = tr.querySelector('.v-participacion');
 		if (!input) return;
@@ -576,14 +576,14 @@
 		fetch('getters/acuerdo_buscar_participacion.php?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				// La fila puede haber cambiado de Marca mientras esta consulta estaba en vuelo; solo aplica si el combo sigue mostrando la misma Marca.
+				// La fila puede haber cambiado de Marca mientras esta consulta estaba en vuelo; solo aplica si sigue igual.
 				if (tr.querySelector('.marca-select').value !== marca) return;
 				if (data && data.ok && data.encontrado) {
 					input.value = (Math.round(parseFloat(data.participacion_pct) * 100) / 100) + '%';
 					input.readOnly = true;
 					input.title = 'Bloqueado — viene del repositorio de Participación.';
 				} else {
-					// Bloqueado igual sin match, mismo criterio que Rebate: nunca editable a mano, ni mientras el repositorio no tiene el dato.
+					// Bloqueado igual sin match, mismo criterio que Rebate: nunca editable a mano.
 					input.readOnly = true;
 					input.title = 'Bloqueado — todavía no hay Participación % cargada en el repositorio para esta Ciudad/Marca.';
 				}
@@ -591,7 +591,7 @@
 			.catch(function () { /* silencioso: el campo se queda bloqueado en 0 (resetearParticipacion), nunca editable a mano */ });
 	}
 
-	// Al completar Segmento+Categoría+Marca en Meta de Compras, sugiere la misma combinación en la 1ra fila vacía de Cabeceras/Rumas/Perchas. Solo la identidad del producto, nunca los valores en dólares (eso lo sigue tipeando el usuario en cada tabla).
+	// Al completar Meta de Compras, sugiere la misma combinación en la 1ra fila vacía de Cabeceras/Rumas/Perchas, solo identidad.
 	function sugerirEnOtrasTablas(segmento, categoria, marca) {
 		var filaCab = Array.prototype.filter.call(cabecerasBody.querySelectorAll('tr'), function (r) {
 			return !r.querySelector('.seg-select').value;
@@ -609,7 +609,7 @@
 		if (filaPercha && filaPercha._comboMarca) filaPercha._comboMarca.sugerir(marca);
 	}
 
-	// Conecta el Rebate % de Meta de Compras al repositorio self-service, clave Ciudad+Canal+Sector+Categoría+Marca (ver CLAUDE.md "Rebate: rediseño"). Ciudad = Localidad del cliente, excepto en Distribuidor donde siempre usa "TODAS". Si no hay match, deja el campo editable.
+	// Conecta el Rebate % al repositorio, clave Ciudad+Canal+Sector+Categoría+Marca. Ciudad = Localidad, o "TODAS" en Distribuidor.
 	function buscarYAplicarRebate(tr, sector, categoria, marca) {
 		var rebateInput = tr.querySelector('.ac-rebate-input');
 		if (!rebateInput) return;
@@ -619,14 +619,14 @@
 		fetch('getters/acuerdo_buscar_rebate.php?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				// La fila puede haber cambiado de Marca mientras esta consulta estaba en vuelo; solo aplica si el combo sigue mostrando la misma Marca.
+				// La fila puede haber cambiado de Marca mientras esta consulta estaba en vuelo; solo aplica si sigue igual.
 				if (tr.querySelector('.marca-select').value !== marca) return;
 				if (data && data.ok && data.encontrado) {
 					rebateInput.value = formatearRebatePct(parseFloat(data.rebate_pct) * 100);
 					rebateInput.readOnly = true;
 					rebateInput.title = 'Bloqueado — viene del repositorio de Rebate.';
 				} else {
-					// Bloqueado igual sin match: el campo debe quedar siempre bloqueado, sin excepción, aunque falte el dato. Se queda en 0.
+					// Bloqueado igual sin match: siempre bloqueado sin excepción, aunque falte el dato. Se queda en 0.
 					rebateInput.readOnly = true;
 					rebateInput.title = 'Bloqueado — todavía no hay Rebate % cargado en el repositorio para esta combinación.';
 				}
@@ -650,7 +650,7 @@
 		});
 		html +=
 			'<td class="ac-text-right ac-col-highlight ac-tabular total-cell" data-key="total" data-label="Total Período">$0.00</td>' +
-			// Rebate % conectado al repositorio (ver buscarYAplicarRebate): arranca readonly/0 porque la fila todavía no tiene la cascada completa.
+			// Rebate % arranca readonly/0 porque la fila todavía no tiene la cascada completa.
 			'<td class="ac-text-right ac-col-highlight" data-key="rebate" data-label="Rebate %"><input type="text" class="ac-input ac-mini-input ac-rebate-input" value="0.00%" readonly></td>' +
 			'<td class="ac-text-right ac-col-highlight ac-tabular est-cell" data-key="estimado" data-label="Valor Estimado a Ganar">$0.00</td>' +
 			'<td class="ac-text-center" data-key="acciones"><button type="button" class="ac-icon-btn ac-remove-row"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">Eliminar Fila</span></button></td>';
@@ -716,7 +716,7 @@
 		actualizarBloqueoPorDistribuidor();
 	}
 
-	// ---------- Rumas ---------- Celda por mes de solo lectura: el valor se tipea una vez en la leyenda "Valor Ruma x Marca x Mes" (updateRumaLegend) y se replica a esa fila.
+	// ---------- Rumas ---------- celda por mes de solo lectura: el valor se tipea en la leyenda y se replica a esa fila.
 	function addRumaRow() {
 		var tr = document.createElement('tr');
 		var html =
@@ -735,7 +735,7 @@
 		actualizarBloqueoPorDistribuidor();
 	}
 
-	// La leyenda es la única fuente editable, un input por CADA fila de la tabla que ya tenga Marca elegida (ver comentario de addRumaRow). El orden es el mismo que la tabla grande, cada input atado por closure a su fila exacta (no por nombre de Marca), sin desambiguar repetidas.
+	// La leyenda es la única fuente editable, un input por cada fila con Marca elegida, atado por closure a su fila exacta.
 	function updateRumaLegend() {
 		var filasConMarca = Array.prototype.filter.call(rumasBody.querySelectorAll('tr'), function (r) {
 			return !!r.querySelector('.marca-select').value;
@@ -770,7 +770,7 @@
 		var html =
 			'<td class="ac-sticky-col" data-key="marca" data-label="Marca Perchas">' + comboCellHtml('marca', 'Marca...', false) + '</td>' +
 			'<td class="ac-sticky-col ac-sticky-col-2" data-key="categoria" data-label="Categoría">' + comboCellHtml('categoria', 'Categoría...', false) + '</td>' +
-			// Participación conectada al repositorio (ver buscarYAplicarParticipacion): arranca readonly/0%, mismo patrón que el Rebate % de Meta de Compras.
+			// Participación arranca readonly/0%, mismo patrón que el Rebate % de Meta de Compras.
 			'<td data-key="participacion" data-label="Participación"><input type="text" class="ac-input ac-mini-input v-participacion" value="0%" readonly></td>' +
 			'<td data-key="cantidad" data-label="Max Percha"><input type="number" min="0" max="5" class="ac-input ac-mini-input v-cantidad" value="1"></td>';
 		activeMonthsIndices.forEach(function (mIdx) {
@@ -800,7 +800,7 @@
 		row.querySelector('.ac-remove-row').addEventListener('click', function () { marcarSucio(); row.remove(); });
 	}
 
-	// Vuelve las 3 tablas de "Visibilidad y Espacios" a una fila vacía cada una: se llama al desactivar el switch, para no dejar datos "atrapados" detrás del bloqueo visual (ya no se mandan, ver guardar_acuerdo.php $sinVisibilidad, pero es más honesto no dejarlos ahí).
+	// Vuelve las 3 tablas de "Visibilidad y Espacios" a una fila vacía al desactivar el switch, para no dejar datos atrapados.
 	function resetearZonaVisibilidad() {
 		cabecerasBody.innerHTML = '';
 		rumasBody.innerHTML = '';
@@ -811,7 +811,7 @@
 		updateRumaLegend();
 	}
 
-	// El ícono del título refuerza el estado del switch a simple vista (heurística "reconocimiento en vez de recuerdo": un switch solo no dice qué activa).
+	// El ícono del título refuerza el estado del switch a simple vista: un switch solo no dice qué activa.
 	function aplicarBloqueoVisibilidad() {
 		visibilidadZona.classList.toggle('ac-zona-bloqueada', !visibilidadActiva);
 		visibilidadIcon.textContent = visibilidadActiva ? 'visibility' : 'visibility_off';
@@ -847,7 +847,7 @@
 		});
 
 		var ruma = Array.prototype.map.call(rumasBody.querySelectorAll('tr'), function (r) {
-			// Las celdas .v-val-repetido están todas espejadas al mismo valor (ver addRumaRow), cualquiera sirve como fuente única.
+			// Las celdas .v-val-repetido están todas espejadas al mismo valor, cualquiera sirve como fuente única.
 			var repetidos = r.querySelectorAll('.v-val-repetido');
 			return {
 				segmento: r.querySelector('.seg-select').value,
@@ -871,7 +871,7 @@
 		return { meta_compra: metaCompra, cabecera: cabecera, ruma: ruma, percha: percha };
 	}
 
-	// Detecta combos donde el usuario tipeó texto pero nunca eligió una opción real: el input visible muestra texto pero el hidden queda vacío, y guardar_acuerdo.php descartaría la fila en silencio. Todos comparten la estructura ".ac-combo > .ac-combo-input + input[hidden]".
+	// Detecta combos con texto tipeado pero sin opción elegida: el hidden queda vacío, y guardar_acuerdo.php descartaría la fila.
 	function encontrarSpinnersSinConfirmar() {
 		return Array.prototype.filter.call(acuerdoContainer.querySelectorAll('.ac-combo'), function (combo) {
 			var input = combo.querySelector('.ac-combo-input');
@@ -880,7 +880,7 @@
 		}).map(function (combo) { return combo.querySelector('.ac-combo-input'); });
 	}
 
-	// Etiqueta legible para el toast de "campo sin confirmar": segunda capa de seguridad además del blur de inicializarCombo(), por si algún flujo raro llega a guardar sin pasar por ese blur, para ubicar el campo exacto en vez de un mensaje genérico.
+	// Etiqueta legible para el toast de "campo sin confirmar": segunda capa de seguridad, para ubicar el campo exacto.
 	function describirCampoCombo(input) {
 		if (input === distribuidorSearch) return etiquetaCampoLocal();
 		if (input === empresaSearch) return 'Distribuidor';
@@ -894,7 +894,7 @@
 		var tbody = input.closest('tbody');
 		var etiquetaTabla = tbody && tablaPorId[tbody.id];
 
-		// Meta de Compras usa "Categoría"/"Subcategoría" (nomenclatura de JW) para sector-input/cat-input; las demás tablas siguen con "Categoría".
+		// Meta de Compras usa "Categoría"/"Subcategoría" (nomenclatura de JW); las demás tablas siguen con "Categoría".
 		var tipoPorClase = etiquetaTabla === 'Meta de Compras'
 			? { 'seg-input': 'Segmento', 'sector-input': 'Categoría', 'cat-input': 'Subcategoría', 'marca-input': 'Marca' }
 			: { 'seg-input': 'Segmento', 'sector-input': 'Sector', 'cat-input': 'Categoría', 'marca-input': 'Marca' };
@@ -996,9 +996,9 @@
 				acuerdoId = data.acuerdo_id;
 				documentoNo = data.documento_no;
 				formSucio = false;
-				// Solo tiene sentido limpiar `origenPrecarga` cuando el guardado que se consolida es el final ('generado'), nunca en un "Guardar Borrador" intermedio: si no, guardar_acuerdo.php nunca marcaba esas filas como 'usada' (bug real confirmado).
+				// Solo limpiar `origenPrecarga` cuando el guardado es el final ('generado'), nunca en un "Guardar Borrador" intermedio.
 				if (estado === 'generado') origenPrecarga = null;
-				// Con onOk, el llamador muestra su propio mensaje de éxito (más específico, ej. "PDF generado") — mostrar acá también el genérico del backend duplicaba la alerta (bug real reportado). Sin onOk (Guardar Borrador), el genérico sigue siendo la única confirmación.
+				// Con onOk, el llamador muestra su propio mensaje de éxito; mostrar acá también el genérico duplicaba la alerta.
 				if (onOk) onOk(); else mostrarMensaje(data.message, true);
 			})
 			.catch(function () { mostrarMensaje('Error de conexión. Intenta nuevamente.', false); })
@@ -1037,17 +1037,20 @@
 
 	// Móvil real: mismo arreglo de PDF.js que Historial, ver pdf-preview.js — zoom +/- pasa directo como zoomPct.
 	function esMovilAngosto() { return window.matchMedia('(max-width: 760px)').matches; }
-	function aplicarZoom() {
+	// ajustarAlAbrir: solo al abrir, ajusta al ancho del panel en vez de forzar 100% (desbordaba en mobile).
+	function aplicarZoom(ajustarAlAbrir) {
 		if (!pdfUrlActual) return;
-		actualizarZoomLabel();
 		if (esMovilAngosto()) {
 			actaPdfFrame.classList.add('hidden');
 			actaCanvasWrap.classList.remove('hidden');
 			actaCanvasEstado.textContent = 'Cargando vista previa…';
 			actaCanvasEstado.classList.remove('hidden');
 			actaCanvas.classList.add('hidden');
-			window.acRenderizarPdfEnCanvas(pdfUrlActual, actaCanvas, { zoomPct: zoomActual })
-				.then(function () {
+			if (!ajustarAlAbrir) actualizarZoomLabel();
+			var opciones = ajustarAlAbrir ? { contenedor: actaCanvasWrap } : { zoomPct: zoomActual };
+			window.acRenderizarPdfEnCanvas(pdfUrlActual, actaCanvas, opciones)
+				.then(function (resultado) {
+					if (ajustarAlAbrir && resultado && resultado.zoomPct) { zoomActual = resultado.zoomPct; actualizarZoomLabel(); }
 					actaCanvasEstado.classList.add('hidden');
 					actaCanvas.classList.remove('hidden');
 				})
@@ -1056,9 +1059,10 @@
 				});
 			return;
 		}
+		actualizarZoomLabel();
 		actaCanvasWrap.classList.add('hidden');
 		actaPdfFrame.classList.remove('hidden');
-		// #toolbar=0&navpanes=0 oculta la barra del visor nativo (ya tenemos nuestros botones), funciona igual con blob: URL que con URL normal. Reasignar iframe.src solo cambiando el #fragment no dispara recarga real (el navegador lo trata como salto de ancla), por eso pasa por about:blank.
+		// #toolbar=0&navpanes=0 oculta la barra del visor nativo. Cambiar solo el #fragment no recarga (es un salto de ancla), por eso pasa por about:blank.
 		actaPdfFrame.src = 'about:blank';
 		window.setTimeout(function () {
 			actaPdfFrame.src = pdfUrlActual + '#toolbar=0&navpanes=0&zoom=' + zoomActual;
@@ -1081,13 +1085,13 @@
 		actaDescargarBtn.removeAttribute('aria-disabled');
 	}
 
-	// "Previsualización" no guarda nada en la base: arma el PDF al vuelo desde lo que hay en pantalla y lo muestra como blob: URL. Corre las mismas validaciones que guardarAcuerdo, pero sin exigir ninguna línea real (previsualizar algo incompleto es válido).
+	// "Previsualización" no guarda nada: arma el PDF al vuelo y lo muestra como blob: URL. Corre las mismas validaciones sin exigir líneas reales.
 	var generarActaBtn = document.getElementById('ac-generar-acta');
 
 	function mostrarPreview() {
 		if (!validarCabecera('borrador')) return;
 
-		// Feedback de carga: armar el PDF con Dompdf tarda un momento, sin esto el usuario clickeaba varias veces pensando que estaba colgado. acMostrarCargandoPantalla() usa un overlay fijo centrado en la pantalla (acMostrarCargando(acuerdoContainer) quedaba fuera de vista, el form es muy alto).
+		// Feedback de carga: sin esto el usuario clickeaba varias veces pensando que estaba colgado. Overlay fijo, el form es muy alto.
 		acBotonCargando(generarActaBtn, true);
 		acMostrarCargandoPantalla('Generando la vista previa del Acta');
 
@@ -1123,7 +1127,7 @@
 				zoomActual = 100;
 				pdfGenerado = false;
 				deshabilitarDescarga();
-				aplicarZoom();
+				aplicarZoom(true);
 				actaModalOverlay.classList.add('ac-modal-open');
 			})
 			.catch(function () { mostrarMensaje('No se pudo armar la vista previa. Intenta nuevamente.', false); })
@@ -1133,7 +1137,7 @@
 			});
 	}
 
-	// Deja el formulario listo para el siguiente Acuerdo: el usuario puede estar registrando muchos PDV seguidos, sin arrastrar datos del anterior.
+	// Deja el formulario listo para el siguiente Acuerdo, sin arrastrar datos del anterior.
 	function limpiarFormularioParaNuevoAcuerdo() {
 		acuerdoId = null;
 		documentoNo = null;
@@ -1151,14 +1155,14 @@
 		visibilidadActiva = true;
 		visibilidadToggle.checked = true;
 		aplicarBloqueoVisibilidad();
-		// "Agregar Fila" pudo quedar bloqueado por una Acta precargada anterior (ver bloquearFilasPrecargadas()); el siguiente Acuerdo empieza limpio.
+		// "Agregar Fila" pudo quedar bloqueado por una Acta precargada anterior; el siguiente Acuerdo empieza limpio.
 		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
 		if (btnAgregarPurchase) { btnAgregarPurchase.disabled = false; btnAgregarPurchase.title = ''; }
 		desbloquearAgregarOtrasTablas();
 		formSucio = false;
 	}
 
-	// Acá es donde de verdad se "genera": crea el acuerdo como 'generado' (snapshot del PDF, ver guardar_acuerdo.php). Previsualización no toca la base.
+	// Acá se "genera" de verdad: crea el acuerdo como 'generado' con snapshot del PDF. Previsualización no toca la base.
 	actaGenerarBtn.addEventListener('click', function () {
 		guardarAcuerdo('generado', function () {
 			pdfGenerado = true;
@@ -1188,7 +1192,7 @@
 		if (e.target === actaModalOverlay) cerrarModalActa();
 	});
 
-	// "Agregar Fila" en Meta de Compras agrega también una fila vacía en Cabeceras/Rumas/Perchas, lista para la sugerencia (ver sugerirEnOtrasTablas). Los botones de las otras 3 tablas siguen agregando solo ahí, para cuando el usuario necesita una fila extra en una sola tabla.
+	// "Agregar Fila" en Meta de Compras agrega también una fila vacía en las otras 3 tablas, lista para la sugerencia.
 	document.getElementById('ac-add-purchase-row').addEventListener('click', function () {
 		marcarSucio();
 		addPurchaseRow();
@@ -1200,7 +1204,7 @@
 	document.getElementById('ac-add-ruma-row').addEventListener('click', function () { marcarSucio(); addRumaRow(); });
 	document.getElementById('ac-add-percha-row').addEventListener('click', function () { marcarSucio(); addPerchaRow(); });
 
-	// ---------- Mis Borradores ---------- input event sintético: las filas se llenan seteando .value por código (no tipeando), lo que no dispara 'input'; reusa el recálculo existente.
+	// ---------- Mis Borradores ---------- input event sintético: setear .value por código no dispara 'input'; reusa el recálculo existente.
 	function dispararInput(el) {
 		if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
 	}
@@ -1212,7 +1216,7 @@
 		});
 	}
 
-	// Reconstruye las 4 tablas desde las líneas guardadas, en vez de la fila vacía única de syncTables(). Para Actas viejas sin Sector persistido, `fila.sector` viene null y sugerir() lo sigue infiriendo solo (fallback de compatibilidad).
+	// Reconstruye las 4 tablas desde las líneas guardadas. Para Actas viejas sin Sector, `fila.sector` viene null y sugerir() lo infiere.
 	function poblarTablasConLineas(lineas) {
 		renderTableHeaders();
 		purchaseBody.innerHTML = '';
@@ -1341,14 +1345,14 @@
 			.catch(function () { mostrarMensaje('Error de conexión al cargar el borrador.', false); });
 	}
 
-	// Deja readonly/disabled las celdas de cada fila de Meta de Compras poblada por una precarga: Segmento/Categoría(sector) y los 3 montos siempre bloqueados; Subcategoría/Marca solo si vinieron resueltas del historial. `lineasMeta` y `purchaseBody` están en el mismo orden.
+	// Deja readonly las celdas de Meta de Compras precargada: Segmento/Sector y montos siempre; Subcategoría/Marca solo si vinieron resueltas.
 	function bloquearFilasPrecargadas(lineasMeta) {
 		var filas = purchaseBody.querySelectorAll('tr');
 		Array.prototype.forEach.call(filas, function (tr, i) {
 			var fila = lineasMeta[i];
 			if (!fila || !fila.bloqueado) return;
 			Array.prototype.forEach.call(tr.querySelectorAll('.month-input'), function (inp) { inp.readOnly = true; });
-			// Segmento/Sector solo se bloquean si vinieron resueltos: si quedó ambiguo (ver obtener_precarga_detalle()), la fila sigue el cascade normal, si no bloquearla la dejaría trabada para siempre sin forma de completarla.
+			// Segmento/Sector solo se bloquean si vinieron resueltos: si quedó ambiguo, la fila sigue el cascade normal.
 			if (fila.segmento) {
 				tr.querySelector('.seg-input').disabled = true;
 				tr.querySelector('.seg-input').classList.add('ac-combo-input-precargado');
@@ -1363,16 +1367,16 @@
 				tr.querySelector('.marca-input').disabled = true;
 				tr.querySelector('.marca-input').classList.add('ac-combo-input-precargado');
 			}
-			// La fila no debe poder eliminarse: la Acta precargada es una estructura fija que el asesor solo completa. Se deshabilita el botón en vez de sacarlo del DOM para no tocar el resto del layout.
+			// La fila no debe poder eliminarse: se deshabilita el botón en vez de sacarlo del DOM para no tocar el layout.
 			var btnEliminar = tr.querySelector('.ac-remove-row');
 			if (btnEliminar) { btnEliminar.disabled = true; btnEliminar.title = 'Esta fila viene de una Acta precargada — no se puede quitar'; }
 		});
-		// "Agregar Fila" de Meta de Compras también se bloquea: la tabla es fija mientras la Acta vino de una precarga, el asesor solo completa.
+		// "Agregar Fila" de Meta de Compras también se bloquea: la tabla es fija cuando la Acta vino de una precarga.
 		var btnAgregar = document.getElementById('ac-add-purchase-row');
 		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta viene de una precarga — la tabla de Meta de Compras es fija'; }
 	}
 
-	// Cabeceras/Rumas/Perchas no vienen en el Excel de Cuotas, no hay nada que autocompletar. Se dejan tantas filas vacías como Meta de Compras trajo (para no clickear "Agregar Fila" una por una); a diferencia de Meta de Compras, acá "Eliminar Fila" sigue habilitado.
+	// Cabeceras/Rumas/Perchas no vienen en el Excel de Cuotas: se dejan tantas filas vacías como Meta de Compras trajo, con "Eliminar Fila" habilitado.
 	function generarFilasVaciasOtrasTablas(cantidadLineasMeta) {
 		var cantidad = cantidadLineasMeta > 0 ? cantidadLineasMeta : 1;
 		for (var i = cabecerasBody.querySelectorAll('tr').length; i < cantidad; i++) addCabeceraRow();
@@ -1380,7 +1384,7 @@
 		for (var k = perchasBody.querySelectorAll('tr').length; k < cantidad; k++) addPerchaRow();
 	}
 
-	// Mismo criterio que bloquearFilasPrecargadas() pero para las filas espejo de Cabeceras/Rumas/Perchas: la fila i corresponde a la línea i de Meta de Compras (mismo orden/conteo). Si esa línea trajo Segmento+Subcategoría+Marca resueltos, se copia y bloquea; si no, cascade normal.
+	// Mismo criterio que bloquearFilasPrecargadas() para las filas espejo: la fila i corresponde a la línea i de Meta de Compras.
 	function espejarIdentidadOtrasTablas(lineasMeta) {
 		var filasCab = cabecerasBody.querySelectorAll('tr');
 		var filasRuma = rumasBody.querySelectorAll('tr');
@@ -1401,7 +1405,7 @@
 				trPercha._comboMarca.sugerir(fila.marca);
 				var marcaInput = trPercha.querySelector('.marca-input');
 				if (marcaInput) { marcaInput.disabled = true; marcaInput.classList.add('ac-combo-input-precargado'); }
-				// A diferencia de restaurar un borrador (donde `sugerir()` no pisa una Participación ya guardada), acá la fila es nueva: se busca en vivo el % real del repositorio, igual que si el asesor hubiera elegido la Marca a mano.
+				// A diferencia de restaurar un borrador, acá la fila es nueva: se busca en vivo el % real, igual que si el asesor eligiera a mano.
 				buscarYAplicarParticipacion(trPercha, fila.marca);
 			}
 		});
@@ -1464,7 +1468,7 @@
 		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(p.lineas);
-		// Orden importa: generarFilasVaciasOtrasTablas() termina en actualizarBloqueoPorDistribuidor() (rehabilita todos los .seg-input), así que bloquearFilasPrecargadas() debe ir DESPUÉS de generar filas o desharía el bloqueo de Segmento en Meta de Compras.
+		// Orden importa: generarFilasVaciasOtrasTablas() rehabilita todos los .seg-input, así que bloquearFilasPrecargadas() va después.
 		generarFilasVaciasOtrasTablas(p.lineas.meta_compra.length);
 		bloquearFilasPrecargadas(p.lineas.meta_compra);
 		espejarIdentidadOtrasTablas(p.lineas.meta_compra);
@@ -1492,7 +1496,7 @@
 	// El modal "Mis Borradores" vive en Historial, pero cargar un borrador solo lo puede hacer este módulo (el estado de las 4 tablas vive acá).
 	window.acRegistrarCargarBorrador = cargarBorrador;
 
-	// ---------- Switch de canal para superdesarrollador sin cartera propia (ver esModoAdminSinCartera() en registrar.php) ---------- La mayoría del layout (título, badge, labels, "1. Meta de Compras en Cajas/Dólares", etc.) se arma server-side a partir de CANAL_USUARIO — recalcular todo eso en JS duplicaría demasiado texto/HTML ya existente en PHP. Más simple y sin riesgo: guardar la elección en sesión y recargar la página completa, mismo criterio que ya usa esta app ("todo se renderiza una vez al entrar").
+	// ---------- Switch de canal para superdesarrollador sin cartera propia ---------- se guarda en sesión y se recarga la página, para no duplicar en JS lo que ya arma PHP server-side.
 	var canalAdminGroup = document.getElementById('ac-canal-admin-group');
 	if (canalAdminGroup) {
 		function cambiarCanalAdmin(canal) {
@@ -1511,7 +1515,7 @@
 		Array.prototype.forEach.call(canalAdminGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
 			btn.addEventListener('click', function () {
 				if (btn.classList.contains('ac-seg-pill-activo')) return;
-				// El bloqueo duro de antes ("Guarda o descarta los cambios...") no daba ninguna pista de QUÉ había que guardar/descartar — confuso cuando el usuario no recuerda haber tocado nada. Reemplazado por una confirmación real (mismo componente que ya usa el resto de la app para "esto puede perder datos"): explica la consecuencia real (recarga la página, se pierde lo no guardado) y deja seguir con un solo click, sin tener que ir a buscar qué campo "ensució" el formulario.
+				// Confirmación real (mismo componente que "esto puede perder datos"): explica la consecuencia y deja seguir con un click.
 				if (!formSucio) { cambiarCanalAdmin(btn.dataset.canal); return; }
 				Swal.fire({
 					icon: 'warning',

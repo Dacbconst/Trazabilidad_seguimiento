@@ -1,0 +1,291 @@
+/* ---------- Flujo de evidencia fotográfica en escritorio (desktop photo studio) ---------- */
+
+/* Tarjeta / Banner de Paso 2 en el Formulario Desktop */
+.ep-desktop-flow-status-pill {
+	font-size: 10.5px;
+	font-weight: 700;
+	padding: 2px 7px;
+	border-radius: 999px;
+}
+.ep-desktop-flow-status-pill.pendiente {
+	background: #FFF4E5;
+	color: #B25E00;
+}
+.ep-desktop-flow-status-pill.completado {
+	background: #E7F7ED;
+	color: #137A3E;
+}
+.ep-desktop-flow-meter-wrap {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 2px;
+}
+.ep-desktop-flow-meter-track {
+	width: 120px;
+	height: 5px;
+	background: #DCE4F2;
+	border-radius: 999px;
+	overflow: hidden;
+}
+.ep-desktop-flow-meter-bar {
+	height: 100%;
+	background: #0B1863;
+	border-radius: 999px;
+	transition: width 0.3s ease, background-color 0.3s ease;
+}
+.ep-desktop-flow-meter-lbl {
+	font-size: 11px;
+	font-weight: 600;
+	color: #475569;
+}
+.ep-btn-desktop-start-wizard {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	height: 38px;
+	padding: 0 16px;
+	border-radius: 8px;
+	border: 1px solid #0B1863;
+	background: linear-gradient(180deg, #13247D 0%, #0B1863 100%);
+	color: #FFFFFF;
+	font-family: 'Sora', sans-serif;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+	white-space: nowrap;
+	box-shadow: 0 2px 8px rgba(11, 24, 99, 0.25);
+	flex-shrink: 0;
+}
+.ep-btn-desktop-start-wizard:hover {
+	background: linear-gradient(180deg, #1A31A8 0%, #0E1E7A 100%);
+	box-shadow: 0 4px 14px rgba(11, 24, 99, 0.35);
+	transform: translateY(-1px);
+}
+.ep-btn-desktop-start-wizard:active {
+	transform: translateY(0);
+}
+
+/* Botón asistente dentro de la cabecera del bloque inferior */
+.ep-btn-reabrir-wizard-desktop {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 28px;
+	padding: 0 10px;
+	border-radius: 6px;
+	border: 1px solid #CFDBEE;
+	background: #FFFFFF;
+	color: #0B1863;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.12s ease;
+}
+.ep-btn-reabrir-wizard-desktop:hover {
+	background: #0B1863;
+	color: #FFFFFF;
+	border-color: #0B1863;
+}
+
+/* Ocultar elementos de desktop en móvil */
+@media (max-width: 900px) {
+	.ep-btn-reabrir-wizard-desktop {
+		display: none !important;
+	}
+	.ep-wizard-sidebar-checklist {
+		display: none !important;
+	}
+	.ep-wizard-desktop-tag {
+		display: none !important;
+	}
+}
+
+/* Transformación de Wizard a Desktop Photo Studio (> 900px) */
+@media (min-width: 901px) {
+	.ep-form-acciones-movil {
+		display: none !important;
+	}
+	.ep-wizard-sheet {
+		max-width: 880px;
+		border-radius: 16px;
+		box-shadow: 0 24px 60px rgba(11, 24, 99, 0.3);
+	}
+	.ep-wizard-desktop-tag {
+		display: inline-flex;
+		align-items: center;
+		font-size: 11px;
+		font-weight: 700;
+		color: #0B1863;
+		background: #EBF1FD;
+		padding: 3px 8px;
+		border-radius: 5px;
+	}
+	.ep-wizard-head-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.ep-wizard-main-grid {
+		display: grid;
+		grid-template-columns: 290px 1fr;
+		min-height: 440px;
+	}
+	.ep-wizard-sidebar-checklist {
+		display: flex;
+		flex-direction: column;
+		background: #FAFBFD;
+		border-right: 1px solid #E9EFF9;
+		padding: 16px;
+		gap: 12px;
+	}
+	.ep-wizard-sidebar-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		font-weight: 700;
+		color: #64748B;
+		padding-bottom: 6px;
+		border-bottom: 1px solid #EDF2FA;
+	}
+	.ep-wizard-sidebar-count {
+		font-size: 10.5px;
+		font-weight: 700;
+		color: #0B1863;
+		background: #EBF1FD;
+		padding: 1px 6px;
+		border-radius: 4px;
+	}
+	.ep-wizard-sidebar-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		overflow-y: auto;
+		max-height: 330px;
+		padding-right: 2px;
+	}
+	.ep-wizard-sidebar-item {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 9px 11px;
+		border-radius: 8px;
+		border: 1.5px solid transparent;
+		background: #FFFFFF;
+		cursor: pointer;
+		transition: all 0.14s ease;
+		user-select: none;
+	}
+	.ep-wizard-sidebar-item:hover {
+		background: #F1F5FD;
+		border-color: #D2E0F5;
+	}
+	.ep-wizard-sidebar-item.activo {
+		border-color: #0B1863;
+		background: #EFF4FD;
+		box-shadow: 0 2px 6px rgba(11, 24, 99, 0.08);
+	}
+	.ep-wizard-sidebar-item.completado {
+		background: #FFFFFF;
+	}
+	.ep-wizard-sidebar-num {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: #E2E8F4;
+		color: #475569;
+		font-size: 11px;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: all 0.15s ease;
+	}
+	.ep-wizard-sidebar-item.activo .ep-wizard-sidebar-num {
+		background: #0B1863;
+		color: #FFFFFF;
+	}
+	.ep-wizard-sidebar-item.completado .ep-wizard-sidebar-num {
+		background: #137A3E;
+		color: #FFFFFF;
+	}
+	.ep-wizard-sidebar-item-info {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.ep-wizard-sidebar-item-info strong {
+		font-size: 11.5px;
+		font-weight: 700;
+		color: var(--color-ink);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.ep-wizard-sidebar-item-info span {
+		font-size: 10px;
+		color: var(--color-text-muted);
+	}
+	.ep-wizard-sidebar-item.completado .ep-wizard-sidebar-item-info span {
+		color: #137A3E;
+		font-weight: 600;
+	}
+	.ep-wizard-sidebar-hint {
+		margin-top: auto;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 10px;
+		border-radius: 6px;
+		background: #F1F4FA;
+		font-size: 10.5px;
+		color: #64748B;
+		line-height: 1.3;
+	}
+	.ep-wizard-body {
+		padding: 20px 24px 16px;
+	}
+	.ep-wizard-visor {
+		aspect-ratio: 16 / 10;
+		max-height: 300px;
+	}
+}
+
+/* Efectos Drag & Drop visuales */
+.ep-wizard-visor.drag-active {
+	border-color: #0B1863 !important;
+	background: #EBF1FD !important;
+	border-style: solid !important;
+	box-shadow: 0 0 0 4px rgba(11, 24, 99, 0.15);
+	transform: scale(1.01);
+}
+.ep-foto-dropzone.drag-active {
+	border-color: #0B1863 !important;
+	background: #EBF1FD !important;
+	border-style: solid !important;
+	box-shadow: 0 0 0 3px rgba(11, 24, 99, 0.12);
+}
+
+/* Móvil: la evidencia se sube solo con el asistente; la grilla de casillas aparece recién cuando ya están todas las fotos */
+@media (max-width: 900px) {
+	.ep-evidencia-actividad:not(.ep-evidencia-completa) .ep-evidencia-grid-panoramica {
+		display: none;
+	}
+	.ep-evidencia-actividad:not(.ep-evidencia-completa) .ep-btn-desktop-start-wizard {
+		height: 52px;
+		font-size: 14px;
+	}
+	.ep-evidencia-actividad.ep-evidencia-completa .ep-btn-desktop-start-wizard {
+		display: none;
+	}
+}
+
+/* Validador de envío: campo o foto que falta */
+.ep-campo-error { border-color: #C0392B !important; box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.15) !important; }
+.ep-foto-error .ep-foto-dropzone { border-color: #C0392B !important; background: #FDF3F2 !important; }
+

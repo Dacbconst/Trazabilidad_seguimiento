@@ -61,11 +61,8 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				<button type="button" class="ac-seg-pill" data-canal="distribuidor">Distribuidor</button>
 			</div>
 			<div class="ac-repo-actions">
-				<!-- Oculto a pedido explícito (2026-09-17) — mismo criterio que
-				     "Eliminados"/"Pendientes de Asignar": mecanismo intacto
-				     (CSV/Excel, animación expand-in-place), solo se saca de la
-				     vista. Para reactivarlo: sacar la clase `hidden`. -->
-				<div class="ac-repo-exportar hidden" id="repo-exportar-wrap">
+				<!-- Reactivado 2026-09-24, pedido explícito. -->
+				<div class="ac-repo-exportar" id="repo-exportar-wrap">
 					<button type="button" class="ac-btn-outline ac-btn-inline ac-repo-exportar-btn" id="repo-exportar-btn">
 						<span class="material-symbols-outlined">download</span>
 						Exportar

@@ -1,0 +1,56 @@
+/* ============ Reportes mensuales ============ */
+.ep-rp { display: flex; flex-direction: column; gap: 16px; }
+.ep-rp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ep-rp-head h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--color-primary); }
+.ep-rp-head p { margin: 2px 0 0; font-size: 13px; color: var(--color-text-muted); max-width: 640px; }
+.ep-rp-lista { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; }
+.ep-rp-vacio { padding: 40px 20px; text-align: center; color: var(--color-text-muted); font-size: 13px; }
+.ep-rp-fila { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #EDF1F8; font-size: 13px; }
+.ep-rp-fila:last-child { border-bottom: none; }
+.ep-rp-fila small { display: block; font-size: 11px; color: var(--color-text-muted); }
+.ep-rp-fila-cab { background: #F7F9FE; font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--color-text-muted); padding-top: 10px; padding-bottom: 10px; }
+.ep-rp-acciones { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.ep-rp-quitar { width: 30px; height: 30px; border: 1px solid var(--color-border); border-radius: 8px; background: #fff; color: var(--color-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.ep-rp-quitar:hover { color: #C0392B; border-color: #C0392B; }
+
+.ep-rp-paso { padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; }
+.ep-rp-paso.hidden { display: none; }
+.ep-rp-prev { max-width: 100%; max-height: 240px; margin-top: 10px; border-radius: 8px; border: 1px solid var(--color-border); object-fit: contain; align-self: flex-start; }
+.ep-rp-prev.hidden { display: none; }
+.ep-rp-nota { font-size: 12px; color: var(--color-text-muted); margin: 10px 0 0; }
+.ep-rp-sel-barra { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+.ep-rp-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+.ep-rp-registros { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 10px; max-height: 42dvh; overflow-y: auto; }
+.ep-rp-reg { display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1.4fr) 64px; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid #EDF1F8; font-size: 13px; cursor: pointer; }
+.ep-rp-reg:last-child { border-bottom: none; }
+.ep-rp-reg:hover { background: #F8FAFE; }
+.ep-rp-reg small { color: var(--color-text-muted); }
+.ep-rp-reg-n { text-align: right; color: var(--color-text-muted); font-size: 12px; }
+
+@media (max-width: 900px) {
+	.ep-rp-fila { grid-template-columns: minmax(0, 1fr) auto; }
+	.ep-rp-fila > div:nth-child(2), .ep-rp-fila > div:nth-child(3), .ep-rp-fila > div:nth-child(4) { grid-column: 1; font-size: 12px; color: var(--color-text-muted); }
+	.ep-rp-fila > .ep-rp-acciones { grid-column: 2; grid-row: 1 / span 4; }
+	.ep-rp-fila-cab { display: none; }
+}
+
+/* Reportes: asistente con el diseño de la ventana PPT + dropzone del calendario */
+.ep-rp-dialog { width: min(680px, calc(100vw - 32px)); }
+.ep-rp-stepper { display: flex; gap: 8px; list-style: none; margin: 0 0 16px; padding: 0; }
+.ep-rp-step { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #F4F6FB; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.ep-rp-step span { width: 20px; height: 20px; border-radius: 50%; background: #D5DDEE; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
+.ep-rp-step.activo { background: #EEF3FF; color: var(--color-primary); }
+.ep-rp-step.activo span { background: var(--color-primary); }
+.ep-rp-step.hecho span { background: #137A3E; }
+.ep-rp-drop { aspect-ratio: auto; min-height: 200px; width: 100%; }
+.ep-rp-drop .ep-foto-preview { object-fit: contain; background: #fff; }
+.ep-rp-drop-sub { font-size: 11px; font-weight: 400; color: var(--color-text-muted); }
+.ep-rp-quitar-foto { margin-top: 8px; align-self: flex-start; border: none; background: none; color: var(--color-primary); font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; }
+.ep-rp-quitar-foto.hidden { display: none; }
+
+.ep-rp-paso .ep-ppt-form-group { margin-bottom: 16px; }
+/* Ventanas de aviso (SweetAlert2) con la tipografía y esquinas de la app */
+.swal2-popup { border-radius: 14px; font-family: "IBM Plex Sans", sans-serif; }
+.swal2-title { font-family: "Sora", sans-serif; font-size: 20px; color: var(--color-ink); }
+.swal2-styled.swal2-confirm { border-radius: 8px; font-weight: 600; }
+.swal2-styled.swal2-cancel { border-radius: 8px; }

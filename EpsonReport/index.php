@@ -35,7 +35,9 @@ if (!isset($secciones[$vista])) {
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>EpsonReport</title>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-	<link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__.'/assets/css/style.css') ?>">
+	<?php foreach (['base', 'shell', 'actividades', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'historial', 'reportes'] as $hoja): ?>
+	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
+	<?php endforeach; ?>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
 </head>
 <body>

@@ -40,7 +40,10 @@
 				canvas.height = viewport.height;
 				canvas.style.width = (viewport.width / dpr) + 'px';
 				canvas.style.height = (viewport.height / dpr) + 'px';
-				return page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+				// % real resultante, para cuando se ajustó a ancho sin zoomPct fijo.
+				var zoomPctResultante = Math.round((escala / dpr) * 100);
+				return page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise
+					.then(function () { return { zoomPct: zoomPctResultante }; });
 			});
 	}
 
