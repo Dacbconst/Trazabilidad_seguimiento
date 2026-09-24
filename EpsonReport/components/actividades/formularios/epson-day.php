@@ -1,9 +1,11 @@
 <!-- Igual que Activaciones pero sin paso de Cumplimiento (no está en el Excel de Epson Day). IDs con prefijo ep-eday- para no chocar con Activaciones. -->
 <div class="ep-steps">
 
+	<?php $epPrefijo = 'eday'; $epNumero = 1; $epEtiquetaTipo = 'Nombre de la actividad'; $epEjemploTipo = 'Ej. Impulso'; include __DIR__.'/../compartidos/paso_datos_actividad.php'; ?>
+
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">1</div>
+			<div class="ep-step-num">2</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -24,7 +26,7 @@
 
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">2</div>
+			<div class="ep-step-num">3</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -51,7 +53,7 @@
 
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">3</div>
+			<div class="ep-step-num">4</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -70,7 +72,7 @@
 
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">4</div>
+			<div class="ep-step-num">5</div>
 		</div>
 		<div class="ep-step-body">
 			<h3 class="ep-step-title">Comentarios</h3>

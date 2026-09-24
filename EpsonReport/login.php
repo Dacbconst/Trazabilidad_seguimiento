@@ -19,15 +19,6 @@ $mensajesError = [
 $error = isset($_GET['error']) ? ($mensajesError[$_GET['error']] ?? 'Usuario o contraseña incorrectos.') : '';
 $redirect = trim($_GET['redirect'] ?? $_POST['redirect'] ?? '');
 require_once __DIR__.'/includes/functions.php';
-
-// Foto del login en celular: poner el archivo en assets/img/login.png (o .jpg/.jpeg) — se detecta solo, sin tocar código.
-$loginFotoUrl = null;
-foreach (['png', 'jpg', 'jpeg'] as $ext) {
-	if (file_exists(__DIR__.'/assets/img/login.'.$ext)) {
-		$loginFotoUrl = 'assets/img/login.'.$ext.'?v='.filemtime(__DIR__.'/assets/img/login.'.$ext);
-		break;
-	}
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -48,13 +39,7 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 
 		<!-- Panel lateral corporativo (Escritorio) -->
 		<div class="ep-login-side">
-			<div class="ep-brand">
-				<?php if ($loginFotoUrl): ?>
-					<img src="<?= htmlspecialchars($loginFotoUrl) ?>" alt="Epson" class="ep-brand-logo">
-				<?php else: ?>
-					<span class="ep-brand-name">EPSON</span>
-				<?php endif; ?>
-			</div>
+			<span></span>
 
 			<div class="ep-login-side-main">
 				<h1>Control y trazabilidad de actividades</h1>
@@ -90,7 +75,7 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 						<label class="ep-label" for="ep-clave">Contraseña</label>
 						<div class="ep-login-clave-wrap">
 							<input class="ep-input" id="ep-clave" name="clave" type="password" placeholder="••••••••" required>
-							<button type="button" class="ep-login-clave-toggle" id="ep-clave-toggle" aria-label="Mostrar contraseña">
+							<button type="button" class="ep-login-clave-toggle" data-alternar="ep-clave" aria-label="Mostrar contraseña">
 								<?= ep_icon('eye', 18) ?>
 							</button>
 						</div>
@@ -98,66 +83,12 @@ foreach (['png', 'jpg', 'jpeg'] as $ext) {
 				</div>
 
 				<button type="submit" class="ep-btn-primary">Ingresar</button>
+				<button type="button" class="ep-login-volver" id="epPrimeraVez">¿Primera vez aquí? Crea tu contraseña</button>
 			</form>
+			<?php include __DIR__.'/components/login/form_registro.php'; ?>
+			<p class="ep-login-copy">© PromoLucky 2026</p>
 		</div>
 	</div>
-	<script>
-		// Mostrar/ocultar contraseña — solo esta página, no necesita todo app.js.
-		(function () {
-			var iconoVer = <?= json_encode(ep_icon('eye', 18)) ?>;
-			var iconoOcultar = <?= json_encode(ep_icon('eye-off', 18)) ?>;
-			var input = document.getElementById('ep-clave');
-			var toggle = document.getElementById('ep-clave-toggle');
-			if (!input || !toggle) return;
-			toggle.addEventListener('click', function () {
-				var mostrar = input.type === 'password';
-				input.type = mostrar ? 'text' : 'password';
-				toggle.innerHTML = mostrar ? iconoOcultar : iconoVer;
-				toggle.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
-			});
-		})();
-	</script>
-	<script>
-		// Login por fetch: si la cuenta ya está abierta en otro dispositivo, se pregunta antes de cerrar esa sesión.
-		(function () {
-			var form = document.getElementById('epLoginForm');
-			var boton = form.querySelector('button[type="submit"]');
-			form.addEventListener('submit', function (e) {
-				e.preventDefault();
-				enviar(false);
-			});
-			function enviar(forzar) {
-				var datos = new FormData(form);
-				datos.append('forzar', forzar ? '1' : '0');
-				boton.disabled = true;
-				fetch('getters/procesar_login.php', { method: 'POST', body: datos })
-					.then(function (r) { return r.json(); })
-					.then(function (data) {
-						if (data.ok) { window.location.href = data.redirect || 'index.php'; return; }
-						boton.disabled = false;
-						if (data.motivo === 'sesion_activa') {
-							Swal.fire({
-								icon: 'warning',
-								title: 'Ya tienes una sesión activa',
-								text: 'Este usuario ya está conectado en otro dispositivo. ¿Deseas cerrar esa sesión para ingresar aquí?',
-								showCancelButton: true,
-								confirmButtonText: 'Cerrar esa sesión y entrar aquí',
-								cancelButtonText: 'Cancelar'
-							}).then(function (res) { if (res.isConfirmed) enviar(true); });
-						} else if (data.motivo === 'bloqueado') {
-							Swal.fire({ icon: 'error', title: 'Cuenta bloqueada', text: 'Demasiados intentos fallidos. Espera 15 minutos e intenta de nuevo.' });
-						} else if (data.motivo === 'servidor') {
-							Swal.fire({ icon: 'error', title: 'Sin conexión', text: 'No se pudo conectar con el servidor. Intenta de nuevo en unos minutos.' });
-						} else {
-							Swal.fire({ icon: 'error', title: 'Datos incorrectos', text: 'Usuario o contraseña incorrectos.' });
-						}
-					})
-					.catch(function () {
-						boton.disabled = false;
-						Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar. Intenta de nuevo.' });
-					});
-			}
-		})();
-	</script>
+	<script src="assets/js/login.js?v=<?= filemtime(__DIR__.'/assets/js/login.js') ?>" data-ojo="<?= htmlspecialchars(ep_icon('eye', 18)) ?>" data-ojo-off="<?= htmlspecialchars(ep_icon('eye-off', 18)) ?>"></script>
 </body>
 </html>

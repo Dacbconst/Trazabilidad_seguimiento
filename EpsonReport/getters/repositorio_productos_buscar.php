@@ -17,7 +17,7 @@ $mysqli = ep_db();
 
 $q = trim($_GET['q'] ?? '');
 $like = '%'.$q.'%';
-$stmt = $mysqli->prepare("SELECT sku FROM repositorio_productos WHERE marca = 'EPSON' AND activar = 'SI' AND sku LIKE ? ORDER BY sku LIMIT 20");
+$stmt = $mysqli->prepare("SELECT sku FROM repositorio_productos WHERE marca = 'EPSON' AND activar = 'SI' AND categoria = 'IMPRESORAS' AND sku LIKE ? ORDER BY sku LIMIT 20");
 $stmt->bind_param('s', $like);
 $stmt->execute();
 $res = $stmt->get_result();

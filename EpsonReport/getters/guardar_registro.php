@@ -24,6 +24,13 @@ if (!is_array($payload)) {
 	$payload = $_POST;
 }
 
+// La página debe pertenecer a la cuenta con sesión abierta: si en este navegador se entró con otra cuenta, no se guarda nada.
+if ((string) ($payload['usuario_ref'] ?? '') !== (string) $_SESSION['usuario_id']) {
+	http_response_code(409);
+	echo json_encode(['success' => false, 'error' => 'En este navegador se inició sesión con otra cuenta. Recarga la página; el registro no se guardó.']);
+	exit;
+}
+
 // Cantidades de los formularios: enteros de 0 a 999.
 function ep_entero($v) {
 	return min(999, max(0, (int) $v));
@@ -32,10 +39,20 @@ function ep_entero($v) {
 $tipo = trim($payload['tipo'] ?? 'activaciones');
 $actividadLabel = trim($payload['actividad_label'] ?? ucfirst($tipo));
 $actividadBadge = trim($payload['actividad_badge'] ?? 'Registro de Campo');
-$puntoVenta = trim($payload['punto_venta'] ?? 'SUKASA - MALL DEL SOL');
-$cadena = trim($payload['cadena'] ?? 'Sukasa');
-$ciudad = trim($payload['ciudad'] ?? 'GUAYAQUIL');
-$canal = trim($payload['canal'] ?? 'RETAIL');
+// El punto de venta se resuelve en la base, activo y de un canal permitido para el usuario; nunca se toma tal cual del navegador.
+require_once __DIR__.'/../includes/pdv_datos.php';
+require_once __DIR__.'/../includes/login_datos.php';
+$posId = trim($payload['pos_id'] ?? '');
+$punto = $posId !== '' ? ep_pdv_obtener($posId, ep_canales_usuario()) : null;
+if ($tipo !== 'colocacion-pop' && !$punto) {
+	http_response_code(422);
+	echo json_encode(['success' => false, 'error' => 'Elige un punto de venta de la lista.']);
+	exit;
+}
+$puntoVenta = $punto ? $punto['nombre'] : '';
+$cadena = $punto ? $punto['cadena'] : '';
+$ciudad = $punto ? $punto['ciudad'] : '';
+$canal = $punto ? $punto['canal'] : '';
 $valores = is_array($payload['valores'] ?? null) ? $payload['valores'] : [];
 
 $usuario = $_SESSION['usuario'];
@@ -61,7 +78,8 @@ $fechaTexto = $diaNom . ', ' . date('j', $ts) . ' de ' . $mesNom . ' ' . date('Y
 $hora = date('H:i', $ts);
 $grupoDia = 'Hoy — ' . $diaNom . ', ' . date('j', $ts) . ' de ' . $mesNom;
 
-$id = 'REG-' . date('Ymd-His', $ts) . '-' . mt_rand(100, 999);
+// Código corto: prefijo de la actividad + usuario + número por usuario, por ejemplo RACPABLOCASTELO-001.
+$id = ep_codigo_registro($tipo, (int) $_SESSION['usuario_id'], $_SESSION['usuario']);
 
 $registro = [
 	'id'              => $id,
@@ -75,6 +93,7 @@ $registro = [
 	'grupo_dia'       => $grupoDia,
 	'estado'          => 'Aprobado',
 	'estado_tipo'     => 'ok',
+	'pos_id'          => $punto ? $punto['pos_id'] : null,
 	'punto_venta'     => $puntoVenta,
 	'cadena'          => $cadena,
 	'ciudad'          => $ciudad,
@@ -84,19 +103,35 @@ $registro = [
 	'promotor_avatar' => $avatar,
 ];
 
+// Tipo, fecha y horario de la actividad: los escribe el promotor y se validan aquí.
+if (in_array($tipo, ['activaciones', 'capacitaciones', 'epson-day', 'evento-ferias', 'exhibiciones'], true)) {
+	require_once __DIR__.'/../includes/actividad_datos.php';
+	[$datosActividad, $errorActividad] = ep_actividad_datos($valores);
+	if ($errorActividad) {
+		http_response_code(422);
+		echo json_encode(['success' => false, 'error' => $errorActividad]);
+		exit;
+	}
+	$registro = array_merge($registro, $datosActividad);
+	$registro['promotor_correo'] = ep_correo_usuario((int) $_SESSION['usuario_id']);
+}
+
 // Procesar según formulario
-if ($tipo === 'activaciones' || $tipo === 'epson-day') {
+if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 	$nac = ep_entero($valores['nacional'] ?? 0);
 	$cob = ep_entero($valores['coberturadas'] ?? 0);
 	$vis = ep_entero($valores['visitaron'] ?? 0);
 	$inte = ep_entero($valores['interactuaron'] ?? 0);
 	$com = ep_entero($valores['compraron'] ?? 0);
 
-	$registro['cobertura'] = [
-		'nacional'     => $nac,
-		'coberturadas' => $cob,
-		'pct'          => $nac > 0 ? round(($cob / $nac) * 100, 1) : 0,
-	];
+	// Evento o Ferias no tiene cobertura.
+	if ($tipo !== 'evento-ferias') {
+		$registro['cobertura'] = [
+			'nacional'     => $nac,
+			'coberturadas' => $cob,
+			'pct'          => $nac > 0 ? round(($cob / $nac) * 100, 1) : 0,
+		];
+	}
 	$registro['embudo'] = [
 		'visitaron'             => $vis,
 		'interactuaron'         => $inte,
@@ -131,54 +166,30 @@ if ($tipo === 'activaciones' || $tipo === 'epson-day') {
 	}
 
 } elseif ($tipo === 'capacitaciones') {
-	$asis = ep_entero($valores['asistentes'] ?? 0);
-	$apro = ep_entero($valores['aprobados'] ?? 0);
-	$horas = ep_entero($valores['horas'] ?? 0);
-	$temas = trim($valores['temas'] ?? '');
+	// Solo se guardan los conteos; el total de asistentes se calcula al leer.
+	$vendedores = ep_entero($valores['vendedores'] ?? 0);
+	$jefeTienda = ep_entero($valores['jefe_tienda'] ?? 0);
+	$asistenteJefe = ep_entero($valores['asistente_jefe'] ?? 0);
 
 	$registro['capacitacion'] = [
-		'asistentes'     => $asis,
-		'aprobados'      => $apro,
-		'pct_aprobacion' => $asis > 0 ? round(($apro / $asis) * 100, 1) : 0,
-		'horas'          => $horas,
-		'temas'          => $temas,
+		'vendedores'     => $vendedores,
+		'jefe_tienda'    => $jefeTienda,
+		'asistente_jefe' => $asistenteJefe,
+		'interacciones'  => min(ep_entero($valores['interacciones'] ?? 0), $vendedores + $jefeTienda + $asistenteJefe),
 	];
 } elseif ($tipo === 'colocacion-pop') {
 	$popLista = is_array($valores['pop_materiales'] ?? null) ? $valores['pop_materiales'] : [];
 	$registro['pop_materiales'] = $popLista;
 } elseif ($tipo === 'exhibiciones') {
-	$muebles = ep_entero($valores['muebles'] ?? 0);
-	$rumas = ep_entero($valores['rumas'] ?? 0);
-	$cabeceras = ep_entero($valores['cabeceras'] ?? 0);
-	$tot = $muebles + $rumas + $cabeceras;
-
-	$registro['exhibiciones'] = [
-		'muebles'       => $muebles,
-		'rumas'         => $rumas,
-		'cabeceras'     => $cabeceras,
-		'total'         => $tot,
-		'muebles_pct'   => $tot > 0 ? round(($muebles / $tot) * 100, 1) . '%' : '0%',
-		'rumas_pct'     => $tot > 0 ? round(($rumas / $tot) * 100, 1) . '%' : '0%',
-		'cabeceras_pct' => $tot > 0 ? round(($cabeceras / $tot) * 100, 1) . '%' : '0%',
-	];
-} elseif ($tipo === 'evento-ferias') {
-	$vis = ep_entero($valores['visitaron'] ?? 0);
-	$inte = ep_entero($valores['interactuaron'] ?? 0);
-	$com = ep_entero($valores['compraron'] ?? 0);
-
-	$registro['feria'] = [
-		'visitaron'             => $vis,
-		'interactuaron'         => $inte,
-		'compraron'             => $com,
-		'tasa_interaccion_pct'  => $vis > 0 ? round(($inte / $vis) * 100, 1) : 0,
-		'tasa_conversion_pct'   => $inte > 0 ? round(($com / $inte) * 100, 1) : 0,
-		'conversion_global_pct' => $vis > 0 ? round(($com / $vis) * 100, 1) : 0,
-	];
-	if (!empty($valores['modelos']) && is_array($valores['modelos'])) {
-		$registro['modelos'] = $valores['modelos'];
-	} else {
-		$registro['modelos'] = [];
+	$x = [];
+	foreach (['cabeceras', 'rumas', 'muebles', 'exh_regular', 'otras'] as $clave) {
+		$x[$clave] = ep_entero($valores[$clave] ?? 0);
 	}
+	$x['total'] = array_sum($x);
+	foreach (['cabeceras', 'rumas', 'muebles', 'exh_regular', 'otras'] as $clave) {
+		$x[$clave.'_pct'] = $x['total'] > 0 ? round(($x[$clave] / $x['total']) * 100, 1).'%' : '0%';
+	}
+	$registro['exhibiciones'] = $x;
 }
 
 // Evidencias fotográficas requeridas según tipo de actividad
@@ -195,7 +206,7 @@ foreach ($reqFotos as $rf) {
 	if ($ruta !== '' && !preg_match('#^[A-Za-z]+/\d{14}' . preg_quote($esperado, '#') . '\.(jpg|png|webp)$#', $ruta)) {
 		$ruta = '';
 	}
-	if ($ruta === '') {
+	if ($ruta === '' && empty($rf['opcional'])) {
 		$faltantes++;
 	}
 	$fotosFinal[] = [
@@ -207,10 +218,10 @@ foreach ($reqFotos as $rf) {
 		'url'    => $ruta !== '' ? 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta : '',
 	];
 }
-// Todas las fotos son obligatorias.
+// Las obligatorias no pueden faltar; las marcadas como opcionales pueden quedar vacías.
 if ($faltantes > 0) {
 	http_response_code(422);
-	echo json_encode(['success' => false, 'error' => 'Faltan '.$faltantes.' foto(s) por subir. Todas las fotos son obligatorias.']);
+	echo json_encode(['success' => false, 'error' => 'Faltan '.$faltantes.' foto(s) por subir. Sube las fotos obligatorias.']);
 	exit;
 }
 $registro['fotos'] = $fotosFinal;

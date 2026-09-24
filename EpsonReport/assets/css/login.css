@@ -1,4 +1,6 @@
 /* ---------- Login ---------- */
+html { overflow-x: hidden; }
+
 html, body.ep-login-body {
 	height: 100%;
 	min-height: 100%;
@@ -16,7 +18,8 @@ body.ep-login-body {
 	display: flex;
 	background: var(--color-surface-muted);
 	position: relative;
-	overflow-x: hidden;
+	overflow: hidden;
+	overflow: clip;
 }
 
 /* Los blobs decorativos son exclusivos para la vista móvil con fondo claro */
@@ -29,40 +32,16 @@ body.ep-login-body {
 	min-width: 380px;
 	max-width: 560px;
 	flex-shrink: 0;
-	background: linear-gradient(165deg, #10218B 0%, #0B1863 55%, #060E3B 100%);
+	background: linear-gradient(165deg, #6242A5 0%, #4A3080 55%, #35205F 100%);
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
 	padding: clamp(28px, 4.5vh, 56px) clamp(28px, 3.5vw, 52px);
-	color: #EDEFFB;
+	color: #F3EEFA;
 	position: relative;
 	z-index: 1;
-	box-shadow: 4px 0 24px rgba(5, 12, 51, 0.18);
+	box-shadow: 4px 0 24px rgba(24, 14, 42, 0.18);
 	overflow-y: auto;
-}
-
-.ep-brand {
-	display: flex;
-	align-items: center;
-}
-
-.ep-brand-logo {
-	height: clamp(42px, 5.5vh, 58px);
-	width: auto;
-	max-width: 240px;
-	object-fit: contain;
-	filter: brightness(0) invert(1);
-	opacity: 0.98;
-	display: block;
-	image-rendering: -webkit-optimize-contrast;
-}
-
-.ep-brand-name {
-	font-family: 'Sora', sans-serif;
-	font-weight: 700;
-	font-size: clamp(28px, 3.5vh, 38px);
-	letter-spacing: 0.08em;
-	color: #FFFFFF;
 }
 
 .ep-login-side-main {
@@ -84,7 +63,7 @@ body.ep-login-body {
 	margin: 0;
 	font-size: clamp(13px, 0.95vw, 15px);
 	line-height: 1.55;
-	color: #C6CBEE;
+	color: #D5C8ED;
 	max-width: 360px;
 }
 
@@ -93,7 +72,7 @@ body.ep-login-body {
 	align-items: center;
 	gap: 8px;
 	font-size: 12.5px;
-	color: #A9B0DE;
+	color: #BCA9DE;
 	padding-top: 16px;
 }
 
@@ -106,6 +85,7 @@ body.ep-login-body {
 	padding: clamp(24px, 4vh, 48px) clamp(20px, 3vw, 40px);
 	position: relative;
 	z-index: 1;
+	overflow-x: hidden;
 	overflow-y: auto;
 }
 
@@ -118,8 +98,8 @@ body.ep-login-body {
 	background: #FFFFFF;
 	padding: clamp(24px, 3.4vh, 34px) clamp(22px, 2.6vw, 30px);
 	border-radius: 20px;
-	border: 1px solid #E5EBF4;
-	box-shadow: 0 12px 36px rgba(16, 33, 139, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
+	border: 1px solid #EBE5F4;
+	box-shadow: 0 12px 36px rgba(98, 66, 165, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 .ep-login-header h2 {
@@ -147,19 +127,19 @@ body.ep-login-body {
 	gap: 6px;
 }
 
-.ep-login-form-inner .ep-label { font-size: 13.5px; font-weight: 600; color: #162454; }
+.ep-login-form-inner .ep-label { font-size: 13.5px; font-weight: 600; color: #2E1A50; }
 .ep-login-form-inner .ep-input {
 	height: 44px;
 	font-size: 15px;
 	border-radius: var(--radius-md);
-	border: 1.5px solid #D6E0F2;
-	background: #F8FAFD;
+	border: 1.5px solid #E0D6F2;
+	background: #FAF8FD;
 	transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .ep-login-form-inner .ep-input:focus {
 	background: #FFFFFF;
 	border-color: var(--color-primary);
-	box-shadow: 0 0 0 3px rgba(16, 33, 139, 0.12);
+	box-shadow: 0 0 0 3px rgba(98, 66, 165, 0.12);
 }
 
 .ep-login-form-inner .ep-btn-primary {
@@ -167,13 +147,13 @@ body.ep-login-body {
 	font-size: 15px;
 	border-radius: var(--radius-md);
 	margin-top: 4px;
-	background: linear-gradient(135deg, #10218B 0%, #0B1863 100%);
-	box-shadow: 0 4px 14px rgba(16, 33, 139, 0.24);
+	background: linear-gradient(135deg, #6242A5 0%, #4A3080 100%);
+	box-shadow: 0 4px 14px rgba(98, 66, 165, 0.24);
 	transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .ep-login-form-inner .ep-btn-primary:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 6px 18px rgba(16, 33, 139, 0.32);
+	box-shadow: 0 6px 18px rgba(98, 66, 165, 0.32);
 }
 .ep-login-form-inner .ep-btn-primary:active {
 	transform: scale(0.98);
@@ -197,3 +177,82 @@ body.ep-login-body {
 }
 .ep-login-clave-toggle:hover { color: var(--color-primary); background: var(--color-primary-soft); }
 
+
+/* Registro del primer ingreso */
+.ep-login-oculto { display: none !important; }
+.ep-login-paso { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--color-primary); background: var(--color-primary-soft); padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
+.ep-login-volver { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; background: transparent; color: var(--color-text-muted); font-size: 13.5px; font-weight: 500; padding: 8px; border-radius: var(--radius-md); cursor: pointer; }
+.ep-login-volver:hover { color: var(--color-primary); background: var(--color-primary-soft); }
+#ep-reg-usuario { background: #F3EEFA; color: var(--color-text-muted); }
+
+/* Login en celular (reglas que quedaron en wizard-fotos.css al dividir el CSS por módulo) */
+@media (max-width: 900px) {
+	.ep-login-wrap { flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+	.ep-login-side { width: 100%; min-width: 0; max-width: 100%; padding: 32px 24px; box-shadow: none; }
+	.ep-login-side-main { margin: 0; padding: 16px 0; }
+	.ep-login-form { padding: 32px 20px 48px; }
+	.ep-login-form-inner { width: 100%; max-width: 400px; }
+}
+
+@media (max-width: 700px) {
+	/* ---------- Login en celular: pantalla única, sin panel azul, esquinas con trama diagonal ---------- */
+	.ep-login-wrap {
+		position: relative;
+		overflow: hidden;
+		overflow: clip;
+		background: var(--color-surface-muted);
+		padding: 0 16px 24px;
+		min-height: 100vh;
+		min-height: 100dvh;
+	}
+	.ep-login-blob {
+		display: block;
+		position: absolute; z-index: 0; pointer-events: none; filter: blur(50px);
+		background: var(--color-primary);
+	}
+	.ep-login-blob-1 { width: 220px; height: 220px; top: -60px; right: -70px; opacity: 0.16; border-radius: 58% 42% 63% 37% / 41% 55% 45% 59%; }
+	.ep-login-blob-2 { width: 260px; height: 260px; bottom: 140px; left: -90px; opacity: 0.10; border-radius: 46% 54% 38% 62% / 55% 42% 58% 45%; }
+	.ep-login-wrap::before, .ep-login-wrap::after {
+		content: ''; position: absolute; width: 110px; height: 110px; z-index: 2; pointer-events: none;
+		background: repeating-linear-gradient(45deg, var(--color-primary) 0 3px, transparent 3px 10px);
+		opacity: 0.55;
+	}
+	.ep-login-wrap::before { top: -28px; left: -28px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+	.ep-login-wrap::after { bottom: -28px; right: -28px; clip-path: polygon(100% 100%, 0 100%, 100% 0); }
+	.ep-login-side {
+		display: none !important;
+	}
+	.ep-login-side-main,
+	.ep-login-footer {
+		display: none !important;
+	}
+	.ep-login-form {
+		flex-grow: 1;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		position: relative;
+		z-index: 1;
+		padding: 16px 0;
+		width: 100%;
+	}
+	.ep-login-form::before, .ep-login-form::after {
+		content: ''; position: absolute; z-index: 0; pointer-events: none; border-radius: 50%;
+	}
+	.ep-login-form::before { width: 130px; height: 130px; top: -50px; right: -40px; background: var(--color-primary); opacity: 0.08; }
+	.ep-login-form::after { width: 90px; height: 90px; bottom: -30px; left: -20px; background: #9A7AD3; opacity: 0.08; }
+	.ep-login-form-inner {
+		position: relative; z-index: 1;
+		background: var(--color-surface);
+		border-radius: 22px;
+		box-shadow: 0 10px 30px rgba(17,17,17,0.08);
+		padding: 24px 20px 28px;
+		width: 100%;
+		max-width: 360px;
+		margin: 0 auto;
+	}
+}
+
+
+/* Pie de página del login */
+.ep-login-copy { position: absolute; left: 0; right: 0; bottom: 14px; margin: 0; text-align: center; font-size: 12px; color: var(--color-text-muted); z-index: 1; }

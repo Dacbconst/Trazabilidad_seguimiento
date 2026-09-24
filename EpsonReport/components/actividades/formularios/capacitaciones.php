@@ -1,10 +1,13 @@
-<!-- IDs = contrato con assets/js/app.js. Evidencia fotográfica (slide 4 del PPTX) queda pendiente. -->
+<!-- IDs = contrato con assets/js/app.js. -->
 <div class="ep-steps">
 
-	<!-- Paso 1: Asistentes por cargo -->
+	<?php $epPrefijo = 'cap'; $epNumero = 1; $epEtiquetaTipo = 'Tema o equipo capacitado'; $epEjemploTipo = 'Ej. L4360'; include __DIR__.'/../compartidos/paso_datos_actividad.php'; ?>
+
+
+	<!-- Paso 2: Asistentes por cargo -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">1</div>
+			<div class="ep-step-num">2</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -30,10 +33,10 @@
 		</div>
 	</div>
 
-	<!-- Paso 2: Interacciones -->
+	<!-- Paso 3: Interacciones -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">2</div>
+			<div class="ep-step-num">3</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -52,10 +55,10 @@
 		</div>
 	</div>
 
-	<!-- Paso 3: Comentarios (sin línea hacia abajo, es el último) -->
+	<!-- Paso 4: Comentarios (sin línea hacia abajo, es el último) -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">3</div>
+			<div class="ep-step-num">4</div>
 		</div>
 		<div class="ep-step-body">
 			<h3 class="ep-step-title">Comentarios</h3>

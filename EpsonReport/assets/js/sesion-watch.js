@@ -5,6 +5,8 @@
 	var fallosSeguidos = 0;
 	var avisando = false;
 	var hubo = false;
+	var meta = document.querySelector('meta[name="ep-usuario"]');
+	var cuenta = meta ? meta.content : '';
 	['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(function (ev) {
 		document.addEventListener(ev, function () { hubo = true; }, { passive: true });
 	});
@@ -13,19 +15,20 @@
 		if (avisando) return;
 		var conActividad = hubo;
 		hubo = false;
-		fetch('getters/sesion_verificar.php' + (conActividad ? '?activo=1' : ''))
+		fetch('getters/sesion_verificar.php?u=' + encodeURIComponent(cuenta) + (conActividad ? '&activo=1' : ''))
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (data.ok) { fallosSeguidos = 0; return; }
 				fallosSeguidos++;
-				if (fallosSeguidos < 2 && data.motivo !== 'inactividad') return;
+				var inmediato = data.motivo === 'inactividad' || data.motivo === 'cuenta_cambiada';
+				if (fallosSeguidos < 2 && !inmediato) return;
 				avisando = true;
 				var inactividad = data.motivo === 'inactividad';
 				if (window.Swal) {
 					Swal.fire({
 						icon: 'warning',
-						title: inactividad ? 'Sesión cerrada por inactividad' : 'Tu sesión se cerró',
-						text: inactividad ? 'Pasaron 20 minutos sin actividad. Inicia sesión de nuevo.' : 'Se inició sesión con esta cuenta en otro dispositivo.',
+						title: data.motivo === 'cuenta_cambiada' ? 'Cambió la cuenta' : (inactividad ? 'Sesión cerrada por inactividad' : 'Tu sesión se cerró'),
+						text: data.motivo === 'cuenta_cambiada' ? 'En este navegador se inició sesión con otra cuenta. Recarga la página para continuar con la cuenta actual.' : (inactividad ? 'Pasaron 20 minutos sin actividad. Inicia sesión de nuevo.' : 'Se inició sesión con esta cuenta en otro dispositivo.'),
 						confirmButtonText: 'Ir al inicio de sesión',
 						allowOutsideClick: false
 					}).then(function () { irAlLogin(data.motivo); });

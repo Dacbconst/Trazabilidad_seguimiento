@@ -1,0 +1,26 @@
+/* Visor de fotos cargadas en Actividades: carrusel con cambiar y quitar */
+.ep-visor { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ep-visor.hidden { display: none; }
+.ep-visor-fondo { position: absolute; inset: 0; background: rgba(21, 12, 36, 0.86); }
+.ep-visor-caja { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: min(92vw, 900px); }
+.ep-visor-caja img { max-width: 100%; max-height: 66dvh; border-radius: 12px; background: #fff; object-fit: contain; }
+.ep-visor-cerrar { position: absolute; top: -14px; right: -14px; z-index: 2; display: grid; place-items: center; width: 34px; height: 34px; border: none; border-radius: 50%; background: #fff; color: var(--color-ink); cursor: pointer; }
+.ep-visor-nav { position: absolute; top: 38%; z-index: 2; display: grid; place-items: center; width: 40px; height: 40px; border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.92); color: var(--color-ink); cursor: pointer; }
+.ep-visor-prev { left: -20px; }
+.ep-visor-next { right: -20px; }
+.ep-visor-una .ep-visor-nav { display: none; }
+.ep-visor-pie { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; width: 100%; padding: 12px 14px; border-radius: 12px; background: #fff; }
+.ep-visor-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ep-visor-info strong { font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 600; color: var(--color-ink); }
+.ep-visor-info span { font-size: 12px; color: var(--color-text-muted); }
+.ep-visor-acciones { display: flex; gap: 8px; }
+.ep-visor-btn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border: 1.5px solid var(--color-primary); border-radius: 9px; background: var(--color-primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ep-visor-btn:hover { filter: brightness(1.1); }
+.ep-visor-btn-quitar { border-color: #C0392B; background: #fff; color: #C0392B; }
+.ep-visor-btn-quitar:hover { background: #FDF3F2; filter: none; }
+@media (max-width: 640px) {
+	.ep-visor-prev { left: 4px; }
+	.ep-visor-next { right: 4px; }
+	.ep-visor-cerrar { top: -10px; right: 0; }
+	.ep-visor-acciones, .ep-visor-btn { width: 100%; justify-content: center; }
+}

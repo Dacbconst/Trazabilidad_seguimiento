@@ -15,7 +15,7 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 <div class="ep-h2-det-head">
 	<div class="ep-h2-det-titulo">
 		<strong><?= $h($r['actividad_label'] ?? 'Actividad') ?></strong>
-		<span><?= $esAdmin ? $h($r['promotor'] ?? '') . ' · ' : '' ?><?= $h($r['fecha_texto'] ?? '') ?>, <?= $h($r['hora'] ?? '') ?></span>
+		<span><?= $esAdmin ? $h($r['promotor'] ?? '') . ' · ' : '' ?><?php if (!empty($r['fecha_actividad'])): ?>Actividad: <?= $h(date('d/m/Y', strtotime($r['fecha_actividad']))) ?><?= !empty($r['hora_inicio']) ? ', '.$h($r['hora_inicio'].' – '.$r['hora_fin']) : '' ?> · <?php endif; ?>Registrado: <?= $h($r['fecha_texto'] ?? '') ?>, <?= $h($r['hora'] ?? '') ?></span>
 	</div>
 	<div class="ep-h2-det-acciones">
 		<?php if ($esAdmin): ?>
@@ -82,12 +82,12 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 			</div>
 		<?php endif; ?>
 
-		<?php if (!empty($modelos)): $totalUds = array_sum(array_map(fn($m) => (int) ($m['cantidad'] ?? 0), $modelos)); $maxCant = max(1, (int) ($modelos[0]['cantidad'] ?? 1)); $menor = $modelos[count($modelos) - 1]; ?>
+		<?php $totalUds = array_sum(array_map(fn($m) => (int) ($m['cantidad'] ?? 0), $modelos)); $maxCant = max(1, (int) ($modelos[0]['cantidad'] ?? 1)); $mayor = $modelos[0] ?? ['modelo' => 'Sin datos', 'cantidad' => 0]; $menor = !empty($modelos) ? $modelos[count($modelos) - 1] : $mayor; ?>
 			<div class="ep-stats-row-2">
 				<div class="ep-stats-col">
 					<div class="ep-stat-card-mini">
-						<span class="ep-stat-card-mini-pct"><?= $totalUds > 0 ? $pct(($modelos[0]['cantidad'] ?? 0) / $totalUds * 100) : '0%' ?></span>
-						<span class="ep-stat-card-mini-nombre"><?= $h($modelos[0]['modelo'] ?? '') ?></span>
+						<span class="ep-stat-card-mini-pct"><?= $totalUds > 0 ? $pct(($mayor['cantidad'] ?? 0) / $totalUds * 100) : '0%' ?></span>
+						<span class="ep-stat-card-mini-nombre"><?= $h($mayor['modelo'] ?? '') ?></span>
 						<span class="ep-stat-card-mini-caption">SKU con mayor venta</span>
 					</div>
 					<div class="ep-stat-card-mini">
@@ -107,34 +107,39 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 					<?php endforeach; ?>
 				</div>
 			</div>
-		<?php endif; ?>
 
 
-	<?php elseif ($tipo === 'capacitaciones' && !empty($r['capacitacion'])): $c = $r['capacitacion']; ?>
+	<?php elseif ($tipo === 'capacitaciones' && !empty($r['capacitacion'])): $c = $r['capacitacion'];
+		$cargos = [['Vendedores', (int) ($c['vendedores'] ?? 0)], ['Jefe de tienda', (int) ($c['jefe_tienda'] ?? 0)], ['Asistente de jefe', (int) ($c['asistente_jefe'] ?? 0)]];
+		$totalAsist = array_sum(array_column($cargos, 1));
+		$inter = (int) ($c['interacciones'] ?? 0); ?>
 		<div class="ep-stats-row-3">
 			<div class="ep-stat-card">
 				<div class="ep-stat-card-header"><?= ep_icon('users', 13) ?> Asistentes</div>
-				<div class="ep-stat-card-body"><div class="ep-stat-card-pct"><?= (int) ($c['asistentes'] ?? 0) ?></div></div>
+				<div class="ep-stat-card-body"><div class="ep-stat-card-pct"><?= $totalAsist ?></div></div>
 			</div>
 			<div class="ep-stat-card">
-				<div class="ep-stat-card-header"><?= ep_icon('check', 13) ?> Aprobación</div>
+				<div class="ep-stat-card-header"><?= ep_icon('check', 13) ?> Interacciones</div>
 				<div class="ep-stat-card-body">
-					<div class="ep-stat-card-pct"><?= $pct($c['pct_aprobacion'] ?? 0) ?></div>
-					<div class="ep-stat-card-detalle"><div class="ep-stat-card-fila"><span>Aprobados</span><strong><?= (int) ($c['aprobados'] ?? 0) ?></strong></div></div>
+					<div class="ep-stat-card-pct"><?= $pct($totalAsist > 0 ? $inter / $totalAsist * 100 : 0) ?></div>
+					<div class="ep-stat-card-detalle"><div class="ep-stat-card-fila"><span>Interacciones</span><strong><?= $inter ?></strong></div></div>
 				</div>
 			</div>
-			<div class="ep-stat-card">
-				<div class="ep-stat-card-header"><?= ep_icon('bar-chart', 13) ?> Duración</div>
-				<div class="ep-stat-card-body"><div class="ep-stat-card-pct"><?= (int) ($c['horas'] ?? 0) ?> h</div></div>
-			</div>
 		</div>
-		<?php if (!empty($c['temas'])): ?>
-			<div class="ep-stat-card-plano"><div class="ep-stat-card-titulo"><?= ep_icon('file', 15) ?> Temas</div><div class="ep-stat-comentarios"><div><?= $h($c['temas']) ?></div></div></div>
-		<?php endif; ?>
+		<div class="ep-stat-card-plano">
+			<div class="ep-stat-card-titulo"><?= ep_icon('users', 15) ?> Detalle de Asistentes</div>
+			<?php foreach ($cargos as [$nombreCargo, $cantidadCargo]): ?>
+				<div class="ep-venta-fila">
+					<span class="ep-venta-nombre"><?= $h($nombreCargo) ?></span>
+					<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:<?= $totalAsist > 0 ? round($cantidadCargo / $totalAsist * 100) : 0 ?>%;"></div></div>
+					<span class="ep-venta-valor"><?= $cantidadCargo ?></span>
+				</div>
+			<?php endforeach; ?>
+		</div>
 
 	<?php elseif ($tipo === 'exhibiciones' && !empty($r['exhibiciones'])): $x = $r['exhibiciones']; ?>
 		<div class="ep-stats-row-3">
-			<?php foreach ([['Muebles', 'muebles'], ['Rumas', 'rumas'], ['Cabeceras', 'cabeceras']] as [$lbl, $k]): ?>
+			<?php foreach ([['Cabeceras', 'cabeceras'], ['Rumas', 'rumas'], ['Muebles', 'muebles'], ['Exh. regular', 'exh_regular'], ['Otras', 'otras']] as [$lbl, $k]): ?>
 				<div class="ep-stat-card">
 					<div class="ep-stat-card-header"><?= ep_icon('store', 13) ?> <?= $lbl ?></div>
 					<div class="ep-stat-card-body">

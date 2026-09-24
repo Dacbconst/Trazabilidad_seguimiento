@@ -44,7 +44,7 @@ if ($tipo === 'rebate') {
 	$nombreBase = 'Formato_Participacion_Percha';
 } elseif ($tipo === 'jerarquia') {
 	$hoja = $wb->agregarHoja('JERARQUIA SUPERVISORES');
-	$cols = ['SUPERVISOR CAMPO', 'SUPERVISOR REAL'];
+	$cols = ['SUPERVISOR CAMPO', 'JEFE DE AGENCIA'];
 	foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 	$nombreBase = 'Formato_Jerarquia_Supervisores';
 } else {

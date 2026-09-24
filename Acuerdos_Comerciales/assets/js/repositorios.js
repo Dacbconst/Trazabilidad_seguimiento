@@ -29,11 +29,11 @@
 		// Jerarquía de Supervisores: supervisor_campo = nombre del maestro sin cuenta propia, supervisor_real = a quién reporta (con cuenta).
 		jerarquia: {
 			label: 'Jerarquía de Supervisores',
-			descripcion: 'Mapea un supervisor "de campo" (sin cuenta propia) al supervisor real que debe validar/recibir sus Actas.',
-			buscarPlaceholder: 'Buscar por supervisor de campo o supervisor real...',
+			descripcion: 'Mapea un supervisor "de campo" (sin cuenta propia) al jefe de agencia que debe validar/recibir sus Actas.',
+			buscarPlaceholder: 'Buscar por supervisor de campo o jefe de agencia...',
 			columnas: [
 				{ key: 'supervisor_campo', label: 'Supervisor Campo' },
-				{ key: 'supervisor_real', label: 'Supervisor Real' }
+				{ key: 'supervisor_real', label: 'Jefe de Agencia' }
 			]
 		},
 		// Cuotas trimestrales por cliente: el pos_id se resuelve en el servidor, no en el Excel. 2 juegos de columnas: `columnasPreview` (crudo) y `columnas` (ya guardada). Sin edición inline.
@@ -413,6 +413,7 @@
 		// pendientesAbrirBtn: oculto a propósito, se deja el resto del mecanismo intacto por si se retoma después.
 		// resumenAbrirBtn: vuelto a mostrar, cubre el panorama histórico ("a quién le asigné cada Acta"), no solo el archivo por subir.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
+		exportarWrap.classList.toggle('hidden', tipo === 'cuotas');
 		// Filtro de Canal: solo Rebate, se resetea a "Todas" al cambiar de tab. Guardado con "if": sin esto, un despliegue a medias cortaba la función antes de cargarLista().
 		if (rebateCanalGroup) {
 			rebateCanalGroup.classList.toggle('hidden', tipo !== 'rebate');

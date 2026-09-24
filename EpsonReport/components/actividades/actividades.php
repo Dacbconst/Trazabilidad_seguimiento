@@ -79,6 +79,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 		
 		<!-- 1. Card Izquierda: Formulario de Datos Cuantitativos de la Actividad -->
 		<div id="ep-panel-formulario" class="ep-card">
+			<?php include __DIR__.'/compartidos/paso_pdv.php'; ?>
 			<?php foreach ($actividadesOriginales as $i => $actividad): ?>
 				<div class="ep-formulario-actividad<?= $i === 0 ? '' : ' hidden' ?>" data-actividad-id="<?= (int) $actividad['id'] ?>">
 					<?php include __DIR__.'/formularios/'.$actividad['plantilla'].'.php'; ?>
@@ -130,7 +131,6 @@ $esAdmin = ep_rol_actual() === 'admin';
 					<span>Completa los datos de campo arriba y las fotos obligatorias antes de enviar el reporte oficial.</span>
 				</div>
 				<div class="ep-form-submit-btns">
-					<button type="button" class="ep-btn-outline" id="epBtnGuardarBorrador">Guardar borrador</button>
 					<button type="button" class="ep-btn-primary" id="epBtnEnviarRegistro">Enviar registro</button>
 				</div>
 			</div>
@@ -306,7 +306,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 			<div>
 				<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
 					<div class="ep-eyebrow">Vista previa · formulario</div>
-					<span class="ep-hist-badge" style="background:#EBF1FD;color:var(--color-primary);border-color:#CAD9F8;font-size:11px;">Solo lectura</span>
+					<span class="ep-hist-badge" style="background:#F3EEFA;color:var(--color-primary);border-color:#DDD2F0;font-size:11px;">Solo lectura</span>
 				</div>
 				<h3 id="ep-preview-form-titulo" style="font-size:18px;margin-top:8px;">Nombre de la actividad</h3>
 				<p style="font-size:12px;color:var(--color-text-muted);margin:4px 0 0;">Así se ve el formulario real de esta lógica — idéntico al diseño en producción.</p>
@@ -324,6 +324,8 @@ $esAdmin = ep_rol_actual() === 'admin';
 	</div>
 	<?php endif; ?>
 </main>
+
+<?php include __DIR__.'/compartidos/visor_fotos.php'; ?>
 
 <?php if ($esAdmin): ?>
 <script>

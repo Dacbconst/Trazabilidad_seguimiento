@@ -39,7 +39,7 @@ if ($formato === 'xlsx') {
 	$hoja = $wb->agregarHoja($nombreHoja);
 
 	if ($tipo === 'jerarquia') {
-		$cols = ['Supervisor Campo', 'Supervisor Real'];
+		$cols = ['Supervisor Campo', 'Jefe de Agencia'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
@@ -88,7 +88,7 @@ $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8, para que Excel no rompa las tildes al abrir el CSV.
 
 if ($tipo === 'jerarquia') {
-	fputcsv($out, ['Supervisor Campo', 'Supervisor Real']);
+	fputcsv($out, ['Supervisor Campo', 'Jefe de Agencia']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [$f['supervisor_campo'], $f['supervisor_real']]);
 	}

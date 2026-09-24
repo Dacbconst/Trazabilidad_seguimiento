@@ -4,11 +4,11 @@ function ep_fotos_requeridas(string $plantilla): array {
 	if ($plantilla === 'activaciones') {
 		return [
 			['id' => 'stand', 'label' => 'Promotor en su stand con todos los materiales y POP correctamente ubicados'],
-			['id' => 'interaccion-1', 'label' => 'Promotor en una interacción con el cliente (1)'],
-			['id' => 'interaccion-2', 'label' => 'Promotor en una interacción con el cliente (2)'],
-			['id' => 'venta-1', 'label' => 'Promotor con el cliente luego de ejecutar la venta (1)'],
-			['id' => 'venta-2', 'label' => 'Promotor con el cliente luego de ejecutar la venta (2)'],
-			['id' => 'venta-3', 'label' => 'Promotor con el cliente luego de ejecutar la venta (3)'],
+			['id' => 'interaccion-1', 'label' => 'Promotor en una interacción con el cliente'],
+			['id' => 'venta-1', 'label' => 'Promotor con el cliente luego de ejecutar la venta'],
+			['id' => 'interaccion-2', 'label' => 'Otra interacción con el cliente (opcional)', 'opcional' => true],
+			['id' => 'venta-2', 'label' => 'Otra venta ejecutada (opcional)', 'opcional' => true],
+			['id' => 'venta-3', 'label' => 'Otra venta ejecutada (opcional)', 'opcional' => true],
 		];
 	}
 	if ($plantilla === 'capacitaciones') {

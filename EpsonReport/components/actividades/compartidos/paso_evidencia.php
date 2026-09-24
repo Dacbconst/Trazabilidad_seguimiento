@@ -2,7 +2,7 @@
 // Bloque "Evidencia Fotográfica" — Tarjeta independiente ubicada debajo del formulario y estadísticas.
 // Requiere $epEvidenciaFotos y $epEvidenciaPrefix (definidos por actividad en actividades.php).
 if (empty($epEvidenciaFotos)) return;
-$totalReqFotos = count($epEvidenciaFotos);
+$totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcional'])));
 ?>
 <div class="ep-evidencia-bloque-card ep-evidencia-actividad" data-actividad-id="<?= (int) ($actividad['id'] ?? 1) ?>">
 	
@@ -19,7 +19,7 @@ $totalReqFotos = count($epEvidenciaFotos);
 						<span class="ep-desktop-flow-status-pill pendiente" id="epDesktopFlowBadge">Pendiente (<?= $totalReqFotos ?> faltantes)</span>
 					</div>
 					<p style="margin:2px 0 0;font-size:12px;color:var(--color-text-muted);">
-						Fotografías requeridas para auditar y justificar la actividad ante Epson.
+						Las fotos obligatorias son las primeras; las marcadas como opcionales suman evidencia pero no son necesarias.
 					</p>
 				</div>
 			</div>
@@ -45,7 +45,7 @@ $totalReqFotos = count($epEvidenciaFotos);
 	<!-- Grilla panorámica de casillas fotográficas a todo lo ancho de la card -->
 	<div class="ep-evidencia-grid-panoramica">
 		<?php foreach ($epEvidenciaFotos as $foto): ?>
-			<div class="ep-foto-slot" data-foto-id="<?= htmlspecialchars($foto['id']) ?>">
+			<div class="ep-foto-slot" data-foto-id="<?= htmlspecialchars($foto['id']) ?>"<?= !empty($foto['opcional']) ? ' data-opcional="1"' : '' ?>>
 				<label class="ep-foto-dropzone" title="Subir foto para <?= htmlspecialchars($foto['label']) ?>">
 					<input type="file" accept="image/*" class="ep-foto-input" id="ep-foto-<?= $epEvidenciaPrefix ?>-<?= $foto['id'] ?>" hidden>
 					<img class="ep-foto-preview hidden" alt="Foto para <?= htmlspecialchars($foto['label']) ?>">

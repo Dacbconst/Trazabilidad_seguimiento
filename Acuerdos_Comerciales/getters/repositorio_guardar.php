@@ -117,13 +117,13 @@ try {
 
 			$faltantes = [];
 			if ($campo === '') $faltantes[] = 'Supervisor Campo';
-			if ($real === '') $faltantes[] = 'Supervisor Real';
+			if ($real === '') $faltantes[] = 'Jefe de Agencia';
 			if ($faltantes) {
 				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)];
 				continue;
 			}
 			if ($campo === $real) {
-				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Supervisor Campo y Supervisor Real no pueden ser el mismo nombre'];
+				$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Supervisor Campo y Jefe de Agencia no pueden ser el mismo nombre'];
 				continue;
 			}
 

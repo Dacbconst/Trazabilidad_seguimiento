@@ -49,13 +49,13 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	width: 38px;
 	height: 38px;
 	border-radius: 9px;
-	background: #EBF1FD;
+	background: #F3EEFA;
 	color: var(--color-primary);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	border: 1px solid #D5E1F7;
+	border: 1px solid #E3DAF3;
 }
 .ep-evidencia-head-actions {
 	display: flex;
@@ -72,12 +72,12 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-foto-slot { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; }
 .ep-foto-dropzone {
 	position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 3;
-	border: 1.5px dashed #C8D6EE; border-radius: 8px; background: #F7F9FD;
+	border: 1.5px dashed #D6C9ED; border-radius: 8px; background: #F9F8FD;
 	cursor: pointer; overflow: hidden; transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
-.ep-foto-dropzone:hover { border-color: #10218B; background: #EBF1FD; box-shadow: 0 2px 8px rgba(16, 33, 139, 0.08); }
+.ep-foto-dropzone:hover { border-color: #6242A5; background: #F3EEFA; box-shadow: 0 2px 8px rgba(98, 66, 165, 0.08); }
 .ep-foto-dropzone-vacio { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #5C6E96; font-size: 11px; font-weight: 600; text-align: center; }
-.ep-foto-slot-icon { color: #10218B; }
+.ep-foto-slot-icon { color: #6242A5; }
 .ep-foto-slot-action { font-size: 10.5px; }
 .ep-foto-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ep-foto-slot-completa .ep-foto-dropzone { border-style: solid; border-color: #137A3E; background: #FFFFFF; }
@@ -88,7 +88,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 /* Fila de Envío al final de la tarjeta de evidencia */
 .ep-form-submit-row-desktop {
 	display: flex; align-items: center; justify-content: space-between; gap: 14px;
-	margin-top: 24px; padding-top: 18px; border-top: 1px solid #E2E8F5; flex-wrap: wrap;
+	margin-top: 24px; padding-top: 18px; border-top: 1px solid #E9E2F5; flex-wrap: wrap;
 }
 .ep-form-submit-hint { font-size: 11.5px; color: var(--color-text-muted); flex: 1 1 240px; }
 .ep-form-submit-btns { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -231,7 +231,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-lg);
 	padding: 24px 28px;
-	box-shadow: 0 2px 10px rgba(11, 24, 99, 0.04);
+	box-shadow: 0 2px 10px rgba(74, 48, 128, 0.04);
 	max-height: 720px;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -244,11 +244,11 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	background: transparent;
 }
 .ep-preview-formulario-real::-webkit-scrollbar-thumb {
-	background: rgba(16, 33, 139, 0.18);
+	background: rgba(98, 66, 165, 0.18);
 	border-radius: 999px;
 }
 .ep-preview-formulario-real::-webkit-scrollbar-thumb:hover {
-	background: rgba(16, 33, 139, 0.35);
+	background: rgba(98, 66, 165, 0.35);
 }
 
 /* En la vista previa, los campos mantienen contraste y tipografía nítidos pero no permiten edición */
@@ -416,3 +416,21 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	color: var(--color-danger); flex-shrink: 0;
 }
 .ep-gestion-eliminar:hover { background: #FBEAE9; border-color: var(--color-danger); }
+
+
+/* Formulario más compacto en escritorio: menos alto con el mismo ancho. */
+@media (min-width: 901px) {
+	#ep-panel-formulario { gap: 12px; padding: 22px 24px; }
+	#ep-panel-formulario .ep-step { gap: 16px; }
+	#ep-panel-formulario .ep-step-body { padding-bottom: 16px; }
+	#ep-panel-formulario .ep-step:last-child .ep-step-body { padding-bottom: 0; }
+	#ep-panel-formulario .ep-step-hint { margin: 2px 0 10px; }
+	#ep-panel-formulario .ep-input { height: 40px; }
+	#ep-panel-formulario textarea.ep-input { height: auto; min-height: 56px; }
+	#ep-panel-formulario .ep-pdv { gap: 6px; padding-bottom: 12px; margin-bottom: 12px; }
+	#ep-panel-formulario .ep-pdv-trigger { min-height: 48px; padding: 6px 12px 6px 6px; }
+	#ep-panel-formulario .ep-pdv-icono { width: 36px; height: 36px; }
+}
+
+/* Nombre de la actividad: cuadro de una línea que crece si el texto es largo */
+textarea.ep-input-mayusculas { height: auto; min-height: 44px; padding: 11px 14px; line-height: 1.4; resize: none; overflow: hidden; }

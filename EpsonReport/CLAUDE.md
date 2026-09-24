@@ -114,19 +114,7 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
   - Sin tags inventados como *"Auditoría Regular"*, *"Aprobado"*, *"En revisión"* ni píldoras de canales (*"Departamental"*, *"Retail"*).
   - Muestra exclusivamente los campos reales capturados en las plantillas oficiales: Cobertura nacional vs. coberturadas, Embudo de clientes (*Visitaron → Interactuaron → Compraron*), desglose de Modelos EcoTank con unidades exactas, Cumplimiento de visitas, Asistentes por cargo en Capacitaciones, Matriz de inventario POP y galería de Evidencias fotográficas con visualizador.
 - **Mecánica de Descarga PowerPoint (.pptx) (Solo Administrador)**:
-  - **Ubicación Estratégica de Botones**:
-    1. *Barra Principal de Herramientas*: Botón primario azul con icono de presentación (`#epBtnAbrirExportadorPPT`). Abre el configurador global.
-    2. *Cabecera de Grupo de Promotor*: Botón compacto `PPT Diario` (`.ep-btn-user-ppt`). Pre-selecciona automáticamente a ese promotor específico y la fecha de sus reportes.
-    3. *Fila Individual de Registro*: Botón `Slide` (`.ep-btn-record-ppt`). Pre-selecciona la actividad puntual, promotor y fecha exacta.
-  - **Modal Interactivo de Exportación ([modal_exportar_ppt.php](file:///c:/Users/DiegoAntonioConstant/Desktop/TrazabilidadSeguimiento/EpsonReport/components/historial/modal_exportar_ppt.php))**:
-    - **Panel de Control (Izquierda)**:
-      - Selector de Promotor: "Todos los promotores (Consolidado)" o selección de cualquiera de los 70+ usuarios individuales.
-      - Selector de Día: Campo de fecha con accesos directos rápidos (`24 Oct`, `23 Oct`, `Ayer`).
-      - Selector Visual de Plantilla PPT con badges corporativos: `Activaciones` (ACT), `Capacitaciones` (CAP), `Epson Day` (EPD), `Colocación POP` (POP), `Exhibiciones` (EXH), `Eventos y Ferias` (EVT), y `Consolidado Multi-Slide` (ALL).
-    - **Lienzo de Previsualización en Vivo 16:9 (`#epPptSlideCanvas`)**:
-      - Emula una diapositiva panorámica real de PowerPoint con cabecera oficial Epson, barra de datos dinámicos (tienda, promotor, fecha) y layout reactivo que cambia según la plantilla seleccionada (embudo/cobertura, lista de asistentes, matriz de inventario POP, o slots fotográficos de auditoría).
-    - **Mecánica de Descarga / Simulación**:
-      - Botón de generación con spinner de progreso y confirmación de archivo con nomenclatura estándar corporativa: `Reporte_Epson_[TPL]_[Usuario]_[Fecha].pptx`.
+  - El Historial ya no tiene modal ni botón global de exportación: solo el botón `Slide` (`.ep-btn-record-ppt`) por registro.
 
 ---
 
@@ -207,7 +195,6 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 ## Exportación PPT de Activaciones (2026-09-23)
 
 - Plantilla oficial: `recursos/ppt/activaciones.pptx` (copia del formato de Epson). `includes/ppt_activaciones.php` la usa como base con `ZipArchive`: deja portada y título del mes ("ACTIVACIONES / JUNIO 2026") una sola vez y por cada registro clona las diapositivas 3-6 (calendario + cumplimiento, estadísticas, fotos 1-3, fotos 4-6), reemplazando textos, ancho de barras y los cuadros de foto por las fotos reales (recorte tipo "cover", descarga en paralelo desde Azure).
-- Endpoint `getters/exportar_ppt.php?tipo=activaciones&mes=YYYY-MM&usuario=all|nombre`: el admin elige usuario, el promotor solo exporta lo suyo. Modal de Historial conectado a este endpoint (los demás formatos muestran "aún no disponible").
 - Probado abriendo el archivo generado en PowerPoint (sin pedir reparación, textos/barras/fotos correctos). Para probar con PHP CLI local: `php -d extension=zip`.
 - Se quita de la diapositiva de estadísticas la foto de ejemplo del promotor (no existe foto de perfil aún) y los cuadros de foto sin foto. El correo del promotor queda vacío (no hay dato).
 - Para agregar otro formato (capacitaciones, etc.): copiar su PPTX a `recursos/ppt/`, mapear nombres de forma a datos como en `ppt_activaciones.php`.
@@ -216,7 +203,7 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 
 - `components/historial/historial.php`: lista compacta (una fila por registro) + panel de detalle a la derecha; en móvil el detalle abre a pantalla completa. Filtros: actividad, texto, promotor (admin) y fechas; "Mostrar más" de 40 en 40.
 - `components/historial/detalle_registro.php`: estadísticas con las mismas tarjetas del formulario (`ep-stat-*`, cobertura/interacciones/ventas, embudo, detalle de ventas, cumplimiento, comentarios) según el tipo, y fotos reales de Azure como miniaturas; clic abre el visor con flechas (`assets/js/historial.js`).
-- Botón "Slide PPT" por registro y "Descargar PPT" (admin) siguen abriendo el modal de exportación.
+- El modal viejo de exportación de Historial y `getters/exportar_ppt.php` se eliminaron; el botón "Slide" por registro descarga directo (`getters/registro_ppt.php`) y avisa si el tipo aún no tiene formato.
 - Quedó sin uso el controlador viejo del historial en `app.js` (fichas/tabla/agrupaciones) y su CSS; solo corre si existe `.ep-registros-main`, que ya no se renderiza. Limpiar cuando se quiera.
 - Fix de fotos: al comprimir en el navegador se rellena el fondo en blanco (un PNG con transparencia salía negro en JPEG).
 
@@ -239,4 +226,67 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - Tabla `insert_reporte_mensual`: guarda solo la selección (ids de `insert_reporte_registro` en `registros`, ruta relativa del calendario en Azure `Reportes/...`, `programadas`); el PPTX NO se guarda, se arma en cada descarga (`getters/reporte_descargar.php`).
 - Generador (`includes/ppt_activaciones.php`): 1 diapositiva de calendario y cumplimiento por reporte (programadas = escritas por el admin o iguales a las ejecutadas; ejecutadas = registros elegidos) + 3 diapositivas por registro (estadísticas, fotos 1-3, fotos 4-6).
 - Getters: `reportes_registros.php` (registros elegibles), `reporte_guardar.php`, `reporte_descargar.php`, `reporte_eliminar.php` (borrado lógico). Todos exigen admin.
-- Pendiente: quitar del formulario de Activaciones la foto del calendario y los campos programadas/realizadas; decidir qué pasa con el "Descargar PPT" viejo de Historial; otros tipos de actividad (solo Activaciones tiene plantilla).
+- Pendiente: quitar del formulario de Activaciones la foto del calendario y los campos programadas/realizadas; generadores PPT de Epson Day, Ferias, Exhibiciones y POP (hoy solo Activaciones y Capacitaciones).
+
+## Login de mercaderistas y punto de venta (2026-09-24, SIN PROBAR en navegador)
+
+- **Quién entra**: los promotores son los mercaderistas de `repositorio_usuarios` (Xplora, solo lectura, nunca se modifica). El admin sigue con su clave propia en `repositorio_usuarios_reporte`.
+- **Registro del primer ingreso**: si el usuario existe y está activo en Xplora pero no tiene clave propia, `procesar_login.php` responde `registrar` y `login.php` cambia al formulario "Crea tu contraseña" (`components/login/form_registro.php`, lógica en `assets/js/login.js`). `procesar_registro.php` comprueba la cédula una sola vez (no es la clave), guarda la contraseña en texto plano como pidió el usuario (mínimo 6 caracteres) y el JS entra directo. La cédula mal escrita suma intentos y bloquea 15 min como el login.
+- **Sin cédula en Xplora** (hoy solo JULIO PENA, id 79): no puede registrarse hasta que el admin lo habilite; ese flujo de habilitación no está construido.
+- **Archivos**: `includes/login_datos.php` (perfil, lectura Xplora, bloqueos, log), `getters/procesar_login.php`, `getters/procesar_registro.php`. Un promotor desactivado en Xplora deja de entrar aunque conserve perfil.
+- **Punto de venta**: `includes/pdv_datos.php` + `components/actividades/compartidos/paso_pdv.php`. Lista de `repositorio_locales_dtt2` con `activar='SI'` del canal del usuario; el canal sale del rutero (`lvi_rutero`) contando solo puntos activos: dominante, o ambos si el menor pesa 20% o más (`EP_PDV_MINORIA_MIXTO`), o ambos si no hay rutero. El admin ve ambos. `guardar_registro.php` resuelve pos_id, punto, ciudad, canal y cadena desde la base; Colocación de POP no lo exige.
+- **Pendiente**: correo del promotor (inicial del primer nombre + primer apellido de `mercaderista`, `@xplora.net`), fotos de Activaciones con mínimo 3 y máximo 6 (listón, interacción, venta), mover la lógica del PDV de `app.js` a `assets/js/pdv.js`, habilitación de admin y restablecer clave.
+- **Reglas de Activaciones acordadas (grabación 23/09)**: el calendario lo sube el supervisor o admin, no el promotor; programadas/realizadas ya no van en el formulario.
+
+## PPTX por registro y fotos obligatorias de Activaciones (2026-09-24, SIN PROBAR)
+
+- **PPTX de un registro**: `getters/registro_ppt.php?id=<código del registro>` (solo admin) arma el archivo al descargar y lo borra; nada se guarda. Reusa `ep_ppt_activaciones()` con la opción `solo_registro` (sin portada, título del mes ni calendario): diapositiva de estadísticas (la foto del promotor queda vacía a propósito) y diapositiva de fotos con el punto de venta como título. El botón "Slide PPT" de cada registro en Historial descarga este archivo para Activaciones; los demás tipos siguen abriendo el modal.
+- **Fotos de Activaciones**: obligatorias 3 (`stand` = promotor con listón y materiales, `interaccion-1`, `venta-1`); opcionales hasta 3 más (`interaccion-2`, `venta-2`, `venta-3`, marcadas `'opcional' => true` en `includes/fotos_datos.php`). Primera diapositiva de fotos: las 3 obligatorias; la segunda solo sale si hay opcionales. `guardar_registro.php`, `paso_evidencia.php` y `app.js` cuentan y exigen solo las obligatorias.
+- **Datos de la actividad (Activaciones)**: el promotor escribe tipo de actividad (mayúsculas; solo letras, números, espacios y guion; máx. 40), fecha (cualquiera; viene con hoy por defecto y solo se exige que sea una fecha real) y horario de inicio y fin en el paso 1 del formulario; se validan en `includes/actividad_datos.php` y se guardan como `tipo_actividad`, `fecha_actividad`, `hora_inicio`, `hora_fin`. El PPT usa esos datos ("ACTIVIDAD IMPULSO", fecha y "10:00 – 18:00").
+- **Correo del promotor**: se pide una vez en el registro del primer ingreso y se guarda en la columna `correo` de `repositorio_usuarios_reporte` (el ALTER lo corre el usuario: `ALTER TABLE repositorio_usuarios_reporte ADD COLUMN correo VARCHAR(150) NULL AFTER nombre;`). Sin la columna, el registro guarda solo la contraseña y el PPT sale sin correo. Cada registro guarda `promotor_correo` al enviarse.
+- **Selector de PDV**: `assets/js/pdv.js` + `assets/css/pdv.css`, componente propio con hoja inferior en celular; la lógica ya no vive en `app.js`.
+- **Reportes mensuales** siguen usando el generador completo (portada, calendario, tres diapositivas por registro; la segunda de fotos solo si hay opcionales).
+
+- **Ajustes tras la primera prueba (2026-09-24)**: las fotos guardadas como WebP no salían en el PPTX (PowerPoint no las admite); ahora se convierten a JPEG con GD al armar el archivo y la compresión del navegador siempre deja JPEG. Fotos en el PPT: de 3 en 3 por diapositiva, con 2 a mitad y mitad y con 1 centrada. Los números de cobertura, interacciones y ventas van a la derecha (tabulador derecho), sin espacio antes del %, y la ciudad baja si el punto de venta se parte en varias líneas. El asistente de fotos solo exige las 3 obligatorias ("Finalizar y revisar" aparece al completarlas) y el detalle del historial siempre muestra las tarjetas de SKU con mayor y menor venta ("Sin datos" si no hay modelos).
+- **Login móvil**: las reglas móviles del login habían quedado en `wizard-fotos.css` al dividir el CSS por módulo y la página de login no la carga; se movieron a `login.css`.
+- **Sidebar**: en escritorio se retrae solo al hacer clic fuera (sin cambiar la preferencia guardada) y un clic en su zona vacía lo alterna. **Formulario**: en escritorio va más compacto (menos alto, mismo ancho) con reglas al final de `actividades.css`.
+
+## Registros: columnas propias y tablas hijas (2026-09-24, SIN PROBAR)
+
+- `insert_reporte_registro` guarda en columnas lo que se filtra o suma (`tipo_actividad`, `fecha_actividad`, `hora_inicio`, `hora_fin`, `tiendas_nacional`, `tiendas_coberturadas`, `visitaron`, `interactuaron`, `compraron`); `valores` (JSON) queda solo con el resto. No se guardan porcentajes: se calculan al leer.
+- Tablas hijas (una fila por elemento, sin claves foráneas): `insert_reporte_registro_modelo`, `insert_reporte_registro_foto` (una por casilla), `insert_reporte_registro_comentario`. Código en `includes/registros_hijos.php`; `registros_datos.php` guarda dentro de una transacción y `ep_registro_armar()` reconstruye la misma forma que consumen Historial y el PPT.
+- Los registros viejos (JSON completo, columnas nuevas en NULL) se siguen leyendo igual. Las columnas `fotos`, `comentarios` y `total_fotos` ya no se escriben; borrarlas queda pendiente hasta confirmar que todo funciona.
+- Tablas propias del proyecto: `insert_reporte_registro` (+ 3 hijas), `insert_reporte_login`, `insert_reporte_mensual`, `repositorio_usuarios_reporte`. Codificación utf8mb4 en las de registro.
+- **PPT, gráficas (2026-09-24)**: las barras del embudo son rectángulos girados 270° (su largo es `cx`); `ep_ppt_barra_vertical()` las recoloca para que todas apoyen en la misma base y los números queden encima. En el detalle de ventas el fondo y las barras se acortan (`$largoMax`) para que el número quede afuera, a la derecha.
+- **Historial**: la lista muestra la fecha de la actividad (con su horario) y, debajo del nombre de la actividad, cuándo se registró; el código ya no se muestra en la lista. Los códigos nuevos son cortos: prefijo del tipo, siempre R de "Registro" + abreviatura (RAC Activaciones, RCAP Capacitaciones, RPOP Colocación de POP, RDAY Epson Day, REXH Exhibiciones, RFER Evento o Ferias; otro tipo: REG) + usuario + número por usuario y tipo (`RACPABLOCASTELO-001`); los anteriores (`REG-...`) se siguen leyendo.
+
+## PPTX por actividad: motor común y Capacitaciones (2026-09-24, SIN PROBAR)
+
+- **Motor común** (`includes/ppt_motor.php`, sobre `ppt_base.php`): abre la plantilla, clona la diapositiva de estadísticas y la de fotos por registro, pone la barra azul del promotor (igual en todas las plantillas: `CuadroTexto 16/17/20/21/22/23` y `Gráfico 19`), reparte las fotos de 3 en 3 (con 2 mitad y mitad, con 1 centrada) y reescribe los índices. Cada actividad solo aporta una especificación (`plantilla`, `titulo`, `prefijo_actividad`, `stats`, `fotos`, y opcional `fija` para una diapositiva por reporte) y la función que llena sus estadísticas. `ep_ppt_generador($tipo)` elige el generador; `getters/registro_ppt.php` lo usa para cualquier tipo que tenga uno.
+- **Activaciones** (`ppt_activaciones.php`) se migró al motor sin cambiar su contenido (calendario una vez, estadísticas, detalle de ventas, embudo, comentarios). **Capacitaciones** (`ppt_capacitaciones.php`, plantilla `recursos/ppt/capacitaciones.pptx`): detalle de asistentes por cargo, asistentes contra interacciones y comentarios; las 3 fotos (equipo, capacitación, entrega) son obligatorias.
+- **Formulario**: el paso "Datos de la actividad" es una pieza compartida (`compartidos/paso_datos_actividad.php`, ids `ep-<prefijo>-tipo|fecha|hora-inicio|hora-fin`; `act` y `cap`). Capacitaciones guardaba con ids viejos que ya no existían; ahora envía `vendedores`, `jefe_tienda`, `asistente_jefe` e `interacciones` (tope: no superan el total de asistentes) y se guardan en `valores.capacitacion`; el total se calcula al leer.
+- **Pendiente con este mismo patrón**: Epson Day, Evento o Ferias, Exhibiciones que inspiran y Colocación de POP (plantillas en `epson/FORMATOS FOTOGRAFICOS 2026/`); el reporte mensual solo genera Activaciones todavía.
+
+## Login por verificación, Historial en vivo y visor de fotos (2026-09-24, SIN PROBAR)
+
+- **Primer ingreso**: "¿Primera vez aquí?" abre una ventana que pide el usuario; `getters/verificar_usuario.php` lo busca activo en Xplora (si no existe: "Usuario no autorizado"; si ya tiene clave: "inicia sesión") y solo entonces pasa a "Crea tu contraseña".
+- **Historial en vivo**: `assets/js/historial.js` consulta cada 3 s `getters/historial_firma.php` (total y último id) y solo si cambió pide `getters/historial_filas.php` (HTML de `components/historial/filas.php`), conservando filtros y selección. Se pausa con la pestaña oculta o el detalle móvil abierto.
+- **Estado vacío**: `ep_estado_vacio(icono, título, texto)` en `functions.php` + `.ep-vacio` en `base.css`, en tonos grises; usado en Historial y Reportes.
+- **Visor de fotos antes de enviar**: al tocar una foto ya cargada en Actividades se abre un carrusel (`compartidos/visor_fotos.php`, `assets/js/visor-fotos.js`, `assets/css/visor-fotos.css`) con "Cambiar foto" y "Quitar". `app.js` expone `window.epFotos` (`slots`, `quitar`) para que el visor deje la casilla como pendiente.
+- **Barras del PPT (2026-09-24)**: todas las barras de datos (horizontales y verticales, Activaciones y Capacitaciones) usan el diseño de las estadísticas de la web: esquinas redondeadas y azul Epson `#10218B` (`ep_ppt_estilo_barra()` en `ppt_base.php`; el fondo gris de las horizontales solo se redondea). Las verticales bajan a la mitad de su grosor original (`ep_ppt_barra_vertical`, parámetro `$ancho`).
+- **Comentarios como lista (2026-09-24)**: `assets/js/comentarios.js` + `assets/css/comentarios.css` convierten cada `textarea[id$="-comentarios"]` en líneas numeradas (máx. 5, 160 caracteres); el textarea original queda oculto con un comentario por línea, así el guardado y las estadísticas no cambian.
+- **PPT, ajustes de diseño (2026-09-24)**: las barras verticales ya no van giradas (rectángulo normal, solo esquinas de arriba redondeadas, `round2SameRect`); `ep_ppt_ensanchar()` estira las estadísticas a la derecha del panel del promotor (`'stats' => [..., 'ensanchar' => 1.5]` en la especificación; Capacitaciones); los comentarios van en un solo cuadro ancho, uno por párrafo (`ep_ppt_comentarios()`), y las mayúsculas usan `ep_ppt_mayus()` para respetar tildes.
+
+## PPTX de Epson Day, Evento o Ferias y Exhibiciones (2026-09-24, SIN PROBAR en producción)
+
+- **Motor**: `ep_ppt_generador()` ya incluye `epson-day` (`ppt_epson_day.php`), `evento-ferias` (`ppt_evento_ferias.php`) y `exhibiciones` (`ppt_exhibiciones.php`); plantillas en `recursos/ppt/`. La barra del promotor acepta nombres de forma propios por plantilla (`'promotor'` en la especificación; Epson Day usa otros).
+- **Estadísticas comunes** (`includes/ppt_embudo.php`): Activaciones, Epson Day y Evento o Ferias comparten la misma diapositiva (cobertura, interacciones, ventas, detalle por modelo, SKU mayor/menor, embudo, comentarios); cada una pasa su mapa de nombres de forma. Evento o Ferias no lleva la tarjeta de cobertura.
+- **Exhibiciones**: cinco tipos en el orden de la plantilla (cabeceras, rumas, muebles, exhibición regular, otras) con barras y comentarios; se ensancha 1.5 como Capacitaciones y la tarjeta de comentarios se iguala a la del detalle.
+- **Formularios**: los tres tienen ahora el paso compartido "Datos de la actividad" (prefijos `eday`, `evento`, `exh`) y el envío ya usa sus ids reales (antes leía `ep-eps-*` y `ep-fer-*`, que no existían). Epson Day y Evento envían también los modelos. Exhibiciones suma dos campos (`ep-exh-regular`, `ep-exh-otras`) para cubrir las cinco filas de la plantilla.
+- **Datos**: Evento o Ferias guarda `embudo` (ya no `feria`) y modelos como Activaciones, sin cobertura; Exhibiciones guarda `exhibiciones` con los cinco conteos y sus porcentajes.
+- **Pendiente**: reportes mensuales solo generan Activaciones; Colocación de POP (plantilla de 5 diapositivas) sin PPT ni datos de actividad.
+
+## Paleta morada (prueba, 2026-09-24)
+
+- La interfaz web pasó del azul Epson a morado: `--color-primary` `#6242A5`, `--color-primary-dark` `#4A3080`, `--color-primary-mid` `#9573DF`, `--color-primary-light` `#B39CE8`, `--color-primary-soft` `#F1EBFC` (en `base.css`). Sidebar y panel del login usan el degradado `#9573DF → #6242A5 → #4A3080`. Los demás azules de los CSS/JS/PHP de la interfaz se convirtieron al mismo matiz (misma luminosidad); los PPTX conservan el azul de Epson.
+- Login sin foto ni marca en la esquina (escritorio y celular; `assets/img/login.png` ya no se usa). Pie "© PromoLucky 2026" en el login y bajo "Cerrar sesión" en el sidebar.

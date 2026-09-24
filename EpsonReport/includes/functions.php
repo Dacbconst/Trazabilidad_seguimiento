@@ -25,6 +25,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'printer' => '<path d="M6 9V4h12v5"/><rect x="5" y="9" width="14" height="8" rx="1"/><path d="M8 17v4h8v-4"/>',
 		'bar-chart' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20v-3"/>',
 		'eye'     => '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+		'eye-off' => '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
 		'chevron-left' => '<path d="M15 18l-6-6 6-6"/>',
 		'chevron-right' => '<path d="M9 18l6-6 6-6"/>',
 		'list'    => '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
@@ -32,9 +33,20 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'download'=> '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
 		'presentation' => '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/><line x1="12" y1="17" x2="12" y2="20"/><path d="M7 8l5 4 5-4"/>',
 		'layers'  => '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+		'megaphone' => '<path d="M3 11v2a1 1 0 0 0 1 1h3l7 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M18 9a4 4 0 0 1 0 6"/>',
+		'graduation' => '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
+		'tag'     => '<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+		'star'    => '<polygon points="12 2 15.1 8.6 22 9.3 17 14.1 18.2 21 12 17.7 5.8 21 7 14.1 2 9.3 8.9 8.6 12 2"/>',
+		'shelves' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18"/><path d="M7 6.5h3M14 12.5h3M7 18.5h3"/>',
+		'tent'    => '<path d="M2 21h20"/><path d="M4 21L12 4l8 17"/><path d="M9 21l3-6 3 6"/>',
 	];
 	$paths = $iconos[$nombre] ?? '';
 	return '<svg width="'.$s.'" height="'.$s.'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'.$paths.'</svg>';
+}
+
+// Nombre del icono que representa cada tipo de actividad (pestañas y filas del Historial).
+function ep_icono_tipo(string $tipo): string {
+	return ['activaciones' => 'megaphone', 'capacitaciones' => 'graduation', 'colocacion-pop' => 'tag', 'epson-day' => 'star', 'exhibiciones' => 'shelves', 'evento-ferias' => 'tent'][$tipo] ?? 'file';
 }
 
 // Rol actual desde la sesión real ('usuario' o 'admin').
@@ -97,4 +109,9 @@ function ep_login_check(bool $interaccion = true): bool {
 		$_SESSION['ult_actividad'] = time();
 	}
 	return $resultado = true;
+}
+
+// Estado vacío reutilizable: icono, título y una línea de ayuda.
+function ep_estado_vacio(string $icono, string $titulo, string $texto): string {
+	return '<div class="ep-vacio"><span class="ep-vacio-icono">'.ep_icon($icono, 26).'</span><strong>'.htmlspecialchars($titulo).'</strong><p>'.htmlspecialchars($texto).'</p></div>';
 }

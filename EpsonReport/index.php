@@ -33,9 +33,10 @@ if (!isset($secciones[$vista])) {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="ep-usuario" content="<?= (int) ($_SESSION['usuario_id'] ?? 0) ?>">
 	<title>EpsonReport</title>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-	<?php foreach (['base', 'shell', 'actividades', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'historial', 'reportes'] as $hoja): ?>
+	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'historial', 'reportes'] as $hoja): ?>
 	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
 	<?php endforeach; ?>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
@@ -109,6 +110,13 @@ if (!isset($secciones[$vista])) {
 			localStorage.setItem('ep_sidebar_colapsado', epSidebar.classList.contains('collapsed') ? '1' : '0');
 		});
 
+		// Clic fuera del sidebar (escritorio): se retrae solo, sin cambiar la preferencia guardada; un clic en su zona vacía lo vuelve a abrir.
+		document.addEventListener('click', function (ev) {
+			if (mqMobile.matches || epSidebar.classList.contains('collapsed')) return;
+			if (epSidebar.contains(ev.target) || ev.target.closest('.swal2-container')) return;
+			epSidebar.classList.add('collapsed');
+		});
+
 		// Submenú Actividades en celular: reemplaza el menú principal dentro del mismo panel.
 		var epSidebarSubVolver = document.getElementById('epSidebarSubVolver');
 		var epSidebarSubCloseBtn = document.getElementById('epSidebarSubCloseBtn');
@@ -152,6 +160,9 @@ if (!isset($secciones[$vista])) {
 	<script src="assets/js/sesion-watch.js?v=<?= filemtime(__DIR__.'/assets/js/sesion-watch.js') ?>"></script>
 	<script src="assets/js/reportes.js?v=<?= filemtime(__DIR__.'/assets/js/reportes.js') ?>"></script>
 	<script src="assets/js/historial.js?v=<?= filemtime(__DIR__.'/assets/js/historial.js') ?>"></script>
+	<script src="assets/js/pdv.js?v=<?= filemtime(__DIR__.'/assets/js/pdv.js') ?>"></script>
 	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>
+	<script src="assets/js/visor-fotos.js?v=<?= filemtime(__DIR__.'/assets/js/visor-fotos.js') ?>"></script>
+	<script src="assets/js/comentarios.js?v=<?= filemtime(__DIR__.'/assets/js/comentarios.js') ?>"></script>
 </body>
 </html>

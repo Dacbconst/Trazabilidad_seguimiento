@@ -1,10 +1,12 @@
 <!-- Los IDs son el contrato con assets/js/app.js — no cambiarlos sin actualizar ese JS también. -->
 <div class="ep-steps">
 
-	<!-- Paso 1: Cobertura -->
+	<?php $epPrefijo = 'act'; $epNumero = 1; $epEtiquetaTipo = 'Tipo de actividad'; $epEjemploTipo = 'Ej. IMPULSO'; include __DIR__.'/../compartidos/paso_datos_actividad.php'; ?>
+
+	<!-- Paso 2: Cobertura -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">1</div>
+			<div class="ep-step-num">2</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -23,10 +25,10 @@
 		</div>
 	</div>
 
-	<!-- Paso 2: Embudo -->
+	<!-- Paso 3: Embudo -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">2</div>
+			<div class="ep-step-num">3</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -51,10 +53,10 @@
 		</div>
 	</div>
 
-	<!-- Paso 3: Modelos -->
+	<!-- Paso 4: Modelos -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">3</div>
+			<div class="ep-step-num">4</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -73,10 +75,10 @@
 		</div>
 	</div>
 
-	<!-- Paso 4: Comentarios -->
+	<!-- Paso 5: Comentarios -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">4</div>
+			<div class="ep-step-num">5</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">

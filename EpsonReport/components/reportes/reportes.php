@@ -24,7 +24,7 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 
 	<section class="ep-rp-lista">
 		<?php if (empty($reportes)): ?>
-			<div class="ep-rp-vacio">Todavía no hay reportes. Crea el primero con "Nuevo reporte".</div>
+			<?= ep_estado_vacio('presentation', 'Todavía no hay reportes', 'Crea el primero con "Nuevo reporte".') ?>
 		<?php else: ?>
 			<div class="ep-rp-fila ep-rp-fila-cab"><div>Reporte</div><div>Mes</div><div>Registros</div><div>Creado</div><div></div></div>
 			<?php foreach ($reportes as $r):

@@ -237,10 +237,10 @@ function repositorio_parsear_jerarquia($rutaArchivo) {
 	$m = $enc['mapa'];
 
 	$colReal = null;
-	foreach (['SUPERVISOR REAL', 'SUPERVISOR', 'REPORTA A'] as $candidato) {
+	foreach (['JEFE DE AGENCIA', 'SUPERVISOR REAL', 'SUPERVISOR', 'REPORTA A'] as $candidato) {
 		if (xlsx_col($m, $candidato) !== null) { $colReal = $candidato; break; }
 	}
-	if ($colReal === null) return ['error' => 'No se encontró la columna Supervisor Real en el archivo.'];
+	if ($colReal === null) return ['error' => 'No se encontró la columna Jefe de Agencia en el archivo.'];
 
 	$resultado = [];
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {

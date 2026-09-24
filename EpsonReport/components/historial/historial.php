@@ -30,8 +30,7 @@ foreach ($todosRegistros as $r) {
 $totalRegistros = count($todosRegistros);
 $listaPromotores = array_values(array_unique(array_filter(array_column($todosRegistros, 'promotor'))));
 sort($listaPromotores);
-$mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-?>
+$mesesCortos?>
 <main class="ep-content ep-h2<?= $esAdmin ? '' : ' ep-h2-sin-promotor' ?>" id="epH2" data-admin="<?= $esAdmin ? '1' : '0' ?>">
 
 	<header class="ep-h2-head">
@@ -45,19 +44,14 @@ $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep
 				<span>–</span>
 				<input type="date" id="epH2Hasta" title="Hasta">
 			</div>
-			<?php if ($esAdmin): ?>
-				<button type="button" class="ep-h2-btn-primario" id="epBtnAbrirExportadorPPT" title="Descargar reporte en PowerPoint">
-					<?= ep_icon('presentation', 14) ?> <span>Descargar PPT</span>
-				</button>
-			<?php endif; ?>
 		</div>
 	</header>
 
 	<div class="ep-h2-filtros">
 		<div class="ep-h2-pills" id="epH2Pills">
-			<button type="button" class="ep-h2-pill selected" data-tipo="all">Todas <span><?= $totalRegistros ?></span></button>
+			<button type="button" class="ep-h2-pill selected" data-tipo="all"><?= ep_icon('layers', 15) ?> Todas <span><?= $totalRegistros ?></span></button>
 			<?php foreach ($tiposFiltro as $id => $label): ?>
-				<button type="button" class="ep-h2-pill" data-tipo="<?= $h($id) ?>"><?= $h($label) ?> <span><?= (int) $conteo[$id] ?></span></button>
+				<button type="button" class="ep-h2-pill" data-tipo="<?= $h($id) ?>"><?= ep_icon(ep_icono_tipo($id), 15) ?> <?= $h($label) ?> <span><?= (int) $conteo[$id] ?></span></button>
 			<?php endforeach; ?>
 		</div>
 		<div class="ep-h2-buscador">
@@ -75,35 +69,18 @@ $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep
 	<div class="ep-h2-cuerpo">
 		<section class="ep-h2-lista" aria-label="Registros">
 			<div class="ep-h2-fila ep-h2-fila-cab">
-				<div>Fecha</div><div>Actividad</div><div class="ep-h2-col-prom">Promotor</div><div>Fotos</div>
+				<div>Fecha actividad</div><div>Actividad</div><div class="ep-h2-col-prom">Promotor</div><div>Fotos</div>
 			</div>
 			<div id="epH2Filas">
-				<?php foreach ($todosRegistros as $i => $r):
-					$tipo = $r['tipo'] ?? 'activaciones';
-					$ts = strtotime($r['fecha_iso'] ?? 'now');
-					$fotos = $r['fotos'] ?? [];
-					$conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
-					$busq = '';
-					?>
-					<div class="ep-h2-fila ep-h2-reg" tabindex="0" role="button"
-						data-idx="<?= $i ?>" data-tipo="<?= $h($tipo) ?>" data-fecha="<?= $h($r['fecha_iso'] ?? '') ?>"
-						data-promotor="<?= $h($r['promotor'] ?? '') ?>" data-busqueda="<?= $h($busq) ?>">
-						<div class="ep-h2-c-fecha"><strong><?= (int) date('j', $ts) ?> <?= $mesesCortos[(int) date('n', $ts)] ?></strong><small><?= $h($r['hora'] ?? '') ?></small></div>
-						<div class="ep-h2-c-act"><strong><?= $h($r['actividad_label'] ?? 'Actividad') ?></strong><small><?= $h($r['id'] ?? '') ?></small></div>
-						<div class="ep-h2-c-prom ep-h2-col-prom"><?= $h($r['promotor'] ?? '') ?></div>
-						<div class="ep-h2-c-fotos"><?= $conFoto ?> / <?= count($fotos) ?></div>
-					</div>
-					<template id="epH2T-<?= $i ?>"><?php include __DIR__.'/detalle_registro.php'; ?></template>
-				<?php endforeach; ?>
+				<?php include __DIR__.'/filas.php'; ?>
 			</div>
-			<div class="ep-h2-vacio<?= $totalRegistros ? ' hidden' : '' ?>" id="epH2Vacio">
-				<?= $totalRegistros ? 'Ningún registro coincide con los filtros.' : 'Todavía no hay registros. Cuando envíes uno desde Actividades aparecerá aquí.' ?>
-			</div>
+			<div class="ep-h2-vacio<?= $totalRegistros ? ' hidden' : '' ?>" id="epH2Vacio"><?= ep_estado_vacio('file', 'Todavía no hay registros', 'Cuando se envíe uno desde Actividades aparecerá aquí.') ?></div>
+			<div class="ep-h2-vacio hidden" id="epH2SinCoincidencias"><?= ep_estado_vacio('search', 'Sin resultados', 'Ningún registro coincide con los filtros. Prueba quitando alguno.') ?></div>
 			<button type="button" class="ep-h2-mas hidden" id="epH2Mas">Mostrar más</button>
 		</section>
 
 		<aside class="ep-h2-panel" id="epH2Panel" aria-label="Detalle del registro">
-			<div class="ep-h2-panel-vacio" id="epH2PanelVacio">Selecciona un registro para ver su detalle.</div>
+			<div class="ep-h2-panel-vacio" id="epH2PanelVacio"><?= ep_estado_vacio('list', 'Elige un registro', 'Selecciona uno de la lista para ver su detalle.') ?></div>
 			<div id="epH2PanelContenido"></div>
 		</aside>
 	</div>
@@ -120,7 +97,6 @@ $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep
 	</div>
 
 	<?php if ($esAdmin): ?>
-		<?php include __DIR__ . '/modal_exportar_ppt.php'; ?>
 	<?php endif; ?>
 
 </main>

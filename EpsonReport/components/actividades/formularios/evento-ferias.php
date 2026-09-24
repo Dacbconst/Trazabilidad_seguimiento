@@ -1,9 +1,11 @@
 <!-- Igual que Activaciones pero sin Cobertura ni Cumplimiento (no están en el Excel de Eventos o Ferias). IDs con prefijo ep-evento-. -->
 <div class="ep-steps">
 
+	<?php $epPrefijo = 'evento'; $epNumero = 1; $epEtiquetaTipo = 'Nombre del evento o feria'; $epEjemploTipo = 'Ej. Hotel Swiss'; include __DIR__.'/../compartidos/paso_datos_actividad.php'; ?>
+
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">1</div>
+			<div class="ep-step-num">2</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -30,7 +32,7 @@
 
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">2</div>
+			<div class="ep-step-num">3</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
@@ -49,7 +51,7 @@
 
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">3</div>
+			<div class="ep-step-num">4</div>
 		</div>
 		<div class="ep-step-body">
 			<h3 class="ep-step-title">Comentarios</h3>

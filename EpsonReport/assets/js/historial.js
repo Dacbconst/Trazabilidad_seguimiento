@@ -8,6 +8,7 @@
 	var panelVacio = document.getElementById('epH2PanelVacio');
 	var panelContenido = document.getElementById('epH2PanelContenido');
 	var vacio = document.getElementById('epH2Vacio');
+	var sinCoincidencias = document.getElementById('epH2SinCoincidencias');
 	var btnMas = document.getElementById('epH2Mas');
 	var resumen = document.getElementById('epH2Resumen');
 	var movil = window.matchMedia('(max-width: 900px)');
@@ -60,7 +61,8 @@
 			if (mostrar) visibles++;
 			f.classList.toggle('hidden', !mostrar);
 		});
-		vacio.classList.toggle('hidden', totalCoinciden > 0);
+		vacio.classList.toggle('hidden', filas.length > 0);
+		sinCoincidencias.classList.toggle('hidden', filas.length === 0 || totalCoinciden > 0);
 		btnMas.classList.toggle('hidden', totalCoinciden <= visibles);
 		resumen.textContent = totalCoinciden + (totalCoinciden === 1 ? ' registro' : ' registros');
 		if (estado.sel && estado.sel.classList.contains('hidden')) seleccionar(null);
@@ -80,8 +82,6 @@
 			aplicar();
 		});
 	});
-	var buscar = document.getElementById('epH2Buscar');
-	if (buscar) buscar.addEventListener('input', function () { estado.q = buscar.value.trim().toLowerCase(); estado.limite = POR_TANDA; aplicar(); });
 	var selProm = document.getElementById('epH2Promotor');
 	if (selProm) selProm.addEventListener('change', function () { estado.prom = selProm.value; estado.limite = POR_TANDA; aplicar(); });
 	var desde = document.getElementById('epH2Desde');
@@ -179,6 +179,74 @@
 		var carril = panel.querySelector('.ep-h2-carril');
 		if (carril) requestAnimationFrame(function () { estadoFlechas(carril); });
 	}).observe(panelContenido, { childList: true });
+
+	// Refresco en vivo: cada 3 s se consulta una firma liviana y solo si cambió se piden las filas, conservando filtros y selección.
+	var contenedor = document.getElementById('epH2Filas');
+	var ultimoHtml = null;
+	var ultimaFirma = null;
+	function actualizarFiltros() {
+		var conteo = {};
+		var promotores = {};
+		filas.forEach(function (f) {
+			conteo[f.dataset.tipo] = (conteo[f.dataset.tipo] || 0) + 1;
+			if (f.dataset.promotor) promotores[f.dataset.promotor] = true;
+		});
+		root.querySelectorAll('.ep-h2-pill').forEach(function (b) {
+			var n = b.dataset.tipo === 'all' ? filas.length : (conteo[b.dataset.tipo] || 0);
+			b.querySelector('span').textContent = n;
+		});
+		var sel = document.getElementById('epH2Promotor');
+		if (!sel) return;
+		var lista = Object.keys(promotores).sort();
+		sel.innerHTML = '<option value="all">Todos los usuarios</option>' + lista.map(function (p) {
+			var o = document.createElement('option');
+			o.value = p;
+			o.textContent = p;
+			return o.outerHTML;
+		}).join('');
+		sel.value = lista.indexOf(estado.prom) === -1 ? 'all' : estado.prom;
+		if (sel.value === 'all') estado.prom = 'all';
+	}
+	function vigilar() {
+		if (document.hidden) return;
+		fetch('getters/historial_firma.php', { cache: 'no-store', credentials: 'same-origin' })
+			.then(function (r) {
+				if (r.status === 401) { window.location.href = 'login.php?error=sesion'; return null; }
+				return r.ok ? r.json() : null;
+			})
+			.then(function (d) {
+				if (!d || !d.firma || d.firma === ultimaFirma) return;
+				ultimaFirma = d.firma;
+				refrescar();
+			})
+			.catch(function () {});
+	}
+	function refrescar() {
+		if (root.querySelector('.ep-h2-panel-abierto')) { ultimaFirma = null; return; }
+		fetch('getters/historial_filas.php', { cache: 'no-store', credentials: 'same-origin' })
+			.then(function (r) {
+				if (r.status === 401) { window.location.href = 'login.php?error=sesion'; return null; }
+				return r.ok ? r.text() : null;
+			})
+			.then(function (html) {
+				if (html === null) return;
+				var cambio = ultimoHtml === null ? contenedor.querySelectorAll('.ep-h2-reg').length !== (html.match(/class="ep-h2-fila ep-h2-reg"/g) || []).length : html !== ultimoHtml;
+				ultimoHtml = html;
+				if (!cambio) return;
+				var codigoSel = estado.sel ? estado.sel.dataset.codigo : null;
+				contenedor.querySelectorAll('template').forEach(function (t) { t.remove(); });
+				contenedor.innerHTML = html;
+				filas = Array.prototype.slice.call(root.querySelectorAll('.ep-h2-reg'));
+				estado.sel = null;
+				actualizarFiltros();
+				aplicar();
+				var previa = codigoSel && filas.filter(function (f) { return f.dataset.codigo === codigoSel && !f.classList.contains('hidden'); })[0];
+				if (previa) seleccionar(previa, false);
+			})
+			.catch(function () {});
+	}
+	setInterval(vigilar, 3000);
+	document.addEventListener('visibilitychange', function () { if (!document.hidden) vigilar(); });
 
 	movil.addEventListener('change', function () { cerrarPanelMovil(); aplicar(); });
 	aplicar();

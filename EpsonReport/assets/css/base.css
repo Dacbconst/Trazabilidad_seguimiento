@@ -1,8 +1,10 @@
-/* ---------- EpsonReport — tokens de marca (Epson Blue #10218B + neutros) ---------- */
+/* ---------- PromoLucky — tokens de marca (morado + neutros) ---------- */
 :root {
-	--color-primary: #10218B;
-	--color-primary-dark: #0B1863;
-	--color-primary-soft: #E9EBF6;
+	--color-primary: #6242A5;
+	--color-primary-dark: #4A3080;
+	--color-primary-mid: #7B5BC4;
+	--color-primary-light: #9573DF;
+	--color-primary-soft: #F1EBFC;
 	--color-ink: #111111;
 	--color-text: #1F2023;
 	--color-text-muted: #5B5D63;
@@ -95,3 +97,9 @@ input:focus, select:focus, button:focus-visible {
 	text-transform: uppercase;
 }
 
+
+/* Estado vacío con icono */
+.ep-vacio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 20px; text-align: center; }
+.ep-vacio-icono { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 8px; border-radius: 50%; background: #EEF0F4; color: #8A93A6; }
+.ep-vacio strong { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; color: #6B7488; }
+.ep-vacio p { max-width: 320px; margin: 0; font-size: 13px; line-height: 1.5; color: #8A93A6; }

@@ -1,0 +1,14 @@
+/* Comentarios como lista numerada (assets/js/comentarios.js) */
+.ep-coment { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ep-coment-lista { display: flex; flex-direction: column; gap: 8px; }
+.ep-coment-item { display: flex; align-items: flex-start; gap: 8px; }
+.ep-coment-num { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; margin-top: 10px; border-radius: 50%; background: var(--color-primary-soft); color: var(--color-primary); font-family: 'Sora', sans-serif; font-size: 11px; font-weight: 600; }
+.ep-coment-item .ep-input { flex: 1 1 auto; min-width: 0; height: auto; min-height: 44px; padding: 11px 14px; line-height: 1.4; resize: none; overflow: hidden; }
+.ep-coment-quitar { flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px; margin-top: 6px; border: none; border-radius: 8px; background: transparent; color: #8A93A6; cursor: pointer; }
+.ep-coment-quitar:hover { background: #FDF3F2; color: #C0392B; }
+.ep-coment-quitar[hidden] { display: none; }
+.ep-coment-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ep-coment-agregar { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1.5px dashed var(--color-primary); border-radius: 9px; background: transparent; color: var(--color-primary); font-size: 13px; font-weight: 600; cursor: pointer; }
+.ep-coment-agregar:hover:not(:disabled) { background: var(--color-primary-soft); }
+.ep-coment-agregar:disabled { opacity: 0.45; cursor: not-allowed; }
+.ep-coment-cuenta { font-size: 12px; color: var(--color-text-muted); }

@@ -54,10 +54,6 @@ document.addEventListener('DOMContentLoaded', function () {
 					activarTabMovil('formulario');
 				}
 			}
-			var btnIrAMetricasTexto = document.getElementById('epBtnIrAMetricasTexto');
-			if (btnIrAMetricasTexto) {
-				btnIrAMetricasTexto.textContent = sinStats ? 'Enviar registro' : 'Revisar Métricas';
-			}
 		}
 		actualizarContadorFotosMovil();
 	}
@@ -83,8 +79,8 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 	function actualizarContadorFotosMovil() {
 		var bloqueEv = document.querySelector('#ep-panel-evidencia .ep-evidencia-actividad:not(.hidden)') || document.querySelector('.ep-evidencia-actividad:not(.hidden)');
-		var slots = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot') : [];
-		var count = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot-completa').length : 0;
+		var slots = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot:not([data-opcional])') : [];
+		var count = bloqueEv ? bloqueEv.querySelectorAll('.ep-foto-slot-completa:not([data-opcional])').length : 0;
 		var total = slots.length;
 		if (bloqueEv) {
 			var completo = total > 0 && count >= total;
@@ -106,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (desktopFill && total > 0) {
 			var pct = Math.round((count / total) * 100);
 			desktopFill.style.width = pct + '%';
-			desktopFill.style.background = (pct === 100) ? '#137A3E' : '#0B1863';
+			desktopFill.style.background = (pct === 100) ? '#137A3E' : '#4A3080';
 		}
 		if (desktopBadge) {
 			if (total > 0 && count >= total) {
@@ -139,22 +135,6 @@ document.addEventListener('DOMContentLoaded', function () {
 		var btnIrAFotos = document.getElementById('epBtnIrAFotos');
 		if (btnIrAFotos) {
 			btnIrAFotos.addEventListener('click', function () { activarTabMovil('fotos'); });
-		}
-		var btnVolverAFormulario = document.getElementById('epBtnVolverAFormulario');
-		if (btnVolverAFormulario) {
-			btnVolverAFormulario.addEventListener('click', function () { activarTabMovil('formulario'); });
-		}
-		var btnIrAMetricas = document.getElementById('epBtnIrAMetricas');
-		if (btnIrAMetricas) {
-			btnIrAMetricas.addEventListener('click', function () {
-				var estadisticaVisible = document.querySelector('.ep-estadisticas-actividad:not(.hidden)');
-				var sinStats = estadisticaVisible ? estadisticaVisible.dataset.sinEstadisticas === '1' : false;
-				if (sinStats) {
-					enviarRegistroActividad();
-				} else {
-					activarTabMovil('metricas');
-				}
-			});
 		}
 		var btnVolverAFotos = document.getElementById('epBtnVolverAFotos');
 		if (btnVolverAFotos) {
@@ -232,6 +212,10 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		}
 
+		var esOpc = function (x) { return x.hasAttribute('data-opcional'); };
+		var requeridas = wizardSlotsActuales.filter(function (x) { return !esOpc(x); });
+		var requeridasListas = requeridas.every(function (x) { return x.classList.contains('ep-foto-slot-completa'); });
+		var ultimaRequerida = requeridas.length - 1;
 		var labelEl = slot.querySelector('.ep-foto-slot-label');
 		var labelTexto = labelEl ? labelEl.textContent.trim() : ('Foto ' + (idx + 1));
 		if (wizardTituloFoto) wizardTituloFoto.textContent = labelTexto;
@@ -274,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				var lK = sK.querySelector('.ep-foto-slot-label');
 				var txtK = lK ? lK.textContent.trim() : ('Foto ' + (k + 1));
 				var isDone = sK.classList.contains('ep-foto-slot-completa');
-				if (isDone) totalComp++;
+				if (isDone && !esOpc(sK)) totalComp++;
 
 				var itemDiv = document.createElement('div');
 				itemDiv.className = 'ep-wizard-sidebar-item' + (k === idx ? ' activo' : '') + (isDone ? ' completado' : '');
@@ -286,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 				var infoDiv = document.createElement('div');
 				infoDiv.className = 'ep-wizard-sidebar-item-info';
-				infoDiv.innerHTML = '<strong>' + txtK + '</strong><span>' + (isDone ? '✓ Cargada' : 'Pendiente') + '</span>';
+				infoDiv.innerHTML = '<strong>' + txtK + '</strong><span>' + (isDone ? '✓ Cargada' : (esOpc(sK) ? 'Opcional' : 'Pendiente')) + '</span>';
 
 				itemDiv.appendChild(numSpan);
 				itemDiv.appendChild(infoDiv);
@@ -299,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				wizardSidebarList.appendChild(itemDiv);
 			}
 			if (wizardSidebarCount) {
-				wizardSidebarCount.textContent = totalComp + '/' + total;
+				wizardSidebarCount.textContent = totalComp + '/' + requeridas.length;
 			}
 		}
 
@@ -307,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			wizardBtnAnterior.disabled = (idx === 0);
 		}
 		if (wizardBtnSigTexto) {
-			if (idx === total - 1) {
+			if (idx === total - 1 || (requeridasListas && idx >= ultimaRequerida)) {
 				wizardBtnSigTexto.textContent = 'Finalizar y revisar';
 			} else {
 				wizardBtnSigTexto.textContent = 'Siguiente foto';
@@ -336,7 +320,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (wizardBtnSiguiente) {
 		wizardBtnSiguiente.addEventListener('click', function () {
 			var total = wizardSlotsActuales.length;
-			if (wizardPasoActual < total - 1) {
+			var reqs = wizardSlotsActuales.filter(function (x) { return !x.hasAttribute('data-opcional'); });
+			var reqsListas = reqs.every(function (x) { return x.classList.contains('ep-foto-slot-completa'); });
+			if (wizardPasoActual < total - 1 && !(reqsListas && wizardPasoActual >= reqs.length - 1)) {
 				wizardPasoActual++;
 				renderizarWizard();
 			} else {
@@ -381,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function () {
 					canvas.toBlob(function (blob) {
 						if (blob) mejor = blob;
 						if (blob && blob.size <= FOTO_OBJETIVO_BYTES || i === FOTO_PASOS.length - 1) {
-							resolve(mejor && mejor.size < archivo.size ? mejor : archivo);
+							resolve(mejor && (mejor.size < archivo.size || archivo.type !== 'image/jpeg') ? mejor : archivo);
 						} else {
 							probar(i + 1);
 						}
@@ -494,6 +480,25 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		}
 	}
+
+	// Deja el slot como si nunca hubiera tenido foto (lo usa el visor de fotos al quitar).
+	function quitarFotoDeSlot(slot) {
+		var preview = slot.querySelector('.ep-foto-preview');
+		var vacio = slot.querySelector('.ep-foto-dropzone-vacio');
+		var estado = slot.querySelector('.ep-foto-slot-estado');
+		var input = slot.querySelector('.ep-foto-input');
+		if (preview) { preview.removeAttribute('src'); preview.classList.add('hidden'); }
+		if (vacio) vacio.classList.remove('hidden');
+		if (input) input.value = '';
+		slot.classList.remove('ep-foto-slot-completa');
+		slot.dataset.fotoRuta = '';
+		slot.dataset.subiendo = '';
+		slot._blob = null;
+		if (estado) { estado.textContent = 'Pendiente'; estado.classList.remove('ep-hist-badge-ok'); }
+		actualizarContadorFotosMovil();
+		if (wizardOverlay && !wizardOverlay.classList.contains('hidden')) renderizarWizard();
+	}
+	window.epFotos = { slots: obtenerSlotsActividadVisible, quitar: quitarFotoDeSlot };
 
 	// Drag & Drop nativo en el Visor del Asistente
 	if (wizardVisor) {
@@ -802,6 +807,8 @@ document.addEventListener('DOMContentLoaded', function () {
 	var exhMuebles = document.getElementById('ep-exh-muebles');
 	var exhRumas = document.getElementById('ep-exh-rumas');
 	var exhCabeceras = document.getElementById('ep-exh-cabeceras');
+	var exhRegular = document.getElementById('ep-exh-regular');
+	var exhOtras = document.getElementById('ep-exh-otras');
 	var exhComentarios = document.getElementById('ep-exh-comentarios');
 
 	function actualizarEstadisticasExhibiciones() {
@@ -811,7 +818,9 @@ document.addEventListener('DOMContentLoaded', function () {
 		var muebles = exhMuebles ? (parseFloat(exhMuebles.value) || 0) : 0;
 		var rumas = exhRumas ? (parseFloat(exhRumas.value) || 0) : 0;
 		var cabeceras = exhCabeceras ? (parseFloat(exhCabeceras.value) || 0) : 0;
-		var total = muebles + rumas + cabeceras;
+		var regular = exhRegular ? (parseFloat(exhRegular.value) || 0) : 0;
+		var otras = exhOtras ? (parseFloat(exhOtras.value) || 0) : 0;
+		var total = muebles + rumas + cabeceras + regular + otras;
 
 		var totalSpan = document.getElementById('ep-exh-total');
 		if (totalSpan) totalSpan.textContent = total;
@@ -820,6 +829,8 @@ document.addEventListener('DOMContentLoaded', function () {
 			{ nombre: 'Cabeceras', cantidad: cabeceras },
 			{ nombre: 'Rumas', cantidad: rumas },
 			{ nombre: 'Muebles', cantidad: muebles },
+			{ nombre: 'Exhibición regular', cantidad: regular },
+			{ nombre: 'Otras', cantidad: otras },
 		].filter(function (i) { return i.cantidad > 0; }).sort(function (a, b) { return b.cantidad - a.cantidad; });
 
 		if (!items.length) {
@@ -842,7 +853,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
 	}
 
-	[exhMuebles, exhRumas, exhCabeceras].forEach(function (input) {
+	[exhMuebles, exhRumas, exhCabeceras, exhRegular, exhOtras].forEach(function (input) {
 		if (input) input.addEventListener('input', actualizarEstadisticasExhibiciones);
 	});
 	if (exhComentarios) exhComentarios.addEventListener('input', actualizarEstadisticasExhibiciones);
@@ -1362,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Ventanas de aviso (SweetAlert2); si no cargó, cae al alert nativo.
 	function epAviso(icono, titulo, texto, boton) {
 		if (!window.Swal) { alert(titulo); return Promise.resolve(); }
-		return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#10218B', allowOutsideClick: false });
+		return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#6242A5', allowOutsideClick: false });
 	}
 	function epToast(icono, titulo) {
 		if (!window.Swal) { alert(titulo); return; }
@@ -1373,6 +1384,11 @@ document.addEventListener('DOMContentLoaded', function () {
 	function validarRegistroActivo() {
 		var panel = document.querySelector('.ep-formulario-actividad:not(.hidden)');
 		var camposVacios = [];
+		var itemPdv = document.querySelector('.ep-activity-item.selected');
+		var pdvInput = document.getElementById('ep-pdv-trigger');
+		// Colocación de POP entrega en varios puntos, ahí no aplica un punto único.
+		var pdvAplica = pdvInput && !(itemPdv && /pop/i.test(itemPdv.dataset.nombre || ''));
+		if (pdvAplica && !window.epPdv.elegido()) camposVacios.push(pdvInput);
 		if (panel) {
 			panel.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]), select, textarea').forEach(function (el) {
 				if (el.disabled || el.readOnly || /comentario/i.test(el.id) || el.offsetParent === null) return;
@@ -1386,7 +1402,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		var fotosFaltan = [];
 		if (bloqueFotos) {
 			bloqueFotos.querySelectorAll('.ep-foto-slot').forEach(function (s) {
-				if (!s._blob && !s.dataset.fotoRuta) fotosFaltan.push(s);
+				if (!s._blob && !s.dataset.fotoRuta && !s.dataset.opcional) fotosFaltan.push(s);
 			});
 		}
 		document.querySelectorAll('.ep-campo-error, .ep-foto-error').forEach(function (el) { el.classList.remove('ep-campo-error', 'ep-foto-error'); });
@@ -1408,7 +1424,53 @@ document.addEventListener('DOMContentLoaded', function () {
 		return false;
 	}
 	document.addEventListener('input', function (ev) { ev.target.classList.remove('ep-campo-error'); });
+	// Campos de texto en mayúsculas: solo letras, números, espacios y guion; si es un cuadro, crece con el texto (Enter no crea líneas).
+	document.addEventListener('input', function (ev) {
+		if (!ev.target.classList.contains('ep-input-mayusculas')) return;
+		ev.target.value = ev.target.value.toUpperCase().replace(/[^\p{L}\p{N} -]/gu, '').replace(/ {2,}/g, ' ');
+		if (ev.target.tagName === 'TEXTAREA') {
+			ev.target.style.height = 'auto';
+			ev.target.style.height = ev.target.scrollHeight + 'px';
+		}
+	});
+	document.addEventListener('keydown', function (ev) {
+		if (ev.key === 'Enter' && ev.target.classList.contains('ep-input-mayusculas')) ev.preventDefault();
+	});
 	document.addEventListener('click', function (ev) { var t = ev.target.closest('.ep-combo-opcion'); if (t) { var c = t.closest('.ep-combo'); if (c) { var tr = c.querySelector('.ep-combo-trigger'); if (tr) tr.classList.remove('ep-campo-error'); } } });
+
+	// Valor de un campo por id; vacío si el campo no existe.
+	function valorDeCampo(id) {
+		var el = document.getElementById(id);
+		return el ? el.value : '';
+	}
+
+	// Tipo, fecha y horario que escribe el promotor en el paso "Datos de la actividad" (ids ep-<prefijo>-...).
+	function leerDatosActividad(prefijo) {
+		function valorDe(sufijo) { var el = document.getElementById('ep-' + prefijo + '-' + sufijo); return el ? el.value : ''; }
+		return { tipo_actividad: valorDe('tipo'), fecha_actividad: valorDe('fecha'), hora_inicio: valorDe('hora-inicio'), hora_fin: valorDe('hora-fin') };
+	}
+
+	// Fecha y horario de la actividad: lo que falla se resalta en rojo y se avisa qué corregir.
+	function actividadValida(prefijo) {
+		var fechaEl = document.getElementById('ep-' + prefijo + '-fecha');
+		var iniEl = document.getElementById('ep-' + prefijo + '-hora-inicio');
+		var finEl = document.getElementById('ep-' + prefijo + '-hora-fin');
+		if (!fechaEl || !iniEl || !finEl) return true;
+		var fallo = null;
+		if (!fechaEl.value) {
+			fallo = { campos: [fechaEl], texto: 'Elige la fecha de la actividad.' };
+		} else if (!iniEl.value || !finEl.value || finEl.value <= iniEl.value) {
+			fallo = { campos: [iniEl, finEl], texto: 'La hora de fin debe ser posterior a la hora de inicio.' };
+		}
+		if (!fallo) return true;
+		fallo.campos.forEach(function (c) { c.classList.add('ep-campo-error'); });
+		epAviso('warning', 'Revisa los datos de la actividad', fallo.texto).then(function () {
+			activarTabMovil('formulario');
+			fallo.campos[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+			fallo.campos[0].focus({ preventScroll: true });
+		});
+		return false;
+	}
 
 	function enviarFormularioActivo() {
 		if (!validarRegistroActivo()) return;
@@ -1426,26 +1488,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		var valores = {};
 		if (tipo === 'activaciones') {
+			Object.assign(valores, leerDatosActividad('act'));
+			if (!actividadValida('act')) return;
 			valores.nacional = document.getElementById('ep-act-nacional') ? document.getElementById('ep-act-nacional').value : '';
 			valores.coberturadas = document.getElementById('ep-act-coberturadas') ? document.getElementById('ep-act-coberturadas').value : '';
 			valores.visitaron = document.getElementById('ep-act-visitaron') ? document.getElementById('ep-act-visitaron').value : '';
 			valores.interactuaron = document.getElementById('ep-act-interactuaron') ? document.getElementById('ep-act-interactuaron').value : '';
 			valores.compraron = document.getElementById('ep-act-compraron') ? document.getElementById('ep-act-compraron').value : '';
 			valores.comentarios = document.getElementById('ep-act-comentarios') ? document.getElementById('ep-act-comentarios').value : '';
-			var mods = [];
-			document.querySelectorAll('#ep-modelo-filas .ep-modelo-fila').forEach(function(f) {
-				var sel = f.querySelector('.ep-modelo-select');
-				var cant = f.querySelector('.ep-modelo-cantidad');
-				if (sel && cant && parseInt(cant.value, 10) > 0) {
-					mods.push({ modelo: sel.value, cantidad: parseInt(cant.value, 10) });
-				}
-			});
+			// Mismos modelos que alimentan las estadísticas del formulario.
+			var mods = (actModelos ? actModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10) }; });
 			valores.modelos = mods;
 		} else if (tipo === 'capacitaciones') {
-			valores.asistentes = document.getElementById('ep-cap-asistentes') ? document.getElementById('ep-cap-asistentes').value : '';
-			valores.aprobados = document.getElementById('ep-cap-aprobados') ? document.getElementById('ep-cap-aprobados').value : '';
-			valores.horas = document.getElementById('ep-cap-horas') ? document.getElementById('ep-cap-horas').value : '';
-			valores.temas = document.getElementById('ep-cap-temas') ? document.getElementById('ep-cap-temas').value : '';
+			Object.assign(valores, leerDatosActividad('cap'));
+			if (!actividadValida('cap')) return;
+			valores.asistente_jefe = capAsistJefe ? capAsistJefe.value : '';
+			valores.jefe_tienda = capJefeTienda ? capJefeTienda.value : '';
+			valores.vendedores = capVendedores ? capVendedores.value : '';
+			valores.interacciones = capInteracciones ? capInteracciones.value : '';
 			valores.comentarios = document.getElementById('ep-cap-comentarios') ? document.getElementById('ep-cap-comentarios').value : '';
 		} else if (tipo === 'colocacion-pop') {
 			var pops = [];
@@ -1468,22 +1528,32 @@ document.addEventListener('DOMContentLoaded', function () {
 			valores.pop_materiales = pops;
 			valores.comentarios = document.getElementById('ep-pop-comentarios') ? document.getElementById('ep-pop-comentarios').value : '';
 		} else if (tipo === 'epson-day') {
-			valores.nacional = document.getElementById('ep-eps-nacional') ? document.getElementById('ep-eps-nacional').value : '';
-			valores.coberturadas = document.getElementById('ep-eps-coberturadas') ? document.getElementById('ep-eps-coberturadas').value : '';
-			valores.visitaron = document.getElementById('ep-eps-visitaron') ? document.getElementById('ep-eps-visitaron').value : '';
-			valores.interactuaron = document.getElementById('ep-eps-interactuaron') ? document.getElementById('ep-eps-interactuaron').value : '';
-			valores.compraron = document.getElementById('ep-eps-compraron') ? document.getElementById('ep-eps-compraron').value : '';
-			valores.comentarios = document.getElementById('ep-eps-comentarios') ? document.getElementById('ep-eps-comentarios').value : '';
+			Object.assign(valores, leerDatosActividad('eday'));
+			if (!actividadValida('eday')) return;
+			valores.nacional = valorDeCampo('ep-eday-nacional');
+			valores.coberturadas = valorDeCampo('ep-eday-coberturadas');
+			valores.visitaron = valorDeCampo('ep-eday-visitaron');
+			valores.interactuaron = valorDeCampo('ep-eday-interactuaron');
+			valores.compraron = valorDeCampo('ep-eday-compraron');
+			valores.comentarios = valorDeCampo('ep-eday-comentarios');
+			valores.modelos = (edayModelos ? edayModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10) }; });
 		} else if (tipo === 'exhibiciones') {
-			valores.muebles = document.getElementById('ep-exh-muebles') ? document.getElementById('ep-exh-muebles').value : '';
-			valores.rumas = document.getElementById('ep-exh-rumas') ? document.getElementById('ep-exh-rumas').value : '';
-			valores.cabeceras = document.getElementById('ep-exh-cabeceras') ? document.getElementById('ep-exh-cabeceras').value : '';
-			valores.comentarios = document.getElementById('ep-exh-comentarios') ? document.getElementById('ep-exh-comentarios').value : '';
+			Object.assign(valores, leerDatosActividad('exh'));
+			if (!actividadValida('exh')) return;
+			valores.cabeceras = valorDeCampo('ep-exh-cabeceras');
+			valores.rumas = valorDeCampo('ep-exh-rumas');
+			valores.muebles = valorDeCampo('ep-exh-muebles');
+			valores.exh_regular = valorDeCampo('ep-exh-regular');
+			valores.otras = valorDeCampo('ep-exh-otras');
+			valores.comentarios = valorDeCampo('ep-exh-comentarios');
 		} else if (tipo === 'evento-ferias') {
-			valores.visitaron = document.getElementById('ep-fer-visitaron') ? document.getElementById('ep-fer-visitaron').value : '';
-			valores.interactuaron = document.getElementById('ep-fer-interactuaron') ? document.getElementById('ep-fer-interactuaron').value : '';
-			valores.compraron = document.getElementById('ep-fer-compraron') ? document.getElementById('ep-fer-compraron').value : '';
-			valores.comentarios = document.getElementById('ep-fer-comentarios') ? document.getElementById('ep-fer-comentarios').value : '';
+			Object.assign(valores, leerDatosActividad('evento'));
+			if (!actividadValida('evento')) return;
+			valores.visitaron = valorDeCampo('ep-evento-visitaron');
+			valores.interactuaron = valorDeCampo('ep-evento-interactuaron');
+			valores.compraron = valorDeCampo('ep-evento-compraron');
+			valores.comentarios = valorDeCampo('ep-evento-comentarios');
+			valores.modelos = (eventoModelos ? eventoModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10) }; });
 		}
 
 		// Fotos: se comprimen al elegirlas y se suben a Azure recién ahora, al enviar.
@@ -1498,10 +1568,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			tipo: tipo,
 			actividad_label: actNombre,
 			actividad_badge: actBadge,
-			punto_venta: 'SUKASA - MALL DEL SOL',
-			cadena: 'Sukasa',
-			ciudad: 'GUAYAQUIL',
-			canal: 'RETAIL',
+			pos_id: window.epPdv.elegido() ? window.epPdv.elegido().pos_id : '',
 			valores: valores,
 			fotos: {}
 		};
@@ -1514,6 +1581,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		subirFotosPendientes(slotsFotos).then(function (fotos) {
 			payload.fotos = fotos;
+			var metaUsuario = document.querySelector('meta[name="ep-usuario"]');
+			payload.usuario_ref = metaUsuario ? metaUsuario.content : '';
 			return fetch('getters/guardar_registro.php', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -1523,7 +1592,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		.then(function(res) { return res.json(); })
 		.then(function(data) {
 			if (data.success) {
-epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente.<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#EEF3FD;color:#10218B;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros').then(function () {					window.location.href = data.redirect || 'index.php?vista=historial';				});
+epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente.<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#6242A5;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros').then(function () {					window.location.href = data.redirect || 'index.php?vista=historial';				});
 			} else {
 				epAviso('error', 'No se pudo enviar', data.error || 'Ocurrió un inconveniente. Intenta de nuevo.').then(function () {
 					if (data.redirect) window.location.href = data.redirect;
@@ -1553,297 +1622,51 @@ epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente
 	if (btnEnv) btnEnv.addEventListener('click', enviarFormularioActivo);
 	var btnEnvMov = document.getElementById('epBtnEnviarDesdeMetricas');
 	if (btnEnvMov) btnEnvMov.addEventListener('click', enviarFormularioActivo);
-	var btnBorrador = document.getElementById('epBtnGuardarBorrador');
-	if (btnBorrador) {
-		btnBorrador.addEventListener('click', function() {
-			epAviso('info', 'Borradores', 'Guardar borradores todavía no está disponible.');
-		});
-	}
 
-	// =========================================================================
-	// MECÁNICA DE EXPORTACIÓN Y SELECCIÓN DE PLANTILLAS POWERPOINT (PPTX)
-	// =========================================================================
-	var modalPPT = document.getElementById('epModalExportarPPT');
-	var modalPptBackdrop = document.getElementById('epModalPptBackdrop');
-	var modalPptCerrar = document.getElementById('epModalPptCerrar');
-	var modalPptCancelar = document.getElementById('epModalPptCancelar');
-	var btnAbrirExportadorPPT = document.getElementById('epBtnAbrirExportadorPPT');
-	var selectPptUsuario = document.getElementById('epPptSelectUsuario');
-	var selectPptFecha = document.getElementById('epPptSelectFecha');
-	var templatesList = document.getElementById('epPptTemplatesList');
-	var slidePreviewFecha = document.getElementById('epSlidePreviewFecha');
-	var slidePreviewTag = document.getElementById('epSlidePreviewTag');
-	var slidePreviewTienda = document.getElementById('epSlidePreviewTienda');
-	var slidePreviewPromotor = document.getElementById('epSlidePreviewPromotor');
-	var slideDynamicContent = document.getElementById('epSlideDynamicContent');
-	var btnEjecutarDescargaPPT = document.getElementById('epBtnEjecutarDescargaPPT');
-	var pptDescargaStatus = document.getElementById('epPptDescargaStatus');
-	var pptStatusTitulo = document.getElementById('epPptStatusTitulo');
-	var pptStatusSub = document.getElementById('epPptStatusSub');
-	var btnDescargaPptTexto = document.getElementById('epBtnDescargaPptTexto');
-
-	var nombresPlantillas = {
-		'activaciones': 'ACTIVACIONES DE CAMPO',
-		'capacitaciones': 'CAPACITACIONES A LA FUERZA DE VENTAS',
-		'epson-day': 'JORNADA EPSON DAY',
-		'colocacion-pop': 'COLOCACIÓN DE MATERIAL POP',
-		'exhibiciones': 'EXHIBICIONES QUE INSPIRAN',
-		'evento-ferias': 'EVENTO O FERIAS',
-		'consolidado': 'REPORTE DIARIO CONSOLIDADO (TODAS)'
-	};
-
-	function abrirModalPPT(config) {
-		if (!modalPPT) return;
-		config = config || {};
-
-		// Pre-seleccionar usuario si viene en config
-		if (config.promotor && selectPptUsuario) {
-			selectPptUsuario.value = config.promotor;
-			if (!selectPptUsuario.value) selectPptUsuario.selectedIndex = 0;
-		}
-
-		// Pre-seleccionar fecha si viene en config
-		if (config.fecha && selectPptFecha) {
-			selectPptFecha.value = String(config.fecha).slice(0, 7);
-		}
-
-		// Pre-seleccionar tienda si viene en config
-		if (config.tienda && slidePreviewTienda) {
-			slidePreviewTienda.textContent = config.tienda;
-		}
-
-		// Pre-seleccionar plantilla si viene en config
-		if (config.tipo && templatesList) {
-			var opt = templatesList.querySelector('.ep-ppt-tpl-option[data-template="' + config.tipo + '"]');
-			if (opt) {
-				actualizarPlantillaPPT(config.tipo, opt);
-			}
-		}
-
-		actualizarSlidePreview();
-		if (pptDescargaStatus) pptDescargaStatus.classList.add('hidden');
-		if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = false;
-		if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = 'Descargar Presentación (.pptx)';
-		modalPPT.classList.remove('hidden');
-	}
-
-	var pptFootMeta = document.getElementById('epPptFootMeta');
-
-	function cerrarModalPPT() {
-		if (modalPPT) modalPPT.classList.add('hidden');
-	}
-
-	function actualizarPlantillaPPT(tplKey, optionEl) {
-		if (!templatesList) return;
-		templatesList.querySelectorAll('.ep-ppt-tpl-option').forEach(function(o) {
-			o.classList.remove('selected');
-			var radio = o.querySelector('input[type="radio"]');
-			if (radio) radio.checked = false;
-		});
-
-		if (optionEl) {
-			optionEl.classList.add('selected');
-			var radioSel = optionEl.querySelector('input[type="radio"]');
-			if (radioSel) radioSel.checked = true;
-		}
-
-		// Cambiar tag de la diapositiva
-		if (slidePreviewTag) {
-			slidePreviewTag.textContent = nombresPlantillas[tplKey] || 'ACTIVIDAD DE CAMPO';
-		}
-
-		// Mostrar la vista interna del slide correspondiente a esa plantilla
-		if (slideDynamicContent) {
-			slideDynamicContent.querySelectorAll('.ep-slide-tpl-view').forEach(function(v) {
-				v.classList.add('hidden');
-			});
-			var vistaActiva = slideDynamicContent.querySelector('.ep-slide-view-' + tplKey);
-			if (vistaActiva) {
-				vistaActiva.classList.remove('hidden');
-			}
-		}
-
-		actualizarSlidePreview();
-	}
-
-	function actualizarSlidePreview() {
-		var userText = 'Todos los usuarios';
-		if (selectPptUsuario && slidePreviewPromotor) {
-			var val = selectPptUsuario.value;
-			userText = (val === 'all') ? 'Todos los usuarios (Consolidado)' : val;
-			slidePreviewPromotor.textContent = 'Promotor: ' + userText;
-		}
-		var fechaText = '24 Oct 2024';
-		if (selectPptFecha && slidePreviewFecha) {
-			var fVal = selectPptFecha.value;
-			if (fVal) {
-				var partesF = fVal.split('-');
-				var meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-				var mesNom = meses[parseInt(partesF[1], 10) - 1] || 'OCT';
-				fechaText = (partesF[2] || '24') + ' ' + mesNom + ' ' + (partesF[0] || '2024');
-				slidePreviewFecha.textContent = fechaText;
-			}
-		}
-
-		// Sincronizar pastilla de metadatos en el footer del modal
-		if (pptFootMeta) {
-			var radSel = templatesList ? templatesList.querySelector('input[name="epPptTemplate"]:checked') : null;
-			var tpl = radSel ? radSel.value : 'activaciones';
-			var tplNom = nombresPlantillas[tpl] || 'Activaciones de Campo';
-			var slideTipo = (tpl === 'consolidado') ? 'Multi-Slide Pack' : '1 Diapositiva';
-			pptFootMeta.textContent = slideTipo + ' · ' + tplNom + ' · ' + (userText.length > 25 ? userText.substring(0, 22) + '...' : userText) + ' · ' + fechaText;
-		}
-	}
-
-	if (btnAbrirExportadorPPT) {
-		btnAbrirExportadorPPT.addEventListener('click', function() {
-			abrirModalPPT();
-		});
-	}
-
-	if (modalPptBackdrop) modalPptBackdrop.addEventListener('click', cerrarModalPPT);
-	if (modalPptCerrar) modalPptCerrar.addEventListener('click', cerrarModalPPT);
-	if (modalPptCancelar) modalPptCancelar.addEventListener('click', cerrarModalPPT);
-	document.addEventListener('keydown', function(ev) {
-		if (ev.key === 'Escape' && modalPPT && !modalPPT.classList.contains('hidden')) {
-			cerrarModalPPT();
-		}
-	});
-
-	// Cambio de usuario en el modal
-	if (selectPptUsuario) {
-		selectPptUsuario.addEventListener('change', actualizarSlidePreview);
-	}
-
-	// Cambio de fecha en el modal
-	if (selectPptFecha) {
-		selectPptFecha.addEventListener('change', function() {
-			var val = selectPptFecha.value;
-			document.querySelectorAll('.ep-ppt-quick-date').forEach(function(b) {
-				if (b.dataset.fecha === val) {
-					b.classList.add('active');
-				} else {
-					b.classList.remove('active');
+	function descargarPptRegistro(btn) {
+		var texto = btn.querySelector('span');
+		var original = texto ? texto.textContent : '';
+		btn.disabled = true;
+		if (texto) texto.textContent = 'Generando...';
+		fetch('getters/registro_ppt.php?id=' + encodeURIComponent(btn.dataset.id))
+			.then(function (res) {
+				var tipoRespuesta = res.headers.get('Content-Type') || '';
+				if (tipoRespuesta.indexOf('json') !== -1) {
+					return res.json().then(function (d) { throw new Error(d.error || 'No se pudo generar la presentación.'); });
 				}
-			});
-			actualizarSlidePreview();
-		});
-	}
-
-	// Botones rápidos de fecha en modal
-	document.querySelectorAll('.ep-ppt-quick-date').forEach(function(btn) {
-		btn.addEventListener('click', function() {
-			var f = btn.dataset.fecha;
-			if (f && selectPptFecha) {
-				selectPptFecha.value = f;
-				document.querySelectorAll('.ep-ppt-quick-date').forEach(function(b) { b.classList.remove('active'); });
-				btn.classList.add('active');
-				actualizarSlidePreview();
-			}
-		});
-	});
-
-	// Click en las tarjetas de plantillas PPTX
-	if (templatesList) {
-		templatesList.addEventListener('click', function(ev) {
-			var opt = ev.target.closest('.ep-ppt-tpl-option');
-			if (!opt) return;
-			var tpl = opt.dataset.template;
-			actualizarPlantillaPPT(tpl, opt);
-		});
-		// Navegación con teclado Enter/Espacio
-		templatesList.addEventListener('keydown', function(ev) {
-			if (ev.key === 'Enter' || ev.key === ' ') {
-				var opt = ev.target.closest('.ep-ppt-tpl-option');
-				if (opt) {
-					ev.preventDefault();
-					var tpl = opt.dataset.template;
-					actualizarPlantillaPPT(tpl, opt);
+				if (!res.ok || tipoRespuesta.indexOf('presentationml') === -1) {
+					throw new Error('El servidor no pudo generar la presentación (código ' + res.status + '). Avisa al equipo técnico.');
 				}
-			}
-		});
+				return res.blob();
+			})
+			.then(function (blob) {
+				var enlace = document.createElement('a');
+				enlace.href = URL.createObjectURL(blob);
+				enlace.download = (btn.dataset.tipo || 'registro').toUpperCase() + '_' + (btn.dataset.promotor || 'REGISTRO').toUpperCase().replace(/\s+/g, '_') + '_' + (btn.dataset.fecha || '') + '.pptx';
+				document.body.appendChild(enlace);
+				enlace.click();
+				enlace.remove();
+			})
+			.catch(function (err) { epAviso('error', 'No se pudo generar', err.message || 'Intenta de nuevo.'); })
+			.then(function () {
+				btn.disabled = false;
+				if (texto) texto.textContent = original;
+			});
 	}
 
-	// Click en botón contextual "PPT Diario" desde la cabecera de grupo de usuario
-	document.addEventListener('click', function(ev) {
-		var btnUserPpt = ev.target.closest('.ep-btn-user-ppt');
-		if (!btnUserPpt) return;
-		ev.stopPropagation(); // No alternar el acordeón de apertura
-		var promotor = btnUserPpt.dataset.promotor;
-		abrirModalPPT({ promotor: promotor, fecha: '2024-10-24' });
-	});
 
-	// Click en botón contextual "Slide" desde cada registro individual
+	// Botón "Slide" de cada registro: arma y descarga el PPTX al instante, sin guardarlo.
 	document.addEventListener('click', function(ev) {
 		var btnRecPpt = ev.target.closest('.ep-btn-record-ppt');
 		if (!btnRecPpt) return;
 		ev.stopPropagation(); // No alternar el acordeón de apertura
-		var tpl = btnRecPpt.dataset.tipo || 'activaciones';
-		var promotor = btnRecPpt.dataset.promotor || '';
-		var fecha = btnRecPpt.dataset.fecha || '2024-10-24';
-		var tienda = btnRecPpt.dataset.tienda || 'Punto de Venta';
-		abrirModalPPT({ tipo: tpl, promotor: promotor, fecha: fecha, tienda: tienda });
+		if (!btnRecPpt.dataset.id) return;
+		if (['activaciones', 'capacitaciones', 'epson-day', 'evento-ferias', 'exhibiciones'].indexOf(btnRecPpt.dataset.tipo) !== -1) {
+			descargarPptRegistro(btnRecPpt);
+			return;
+		}
+		epAviso('info', 'Presentación', 'El formato de presentación de esta actividad todavía no está disponible.');
 	});
-
-	// Descarga del archivo PPTX (real para Activaciones)
-	if (btnEjecutarDescargaPPT) {
-		btnEjecutarDescargaPPT.addEventListener('click', function() {
-			var radSel = templatesList ? templatesList.querySelector('input[name="epPptTemplate"]:checked') : null;
-			var tpl = radSel ? radSel.value : 'activaciones';
-			var user = selectPptUsuario ? selectPptUsuario.value : 'all';
-			var fecha = (selectPptFecha && selectPptFecha.value) ? selectPptFecha.value : new Date().toISOString().slice(0, 7);
-
-			var userClean = (user === 'all') ? 'Consolidado' : user.replace(/\s+/g, '_');
-			var fileName = 'Reporte_Epson_' + (tpl.toUpperCase()) + '_' + userClean + '_' + fecha.replace(/-/g, '') + '.pptx';
-
-			if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = true;
-			if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = 'Compilando diapositivas...';
-			if (pptDescargaStatus) {
-				pptDescargaStatus.classList.remove('hidden');
-				if (pptStatusTitulo) pptStatusTitulo.textContent = 'Generando archivo PowerPoint (.pptx)...';
-				if (pptStatusSub) pptStatusSub.textContent = 'Aplicando la plantilla oficial de ' + (nombresPlantillas[tpl] || tpl) + ' con slots fotográficos y métricas.';
-			}
-
-			function terminar(ok, titulo, sub) {
-				if (btnDescargaPptTexto) btnDescargaPptTexto.textContent = ok ? 'Descargar Nuevamente (.pptx)' : 'Descargar Presentación (.pptx)';
-				if (btnEjecutarDescargaPPT) btnEjecutarDescargaPPT.disabled = false;
-				if (pptStatusTitulo) pptStatusTitulo.innerHTML = titulo;
-				if (pptStatusSub) pptStatusSub.textContent = sub;
-			}
-
-			// Por ahora solo Activaciones genera el archivo real; los demás formatos se habilitan uno a uno.
-			if (tpl !== 'activaciones') {
-				terminar(false, 'Formato aún no disponible', 'Por ahora solo se puede descargar la presentación de Activaciones.');
-				return;
-			}
-
-			var url = 'getters/exportar_ppt.php?tipo=activaciones&mes=' + encodeURIComponent(fecha.slice(0, 7)) + '&usuario=' + encodeURIComponent(user);
-			fetch(url)
-				.then(function (res) {
-					var tipoRespuesta = res.headers.get('Content-Type') || '';
-					if (tipoRespuesta.indexOf('json') !== -1) {
-						return res.json().then(function (d) { throw new Error(d.error || 'No se pudo generar la presentación.'); });
-					}
-					// Solo se guarda si de verdad es un PowerPoint (un 404/500 del servidor llega como HTML).
-					if (!res.ok || tipoRespuesta.indexOf('presentationml') === -1) {
-						throw new Error('El servidor no pudo generar la presentación (código ' + res.status + '). Avisa al equipo técnico.');
-					}
-					return res.blob();
-				})
-				.then(function (blob) {
-					var enlace = document.createElement('a');
-					enlace.href = URL.createObjectURL(blob);
-					enlace.download = fileName;
-					document.body.appendChild(enlace);
-					enlace.click();
-					enlace.remove();
-					terminar(true, '&#10003; ¡Presentación lista: <strong>' + fileName + '</strong>!', 'La descarga comenzó. Revisa tu carpeta de descargas.');
-				})
-				.catch(function (err) {
-					terminar(false, 'No se pudo generar', err.message || 'Intenta de nuevo.');
-				});
-		});
-	}
 
 	// Inicializar en carga
 	if (document.querySelector('.ep-registros-main')) {
