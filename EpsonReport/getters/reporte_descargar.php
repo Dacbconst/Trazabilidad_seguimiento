@@ -30,9 +30,6 @@ $reporte = ep_reporte_obtener((int) ($_GET['id'] ?? 0));
 if (!$reporte) {
 	ep_rep_error('No se encontró el reporte.', 404);
 }
-if ($reporte['tipo'] !== 'activaciones') {
-	ep_rep_error('Este formato de presentación todavía no está disponible.');
-}
 
 $registros = ep_registros_datos(5000, $reporte['ids']);
 if (empty($registros)) {
@@ -49,14 +46,54 @@ if (!empty($reporte['calendario'])) {
 	$opciones['calendario_url'] = EP_FOTOS_URL_BASE.'AppEpson/EpsonReport/'.$reporte['calendario'];
 }
 
-try {
-	$archivo = ep_ppt_activaciones($registros, $titulo, $opciones);
-} catch (Throwable $e) {
-	error_log('reporte_descargar: '.$e->getMessage());
-	ep_rep_error('No se pudo generar la presentación.', 500);
+if ($reporte['tipo'] === 'activaciones') {
+	require_once __DIR__.'/../includes/ppt_activaciones.php';
+	try {
+		$archivo = ep_ppt_activaciones($registros, $titulo, $opciones);
+	} catch (Throwable $e) {
+		error_log('reporte_descargar: '.$e->getMessage());
+		ep_rep_error('No se pudo generar la presentación.', 500);
+	}
+	$nombre = 'ACTIVACIONES_'.str_replace(' ', '_', $titulo).'.pptx';
+} elseif ($reporte['tipo'] === 'capacitaciones') {
+	require_once __DIR__.'/../includes/ppt_capacitaciones.php';
+	try {
+		$archivo = ep_ppt_capacitaciones($registros, $titulo, $opciones);
+	} catch (Throwable $e) {
+		error_log('reporte_descargar: '.$e->getMessage());
+		ep_rep_error('No se pudo generar la presentación.', 500);
+	}
+	$nombre = 'CAPACITACIONES_'.str_replace(' ', '_', $titulo).'.pptx';
+} elseif ($reporte['tipo'] === 'epson-day') {
+	require_once __DIR__.'/../includes/ppt_epson_day.php';
+	try {
+		$archivo = ep_ppt_epson_day($registros, $titulo, $opciones);
+	} catch (Throwable $e) {
+		error_log('reporte_descargar: '.$e->getMessage());
+		ep_rep_error('No se pudo generar la presentación.', 500);
+	}
+	$nombre = 'EPSON_DAY_'.str_replace(' ', '_', $titulo).'.pptx';
+} elseif ($reporte['tipo'] === 'evento-ferias') {
+	require_once __DIR__.'/../includes/ppt_evento_ferias.php';
+	try {
+		$archivo = ep_ppt_evento_ferias($registros, $titulo, $opciones);
+	} catch (Throwable $e) {
+		error_log('reporte_descargar: '.$e->getMessage());
+		ep_rep_error('No se pudo generar la presentación.', 500);
+	}
+	$nombre = 'EVENTOS_O_FERIAS_'.str_replace(' ', '_', $titulo).'.pptx';
+} elseif ($reporte['tipo'] === 'exhibiciones') {
+	require_once __DIR__.'/../includes/ppt_exhibiciones.php';
+	try {
+		$archivo = ep_ppt_exhibiciones($registros, $titulo, $opciones);
+	} catch (Throwable $e) {
+		error_log('reporte_descargar: '.$e->getMessage());
+		ep_rep_error('No se pudo generar la presentación.', 500);
+	}
+	$nombre = 'EXHIBICIONES_'.str_replace(' ', '_', $titulo).'.pptx';
+} else {
+	ep_rep_error('Este formato de presentación todavía no está disponible.');
 }
-
-$nombre = 'ACTIVACIONES_'.str_replace(' ', '_', $titulo).'.pptx';
 header('Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation');
 header('Content-Disposition: attachment; filename="'.$nombre.'"');
 header('Content-Length: '.filesize($archivo));

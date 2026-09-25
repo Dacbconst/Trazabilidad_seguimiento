@@ -31,15 +31,33 @@ if ($tipo === '' || !preg_match('/^\d{4}-\d{2}$/', $mes) || !is_array($ids) || c
 }
 $ids = array_values(array_unique(array_map('intval', $ids)));
 
-// Solo cuentan los registros que existen y son de ese tipo y mes.
+// Solo cuentan los registros que existen y son de ese tipo
 $validos = [];
+$mesesEncontrados = [];
 foreach (ep_registros_datos(5000, $ids) as $r) {
-	if (($r['tipo'] ?? '') === $tipo && strpos($r['fecha_iso'] ?? '', $mes) === 0) {
-		$validos[] = $r['db_id'];
+	if (($r['tipo'] ?? '') === $tipo) {
+		$fIso = (string) ($r['fecha_iso'] ?? '');
+		$fMes = substr($fIso, 0, 7);
+		if ($fMes !== '') {
+			$mesesEncontrados[$fMes] = ($mesesEncontrados[$fMes] ?? 0) + 1;
+		}
+		if ($mes !== '' && strpos($fIso, $mes) === 0) {
+			$validos[] = $r['db_id'];
+		}
+	}
+}
+// Si el mes especificado no coincidió pero hay registros del tipo elegido, usamos el mes predominante de los registros
+if (count($validos) === 0 && !empty($mesesEncontrados)) {
+	arsort($mesesEncontrados);
+	$mes = (string) array_key_first($mesesEncontrados);
+	foreach (ep_registros_datos(5000, $ids) as $r) {
+		if (($r['tipo'] ?? '') === $tipo && strpos($r['fecha_iso'] ?? '', $mes) === 0) {
+			$validos[] = $r['db_id'];
+		}
 	}
 }
 if (count($validos) === 0) {
-	ep_rep_responder(false, ['error' => 'Los registros elegidos no corresponden a ese tipo y mes.'], 400);
+	ep_rep_responder(false, ['error' => 'Los registros elegidos no corresponden a la actividad seleccionada.'], 400);
 }
 
 // Imagen del calendario (opcional): se sube a Azure, carpeta Reportes.

@@ -2,6 +2,7 @@
 // Reportes mensuales (solo admin): lista de reportes guardados + asistente para armar uno nuevo.
 require_once __DIR__.'/../../includes/functions.php';
 require_once __DIR__.'/../../includes/reportes_datos.php';
+require_once __DIR__.'/../../includes/actividades_datos.php';
 
 if (ep_rol_actual() !== 'admin') {
 	echo '<main class="ep-content"><p>No tienes permiso para ver esta sección.</p></main>';
@@ -9,6 +10,15 @@ if (ep_rol_actual() !== 'admin') {
 }
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $reportes = ep_reportes_listar();
+$actividadesActivas = ep_actividades_activas();
+$subtitulosTipo = [
+	'activaciones'   => 'Cobertura, embudo y modelos',
+	'capacitaciones' => 'Asistentes por cargo en tienda',
+	'epson-day'      => 'Jornada especial de impulso',
+	'evento-ferias'  => 'Stands y ferias tecnológicas',
+	'exhibiciones'   => 'Auditoría de espacios físicos',
+	'colocacion-pop' => 'Entrega de material POP',
+];
 $nombresTipo = ['activaciones' => 'Activaciones', 'capacitaciones' => 'Capacitaciones', 'colocacion-pop' => 'Colocación de POP', 'epson-day' => 'Epson Day', 'exhibiciones' => 'Exhibiciones', 'evento-ferias' => 'Evento o Ferias'];
 $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 ?>
@@ -62,72 +72,134 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 			</div>
 
 			<div class="ep-modal-ppt-body">
-				<ol class="ep-rp-stepper" id="epRpStepper">
-					<li class="ep-rp-step activo" data-paso="1"><span>1</span> Tipo y mes</li>
-					<li class="ep-rp-step" data-paso="2"><span>2</span> Calendario</li>
-					<li class="ep-rp-step" data-paso="3"><span>3</span> Registros</li>
-				</ol>
+				<!-- VISTA 1: Selector de actividades con buscador y grilla de 6 botones en 2 columnas -->
+				<div class="ep-rp-paso" id="epRpPasoActividades" data-paso="1">
+					<div class="ep-rp-act-section">
+						<div class="ep-rp-act-header">
+							<label class="ep-label-compact"><?= ep_icon('layers', 13) ?> <span>Tipo de actividad</span></label>
+							<span class="ep-rp-act-count" id="epRpActCount"><?= count($actividadesActivas) ?> activas</span>
+						</div>
 
-				<div class="ep-rp-paso" data-paso="1">
-					<div class="ep-ppt-form-group">
-						<label class="ep-label-compact" for="epRpTipo"><?= ep_icon('layers', 13) ?> <span>Tipo de actividad</span></label>
-						<select id="epRpTipo" class="ep-input">
-							<option value="activaciones">Activaciones</option>
-							<?php foreach ($nombresTipo as $id => $nom): if ($id === 'activaciones') continue; ?>
-								<option value="<?= $h($id) ?>" disabled><?= $h($nom) ?> (próximamente)</option>
+						<!-- Buscador en la parte superior -->
+						<div class="ep-rp-search-box">
+							<span class="ep-rp-search-icon"><?= ep_icon('search', 15) ?></span>
+							<input type="text" id="epRpBuscarActividad" class="ep-rp-search-input" placeholder="Buscar actividad..." autocomplete="off">
+							<button type="button" id="epRpBuscarLimpiar" class="ep-rp-search-clear hidden" aria-label="Limpiar búsqueda">
+								<?= ep_icon('close', 13) ?>
+							</button>
+						</div>
+
+						<!-- Grilla de actividades: 6 botones en 2 columnas (scrolleable si aparecen más) -->
+						<div class="ep-rp-act-grid" id="epRpGridActividades" role="radiogroup" aria-label="Tipo de actividad">
+							<?php foreach ($actividadesActivas as $idx => $act):
+								$plantilla = $act['plantilla'] ?? 'generico';
+								$icono = ep_icono_tipo($plantilla);
+								$sub = $subtitulosTipo[$plantilla] ?? 'Plantilla oficial de campo';
+								$esSeleccionado = ($idx === 0);
+							?>
+								<button type="button" 
+									class="ep-rp-act-card<?= $esSeleccionado ? ' selected' : '' ?>" 
+									data-tipo="<?= $h($plantilla) ?>" 
+									data-id="<?= (int) $act['id'] ?>"
+									data-label="<?= $h($act['label']) ?>"
+									data-sub="<?= $h($sub) ?>"
+									role="radio"
+									aria-checked="<?= $esSeleccionado ? 'true' : 'false' ?>">
+									<div class="ep-rp-act-icon">
+										<?= ep_icon($icono, 18) ?>
+									</div>
+									<div class="ep-rp-act-info">
+										<div class="ep-rp-act-title-row">
+											<strong class="ep-rp-act-title"><?= $h($act['label']) ?></strong>
+											<?php if (!empty($act['badge'])): ?>
+												<span class="ep-rp-act-badge"><?= $h($act['badge']) ?></span>
+											<?php endif; ?>
+										</div>
+										<span class="ep-rp-act-sub"><?= $h($sub) ?></span>
+									</div>
+									<div class="ep-rp-act-radio">
+										<?= ep_icon('check', 11) ?>
+									</div>
+								</button>
 							<?php endforeach; ?>
-						</select>
-					</div>
-					<div class="ep-ppt-form-group">
-						<label class="ep-label-compact" for="epRpMes"><?= ep_icon('calendar', 13) ?> <span>Mes del reporte</span></label>
-						<input type="month" id="epRpMes" class="ep-input" value="<?= date('Y-m') ?>">
-					</div>
-					<div class="ep-ppt-form-group">
-						<label class="ep-label-compact" for="epRpTituloTxt"><?= ep_icon('file', 13) ?> <span>Título (opcional)</span></label>
-						<input type="text" id="epRpTituloTxt" class="ep-input" maxlength="150" placeholder="Ej. Activaciones Retail">
+						</div>
+
+						<!-- Mensaje cuando la búsqueda no coincide -->
+						<div class="ep-rp-act-vacio hidden" id="epRpActVacio">
+							<?= ep_icon('search', 20) ?>
+							<span>No se encontraron actividades para esa búsqueda.</span>
+						</div>
+
+						<input type="hidden" id="epRpTipo" value="<?= $h($actividadesActivas[0]['plantilla'] ?? 'activaciones') ?>" data-label="<?= $h($actividadesActivas[0]['label'] ?? 'Activaciones') ?>">
+						<input type="hidden" id="epRpMes" value="<?= date('Y-m') ?>">
+						<div class="ep-ppt-form-group ep-rp-titulo-group">
+							<label class="ep-label-compact" for="epRpTituloTxt"><?= ep_icon('file', 13) ?> <span>Título personalizado (opcional)</span></label>
+							<input type="text" id="epRpTituloTxt" class="ep-input" maxlength="150" placeholder="Ej. Activaciones Retail Costa">
+						</div>
 					</div>
 				</div>
 
-				<div class="ep-rp-paso hidden" data-paso="2">
-					<div class="ep-ppt-form-group">
-						<label class="ep-label-compact" for="epRpCalendario"><?= ep_icon('camera', 13) ?> <span>Foto del calendario de activaciones</span></label>
-						<label class="ep-foto-dropzone ep-rp-drop" id="epRpDrop" for="epRpCalendario">
-							<input type="file" id="epRpCalendario" accept="image/jpeg,image/png" hidden>
-							<img id="epRpCalPrev" class="ep-foto-preview ep-rp-prev hidden" alt="Vista previa del calendario">
-							<span class="ep-foto-dropzone-vacio" id="epRpDropVacio">
-								<span class="ep-foto-slot-icon"><?= ep_icon('camera', 26) ?></span>
-								<span class="ep-foto-slot-action">Subir foto del calendario</span>
-								<span class="ep-rp-drop-sub">Haz clic o arrastra la imagen aquí (JPG o PNG)</span>
-							</span>
-						</label>
-						<button type="button" class="ep-rp-quitar-foto hidden" id="epRpQuitarFoto">Quitar imagen</button>
-					</div>
-					<div class="ep-ppt-form-group">
-						<label class="ep-label-compact" for="epRpProgramadas"><?= ep_icon('bar-chart', 13) ?> <span>Actividades programadas (opcional)</span></label>
-						<input type="number" id="epRpProgramadas" class="ep-input" min="0" inputmode="numeric" placeholder="Ej. 9" style="max-width:160px;">
-					</div>
-					<p class="ep-rp-nota">Si no subes el calendario, la diapositiva sale sin imagen. Si no escribes las programadas, se toman iguales a las ejecutadas.</p>
-				</div>
+				<!-- VISTA 2: Mecánica de Activaciones (2 columnas: dropzone + KPIs + seleccionados / filtros + tabla dual) -->
+				<?php require_once __DIR__.'/mecanica_activaciones.php'; ?>
 
-				<div class="ep-rp-paso hidden" data-paso="3">
-					<div class="ep-rp-sel-barra">
-						<label class="ep-rp-check"><input type="checkbox" id="epRpTodos"> Seleccionar todos</label>
-						<span id="epRpContador">0 seleccionados</span>
-					</div>
-					<div class="ep-rp-registros" id="epRpRegistros"></div>
-				</div>
+				<!-- VISTA 3: Mecánica de Capacitaciones (Seleccionados + filtros + tabla dual con previsualización) -->
+				<?php require_once __DIR__.'/mecanica_capacitaciones.php'; ?>
 			</div>
 
-			<div class="ep-modal-ppt-foot">
-				<div class="ep-ppt-foot-meta-box"><span class="ep-ppt-foot-pill" id="epRpResumenPie">Activaciones</span></div>
-				<div style="display:flex;align-items:center;gap:8px;">
-					<button type="button" class="ep-btn-subtle-compact" id="epRpAtras">Atrás</button>
-					<button type="button" class="ep-btn-ppt-cta" id="epRpSiguiente">
+			<div class="ep-modal-ppt-foot ep-rp-foot">
+				<!-- Botón Atrás a la izquierda absoluta -->
+				<button type="button" class="ep-rp-btn-atras hidden" id="epRpAtras">
+					<?= ep_icon('arrow-left', 14) ?>
+					<span>Atrás</span>
+				</button>
+				<div class="ep-rp-foot-info hidden" id="epRpFootInfo">
+					<?= ep_icon('check', 13) ?>
+					<span>Todos los cambios se validarán antes de consolidarse.</span>
+				</div>
+				<div class="ep-rp-foot-actions">
+					<button type="button" class="ep-btn-subtle-compact ep-rp-btn-cancelar" id="epRpCancelarModal">
+						Cancelar
+					</button>
+					<button type="button" class="ep-btn-ppt-cta ep-rp-btn-sig" id="epRpSiguiente">
 						<span id="epRpSigTxt">Siguiente</span>
+						<?= ep_icon('arrow-right', 14) ?>
+					</button>
+					<button type="button" class="ep-btn-ppt-cta ep-act-btn-guardar hidden" id="epActBtnGuardar">
+						<span>Guardar Reporte</span>
+						<?= ep_icon('arrow-right', 14) ?>
 					</button>
 				</div>
 			</div>
 
+		</div>
+	</div>
+
+	<!-- Modal Lightbox compartido de previsualización ampliada de la Diapositiva 1 oficial -->
+	<div class="ep-act-lightbox hidden" id="epActLightbox" role="dialog" aria-modal="true">
+		<div class="ep-act-lightbox-backdrop" id="epActLightboxFondo"></div>
+		<div class="ep-act-lightbox-card">
+			<div class="ep-act-lightbox-head">
+				<div class="ep-act-lightbox-head-info">
+					<div class="ep-act-lightbox-badge-row">
+						<strong class="ep-act-lightbox-code" id="epLbCodigo">REG-000</strong>
+						<span class="ep-act-lightbox-status" id="epLbEstado">Activo</span>
+					</div>
+					<span class="ep-act-lightbox-desc" id="epLbDesc">Detalle del registro</span>
+				</div>
+				<button type="button" class="ep-modal-close-btn" id="epLbCerrar" aria-label="Cerrar"><?= ep_icon('close', 16) ?></button>
+			</div>
+			<div class="ep-act-lightbox-body" id="epLbBody">
+				<!-- Se inyecta dinámicamente la primera diapositiva oficial del PPTX del registro -->
+			</div>
+			<div class="ep-act-lightbox-foot">
+				<div class="ep-act-lightbox-meta">
+					<span class="ep-act-lightbox-pdv"><?= ep_icon('store', 13) ?> <span id="epLbPdv">Punto de venta</span></span>
+					<span class="ep-act-lightbox-hora"><?= ep_icon('clock', 13) ?> <span id="epLbFecha">Fecha y hora</span></span>
+				</div>
+				<div style="display:flex;align-items:center;gap:8px;">
+					<button type="button" class="ep-btn-subtle-compact" id="epLbCerrarBtn">Cerrar</button>
+				</div>
+			</div>
 		</div>
 	</div>
 </main>

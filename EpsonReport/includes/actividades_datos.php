@@ -86,5 +86,20 @@ function ep_actividades(): array {
 		],
 	];
 	// "Nueva actividad" (constructor, solo admin) las agrega acá — mismo criterio mock hasta que exista tabla real.
-	return array_merge($base, $_SESSION['ep_actividades_extra'] ?? []);
+	$todas = array_merge($base, $_SESSION['ep_actividades_extra'] ?? []);
+	$desactivadas = $_SESSION['ep_actividades_desactivadas'] ?? [];
+	foreach ($todas as &$act) {
+		if (!isset($act['activo'])) {
+			$act['activo'] = !in_array($act['id'], $desactivadas, false);
+		} elseif (in_array($act['id'], $desactivadas, false)) {
+			$act['activo'] = false;
+		}
+	}
+	unset($act);
+	return $todas;
+}
+
+// Devuelve únicamente las actividades marcadas como activas en el sistema.
+function ep_actividades_activas(): array {
+	return array_values(array_filter(ep_actividades(), fn($a) => !empty($a['activo'])));
 }

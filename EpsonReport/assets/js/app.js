@@ -1364,6 +1364,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 			fila.classList.toggle('ep-gestion-inactiva', !activa);
 			if (botonSidebar) botonSidebar.classList.toggle('hidden', !activa);
+
+			var fd = new FormData();
+			fd.append('id', id);
+			fd.append('activa', activa ? '1' : '0');
+			fetch('getters/toggle_actividad.php', { method: 'POST', body: fd }).catch(function () {});
 		});
 	}
 

@@ -286,7 +286,52 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - **Datos**: Evento o Ferias guarda `embudo` (ya no `feria`) y modelos como Activaciones, sin cobertura; Exhibiciones guarda `exhibiciones` con los cinco conteos y sus porcentajes.
 - **Pendiente**: reportes mensuales solo generan Activaciones; Colocación de POP (plantilla de 5 diapositivas) sin PPT ni datos de actividad.
 
+## Reportes Mensuales: Espacio de Trabajo de Activaciones (2026-09-24)
+
+- **Eliminación del stepper antiguo**: Se quitó el asistente de 3 pasos numerados (`1 Tipo de actividad`, `2 Calendario`, `3 Registros`) para dar paso a vistas especializadas por lógica de actividad (`tipoLogica === 'activaciones'`).
+- **Selector de actividades (Vista 1)**: Buscador interactivo en la parte superior, grilla responsiva de 6 botones en 2 columnas (con badge 'Activo' o 'Nuevo', íconos y subtítulos de plantilla), input opcional de título personalizado y botón "Siguiente" a la derecha.
+- **Espacio de trabajo de Activaciones (Vista 2, modal ancho `ep-rp-dialog-wide`)**:
+  - **Columna Izquierda**:
+    - Encabezado con título dinámico de la actividad en mayúsculas y viñeta púrpura.
+    - Dropzone de calendario con instrucciones directas y concisas ("Haz clic o arrastra la foto del calendario aquí", "Formatos JPG o PNG (máx. 10MB)").
+    - KPIs interactivos: `Programados` (campo numérico abierto, sin mínimo) y `Ejecutado` (contador automático en vivo de los registros seleccionados a la derecha, con porcentaje de cumplimiento calculado en tiempo real).
+    - Regla de límite estricto: Si `Programados` es $N$, el usuario no puede seleccionar más de $N$ registros en la lista derecha.
+    - Caja de `Seleccionados`: lista en vivo de chips con código, punto de venta, hora y botón `(X)` para desmarcar individualmente; incluye contador de ítems y botón "Limpiar".
+  - **Columna Derecha**:
+    - Barra de filtros: Selector de modo Fecha (`Rango` con dos campos o `Única` con un campo); selector de Promotor tipo combobox con búsqueda por tipeo en tiempo real; selector de Canal dinámico.
+    - Tabla dual (`Registros` | `Previsualización`):
+      - Columna izquierda: tarjeta con checkbox, código (`REG-2024-XXX`), badge de estado (`Activo` / `Pendiente`), descripción de la actividad y punto de venta / ciudad.
+      - Columna derecha: tarjeta miniatura de la evidencia con miniatura de la foto y botón flotante "Ampliar".
+  - **Modal Lightbox de Previsualización**:
+    - Renderiza con fidelidad total la **primera diapositiva del PPTX** del registro: barra superior azul oficial de Epson (promotor, correo, punto de venta, actividad, fecha/horario, ciudad), métricas de Cobertura, Interacciones (embudo) y Ventas, y la fotografía principal del punto de venta en alta resolución.
+  - **Pie del Modal**:
+    - Botón "Atrás" ubicado en la esquina izquierda para regresar al selector de actividades y contraer el modal.
+    - Nota de validación "Todos los cambios se validarán antes de consolidarse."
+    - Botones "Cancelar" y "Guardar Reporte" a la derecha.
+  - **Archivos creados/modificados**:
+    - [components/reportes/mecanica_activaciones.php](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/components/reportes/mecanica_activaciones.php)
+    - [components/reportes/reportes.php](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/components/reportes/reportes.php)
+    - [assets/css/reportes.css](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/assets/css/reportes.css)
+    - [assets/js/reportes.js](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/assets/js/reportes.js)
+    - [getters/reportes_registros.php](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/getters/reportes_registros.php)
+    - [getters/reporte_guardar.php](file:///c:/Users/diego/OneDrive/Desktop/trabajo/Trazabilidad_seguimiento/EpsonReport/getters/reporte_guardar.php)
+
 ## Paleta morada (prueba, 2026-09-24)
 
 - La interfaz web pasó del azul Epson a morado: `--color-primary` `#6242A5`, `--color-primary-dark` `#4A3080`, `--color-primary-mid` `#9573DF`, `--color-primary-light` `#B39CE8`, `--color-primary-soft` `#F1EBFC` (en `base.css`). Sidebar y panel del login usan el degradado `#9573DF → #6242A5 → #4A3080`. Los demás azules de los CSS/JS/PHP de la interfaz se convirtieron al mismo matiz (misma luminosidad); los PPTX conservan el azul de Epson.
 - Login sin foto ni marca en la esquina (escritorio y celular; `assets/img/login.png` ya no se usa). Pie "© PromoLucky 2026" en el login y bajo "Cerrar sesión" en el sidebar.
+
+## Selector de actividades en Reportes mensuales (2026-09-24)
+
+- **Modal de Nuevo Reporte (`components/reportes/reportes.php`)**: el `<select id="epRpTipo">` se reemplazó por un selector en dos columnas (`.ep-rp-act-grid`, 6 botones base) con buscador en tiempo real (`#epRpBuscarActividad`) en la cabecera del paso 1.
+- **Actividades activas**: `ep_actividades_activas()` en `includes/actividades_datos.php` filtra las actividades con `'activo' => false` o marcadas en `$_SESSION['ep_actividades_desactivadas']`.
+- **Persistencia del switch del constructor**: `getters/toggle_actividad.php` recibe el cambio del switch en el constructor (`app.js`) y actualiza `$_SESSION['ep_actividades_desactivadas']`, reflejando la desactivación o activación inmediatamente en el modal de reportes.
+- **Visualización escalable**: la grilla tiene límite de altura (`max-height: 250px`) y scrollbar dedicada en CSS (`assets/css/reportes.css`), adaptándose a una sola columna en pantallas móviles (`< 560px`).
+- **Interacción y búsqueda (`assets/js/reportes.js`)**: filtrado insensible a tildes y mayúsculas, contador reactivo (`#epRpActCount`), botón para limpiar búsqueda y mensaje de estado vacío (`#epRpActVacio`).
+- **Ajustes de pulido**:
+  - Se eliminó el campo visible de "Mes del reporte" y la píldora informativa del pie (`#epRpResumenPie`); el mes queda interno como campo oculto con el mes en curso.
+  - Corrección del borde morado al escribir: la regla global `input:focus` de `base.css` pintaba un contorno rectangular sobre el `<input>`; se neutralizó en `reportes.css` con `outline: none !important; border: none !important;`.
+  - Navegación hacia atrás: botón "Atrás" posicionado en la esquina izquierda del pie (`.ep-rp-btn-atras`) separado de "Siguiente" (alineado a la derecha), con navegación directa en los pasos completados del stepper superior.
+  - Título opcional conservado: se mantiene el campo de entrada "Título personalizado (opcional)" bajo la grilla de actividades.
+
+
