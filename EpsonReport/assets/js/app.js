@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (desktopFill && total > 0) {
 			var pct = Math.round((count / total) * 100);
 			desktopFill.style.width = pct + '%';
-			desktopFill.style.background = (pct === 100) ? '#137A3E' : '#4A3080';
+			desktopFill.style.background = (pct === 100) ? '#137A3E' : '#3D2768';
 		}
 		if (desktopBadge) {
 			if (total > 0 && count >= total) {
@@ -1281,9 +1281,10 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (!logica.fotos || !logica.fotos.length) {
 				previewFormFotos.innerHTML = '<span style="font-size:12px;color:var(--color-text-muted);">Esta lógica no pide fotos todavía.</span>';
 			} else {
-				var filaContenedor = document.createElement('div');
-				filaContenedor.className = 'ep-evidencia-fila';
-				filaContenedor.style.marginTop = '4px';
+				var cajaCarrusel = document.createElement('div');
+				cajaCarrusel.className = 'ep-car';
+				cajaCarrusel.innerHTML = '<button type="button" class="ep-car-btn ep-car-prev" aria-label="Anterior" disabled>&#8249;</button><button type="button" class="ep-car-btn ep-car-next" aria-label="Siguiente">&#8250;</button><div class="ep-car-carril"></div>';
+				var filaContenedor = cajaCarrusel.querySelector('.ep-car-carril');
 				logica.fotos.forEach(function (foto) {
 					var slot = document.createElement('div');
 					slot.className = 'ep-foto-slot';
@@ -1297,7 +1298,8 @@ document.addEventListener('DOMContentLoaded', function () {
 						+ '</div>';
 					filaContenedor.appendChild(slot);
 				});
-				previewFormFotos.appendChild(filaContenedor);
+				previewFormFotos.appendChild(cajaCarrusel);
+				window.epCarrusel.iniciar(cajaCarrusel);
 			}
 		}
 	}
@@ -1378,7 +1380,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Ventanas de aviso (SweetAlert2); si no cargó, cae al alert nativo.
 	function epAviso(icono, titulo, texto, boton) {
 		if (!window.Swal) { alert(titulo); return Promise.resolve(); }
-		return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#6242A5', allowOutsideClick: false });
+		return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#513487', allowOutsideClick: false });
 	}
 	function epToast(icono, titulo) {
 		if (!window.Swal) { alert(titulo); return; }
@@ -1483,6 +1485,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		var actNombre = itemSeleccionado ? (itemSeleccionado.dataset.nombre || 'Activaciones') : 'Activaciones';
 		var actBadge = itemSeleccionado ? (itemSeleccionado.querySelector('.ep-activity-badge') ? itemSeleccionado.querySelector('.ep-activity-badge').textContent.trim() : '') : '';
 
+		// El tipo sale de la lógica del botón (así un botón nuevo que replica una lógica se guarda con esa lógica); el nombre solo es respaldo.
+		var logicaBoton = itemSeleccionado ? (itemSeleccionado.dataset.plantilla || '') : '';
 		var tipo = 'activaciones';
 		var nomLower = actNombre.toLowerCase();
 		if (nomLower.indexOf('capacita') !== -1) tipo = 'capacitaciones';
@@ -1490,6 +1494,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		else if (nomLower.indexOf('day') !== -1) tipo = 'epson-day';
 		else if (nomLower.indexOf('exhibi') !== -1) tipo = 'exhibiciones';
 		else if (nomLower.indexOf('feria') !== -1 || nomLower.indexOf('evento') !== -1) tipo = 'evento-ferias';
+		if (logicaBoton) tipo = logicaBoton;
 
 		var valores = {};
 		if (tipo === 'activaciones') {
@@ -1597,7 +1602,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		.then(function(res) { return res.json(); })
 		.then(function(data) {
 			if (data.success) {
-epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente.<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#6242A5;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros').then(function () {					window.location.href = data.redirect || 'index.php?vista=historial';				});
+epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente.<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#513487;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros').then(function () {					window.location.href = data.redirect || 'index.php?vista=historial';				});
 			} else {
 				epAviso('error', 'No se pudo enviar', data.error || 'Ocurrió un inconveniente. Intenta de nuevo.').then(function () {
 					if (data.redirect) window.location.href = data.redirect;

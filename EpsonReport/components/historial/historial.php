@@ -12,69 +12,65 @@ $usuarioSesion = $_SESSION['usuario'] ?? '';
 if (!$esAdmin) {
 	$todosRegistros = array_values(array_filter($todosRegistros, fn($r) => strcasecmp($r['promotor_usuario'] ?? '', $usuarioSesion) === 0));
 }
-
-$tiposFiltro = [
-	'activaciones'   => 'Activaciones',
-	'capacitaciones' => 'Capacitaciones',
-	'colocacion-pop' => 'Colocación de POP',
-	'epson-day'      => 'Epson Day',
-	'exhibiciones'   => 'Exhibiciones',
-	'evento-ferias'  => 'Evento o Ferias',
-];
-$conteo = array_fill_keys(array_keys($tiposFiltro), 0);
-foreach ($todosRegistros as $r) {
-	if (isset($conteo[$r['tipo'] ?? ''])) {
-		$conteo[$r['tipo']]++;
-	}
-}
 $totalRegistros = count($todosRegistros);
-$listaPromotores = array_values(array_unique(array_filter(array_column($todosRegistros, 'promotor'))));
-sort($listaPromotores);
-$mesesCortos?>
-<main class="ep-content ep-h2<?= $esAdmin ? '' : ' ep-h2-sin-promotor' ?>" id="epH2" data-admin="<?= $esAdmin ? '1' : '0' ?>">
+$totalPromotores = count(array_unique(array_filter(array_column($todosRegistros, 'promotor'))));
+?>
+<main class="ep-content ep-h2" id="epH2" data-admin="<?= $esAdmin ? '1' : '0' ?>">
 
 	<header class="ep-h2-head">
 		<div>
 			<h1>Historial de registros <span class="ep-rol-chip <?= $esAdmin ? 'ep-rol-chip-admin' : 'ep-rol-chip-user' ?>"><?= $esAdmin ? 'Admin' : 'Promotor' ?></span></h1>
-			<p id="epH2Resumen"><?= $totalRegistros ?> <?= $totalRegistros === 1 ? 'registro' : 'registros' ?></p>
+			<p id="epH2Resumen"></p>
 		</div>
-		<div class="ep-h2-head-acciones">
-			<div class="ep-h2-fechas">
-				<input type="date" id="epH2Desde" title="Desde">
-				<span>–</span>
-				<input type="date" id="epH2Hasta" title="Hasta">
-			</div>
+		<div class="ep-h2-rapidos" id="epH2Rapidos" role="group" aria-label="Periodo">
+			<button type="button" class="selected" data-rapido="todo">Todo</button>
+			<button type="button" data-rapido="hoy">Hoy</button>
+			<button type="button" data-rapido="semana">Semana</button>
+			<button type="button" data-rapido="mes">Mes</button>
 		</div>
 	</header>
 
-	<div class="ep-h2-filtros">
-		<div class="ep-h2-pills" id="epH2Pills">
-			<button type="button" class="ep-h2-pill selected" data-tipo="all"><?= ep_icon('layers', 15) ?> Todas <span><?= $totalRegistros ?></span></button>
-			<?php foreach ($tiposFiltro as $id => $label): ?>
-				<button type="button" class="ep-h2-pill" data-tipo="<?= $h($id) ?>"><?= ep_icon(ep_icono_tipo($id), 15) ?> <?= $h($label) ?> <span><?= (int) $conteo[$id] ?></span></button>
-			<?php endforeach; ?>
+	<section class="ep-fl-barra">
+		<label class="ep-fl-buscar">
+			<?= ep_icon('search', 18) ?>
+			<input type="search" id="epH2Buscar" placeholder="Buscar por código, promotor, punto de venta…" autocomplete="off">
+		</label>
+
+		<div class="ep-fl-combo" id="epH2ComboAct">
+			<button type="button" class="ep-fl-combo-btn" aria-haspopup="listbox" aria-expanded="false">Actividad <span class="ep-fl-combo-valor">Todas</span><?= ep_icon('chevron', 16) ?></button>
+			<div class="ep-fl-combo-panel hidden">
+				<label class="ep-fl-combo-buscar"><?= ep_icon('search', 16) ?><input type="search" placeholder="Buscar actividad…" autocomplete="off"></label>
+				<div class="ep-fl-combo-lista" role="listbox"></div>
+			</div>
 		</div>
-		<div class="ep-h2-buscador">
-			<?php if ($esAdmin): ?>
-				<select id="epH2Promotor" title="Filtrar por promotor">
-					<option value="all">Todos los usuarios</option>
-					<?php foreach ($listaPromotores as $p): ?>
-						<option value="<?= $h($p) ?>"><?= $h($p) ?></option>
-					<?php endforeach; ?>
-				</select>
-			<?php endif; ?>
+
+		<?php if ($esAdmin): ?>
+			<div class="ep-fl-combo" id="epH2ComboProm">
+				<button type="button" class="ep-fl-combo-btn" aria-haspopup="listbox" aria-expanded="false">Promotor <span class="ep-fl-combo-valor">Todos</span><?= ep_icon('chevron', 16) ?></button>
+				<div class="ep-fl-combo-panel hidden">
+					<label class="ep-fl-combo-buscar"><?= ep_icon('search', 16) ?><input type="search" placeholder="Buscar promotor…" autocomplete="off"></label>
+					<div class="ep-fl-combo-lista" role="listbox"></div>
+				</div>
+			</div>
+		<?php endif; ?>
+
+		<div class="ep-fl-combo" id="epH2ComboFecha">
+			<button type="button" class="ep-fl-combo-btn" aria-haspopup="dialog" aria-expanded="false"><?= ep_icon('calendar', 16) ?> Rango<?= ep_icon('chevron', 16) ?></button>
+			<div class="ep-fl-combo-panel ep-fl-combo-fechas hidden">
+				<label>Desde<input type="date" id="epH2Desde"></label>
+				<label>Hasta<input type="date" id="epH2Hasta"></label>
+			</div>
 		</div>
-	</div>
+	</section>
+
+	<div class="ep-h2-chips hidden" id="epH2Chips"></div>
 
 	<div class="ep-h2-cuerpo">
 		<section class="ep-h2-lista" aria-label="Registros">
-			<div class="ep-h2-fila ep-h2-fila-cab">
-				<div>Fecha actividad</div><div>Actividad</div><div class="ep-h2-col-prom">Promotor</div><div>Fotos</div>
-			</div>
 			<div id="epH2Filas">
 				<?php include __DIR__.'/filas.php'; ?>
 			</div>
-			<div class="ep-h2-vacio<?= $totalRegistros ? ' hidden' : '' ?>" id="epH2Vacio"><?= ep_estado_vacio('file', 'Todavía no hay registros', 'Cuando se envíe uno desde Actividades aparecerá aquí.') ?></div>
+			<div class="ep-h2-vacio hidden" id="epH2Vacio"><?= ep_estado_vacio('file', 'Todavía no hay registros', 'Cuando se envíe uno desde Actividades aparecerá aquí.') ?></div>
 			<div class="ep-h2-vacio hidden" id="epH2SinCoincidencias"><?= ep_estado_vacio('search', 'Sin resultados', 'Ningún registro coincide con los filtros. Prueba quitando alguno.') ?></div>
 			<button type="button" class="ep-h2-mas hidden" id="epH2Mas">Mostrar más</button>
 		</section>
@@ -95,8 +91,5 @@ $mesesCortos?>
 			<div class="ep-h2-lb-pie" id="epH2LbPie"></div>
 		</div>
 	</div>
-
-	<?php if ($esAdmin): ?>
-	<?php endif; ?>
 
 </main>

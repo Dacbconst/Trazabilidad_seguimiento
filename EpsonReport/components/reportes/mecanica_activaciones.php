@@ -14,6 +14,12 @@
 				<p class="ep-act-sec-sub">Sube el respaldo gráfico principal y define los objetivos.</p>
 			</div>
 
+			<!-- Referencia: la foto del calendario es obligatoria -->
+			<div class="ep-act-req">
+				<span class="ep-act-req-txt"><?= ep_icon('calendar', 14) ?> Foto del calendario</span>
+				<span class="ep-act-req-badge">Obligatoria</span>
+			</div>
+
 			<!-- Dropzone fotográfico con mensaje corto y directo -->
 			<div class="ep-act-dropzone" id="epActDrop">
 				<input type="file" id="epActCalendario" accept="image/jpeg,image/png" hidden>
@@ -27,13 +33,18 @@
 				</div>
 				<button type="button" class="ep-act-quitar-foto hidden" id="epActQuitarFoto">Quitar imagen</button>
 			</div>
+			<!-- Foto del calendario ampliada: un clic en cualquier parte la cierra -->
+			<div class="ep-act-zoom hidden" id="epActZoom" role="dialog" aria-modal="true" aria-label="Calendario ampliado">
+				<img id="epActZoomImg" alt="Calendario ampliado">
+				<button type="button" class="ep-act-zoom-cerrar" aria-label="Cerrar"><?= ep_icon('close', 16) ?></button>
+			</div>
 
 			<!-- KPIs: Programados (campo abierto) y Ejecutado (contador automático con % respecto a programados) -->
 			<div class="ep-act-kpis">
 				<div class="ep-act-kpi-card">
 					<label class="ep-act-kpi-label" for="epActProgramados">Programados</label>
 					<div class="ep-act-kpi-input-wrap">
-						<input type="number" id="epActProgramados" class="ep-act-kpi-input" min="1" placeholder="0" value="10">
+						<input type="number" id="epActProgramados" class="ep-act-kpi-input" min="1" placeholder="0">
 						<span class="ep-act-kpi-unit">unidades</span>
 					</div>
 				</div>
@@ -44,6 +55,12 @@
 						<span class="ep-act-pct-badge" id="epActPorcentajeBadge">0%</span>
 					</div>
 				</div>
+			</div>
+
+			<!-- Comentarios que salen en la diapositiva del calendario (uno por línea) -->
+			<div class="ep-act-coment">
+				<label class="ep-act-kpi-label" for="epActComentarios">Comentarios del reporte <span class="ep-act-opcional">(opcional)</span></label>
+				<textarea id="epActComentarios" class="ep-input" rows="2" maxlength="600" placeholder="Un comentario por línea, máximo 5"></textarea>
 			</div>
 
 			<!-- Caja de Seleccionados con lista sincronizada en vivo -->

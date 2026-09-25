@@ -24,76 +24,40 @@ if (!class_exists('ZipArchive')) {
 
 require_once __DIR__.'/../includes/registros_datos.php';
 require_once __DIR__.'/../includes/reportes_datos.php';
-require_once __DIR__.'/../includes/ppt_activaciones.php';
+require_once __DIR__.'/../includes/ppt_motor.php';
 
 $reporte = ep_reporte_obtener((int) ($_GET['id'] ?? 0));
 if (!$reporte) {
 	ep_rep_error('No se encontró el reporte.', 404);
 }
+$generador = ep_ppt_generador($reporte['tipo']);
+if (!$generador) {
+	ep_rep_error('Este formato de presentación todavía no está disponible.');
+}
 
-$registros = ep_registros_datos(5000, $reporte['ids']);
+// Copia congelada al guardar; los reportes anteriores a esa copia se arman con los registros actuales.
+$registros = $reporte['snapshot']['registros'] ?? ep_registros_datos(5000, $reporte['ids']);
 if (empty($registros)) {
 	ep_rep_error('Los registros de este reporte ya no existen.', 404);
 }
-usort($registros, fn($a, $b) => strcmp(($a['fecha_iso'] ?? '').($a['hora'] ?? ''), ($b['fecha_iso'] ?? '').($b['hora'] ?? '')));
+// Agrupados por persona (cada una será una sección del PPTX) y por fecha dentro de ella.
+usort($registros, fn($a, $b) => strcmp(($a['promotor'] ?? '').($a['fecha_actividad'] ?? $a['fecha_iso'] ?? '').($a['hora_inicio'] ?? $a['hora'] ?? ''), ($b['promotor'] ?? '').($b['fecha_actividad'] ?? $b['fecha_iso'] ?? '').($b['hora_inicio'] ?? $b['hora'] ?? '')));
 
 @set_time_limit(300);
 @ini_set('memory_limit', '768M');
 $meses = ep_ppt_meses();
 $titulo = $meses[(int) substr($reporte['mes'], 5, 2)].' '.substr($reporte['mes'], 0, 4);
-$opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null];
+$opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? '')];
 if (!empty($reporte['calendario'])) {
 	$opciones['calendario_url'] = EP_FOTOS_URL_BASE.'AppEpson/EpsonReport/'.$reporte['calendario'];
 }
-
-if ($reporte['tipo'] === 'activaciones') {
-	require_once __DIR__.'/../includes/ppt_activaciones.php';
-	try {
-		$archivo = ep_ppt_activaciones($registros, $titulo, $opciones);
-	} catch (Throwable $e) {
-		error_log('reporte_descargar: '.$e->getMessage());
-		ep_rep_error('No se pudo generar la presentación.', 500);
-	}
-	$nombre = 'ACTIVACIONES_'.str_replace(' ', '_', $titulo).'.pptx';
-} elseif ($reporte['tipo'] === 'capacitaciones') {
-	require_once __DIR__.'/../includes/ppt_capacitaciones.php';
-	try {
-		$archivo = ep_ppt_capacitaciones($registros, $titulo, $opciones);
-	} catch (Throwable $e) {
-		error_log('reporte_descargar: '.$e->getMessage());
-		ep_rep_error('No se pudo generar la presentación.', 500);
-	}
-	$nombre = 'CAPACITACIONES_'.str_replace(' ', '_', $titulo).'.pptx';
-} elseif ($reporte['tipo'] === 'epson-day') {
-	require_once __DIR__.'/../includes/ppt_epson_day.php';
-	try {
-		$archivo = ep_ppt_epson_day($registros, $titulo, $opciones);
-	} catch (Throwable $e) {
-		error_log('reporte_descargar: '.$e->getMessage());
-		ep_rep_error('No se pudo generar la presentación.', 500);
-	}
-	$nombre = 'EPSON_DAY_'.str_replace(' ', '_', $titulo).'.pptx';
-} elseif ($reporte['tipo'] === 'evento-ferias') {
-	require_once __DIR__.'/../includes/ppt_evento_ferias.php';
-	try {
-		$archivo = ep_ppt_evento_ferias($registros, $titulo, $opciones);
-	} catch (Throwable $e) {
-		error_log('reporte_descargar: '.$e->getMessage());
-		ep_rep_error('No se pudo generar la presentación.', 500);
-	}
-	$nombre = 'EVENTOS_O_FERIAS_'.str_replace(' ', '_', $titulo).'.pptx';
-} elseif ($reporte['tipo'] === 'exhibiciones') {
-	require_once __DIR__.'/../includes/ppt_exhibiciones.php';
-	try {
-		$archivo = ep_ppt_exhibiciones($registros, $titulo, $opciones);
-	} catch (Throwable $e) {
-		error_log('reporte_descargar: '.$e->getMessage());
-		ep_rep_error('No se pudo generar la presentación.', 500);
-	}
-	$nombre = 'EXHIBICIONES_'.str_replace(' ', '_', $titulo).'.pptx';
-} else {
-	ep_rep_error('Este formato de presentación todavía no está disponible.');
+try {
+	$archivo = $generador($registros, $titulo, $opciones);
+} catch (Throwable $e) {
+	error_log('reporte_descargar: '.$e->getMessage());
+	ep_rep_error('No se pudo generar la presentación.', 500);
 }
+$nombre = trim(preg_replace('/[^A-Za-z0-9]+/', '_', iconv('UTF-8', 'ASCII//TRANSLIT', (string) ($reporte['titulo'] ?: $reporte['tipo'])) ?: 'REPORTE'), '_').'.pptx';
 header('Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation');
 header('Content-Disposition: attachment; filename="'.$nombre.'"');
 header('Content-Length: '.filesize($archivo));

@@ -8,6 +8,12 @@
 	var dialog = modal ? modal.querySelector('.ep-modal-ppt-dialog') : null;
 	var pasoAct = document.getElementById('epRpPasoActividades');
 	var workspaceAct = document.getElementById('epActWorkspace');
+	var pasoFinal = document.getElementById('epRpFinal');
+	var finalRango = document.getElementById('epRpFinalRango');
+	var finalTotal = document.getElementById('epRpFinalTotal');
+	var inpComentarios = document.getElementById('epActComentarios');
+	var sigTxt = document.getElementById('epRpSigTxt');
+	var vistaPrevia = 2; // workspace al que vuelve "Atrás" desde el paso final
 
 	// Controles del pie
 	var btnAtras = document.getElementById('epRpAtras');
@@ -162,7 +168,7 @@
 	}
 
 	function aviso(icono, titulo, texto) {
-		if (window.Swal) return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonColor: '#6242A5', allowOutsideClick: false });
+		if (window.Swal) return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonColor: '#513487', allowOutsideClick: false });
 		alert(titulo + (texto ? ' ' + texto : ''));
 		return Promise.resolve();
 	}
@@ -172,6 +178,8 @@
 	// ==================== NAVEGACIÓN DE VISTAS ====================
 	function mostrarVista(n) {
 		vistaActual = n;
+		if (pasoFinal) pasoFinal.classList.toggle('hidden', n !== 4);
+		if (sigTxt) sigTxt.textContent = n === 1 ? 'Siguiente' : 'Continuar';
 		if (n === 1) {
 			if (pasoAct) pasoAct.classList.remove('hidden');
 			if (workspaceAct) workspaceAct.classList.add('hidden');
@@ -190,8 +198,8 @@
 
 			if (btnAtras) btnAtras.classList.remove('hidden');
 			if (footInfo) footInfo.classList.remove('hidden');
-			if (btnSig) btnSig.classList.add('hidden');
-			if (btnGuardarAct) btnGuardarAct.classList.remove('hidden');
+			if (btnSig) btnSig.classList.remove('hidden');
+			if (btnGuardarAct) btnGuardarAct.classList.add('hidden');
 
 			var labelAct = (selTipo && selTipo.dataset.label) || 'ACTIVACIONES';
 			if (actTituloLabel) actTituloLabel.textContent = labelAct.toUpperCase();
@@ -205,8 +213,8 @@
 
 			if (btnAtras) btnAtras.classList.remove('hidden');
 			if (footInfo) footInfo.classList.remove('hidden');
-			if (btnSig) btnSig.classList.add('hidden');
-			if (btnGuardarAct) btnGuardarAct.classList.remove('hidden');
+			if (btnSig) btnSig.classList.remove('hidden');
+			if (btnGuardarAct) btnGuardarAct.classList.add('hidden');
 
 			var tipoActual = (selTipo && selTipo.value) || 'capacitaciones';
 			var labelCap = (selTipo && selTipo.dataset.label) || 'Capacitaciones';
@@ -224,6 +232,16 @@
 			if (dotEl) dotEl.style.background = coloresTipo[tipoActual] || '#164194';
 
 			cargarRegistrosCapacitaciones();
+		} else if (n === 4) {
+			if (pasoAct) pasoAct.classList.add('hidden');
+			if (workspaceAct) workspaceAct.classList.add('hidden');
+			if (workspaceCap) workspaceCap.classList.add('hidden');
+			if (dialog) dialog.classList.remove('ep-rp-dialog-wide');
+
+			if (btnAtras) btnAtras.classList.remove('hidden');
+			if (footInfo) footInfo.classList.add('hidden');
+			if (btnSig) btnSig.classList.add('hidden');
+			if (btnGuardarAct) btnGuardarAct.classList.remove('hidden');
 		}
 	}
 
@@ -231,8 +249,10 @@
 		quitarCalendario();
 		seleccionadosMap = {};
 		seleccionadosCapMap = {};
-		if (inpProg) inpProg.value = '10';
+		if (inpProg) inpProg.value = '';
 		if (inpTitulo) inpTitulo.value = '';
+		if (inpMes) inpMes.value = '';
+		if (inpComentarios) inpComentarios.value = '';
 		if (inpBuscar) inpBuscar.value = '';
 		if (inpFechaDesde) inpFechaDesde.value = '';
 		if (inpFechaHasta) inpFechaHasta.value = '';
@@ -253,17 +273,20 @@
 
 	if (document.getElementById('epRpNuevo')) document.getElementById('epRpNuevo').addEventListener('click', abrir);
 	if (btnCerrar) btnCerrar.addEventListener('click', cerrar);
-	if (fondo) fondo.addEventListener('click', cerrar);
 	if (btnCancelarModal) btnCancelarModal.addEventListener('click', cerrar);
 
 	if (btnAtras) {
 		btnAtras.addEventListener('click', function () {
-			mostrarVista(1);
+			mostrarVista(vistaActual === 4 ? vistaPrevia : 1);
 		});
 	}
 
 	if (btnSig) {
 		btnSig.addEventListener('click', function () {
+			if (vistaActual === 2 || vistaActual === 3) {
+				irAlPasoFinal();
+				return;
+			}
 			if (!selTipo || !selTipo.value) {
 				aviso('warning', 'Falta actividad', 'Elige una actividad para el reporte.');
 				return;
@@ -364,8 +387,23 @@
 			}
 			if (dropVacio) dropVacio.classList.add('hidden');
 			if (btnQuitarFoto) btnQuitarFoto.classList.remove('hidden');
+			if (drop) drop.classList.remove('ep-act-error');
 		});
 	}
+
+	// Foto del calendario ampliada; un clic (o Esc) la cierra.
+	var zoom = document.getElementById('epActZoom');
+	function abrirZoomCalendario() {
+		var img = document.getElementById('epActZoomImg');
+		if (!zoom || !img || !imgCal || !imgCal.src) return;
+		img.src = imgCal.src;
+		zoom.classList.remove('hidden');
+	}
+	function cerrarZoomCalendario() { if (zoom) zoom.classList.add('hidden'); }
+	if (zoom) zoom.addEventListener('click', cerrarZoomCalendario);
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && zoom && !zoom.classList.contains('hidden')) cerrarZoomCalendario();
+	});
 
 	function quitarCalendario() {
 		calBlob = null;
@@ -391,6 +429,10 @@
 	if (drop) {
 		drop.addEventListener('click', function (e) {
 			if (e.target === btnQuitarFoto) return;
+			if (calBlob && e.target === imgCal) {
+				abrirZoomCalendario();
+				return;
+			}
 			if (inpCal) inpCal.click();
 		});
 		['dragenter', 'dragover'].forEach(function (ev) {
@@ -427,7 +469,7 @@
 				badgePct.style.color = '#15803D';
 			} else {
 				badgePct.style.background = '#EDE8F6';
-				badgePct.style.color = '#6242A5';
+				badgePct.style.color = '#513487';
 			}
 		}
 
@@ -1671,6 +1713,48 @@
 		}
 	});
 
+	// ==================== PASO FINAL: NOMBRE, MES Y RANGO ====================
+	var NOMBRES_MES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+	function seleccionActual() { return Object.keys(vistaPrevia === 2 ? seleccionadosMap : seleccionadosCapMap).map(function (k) { return (vistaPrevia === 2 ? seleccionadosMap : seleccionadosCapMap)[k]; }); }
+
+	function irAlPasoFinal() {
+		if (vistaActual === 2 && !calBlob) {
+			if (drop) drop.classList.add('ep-act-error');
+			aviso('warning', 'Falta el calendario', 'Sube la foto del calendario de activaciones para continuar.');
+			return;
+		}
+		vistaPrevia = vistaActual;
+		var regs = seleccionActual();
+		if (!regs.length) {
+			aviso('warning', 'Falta seleccionar', 'Marca al menos un registro para el reporte.');
+			return;
+		}
+		var fechas = regs.map(function (r) { return (r.fecha || '').substring(0, 10); }).filter(Boolean).sort();
+		if (finalRango) finalRango.textContent = fechas.length ? (fechas[0] === fechas[fechas.length - 1] ? formatearFechaSlash(fechas[0]) : formatearFechaSlash(fechas[0]) + ' al ' + formatearFechaSlash(fechas[fechas.length - 1])) : '-';
+		if (finalTotal) finalTotal.textContent = regs.length + (regs.length === 1 ? ' registro' : ' registros');
+		if (inpMes && !inpMes.value && fechas.length) inpMes.value = fechas[fechas.length - 1].substring(0, 7);
+		if (inpTitulo && !inpTitulo.value.trim()) {
+			var label = ((selTipo && selTipo.dataset.label) || 'Reporte').toUpperCase();
+			var m = inpMes && inpMes.value ? NOMBRES_MES[parseInt(inpMes.value.substring(5, 7), 10) - 1] + ' ' + inpMes.value.substring(0, 4) : '';
+			inpTitulo.value = (label + ' ' + m).trim();
+		}
+		mostrarVista(4);
+		if (inpTitulo) inpTitulo.focus();
+	}
+
+	// Nombre y mes son obligatorios para guardar.
+	function datosFinalValidos() {
+		if (!inpTitulo || !inpTitulo.value.trim()) {
+			aviso('warning', 'Falta el nombre', 'Escribe el nombre con el que se descargará el reporte.');
+			return false;
+		}
+		if (!inpMes || !/^\d{4}-\d{2}$/.test(inpMes.value)) {
+			aviso('warning', 'Falta el mes', 'Elige el mes del reporte.');
+			return false;
+		}
+		return true;
+	}
+
 	// ==================== GUARDAR Y DESCARGAR REPORTE ====================
 	function descargarReporte(id) {
 		if (window.Swal) Swal.fire({ title: 'Generando presentación', html: 'Esto puede tardar un momento según la cantidad de fotos...', allowOutsideClick: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });
@@ -1708,8 +1792,10 @@
 		var fd = new FormData();
 		fd.append('tipo', selTipo ? selTipo.value : 'activaciones');
 		fd.append('mes', inpMes ? inpMes.value : '');
+		fd.append('nombre_actividad', (selTipo && selTipo.dataset.label) || '');
 		fd.append('titulo', inpTitulo ? inpTitulo.value.trim() : '');
 		fd.append('programadas', inpProg ? inpProg.value : '');
+		fd.append('comentarios', inpComentarios ? inpComentarios.value : '');
 		fd.append('registros', JSON.stringify(ids));
 		if (calBlob) {
 			fd.append('calendario', calBlob, 'calendario.jpg');
@@ -1752,6 +1838,7 @@
 		var fd = new FormData();
 		fd.append('tipo', tipoEnvio);
 		fd.append('mes', inpMes ? inpMes.value : '');
+		fd.append('nombre_actividad', (selTipo && selTipo.dataset.label) || '');
 		fd.append('titulo', inpTitulo ? inpTitulo.value.trim() : '');
 		fd.append('registros', JSON.stringify(ids));
 
@@ -1782,9 +1869,10 @@
 
 	if (btnGuardarAct) {
 		btnGuardarAct.addEventListener('click', function () {
-			if (vistaActual === 2) {
+			if (vistaActual !== 4 || !datosFinalValidos()) return;
+			if (vistaPrevia === 2) {
 				guardarReporteActivaciones();
-			} else if (vistaActual === 3) {
+			} else {
 				guardarReporteCapacitaciones();
 			}
 		});
@@ -1800,7 +1888,7 @@
 		var q = ev.target.closest('.ep-rp-quitar');
 		if (!q) return;
 		var confirmar = window.Swal
-			? Swal.fire({ icon: 'question', title: 'Quitar reporte', text: 'Se quita del histórico. Los registros no se borran.', showCancelButton: true, confirmButtonText: 'Quitar', cancelButtonText: 'Cancelar', confirmButtonColor: '#6242A5' }).then(function (r) { return r.isConfirmed; })
+			? Swal.fire({ icon: 'question', title: 'Quitar reporte', text: 'Se quita del histórico y sus registros quedan libres para armar otro reporte.', showCancelButton: true, confirmButtonText: 'Quitar', cancelButtonText: 'Cancelar', confirmButtonColor: '#513487' }).then(function (r) { return r.isConfirmed; })
 			: Promise.resolve(confirm('¿Quitar este reporte del histórico?'));
 		confirmar.then(function (ok) {
 			if (!ok) return;

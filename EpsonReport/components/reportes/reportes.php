@@ -27,33 +27,64 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 	<header class="ep-rp-head">
 		<div>
 			<h1>Reportes mensuales</h1>
-			<p>Arma el reporte de un mes eligiendo los registros que entran; se guarda la selección y la presentación se genera al descargar.</p>
+			<p id="epRpResumen"><?= count($reportes) ?> <?= count($reportes) === 1 ? 'reporte guardado' : 'reportes guardados' ?> · listos para descargar en PowerPoint</p>
 		</div>
-		<button type="button" class="ep-h2-btn-primario" id="epRpNuevo"><?= ep_icon('presentation', 14) ?> <span>Nuevo reporte</span></button>
+		<button type="button" class="ep-rp-nuevo" id="epRpNuevo"><?= ep_icon('plus', 16) ?> <span>Nuevo reporte</span></button>
 	</header>
 
-	<section class="ep-rp-lista">
-		<?php if (empty($reportes)): ?>
-			<?= ep_estado_vacio('presentation', 'Todavía no hay reportes', 'Crea el primero con "Nuevo reporte".') ?>
-		<?php else: ?>
-			<div class="ep-rp-fila ep-rp-fila-cab"><div>Reporte</div><div>Mes</div><div>Registros</div><div>Creado</div><div></div></div>
-			<?php foreach ($reportes as $r):
-				$anio = substr($r['mes'], 0, 4);
-				$mesTxt = ($meses[(int) substr($r['mes'], 5, 2)] ?? '').' '.$anio;
-				?>
-				<div class="ep-rp-fila" data-id="<?= (int) $r['id'] ?>">
-					<div><strong><?= $h($nombresTipo[$r['tipo']] ?? $r['tipo']) ?></strong><small><?= $h($r['titulo'] ?? '') ?></small></div>
-					<div><?= $h($mesTxt) ?></div>
-					<div><?= (int) $r['total_registros'] ?><?= $r['programadas'] !== null ? ' de '.(int) $r['programadas'].' programadas' : '' ?></div>
-					<div><?= $h(date('d/m/Y H:i', strtotime($r['created_at']))) ?><small><?= $h($r['creador'] ?? '') ?></small></div>
-					<div class="ep-rp-acciones">
-						<button type="button" class="ep-h2-btn-ppt ep-rp-descargar" data-id="<?= (int) $r['id'] ?>"><?= ep_icon('presentation', 13) ?> <span>Descargar PPT</span></button>
-						<button type="button" class="ep-rp-quitar" data-id="<?= (int) $r['id'] ?>" aria-label="Quitar reporte"><?= ep_icon('close', 13) ?></button>
-					</div>
-				</div>
-			<?php endforeach; ?>
-		<?php endif; ?>
+	<?php if (empty($reportes)): ?>
+		<?= ep_estado_vacio('presentation', 'Todavía no hay reportes', 'Crea el primero con "Nuevo reporte".') ?>
+	<?php else: ?>
+	<section class="ep-fl-barra">
+		<label class="ep-fl-buscar">
+			<?= ep_icon('search', 18) ?>
+			<input type="search" id="epRpBuscar" placeholder="Buscar reporte por nombre, actividad o quien lo creó…" autocomplete="off">
+		</label>
+		<div class="ep-fl-combo" id="epRpComboAct">
+			<button type="button" class="ep-fl-combo-btn" aria-haspopup="listbox" aria-expanded="false">Actividad <span class="ep-fl-combo-valor">Todas</span><?= ep_icon('chevron', 16) ?></button>
+			<div class="ep-fl-combo-panel hidden">
+				<label class="ep-fl-combo-buscar"><?= ep_icon('search', 16) ?><input type="search" placeholder="Buscar actividad…" autocomplete="off"></label>
+				<div class="ep-fl-combo-lista" role="listbox"></div>
+			</div>
+		</div>
+		<div class="ep-fl-combo" id="epRpComboMes">
+			<button type="button" class="ep-fl-combo-btn" aria-haspopup="listbox" aria-expanded="false"><?= ep_icon('calendar', 16) ?> Mes <span class="ep-fl-combo-valor">Todos</span><?= ep_icon('chevron', 16) ?></button>
+			<div class="ep-fl-combo-panel hidden">
+				<div class="ep-fl-combo-lista" role="listbox"></div>
+			</div>
+		</div>
 	</section>
+
+	<section class="ep-rp-lista" id="epRpLista">
+		<?php
+		usort($reportes, fn($a, $b) => strcmp($b['mes'].$b['created_at'], $a['mes'].$a['created_at']));
+		$mesActual = null;
+		foreach ($reportes as $r):
+			$mesTxt = ucfirst($meses[(int) substr($r['mes'], 5, 2)] ?? '').' '.substr($r['mes'], 0, 4);
+			$actividad = $nombresTipo[$r['tipo']] ?? $r['tipo'];
+			$nombre = trim((string) ($r['titulo'] ?? '')) ?: $actividad;
+			$rango = preg_match('/"desde":"\d{4}-(\d{2})-(\d{2})","hasta":"\d{4}-(\d{2})-(\d{2})"/', (string) ($r['snapshot_ini'] ?? ''), $m) ? $m[2].'/'.$m[1].' al '.$m[4].'/'.$m[3] : '';
+			$busqueda = mb_strtolower($nombre.' '.$actividad.' '.($r['creador'] ?? ''), 'UTF-8');
+			if ($r['mes'] !== $mesActual):
+				$mesActual = $r['mes']; ?>
+				<div class="ep-rp-grupo" data-mes="<?= $h($r['mes']) ?>" data-mes-label="<?= $h($mesTxt) ?>"><h3><?= $h($mesTxt) ?></h3><em></em></div>
+			<?php endif; ?>
+			<article class="ep-rp-card" data-id="<?= (int) $r['id'] ?>" data-actividad="<?= $h($actividad) ?>" data-mes="<?= $h($r['mes']) ?>" data-busqueda="<?= $h($busqueda) ?>">
+				<span class="ep-fl-ico ep-rp-ico"><?= ep_icon(ep_icono_tipo($r['tipo']), 22) ?></span>
+				<div class="ep-rp-c-main">
+					<strong><?= $h($nombre) ?></strong>
+					<span><?= $h($actividad) ?> · <?= (int) $r['total_registros'] ?> <?= (int) $r['total_registros'] === 1 ? 'registro' : 'registros' ?><?= $rango !== '' ? ' · '.$h($rango) : '' ?></span>
+				</div>
+				<div class="ep-rp-c-creador"><small>Creado por</small><b><?= $h($r['creador'] ?? '') ?></b><small><?= $h(date('d/m/Y H:i', strtotime($r['created_at']))) ?></small></div>
+				<div class="ep-rp-acciones">
+					<button type="button" class="ep-rp-descargar" data-id="<?= (int) $r['id'] ?>"><?= ep_icon('download', 15) ?> <span>Descargar</span></button>
+					<button type="button" class="ep-rp-quitar" data-id="<?= (int) $r['id'] ?>" aria-label="Quitar reporte"><?= ep_icon('trash', 15) ?></button>
+				</div>
+			</article>
+		<?php endforeach; ?>
+		<div class="ep-rp-sin hidden" id="epRpSin"><?= ep_estado_vacio('search', 'Sin resultados', 'Ningún reporte coincide con la búsqueda. Prueba con otra actividad o mes.') ?></div>
+	</section>
+	<?php endif; ?>
 
 	<!-- Asistente: mismo diseño que la ventana de descarga PPT (icono, título, cuerpo, pie con acciones) -->
 	<div class="ep-modal-ppt hidden" id="epRpModal" role="dialog" aria-modal="true" aria-labelledby="epRpTitulo">
@@ -131,11 +162,6 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 						</div>
 
 						<input type="hidden" id="epRpTipo" value="<?= $h($actividadesActivas[0]['plantilla'] ?? 'activaciones') ?>" data-label="<?= $h($actividadesActivas[0]['label'] ?? 'Activaciones') ?>">
-						<input type="hidden" id="epRpMes" value="<?= date('Y-m') ?>">
-						<div class="ep-ppt-form-group ep-rp-titulo-group">
-							<label class="ep-label-compact" for="epRpTituloTxt"><?= ep_icon('file', 13) ?> <span>Título personalizado (opcional)</span></label>
-							<input type="text" id="epRpTituloTxt" class="ep-input" maxlength="150" placeholder="Ej. Activaciones Retail Costa">
-						</div>
 					</div>
 				</div>
 
@@ -144,6 +170,9 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 
 				<!-- VISTA 3: Mecánica de Capacitaciones (Seleccionados + filtros + tabla dual con previsualización) -->
 				<?php require_once __DIR__.'/mecanica_capacitaciones.php'; ?>
+
+				<!-- VISTA 4: nombre, mes y resumen antes de guardar -->
+				<?php require_once __DIR__.'/paso_final.php'; ?>
 			</div>
 
 			<div class="ep-modal-ppt-foot ep-rp-foot">
@@ -153,8 +182,7 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 					<span>Atrás</span>
 				</button>
 				<div class="ep-rp-foot-info hidden" id="epRpFootInfo">
-					<?= ep_icon('check', 13) ?>
-					<span>Todos los cambios se validarán antes de consolidarse.</span>
+				
 				</div>
 				<div class="ep-rp-foot-actions">
 					<button type="button" class="ep-btn-subtle-compact ep-rp-btn-cancelar" id="epRpCancelarModal">

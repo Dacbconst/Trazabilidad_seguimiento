@@ -285,7 +285,8 @@ function ep_ppt_ancho(DOMXPath $xp, string $nombre, int $cx): void {
 }
 
 // Cambia el rectángulo marcador por la foto, recortada para llenar el cuadro sin deformarse.
-function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId, int $anchoImg, int $altoImg): void {
+// Por defecto la foto llena el cuadro recortada; con $completa se ve entera, centrada y sin deformarse (por ejemplo el calendario).
+function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId, int $anchoImg, int $altoImg, bool $completa = false): void {
 	$forma = ep_ppt_forma($xp, $nombre);
 	if (!$forma || $anchoImg <= 0 || $altoImg <= 0) {
 		return;
@@ -298,7 +299,17 @@ function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId
 	$objetivo = $cx / $cy;
 	$imagen = $anchoImg / $altoImg;
 	$l = $r = $t = $b = 0;
-	if ($imagen > $objetivo) {
+	$x = (int) $off->getAttribute('x');
+	$y = (int) $off->getAttribute('y');
+	if ($completa) {
+		$escala = min($cx / $anchoImg, $cy / $altoImg);
+		$ancho = (int) round($anchoImg * $escala);
+		$alto = (int) round($altoImg * $escala);
+		$x += intdiv($cx - $ancho, 2);
+		$y += intdiv($cy - $alto, 2);
+		$cx = $ancho;
+		$cy = $alto;
+	} elseif ($imagen > $objetivo) {
 		$l = $r = (int) round((1 - $objetivo / $imagen) / 2 * 100000);
 	} else {
 		$t = $b = (int) round((1 - $imagen / $objetivo) / 2 * 100000);
@@ -306,7 +317,7 @@ function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId
 	$xml = '<p:pic xmlns:a="'.EP_PPT_NS_A.'" xmlns:p="'.EP_PPT_NS_P.'" xmlns:r="'.EP_PPT_NS_R.'">'
 		.'<p:nvPicPr><p:cNvPr id="'.$id.'" name="Foto '.$id.'"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
 		.'<p:blipFill><a:blip r:embed="'.$rId.'"/><a:srcRect l="'.$l.'" t="'.$t.'" r="'.$r.'" b="'.$b.'"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>'
-		.'<p:spPr><a:xfrm><a:off x="'.$off->getAttribute('x').'" y="'.$off->getAttribute('y').'"/><a:ext cx="'.$cx.'" cy="'.$cy.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
+		.'<p:spPr><a:xfrm><a:off x="'.$x.'" y="'.$y.'"/><a:ext cx="'.$cx.'" cy="'.$cy.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
 	$frag = new DOMDocument();
 	$frag->loadXML($xml);
 	$nuevo = $dom->importNode($frag->documentElement, true);

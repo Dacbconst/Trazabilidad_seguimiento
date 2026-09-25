@@ -1,5 +1,5 @@
 <?php
-// Activa o desactiva una actividad en la sesión (solo admin) para que se refleje de inmediato en reportes y actividades.
+// Activa o desactiva un botón de actividad (solo admin); el cambio lo ven de inmediato los promotores y el modal de reportes.
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
@@ -11,6 +11,8 @@ if (($_SESSION['rol'] ?? '') !== 'admin') {
 	exit;
 }
 
+require_once __DIR__.'/../includes/actividades_datos.php';
+
 $id = (int) ($_POST['id'] ?? 0);
 $activa = ($_POST['activa'] ?? '1') === '1';
 
@@ -19,16 +21,4 @@ if ($id <= 0) {
 	exit;
 }
 
-$_SESSION['ep_actividades_desactivadas'] = $_SESSION['ep_actividades_desactivadas'] ?? [];
-if (!$activa) {
-	if (!in_array($id, $_SESSION['ep_actividades_desactivadas'], true)) {
-		$_SESSION['ep_actividades_desactivadas'][] = $id;
-	}
-} else {
-	$_SESSION['ep_actividades_desactivadas'] = array_values(array_filter(
-		$_SESSION['ep_actividades_desactivadas'],
-		fn($dId) => (int) $dId !== $id
-	));
-}
-
-echo json_encode(['ok' => true, 'activa' => $activa]);
+echo json_encode(ep_actividad_activar($id, $activa) ? ['ok' => true, 'activa' => $activa] : ['ok' => false, 'message' => 'No se pudo actualizar la actividad.']);

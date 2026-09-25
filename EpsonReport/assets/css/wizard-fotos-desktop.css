@@ -30,7 +30,7 @@
 }
 .ep-desktop-flow-meter-bar {
 	height: 100%;
-	background: #4A3080;
+	background: #3D2768;
 	border-radius: 999px;
 	transition: width 0.3s ease, background-color 0.3s ease;
 }
@@ -46,8 +46,8 @@
 	height: 38px;
 	padding: 0 16px;
 	border-radius: 8px;
-	border: 1px solid #4A3080;
-	background: linear-gradient(180deg, #3E246C 0%, #4A3080 100%);
+	border: 1px solid #3D2768;
+	background: linear-gradient(180deg, #3E246C 0%, #3D2768 100%);
 	color: #FFFFFF;
 	font-family: 'Sora', sans-serif;
 	font-size: 12px;
@@ -55,12 +55,12 @@
 	cursor: pointer;
 	transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 	white-space: nowrap;
-	box-shadow: 0 2px 8px rgba(74, 48, 128, 0.25);
+	box-shadow: 0 2px 8px rgba(61, 39, 104, 0.25);
 	flex-shrink: 0;
 }
 .ep-btn-desktop-start-wizard:hover {
 	background: linear-gradient(180deg, #543192 0%, #3B2266 100%);
-	box-shadow: 0 4px 14px rgba(74, 48, 128, 0.35);
+	box-shadow: 0 4px 14px rgba(61, 39, 104, 0.35);
 	transform: translateY(-1px);
 }
 .ep-btn-desktop-start-wizard:active {
@@ -77,16 +77,16 @@
 	border-radius: 6px;
 	border: 1px solid #DACFEE;
 	background: #FFFFFF;
-	color: #4A3080;
+	color: #3D2768;
 	font-size: 11px;
 	font-weight: 600;
 	cursor: pointer;
 	transition: all 0.12s ease;
 }
 .ep-btn-reabrir-wizard-desktop:hover {
-	background: #4A3080;
+	background: #3D2768;
 	color: #FFFFFF;
-	border-color: #4A3080;
+	border-color: #3D2768;
 }
 
 /* Ocultar elementos de desktop en móvil */
@@ -110,14 +110,14 @@
 	.ep-wizard-sheet {
 		max-width: 880px;
 		border-radius: 16px;
-		box-shadow: 0 24px 60px rgba(74, 48, 128, 0.3);
+		box-shadow: 0 24px 60px rgba(61, 39, 104, 0.3);
 	}
 	.ep-wizard-desktop-tag {
 		display: inline-flex;
 		align-items: center;
 		font-size: 11px;
 		font-weight: 700;
-		color: #4A3080;
+		color: #3D2768;
 		background: #F3EEFA;
 		padding: 3px 8px;
 		border-radius: 5px;
@@ -155,7 +155,7 @@
 	.ep-wizard-sidebar-count {
 		font-size: 10.5px;
 		font-weight: 700;
-		color: #4A3080;
+		color: #3D2768;
 		background: #F3EEFA;
 		padding: 1px 6px;
 		border-radius: 4px;
@@ -185,9 +185,9 @@
 		border-color: #E0D6F1;
 	}
 	.ep-wizard-sidebar-item.activo {
-		border-color: #4A3080;
+		border-color: #3D2768;
 		background: #F5F2FB;
-		box-shadow: 0 2px 6px rgba(74, 48, 128, 0.08);
+		box-shadow: 0 2px 6px rgba(61, 39, 104, 0.08);
 	}
 	.ep-wizard-sidebar-item.completado {
 		background: #FFFFFF;
@@ -207,7 +207,7 @@
 		transition: all 0.15s ease;
 	}
 	.ep-wizard-sidebar-item.activo .ep-wizard-sidebar-num {
-		background: #4A3080;
+		background: #3D2768;
 		color: #FFFFFF;
 	}
 	.ep-wizard-sidebar-item.completado .ep-wizard-sidebar-num {
@@ -258,17 +258,17 @@
 
 /* Efectos Drag & Drop visuales */
 .ep-wizard-visor.drag-active {
-	border-color: #4A3080 !important;
+	border-color: #3D2768 !important;
 	background: #F3EEFA !important;
 	border-style: solid !important;
-	box-shadow: 0 0 0 4px rgba(74, 48, 128, 0.15);
+	box-shadow: 0 0 0 4px rgba(61, 39, 104, 0.15);
 	transform: scale(1.01);
 }
 .ep-foto-dropzone.drag-active {
-	border-color: #4A3080 !important;
+	border-color: #3D2768 !important;
 	background: #F3EEFA !important;
 	border-style: solid !important;
-	box-shadow: 0 0 0 3px rgba(74, 48, 128, 0.12);
+	box-shadow: 0 0 0 3px rgba(61, 39, 104, 0.12);
 }
 
 /* Móvil: la evidencia se sube solo con el asistente; la grilla de casillas aparece recién cuando ya están todas las fotos */

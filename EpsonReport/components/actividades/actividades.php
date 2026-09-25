@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__.'/../../includes/actividades_datos.php';
 require_once __DIR__.'/../../includes/fotos_datos.php';
-$actividades = ep_actividades();
 $esAdmin = ep_rol_actual() === 'admin';
+$actividades = ep_actividades_visibles();
 ?>
 <aside class="ep-side">
 	<div>
@@ -17,7 +17,7 @@ $esAdmin = ep_rol_actual() === 'admin';
 
 	<div id="ep-lista-actividades" style="display:flex;flex-direction:column;gap:8px;">
 		<?php foreach ($actividades as $i => $a): ?>
-			<button type="button" class="ep-activity-item<?= $i === 0 ? ' selected' : '' ?>" data-id="<?= (int) $a['id'] ?>" data-render-id="<?= (int) ($a['render_id'] ?? $a['id']) ?>" data-actividad="<?= htmlspecialchars($a['label']) ?>" data-nombre="<?= htmlspecialchars($a['label']) ?>">
+			<button type="button" class="ep-activity-item<?= $i === 0 ? ' selected' : '' ?>" data-plantilla="<?= htmlspecialchars((string) ($a['plantilla'] ?? '')) ?>" data-id="<?= (int) $a['id'] ?>" data-render-id="<?= (int) ($a['render_id'] ?? $a['id']) ?>" data-actividad="<?= htmlspecialchars($a['label']) ?>" data-nombre="<?= htmlspecialchars($a['label']) ?>">
 				<span class="ep-activity-icon"><?= ep_icon('grid', 14) ?></span>
 				<span class="ep-activity-label"><?= htmlspecialchars($a['label']) ?></span>
 				<?php if ($a['badge']): ?><span class="ep-activity-badge"><?= htmlspecialchars($a['badge']) ?></span><?php endif; ?>
@@ -72,8 +72,11 @@ $esAdmin = ep_rol_actual() === 'admin';
 	</div>
 
 	<?php
-	// Las actividades copia apuntan a la misma plantilla que su origen — solo se renderiza UNA vez por origen real.
-	$actividadesOriginales = array_filter($actividades, fn($a) => ($a['render_id'] ?? $a['id']) === $a['id']);
+	// Cada lógica se renderiza UNA vez, aunque varios botones la usen; la de la primera actividad va primero (es la que se ve al abrir).
+	$logicas = ep_logicas();
+	$plantillasUsadas = array_unique(array_column($actividades, 'plantilla'));
+	$actividadesOriginales = array_values(array_filter($logicas, fn($l) => in_array($l['plantilla'], $plantillasUsadas, true)));
+	usort($actividadesOriginales, fn($a, $b) => (int) ($b['plantilla'] === ($actividades[0]['plantilla'] ?? '')) <=> (int) ($a['plantilla'] === ($actividades[0]['plantilla'] ?? '')));
 	?>
 	<div class="ep-actividad-layout<?= !empty($actividades[0]['sin_estadisticas']) ? ' ep-actividad-layout-sin-stats' : '' ?>" id="ep-actividad-layout">
 		

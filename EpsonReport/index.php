@@ -19,7 +19,7 @@ require_once __DIR__.'/includes/secciones.php';
 require_once __DIR__.'/includes/actividades_datos.php';
 
 $secciones = ep_secciones();
-$actividadesNav = ep_actividades();
+$actividadesNav = ep_actividades_visibles();
 $vista = $_GET['vista'] ?? 'actividades';
 if ($vista === 'registros') {
 	$vista = 'historial';
@@ -36,7 +36,7 @@ if (!isset($secciones[$vista])) {
 	<meta name="ep-usuario" content="<?= (int) ($_SESSION['usuario_id'] ?? 0) ?>">
 	<title>EpsonReport</title>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'historial', 'reportes'] as $hoja): ?>
+	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes'] as $hoja): ?>
 	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
 	<?php endforeach; ?>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
@@ -158,9 +158,12 @@ if (!isset($secciones[$vista])) {
 		}
 	</script>
 	<script src="assets/js/sesion-watch.js?v=<?= filemtime(__DIR__.'/assets/js/sesion-watch.js') ?>"></script>
+	<script src="assets/js/filtros.js?v=<?= filemtime(__DIR__.'/assets/js/filtros.js') ?>"></script>
+	<script src="assets/js/reportes-lista.js?v=<?= filemtime(__DIR__.'/assets/js/reportes-lista.js') ?>"></script>
 	<script src="assets/js/reportes.js?v=<?= filemtime(__DIR__.'/assets/js/reportes.js') ?>"></script>
 	<script src="assets/js/historial.js?v=<?= filemtime(__DIR__.'/assets/js/historial.js') ?>"></script>
 	<script src="assets/js/pdv.js?v=<?= filemtime(__DIR__.'/assets/js/pdv.js') ?>"></script>
+	<script src="assets/js/carrusel.js?v=<?= filemtime(__DIR__.'/assets/js/carrusel.js') ?>"></script>
 	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>
 	<script src="assets/js/visor-fotos.js?v=<?= filemtime(__DIR__.'/assets/js/visor-fotos.js') ?>"></script>
 	<script src="assets/js/comentarios.js?v=<?= filemtime(__DIR__.'/assets/js/comentarios.js') ?>"></script>

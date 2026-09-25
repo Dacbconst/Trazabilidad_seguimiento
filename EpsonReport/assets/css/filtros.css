@@ -1,0 +1,26 @@
+/* Barra de búsqueda y selectores con buscador, compartidos por Historial y Reportes mensuales */
+.ep-fl-barra { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ep-fl-buscar { flex: 1 1 260px; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 12px; background: #fff; color: var(--color-primary); }
+.ep-fl-buscar:focus-within, .ep-fl-combo-btn:focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); outline: none; }
+.ep-fl-buscar input { flex: 1; min-width: 0; height: auto; border: none; outline: none !important; box-shadow: none; background: transparent; font-family: inherit; font-size: 14px; color: var(--color-ink); }
+.ep-fl-combo { position: relative; }
+.ep-fl-combo-btn { height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 12px; background: #fff; color: var(--color-ink); font-size: 14px; font-weight: 500; }
+.ep-fl-combo-btn svg { color: var(--color-text-muted); }
+.ep-fl-combo-valor { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 9px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary-dark); font-size: 12px; font-weight: 600; }
+.ep-fl-combo-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; width: 320px; max-height: 380px; display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgba(42, 24, 76, 0.18); overflow: hidden; }
+.ep-fl-combo-panel.hidden { display: none; }
+.ep-fl-combo-buscar { display: flex; align-items: center; gap: 8px; margin: 12px 12px 8px; height: 40px; padding: 0 12px; border-radius: 10px; background: var(--color-surface-muted); color: var(--color-primary); }
+.ep-fl-combo-buscar input { flex: 1; min-width: 0; height: auto; border: none; outline: none !important; box-shadow: none; background: transparent; font-family: inherit; font-size: 13.5px; }
+.ep-fl-combo-lista { overflow-y: auto; padding: 0 6px 8px; }
+.ep-fl-opt { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: none; border-radius: 10px; background: transparent; text-align: left; font-size: 14px; color: var(--color-ink); }
+.ep-fl-opt:hover { background: var(--color-surface-muted); }
+.ep-fl-opt.hidden { display: none; }
+.ep-fl-opt-sel { background: var(--color-primary-soft); font-weight: 600; }
+.ep-fl-opt span:not(.ep-fl-ico) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-fl-opt em { font-style: normal; font-size: 12.5px; color: var(--color-text-muted); }
+.ep-fl-opt-ico { width: 32px; height: 32px; border-radius: 9px; }
+/* Icono de la actividad en un cuadro redondeado, igual en todas las listas */
+.ep-fl-ico { flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--color-primary-soft); color: var(--color-primary); }
+@media (max-width: 900px) {
+	.ep-fl-combo-panel { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; }
+}

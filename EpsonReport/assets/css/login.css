@@ -32,7 +32,7 @@ body.ep-login-body {
 	min-width: 380px;
 	max-width: 560px;
 	flex-shrink: 0;
-	background: linear-gradient(165deg, #6242A5 0%, #4A3080 55%, #35205F 100%);
+	background: linear-gradient(165deg, #513487 0%, #3D2768 55%, #2A184C 100%);
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
@@ -99,7 +99,7 @@ body.ep-login-body {
 	padding: clamp(24px, 3.4vh, 34px) clamp(22px, 2.6vw, 30px);
 	border-radius: 20px;
 	border: 1px solid #EBE5F4;
-	box-shadow: 0 12px 36px rgba(98, 66, 165, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
+	box-shadow: 0 12px 36px rgba(81, 52, 135, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 .ep-login-header h2 {
@@ -139,7 +139,7 @@ body.ep-login-body {
 .ep-login-form-inner .ep-input:focus {
 	background: #FFFFFF;
 	border-color: var(--color-primary);
-	box-shadow: 0 0 0 3px rgba(98, 66, 165, 0.12);
+	box-shadow: 0 0 0 3px rgba(81, 52, 135, 0.12);
 }
 
 .ep-login-form-inner .ep-btn-primary {
@@ -147,13 +147,13 @@ body.ep-login-body {
 	font-size: 15px;
 	border-radius: var(--radius-md);
 	margin-top: 4px;
-	background: linear-gradient(135deg, #6242A5 0%, #4A3080 100%);
-	box-shadow: 0 4px 14px rgba(98, 66, 165, 0.24);
+	background: linear-gradient(135deg, #513487 0%, #3D2768 100%);
+	box-shadow: 0 4px 14px rgba(81, 52, 135, 0.24);
 	transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .ep-login-form-inner .ep-btn-primary:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 6px 18px rgba(98, 66, 165, 0.32);
+	box-shadow: 0 6px 18px rgba(81, 52, 135, 0.32);
 }
 .ep-login-form-inner .ep-btn-primary:active {
 	transform: scale(0.98);

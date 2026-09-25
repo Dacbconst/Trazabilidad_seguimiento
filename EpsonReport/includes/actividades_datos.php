@@ -1,6 +1,9 @@
 <?php
-// Actividades registradas — mock temporal hasta que exista tabla real (mismo criterio que ep_rol_actual()).
-function ep_actividades(): array {
+// Lógicas base (plantilla, campos y fotos que hereda cada botón) y actividades (botones) guardadas en insert_reporte_actividad.
+require_once __DIR__.'/db.php';
+
+// Las seis lógicas del sistema, por plantilla; su id es el de la actividad base que las renderiza.
+function ep_logicas(): array {
 	$base = [
 		[
 			'id' => 1,
@@ -85,21 +88,74 @@ function ep_actividades(): array {
 			],
 		],
 	];
-	// "Nueva actividad" (constructor, solo admin) las agrega acá — mismo criterio mock hasta que exista tabla real.
-	$todas = array_merge($base, $_SESSION['ep_actividades_extra'] ?? []);
-	$desactivadas = $_SESSION['ep_actividades_desactivadas'] ?? [];
-	foreach ($todas as &$act) {
-		if (!isset($act['activo'])) {
-			$act['activo'] = !in_array($act['id'], $desactivadas, false);
-		} elseif (in_array($act['id'], $desactivadas, false)) {
-			$act['activo'] = false;
-		}
-	}
-	unset($act);
-	return $todas;
+	return array_column($base, null, 'plantilla');
 }
 
-// Devuelve únicamente las actividades marcadas como activas en el sistema.
+// Botones de actividad guardados; cada uno hereda campos y fotos de su lógica.
+function ep_actividades(): array {
+	$db = ep_db();
+	$res = $db ? $db->query('SELECT id, nombre, logica, badge, activo FROM insert_reporte_actividad WHERE eliminado_en IS NULL ORDER BY orden, id') : false;
+	$logicas = ep_logicas();
+	$actividades = [];
+	foreach ($res ? $res->fetch_all(MYSQLI_ASSOC) : [] as $fila) {
+		$logica = $logicas[$fila['logica']] ?? null;
+		if (!$logica) {
+			continue;
+		}
+		$actividades[] = [
+			'id' => (int) $fila['id'],
+			'label' => $fila['nombre'],
+			'badge' => $fila['badge'],
+			'plantilla' => $fila['logica'],
+			'campos' => $logica['campos'],
+			'sin_estadisticas' => $logica['sin_estadisticas'] ?? false,
+			'render_id' => $logica['id'],
+			'activo' => (bool) $fila['activo'],
+		];
+	}
+	return $actividades;
+}
+
+// Solo las activas: lo que ven los promotores y el modal de reportes.
 function ep_actividades_activas(): array {
-	return array_values(array_filter(ep_actividades(), fn($a) => !empty($a['activo'])));
+	return array_values(array_filter(ep_actividades(), fn($a) => $a['activo']));
+}
+
+// El admin ve todas (con su interruptor); el promotor solo las activas.
+function ep_actividades_visibles(): array {
+	return ep_rol_actual() === 'admin' ? ep_actividades() : ep_actividades_activas();
+}
+
+// Crea un botón que copia la lógica de otro. Devuelve el mensaje de error, o null si se guardó.
+function ep_actividad_crear(string $nombre, string $logica, int $creadoPor): ?string {
+	$db = ep_db();
+	if (!$db || !isset(ep_logicas()[$logica])) {
+		return 'No se pudo crear la actividad.';
+	}
+	$stmt = $db->prepare('SELECT 1 FROM insert_reporte_actividad WHERE LOWER(nombre) = LOWER(?) AND eliminado_en IS NULL LIMIT 1');
+	$stmt->bind_param('s', $nombre);
+	$stmt->execute();
+	$existe = $stmt->get_result()->num_rows > 0;
+	$stmt->close();
+	if ($existe) {
+		return 'Ya existe una actividad con ese nombre.';
+	}
+	$stmt = $db->prepare("INSERT INTO insert_reporte_actividad (nombre, logica, badge, orden, creado_por) SELECT ?, ?, 'Nuevo', COALESCE(MAX(orden), 0) + 1, ? FROM insert_reporte_actividad");
+	$stmt->bind_param('ssi', $nombre, $logica, $creadoPor);
+	$ok = $stmt->execute();
+	$stmt->close();
+	return $ok ? null : 'No se pudo crear la actividad.';
+}
+
+function ep_actividad_activar(int $id, bool $activa): bool {
+	$db = ep_db();
+	$stmt = $db ? $db->prepare('UPDATE insert_reporte_actividad SET activo = ? WHERE id = ? AND eliminado_en IS NULL') : false;
+	if (!$stmt) {
+		return false;
+	}
+	$valor = $activa ? 1 : 0;
+	$stmt->bind_param('ii', $valor, $id);
+	$ok = $stmt->execute();
+	$stmt->close();
+	return $ok;
 }

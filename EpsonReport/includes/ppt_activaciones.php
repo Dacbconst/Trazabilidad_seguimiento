@@ -30,23 +30,14 @@ function ep_ppt_activaciones(array $registros, string $tituloMes, array $opcione
 function ep_ppt_activaciones_calendario(array &$ctx, array $registros, array $opciones): void {
 	$totalEjecutadas = count($registros);
 	$programadas = isset($opciones['programadas']) && $opciones['programadas'] !== null ? (int) $opciones['programadas'] : $totalEjecutadas;
-	$comentarios = [];
-	foreach ($registros as $reg) {
-		foreach ((array) ($reg['comentarios'] ?? []) as $comentario) {
-			if (count($comentarios) < 3 && trim((string) $comentario) !== '') {
-				$comentarios[] = ep_ppt_mayus((string) $comentario);
-			}
-		}
-	}
+	$comentarios = array_values(array_filter(preg_split('/\R/', (string) ($opciones['comentarios'] ?? '')), fn($c) => trim($c) !== ''));
 	$slide = ep_ppt_slide_nueva($ctx, 3, 3);
 	ep_ppt_texto($slide['dom'], $slide['xp'], 'CuadroTexto 12', [ep_ppt_pct($programadas > 0 ? $totalEjecutadas / $programadas * 100 : 0)]);
 	ep_ppt_texto($slide['dom'], $slide['xp'], 'CuadroTexto 13', [$programadas.' ACTIVACIONES PROGRAMADAS', $totalEjecutadas.' EJECUTADAS']);
-	foreach (['CuadroTexto 27', 'CuadroTexto 28', 'CuadroTexto 33'] as $i => $nombre) {
-		ep_ppt_texto($slide['dom'], $slide['xp'], $nombre, [$comentarios[$i] ?? '']);
-	}
+	ep_ppt_comentarios($slide['dom'], $slide['xp'], ['CuadroTexto 27', 'CuadroTexto 28', 'CuadroTexto 33'], $comentarios, 2293000);
 	$urlCalendario = $opciones['calendario_url'] ?? '';
 	if ($urlCalendario !== '' && isset($ctx['fotos'][$urlCalendario])) {
-		ep_ppt_slide_imagen($ctx, $slide, 'Rectángulo 14', $ctx['fotos'][$urlCalendario]);
+		ep_ppt_slide_imagen($ctx, $slide, 'Rectángulo 14', $ctx['fotos'][$urlCalendario], true); // el calendario se ve entero, sin recortar
 	} else {
 		ep_ppt_quitar($slide['xp'], 'Rectángulo 14'); // sin imagen del calendario: se quita el cuadro de ejemplo
 	}

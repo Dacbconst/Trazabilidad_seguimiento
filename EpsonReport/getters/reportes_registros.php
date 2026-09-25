@@ -5,6 +5,7 @@ session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/registros_datos.php';
+require_once __DIR__.'/../includes/reportes_datos.php';
 header('Content-Type: application/json; charset=utf-8');
 
 if (!ep_login_check()) {
@@ -25,7 +26,9 @@ $hasta = trim((string) ($_GET['hasta'] ?? ''));
 $filtroPromotor = trim((string) ($_GET['promotor'] ?? ''));
 $filtroCanal = trim((string) ($_GET['canal'] ?? ''));
 
-$todosRegistros = ep_registros_datos(5000);
+// Los registros que ya están en un reporte activo no se ofrecen; al eliminar ese reporte vuelven a aparecer.
+$ocupados = array_flip(ep_registros_ocupados());
+$todosRegistros = array_values(array_filter(ep_registros_datos(5000), fn($r) => !isset($ocupados[(int) $r['db_id']])));
 $promotoresSet = [];
 $canalesSet = [];
 
@@ -97,6 +100,7 @@ foreach ($todosRegistros as $r) {
 		'ciudad'         => $r['ciudad'] ?? '',
 		'canal'          => $r['canal'] ?? '',
 		'tipo_actividad' => $r['tipo_actividad'] ?? ($r['actividad_label'] ?? 'Activación'),
+		'actividad_label'=> $r['actividad_label'] ?? '',
 		'estado'         => $r['estado'] ?? 'Activo',
 		'tipo'           => $r['tipo'] ?? $tipo,
 		'cobertura'      => $r['cobertura'] ?? null,

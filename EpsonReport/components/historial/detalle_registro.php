@@ -13,14 +13,16 @@ $fotos = $r['fotos'] ?? [];
 $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 ?>
 <div class="ep-h2-det-head">
+	<span class="ep-h2-det-ico"><?= ep_icon(ep_icono_tipo($tipo), 22) ?></span>
 	<div class="ep-h2-det-titulo">
-		<strong><?= $h($r['actividad_label'] ?? 'Actividad') ?></strong>
+		<strong><?= $h(trim((string) ($r['punto_venta'] ?? '')) ?: ($r['actividad_label'] ?? 'Actividad')) ?></strong>
+		<small><?= $h($r['actividad_label'] ?? 'Actividad') ?><?= !empty($r['tipo_actividad']) ? ' · '.$h($r['tipo_actividad']) : '' ?> · <?= $h($r['id'] ?? '') ?></small>
 		<span><?= $esAdmin ? $h($r['promotor'] ?? '') . ' · ' : '' ?><?php if (!empty($r['fecha_actividad'])): ?>Actividad: <?= $h(date('d/m/Y', strtotime($r['fecha_actividad']))) ?><?= !empty($r['hora_inicio']) ? ', '.$h($r['hora_inicio'].' – '.$r['hora_fin']) : '' ?> · <?php endif; ?>Registrado: <?= $h($r['fecha_texto'] ?? '') ?>, <?= $h($r['hora'] ?? '') ?></span>
 	</div>
 	<div class="ep-h2-det-acciones">
 		<?php if ($esAdmin): ?>
 			<button type="button" class="ep-btn-record-ppt ep-h2-btn-ppt" data-id="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" data-promotor="<?= $h($r['promotor'] ?? '') ?>" data-fecha="<?= $h($r['fecha_iso'] ?? '') ?>">
-				<?= ep_icon('presentation', 13) ?> <span>Slide PPT</span>
+				<?= ep_icon('download', 15) ?> <span>Descargar Slide</span>
 			</button>
 		<?php endif; ?>
 		<button type="button" class="ep-h2-cerrar" aria-label="Cerrar detalle"><?= ep_icon('close', 14) ?></button>

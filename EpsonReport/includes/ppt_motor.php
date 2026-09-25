@@ -112,14 +112,14 @@ function ep_ppt_slide_guardar(array &$ctx, array $slide): void {
 }
 
 // Pone una imagen descargada ([bytes, ancho, alto, extensión]) en el cuadro marcador de la diapositiva.
-function ep_ppt_slide_imagen(array &$ctx, array &$slide, string $rect, array $imagen): void {
+function ep_ppt_slide_imagen(array &$ctx, array &$slide, string $rect, array $imagen, bool $completa = false): void {
 	[$bytes, $ancho, $alto, $extension] = $imagen;
 	$indice = count($ctx['media']) + 1;
 	$nombre = 'img'.$indice.'.'.$extension;
 	$ctx['media'][$nombre] = $bytes;
 	$rId = 'rIdImg'.$indice;
 	$slide['extra'] .= '<Relationship Id="'.$rId.'" Type="'.EP_PPT_TIPO_IMAGEN.'" Target="../media/'.$nombre.'"/>';
-	ep_ppt_foto($slide['dom'], $slide['xp'], $rect, $rId, $ancho, $alto);
+	ep_ppt_foto($slide['dom'], $slide['xp'], $rect, $rId, $ancho, $alto, $completa);
 }
 
 // Diapositiva de fotos: título con el punto de venta y hasta 3 fotos. Con 2 ocupan mitad y mitad y con 1 va centrada.
@@ -162,6 +162,7 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
 			$mapaFotos[$f['id']] = $ctx['fotos'][$f['url']];
 		}
 	}
+	$antes = count($ctx['nuevas']);
 	$slide = ep_ppt_slide_nueva($ctx, $spec['stats']['n']);
 	ep_ppt_barra_promotor($slide['dom'], $slide['xp'], $reg, ep_ppt_etiqueta_actividad($reg, $spec['prefijo_actividad']), $spec['promotor'] ?? null);
 	$spec['stats']['llenar']($slide['dom'], $slide['xp'], $reg);
@@ -173,6 +174,33 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
 	foreach (array_chunk($ids, 3) as $grupo) {
 		ep_ppt_slide_fotos($ctx, $spec, $reg, $grupo, $mapaFotos);
 	}
+	$ctx['secciones'][] = ['nombre' => ep_ppt_mayus(trim((string) ($reg['promotor'] ?? '')) ?: 'SIN NOMBRE'), 'desde' => $antes, 'hasta' => count($ctx['nuevas'])];
+}
+
+// Secciones de PowerPoint: una por persona (nombre completo), en orden; la portada y el título del mes quedan en la primera.
+function ep_ppt_secciones(array $ctx): string {
+	$grupos = [];
+	foreach ($ctx['secciones'] ?? [] as $s) {
+		$ultimo = count($grupos) - 1;
+		if ($ultimo >= 0 && $grupos[$ultimo]['nombre'] === $s['nombre']) {
+			$grupos[$ultimo]['hasta'] = $s['hasta'];
+		} else {
+			$grupos[] = $s;
+		}
+	}
+	$xml = '<p14:sectionLst xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">';
+	foreach ($grupos as $i => $g) {
+		if ($i === 0) {
+			$g['desde'] = 0; // también la diapositiva fija del reporte (calendario), que no es de nadie
+		}
+		$ids = $i === 0 && !$ctx['solo'] ? '<p14:sldId id="256"/><p14:sldId id="257"/>' : '';
+		for ($n = $g['desde']; $n < $g['hasta']; $n++) {
+			$ids .= '<p14:sldId id="'.(1000 + $n).'"/>';
+		}
+		$guid = strtoupper(sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535)));
+		$xml .= '<p14:section name="'.htmlspecialchars($g['nombre'], ENT_XML1).'" id="{'.$guid.'}"><p14:sldIdLst>'.$ids.'</p14:sldIdLst></p14:section>';
+	}
+	return $xml.'</p14:sectionLst>';
 }
 
 // Escribe los índices (presentación, relaciones y tipos) con las diapositivas nuevas y cierra el archivo.
@@ -196,6 +224,7 @@ function ep_ppt_cerrar(array &$ctx): string {
 	}
 	$lista .= '</p:sldIdLst>';
 	$pres = preg_replace('#<p:sldIdLst>.*?</p:sldIdLst>#s', $lista, (string) $tpl->getFromName('ppt/presentation.xml'));
+	$pres = preg_replace('#<p14:sectionLst .*?</p14:sectionLst>#s', ep_ppt_secciones($ctx), $pres);
 	$out->addFromString('ppt/presentation.xml', $pres);
 	$out->addFromString('ppt/_rels/presentation.xml.rels', str_replace('</Relationships>', $nuevasRel.'</Relationships>', $relsPres));
 
@@ -226,7 +255,9 @@ function ep_ppt_generar(array $spec, array $registros, string $tituloMes, array 
 	$ctx = ep_ppt_abrir($spec, $registros, $opciones);
 	if (!$ctx['solo']) {
 		[$dom, $xp] = ep_ppt_cargar((string) $ctx['tpl']->getFromName('ppt/slides/slide2.xml'));
-		ep_ppt_texto($dom, $xp, 'Subtítulo 2', [$spec['titulo'], $tituloMes]);
+		// Un botón nuevo que replica esta lógica lleva su propio nombre en el título.
+		$nombre = trim((string) ($opciones['nombre_actividad'] ?? '')) ?: $spec['titulo'];
+		ep_ppt_texto($dom, $xp, 'Subtítulo 2', [ep_ppt_mayus($nombre), $tituloMes]);
 		$ctx['out']->addFromString('ppt/slides/slide2.xml', $dom->saveXML());
 		if (!empty($spec['fija'])) {
 			$spec['fija']($ctx, $registros, $opciones);

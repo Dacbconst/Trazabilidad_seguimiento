@@ -455,7 +455,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
 		<div class="firma-linea-firmar"></div>
 		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
-		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial (distribuidor)</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe de Agencia (distribuidor)</p>
 	</td>
 </tr></table>' : ($esDistribuidor ? '
 <table style="border:none;"><tr>
@@ -467,7 +467,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	<td style="border:none; width:50%; text-align:center; padding-left:16px;">
 		<div class="firma-linea-firmar"></div>
 		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
-		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial (distribuidor)</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe de Agencia (distribuidor)</p>
 	</td>
 </tr></table>' : '
 <!-- Directo: 3 firmas (Asesor Comercial / Jefe Comercial / Supervisor Comercial), pedido explícito 2026-09-23. Nombre/línea alineados a la izquierda (pedido explícito 2026-09-24: centrado no dejaba espacio cómodo para escribir el nombre a mano). Las 3 usan la MISMA estructura de 2 líneas (bloque_nombre_firma_html) tengan o no nombre real, para que no se desalineen entre sí. -->
@@ -475,7 +475,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	<td style="border:none; width:33.33%; text-align:left; padding-right:10px;">
 		<div class="firma-linea-firmar"></div>
 		'.bloque_nombre_firma_html($nombreEjecutivoRaw, $fGeneral, $escala).'
-		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe de Agencia</p>
 	</td>
 	<td style="border:none; width:33.33%; text-align:left; padding:0 10px;">
 		<div class="firma-linea-firmar"></div>
@@ -485,7 +485,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	<td style="border:none; width:33.33%; text-align:left; padding-left:10px;">
 		<div class="firma-linea-firmar"></div>
 		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
-		<p class="label" style="margin-top:'.px(8, $escala).';">Supervisor Comercial</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Supervisor</p>
 	</td>
 </tr></table>')).'
 

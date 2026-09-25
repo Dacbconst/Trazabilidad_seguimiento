@@ -75,9 +75,9 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	border: 1.5px dashed #D6C9ED; border-radius: 8px; background: #F9F8FD;
 	cursor: pointer; overflow: hidden; transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
-.ep-foto-dropzone:hover { border-color: #6242A5; background: #F3EEFA; box-shadow: 0 2px 8px rgba(98, 66, 165, 0.08); }
+.ep-foto-dropzone:hover { border-color: #513487; background: #F3EEFA; box-shadow: 0 2px 8px rgba(81, 52, 135, 0.08); }
 .ep-foto-dropzone-vacio { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #5C6E96; font-size: 11px; font-weight: 600; text-align: center; }
-.ep-foto-slot-icon { color: #6242A5; }
+.ep-foto-slot-icon { color: #513487; }
 .ep-foto-slot-action { font-size: 10.5px; }
 .ep-foto-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ep-foto-slot-completa .ep-foto-dropzone { border-style: solid; border-color: #137A3E; background: #FFFFFF; }
@@ -231,7 +231,7 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-lg);
 	padding: 24px 28px;
-	box-shadow: 0 2px 10px rgba(74, 48, 128, 0.04);
+	box-shadow: 0 2px 10px rgba(61, 39, 104, 0.04);
 	max-height: 720px;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -244,11 +244,11 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 	background: transparent;
 }
 .ep-preview-formulario-real::-webkit-scrollbar-thumb {
-	background: rgba(98, 66, 165, 0.18);
+	background: rgba(81, 52, 135, 0.18);
 	border-radius: 999px;
 }
 .ep-preview-formulario-real::-webkit-scrollbar-thumb:hover {
-	background: rgba(98, 66, 165, 0.35);
+	background: rgba(81, 52, 135, 0.35);
 }
 
 /* En la vista previa, los campos mantienen contraste y tipografía nítidos pero no permiten edición */
@@ -434,3 +434,14 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 
 /* Nombre de la actividad: cuadro de una línea que crece si el texto es largo */
 textarea.ep-input-mayusculas { height: auto; min-height: 44px; padding: 11px 14px; line-height: 1.4; resize: none; overflow: hidden; }
+
+/* Carrusel horizontal (vista previa de fotos del constructor): flechas, arrastre y sin barra de desplazamiento */
+.ep-car { position: relative; margin-top: 4px; }
+.ep-car-carril { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px 8px; cursor: grab; user-select: none; }
+.ep-car-carril::-webkit-scrollbar { display: none; }
+.ep-car-carril.ep-car-arrastrando { cursor: grabbing; }
+.ep-car-carril > .ep-foto-slot { flex: 0 0 150px; width: 150px; }
+.ep-car-btn { position: absolute; top: 40%; z-index: 3; width: 30px; height: 30px; border: 1px solid var(--color-border); border-radius: 50%; background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 8px rgba(61, 39, 104, 0.15); font-size: 18px; line-height: 1; }
+.ep-car-btn:disabled { opacity: 0; pointer-events: none; }
+.ep-car-prev { left: -10px; }
+.ep-car-next { right: -10px; }

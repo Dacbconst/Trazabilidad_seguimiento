@@ -1,0 +1,143 @@
+erDiagram
+    repositorio_usuarios_reporte ||--o{ insert_reporte_registro : "usuario_id"
+    repositorio_usuarios_reporte ||--o{ insert_reporte_login : "usuario_id"
+    repositorio_usuarios_reporte ||--o{ insert_reporte_mensual : "creado_por"
+    repositorio_usuarios_reporte ||--o{ insert_reporte_actividad : "creado_por"
+    insert_reporte_registro ||--o{ insert_reporte_registro_modelo : "registro_id"
+    insert_reporte_registro ||--o{ insert_reporte_registro_foto : "registro_id"
+    insert_reporte_registro ||--o{ insert_reporte_registro_comentario : "registro_id"
+    insert_reporte_mensual }o..o{ insert_reporte_registro : "registros (ids)"
+    insert_reporte_actividad }o..o{ insert_reporte_registro : "logica = tipo"
+    repositorio_usuarios ||..o| repositorio_usuarios_reporte : "usuario"
+    repositorio_locales_dtt2 ||..o{ insert_reporte_registro : "pos_id"
+    repositorio_usuarios ||..o{ lvi_rutero : "rutero"
+    lvi_rutero }o..|| repositorio_locales_dtt2 : "punto de venta"
+    repositorio_productos ||..o{ insert_reporte_registro_modelo : "modelo IMPRESORAS"
+
+    repositorio_usuarios_reporte {
+        int id PK
+        varchar usuario
+        varchar contrasena
+        varchar nombre
+        varchar correo
+        enum rol "admin | promotor"
+        enum status "activo | inactivo"
+        varchar sesion_token
+        datetime ultima_actividad
+        int intentos_fallidos
+        datetime bloqueado_hasta
+        datetime created_at
+        datetime updated_at
+    }
+
+    insert_reporte_actividad {
+        int id PK
+        varchar nombre "boton, ej. Activaciones Verano"
+        varchar logica "plantilla que replica"
+        varchar badge "Nuevo o vacio"
+        tinyint activo "interruptor del admin"
+        smallint orden
+        int creado_por FK
+        datetime created_at
+        datetime eliminado_en "borrado logico"
+    }
+
+    insert_reporte_registro {
+        int id PK
+        varchar codigo "RACPABLOCASTELO-001"
+        varchar tipo "logica del boton"
+        int usuario_id FK
+        varchar pos_id
+        varchar punto_venta
+        varchar ciudad
+        varchar canal
+        date fecha
+        time hora
+        varchar estado
+        varchar tipo_actividad "escrito por el promotor"
+        date fecha_actividad
+        time hora_inicio
+        time hora_fin
+        smallint tiendas_nacional
+        smallint tiendas_coberturadas
+        smallint visitaron
+        smallint interactuaron
+        smallint compraron
+        mediumtext valores "JSON con el resto, incluye actividad_label"
+        datetime created_at
+        datetime eliminado_en "borrado logico"
+    }
+
+    insert_reporte_registro_modelo {
+        int id PK
+        int registro_id FK
+        varchar modelo
+        smallint cantidad
+    }
+
+    insert_reporte_registro_foto {
+        int id PK
+        int registro_id FK
+        varchar casilla "stand, interaccion-1..."
+        varchar ruta "Azure Blob"
+        datetime created_at
+    }
+
+    insert_reporte_registro_comentario {
+        int id PK
+        int registro_id FK
+        tinyint orden
+        varchar texto
+    }
+
+    insert_reporte_login {
+        bigint id PK
+        int usuario_id FK
+        varchar usuario_intentado
+        tinyint exito
+        varchar motivo
+        varchar ip
+        varchar user_agent
+        datetime created_at
+    }
+
+    insert_reporte_mensual {
+        int id PK
+        varchar tipo "logica"
+        char mes "YYYY-MM"
+        varchar titulo "nombre de descarga"
+        varchar calendario "ruta Azure, solo Activaciones"
+        smallint programadas
+        text comentarios "uno por linea"
+        text registros "ids de registros"
+        mediumtext snapshot "copia congelada JSON"
+        smallint total_registros
+        int creado_por FK
+        datetime created_at
+        datetime eliminado_en "libera los registros"
+    }
+
+    repositorio_usuarios {
+        varchar user "Xplora solo lectura"
+        varchar mercaderista
+        varchar cedula
+        int status
+    }
+
+    repositorio_locales_dtt2 {
+        varchar id "Xplora solo lectura"
+        varchar nombre
+        varchar ciudad
+        varchar canal
+        varchar activar
+    }
+
+    lvi_rutero {
+        varchar usuario "Xplora solo lectura"
+        varchar punto
+    }
+
+    repositorio_productos {
+        varchar modelo "Xplora solo lectura"
+        varchar categoria
+    }
