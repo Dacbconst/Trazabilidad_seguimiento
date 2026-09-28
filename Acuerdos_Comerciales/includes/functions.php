@@ -260,14 +260,31 @@ function esModoAdminSinCartera() {
 }
 
 // ---------- Repositorio de Cuotas trimestrales ---------- match por nombre, desempate por canal: supervisor en Directo, empresa (tipo_distribuidor) en Distribuidor.
+// Sin puntos/comas/espacios ni tildes, mismo criterio ya usado en el JS de Cuotas — tolera "S.A.S." vs "S A S" o "IÑIGUEZ" vs "INIGUEZ" sin tapar ambigüedades reales.
+function repositorio_texto_comparable($texto) {
+	$texto = str_replace(['.', ',', ' '], '', (string) $texto);
+	return strtr(mb_strtoupper($texto, 'UTF-8'), ['Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N']);
+}
+
+// Misma limpieza que repositorio_texto_comparable(), aplicada del lado SQL a una columna.
+function repositorio_sql_comparable($columna) {
+	$expr = "UPPER($columna)";
+	foreach (['.' => '', ',' => '', ' ' => '', 'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N'] as $de => $a) {
+		$expr = "REPLACE($expr, '$de', '$a')";
+	}
+	return $expr;
+}
+
 function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null) {
 	$condicionCanal = $canal === 'distribuidor' ? "canal = 'DISTRIBUIDOR'" : "canal <> 'DISTRIBUIDOR'";
+	$clienteComparable = repositorio_texto_comparable($clienteExcel);
+	$posNameComparable = repositorio_sql_comparable('pos_name');
 	$stmt = $mysqli->prepare(
 		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
-		 WHERE pos_name LIKE CONCAT(?, '%') AND $condicionCanal"
+		 WHERE $posNameComparable LIKE CONCAT(?, '%') AND $condicionCanal"
 	);
 	if (!$stmt) return null;
-	$stmt->bind_param('s', $clienteExcel);
+	$stmt->bind_param('s', $clienteComparable);
 	$stmt->execute();
 	$posIds = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
 	$stmt->close();
@@ -277,26 +294,34 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 
 	if ($canal === 'distribuidor') {
 		if (!$distribuidorExcel) return null;
+		$distribuidorComparable = repositorio_texto_comparable($distribuidorExcel);
+		$tipoDistribuidorComparable = repositorio_sql_comparable('tipo_distribuidor');
 		$stmt = $mysqli->prepare(
-			"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
-			 WHERE pos_name LIKE CONCAT(?, '%') AND canal = 'DISTRIBUIDOR' AND tipo_distribuidor = ?"
+			"SELECT DISTINCT id, pos_id FROM repositorio_locales_supervisores_cliente
+			 WHERE $posNameComparable LIKE CONCAT(?, '%') AND canal = 'DISTRIBUIDOR' AND $tipoDistribuidorComparable = ?"
 		);
 		if (!$stmt) return null;
-		$stmt->bind_param('ss', $clienteExcel, $distribuidorExcel);
+		$stmt->bind_param('ss', $clienteComparable, $distribuidorComparable);
 	} else {
 		if (!$cediExcel) return null;
+		$cediComparable = repositorio_texto_comparable($cediExcel);
+		$supervisorComparable = repositorio_sql_comparable('supervisor');
 		$stmt = $mysqli->prepare(
-			"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
-			 WHERE pos_name LIKE CONCAT(?, '%') AND canal <> 'DISTRIBUIDOR' AND supervisor = ?"
+			"SELECT DISTINCT id, pos_id FROM repositorio_locales_supervisores_cliente
+			 WHERE $posNameComparable LIKE CONCAT(?, '%') AND canal <> 'DISTRIBUIDOR' AND $supervisorComparable = ?"
 		);
 		if (!$stmt) return null;
-		$stmt->bind_param('ss', $clienteExcel, $cediExcel);
+		$stmt->bind_param('ss', $clienteComparable, $cediComparable);
 	}
 	$stmt->execute();
-	$desempatados = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
+	$desempatados = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
-	return count($desempatados) === 1 ? $desempatados[0] : null;
+	if (count($desempatados) === 1) return $desempatados[0]['pos_id'];
+	if (count($desempatados) === 0) return null;
+	// Siguen empatados en nombre+canal+distribuidor/supervisor: es un duplicado real del maestro, no una ambigüedad entre clientes distintos — toma el registro más reciente en vez de rendirse.
+	usort($desempatados, fn($a, $b) => $b['id'] <=> $a['id']);
+	return $desempatados[0]['pos_id'];
 }
 
 // Corrige "CATEGORIAS" del Excel de Cuotas contra el catálogo real: Sector directo, o "Sector Subcategoría" pegados. Sin match, null.
