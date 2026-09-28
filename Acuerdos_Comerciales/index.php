@@ -189,7 +189,7 @@ $sesion_watch_js_v = @filemtime(__DIR__.'/assets/js/sesion-watch.js') ?: time();
 				// Chequeo instantáneo de sesión al cambiar de módulo (2026-09-24, pedido explícito: no esperar los 15s del polling y evitar los "no autorizado" en pantalla). Solo redirige con data.ok === false confirmado; un error de red (catch) NO redirige, para no botar a nadie por un hipo de conexión.
 				fetch('getters/sesion_verificar.php')
 					.then(function (r) { return r.json(); })
-					.then(function (data) { if (!data.ok) window.location.href = 'login.php?error=sesion'; })
+					.then(function (data) { if (!data.ok) window.location.href = 'login.php?error=' + (data.motivo === 'otro_dispositivo' ? 'sesion' : 'expirada'); })
 					.catch(function () {});
 			});
 		});

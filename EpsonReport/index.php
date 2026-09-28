@@ -35,11 +35,14 @@ if (!isset($secciones[$vista])) {
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="ep-usuario" content="<?= (int) ($_SESSION['usuario_id'] ?? 0) ?>">
 	<title>EpsonReport</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="preconnect" href="https://cdn.jsdelivr.net">
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes'] as $hoja): ?>
 	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
 	<?php endforeach; ?>
-	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10" defer></script>
 </head>
 <body>
 	<header class="ep-mobile-header" id="epMobileHeader">

@@ -46,8 +46,20 @@ $clavesVistas = []; // pos_id|sector -> índice, para avisar de repetidos DENTRO
 
 $mysqli->begin_transaction();
 try {
-	// codigo/ruc (2026-09-16) y subcategoria/marca son opcionales (fallback si el ALTER no se corrió). Sin rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
+	// usuario_excel (2026-09-28) primero, codigo/ruc y subcategoria/marca abajo — cada uno opcional, fallback si el ALTER correspondiente no se corrió. Sin rebate_pct a propósito: Cuotas nunca debe tomar Rebate del Excel.
 	$stmt = $mysqli->prepare(
+		'INSERT INTO repositorio_cuota_cliente
+		 (pos_id, cliente_excel, cedi_excel, usuario_excel, plan, sector, subcategoria, marca, codigo, ruc, trimestre, anio, valores_mensuales, estado, actualizado_por)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   cliente_excel = VALUES(cliente_excel), cedi_excel = VALUES(cedi_excel), usuario_excel = VALUES(usuario_excel), plan = VALUES(plan),
+		   subcategoria = VALUES(subcategoria), marca = VALUES(marca), codigo = VALUES(codigo), ruc = VALUES(ruc),
+		   valores_mensuales = VALUES(valores_mensuales), estado = VALUES(estado), actualizado_por = VALUES(actualizado_por),
+		   updated_at = NOW()'
+	);
+	$conUsuarioExcel = (bool) $stmt;
+	$conCodigoRuc = $conUsuarioExcel;
+	if (!$stmt) $stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cuota_cliente
 		 (pos_id, cliente_excel, cedi_excel, plan, sector, subcategoria, marca, codigo, ruc, trimestre, anio, valores_mensuales, estado, actualizado_por)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -57,7 +69,7 @@ try {
 		   valores_mensuales = VALUES(valores_mensuales), estado = VALUES(estado), actualizado_por = VALUES(actualizado_por),
 		   updated_at = NOW()'
 	);
-	$conCodigoRuc = (bool) $stmt;
+	$conCodigoRuc = $conCodigoRuc || (bool) $stmt;
 	$conSubcategoriaMarca = $conCodigoRuc;
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
@@ -95,6 +107,8 @@ try {
 	foreach ($filas as $indice => $fila) {
 		$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
 		$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
+		// Sin normalizar a mayúsculas: exacto contra `usuario`, ver resolverUsuarioExacto().
+		$usuarioExcel = trim((string) ($fila['usuario_excel'] ?? ''));
 		$plan         = repositorio_normalizar_texto($fila['plan'] ?? '');
 		$sector       = repositorio_normalizar_texto($fila['sector'] ?? '');
 		$subcategoria = repositorio_normalizar_texto($fila['subcategoria'] ?? '');
@@ -187,7 +201,9 @@ try {
 			(string) ($mesInicio + 2) => $mes3,
 		]);
 
-		if ($conCodigoRuc) {
+		if ($conUsuarioExcel) {
+			$stmt->bind_param('ssssssssssiissi', $posId, $clienteExcel, $cediExcel, $usuarioExcel, $plan, $sector, $subcategoria, $marca, $codigo, $ruc, $trimestre, $anio, $valoresJson, $estado, $usuarioSesion);
+		} elseif ($conCodigoRuc) {
 			$stmt->bind_param('sssssssssiissi', $posId, $clienteExcel, $cediExcel, $plan, $sector, $subcategoria, $marca, $codigo, $ruc, $trimestre, $anio, $valoresJson, $estado, $usuarioSesion);
 		} elseif ($conSubcategoriaMarca) {
 			$stmt->bind_param('sssssssiissi', $posId, $clienteExcel, $cediExcel, $plan, $sector, $subcategoria, $marca, $trimestre, $anio, $valoresJson, $estado, $usuarioSesion);

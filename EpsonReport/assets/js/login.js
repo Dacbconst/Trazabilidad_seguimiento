@@ -59,7 +59,23 @@
 		fetch('getters/procesar_login.php', { method: 'POST', body: datos })
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				if (data.ok) { window.location.href = data.redirect || 'index.php'; return; }
+				if (data.ok) {
+					var destino = data.redirect || 'index.php';
+					var hora = new Date().getHours();
+					var momento = (hora >= 5 && hora < 12) ? 'Buenos días,' : ((hora >= 12 && hora < 19) ? 'Buenas tardes,' : 'Buenas noches,');
+					var nombreCompleto = (data.nombre || document.getElementById('ep-usuario').value || '').trim();
+					document.getElementById('epLoginSaludoMomento').textContent = momento;
+					document.getElementById('epLoginSaludoNombre').textContent = nombreCompleto;
+					// Ojo: no se debe pedir "destino" aquí para "adivinar" cuándo está lista (se probó y a veces pisaba la sesión recién creada,
+					// porque justo en ese instante el servidor cambia el identificador de sesión). Tiempo fijo + desvanecido, sin tocar el servidor.
+					var wrap = document.querySelector('.ep-login-wrap');
+					wrap.classList.add('ep-login-abriendo');
+					setTimeout(function () {
+						wrap.classList.add('ep-login-saliendo');
+						setTimeout(function () { window.location.href = destino; }, 300);
+					}, 650);
+					return;
+				}
 				botonLogin.disabled = false;
 				if (data.motivo === 'registrar') { irARegistro(document.getElementById('ep-usuario').value.trim()); return; }
 				avisarFallo(data.motivo, form);

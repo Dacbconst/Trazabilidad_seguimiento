@@ -125,6 +125,7 @@ function repositorio_parsear_cuotas_directo($filas, $enc) {
 	$colesMes = $det['colesMes']; $trimestre = $det['trimestre'];
 
 	$m = $enc['mapa'];
+	$colUsuario = xlsx_col($m, 'USUARIO');
 	$colCedi = xlsx_col($m, 'CEDI');
 	$colCliente = xlsx_col($m, 'CLIENTE');
 	$colPlan = xlsx_col($m, 'PLAN');
@@ -143,6 +144,8 @@ function repositorio_parsear_cuotas_directo($filas, $enc) {
 		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
+		// Sin normalizar a mayúsculas: se compara letra por letra contra `usuario` (exacto salvo mayúsc./espacios), ver resolverUsuarioExacto().
+		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';
 		$plan = $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '';
 		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
 		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
@@ -156,6 +159,7 @@ function repositorio_parsear_cuotas_directo($filas, $enc) {
 		$resultado[] = [
 			'cliente_excel' => $cliente,
 			'cedi_excel'    => $cedi,
+			'usuario_excel' => $usuarioExcel,
 			'plan'          => $plan,
 			'sector'        => $sector,
 			'subcategoria'  => $subcategoria,
@@ -176,6 +180,7 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	$colesMes = $det['colesMes']; $trimestre = $det['trimestre'];
 
 	$m = $enc['mapa'];
+	$colUsuario = xlsx_col($m, 'USUARIO');
 	$colDistribuidor = xlsx_col($m, 'DISTRIBUIDOR');
 	$colCiudad = xlsx_col($m, 'CIUDAD');
 	$colNombre = xlsx_col($m, 'NOMBRE');
@@ -194,6 +199,7 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$ciudad = $colCiudad !== null ? repositorio_normalizar_texto($fila[$colCiudad] ?? '') : '';
+		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';
 		$distribuidor = $colDistribuidor !== null ? repositorio_normalizar_texto($fila[$colDistribuidor] ?? '') : '';
 		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
 		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
@@ -210,6 +216,7 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 		$resultado[] = [
 			'cliente_excel' => $cliente,
 			'cedi_excel'    => $ciudad,
+			'usuario_excel' => $usuarioExcel,
 			'plan'          => $distribuidor,
 			'sector'        => $sector,
 			'subcategoria'  => $subcategoria,

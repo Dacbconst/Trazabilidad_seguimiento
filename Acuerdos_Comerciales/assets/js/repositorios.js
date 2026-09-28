@@ -46,6 +46,7 @@
 			agruparPor: 'pos_id',
 			// mes1/mes2/mes3: posición dentro del trimestre, no el índice real de mes (eso se calcula en cuotas_guardar.php). Etiquetados "Mes 1/2/3" porque acá todavía no se sabe qué trimestre es.
 			columnasPreview: [
+				{ key: 'usuario_excel', label: 'Usuario' },
 				{ key: 'cedi_excel', label: 'CEDI' },
 				{ key: 'cliente_excel', label: 'Cliente' },
 				{ key: 'plan', label: 'Plan' },
@@ -60,6 +61,7 @@
 			],
 			// Mismo orden que columnasPreview, para comparar previsualización contra la tabla ya guardada. Pos ID sigue en `fila.pos_id` sin mostrarse. Sin columna "Estado": `fila.estado` sigue gobernando la lógica real, solo se dejó de mostrar.
 			columnas: [
+				{ key: 'usuario_excel', label: 'Usuario', render: function (fila) { return fila.usuario_excel || '—'; } },
 				{ key: 'cedi_excel', label: 'CEDI' },
 				{ key: 'cliente_excel', label: 'Cliente' },
 				{ key: 'plan', label: 'Plan' },

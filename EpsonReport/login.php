@@ -25,17 +25,22 @@ require_once __DIR__.'/includes/functions.php';
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>EpsonReport — Iniciar sesión</title>
+	<title>EpsonReport · Iniciar sesión</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="preconnect" href="https://cdn.jsdelivr.net">
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 	<?php foreach (['base', 'login'] as $hoja): ?>
 	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
 	<?php endforeach; ?>
-	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10" defer></script>
 </head>
 <body class="ep-login-body">
 	<div class="ep-login-wrap">
-		<div class="ep-login-blob ep-login-blob-1"></div>
-		<div class="ep-login-blob ep-login-blob-2"></div>
+		<div class="ep-login-saludo" id="epLoginSaludo" aria-hidden="true">
+			<span class="ep-login-saludo-momento" id="epLoginSaludoMomento"></span>
+			<strong class="ep-login-saludo-nombre" id="epLoginSaludoNombre"></strong>
+		</div>
 
 		<!-- Panel lateral corporativo (Escritorio) -->
 		<div class="ep-login-side">
@@ -84,6 +89,11 @@ require_once __DIR__.'/includes/functions.php';
 
 				<button type="submit" class="ep-btn-primary">Ingresar</button>
 				<button type="button" class="ep-login-volver" id="epPrimeraVez">¿Primera vez aquí? Crea tu contraseña</button>
+
+				<div class="ep-login-partners">
+					<img src="assets/img/login-marca-1.png" alt="Grupo Lucky">
+					<img src="assets/img/login-marca-2.png" alt="Pintuco">
+				</div>
 			</form>
 			<?php include __DIR__.'/components/login/form_registro.php'; ?>
 			<p class="ep-login-copy">© PromoLucky 2026</p>

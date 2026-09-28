@@ -154,10 +154,14 @@ function cuentaInactivaConClaveCorrecta($mysqli, $usuario, $password) {
 }
 
 function login_check() {
-	if (!isset($_SESSION['user_id'], $_SESSION['rol'])) return false;
-	// Sesión única: si otro login pisó el token, esta sesión queda inválida. static evita repetir la consulta.
-	static $valida = null;
-	if ($valida !== null) return $valida;
+	return login_check_motivo() === 'ok';
+}
+
+// Distingue "nunca hubo sesión / se perdió por otra razón" (motivo neutro) de "otro login pisó el token" (motivo real de "otro dispositivo") — antes ambos casos mostraban el mismo mensaje de "otro dispositivo", confundiendo al usuario cuando la sesión se cae sola.
+function login_check_motivo() {
+	if (!isset($_SESSION['user_id'], $_SESSION['rol'])) return 'sesion_perdida';
+	static $motivo = null;
+	if ($motivo !== null) return $motivo;
 	global $mysqli;
 	if (isset($_SESSION['sesion_token']) && isset($mysqli)) {
 		$stmt = $mysqli->prepare('SELECT sesion_token FROM repositorio_usuarios_acuerdos WHERE id = ? LIMIT 1');
@@ -169,13 +173,13 @@ function login_check() {
 			if ($fila && $fila['sesion_token'] !== null && $fila['sesion_token'] !== $_SESSION['sesion_token']) {
 				session_unset();
 				session_destroy();
-				$valida = false;
-				return false;
+				$motivo = 'otro_dispositivo';
+				return $motivo;
 			}
 		}
 	}
-	$valida = true;
-	return true;
+	$motivo = 'ok';
+	return $motivo;
 }
 
 // El acceso por módulo NO es jerárquico — cada sección define su propia lista de roles permitidos en includes/secciones.php.
@@ -483,24 +487,29 @@ function supervisorRealDeJerarquia($mysqli, $supervisorCampo) {
 	return $fila ? $fila['supervisor_real'] : null;
 }
 
-// Dado un pos_id resuelto, encuentra el usuario responsable vía su supervisor real. Null si no hay cuenta activa.
-function usuarioIdDePosId($mysqli, $posId) {
+// Dado un pos_id resuelto, encuentra el usuario responsable vía su supervisor real. Null si no hay cuenta activa. $posName (opcional) desempata cuando el pos_id está duplicado en el maestro entre clientes distintos (~1,110 casos confirmados) — sin él, cae en el criterio viejo (primera fila que encuentre).
+function usuarioIdDePosId($mysqli, $posId, $posName = null) {
+	$nombreComparable = $posName !== null ? repositorio_texto_comparable($posName) : null;
+	$condicionNombre = $nombreComparable !== null ? ' AND '.repositorio_sql_comparable('c.pos_name').' = ?' : '';
+
 	$stmt = $mysqli->prepare(
 		"SELECT u.id FROM repositorio_locales_supervisores_cliente c
 		 JOIN repositorio_usuarios_acuerdos u ON u.supervisor = c.supervisor AND u.status = 'activo'
-		 WHERE c.pos_id = ? LIMIT 1"
+		 WHERE c.pos_id = ?$condicionNombre LIMIT 1"
 	);
 	if ($stmt) {
-		$stmt->bind_param('s', $posId);
+		if ($nombreComparable !== null) $stmt->bind_param('ss', $posId, $nombreComparable);
+		else $stmt->bind_param('s', $posId);
 		$stmt->execute();
 		$fila = $stmt->get_result()->fetch_assoc();
 		$stmt->close();
 		if ($fila) return (int) $fila['id'];
 	}
 
-	$stmtSup = $mysqli->prepare('SELECT supervisor FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1');
+	$stmtSup = $mysqli->prepare("SELECT supervisor FROM repositorio_locales_supervisores_cliente WHERE pos_id = ?$condicionNombre LIMIT 1");
 	if (!$stmtSup) return null;
-	$stmtSup->bind_param('s', $posId);
+	if ($nombreComparable !== null) $stmtSup->bind_param('ss', $posId, $nombreComparable);
+	else $stmtSup->bind_param('s', $posId);
 	$stmtSup->execute();
 	$filaSup = $stmtSup->get_result()->fetch_assoc();
 	$stmtSup->close();
@@ -516,16 +525,38 @@ function usuarioIdDePosId($mysqli, $posId) {
 	return $filaReal ? (int) $filaReal['id'] : null;
 }
 
-// Dueño real de una fila de Cuotas: el CEDI del Excel manda sobre el maestro de Alicorp, que actúa como respaldo.
-function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
+// Columna USUARIO del Excel de Cuotas (2026-09-28, pedido explícito): el Excel manda directo, sin adivinar por CEDI/supervisor. Exacto salvo mayúsculas/espacios — un usuario mal tipeado NO cae a otro criterio, se reporta como error (ver resolverNombreAsignadoCuota()).
+function resolverUsuarioExacto($mysqli, $usuarioExcel) {
+	$usuarioExcel = trim((string) $usuarioExcel);
+	if ($usuarioExcel === '') return null;
 	$stmt = $mysqli->prepare(
-		"SELECT cedi_excel FROM repositorio_cuota_cliente WHERE pos_id = ? AND trimestre = ? AND anio = ? LIMIT 1"
+		"SELECT id, usuario FROM repositorio_usuarios_acuerdos WHERE UPPER(TRIM(usuario)) = UPPER(TRIM(?)) AND status = 'activo' LIMIT 1"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('s', $usuarioExcel);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $fila ?: null;
+}
+
+// Dueño real de una fila de Cuotas: la columna USUARIO del Excel manda si vino tipeada; si no, CEDI del Excel; el maestro de Alicorp es el último respaldo.
+function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
+	$posName = null;
+	$stmt = $mysqli->prepare(
+		"SELECT cedi_excel, cliente_excel, usuario_excel FROM repositorio_cuota_cliente WHERE pos_id = ? AND trimestre = ? AND anio = ? LIMIT 1"
+	);
+	if (!$stmt) $stmt = $mysqli->prepare(
+		"SELECT cedi_excel, cliente_excel FROM repositorio_cuota_cliente WHERE pos_id = ? AND trimestre = ? AND anio = ? LIMIT 1"
 	);
 	if ($stmt) {
 		$stmt->bind_param('sii', $posId, $trimestre, $anio);
 		$stmt->execute();
 		$fila = $stmt->get_result()->fetch_assoc();
 		$stmt->close();
+		$posName = $fila['cliente_excel'] ?? null;
+		$usuarioExacto = resolverUsuarioExacto($mysqli, $fila['usuario_excel'] ?? '');
+		if ($usuarioExacto) return (int) $usuarioExacto['id'];
 		$cedi = $fila ? trim((string) $fila['cedi_excel']) : '';
 		if ($cedi !== '') {
 			$stmtCedi = $mysqli->prepare(
@@ -543,7 +574,7 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 			}
 		}
 	}
-	return usuarioIdDePosId($mysqli, $posId);
+	return usuarioIdDePosId($mysqli, $posId, $posName);
 }
 
 // Mismo criterio de arriba (CEDI del Excel gana, maestro como respaldo), pero ANTES de
@@ -558,7 +589,13 @@ function usuarioIdDeCuota($mysqli, $posId, $trimestre, $anio) {
 // cliente que ni siquiera se pudo identificar — antes ambos casos caían en el mismo balde
 // "sin identificar", perdiendo la distinción. Mismo criterio que ya usaba el modal
 // "Resumen" viejo (`resumen_cuotas()`, sección "Con cuenta"/"Sin cuenta todavía").
-function resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel) {
+function resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel, $posName = null, $usuarioExcel = null) {
+	// Columna USUARIO manda directo — si vino tipeada pero no matchea ninguna cuenta activa, ESO es el error a mostrar (no cae a CEDI/maestro, sería tapar el typo).
+	if ($usuarioExcel !== null && trim((string) $usuarioExcel) !== '') {
+		$usuarioExacto = resolverUsuarioExacto($mysqli, $usuarioExcel);
+		if ($usuarioExacto) return ['nombre' => $usuarioExacto['usuario'], 'tiene_cuenta' => true];
+		return ['nombre' => trim((string) $usuarioExcel), 'tiene_cuenta' => false];
+	}
 	$cedi = trim((string) $cediExcel);
 	if ($cedi !== '') {
 		$stmt = $mysqli->prepare(
@@ -578,14 +615,18 @@ function resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel) {
 	// Respaldo del maestro: trae el supervisor real de ESE pos_id, con o sin cuenta activa
 	// (LEFT JOIN, no JOIN — antes un JOIN normal descartaba en silencio el caso "supervisor
 	// real pero sin cuenta todavía", indistinguible de "no se encontró nada").
+	// $posName (opcional) desempata cuando el pos_id está duplicado en el maestro entre clientes distintos (~1,110 casos confirmados).
+	$nombreComparable = $posName !== null ? repositorio_texto_comparable($posName) : null;
+	$condicionNombre = $nombreComparable !== null ? ' AND '.repositorio_sql_comparable('c.pos_name').' = ?' : '';
 	$stmt = $mysqli->prepare(
 		"SELECT c.supervisor, u.usuario, (u.id IS NOT NULL) AS tiene_cuenta
 		 FROM repositorio_locales_supervisores_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.supervisor = c.supervisor AND u.status = 'activo'
-		 WHERE c.pos_id = ? LIMIT 1"
+		 WHERE c.pos_id = ?$condicionNombre LIMIT 1"
 	);
 	if (!$stmt) return ['nombre' => null, 'tiene_cuenta' => false];
-	$stmt->bind_param('s', $posId);
+	if ($nombreComparable !== null) $stmt->bind_param('ss', $posId, $nombreComparable);
+	else $stmt->bind_param('s', $posId);
 	$stmt->execute();
 	$fila = $stmt->get_result()->fetch_assoc();
 	$stmt->close();
@@ -612,8 +653,21 @@ function resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel) {
 // ---------- Actas Precargadas (Repositorio de Cuotas) ---------- resolución en vivo. Agrupa por (pos_id, trimestre, anio): varias filas son UNA sola Acta.
 function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
-	// Subquery en vez de JOIN directo: pos_id no es único en el maestro, duplicaría la Acta si hay 2+ filas.
+	// c.usuario_excel (2026-09-28) manda primero, igual que resolverNombreAsignadoCuota()/usuarioIdDeCuota() — sin esto, una fila con USUARIO bien tipeado igual no aparecía acá (bug real reportado). Subquery en vez de JOIN directo: pos_id no es único en el maestro, duplicaría la Acta si hay 2+ filas.
 	$stmt = $mysqli->prepare(
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.sector, c.valores_mensuales, c.updated_at
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_usuarios_acuerdos u_usuario
+		   ON u_usuario.status = 'activo' AND UPPER(TRIM(u_usuario.usuario)) = UPPER(TRIM(c.usuario_excel)) AND c.usuario_excel <> ''
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
+		 WHERE c.estado = 'pendiente_uso' AND COALESCE(u_usuario.id, u_cedi.id, u_master.id) = ?
+		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel"
+	);
+	if (!$stmt) $stmt = $mysqli->prepare(
 		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.sector, c.valores_mensuales, c.updated_at
 		 FROM repositorio_cuota_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
@@ -773,7 +827,13 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 
 // Todas las Actas precargadas pendientes, sin acotar a un usuarioId, para el panorama del superdesarrollador.
 function listar_actas_precargadas_todas($mysqli) {
+	// usuario_excel (2026-09-28) con fallback si ese ALTER no se corrió.
 	$stmt = $mysqli->prepare(
+		"SELECT pos_id, cliente_excel, cedi_excel, usuario_excel, trimestre, anio, sector, valores_mensuales, updated_at
+		 FROM repositorio_cuota_cliente WHERE estado = 'pendiente_uso'
+		 ORDER BY anio DESC, trimestre DESC, cliente_excel"
+	);
+	if (!$stmt) $stmt = $mysqli->prepare(
 		"SELECT pos_id, cliente_excel, cedi_excel, trimestre, anio, sector, valores_mensuales, updated_at
 		 FROM repositorio_cuota_cliente WHERE estado = 'pendiente_uso'
 		 ORDER BY anio DESC, trimestre DESC, cliente_excel"
@@ -792,6 +852,7 @@ function listar_actas_precargadas_todas($mysqli) {
 		if (!isset($grupos[$clave])) {
 			$grupos[$clave] = [
 				'pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'cedi_excel' => $f['cedi_excel'],
+				'usuario_excel' => $f['usuario_excel'] ?? '',
 				'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at'],
 			];
 		}
@@ -836,12 +897,24 @@ function resumen_cuotas($mysqli) {
 	$rPos = $mysqli->query("SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id");
 	if ($rPos) { while ($f = $rPos->fetch_assoc()) $supervisorPorPosId[$f['pos_id']] = $f['supervisor']; }
 
+	// Usuario exacto -> usuario activo (2026-09-28, manda antes que CEDI/maestro, mismo criterio que resolverNombreAsignadoCuota()).
+	$porUsuarioExacto = [];
+	foreach ($usuariosActivos as $u) {
+		if (($u['usuario'] ?? '') !== '') $porUsuarioExacto[strtoupper(trim($u['usuario']))] = $u['usuario'];
+	}
+
 	$porUsuarioMapa = [];
 	$nombrePorClaveGrupo = [];
 	foreach ($grupos as $g) {
+		$usuarioExcel = strtoupper(trim((string) ($g['usuario_excel'] ?? '')));
 		$cedi = strtoupper(trim((string) $g['cedi_excel']));
 		$nombre = null; $tieneCuenta = false;
-		if ($cedi !== '' && isset($porCedi[$cedi])) {
+		if ($usuarioExcel !== '' && isset($porUsuarioExacto[$usuarioExcel])) {
+			$nombre = $porUsuarioExacto[$usuarioExcel]; $tieneCuenta = true;
+		} elseif ($usuarioExcel !== '') {
+			// USUARIO vino tipeado pero no matchea ninguna cuenta activa: es el error a mostrar, no cae a CEDI/maestro (taparía el typo).
+			$nombre = trim((string) $g['usuario_excel']);
+		} elseif ($cedi !== '' && isset($porCedi[$cedi])) {
 			$nombre = $porCedi[$cedi]; $tieneCuenta = true;
 		} else {
 			$supervisorReal = $supervisorPorPosId[$g['pos_id']] ?? null;
@@ -1549,7 +1622,16 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	// c.subcategoria/c.marca: sin esto la tabla no mostraba lo que el Excel trajo. Mismo fallback de 2 niveles que la búsqueda de arriba.
 	$whereConSub = "c.estado <> 'pendiente_match' AND (c.cedi_excel LIKE ? OR c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.plan LIKE ? OR c.sector LIKE ? OR c.subcategoria LIKE ? OR c.marca LIKE ?)";
 	$whereSinSub = "c.estado <> 'pendiente_match' AND (c.cedi_excel LIKE ? OR c.cliente_excel LIKE ? OR c.pos_id LIKE ? OR c.plan LIKE ? OR c.sector LIKE ?)";
+	// c.usuario_excel (2026-09-28): tercer nivel de fallback arriba de los 2 de siempre, si ese ALTER tampoco se corrió.
 	$stmt = $mysqli->prepare(
+		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.usuario_excel, c.plan, c.sector, c.subcategoria, c.marca, c.trimestre, c.anio, c.valores_mensuales, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = c.actualizado_por
+		 WHERE $whereConSub
+		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel, c.sector
+		 LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) $stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan, c.sector, c.subcategoria, c.marca, c.trimestre, c.anio, c.valores_mensuales, c.estado, c.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_cuota_cliente c
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = c.actualizado_por
@@ -1924,26 +2006,30 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
 	$busqueda = trim((string) $busqueda);
 	if ($busqueda !== '') {
-		$condiciones[] = "(c.cliente_excel LIKE CONCAT('%', ?, '%') OR COALESCE(u_cedi.usuario, u_master.usuario) LIKE CONCAT('%', ?, '%'))";
+		$condiciones[] = "(c.cliente_excel LIKE CONCAT('%', ?, '%') OR COALESCE(u_usuario.usuario, u_cedi.usuario, u_master.usuario) LIKE CONCAT('%', ?, '%'))";
 		$params[] = $busqueda;
 		$params[] = $busqueda;
 		$tipos .= 'ss';
 	}
-	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_cedi.supervisor, u_master.supervisor)');
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
-	// `canal`: badge solo cuando Vista="Total", derivado del SUPERVISOR. La subquery MIN(supervisor) evita duplicar filas por pos_id repetido.
+	// USUARIO de Cuotas Trimestrales (2026-09-28) manda primero — mismo cliente/trimestre, ver usuario_excel en repositorio_cuota_cliente. Sin esto, Cumplimiento le asignaba el cliente a quien diga el maestro aunque Cuotas Trimestrales ya lo tuviera bien asignado a otra persona (bug real reportado).
 	$stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.plan_excel, c.sector,
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
 		        c.gana_categoria, c.gana_categoria_anterior, c.gana_total,
 		        c.rebate_real_vol, c.updated_at,
-		        COALESCE(u_cedi.id, u_master.id) AS usuario_id,
-		        COALESCE(u_cedi.usuario, u_master.usuario) AS usuario_nombre,
-		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal,
+		        COALESCE(u_usuario.id, u_cedi.id, u_master.id) AS usuario_id,
+		        COALESCE(u_usuario.usuario, u_cedi.usuario, u_master.usuario) AS usuario_nombre,
+		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal,
 		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_productos p WHERE p.fabricante = 'JABONERIA WILSON' AND p.sector = c.sector AND p.activar = 'SI') THEN 1 ELSE 0 END) AS categoria_valida
 		 FROM repositorio_cumplimiento_cuota c
+		 LEFT JOIN (SELECT pos_id, trimestre, anio, MAX(usuario_excel) AS usuario_excel FROM repositorio_cuota_cliente WHERE usuario_excel IS NOT NULL AND usuario_excel <> '' GROUP BY pos_id, trimestre, anio) rc
+		   ON rc.pos_id = c.pos_id AND rc.trimestre = c.trimestre AND rc.anio = c.anio
+		 LEFT JOIN repositorio_usuarios_acuerdos u_usuario
+		   ON u_usuario.status = 'activo' AND UPPER(TRIM(u_usuario.usuario)) = UPPER(TRIM(rc.usuario_excel))
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
@@ -1966,8 +2052,8 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 	$tipos = '';
 	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
 	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
-	// Mismo criterio que listar_cumplimiento_cuota(): canal por el SUPERVISOR del dueño real, con los mismos 2 LEFT JOIN.
-	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_cedi.supervisor, u_master.supervisor)');
+	// Mismo criterio que listar_cumplimiento_cuota(): USUARIO de Cuotas Trimestrales manda primero, luego CEDI, luego maestro.
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
@@ -1980,6 +2066,10 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 		    AVG(c.cumplimiento_pct) AS cumplimiento_promedio,
 		    COUNT(DISTINCT CASE WHEN c.gana_total = 'gana' THEN c.pos_id END) AS clientes_ganan_total
 		 FROM repositorio_cumplimiento_cuota c
+		 LEFT JOIN (SELECT pos_id, trimestre, anio, MAX(usuario_excel) AS usuario_excel FROM repositorio_cuota_cliente WHERE usuario_excel IS NOT NULL AND usuario_excel <> '' GROUP BY pos_id, trimestre, anio) rc
+		   ON rc.pos_id = c.pos_id AND rc.trimestre = c.trimestre AND rc.anio = c.anio
+		 LEFT JOIN repositorio_usuarios_acuerdos u_usuario
+		   ON u_usuario.status = 'activo' AND UPPER(TRIM(u_usuario.usuario)) = UPPER(TRIM(rc.usuario_excel))
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))

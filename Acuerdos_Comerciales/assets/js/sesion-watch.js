@@ -8,7 +8,7 @@
 			.then(function (data) {
 				if (data.ok) { fallosSeguidos = 0; return; }
 				fallosSeguidos++;
-				if (fallosSeguidos >= 2) window.location.href = 'login.php?error=sesion';
+				if (fallosSeguidos >= 2) window.location.href = 'login.php?error=' + (data.motivo === 'otro_dispositivo' ? 'sesion' : 'expirada');
 			})
 			.catch(function () {});
 	}, 15000);

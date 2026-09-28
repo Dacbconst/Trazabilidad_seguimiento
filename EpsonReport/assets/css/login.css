@@ -1,5 +1,5 @@
 /* ---------- Login ---------- */
-html { overflow-x: hidden; }
+html { height: 100%; overflow: hidden; overscroll-behavior: none; }
 
 html, body.ep-login-body {
 	height: 100%;
@@ -9,23 +9,25 @@ html, body.ep-login-body {
 
 body.ep-login-body {
 	background: var(--color-surface-muted);
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	overflow: hidden;
+	overscroll-behavior: none;
 }
 
 .ep-login-wrap {
-	min-height: 100vh;
-	min-height: 100dvh;
+	height: 100%;
+	height: 100dvh;
 	width: 100%;
 	display: flex;
 	background: var(--color-surface-muted);
 	position: relative;
 	overflow: hidden;
 	overflow: clip;
+	overscroll-behavior: none;
 }
 
-/* Los blobs decorativos son exclusivos para la vista móvil con fondo claro */
-.ep-login-blob {
-	display: none;
-}
 
 .ep-login-side {
 	width: 44%;
@@ -87,6 +89,11 @@ body.ep-login-body {
 	z-index: 1;
 	overflow-x: hidden;
 	overflow-y: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.ep-login-form::-webkit-scrollbar {
+	display: none;
 }
 
 .ep-login-form-inner {
@@ -195,7 +202,7 @@ body.ep-login-body {
 }
 
 @media (max-width: 700px) {
-	/* ---------- Login en celular: pantalla única, sin panel azul, esquinas con trama diagonal ---------- */
+	/* ---------- Login en celular: interfaz limpia y corporativa ---------- */
 	.ep-login-wrap {
 		position: relative;
 		overflow: hidden;
@@ -205,20 +212,6 @@ body.ep-login-body {
 		min-height: 100vh;
 		min-height: 100dvh;
 	}
-	.ep-login-blob {
-		display: block;
-		position: absolute; z-index: 0; pointer-events: none; filter: blur(50px);
-		background: var(--color-primary);
-	}
-	.ep-login-blob-1 { width: 220px; height: 220px; top: -60px; right: -70px; opacity: 0.16; border-radius: 58% 42% 63% 37% / 41% 55% 45% 59%; }
-	.ep-login-blob-2 { width: 260px; height: 260px; bottom: 140px; left: -90px; opacity: 0.10; border-radius: 46% 54% 38% 62% / 55% 42% 58% 45%; }
-	.ep-login-wrap::before, .ep-login-wrap::after {
-		content: ''; position: absolute; width: 110px; height: 110px; z-index: 2; pointer-events: none;
-		background: repeating-linear-gradient(45deg, var(--color-primary) 0 3px, transparent 3px 10px);
-		opacity: 0.55;
-	}
-	.ep-login-wrap::before { top: -28px; left: -28px; clip-path: polygon(0 0, 100% 0, 0 100%); }
-	.ep-login-wrap::after { bottom: -28px; right: -28px; clip-path: polygon(100% 100%, 0 100%, 100% 0); }
 	.ep-login-side {
 		display: none !important;
 	}
@@ -236,16 +229,12 @@ body.ep-login-body {
 		padding: 16px 0;
 		width: 100%;
 	}
-	.ep-login-form::before, .ep-login-form::after {
-		content: ''; position: absolute; z-index: 0; pointer-events: none; border-radius: 50%;
-	}
-	.ep-login-form::before { width: 130px; height: 130px; top: -50px; right: -40px; background: var(--color-primary); opacity: 0.08; }
-	.ep-login-form::after { width: 90px; height: 90px; bottom: -30px; left: -20px; background: #9A7AD3; opacity: 0.08; }
 	.ep-login-form-inner {
 		position: relative; z-index: 1;
 		background: var(--color-surface);
-		border-radius: 22px;
-		box-shadow: 0 10px 30px rgba(17,17,17,0.08);
+		border-radius: 20px;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+		border: 1px solid #EBE5F4;
 		padding: 24px 20px 28px;
 		width: 100%;
 		max-width: 360px;
@@ -253,6 +242,67 @@ body.ep-login-body {
 	}
 }
 
-
 /* Pie de página del login */
 .ep-login-copy { position: absolute; left: 0; right: 0; bottom: 14px; margin: 0; text-align: center; font-size: 12px; color: var(--color-text-muted); z-index: 1; }
+
+/* Logos de aliados al pie de la tarjeta de login */
+.ep-login-partners { display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: -8px; }
+.ep-login-partners img { height: 34px; width: auto; object-fit: contain; }
+
+/* Transición al iniciar sesión: pantalla de bienvenida sobria y profesional */
+.ep-login-abriendo .ep-login-side { transform: translateX(-100%); transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1); }
+.ep-login-abriendo .ep-login-form { transform: translateX(100%); opacity: 0; transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.4s ease; }
+.ep-login-saliendo { opacity: 0; transition: opacity 0.25s ease; }
+@media (max-width: 700px) {
+	.ep-login-abriendo .ep-login-side { transform: none; }
+	.ep-login-abriendo .ep-login-form-inner { transform: scale(0.95); opacity: 0; transition: transform 0.35s ease, opacity 0.35s ease; }
+}
+
+/* Pantalla de bienvenida limpia y sobria al iniciar sesión (estilo corporativo minimalista) */
+.ep-login-saludo {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 24px;
+	text-align: center;
+	background: #F5F5F7;
+	pointer-events: none;
+	opacity: 0;
+}
+.ep-login-abriendo .ep-login-saludo {
+	display: flex;
+	animation: epLoginSaludoEntrada 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.ep-login-saludo-momento {
+	font-family: 'IBM Plex Sans', system-ui, sans-serif;
+	font-size: clamp(14px, 1.25vw, 17px);
+	font-weight: 500;
+	color: #55575E;
+	margin: 0;
+	letter-spacing: 0.01em;
+}
+.ep-login-saludo-nombre {
+	font-family: 'Sora', 'IBM Plex Sans', sans-serif;
+	font-size: clamp(22px, 3.5vw, 36px);
+	font-weight: 700;
+	color: #2D1A4E;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	line-height: 1.25;
+	margin: 0;
+	max-width: 90%;
+	word-break: break-word;
+}
+@keyframes epLoginSaludoEntrada {
+	from { opacity: 0; transform: translateY(6px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+.ep-login-saliendo .ep-login-saludo {
+	opacity: 0;
+	transition: opacity 0.25s ease-out;
+}

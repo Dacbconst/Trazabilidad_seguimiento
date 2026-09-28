@@ -43,6 +43,7 @@ $estados = [];
 foreach ($filas as $fila) {
 	$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
 	$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
+	$usuarioExcel = trim((string) ($fila['usuario_excel'] ?? ''));
 	$sector       = repositorio_normalizar_texto($fila['sector'] ?? '');
 	if ($clienteExcel === '' || $sector === '') {
 		$estados[] = ['estado' => 'invalido'];
@@ -93,7 +94,7 @@ foreach ($filas as $fila) {
 	// la previsualización pueda agrupar visualmente las filas de un mismo cliente.
 	// tiene_cuenta distingue "cliente identificado, supervisor real conocido, pero sin
 	// cuenta de usuario todavía" de "no se pudo identificar nada" (pedido explícito).
-	$asignado = resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel);
+	$asignado = resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel, $clienteExcel, $usuarioExcel);
 
 	if (!array_key_exists($posId, $cacheCediReal)) {
 		$cediReal = null;

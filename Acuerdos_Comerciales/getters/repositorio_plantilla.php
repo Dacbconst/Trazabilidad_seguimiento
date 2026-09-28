@@ -61,45 +61,37 @@ if ($tipo === 'rebate') {
 	}
 	if ($canal === 'directo') {
 		$hoja = $wb->agregarHoja('CUOTAS');
-		$cols = ['CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA', 'ENERO', 'FEBRERO', 'MARZO'];
+		// USUARIO (2026-09-28, pedido explícito): primera columna, el usuario exacto tal como está en Gestión de Usuarios — el Excel manda directo, sin adivinar por CEDI. CEDI = nombre real del asesor (queda como respaldo si USUARIO viene vacío o mal tipeado).
+		$cols = ['USUARIO', 'CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA', 'ENERO', 'FEBRERO', 'MARZO'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
-		// CEDI = nombre real del asesor dueño de la cuenta (ver "Cómo se resuelve a quién
-		// asignar" en CLAUDE.md) — no es geográfico acá, a diferencia de Distribuidor.
-		$wb->celda($hoja, 2, 1, 'NOMBRE DEL ASESOR');
-		$wb->celda($hoja, 2, 2, 'CLIENTE EJEMPLO');
-		$wb->celda($hoja, 2, 3, '');
-		$wb->celda($hoja, 2, 4, 'CREMA');
-		$wb->celda($hoja, 2, 5, 'LAVAVAJILLAS');
-		$wb->celda($hoja, 2, 6, 'EJEMPLO');
-		$wb->celda($hoja, 2, 7, 700, false, 'money');
+		$wb->celda($hoja, 2, 1, 'NOMBRE DE USUARIO EXACTO');
+		$wb->celda($hoja, 2, 2, 'NOMBRE DEL ASESOR');
+		$wb->celda($hoja, 2, 3, 'CLIENTE EJEMPLO');
+		$wb->celda($hoja, 2, 4, '');
+		$wb->celda($hoja, 2, 5, 'CREMA');
+		$wb->celda($hoja, 2, 6, 'LAVAVAJILLAS');
+		$wb->celda($hoja, 2, 7, 'EJEMPLO');
 		$wb->celda($hoja, 2, 8, 700, false, 'money');
 		$wb->celda($hoja, 2, 9, 700, false, 'money');
+		$wb->celda($hoja, 2, 10, 700, false, 'money');
 		$nombreBase = 'Formato_Cuotas_Directo';
 	} else {
 		$hoja = $wb->agregarHoja('CUOTAS');
-		// CODIGO/RUC (2026-09-18) — opcionales, igual que SUBCATEGORIA/MARCA, mismo orden
-		// que ya usa el resto del sistema (a la derecha de NOMBRE, ver
-		// exportar_cuota_categoria_distribuidor.php y repositorio_parsear_cuotas_distribuidor()).
-		// Si vienen llenas, quedan guardadas en repositorio_cuota_cliente y el "Descargar
-		// Excel" de Historial las autocompleta solas la próxima vez para ese mismo cliente
-		// — no hace falta ningún campo nuevo en ningún formulario, esto es 100% del Excel.
-		$cols = ['DISTRIBUIDOR', 'CIUDAD', 'NOMBRE', 'CODIGO', 'RUC', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA', 'ENERO', 'FEBRERO', 'MARZO'];
+		// CODIGO/RUC (2026-09-18) opcionales, igual que SUBCATEGORIA/MARCA. USUARIO (2026-09-28) primera columna, mismo criterio que Directo arriba.
+		$cols = ['USUARIO', 'DISTRIBUIDOR', 'CIUDAD', 'NOMBRE', 'CODIGO', 'RUC', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA', 'ENERO', 'FEBRERO', 'MARZO'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
-		// DISTRIBUIDOR = nombre LEGAL COMPLETO de la empresa (ej. "ASERTIA COMERCIAL SA",
-		// no "ASERTIA") — es el desempate si NOMBRE resulta ambiguo, exige coincidencia
-		// exacta contra tipo_distribuidor del maestro. CIUDAD acá SÍ es geográfica, no
-		// participa en a quién se le asigna (ver CLAUDE.md, mismo tema).
-		$wb->celda($hoja, 2, 1, 'ASERTIA COMERCIAL SA');
-		$wb->celda($hoja, 2, 2, 'GUAYAQUIL');
-		$wb->celda($hoja, 2, 3, 'CLIENTE EJEMPLO');
-		$wb->celda($hoja, 2, 4, '');
+		$wb->celda($hoja, 2, 1, 'NOMBRE DE USUARIO EXACTO');
+		$wb->celda($hoja, 2, 2, 'ASERTIA COMERCIAL SA');
+		$wb->celda($hoja, 2, 3, 'GUAYAQUIL');
+		$wb->celda($hoja, 2, 4, 'CLIENTE EJEMPLO');
 		$wb->celda($hoja, 2, 5, '');
-		$wb->celda($hoja, 2, 6, 'CREMA');
-		$wb->celda($hoja, 2, 7, 'LAVAVAJILLAS');
-		$wb->celda($hoja, 2, 8, 'EJEMPLO');
-		$wb->celda($hoja, 2, 9, 700, false, 'money');
+		$wb->celda($hoja, 2, 6, '');
+		$wb->celda($hoja, 2, 7, 'CREMA');
+		$wb->celda($hoja, 2, 8, 'LAVAVAJILLAS');
+		$wb->celda($hoja, 2, 9, 'EJEMPLO');
 		$wb->celda($hoja, 2, 10, 700, false, 'money');
 		$wb->celda($hoja, 2, 11, 700, false, 'money');
+		$wb->celda($hoja, 2, 12, 700, false, 'money');
 		$nombreBase = 'Formato_Cuotas_Distribuidor';
 	}
 }

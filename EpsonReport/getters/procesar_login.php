@@ -80,4 +80,4 @@ $destino = 'index.php';
 if ($redirect !== '' && !preg_match('#^(https?:)?//#i', $redirect) && stripos($redirect, 'login.php') === false) {
 	$destino = $redirect;
 }
-echo json_encode(['ok' => true, 'redirect' => $destino]);
+echo json_encode(['ok' => true, 'redirect' => $destino, 'nombre' => $_SESSION['nombre']]);
