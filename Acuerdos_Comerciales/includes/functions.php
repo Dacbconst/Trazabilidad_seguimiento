@@ -354,10 +354,10 @@ function resolverSectorReal($mysqli, $sectorCrudo) {
 	return count($sectores) === 1 ? $sectores[0] : null;
 }
 
-// Parche visual: BARRA+EL MACHO es "ROPA" en repositorio_productos pero "DETERGENTE" en repositorio_rebate_producto (dato inconsistente entre tablas, sin tocar el esquema).
+// Parche visual: BARRA+EL MACHO es "ROPA" en repositorio_productos; se muestra "BARRA" como lo nombra JW en Cuotas y Rebate (sin tocar el esquema).
 function aplicarParcheCategoriaVisual($sector, $marca, $categoria) {
 	$parches = [
-		['BARRA', 'EL MACHO', 'DETERGENTE'],
+		['BARRA', 'EL MACHO', 'BARRA'],
 	];
 	foreach ($parches as $parche) {
 		if (strtoupper(trim($sector)) === $parche[0] && strtoupper(trim($marca)) === $parche[1]) return $parche[2];
