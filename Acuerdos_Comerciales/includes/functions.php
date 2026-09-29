@@ -399,6 +399,26 @@ function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda
 		}
 	}
 	$stmt->close();
+
+	// Respaldo: Sector + Marca como palabra completa ("MACHO" → "EL MACHO"), ignorando Subcategoría; solo si el producto es único.
+	$stmt = $mysqli->prepare(
+		"SELECT DISTINCT segmento, categoria, marca FROM repositorio_productos
+		 WHERE fabricante = 'JABONERIA WILSON' AND activar = 'SI'
+		   AND UPPER(TRIM(sector)) = UPPER(TRIM(?))
+		   AND CONCAT(' ', UPPER(TRIM(marca)), ' ') LIKE CONCAT('% ', UPPER(TRIM(?)), ' %')"
+	);
+	if (!$stmt) return null;
+	foreach ($variantes($sector) as $sectorProbar) {
+		$stmt->bind_param('ss', $sectorProbar, $marcaCruda);
+		$stmt->execute();
+		$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+		if (count($filas) === 1) {
+			$stmt->close();
+			$filas[0]['categoria'] = aplicarParcheCategoriaVisual($sector, $filas[0]['marca'], $filas[0]['categoria']);
+			return $filas[0];
+		}
+	}
+	$stmt->close();
 	return null;
 }
 
