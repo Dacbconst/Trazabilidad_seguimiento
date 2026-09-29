@@ -33,6 +33,61 @@ function ep_ppt_quitar(DOMXPath $xp, string $nombre): void {
 	}
 }
 
+// Como ep_ppt_forma pero también encuentra grupos (grpSp) por su nombre.
+function ep_ppt_forma_o_grupo(DOMXPath $xp, string $nombre): ?DOMElement {
+	$nodos = $xp->query("//p:cSld//*[p:nvSpPr/p:cNvPr[@name='".$nombre."'] or p:nvPicPr/p:cNvPr[@name='".$nombre."'] or p:nvGrpSpPr/p:cNvPr[@name='".$nombre."']]");
+	return $nodos->length > 0 ? $nodos->item(0) : null;
+}
+
+// Nombre del grupo que envuelve una forma (por ejemplo el fondo+barra de una fila de ventas), o null si no está agrupada.
+function ep_ppt_grupo_de(DOMXPath $xp, string $nombre): ?string {
+	$forma = ep_ppt_forma($xp, $nombre);
+	$padre = $forma ? $forma->parentNode : null;
+	if (!$padre instanceof DOMElement || $padre->localName !== 'grpSp') {
+		return null;
+	}
+	$cNvPr = $xp->query('./p:nvGrpSpPr/p:cNvPr', $padre)->item(0);
+	return $cNvPr ? $cNvPr->getAttribute('name') : null;
+}
+
+// Mueve una forma ya existente (sin clonarla) $deltaX EMU en horizontal; para reacomodar una tarjeta original y dejarle sitio a otra al lado.
+function ep_ppt_mover_x(DOMXPath $xp, string $nombre, int $deltaX): void {
+	$forma = ep_ppt_forma_o_grupo($xp, $nombre);
+	$esGrupo = $forma && $forma->localName === 'grpSp';
+	$off = $forma ? $xp->query($esGrupo ? './p:grpSpPr/a:xfrm/a:off' : './p:spPr/a:xfrm/a:off', $forma)->item(0) : null;
+	if ($off) {
+		$off->setAttribute('x', (string) ((int) $off->getAttribute('x') + $deltaX));
+	}
+}
+
+// Clona una forma o grupo ya existente y la reubica $deltaX EMU a la derecha, para llenar espacio libre de la plantilla sin tocar su diseño original.
+// $renombresInternos renombra formas hijas de un grupo clonado (['nombre viejo' => 'nombre nuevo']), para poder editarlas después sin chocar con el original.
+function ep_ppt_clonar_y_mover(DOMXPath $xp, string $origen, string $destino, int $deltaX, array $renombresInternos, int $idNuevo): ?DOMElement {
+	$forma = ep_ppt_forma_o_grupo($xp, $origen);
+	if (!$forma) {
+		return null;
+	}
+	$clon = $forma->cloneNode(true);
+	$esGrupo = $clon->localName === 'grpSp';
+	$cNvPr = $xp->query($esGrupo ? './p:nvGrpSpPr/p:cNvPr' : './/p:cNvPr[1]', $clon)->item(0);
+	if ($cNvPr) {
+		$cNvPr->setAttribute('id', (string) $idNuevo);
+		$cNvPr->setAttribute('name', $destino);
+	}
+	foreach ($renombresInternos as $viejo => $nuevo) {
+		foreach ($xp->query(".//p:cNvPr[@name='".$viejo."']", $clon) as $i => $hijo) {
+			$hijo->setAttribute('id', (string) ($idNuevo + $i + 1));
+			$hijo->setAttribute('name', $nuevo);
+		}
+	}
+	$off = $xp->query($esGrupo ? './p:grpSpPr/a:xfrm/a:off' : './p:spPr/a:xfrm/a:off', $clon)->item(0);
+	if ($off) {
+		$off->setAttribute('x', (string) ((int) $off->getAttribute('x') + $deltaX));
+	}
+	$forma->parentNode->appendChild($clon);
+	return $clon;
+}
+
 function ep_ppt_poner_texto(DOMDocument $dom, DOMElement $p, string $texto): void {
 	$runs = [];
 	foreach ($p->childNodes as $h) {
@@ -235,6 +290,20 @@ function ep_ppt_ensanchar(DOMXPath $xp, float $factor, int $x0 = 2618686): void 
 		}
 		$off->setAttribute('x', (string) (int) round($x0 + ((int) $off->getAttribute('x') - $x0) * $factor));
 		$ext->setAttribute('cx', (string) (int) round((int) $ext->getAttribute('cx') * $factor));
+	}
+}
+
+// Quita el autoajuste de una forma clonada y la deja sin salto de línea: evita que PowerPoint la recalcule mal
+// al haberla ensanchado a mano (por ejemplo, un monto en dólares en un cuadro pensado para un número corto).
+function ep_ppt_sin_autoajuste(DOMXPath $xp, string $nombre): void {
+	$forma = ep_ppt_forma($xp, $nombre);
+	$bodyPr = $forma ? $xp->query('.//a:bodyPr', $forma)->item(0) : null;
+	if (!$bodyPr) {
+		return;
+	}
+	$bodyPr->setAttribute('wrap', 'none');
+	foreach ($xp->query('./a:spAutoFit | ./a:normAutofit', $bodyPr) as $ajuste) {
+		$bodyPr->removeChild($ajuste);
 	}
 }
 

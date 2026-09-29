@@ -107,7 +107,13 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-modelo-fila-nueva {
 	display: grid; grid-template-columns: minmax(0, 1fr) 110px 34px; align-items: center; gap: 10px;
 }
+.ep-modelo-fila-nueva.con-precio { grid-template-columns: minmax(0, 1fr) 90px 110px 34px; }
 .ep-modelo-fila-nueva .ep-input { height: 40px; }
+.ep-modelo-precio-wrap { display: flex; align-items: center; height: 40px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
+.ep-modelo-precio-wrap span { color: var(--color-text-muted); font-size: 14px; margin-right: 3px; }
+.ep-modelo-precio-wrap .ep-modelo-precio { border: none; padding: 0; height: auto; background: transparent; text-align: left; }
+.ep-modelo-precio-wrap:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); }
+.ep-modelo-precio:focus { outline: none; box-shadow: none; } /* el aro ya lo pone el wrapper; si no, se ven dos anillos superpuestos */
 .ep-modelo-quitar {
 	width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--color-border);
 	background: var(--color-surface); display: flex; align-items: center; justify-content: center;
@@ -183,6 +189,8 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 
 .ep-venta-fila { display: grid; grid-template-columns: 90px minmax(0, 1fr) 30px; align-items: center; gap: 10px; margin-bottom: 12px; }
 .ep-venta-fila:last-child { margin-bottom: 0; }
+.ep-venta-fila.ep-venta-fila-dinero { grid-template-columns: 90px minmax(0, 1fr) auto; }
+.ep-venta-fila-dinero .ep-venta-valor { white-space: nowrap; }
 .ep-venta-nombre { font-size: 13px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ep-venta-barra-track { background: var(--color-surface-muted); border-radius: 6px; height: 20px; overflow: hidden; }
 .ep-venta-barra-fill { background: var(--color-primary); height: 100%; border-radius: 6px; }

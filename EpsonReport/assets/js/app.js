@@ -646,6 +646,39 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (!t) return '0%';
 		return Math.round((parseFloat(parte) || 0) / t * 100) + '%';
 	}
+	function fmtDolares(valor) {
+		return '$' + (valor || 0).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	}
+	// Precio por modelo: hasta 3 enteros y 2 decimales (máx. 999.99); el signo $ es solo visual, aparte del campo.
+	function epLimpiarPrecio(valor) {
+		valor = String(valor || '').replace(',', '.').replace(/[^0-9.]/g, '');
+		var punto = valor.indexOf('.');
+		if (punto !== -1) valor = valor.slice(0, punto + 1) + valor.slice(punto + 1).replace(/\./g, '');
+		var partes = valor.split('.');
+		var entero = partes[0].slice(0, 3);
+		var decimales = partes.length > 1 ? '.' + partes[1].slice(0, 2) : '';
+		return entero + decimales;
+	}
+	// Misma barra de "Detalle de Ventas" pero en dólares generados (cantidad × precio); solo donde el modelo trae precio.
+	function pintarIngresosPorModelo(contenedorId, modelos) {
+		var cont = document.getElementById(contenedorId);
+		if (!cont) return;
+		var conIngreso = modelos.map(function (m) { return { nombre: m.nombre, ingreso: (m.cantidad || 0) * (m.precio || 0) }; })
+			.filter(function (m) { return m.ingreso > 0; })
+			.sort(function (a, b) { return b.ingreso - a.ingreso; });
+		if (!conIngreso.length) {
+			cont.innerHTML = '<span class="ep-stat-comentarios-vacio">Agrega el precio de cada modelo para ver los ingresos.</span>';
+			return;
+		}
+		var maxIngreso = conIngreso[0].ingreso;
+		cont.innerHTML = conIngreso.map(function (m) {
+			return '<div class="ep-venta-fila ep-venta-fila-dinero">'
+				+ '<span class="ep-venta-nombre">' + escapeHtml(m.nombre) + '</span>'
+				+ '<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:' + Math.round(m.ingreso / maxIngreso * 100) + '%;"></div></div>'
+				+ '<span class="ep-venta-valor">' + fmtDolares(m.ingreso) + '</span>'
+				+ '</div>';
+		}).join('');
+	}
 	function actualizarEstadisticasActivaciones() {
 		var statCoberturaPct = document.getElementById('ep-stat-cobertura-pct');
 		if (!statCoberturaPct) return; // esta actividad no tiene panel de estadísticas todavía
@@ -678,6 +711,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		var detalleVentas = document.getElementById('ep-stat-detalle-ventas');
 		var modelos = (actModelos ? actModelos.modelos() : []).sort(function (a, b) { return b.cantidad - a.cantidad; });
 		var totalUnidades = modelos.reduce(function (s, m) { return s + m.cantidad; }, 0);
+		pintarIngresosPorModelo('ep-stat-detalle-ingresos', modelos);
 
 		if (!modelos.length) {
 			detalleVentas.innerHTML = '<span class="ep-stat-comentarios-vacio">Todavía no cargaste modelos.</span>';
@@ -720,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			: '<span class="ep-stat-comentarios-vacio">Sin comentarios todavía.</span>';
 	}
 
-	var actModelos = crearGestorModelos('ep-modelo-filas', 'ep-modelo-agregar', 'ep-modelo-total-valor', actualizarEstadisticasActivaciones);
+	var actModelos = crearGestorModelos('ep-modelo-filas', 'ep-modelo-agregar', 'ep-modelo-total-valor', actualizarEstadisticasActivaciones, true);
 	actualizarEstadisticasActivaciones(); // primer cálculo, con los valores de ejemplo que ya trae el formulario
 
 	// ---------- Capacitaciones ---------- Interacciones no puede superar el total de asistentes.
@@ -859,8 +893,20 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (exhComentarios) exhComentarios.addEventListener('input', actualizarEstadisticasExhibiciones);
 	actualizarEstadisticasExhibiciones(); // primer cálculo
 
-	// Fábrica de combo+cantidad de modelos: busca en vivo contra repositorio_productos (getters/repositorio_productos_buscar.php).
-	function crearGestorModelos(idFilas, idAgregar, idTotal, onCambio) {
+	// Catálogo de modelos (repositorio_productos): se trae una sola vez para todo el formulario y se reutiliza en cada fila; filtrar es cosa del navegador, no del servidor.
+	var epCatalogoModelos = null;
+	function epObtenerCatalogoModelos() {
+		if (!epCatalogoModelos) {
+			epCatalogoModelos = fetch('getters/repositorio_productos_buscar.php')
+				.then(function (r) { return r.json(); })
+				.then(function (data) { return data.ok ? data.productos : []; })
+				.catch(function () { epCatalogoModelos = null; return []; }); // si falla, el próximo intento vuelve a pedirlo
+		}
+		return epCatalogoModelos;
+	}
+
+	// Fábrica de combo+cantidad de modelos: usa el catálogo cacheado y filtra en el navegador (repositorio_productos_buscar.php).
+	function crearGestorModelos(idFilas, idAgregar, idTotal, onCambio, conPrecio) {
 		var filas = document.getElementById(idFilas);
 		if (!filas) return null;
 		var agregarBtn = document.getElementById(idAgregar);
@@ -869,12 +915,13 @@ document.addEventListener('DOMContentLoaded', function () {
 		var buscarDebounce = null;
 
 		function filaHTML() {
-			return '<div class="ep-modelo-fila-nueva"><div class="ep-combo">'
+			return '<div class="ep-modelo-fila-nueva' + (conPrecio ? ' con-precio' : '') + '"><div class="ep-combo">'
 				+ '<button type="button" class="ep-input ep-combo-trigger" data-valor="">'
 				+ '<span class="ep-combo-trigger-texto">Elegir modelo</span>' + epIconMarkup('chevron', 14) + '</button>'
 				+ '<div class="ep-combo-panel hidden"><input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar modelo..." autocomplete="off">'
 				+ '<div class="ep-combo-opciones"></div></div></div>'
 				+ '<input type="number" min="0" inputmode="numeric" class="ep-input ep-modelo-cantidad" placeholder="Cant.">'
+				+ (conPrecio ? '<div class="ep-modelo-precio-wrap"><span>$</span><input type="text" inputmode="decimal" maxlength="6" class="ep-input ep-modelo-precio" placeholder="0.00"></div>' : '')
 				+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar modelo">' + epIconMarkup('trash', 14) + '</button></div>';
 		}
 		function elegidosEnOtrasFilas(comboActual) {
@@ -890,24 +937,19 @@ document.addEventListener('DOMContentLoaded', function () {
 			var opciones = combo.querySelector('.ep-combo-opciones');
 			opciones.innerHTML = '<div class="ep-combo-vacio">Buscando...</div>';
 			var miReqId = ++buscarReqId;
-			fetch('getters/repositorio_productos_buscar.php?q=' + encodeURIComponent(texto || ''))
-				.then(function (r) { return r.json(); })
-				.then(function (data) {
-					if (miReqId !== buscarReqId) return; // llegó una búsqueda más nueva antes que esta
-					var ya = elegidosEnOtrasFilas(combo);
-					var coincidencias = (data.ok ? data.productos : []).filter(function (m) { return ya.indexOf(m) === -1; });
-					opciones.innerHTML = coincidencias.length
-						? coincidencias.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m + '">' + m + '</button>'; }).join('')
-						: '<div class="ep-combo-vacio">Sin resultados</div>';
-				})
-				.catch(function () {
-					if (miReqId !== buscarReqId) return;
-					opciones.innerHTML = '<div class="ep-combo-vacio">Error al buscar, intenta de nuevo</div>';
-				});
+			epObtenerCatalogoModelos().then(function (productos) {
+				if (miReqId !== buscarReqId) return; // llegó una búsqueda más nueva antes que esta
+				var ya = elegidosEnOtrasFilas(combo);
+				var texto2 = (texto || '').trim().toUpperCase();
+				var coincidencias = productos.filter(function (m) { return ya.indexOf(m) === -1 && m.toUpperCase().indexOf(texto2) !== -1; });
+				opciones.innerHTML = coincidencias.length
+					? coincidencias.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m + '">' + m + '</button>'; }).join('')
+					: '<div class="ep-combo-vacio">Sin resultados</div>';
+			});
 		}
 		function filtrarCombo(combo, texto) {
 			clearTimeout(buscarDebounce);
-			buscarDebounce = setTimeout(function () { buscarModelos(combo, texto); }, 250);
+			buscarDebounce = setTimeout(function () { buscarModelos(combo, texto); }, 80);
 		}
 		function cerrarPaneles() { filas.querySelectorAll('.ep-combo-panel').forEach(function (p) { p.classList.add('hidden'); }); }
 		function abrirPanel(combo) {
@@ -930,6 +972,11 @@ document.addEventListener('DOMContentLoaded', function () {
 		filas.addEventListener('input', function (ev) {
 			if (ev.target.classList.contains('ep-combo-buscador')) filtrarCombo(ev.target.closest('.ep-combo'), ev.target.value);
 			if (ev.target.classList.contains('ep-modelo-cantidad')) actualizarTotal();
+			if (ev.target.classList.contains('ep-modelo-precio')) {
+				var limpio = epLimpiarPrecio(ev.target.value);
+				if (ev.target.value !== limpio) ev.target.value = limpio;
+				actualizarTotal(); // dispara onCambio para que las estadísticas de ingresos se vean en vivo
+			}
 		});
 		filas.addEventListener('click', function (ev) {
 			var trigger = ev.target.closest('.ep-combo-trigger');
@@ -961,7 +1008,9 @@ document.addEventListener('DOMContentLoaded', function () {
 			filas.querySelectorAll('.ep-modelo-fila-nueva').forEach(function (fila) {
 				var nombre = fila.querySelector('.ep-combo-trigger').dataset.valor;
 				var cantidad = parseFloat(fila.querySelector('.ep-modelo-cantidad').value) || 0;
-				if (nombre && cantidad > 0) out.push({ nombre: nombre, cantidad: cantidad });
+				var precioInput = fila.querySelector('.ep-modelo-precio');
+				var precio = precioInput ? (parseFloat(precioInput.value) || 0) : 0;
+				if (nombre && cantidad > 0) out.push({ nombre: nombre, cantidad: cantidad, precio: precio });
 			});
 			return out;
 		} };
@@ -978,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (edayVisitaron && edayInteractuaron) aplicarTope(edayVisitaron, edayInteractuaron);
 	if (edayInteractuaron && edayCompraron) aplicarTope(edayInteractuaron, edayCompraron);
 
-	var edayModelos = crearGestorModelos('ep-eday-modelo-filas', 'ep-eday-modelo-agregar', 'ep-eday-modelo-total-valor', function () { actualizarEstadisticasEpsonDay(); });
+	var edayModelos = crearGestorModelos('ep-eday-modelo-filas', 'ep-eday-modelo-agregar', 'ep-eday-modelo-total-valor', function () { actualizarEstadisticasEpsonDay(); }, true);
 
 	function actualizarEstadisticasEpsonDay() {
 		var statPct = document.getElementById('ep-eday-stat-cobertura-pct');
@@ -1010,6 +1059,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		var detalleVentas = document.getElementById('ep-eday-stat-detalle-ventas');
 		var modelos = (edayModelos ? edayModelos.modelos() : []).sort(function (a, b) { return b.cantidad - a.cantidad; });
 		var totalUnidades = modelos.reduce(function (s, m) { return s + m.cantidad; }, 0);
+		pintarIngresosPorModelo('ep-eday-stat-detalle-ingresos', modelos);
 
 		detalleVentas.innerHTML = !modelos.length
 			? '<span class="ep-stat-comentarios-vacio">Todavía no cargaste modelos.</span>'
@@ -1507,7 +1557,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			valores.compraron = document.getElementById('ep-act-compraron') ? document.getElementById('ep-act-compraron').value : '';
 			valores.comentarios = document.getElementById('ep-act-comentarios') ? document.getElementById('ep-act-comentarios').value : '';
 			// Mismos modelos que alimentan las estadísticas del formulario.
-			var mods = (actModelos ? actModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10) }; });
+			var mods = (actModelos ? actModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10), precio: parseFloat(m.precio) || 0 }; });
 			valores.modelos = mods;
 		} else if (tipo === 'capacitaciones') {
 			Object.assign(valores, leerDatosActividad('cap'));
@@ -1546,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			valores.interactuaron = valorDeCampo('ep-eday-interactuaron');
 			valores.compraron = valorDeCampo('ep-eday-compraron');
 			valores.comentarios = valorDeCampo('ep-eday-comentarios');
-			valores.modelos = (edayModelos ? edayModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10) }; });
+			valores.modelos = (edayModelos ? edayModelos.modelos() : []).map(function (m) { return { modelo: m.nombre, cantidad: parseInt(m.cantidad, 10), precio: parseFloat(m.precio) || 0 }; });
 		} else if (tipo === 'exhibiciones') {
 			Object.assign(valores, leerDatosActividad('exh'));
 			if (!actividadValida('exh')) return;

@@ -110,6 +110,27 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 				</div>
 			</div>
 
+			<?php
+			// Ingresos por modelo: solo si algún modelo trae precio (Activaciones y Epson Day; Evento o Ferias no pide precio).
+			$modelosConPrecio = array_values(array_filter($modelos, fn($m) => ((float) ($m['precio'] ?? 0)) > 0));
+			if (!empty($modelosConPrecio)):
+				usort($modelosConPrecio, fn($a, $b) => ($b['cantidad'] * $b['precio']) <=> ($a['cantidad'] * $a['precio']));
+				$maxIngreso = max(1, $modelosConPrecio[0]['cantidad'] * $modelosConPrecio[0]['precio']);
+			?>
+				<div class="ep-stats-row-2" style="grid-template-columns:minmax(0,1fr);">
+					<div class="ep-stat-card-plano">
+						<div class="ep-stat-card-titulo"><?= ep_icon('bar-chart', 15) ?> Ingresos por Modelo</div>
+						<?php foreach ($modelosConPrecio as $m): $ingreso = $m['cantidad'] * $m['precio']; ?>
+							<div class="ep-venta-fila ep-venta-fila-dinero">
+								<span class="ep-venta-nombre"><?= $h($m['modelo'] ?? '') ?></span>
+								<div class="ep-venta-barra-track"><div class="ep-venta-barra-fill" style="width:<?= round($ingreso / $maxIngreso * 100) ?>%;"></div></div>
+								<span class="ep-venta-valor">$<?= number_format($ingreso, 2) ?></span>
+							</div>
+						<?php endforeach; ?>
+					</div>
+				</div>
+			<?php endif; ?>
+
 
 	<?php elseif ($tipo === 'capacitaciones' && !empty($r['capacitacion'])): $c = $r['capacitacion'];
 		$cargos = [['Vendedores', (int) ($c['vendedores'] ?? 0)], ['Jefe de tienda', (int) ($c['jefe_tienda'] ?? 0)], ['Asistente de jefe', (int) ($c['asistente_jefe'] ?? 0)]];

@@ -3,7 +3,7 @@
 
 // Guarda las filas hijas de un registro ya insertado. Devuelve false si alguna falla (el llamador revierte la transacción).
 function ep_hijos_guardar($db, int $registroId, array $modelos, array $fotos, array $comentarios): bool {
-	$stmtM = $db->prepare('INSERT INTO insert_reporte_registro_modelo (registro_id, modelo, cantidad) VALUES (?, ?, ?)');
+	$stmtM = $db->prepare('INSERT INTO insert_reporte_registro_modelo (registro_id, modelo, cantidad, precio) VALUES (?, ?, ?, ?)');
 	$stmtF = $db->prepare('INSERT INTO insert_reporte_registro_foto (registro_id, casilla, ruta) VALUES (?, ?, ?)');
 	$stmtC = $db->prepare('INSERT INTO insert_reporte_registro_comentario (registro_id, orden, texto) VALUES (?, ?, ?)');
 	if (!$stmtM || !$stmtF || !$stmtC) {
@@ -15,7 +15,8 @@ function ep_hijos_guardar($db, int $registroId, array $modelos, array $fotos, ar
 		if ($modelo === '' || $cantidad <= 0) {
 			continue;
 		}
-		$stmtM->bind_param('isi', $registroId, $modelo, $cantidad);
+		$precio = round(max(0, (float) ($m['precio'] ?? 0)), 2);
+		$stmtM->bind_param('isid', $registroId, $modelo, $cantidad, $precio);
 		if (!$stmtM->execute()) {
 			return false;
 		}
@@ -53,9 +54,9 @@ function ep_hijos_cargar($db, array $ids): array {
 		return $salida;
 	}
 	$lista = implode(',', array_keys($salida));
-	if ($r = $db->query("SELECT registro_id, modelo, cantidad FROM insert_reporte_registro_modelo WHERE registro_id IN ($lista) ORDER BY id")) {
+	if ($r = $db->query("SELECT registro_id, modelo, cantidad, precio FROM insert_reporte_registro_modelo WHERE registro_id IN ($lista) ORDER BY id")) {
 		while ($f = $r->fetch_assoc()) {
-			$salida[(int) $f['registro_id']]['modelos'][] = ['modelo' => $f['modelo'], 'cantidad' => (int) $f['cantidad']];
+			$salida[(int) $f['registro_id']]['modelos'][] = ['modelo' => $f['modelo'], 'cantidad' => (int) $f['cantidad'], 'precio' => (float) ($f['precio'] ?? 0)];
 		}
 	}
 	if ($r = $db->query("SELECT registro_id, casilla, ruta FROM insert_reporte_registro_foto WHERE registro_id IN ($lista) ORDER BY id")) {

@@ -76,6 +76,13 @@
 		</div>
 	</div>
 
+	<div class="ep-stats-row-2" style="grid-template-columns:minmax(0,1fr);">
+		<div class="ep-stat-card-plano">
+			<div class="ep-stat-card-titulo"><?= ep_icon('bar-chart', 15) ?> Ingresos por Modelo</div>
+			<div id="ep-eday-stat-detalle-ingresos"></div>
+		</div>
+	</div>
+
 	<div class="ep-stat-card-plano">
 		<div class="ep-stat-card-titulo"><?= ep_icon('file', 15) ?> Comentarios</div>
 		<div class="ep-stat-comentarios" id="ep-eday-stat-comentarios"></div>

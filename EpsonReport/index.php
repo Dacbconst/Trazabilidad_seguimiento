@@ -39,7 +39,7 @@ if (!isset($secciones[$vista])) {
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link rel="preconnect" href="https://cdn.jsdelivr.net">
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes'] as $hoja): ?>
+	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario'] as $hoja): ?>
 	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
 	<?php endforeach; ?>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10" defer></script>
@@ -165,6 +165,7 @@ if (!isset($secciones[$vista])) {
 	<script src="assets/js/reportes-lista.js?v=<?= filemtime(__DIR__.'/assets/js/reportes-lista.js') ?>"></script>
 	<script src="assets/js/reportes.js?v=<?= filemtime(__DIR__.'/assets/js/reportes.js') ?>"></script>
 	<script src="assets/js/historial.js?v=<?= filemtime(__DIR__.'/assets/js/historial.js') ?>"></script>
+	<script src="assets/js/calendario.js?v=<?= filemtime(__DIR__.'/assets/js/calendario.js') ?>"></script>
 	<script src="assets/js/pdv.js?v=<?= filemtime(__DIR__.'/assets/js/pdv.js') ?>"></script>
 	<script src="assets/js/carrusel.js?v=<?= filemtime(__DIR__.'/assets/js/carrusel.js') ?>"></script>
 	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>

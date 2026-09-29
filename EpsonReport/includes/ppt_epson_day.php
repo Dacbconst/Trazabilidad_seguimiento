@@ -26,6 +26,8 @@ function ep_ppt_epson_day(array $registros, string $tituloMes, array $opciones =
 
 function ep_ppt_epson_day_estadisticas(DOMDocument $dom, DOMXPath $xp, array $reg): void {
 	ep_ppt_estadisticas_embudo($dom, $xp, $reg, [
+		'titulo' => 'CuadroTexto 89',
+		'card' => 'Gráfico 46',
 		'cobertura' => ['CuadroTexto 34', 'CuadroTexto 35'],
 		'interaccion' => ['CuadroTexto 36', 'CuadroTexto 37'],
 		'ventas' => ['CuadroTexto 41', 'CuadroTexto 42'],

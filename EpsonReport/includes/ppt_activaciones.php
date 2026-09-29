@@ -47,6 +47,8 @@ function ep_ppt_activaciones_calendario(array &$ctx, array $registros, array $op
 // Estadísticas de un registro: las comunes del embudo, con los nombres de forma de la plantilla de Activaciones.
 function ep_ppt_activaciones_estadisticas(DOMDocument $dom, DOMXPath $xp, array $reg): void {
 	ep_ppt_estadisticas_embudo($dom, $xp, $reg, [
+		'titulo' => 'CuadroTexto 2',
+		'card' => 'Gráfico 112',
 		'cobertura' => ['CuadroTexto 94', 'CuadroTexto 95'],
 		'interaccion' => ['CuadroTexto 96', 'CuadroTexto 97'],
 		'ventas' => ['CuadroTexto 101', 'CuadroTexto 102'],

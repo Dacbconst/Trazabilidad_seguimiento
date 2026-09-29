@@ -7,8 +7,7 @@ require_once __DIR__.'/registros_hijos.php';
 // Las fotos se guardan solo como ruta relativa (id => "Activaciones/23092026184602ADMINCALENDARIO.jpg"), como en las demás tablas de Epson; la URL pública y la etiqueta se arman al leer.
 const EP_FOTOS_URL_BASE = 'https://luckyecuadorweb.blob.core.windows.net/app/';
 
-// Registros más recientes primero, reconstruidos con la misma forma que consume Historial. Lista vacía si la base no responde.
-// $ids: si se pasa, solo trae esos registros (ids de la base).
+// Registros más recientes primero, misma forma que consume Historial; $ids filtra a esos nomás; vacío si la base no responde.
 function ep_registros_datos(int $limite = 1000, array $ids = []): array {
 	$db = ep_db();
 	if (!$db) {
@@ -153,7 +152,15 @@ function ep_guardar_nuevo_registro(array $registro, int $usuarioId): bool {
 		$db->rollback();
 		return false;
 	}
-	return $db->commit();
+	if (!$db->commit()) {
+		return false;
+	}
+	// El cruce con el Calendario de Activaciones es aparte: si falla, el registro ya se guardó bien y no se pierde.
+	if ($tipo === 'activaciones') {
+		require_once __DIR__.'/calendario_datos.php';
+		ep_calendario_cruzar_registro($registroId, $usuarioId, $posId, $fechaActividad);
+	}
+	return true;
 }
 
 // Un registro por su código público (por ejemplo RACPABLOCASTELO-001), con la misma forma que ep_registros_datos; null si no existe.

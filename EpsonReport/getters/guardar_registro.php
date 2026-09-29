@@ -154,10 +154,13 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 			}
 			$cant = ep_entero($m['cantidad'] ?? 0);
 			$pct = $totMods > 0 ? round(($cant / $totMods) * 100, 1) . '%' : '0%';
+			// Precio unitario, solo Activaciones y Epson Day lo piden en el formulario; en las demás llega vacío.
+			$precio = round(max(0, (float) ($m['precio'] ?? 0)), 2);
 			$mods[] = [
 				'modelo'   => $nombreModelo,
 				'cantidad' => $cant,
 				'pct'      => $pct,
+				'precio'   => $precio,
 			];
 		}
 		$registro['modelos'] = $mods;

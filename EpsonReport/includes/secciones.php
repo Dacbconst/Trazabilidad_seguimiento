@@ -17,6 +17,11 @@ function ep_secciones(): array {
 			'icon'  => 'presentation',
 			'solo_admin' => true,
 		],
+		'calendario' => [
+			'label' => 'Calendario de Activaciones',
+			'icon'  => 'calendar',
+			'solo_admin' => true,
+		],
 	];
 	// Las secciones marcadas solo_admin no existen para el rol usuario (tampoco se puede entrar por la URL).
 	return array_filter($todas, fn($s) => empty($s['solo_admin']) || ep_rol_actual() === 'admin');

@@ -15,12 +15,8 @@ if (!ep_login_check()) {
 require_once __DIR__.'/../includes/db.php';
 $mysqli = ep_db();
 
-$q = trim($_GET['q'] ?? '');
-$like = '%'.$q.'%';
-$stmt = $mysqli->prepare("SELECT sku FROM repositorio_productos WHERE marca = 'EPSON' AND activar = 'SI' AND categoria = 'IMPRESORAS' AND sku LIKE ? ORDER BY sku LIMIT 20");
-$stmt->bind_param('s', $like);
-$stmt->execute();
-$res = $stmt->get_result();
+// Catálogo completo (hoy ~20 SKU activos): se trae una sola vez y el navegador filtra en el momento, sin ida y vuelta al servidor por cada letra.
+$res = $mysqli->query("SELECT sku FROM repositorio_productos WHERE marca = 'EPSON' AND activar = 'SI' AND categoria = 'IMPRESORAS' ORDER BY sku LIMIT 200");
 $productos = [];
 while ($row = $res->fetch_assoc()) { $productos[] = $row['sku']; }
 echo json_encode(['ok' => true, 'productos' => $productos]);
