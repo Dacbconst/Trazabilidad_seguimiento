@@ -62,7 +62,7 @@ function ep_ppt_mover_x(DOMXPath $xp, string $nombre, int $deltaX): void {
 
 // Clona una forma o grupo ya existente y la reubica $deltaX EMU a la derecha, para llenar espacio libre de la plantilla sin tocar su diseño original.
 // $renombresInternos renombra formas hijas de un grupo clonado (['nombre viejo' => 'nombre nuevo']), para poder editarlas después sin chocar con el original.
-function ep_ppt_clonar_y_mover(DOMXPath $xp, string $origen, string $destino, int $deltaX, array $renombresInternos, int $idNuevo): ?DOMElement {
+function ep_ppt_clonar_y_mover(DOMXPath $xp, string $origen, string $destino, int $deltaX, array $renombresInternos, int $idNuevo, int $deltaY = 0): ?DOMElement {
 	$forma = ep_ppt_forma_o_grupo($xp, $origen);
 	if (!$forma) {
 		return null;
@@ -83,6 +83,7 @@ function ep_ppt_clonar_y_mover(DOMXPath $xp, string $origen, string $destino, in
 	$off = $xp->query($esGrupo ? './p:grpSpPr/a:xfrm/a:off' : './p:spPr/a:xfrm/a:off', $clon)->item(0);
 	if ($off) {
 		$off->setAttribute('x', (string) ((int) $off->getAttribute('x') + $deltaX));
+		$off->setAttribute('y', (string) ((int) $off->getAttribute('y') + $deltaY));
 	}
 	$forma->parentNode->appendChild($clon);
 	return $clon;

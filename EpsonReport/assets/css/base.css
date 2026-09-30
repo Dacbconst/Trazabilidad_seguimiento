@@ -98,6 +98,13 @@ input:focus, select:focus, button:focus-visible {
 }
 
 
+/* Ventanas de aviso (SweetAlert2) con la tipografía y esquinas de la app; las usan todos los módulos. */
+.swal2-container { z-index: 10000 !important; } /* SweetAlert2 inyecta su CSS después (1060); sin !important queda tapada por .ep-modal-ppt (9999) */
+.swal2-popup { border-radius: 14px; font-family: "IBM Plex Sans", sans-serif; }
+.swal2-title { font-family: "Sora", sans-serif; font-size: 20px; color: var(--color-ink); }
+.swal2-styled.swal2-confirm { border-radius: 8px; font-weight: 600; }
+.swal2-styled.swal2-cancel { border-radius: 8px; }
+
 /* Estado vacío con icono */
 .ep-vacio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 20px; text-align: center; }
 .ep-vacio-icono { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 8px; border-radius: 50%; background: #EEF0F4; color: #8A93A6; }

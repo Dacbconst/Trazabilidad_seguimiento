@@ -90,9 +90,15 @@
 			campo.focus();
 		});
 
-		var previos = original.value.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).slice(0, MAXIMO);
-		(previos.length ? previos : ['']).forEach(nuevo);
-		sincronizar();
+		// Reemplaza la lista con un texto (un comentario por línea); lo usan los modales que cargan datos guardados.
+		function fijar(texto) {
+			lista.innerHTML = '';
+			var previos = String(texto || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).slice(0, MAXIMO);
+			(previos.length ? previos : ['']).forEach(nuevo);
+			sincronizar();
+		}
+		original.epFijarComentarios = fijar;
+		fijar(original.value);
 	}
 
 	document.querySelectorAll('textarea[id$="-comentarios"]').forEach(armar);

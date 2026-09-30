@@ -27,6 +27,20 @@ if ($vista === 'registros') {
 if (!isset($secciones[$vista])) {
 	$vista = 'actividades';
 }
+
+// Cada módulo carga solo sus hojas y scripts (en el orden de siempre); uno que no esté en la lista carga todo, así uno nuevo nunca queda sin estilos.
+$hojasTodas = ['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario', 'auditoria'];
+$scriptsTodos = ['sesion-watch', 'filtros', 'reportes-lista', 'reportes', 'historial', 'calendario', 'auditoria', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios'];
+$porVista = [
+	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios']],
+	'historial' => [['actividades', 'ppt-export', 'filtros', 'historial'], ['filtros', 'historial', 'app']],
+	'reportes' => [['ppt-export', 'filtros', 'reportes'], ['filtros', 'reportes-lista', 'reportes']],
+	'calendario' => [['actividades', 'ppt-export', 'comentarios', 'reportes', 'calendario'], ['calendario', 'comentarios']],
+	'auditoria' => [['filtros', 'historial', 'auditoria'], ['filtros', 'auditoria']],
+];
+[$hojasVista, $scriptsVista] = $porVista[$vista] ?? [$hojasTodas, $scriptsTodos];
+$hojas = array_values(array_intersect($hojasTodas, array_merge(['base', 'shell', 'wizard-fotos'], $hojasVista)));
+$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch'], $scriptsVista)));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -39,7 +53,7 @@ if (!isset($secciones[$vista])) {
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link rel="preconnect" href="https://cdn.jsdelivr.net">
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-	<?php foreach (['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario'] as $hoja): ?>
+	<?php foreach ($hojas as $hoja): ?>
 	<link rel="stylesheet" href="assets/css/<?= $hoja ?>.css?v=<?= filemtime(__DIR__."/assets/css/$hoja.css") ?>">
 	<?php endforeach; ?>
 	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10" defer></script>
@@ -160,16 +174,10 @@ if (!isset($secciones[$vista])) {
 			});
 		}
 	</script>
-	<script src="assets/js/sesion-watch.js?v=<?= filemtime(__DIR__.'/assets/js/sesion-watch.js') ?>"></script>
-	<script src="assets/js/filtros.js?v=<?= filemtime(__DIR__.'/assets/js/filtros.js') ?>"></script>
-	<script src="assets/js/reportes-lista.js?v=<?= filemtime(__DIR__.'/assets/js/reportes-lista.js') ?>"></script>
-	<script src="assets/js/reportes.js?v=<?= filemtime(__DIR__.'/assets/js/reportes.js') ?>"></script>
-	<script src="assets/js/historial.js?v=<?= filemtime(__DIR__.'/assets/js/historial.js') ?>"></script>
-	<script src="assets/js/calendario.js?v=<?= filemtime(__DIR__.'/assets/js/calendario.js') ?>"></script>
-	<script src="assets/js/pdv.js?v=<?= filemtime(__DIR__.'/assets/js/pdv.js') ?>"></script>
-	<script src="assets/js/carrusel.js?v=<?= filemtime(__DIR__.'/assets/js/carrusel.js') ?>"></script>
-	<script src="assets/js/app.js?v=<?= filemtime(__DIR__.'/assets/js/app.js') ?>"></script>
-	<script src="assets/js/visor-fotos.js?v=<?= filemtime(__DIR__.'/assets/js/visor-fotos.js') ?>"></script>
-	<script src="assets/js/comentarios.js?v=<?= filemtime(__DIR__.'/assets/js/comentarios.js') ?>"></script>
+	<?php foreach ($scripts as $script): ?>
+	<script src="assets/js/<?= $script ?>.js?v=<?= filemtime(__DIR__."/assets/js/$script.js") ?>"></script>
+	<?php endforeach; ?>
+	<!-- Chrome/Edge piden el módulo al detener el mouse sobre el menú; solo enlaces de módulos, nunca "Cerrar sesión". -->
+	<script type="speculationrules">{"prefetch": [{"where": {"selector_matches": ".ep-sidebar-nav a"}, "eagerness": "moderate"}]}</script>
 </body>
 </html>

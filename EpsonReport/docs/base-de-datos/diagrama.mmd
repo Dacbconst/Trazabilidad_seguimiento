@@ -13,6 +13,26 @@ erDiagram
     repositorio_usuarios ||..o{ lvi_rutero : "rutero"
     lvi_rutero }o..|| repositorio_locales_dtt2 : "punto de venta"
     repositorio_productos ||..o{ insert_reporte_registro_modelo : "modelo IMPRESORAS"
+    insert_reporte_calendario ||--o{ insert_reporte_calendario_fila : "calendario_id"
+    insert_reporte_calendario |o..o| insert_reporte_mensual : "reporte_mensual_id"
+    insert_reporte_calendario_fila |o..o| insert_reporte_registro : "registro_id"
+    repositorio_usuarios ||..o{ insert_reporte_calendario_fila : "promotor_usuario_id"
+    repositorio_locales_dtt2 ||..o{ insert_reporte_calendario_fila : "pos_id"
+    repositorio_usuarios_reporte |o..o{ insert_reporte_auditoria : "usuario_id (null = sistema)"
+    insert_reporte_calendario |o..o{ insert_reporte_auditoria : "entidad_id si entidad = calendario"
+
+    insert_reporte_auditoria {
+        bigint id PK
+        int usuario_id FK "null = sistema"
+        varchar usuario_nombre "congelado al momento"
+        varchar accion "calendario_crear, registro_eliminar..."
+        varchar entidad "calendario, registro, reporte, actividad"
+        int entidad_id
+        varchar resumen
+        text detalle "JSON: campo, antes, despues o valor"
+        varchar ip
+        datetime created_at "solo se agrega, nunca se edita ni se borra"
+    }
 
     repositorio_usuarios_reporte {
         int id PK
@@ -115,6 +135,44 @@ erDiagram
         int creado_por FK
         datetime created_at
         datetime eliminado_en "libera los registros"
+    }
+
+    insert_reporte_calendario {
+        int id PK
+        varchar nombre "titulo del reporte"
+        varchar canal "de repositorio_locales_dtt2"
+        tinyint plazo_dias
+        text comentarios "uno por linea, max 5"
+        date desde
+        date hasta
+        enum estado "activo o cerrado"
+        datetime activado_en
+        datetime vence_en
+        datetime cerrado_en
+        int reporte_mensual_id FK
+        int creado_por FK
+        int reactivado_por FK
+        datetime reactivado_en
+        timestamp created_at
+        datetime eliminado_en "borrado logico"
+    }
+
+    insert_reporte_calendario_fila {
+        int id PK
+        int calendario_id FK
+        date fecha
+        varchar pos_id
+        varchar punto_venta
+        varchar ciudad
+        int promotor_usuario_id "id de Xplora"
+        varchar promotor_nombre
+        varchar supervisor_nombre
+        enum estado "pendiente o cumplido"
+        int registro_id FK
+        datetime cumplido_en
+        datetime editado_en
+        int editado_por FK
+        timestamp created_at
     }
 
     repositorio_usuarios {

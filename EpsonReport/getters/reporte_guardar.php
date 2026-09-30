@@ -94,4 +94,10 @@ $id = ep_reporte_crear($tipo, $mes, $titulo, $rutaCalendario, $programadas, $com
 if ($id === 0) {
 	ep_rep_responder(false, ['error' => 'No se pudo guardar el reporte. Intenta de nuevo.'], 500);
 }
+require_once __DIR__.'/../includes/auditoria_datos.php';
+ep_auditar('reporte_crear', 'reporte', $id, 'Creó el reporte «'.$titulo.'»', [
+	ep_auditoria_dato('Actividad', $nombreActividad !== '' ? $nombreActividad : $tipo),
+	ep_auditoria_dato('Mes', $mes),
+	ep_auditoria_dato('Registros', count($validos)),
+]);
 ep_rep_responder(true, ['id' => $id, 'total' => count($validos)]);

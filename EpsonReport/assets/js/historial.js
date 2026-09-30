@@ -208,8 +208,43 @@
 		aplicar();
 	});
 
+	// Eliminar registro (solo admin): borrado lógico, confirma antes y lo saca de la lista sin recargar.
+	function eliminarRegistro(btn) {
+		if (!window.Swal) return;
+		var codigo = btn.dataset.codigo;
+		Swal.fire({
+			icon: 'warning', title: '¿Eliminar este registro?',
+			text: 'Deja de aparecer en el Historial y en los reportes nuevos. Si cumplía una fila de un calendario, esa fila vuelve a quedar pendiente.',
+			showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#C5221F',
+		}).then(function (res) {
+			if (!res.isConfirmed) return;
+			btn.disabled = true;
+			var form = new FormData();
+			form.append('codigo', codigo);
+			fetch('getters/registro_eliminar.php', { method: 'POST', body: form, credentials: 'same-origin' })
+				.then(function (r) { return r.json(); })
+				.then(function (d) {
+					btn.disabled = false;
+					if (!d.ok) { Swal.fire({ icon: 'error', title: 'No se pudo eliminar', text: d.message || '' }); return; }
+					var fila = filas.filter(function (f) { return f.dataset.codigo === codigo; })[0];
+					if (fila) fila.remove();
+					cerrarPanelMovil();
+					seleccionar(null);
+					leerFilas();
+					refrescarCombos();
+					aplicar();
+				})
+				.catch(function () {
+					btn.disabled = false;
+					Swal.fire({ icon: 'error', title: 'No se pudo eliminar', text: 'El servidor no respondió correctamente. Intenta de nuevo.' });
+				});
+		});
+	}
+
 	// Selección de registro
 	root.addEventListener('click', function (ev) {
+		var btnEliminar = ev.target.closest('.ep-h2-btn-eliminar');
+		if (btnEliminar) { eliminarRegistro(btnEliminar); return; }
 		var fila = ev.target.closest('.ep-h2-reg');
 		if (fila) { seleccionar(fila, true); return; }
 		if (ev.target.closest('.ep-h2-cerrar')) cerrarPanelMovil();

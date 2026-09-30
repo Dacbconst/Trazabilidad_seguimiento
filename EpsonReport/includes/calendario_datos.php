@@ -5,7 +5,21 @@ require_once __DIR__.'/reportes_datos.php';
 
 const EP_CAL_RUTERO_CACHE_TTL = 300;
 
-// Cascada real de Xplora, directo a tablas base (no a la vista lvi_rutero, que agrupa por fecha y es lenta); cachea 5 min.
+// Canales con puntos activos en repositorio_locales_dtt2 (no solo Retail y Canales).
+function ep_calendario_canales(): array {
+	$db = ep_db();
+	if (!$db) {
+		return [];
+	}
+	$canales = [];
+	$res = $db->query("SELECT DISTINCT channel FROM repositorio_locales_dtt2 WHERE activar = 'SI' AND channel <> '-' ORDER BY channel");
+	while ($row = $res->fetch_assoc()) {
+		$canales[] = $row['channel'];
+	}
+	return $canales;
+}
+
+// Rutero directo a las tablas (lvi_rutero es lenta); incluye promotores sin cuenta en la app. Caché 5 min.
 function ep_calendario_rutero(string $canal): array {
 	$cacheFile = __DIR__.'/../data/cache/rutero_'.$canal.'.json';
 	if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < EP_CAL_RUTERO_CACHE_TTL) {
@@ -18,14 +32,13 @@ function ep_calendario_rutero(string $canal): array {
 	if (!$db) {
 		return [];
 	}
-	$stmt = $db->prepare("SELECT DISTINCT pdvs.city AS ciudad, u.id AS promotor_id, u.usuario AS promotor_nombre, pdvs.pos_id, pdvs.pos_name AS punto_venta, sup.supervisor
+	$stmt = $db->prepare("SELECT DISTINCT pdvs.city AS ciudad, usu.id AS promotor_id, usu.user AS promotor_nombre, pdvs.pos_id, pdvs.pos_name AS punto_venta, sup.supervisor
 		FROM rutero_pdv rutero
 		JOIN repositorio_locales_dtt2 pdvs ON pdvs.id = rutero.id_pdv AND pdvs.channel = ? AND pdvs.activar = 'SI'
 		JOIN repositorio_usuarios usu ON usu.id = rutero.id_usuario
-		JOIN repositorio_usuarios_reporte u ON u.usuario = usu.user AND u.rol = 'promotor' AND u.status = 'activo'
 		LEFT JOIN repositorio_supervisores sup ON sup.id = rutero.id_supervisor
 		WHERE rutero.status = 1 AND rutero.habilitado = 1
-		ORDER BY pdvs.city, u.usuario, pdvs.pos_name");
+		ORDER BY pdvs.city, usu.user, pdvs.pos_name");
 	$stmt->bind_param('s', $canal);
 	$stmt->execute();
 	$filas = [];
@@ -46,14 +59,96 @@ function ep_calendario_rutero(string $canal): array {
 	return $filas;
 }
 
-// Revalida en el servidor una combinación promotor+punto de venta; null si no existe de verdad en el rutero.
-function ep_calendario_rutero_validar(string $canal, int $promotorId, string $posId): ?array {
-	foreach (ep_calendario_rutero($canal) as $f) {
-		if ($f['promotor_id'] === $promotorId && $f['pos_id'] === $posId) {
-			return $f;
+// Ciudades del canal en repositorio_locales_dtt2, haya o no rutero en ellas.
+function ep_calendario_ciudades(string $canal): array {
+	$cacheFile = __DIR__.'/../data/cache/ciudades_'.$canal.'.json';
+	if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < EP_CAL_RUTERO_CACHE_TTL) {
+		$cacheado = json_decode(file_get_contents($cacheFile), true);
+		if (is_array($cacheado)) {
+			return $cacheado;
 		}
 	}
-	return null;
+	$db = ep_db();
+	if (!$db) {
+		return [];
+	}
+	$stmt = $db->prepare("SELECT DISTINCT city FROM repositorio_locales_dtt2 WHERE channel = ? AND activar = 'SI' ORDER BY city");
+	$stmt->bind_param('s', $canal);
+	$stmt->execute();
+	$ciudades = [];
+	foreach ($stmt->get_result() as $f) {
+		$ciudades[] = $f['city'];
+	}
+	if (!is_dir(dirname($cacheFile))) {
+		mkdir(dirname($cacheFile), 0755, true);
+	}
+	file_put_contents($cacheFile, json_encode($ciudades));
+	return $ciudades;
+}
+
+// PDV activos del canal: misma fuente que el selector de Actividades, sin cruzar con el rutero.
+function ep_calendario_pdv(string $canal): array {
+	$cacheFile = __DIR__.'/../data/cache/pdv_'.$canal.'.json';
+	if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < EP_CAL_RUTERO_CACHE_TTL) {
+		$cacheado = json_decode(file_get_contents($cacheFile), true);
+		if (is_array($cacheado)) {
+			return $cacheado;
+		}
+	}
+	$db = ep_db();
+	if (!$db) {
+		return [];
+	}
+	$stmt = $db->prepare("SELECT pos_id, pos_name, city FROM repositorio_locales_dtt2 WHERE channel = ? AND activar = 'SI' ORDER BY pos_name");
+	$stmt->bind_param('s', $canal);
+	$stmt->execute();
+	$puntos = [];
+	foreach ($stmt->get_result() as $f) {
+		$puntos[] = ['pos_id' => $f['pos_id'], 'punto_venta' => $f['pos_name'], 'ciudad' => $f['city']];
+	}
+	if (!is_dir(dirname($cacheFile))) {
+		mkdir(dirname($cacheFile), 0755, true);
+	}
+	file_put_contents($cacheFile, json_encode($puntos));
+	return $puntos;
+}
+
+// Revalida la fila: PDV activo del canal y promotor de Xplora; el supervisor sale de su rutero.
+function ep_calendario_fila_validar(string $canal, int $promotorId, string $posId): ?array {
+	$db = ep_db();
+	if (!$db) {
+		return null;
+	}
+	$stmt = $db->prepare("SELECT pos_name, city FROM repositorio_locales_dtt2 WHERE pos_id = ? AND channel = ? AND activar = 'SI'");
+	$stmt->bind_param('ss', $posId, $canal);
+	$stmt->execute();
+	$pdv = $stmt->get_result()->fetch_assoc();
+	if (!$pdv) {
+		return null;
+	}
+
+	$stmt2 = $db->prepare('SELECT user FROM repositorio_usuarios WHERE id = ?');
+	$stmt2->bind_param('i', $promotorId);
+	$stmt2->execute();
+	$promotor = $stmt2->get_result()->fetch_assoc();
+	if (!$promotor) {
+		return null;
+	}
+
+	$supervisor = '';
+	foreach (ep_calendario_rutero($canal) as $f) {
+		if ($f['promotor_id'] === $promotorId && $f['supervisor']) {
+			$supervisor = $f['supervisor'];
+			break;
+		}
+	}
+
+	return [
+		'punto_venta' => $pdv['pos_name'],
+		'ciudad' => $pdv['city'],
+		'promotor_nombre' => $promotor['user'],
+		'supervisor' => $supervisor,
+	];
 }
 
 // Lista de calendarios con sus filas, más recientes primero. $soloActivos filtra los ya cerrados.
@@ -62,7 +157,7 @@ function ep_calendario_listar(bool $soloActivos = false): array {
 	if (!$db) {
 		return [];
 	}
-	$where = $soloActivos ? "WHERE c.estado = 'activo'" : '';
+	$where = 'WHERE c.eliminado_en IS NULL'.($soloActivos ? " AND c.estado = 'activo'" : '');
 	$cabeceras = [];
 	$res = $db->query("SELECT c.* FROM insert_reporte_calendario c $where ORDER BY c.created_at DESC");
 	while ($row = $res->fetch_assoc()) {
@@ -80,8 +175,14 @@ function ep_calendario_listar(bool $soloActivos = false): array {
 	return array_values($cabeceras);
 }
 
+// Comentarios del reporte: máximo 5 líneas de 200 caracteres, como en el reporte manual.
+function ep_calendario_limpiar_comentarios(string $texto): ?string {
+	$lineas = array_slice(array_filter(array_map(fn($l) => mb_substr(trim($l), 0, 200), preg_split('/\R/', $texto))), 0, 5);
+	return $lineas ? implode("\n", $lineas) : null;
+}
+
 // Crea el calendario y sus filas en una transacción; se activa de inmediato y desde/hasta se calculan solos.
-function ep_calendario_crear(string $nombre, string $canal, int $plazoDias, array $filas, int $creadoPor): ?int {
+function ep_calendario_crear(string $nombre, string $canal, int $plazoDias, ?string $comentarios, array $filas, int $creadoPor): ?int {
 	$db = ep_db();
 	if (!$db || empty($filas)) {
 		return null;
@@ -94,8 +195,8 @@ function ep_calendario_crear(string $nombre, string $canal, int $plazoDias, arra
 	$venceEn = date('Y-m-d H:i:s', strtotime($activadoEn.' + '.$plazoDias.' days'));
 
 	$db->begin_transaction();
-	$stmt = $db->prepare('INSERT INTO insert_reporte_calendario (nombre, canal, plazo_dias, desde, hasta, activado_en, vence_en, creado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-	$stmt->bind_param('ssisssi', $nombre, $canal, $plazoDias, $desde, $hasta, $activadoEn, $venceEn, $creadoPor);
+	$stmt = $db->prepare('INSERT INTO insert_reporte_calendario (nombre, canal, plazo_dias, comentarios, desde, hasta, activado_en, vence_en, creado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+	$stmt->bind_param('ssisssssi', $nombre, $canal, $plazoDias, $comentarios, $desde, $hasta, $activadoEn, $venceEn, $creadoPor);
 	if (!$stmt->execute()) {
 		error_log('ep_calendario_crear: '.$stmt->error);
 		$db->rollback();
@@ -125,25 +226,64 @@ function ep_calendario_crear(string $nombre, string $canal, int $plazoDias, arra
 	return $calendarioId;
 }
 
+// Filas de un calendario con lo que necesita la tabla del PPTX (y el id del registro que las cumplió).
+function ep_calendario_filas_tabla(int $calendarioId): array {
+	$db = ep_db();
+	if (!$db) {
+		return [];
+	}
+	$stmt = $db->prepare('SELECT fecha, ciudad, punto_venta, promotor_nombre AS promotor, estado, registro_id FROM insert_reporte_calendario_fila WHERE calendario_id = ? ORDER BY fecha, ciudad, punto_venta');
+	$stmt->bind_param('i', $calendarioId);
+	$stmt->execute();
+	return array_map(fn($f) => ['fecha' => $f['fecha'], 'ciudad' => (string) $f['ciudad'], 'punto_venta' => $f['punto_venta'], 'promotor' => $f['promotor'], 'estado' => $f['estado'], 'registro_id' => $f['registro_id'] !== null ? (int) $f['registro_id'] : null], $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+}
+
+// Tabla del calendario de un reporte guardado antes de congelarla en su copia.
+function ep_calendario_tabla_de_reporte(int $reporteId): ?array {
+	$db = ep_db();
+	if (!$db) {
+		return null;
+	}
+	$stmt = $db->prepare('SELECT id, canal FROM insert_reporte_calendario WHERE reporte_mensual_id = ? LIMIT 1');
+	$stmt->bind_param('i', $reporteId);
+	$stmt->execute();
+	$cal = $stmt->get_result()->fetch_assoc();
+	return $cal ? ['canal' => $cal['canal'], 'filas' => ep_calendario_filas_tabla((int) $cal['id'])] : null;
+}
+
 // Cierra el calendario (manual con "Generar ahora" o automático al vencer) y genera el reporte mensual con lo cumplido.
 function ep_calendario_generar_ahora(int $calendarioId, int $usuarioId): bool {
 	$db = ep_db();
 	if (!$db) {
 		return false;
 	}
-	$cal = $db->query('SELECT * FROM insert_reporte_calendario WHERE id = '.$calendarioId)->fetch_assoc();
+	$cal = $db->query('SELECT * FROM insert_reporte_calendario WHERE id = '.$calendarioId.' AND eliminado_en IS NULL')->fetch_assoc();
 	if (!$cal || $cal['estado'] !== 'activo') {
 		return false;
 	}
-	$res = $db->query('SELECT registro_id FROM insert_reporte_calendario_fila WHERE calendario_id = '.$calendarioId." AND estado = 'cumplido' AND registro_id IS NOT NULL");
-	$ids = [];
-	while ($row = $res->fetch_assoc()) {
-		$ids[] = (int) $row['registro_id'];
+	$filasCalendario = ep_calendario_filas_tabla($calendarioId);
+	$programadas = count($filasCalendario);
+	$ids = array_values(array_filter(array_map(fn($f) => $f['estado'] === 'cumplido' ? $f['registro_id'] : null, $filasCalendario)));
+
+	// Mismas reglas que el reporte manual: solo registros libres y con su copia completa.
+	require_once __DIR__.'/registros_datos.php';
+	$ocupados = array_flip(ep_registros_ocupados());
+	$validos = [];
+	$copia = [];
+	foreach ($ids ? ep_registros_datos(5000, $ids) : [] as $r) {
+		if (($r['tipo'] ?? '') !== 'activaciones' || isset($ocupados[(int) $r['db_id']])) {
+			continue;
+		}
+		$validos[] = (int) $r['db_id'];
+		$copia[] = $r;
 	}
+
 	$mes = date('Y-m', strtotime($cal['desde']));
 	$titulo = $cal['nombre'] ?: ('Activaciones '.$cal['canal']);
-	$snapshot = json_encode(['desde' => $cal['desde'], 'hasta' => $cal['hasta'], 'registros' => $ids], JSON_UNESCAPED_UNICODE);
-	$reporteId = !empty($ids) ? ep_reporte_crear('activaciones', $mes, $titulo, null, null, null, $ids, $snapshot, $usuarioId) : 0;
+	// Se congela la tabla para que reactivar y editar el calendario no cambie este PPTX.
+	$tabla = ['canal' => $cal['canal'], 'filas' => array_map(fn($f) => array_diff_key($f, ['registro_id' => 0]), $filasCalendario)];
+	$snapshot = json_encode(['desde' => $cal['desde'], 'hasta' => $cal['hasta'], 'actividad' => 'Activaciones', 'calendario' => $tabla, 'registros' => $copia], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+	$reporteId = $validos ? ep_reporte_crear('activaciones', $mes, $titulo, null, $programadas, $cal['comentarios'] ?? null, $validos, $snapshot, $usuarioId) : 0;
 
 	$ahora = date('Y-m-d H:i:s');
 	$stmt = $db->prepare("UPDATE insert_reporte_calendario SET estado = 'cerrado', cerrado_en = ?, reporte_mensual_id = ? WHERE id = ?");
@@ -152,15 +292,56 @@ function ep_calendario_generar_ahora(int $calendarioId, int $usuarioId): bool {
 	return $stmt->execute();
 }
 
+// Cruza filas pendientes con registros enviados antes de que existiera el calendario.
+function ep_calendario_cruzar_pendientes(): void {
+	$db = ep_db();
+	if (!$db) {
+		return;
+	}
+	$res = $db->query("SELECT f.id AS fila_id, r.id AS registro_id, r.created_at
+		FROM insert_reporte_calendario_fila f
+		JOIN insert_reporte_calendario c ON c.id = f.calendario_id AND c.estado = 'activo' AND c.eliminado_en IS NULL
+		JOIN repositorio_usuarios x ON x.id = f.promotor_usuario_id
+		JOIN repositorio_usuarios_reporte u ON u.usuario = x.user
+		JOIN insert_reporte_registro r ON r.usuario_id = u.id AND r.pos_id = f.pos_id COLLATE utf8mb4_unicode_ci AND r.fecha_actividad = f.fecha AND r.tipo = 'activaciones' AND r.eliminado_en IS NULL
+		WHERE f.estado = 'pendiente'
+			AND r.id NOT IN (SELECT f2.registro_id FROM insert_reporte_calendario_fila f2 JOIN insert_reporte_calendario c2 ON c2.id = f2.calendario_id AND c2.eliminado_en IS NULL WHERE f2.registro_id IS NOT NULL)
+		ORDER BY f.id, r.id");
+	if (!$res) {
+		error_log('ep_calendario_cruzar_pendientes: '.$db->error);
+		return;
+	}
+	// Un registro cumple una sola fila y cada fila toma el primer registro libre.
+	$filasHechas = [];
+	$registrosUsados = [];
+	$upd = $db->prepare("UPDATE insert_reporte_calendario_fila SET estado = 'cumplido', registro_id = ?, cumplido_en = ? WHERE id = ? AND estado = 'pendiente'");
+	while ($c = $res->fetch_assoc()) {
+		$filaId = (int) $c['fila_id'];
+		$registroId = (int) $c['registro_id'];
+		if (isset($filasHechas[$filaId]) || isset($registrosUsados[$registroId])) {
+			continue;
+		}
+		$cumplidoEn = $c['created_at'];
+		$upd->bind_param('isi', $registroId, $cumplidoEn, $filaId);
+		$upd->execute();
+		$filasHechas[$filaId] = true;
+		$registrosUsados[$registroId] = true;
+	}
+}
+
 // Recorre los calendarios activos vencidos y los cierra solos; se llama al cargar la pantalla de Calendario (solo admin).
 function ep_calendario_verificar_vencidos(int $usuarioId): void {
 	$db = ep_db();
 	if (!$db) {
 		return;
 	}
-	$res = $db->query("SELECT id FROM insert_reporte_calendario WHERE estado = 'activo' AND vence_en < NOW()");
+	$res = $db->query("SELECT id, nombre, canal FROM insert_reporte_calendario WHERE estado = 'activo' AND eliminado_en IS NULL AND vence_en < NOW()");
+	require_once __DIR__.'/auditoria_datos.php';
 	while ($row = $res->fetch_assoc()) {
-		ep_calendario_generar_ahora((int) $row['id'], $usuarioId);
+		$id = (int) $row['id'];
+		if (ep_calendario_generar_ahora($id, $usuarioId)) {
+			ep_auditar('calendario_cierre_auto', 'calendario', $id, 'Se cerró «'.ep_calendario_nombre($row).'» al vencer su plazo', ep_calendario_detalle_cierre($id), 0);
+		}
 	}
 }
 
@@ -170,7 +351,7 @@ function ep_calendario_reactivar(int $calendarioId, int $usuarioId): bool {
 	if (!$db) {
 		return false;
 	}
-	$cal = $db->query('SELECT plazo_dias FROM insert_reporte_calendario WHERE id = '.$calendarioId)->fetch_assoc();
+	$cal = $db->query('SELECT plazo_dias FROM insert_reporte_calendario WHERE id = '.$calendarioId.' AND eliminado_en IS NULL')->fetch_assoc();
 	if (!$cal) {
 		return false;
 	}
@@ -181,21 +362,103 @@ function ep_calendario_reactivar(int $calendarioId, int $usuarioId): bool {
 	return $stmt->execute();
 }
 
-// Edita punto de venta o promotor de una fila (nunca la fecha), ya revalidados; solo si el calendario sigue activo y esa fecha no pasó.
-function ep_calendario_fila_editar(int $filaId, ?string $posId, ?string $puntoVenta, ?string $ciudad, ?int $promotorId, ?string $promotorNombre, ?string $supervisorNombre, int $editadoPor): bool {
+// Cabecera de un calendario no eliminado (para editar o eliminar); null si no existe.
+function ep_calendario_obtener(int $calendarioId): ?array {
+	$db = ep_db();
+	if (!$db) {
+		return null;
+	}
+	$stmt = $db->prepare('SELECT id, nombre, canal, estado, comentarios, vence_en, cerrado_en, reporte_mensual_id FROM insert_reporte_calendario WHERE id = ? AND eliminado_en IS NULL');
+	$stmt->bind_param('i', $calendarioId);
+	$stmt->execute();
+	return $stmt->get_result()->fetch_assoc() ?: null;
+}
+
+// Nombre con el que se muestra un calendario (el mismo título que usa su reporte).
+function ep_calendario_nombre(array $cal): string {
+	return trim((string) ($cal['nombre'] ?? '')) ?: 'Activaciones '.$cal['canal'];
+}
+
+// Una fila tal como está ahora, para comparar antes de editarla.
+function ep_calendario_fila_obtener(int $filaId): ?array {
+	$db = ep_db();
+	if (!$db) {
+		return null;
+	}
+	$stmt = $db->prepare('SELECT id, fecha, ciudad, punto_venta, promotor_nombre, supervisor_nombre FROM insert_reporte_calendario_fila WHERE id = ?');
+	$stmt->bind_param('i', $filaId);
+	$stmt->execute();
+	return $stmt->get_result()->fetch_assoc() ?: null;
+}
+
+// Detalle de auditoría de un cierre: cuántas filas se cumplieron y qué reporte salió.
+function ep_calendario_detalle_cierre(int $calendarioId): array {
+	require_once __DIR__.'/auditoria_datos.php';
+	$filas = ep_calendario_filas_tabla($calendarioId);
+	$cumplidas = count(array_filter($filas, fn($f) => $f['estado'] === 'cumplido'));
+	$cal = ep_calendario_obtener($calendarioId);
+	return [
+		ep_auditoria_dato('Cumplidas', $cumplidas.' de '.count($filas)),
+		ep_auditoria_dato('Reporte', !empty($cal['reporte_mensual_id']) ? 'Reporte mensual #'.$cal['reporte_mensual_id'] : 'No se generó (sin registros cumplidos)'),
+	];
+}
+
+// Editable: calendario activo, fila pendiente (una cumplida queda "quemada") y fecha de hoy o después.
+function ep_calendario_fila_es_editable(int $calendarioId, int $filaId): bool {
 	$db = ep_db();
 	if (!$db) {
 		return false;
 	}
-	$fila = $db->query("SELECT f.fecha, c.estado FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id WHERE f.id = $filaId")->fetch_assoc();
-	if (!$fila || $fila['estado'] !== 'activo' || $fila['fecha'] < date('Y-m-d')) {
+	$stmt = $db->prepare("SELECT f.fecha FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id WHERE f.id = ? AND f.calendario_id = ? AND f.estado = 'pendiente' AND c.estado = 'activo' AND c.eliminado_en IS NULL");
+	$stmt->bind_param('ii', $filaId, $calendarioId);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	return $fila && $fila['fecha'] >= date('Y-m-d');
+}
+
+// Cambia una fila ya revalidada (nunca la fecha) y deja quién y cuándo la editó.
+function ep_calendario_fila_editar(int $filaId, string $posId, string $puntoVenta, ?string $ciudad, int $promotorId, string $promotorNombre, ?string $supervisorNombre, int $editadoPor): bool {
+	$db = ep_db();
+	if (!$db) {
 		return false;
 	}
 	$ahora = date('Y-m-d H:i:s');
-	$sets = ['editado_en = ?', 'editado_por = ?', 'pos_id = ?', 'punto_venta = ?', 'ciudad = ?', 'promotor_usuario_id = ?', 'promotor_nombre = ?', 'supervisor_nombre = ?'];
-	$stmt = $db->prepare('UPDATE insert_reporte_calendario_fila SET '.implode(', ', $sets).' WHERE id = ?');
-	$stmt->bind_param('sissssssi', $ahora, $editadoPor, $posId, $puntoVenta, $ciudad, $promotorId, $promotorNombre, $supervisorNombre, $filaId);
+	$stmt = $db->prepare('UPDATE insert_reporte_calendario_fila SET editado_en = ?, editado_por = ?, pos_id = ?, punto_venta = ?, ciudad = ?, promotor_usuario_id = ?, promotor_nombre = ?, supervisor_nombre = ? WHERE id = ?');
+	$stmt->bind_param('sisssissi', $ahora, $editadoPor, $posId, $puntoVenta, $ciudad, $promotorId, $promotorNombre, $supervisorNombre, $filaId);
 	return $stmt->execute();
+}
+
+// Cambia los comentarios del reporte de un calendario (ya limpios); se permite mientras siga activo.
+function ep_calendario_comentarios_guardar(int $calendarioId, ?string $comentarios): bool {
+	$db = ep_db();
+	if (!$db) {
+		return false;
+	}
+	$stmt = $db->prepare("UPDATE insert_reporte_calendario SET comentarios = ? WHERE id = ? AND estado = 'activo' AND eliminado_en IS NULL");
+	$stmt->bind_param('si', $comentarios, $calendarioId);
+	return $stmt->execute();
+}
+
+// Borrado lógico del calendario; sus filas quedan en la base y un reporte mensual ya generado no se toca.
+function ep_calendario_eliminar(int $calendarioId): bool {
+	$db = ep_db();
+	if (!$db) {
+		return false;
+	}
+	$stmt = $db->prepare('UPDATE insert_reporte_calendario SET eliminado_en = NOW() WHERE id = ? AND eliminado_en IS NULL');
+	$stmt->bind_param('i', $calendarioId);
+	return $stmt->execute() && $stmt->affected_rows > 0;
+}
+
+// Al eliminar un registro, la fila que había cumplido vuelve a pendiente.
+function ep_calendario_liberar_registro(int $registroId): void {
+	$db = ep_db();
+	if (!$db) {
+		return;
+	}
+	$stmt = $db->prepare("UPDATE insert_reporte_calendario_fila SET estado = 'pendiente', registro_id = NULL, cumplido_en = NULL WHERE registro_id = ?");
+	$stmt->bind_param('i', $registroId);
+	$stmt->execute();
 }
 
 // Al guardar un registro de Activaciones: si calza con una fila pendiente de un calendario activo, la marca cumplida.
@@ -204,7 +467,12 @@ function ep_calendario_cruzar_registro(int $registroId, int $usuarioId, ?string 
 	if (!$db || !$posId || !$fechaActividad) {
 		return;
 	}
-	$stmt = $db->prepare("SELECT f.id FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id WHERE c.estado = 'activo' AND f.estado = 'pendiente' AND f.pos_id = ? AND f.promotor_usuario_id = ? AND f.fecha = ? LIMIT 1");
+	// La fila guarda el id de Xplora y la sesión el de la app: se unen por nombre de usuario.
+	$stmt = $db->prepare("SELECT f.id FROM insert_reporte_calendario_fila f
+		JOIN insert_reporte_calendario c ON c.id = f.calendario_id
+		JOIN repositorio_usuarios x ON x.id = f.promotor_usuario_id
+		JOIN repositorio_usuarios_reporte u ON u.usuario = x.user
+		WHERE c.estado = 'activo' AND c.eliminado_en IS NULL AND f.estado = 'pendiente' AND f.pos_id = ? AND u.id = ? AND f.fecha = ? LIMIT 1");
 	$stmt->bind_param('sis', $posId, $usuarioId, $fechaActividad);
 	$stmt->execute();
 	$fila = $stmt->get_result()->fetch_assoc();

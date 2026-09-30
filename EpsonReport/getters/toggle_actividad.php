@@ -21,4 +21,13 @@ if ($id <= 0) {
 	exit;
 }
 
-echo json_encode(ep_actividad_activar($id, $activa) ? ['ok' => true, 'activa' => $activa] : ['ok' => false, 'message' => 'No se pudo actualizar la actividad.']);
+if (!ep_actividad_activar($id, $activa)) {
+	echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar la actividad.']);
+	exit;
+}
+$actividad = current(array_filter(ep_actividades(), fn($a) => $a['id'] === $id));
+if ($actividad) {
+	require_once __DIR__.'/../includes/auditoria_datos.php';
+	ep_auditar($activa ? 'actividad_activar' : 'actividad_desactivar', 'actividad', $id, ($activa ? 'Activó' : 'Desactivó').' la actividad «'.$actividad['label'].'»');
+}
+echo json_encode(['ok' => true, 'activa' => $activa]);

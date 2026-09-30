@@ -14,7 +14,11 @@ if (($_SESSION['rol'] ?? '') !== 'admin') {
 require_once __DIR__.'/../includes/calendario_datos.php';
 
 $nombre = trim((string) ($_POST['nombre'] ?? ''));
-$canal = ($_POST['canal'] ?? '') === 'CANALES' ? 'CANALES' : 'RETAIL';
+$canal = (string) ($_POST['canal'] ?? '');
+if (!in_array($canal, ep_calendario_canales(), true)) {
+	echo json_encode(['ok' => false, 'message' => 'Canal inválido.']);
+	exit;
+}
 $plazoDias = max(1, min(30, (int) ($_POST['plazo_dias'] ?? 5)));
 $filasJson = json_decode($_POST['filas'] ?? '[]', true);
 
@@ -28,8 +32,8 @@ foreach ($filasJson as $f) {
 	$fecha = $f['fecha'] ?? '';
 	$posId = $f['pos_id'] ?? '';
 	$promotorId = (int) ($f['promotor_id'] ?? 0);
-	// El servidor nunca confía en lo que manda el navegador: cada combinación se revalida contra el rutero real.
-	$real = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? ep_calendario_rutero_validar($canal, $promotorId, $posId) : null;
+	// No se confía en el navegador: cada fila se revalida contra la base.
+	$real = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? ep_calendario_fila_validar($canal, $promotorId, $posId) : null;
 	if (!$real) {
 		echo json_encode(['ok' => false, 'message' => 'Una de las filas tiene un punto de venta, promotor o fecha inválidos.']);
 		exit;
@@ -45,5 +49,24 @@ foreach ($filasJson as $f) {
 	];
 }
 
-$id = ep_calendario_crear($nombre, $canal, $plazoDias, $filas, (int) $_SESSION['usuario_id']);
+// En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
+try {
+	$comentarios = ep_calendario_limpiar_comentarios((string) ($_POST['comentarios'] ?? ''));
+	$id = ep_calendario_crear($nombre, $canal, $plazoDias, $comentarios, $filas, (int) $_SESSION['usuario_id']);
+	if ($id) {
+		require_once __DIR__.'/../includes/auditoria_datos.php';
+		$fechas = array_column($filas, 'fecha');
+		sort($fechas);
+		ep_auditar('calendario_crear', 'calendario', $id, 'Creó el calendario «'.ep_calendario_nombre(['nombre' => $nombre, 'canal' => $canal]).'»', [
+			ep_auditoria_dato('Canal', $canal),
+			ep_auditoria_dato('Filas', count($filas)),
+			ep_auditoria_dato('Fechas', date('d/m/Y', strtotime($fechas[0])).' al '.date('d/m/Y', strtotime(end($fechas)))),
+			ep_auditoria_dato('Plazo', $plazoDias.' días'),
+		]);
+	}
+} catch (Throwable $e) {
+	error_log('calendario_crear: '.$e->getMessage());
+	echo json_encode(['ok' => false, 'message' => 'Error del servidor: '.$e->getMessage()]);
+	exit;
+}
 echo json_encode($id ? ['ok' => true, 'id' => $id] : ['ok' => false, 'message' => 'No se pudo crear el calendario.']);

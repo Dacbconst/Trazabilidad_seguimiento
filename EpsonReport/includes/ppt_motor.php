@@ -67,9 +67,6 @@ function ep_ppt_abrir(array $spec, array $registros, array $opciones): array {
 			}
 		}
 	}
-	if (!empty($opciones['calendario_url'])) {
-		$urls[] = $opciones['calendario_url'];
-	}
 	$solo = !empty($opciones['solo_registro']);
 	$out = new ZipArchive();
 	$destino = tempnam(sys_get_temp_dir(), 'epppt');

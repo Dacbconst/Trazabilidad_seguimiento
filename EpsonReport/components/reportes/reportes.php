@@ -11,6 +11,8 @@ if (ep_rol_actual() !== 'admin') {
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $reportes = ep_reportes_listar();
 $actividadesActivas = ep_actividades_activas();
+// Activaciones ya no se arma a mano: su reporte lo genera el Calendario de Activaciones al cerrarse.
+$actividadesManual = array_values(array_filter($actividadesActivas, fn($a) => ($a['plantilla'] ?? '') !== 'activaciones'));
 $subtitulosTipo = [
 	'activaciones'   => 'Cobertura, embudo y modelos',
 	'capacitaciones' => 'Asistentes por cargo en tienda',
@@ -108,7 +110,7 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 					<div class="ep-rp-act-section">
 						<div class="ep-rp-act-header">
 							<label class="ep-label-compact"><?= ep_icon('layers', 13) ?> <span>Tipo de actividad</span></label>
-							<span class="ep-rp-act-count" id="epRpActCount"><?= count($actividadesActivas) ?> activas</span>
+							<span class="ep-rp-act-count" id="epRpActCount"><?= count($actividadesManual) ?> activas</span>
 						</div>
 
 						<!-- Buscador en la parte superior -->
@@ -122,7 +124,7 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 
 						<!-- Grilla de actividades: 6 botones en 2 columnas (scrolleable si aparecen más) -->
 						<div class="ep-rp-act-grid" id="epRpGridActividades" role="radiogroup" aria-label="Tipo de actividad">
-							<?php foreach ($actividadesActivas as $idx => $act):
+							<?php foreach ($actividadesManual as $idx => $act):
 								$plantilla = $act['plantilla'] ?? 'generico';
 								$icono = ep_icono_tipo($plantilla);
 								$sub = $subtitulosTipo[$plantilla] ?? 'Plantilla oficial de campo';
@@ -161,7 +163,7 @@ $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'a
 							<span>No se encontraron actividades para esa búsqueda.</span>
 						</div>
 
-						<input type="hidden" id="epRpTipo" value="<?= $h($actividadesActivas[0]['plantilla'] ?? 'activaciones') ?>" data-label="<?= $h($actividadesActivas[0]['label'] ?? 'Activaciones') ?>">
+						<input type="hidden" id="epRpTipo" value="<?= $h($actividadesManual[0]['plantilla'] ?? '') ?>" data-label="<?= $h($actividadesManual[0]['label'] ?? '') ?>">
 					</div>
 				</div>
 

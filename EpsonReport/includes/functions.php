@@ -11,6 +11,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'trash'   => '<path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/>',
 		'camera'  => '<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/>',
 		'lock'    => '<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+		'pencil'  => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
 		'calendar'=> '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
 		'menu'    => '<path d="M4 7h16M4 12h16M4 17h16"/>',
 		'filter'  => '<path d="M4 5h16M7 12h10M10 19h4"/>',
@@ -39,6 +40,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'star'    => '<polygon points="12 2 15.1 8.6 22 9.3 17 14.1 18.2 21 12 17.7 5.8 21 7 14.1 2 9.3 8.9 8.6 12 2"/>',
 		'shelves' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18"/><path d="M7 6.5h3M14 12.5h3M7 18.5h3"/>',
 		'tent'    => '<path d="M2 21h20"/><path d="M4 21L12 4l8 17"/><path d="M9 21l3-6 3 6"/>',
+		'shield'  => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
 	];
 	$paths = $iconos[$nombre] ?? '';
 	return '<svg width="'.$s.'" height="'.$s.'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'.$paths.'</svg>';

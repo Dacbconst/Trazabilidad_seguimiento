@@ -898,11 +898,6 @@
 	.ep-rp-act-grid { grid-template-columns: 1fr; max-height: 220px; }
 }
 
-/* Ventanas de aviso (SweetAlert2) con la tipografía y esquinas de la app */
-.swal2-popup { border-radius: 14px; font-family: "IBM Plex Sans", sans-serif; }
-.swal2-title { font-family: "Sora", sans-serif; font-size: 20px; color: var(--color-ink); }
-.swal2-styled.swal2-confirm { border-radius: 8px; font-weight: 600; }
-.swal2-styled.swal2-cancel { border-radius: 8px; }
 
 /* Comentarios del reporte (vista de Activaciones) */
 .ep-act-coment { display: flex; flex-direction: column; gap: 6px; }

@@ -1,10 +1,41 @@
-// Calendario de Activaciones: cascada Ciudad -> Promotor -> Punto de venta, acciones y edición de fila, todo real.
+// Calendario de Activaciones: modal de crear/editar y acciones de cada calendario.
 (function () {
 	var modal = document.getElementById('epCalModal');
 	if (!modal) return;
 
-	var RUTERO = { RETAIL: [], CANALES: [] };
-	try { RUTERO = JSON.parse(document.getElementById('epCalDatosRutero').textContent); } catch (e) { /* sin datos: queda vacío */ }
+	function leerJson(id, porDefecto) {
+		try { return JSON.parse(document.getElementById(id).textContent); } catch (e) { return porDefecto; }
+	}
+	var RUTERO = {};
+	var CIUDADES = {};
+	var PDVDATA = {};
+	var CALENDARIOS = leerJson('epCalDatosCalendarios', []);
+
+	// Rutero, ciudades y PDV pesan cientos de KB: se piden aparte, en segundo plano, y solo los usa el modal.
+	var catalogo = null;
+	function cargarCatalogo() {
+		if (!catalogo) {
+			catalogo = fetch('getters/calendario_catalogo.php', { credentials: 'same-origin' })
+				.then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+				.then(function (d) {
+					RUTERO = d.rutero || {};
+					CIUDADES = d.ciudades || {};
+					PDVDATA = d.pdv || {};
+					if (modo === 'crear') filasEditor.querySelectorAll('.ep-cal-fila-editor').forEach(function (f) { if (f.refrescar) f.refrescar(); });
+				})
+				.catch(function (e) { catalogo = null; throw e; });
+		}
+		return catalogo;
+	}
+	// Abre el modal cuando los datos ya están; si todavía vienen en camino, el botón queda en espera.
+	function conCatalogo(boton, abrir) {
+		if (boton) { boton.disabled = true; boton.setAttribute('aria-busy', 'true'); }
+		cargarCatalogo().then(abrir, function () {
+			avisar('error', 'No se pudo cargar', 'No llegaron las ciudades y puntos de venta. Revisa tu conexión e intenta de nuevo.');
+		}).then(function () {
+			if (boton) { boton.disabled = false; boton.removeAttribute('aria-busy'); }
+		});
+	}
 
 	function post(url, datos) {
 		var form = new FormData();
@@ -14,22 +45,52 @@
 	function avisar(icono, titulo, texto) {
 		if (window.Swal) Swal.fire({ icon: icono, title: titulo, text: texto || '' });
 	}
+	function errorServidor(titulo) {
+		return function () { avisar('error', titulo, 'El servidor no respondió correctamente. Intenta de nuevo.'); };
+	}
 
 	var btnNuevo = document.getElementById('epCalNuevo');
 	var btnCancelar = document.getElementById('epCalCancelar');
 	var btnCerrar = document.getElementById('epCalModalCerrar');
 	var fondo = document.getElementById('epCalModalFondo');
 	var btnAgregarFila = document.getElementById('epCalAgregarFila');
+	var btnGuardar = document.getElementById('epCalCrear');
 	var filasEditor = document.getElementById('epCalFilasEditor');
 	var canalSelect = document.getElementById('epCalCanal');
 	var rangoAuto = document.getElementById('epCalRangoAuto');
+	var inpNombre = document.getElementById('epCalNombre');
+	var inpPlazo = document.getElementById('epCalPlazo');
+	var titulo = document.getElementById('epCalModalTitulo');
+	var aviso = document.getElementById('epCalAvisoEdicion');
+	// Textarea oculto que comentarios.js convierte en lista numerada; guarda un comentario por línea.
+	var inpComentarios = document.getElementById('epCal-comentarios');
+	var comentariosOriginales = '';
+	function fijarComentarios(texto) {
+		inpComentarios.value = texto || '';
+		if (inpComentarios.epFijarComentarios) inpComentarios.epFijarComentarios(texto || '');
+	}
+	var editorWrap = filasEditor.closest('.ep-cal-filas-editor');
+	// Copia limpia de la fila (sin listeners) para armar filas nuevas en crear y en editar.
+	var plantillaFila = filasEditor.firstElementChild.cloneNode(true);
+	var canalInicial = canalSelect.value;
+	var modo = 'crear';
+	var editandoId = 0;
 
-	function abrir() { modal.classList.remove('hidden'); }
+	function mostrarModal() { modal.classList.remove('hidden'); }
 	function cerrar() { modal.classList.add('hidden'); }
-	if (btnNuevo) btnNuevo.addEventListener('click', abrir);
 	if (btnCerrar) btnCerrar.addEventListener('click', cerrar);
 	if (btnCancelar) btnCancelar.addEventListener('click', cerrar);
 	if (fondo) fondo.addEventListener('click', cerrar);
+
+	// Supervisor al ancho del nombre más largo (140-320px), igual en filas y encabezado.
+	function ajustarAnchoSupervisor() {
+		editorWrap.style.setProperty('--ep-cal-sup-w', '140px');
+		var ancho = 140;
+		filasEditor.querySelectorAll('.ep-cal-supervisor-auto:not(.hidden), .ep-cal-supervisor-select:not(.hidden)').forEach(function (el) {
+			ancho = Math.max(ancho, el.scrollWidth + 2);
+		});
+		editorWrap.style.setProperty('--ep-cal-sup-w', Math.min(ancho, 320) + 'px');
+	}
 
 	function fmtFecha(iso) {
 		var p = iso.split('-');
@@ -110,6 +171,18 @@
 			texto.textContent = etiqueta;
 			trigger.dataset.valor = '';
 		};
+		// Deja un valor elegido sin pasar por la lista (al cargar un calendario para editar).
+		combo.fijar = function (valor, etiqueta) {
+			texto.textContent = etiqueta;
+			trigger.dataset.valor = valor;
+			trigger.classList.remove('ep-campo-error');
+		};
+		// Bloquea conservando el valor visible (a diferencia de deshabilitar, que lo borra).
+		combo.bloquear = function (bloqueado) {
+			trigger.disabled = bloqueado;
+			trigger.classList.toggle('ep-combo-desactivado', bloqueado);
+		};
+		combo.valor = function () { return trigger.dataset.valor; };
 		combo.validar = function () {
 			var ok = !trigger.disabled && !!trigger.dataset.valor;
 			trigger.classList.toggle('ep-campo-error', !ok);
@@ -117,13 +190,16 @@
 		};
 	}
 
-	// Cascada de una fila: Ciudad -> Promotor -> Punto de venta, con Supervisor mostrado aparte (nunca elegible a mano).
+	// Cascada de una fila: Ciudad habilita Promotor y PDV; el Supervisor nunca se elige a mano.
 	function iniciarFila(fila) {
+		var inpFecha = fila.querySelector('.ep-cal-fecha-input');
 		var comboCiudad = fila.querySelector('.ep-cal-combo-ciudad');
 		var comboPromotor = fila.querySelector('.ep-cal-combo-promotor');
 		var comboPdv = fila.querySelector('.ep-cal-combo-pdv');
 		var supervisorTexto = fila.querySelector('.ep-cal-supervisor-auto');
 		var supervisorSelect = fila.querySelector('.ep-cal-supervisor-select');
+		var btnQuitar = fila.querySelector('.ep-modelo-quitar');
+		var candado = fila.querySelector('.ep-cal-fila-candado');
 
 		iniciarCombo(comboCiudad, 'Ciudad');
 		iniciarCombo(comboPromotor, 'Promotor');
@@ -134,180 +210,287 @@
 			supervisorTexto.classList.remove('hidden');
 			supervisorTexto.textContent = texto;
 			supervisorTexto.title = texto;
+			ajustarAnchoSupervisor();
 		}
 		// Si el promotor tiene más de un supervisor en el rutero, no se adivina: se muestra un selector para elegir.
 		function mostrarSupervisorAmbiguo(nombres) {
 			supervisorTexto.classList.add('hidden');
 			supervisorSelect.classList.remove('hidden');
 			supervisorSelect.innerHTML = '<option value="">Elige supervisor</option>' + nombres.map(function (n) { return '<option value="' + n + '">' + n + '</option>'; }).join('');
+			ajustarAnchoSupervisor();
 		}
 
-		function datos() { return RUTERO[canalSelect.value] || []; }
+		function datosRutero() { return RUTERO[canalSelect.value] || []; }
+		function datosPdv() { return PDVDATA[canalSelect.value] || []; }
 		function refrescarCiudades() {
-			var ciudades = Array.from(new Set(datos().map(function (r) { return r.ciudad; }))).sort();
+			var ciudades = CIUDADES[canalSelect.value] || [];
 			comboCiudad.habilitar(ciudades.map(function (c) { return { texto: c, valor: c }; }));
 			comboPromotor.deshabilitar('Elige ciudad');
-			comboPdv.deshabilitar('Elige promotor');
+			comboPdv.deshabilitar('Elige ciudad');
 			mostrarSupervisor('—');
 		}
-		comboCiudad.addEventListener('elegido', function (e) {
-			var ciudad = e.detail.valor;
-			var promotores = datos().filter(function (r) { return r.ciudad === ciudad; });
+		// PDV de repositorio_locales_dtt2 (como en Actividades); promotor del rutero de esa ciudad.
+		function cargarPorCiudad(ciudad) {
 			var unicos = {};
-			promotores.forEach(function (r) { unicos[r.promotor_id] = r.promotor_nombre; });
-			var opciones = Object.keys(unicos).map(function (id) { return { texto: unicos[id], valor: id }; });
-			comboPromotor.habilitar(opciones);
-			comboPdv.deshabilitar('Elige promotor');
-			mostrarSupervisor('—');
-		});
-		comboPromotor.addEventListener('elegido', function (e) {
-			var ciudad = comboCiudad.querySelector('.ep-combo-trigger').dataset.valor;
-			var promotorId = +e.detail.valor;
-			var puntos = datos().filter(function (r) { return r.ciudad === ciudad && r.promotor_id === promotorId; });
+			datosRutero().filter(function (r) { return r.ciudad === ciudad; }).forEach(function (r) { unicos[r.promotor_id] = r.promotor_nombre; });
+			comboPromotor.habilitar(Object.keys(unicos).map(function (id) { return { texto: unicos[id], valor: id }; }));
+			var puntos = datosPdv().filter(function (p) { return p.ciudad === ciudad; });
 			comboPdv.habilitar(puntos.map(function (p) { return { texto: p.punto_venta, valor: p.pos_id }; }));
-			var supervisores = Array.from(new Set(puntos.map(function (p) { return p.supervisor; }).filter(Boolean)));
+			mostrarSupervisor('—');
+		}
+		comboCiudad.addEventListener('elegido', function (e) { cargarPorCiudad(e.detail.valor); });
+		// El supervisor sale del promotor (cualquier punto de su rutero), no del punto de venta elegido.
+		comboPromotor.addEventListener('elegido', function (e) {
+			var promotorId = +e.detail.valor;
+			var entradas = datosRutero().filter(function (r) { return r.promotor_id === promotorId; });
+			var supervisores = Array.from(new Set(entradas.map(function (r) { return r.supervisor; }).filter(Boolean)));
 			if (supervisores.length > 1) mostrarSupervisorAmbiguo(supervisores);
 			else mostrarSupervisor(supervisores[0] || 'Sin asignar');
 		});
-		// Al elegir el punto de venta ya no hay ambigüedad: ese punto solo tiene un supervisor real.
-		comboPdv.addEventListener('elegido', function (e) {
-			var ciudad = comboCiudad.querySelector('.ep-combo-trigger').dataset.valor;
-			var promotorId = +comboPromotor.querySelector('.ep-combo-trigger').dataset.valor;
-			var punto = datos().find(function (r) { return r.ciudad === ciudad && r.promotor_id === promotorId && r.pos_id === e.detail.valor; });
-			mostrarSupervisor((punto && punto.supervisor) || 'Sin asignar');
-		});
-		fila.querySelector('.ep-cal-fecha-input').addEventListener('change', recalcularRango);
+		inpFecha.addEventListener('change', recalcularRango);
+
+		fila.refrescar = refrescarCiudades;
+		// Carga una fila guardada; la fecha nunca se edita y una fila no editable queda bloqueada.
+		fila.cargar = function (d) {
+			inpFecha.value = d.fecha;
+			inpFecha.disabled = true;
+			comboCiudad.fijar(d.ciudad || '', d.ciudad || '—');
+			cargarPorCiudad(d.ciudad || '');
+			comboPromotor.fijar(String(d.promotor_id), d.promotor);
+			comboPdv.fijar(d.pos_id, d.pdv);
+			mostrarSupervisor(d.supervisor || 'Sin asignar');
+			fila.dataset.filaId = d.fila_id;
+			fila.dataset.original = d.pos_id + '|' + d.promotor_id;
+			btnQuitar.classList.add('hidden');
+			if (!d.editable) {
+				[comboCiudad, comboPromotor, comboPdv].forEach(function (c) { c.bloquear(true); });
+				fila.classList.add('ep-cal-fila-bloqueada');
+				candado.classList.remove('hidden');
+				candado.title = d.estado === 'cumplido' ? 'Ya cumplida: tiene un registro enviado' : 'La fecha ya pasó';
+			}
+		};
 		refrescarCiudades();
-		if (canalSelect) canalSelect.addEventListener('change', refrescarCiudades);
 	}
-	filasEditor.querySelectorAll('.ep-cal-fila-editor').forEach(iniciarFila);
+
+	function nuevaFila() {
+		var fila = plantillaFila.cloneNode(true);
+		filasEditor.appendChild(fila);
+		iniciarFila(fila);
+		return fila;
+	}
+
+	// Canal con el mismo combo que el resto; el valor vive en el input oculto #epCalCanal.
+	var comboCanal = document.getElementById('epCalCanalCombo');
+	var opcionesCanal = [];
+	function etiquetaCanal(valor) {
+		var o = opcionesCanal.find(function (x) { return x.valor === valor; });
+		return o ? o.texto : valor;
+	}
+	if (comboCanal) {
+		iniciarCombo(comboCanal, 'Canal');
+		opcionesCanal = JSON.parse(comboCanal.dataset.opciones || '[]');
+		comboCanal.habilitar(opcionesCanal);
+		comboCanal.fijar(canalSelect.value, etiquetaCanal(canalSelect.value));
+		comboCanal.addEventListener('elegido', function (e) {
+			if (canalSelect.value === e.detail.valor) return;
+			canalSelect.value = e.detail.valor;
+			filasEditor.querySelectorAll('.ep-cal-fila-editor').forEach(function (f) { if (f.refrescar) f.refrescar(); });
+		});
+	}
+	filasEditor.innerHTML = '';
+	nuevaFila();
+
+	// Crear: vuelve a blanco solo si antes se estaba editando.
+	function abrirCrear() {
+		if (modo === 'editar') {
+			modo = 'crear';
+			editandoId = 0;
+			modal.classList.remove('ep-cal-modal-editando');
+			titulo.textContent = 'Crear Calendario de Activaciones';
+			btnGuardar.textContent = 'Crear y Activar Calendario';
+			aviso.classList.add('hidden');
+			btnAgregarFila.classList.remove('hidden');
+			inpNombre.disabled = false;
+			inpNombre.value = '';
+			inpPlazo.disabled = false;
+			inpPlazo.value = 5;
+			fijarComentarios('');
+			canalSelect.value = canalInicial;
+			comboCanal.bloquear(false);
+			comboCanal.fijar(canalInicial, etiquetaCanal(canalInicial));
+			filasEditor.innerHTML = '';
+			nuevaFila();
+			recalcularRango();
+		}
+		mostrarModal();
+	}
+
+	// Editar: mismo modal con los datos cargados y solo lo editable abierto.
+	function abrirEditar(cal) {
+		modo = 'editar';
+		editandoId = cal.id;
+		modal.classList.add('ep-cal-modal-editando');
+		titulo.textContent = 'Editar Calendario de Activaciones';
+		btnGuardar.textContent = 'Guardar cambios';
+		aviso.classList.remove('hidden');
+		btnAgregarFila.classList.add('hidden');
+		inpNombre.value = cal.nombre || '';
+		inpNombre.disabled = true;
+		inpPlazo.value = cal.plazo_dias;
+		inpPlazo.disabled = true;
+		fijarComentarios(cal.comentarios || '');
+		comentariosOriginales = inpComentarios.value;
+		canalSelect.value = cal.canal;
+		comboCanal.fijar(cal.canal, etiquetaCanal(cal.canal));
+		comboCanal.bloquear(true);
+		filasEditor.innerHTML = '';
+		cal.filas.forEach(function (d) { nuevaFila().cargar(d); });
+		recalcularRango();
+		mostrarModal();
+		// Con el modal oculto los nombres miden 0: el ancho del Supervisor se mide recién ya visible.
+		ajustarAnchoSupervisor();
+	}
+
+	if (btnNuevo) btnNuevo.addEventListener('click', function () { conCatalogo(btnNuevo, abrirCrear); });
+	document.querySelectorAll('.ep-cal-editar').forEach(function (btn) {
+		btn.addEventListener('click', function () {
+			var cal = CALENDARIOS.find(function (c) { return c.id === +btn.dataset.id; });
+			if (cal) conCatalogo(btn, function () { abrirEditar(cal); });
+		});
+	});
+	// Se piden apenas la página queda libre, así al abrir el modal normalmente ya están.
+	(window.requestIdleCallback || function (f) { setTimeout(f, 300); })(function () { cargarCatalogo().catch(function () {}); });
 
 	if (btnAgregarFila) {
-		btnAgregarFila.addEventListener('click', function () {
-			var fila = filasEditor.firstElementChild.cloneNode(true);
-			fila.querySelectorAll('input[type="date"]').forEach(function (i) { i.value = ''; });
-			filasEditor.appendChild(fila);
-			iniciarFila(fila);
-		});
+		btnAgregarFila.addEventListener('click', nuevaFila);
 		filasEditor.addEventListener('click', function (e) {
 			var quitar = e.target.closest('.ep-modelo-quitar');
 			if (quitar && filasEditor.children.length > 1) {
 				quitar.closest('.ep-cal-fila-editor').remove();
 				recalcularRango();
+				ajustarAnchoSupervisor();
 			}
 		});
 	}
 
-	var btnCrear = document.getElementById('epCalCrear');
-	if (btnCrear) {
-		btnCrear.addEventListener('click', function () {
-			var filasEl = filasEditor.querySelectorAll('.ep-cal-fila-editor');
-			var valido = true;
-			var filas = [];
-			filasEl.forEach(function (fila) {
-				var fecha = fila.querySelector('.ep-cal-fecha-input').value;
-				var comboPromotor = fila.querySelector('.ep-cal-combo-promotor');
-				var comboPdv = fila.querySelector('.ep-cal-combo-pdv');
-				if (!fecha) valido = false;
-				if (!fila.querySelector('.ep-cal-combo-ciudad').validar()) valido = false;
-				if (!comboPromotor.validar()) valido = false;
-				if (!comboPdv.validar()) valido = false;
-				filas.push({
-					fecha: fecha,
-					pos_id: comboPdv.querySelector('.ep-combo-trigger').dataset.valor,
-					promotor_id: comboPromotor.querySelector('.ep-combo-trigger').dataset.valor,
-				});
-			});
-			if (!valido) {
-				avisar('warning', 'Faltan datos', 'Completa fecha, ciudad, promotor y punto de venta en cada fila (elegidos de la lista).');
-				return;
+	function combosDe(fila) {
+		return {
+			ciudad: fila.querySelector('.ep-cal-combo-ciudad'),
+			promotor: fila.querySelector('.ep-cal-combo-promotor'),
+			pdv: fila.querySelector('.ep-cal-combo-pdv'),
+		};
+	}
+
+	function guardarNuevo() {
+		var valido = true;
+		var filas = [];
+		filasEditor.querySelectorAll('.ep-cal-fila-editor').forEach(function (fila) {
+			var fecha = fila.querySelector('.ep-cal-fecha-input').value;
+			var c = combosDe(fila);
+			if (!fecha) valido = false;
+			if (!c.ciudad.validar()) valido = false;
+			if (!c.promotor.validar()) valido = false;
+			if (!c.pdv.validar()) valido = false;
+			filas.push({ fecha: fecha, pos_id: c.pdv.valor(), promotor_id: c.promotor.valor() });
+		});
+		if (!valido) {
+			avisar('warning', 'Faltan datos', 'Completa fecha, ciudad, promotor y punto de venta en cada fila (elegidos de la lista).');
+			return;
+		}
+		if (!window.Swal) return;
+		Swal.fire({
+			icon: 'question', title: '¿Activar este calendario?',
+			text: 'No hay borrador: al guardar queda activo de una vez y arranca el plazo.',
+			showCancelButton: true, confirmButtonText: 'Sí, crear y activar', cancelButtonText: 'Seguir editando',
+		}).then(function (res) {
+			if (!res.isConfirmed) return;
+			post('getters/calendario_crear.php', {
+				nombre: inpNombre.value.trim(),
+				canal: canalSelect.value,
+				plazo_dias: inpPlazo.value,
+				comentarios: inpComentarios.value,
+				filas: JSON.stringify(filas),
+			}).then(function (r) {
+				if (r.ok) location.reload();
+				else avisar('error', 'No se pudo crear', r.message);
+			}).catch(errorServidor('No se pudo crear'));
+		});
+	}
+
+	// Solo viajan las filas que cambiaron, para no marcar como editadas las que nadie tocó.
+	function guardarEdicion() {
+		var valido = true;
+		var cambios = [];
+		filasEditor.querySelectorAll('.ep-cal-fila-editor:not(.ep-cal-fila-bloqueada)').forEach(function (fila) {
+			var c = combosDe(fila);
+			if (!c.ciudad.validar()) valido = false;
+			if (!c.promotor.validar()) valido = false;
+			if (!c.pdv.validar()) valido = false;
+			if (c.pdv.valor() + '|' + c.promotor.valor() !== fila.dataset.original) {
+				cambios.push({ fila_id: fila.dataset.filaId, pos_id: c.pdv.valor(), promotor_id: c.promotor.valor() });
 			}
-			if (!window.Swal) return;
-			Swal.fire({
-				icon: 'question', title: '¿Activar este calendario?',
-				text: 'No hay borrador: al guardar queda activo de una vez y arranca el plazo.',
-				showCancelButton: true, confirmButtonText: 'Sí, crear y activar', cancelButtonText: 'Seguir editando',
-			}).then(function (res) {
-				if (!res.isConfirmed) return;
-				post('getters/calendario_crear.php', {
-					nombre: document.getElementById('epCalNombre').value.trim(),
-					canal: canalSelect.value,
-					plazo_dias: document.getElementById('epCalPlazo').value,
-					filas: JSON.stringify(filas),
-				}).then(function (r) {
-					if (r.ok) location.reload();
-					else avisar('error', 'No se pudo crear', r.message);
+		});
+		if (!valido) {
+			avisar('warning', 'Faltan datos', 'Completa ciudad, promotor y punto de venta en cada fila editable (elegidos de la lista).');
+			return;
+		}
+		var cambioComentarios = inpComentarios.value !== comentariosOriginales;
+		var total = cambios.length + (cambioComentarios ? 1 : 0);
+		if (!total) {
+			avisar('info', 'Sin cambios', 'No modificaste ninguna fila ni los comentarios.');
+			return;
+		}
+		if (!window.Swal) return;
+		Swal.fire({
+			icon: 'question', title: '¿Guardar ' + total + (total === 1 ? ' cambio?' : ' cambios?'),
+			text: 'Queda registrado quién hizo el cambio y cuándo.',
+			showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Seguir editando',
+		}).then(function (res) {
+			if (!res.isConfirmed) return;
+			var datos = { id: editandoId, filas: JSON.stringify(cambios) };
+			if (cambioComentarios) datos.comentarios = inpComentarios.value;
+			post('getters/calendario_editar.php', datos).then(function (r) {
+				if (r.ok) location.reload();
+				else avisar('error', 'No se pudo guardar', r.message);
+			}).catch(errorServidor('No se pudo guardar'));
+		});
+	}
+
+	if (btnGuardar) {
+		btnGuardar.addEventListener('click', function () {
+			if (modo === 'editar') guardarEdicion();
+			else guardarNuevo();
+		});
+	}
+
+	// Acciones de cada tarjeta: confirmar y recargar.
+	function accionTarjeta(selector, confirmacion, url, tituloError) {
+		document.querySelectorAll(selector).forEach(function (btn) {
+			btn.addEventListener('click', function () {
+				if (!window.Swal) return;
+				Swal.fire(confirmacion).then(function (res) {
+					if (!res.isConfirmed) return;
+					post(url, { id: btn.dataset.id }).then(function (r) {
+						if (r.ok) location.reload();
+						else avisar('error', tituloError, r.message);
+					}).catch(errorServidor(tituloError));
 				});
 			});
 		});
 	}
-
-	document.querySelectorAll('.ep-cal-generar-ahora').forEach(function (btn) {
-		btn.addEventListener('click', function () {
-			if (!window.Swal) return;
-			Swal.fire({
-				icon: 'question', title: '¿Generar el reporte ahora?',
-				text: 'El calendario se cierra con lo que se haya cumplido hasta ahora y pasa automáticamente a Reportes mensuales.',
-				showCancelButton: true, confirmButtonText: 'Sí, generar y cerrar', cancelButtonText: 'Cancelar',
-			}).then(function (res) {
-				if (!res.isConfirmed) return;
-				post('getters/calendario_generar.php', { id: btn.dataset.id }).then(function (r) {
-					if (r.ok) location.reload();
-					else avisar('error', 'No se pudo generar', r.message);
-				});
-			});
-		});
-	});
-	document.querySelectorAll('.ep-cal-reactivar').forEach(function (btn) {
-		btn.addEventListener('click', function () {
-			if (!window.Swal) return;
-			Swal.fire({
-				icon: 'warning', title: '¿Reactivar este calendario?',
-				text: 'Vuelve a aceptar registros con un plazo nuevo desde ahora. Esta acción queda registrada con tu usuario y la fecha.',
-				showCancelButton: true, confirmButtonText: 'Sí, reactivar', cancelButtonText: 'Cancelar',
-			}).then(function (res) {
-				if (!res.isConfirmed) return;
-				post('getters/calendario_reactivar.php', { id: btn.dataset.id }).then(function (r) {
-					if (r.ok) location.reload();
-					else avisar('error', 'No se pudo reactivar', r.message);
-				});
-			});
-		});
-	});
-
-	// Edición inline de punto de venta / promotor en una fila ya creada (solo si es-editable: la fecha aún no pasó).
-	document.querySelectorAll('.ep-cal-editar-campo').forEach(function (btn) {
-		btn.addEventListener('click', function () {
-			var filaFila = btn.closest('.ep-cal-fila');
-			var canal = filaFila.dataset.canal;
-			var campo = btn.dataset.campo;
-			var promotorIdActual = +filaFila.querySelector('.ep-cal-valor-promotor').dataset.promotorId;
-			if (!window.Swal) return;
-
-			var opciones;
-			if (campo === 'promotor') {
-				var vistos = {};
-				opciones = (RUTERO[canal] || []).filter(function (r) { return !vistos[r.promotor_id] && (vistos[r.promotor_id] = 1); })
-					.map(function (r) { return { value: r.promotor_id, text: r.promotor_nombre }; });
-			} else {
-				opciones = (RUTERO[canal] || []).filter(function (r) { return r.promotor_id === promotorIdActual; })
-					.map(function (r) { return { value: r.pos_id, text: r.punto_venta }; });
-			}
-			var inputOptions = {};
-			opciones.forEach(function (o) { inputOptions[o.value] = o.text; });
-			Swal.fire({
-				title: campo === 'pdv' ? 'Elegir nuevo punto de venta' : 'Elegir nuevo promotor',
-				input: 'select', inputOptions: inputOptions, inputPlaceholder: 'Selecciona de la lista',
-				showCancelButton: true, confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar',
-			}).then(function (res) {
-				if (!res.isConfirmed || !res.value) return;
-				var posId = campo === 'pdv' ? res.value : filaFila.querySelector('.ep-cal-valor-pdv').dataset.posId;
-				var promotorId = campo === 'promotor' ? res.value : promotorIdActual;
-				post('getters/calendario_fila_editar.php', { fila_id: filaFila.dataset.filaId, canal: canal, pos_id: posId, promotor_id: promotorId }).then(function (r) {
-					if (r.ok) location.reload();
-					else avisar('error', 'No se pudo editar', r.message);
-				});
-			});
-		});
-	});
+	accionTarjeta('.ep-cal-generar-ahora', {
+		icon: 'question', title: '¿Generar el reporte ahora?',
+		text: 'El calendario se cierra con lo que se haya cumplido hasta ahora y pasa automáticamente a Reportes mensuales.',
+		showCancelButton: true, confirmButtonText: 'Sí, generar y cerrar', cancelButtonText: 'Cancelar',
+	}, 'getters/calendario_generar.php', 'No se pudo generar');
+	accionTarjeta('.ep-cal-reactivar', {
+		icon: 'warning', title: '¿Reactivar este calendario?',
+		text: 'Vuelve a aceptar registros con un plazo nuevo desde ahora. Esta acción queda registrada con tu usuario y la fecha.',
+		showCancelButton: true, confirmButtonText: 'Sí, reactivar', cancelButtonText: 'Cancelar',
+	}, 'getters/calendario_reactivar.php', 'No se pudo reactivar');
+	accionTarjeta('.ep-cal-eliminar', {
+		icon: 'warning', title: '¿Eliminar este calendario?',
+		text: 'Deja de aparecer en la lista y ya no cruza registros nuevos. Si ya generó un reporte mensual, ese reporte se conserva.',
+		showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#C5221F',
+	}, 'getters/calendario_eliminar.php', 'No se pudo eliminar');
 })();

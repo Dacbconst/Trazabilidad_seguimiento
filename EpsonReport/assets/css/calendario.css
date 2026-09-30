@@ -1,226 +1,45 @@
-/* Calendario de Activaciones: lista de tarjetas por calendario, cada una con su tabla de filas y su dropdown de seguimiento. */
+/* Calendario de Activaciones: modal de crear y editar (la lista vive en calendario-lista.css). */
 
-.ep-cal-head {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--space-md);
-	margin-bottom: var(--space-lg);
-}
-.ep-cal-head h1 {
-	margin: 0 0 2px;
-	font-family: 'Sora', sans-serif;
-	font-size: 22px;
-	font-weight: 700;
-	color: var(--color-ink);
-}
-.ep-cal-head p {
-	margin: 0;
-	font-size: 13px;
-	color: var(--color-text-muted);
-}
-
-.ep-cal-lista {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-md);
-	margin-top: var(--space-md);
-}
-
-.ep-cal-card {
-	background: var(--color-surface);
-	border: 1px solid var(--color-border);
-	border-radius: var(--radius-lg);
-	box-shadow: var(--shadow-card);
-	padding: var(--space-md) var(--space-lg);
-}
-
-.ep-cal-card-head {
+/* Modo edición del modal */
+.ep-cal-aviso-edicion {
 	display: flex;
 	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--space-md);
-	flex-wrap: wrap;
-}
-.ep-cal-card-titulo strong {
-	display: block;
-	font-size: 15px;
-	color: var(--color-ink);
-}
-.ep-cal-card-titulo span {
+	gap: 8px;
+	margin: 0;
+	padding: 8px 12px;
+	border-radius: 10px;
+	background: var(--color-primary-soft);
+	color: var(--color-primary-dark);
 	font-size: 12.5px;
-	color: var(--color-text-muted);
+	line-height: 1.45;
 }
-
-.ep-cal-badge {
-	flex-shrink: 0;
-	font-size: 11.5px;
-	font-weight: 600;
-	padding: 4px 10px;
-	border-radius: 999px;
-	white-space: nowrap;
-}
-.ep-cal-badge-azul  { background: var(--color-primary-soft); color: var(--color-primary-dark); }
-.ep-cal-badge-verde { background: #E7F5EC; color: var(--color-success); }
-
-.ep-cal-card-acciones {
+.ep-cal-aviso-edicion svg { flex-shrink: 0; margin-top: 1px; }
+.ep-cal-fila-accion {
 	display: flex;
 	align-items: center;
-	gap: var(--space-xs);
-	flex-wrap: wrap;
+	justify-content: center;
 }
-.ep-cal-ver-reporte {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-	text-decoration: none;
-}
-
-.ep-cal-progreso {
-	display: flex;
-	align-items: center;
-	gap: var(--space-sm);
-	margin-top: var(--space-sm);
-}
-.ep-cal-progreso-barra {
-	flex: 1;
-	height: 6px;
-	border-radius: 999px;
-	background: var(--color-surface-muted);
-	overflow: hidden;
-}
-.ep-cal-progreso-fill {
-	height: 100%;
-	background: var(--color-primary);
-	border-radius: 999px;
-}
-.ep-cal-progreso span {
-	font-size: 12px;
-	color: var(--color-text-muted);
-	white-space: nowrap;
-}
-
-.ep-cal-tabla {
-	margin-top: var(--space-md);
-	border: 1px solid var(--color-border);
-	border-radius: var(--radius-md);
-	overflow: hidden;
-}
-.ep-cal-tabla-head,
-.ep-cal-fila {
-	display: grid;
-	grid-template-columns: 90px 85px 1fr 1fr 1fr 100px;
-	gap: var(--space-sm);
-	padding: 9px var(--space-md);
-	align-items: center;
-}
-.ep-cal-tabla-head {
-	background: var(--color-surface-muted);
-	font-size: 11px;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	color: var(--color-text-muted);
-}
-.ep-cal-fila {
-	font-size: 13px;
-	color: var(--color-text);
-	border-top: 1px solid var(--color-border);
-}
-.ep-cal-fila.es-editable span {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-}
-.ep-cal-truncado {
-	display: block;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.ep-cal-editar-campo {
+.ep-cal-fila-candado {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
-	border: none;
-	background: var(--color-primary-soft);
-	color: var(--color-primary-dark);
-	border-radius: 999px;
-	cursor: pointer;
-	flex-shrink: 0;
+	width: 32px;
+	height: 32px;
+	color: var(--color-text-muted);
+	cursor: help;
 }
-.ep-cal-editar-campo:hover {
-	background: var(--color-primary-light);
-	color: #fff;
-}
-
-.ep-cal-pill {
-	font-style: normal;
-	font-size: 11.5px;
-	font-weight: 600;
-	padding: 3px 9px;
-	border-radius: 999px;
-	white-space: nowrap;
-}
-.ep-cal-pill-gris  { background: var(--color-surface-muted); color: var(--color-text-muted); }
-.ep-cal-pill-verde { background: #E7F5EC; color: var(--color-success); }
-
-.ep-cal-reactivar {
-	font-size: 11.5px;
-	font-weight: 600;
-	color: var(--color-primary-dark);
-	background: none;
-	border: 1px solid var(--color-primary-light);
-	border-radius: 999px;
-	padding: 2px 9px;
-	cursor: pointer;
-}
-.ep-cal-reactivar:hover {
-	background: var(--color-primary-soft);
-}
-
-.ep-cal-desplegable {
-	margin-top: var(--space-sm);
-}
-.ep-cal-desplegable summary {
-	display: flex;
-	align-items: center;
-	gap: var(--space-xs);
-	font-size: 12.5px;
-	font-weight: 600;
-	color: var(--color-primary-dark);
-	cursor: pointer;
-	list-style: none;
-	padding: 6px 2px;
-}
-.ep-cal-desplegable summary::-webkit-details-marker { display: none; }
-.ep-cal-desplegable summary svg:last-child {
-	margin-left: auto;
-	transition: transform 0.15s ease;
-}
-.ep-cal-desplegable[open] summary svg:last-child {
-	transform: rotate(180deg);
-}
-.ep-cal-desplegable .ep-cal-tabla {
-	margin-top: var(--space-xs);
-}
-.ep-cal-seguimiento-lista {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	padding: var(--space-sm) 0 4px;
-}
-.ep-cal-seguimiento-fila {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	font-size: 13px;
-	color: var(--color-text);
-	padding: 6px var(--space-md);
+.ep-cal-fila-editor.ep-cal-fila-bloqueada {
 	background: var(--color-surface-muted);
-	border-radius: var(--radius-sm);
+}
+.ep-cal-fila-editor.ep-cal-fila-bloqueada .ep-combo-trigger,
+.ep-cal-fila-editor.ep-cal-fila-bloqueada .ep-cal-supervisor-auto {
+	opacity: 0.65;
+}
+.ep-cal-modal-editando .ep-cal-fecha-input:disabled,
+.ep-cal-modal-editando #epCalNombre:disabled,
+.ep-cal-modal-editando #epCalPlazo:disabled {
+	opacity: 0.65;
+	cursor: not-allowed;
 }
 
 /* Modal "Crear Calendario": look exacto del mockup aprobado, aislado a #epCalModal para no tocar otros modales. */
@@ -229,7 +48,7 @@
 	box-shadow: 0 24px 60px rgba(30, 20, 60, 0.18);
 }
 #epCalModal .ep-modal-ppt-head {
-	padding: 24px 28px;
+	padding: 16px 24px;
 	background: var(--color-surface);
 	border-bottom: 1px solid #E6E3EE;
 }
@@ -244,25 +63,28 @@
 	font-size: 19px !important;
 }
 #epCalModal .ep-modal-ppt-body {
-	padding: 24px 28px 28px;
+	padding: 18px 24px 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 22px;
+	gap: 12px;
 }
 #epCalModal .ep-modal-ppt-foot {
-	padding: 18px 28px;
+	padding: 14px 24px;
 	border-top: 1px solid #E6E3EE;
 }
 #epCalModal .ep-btn-ppt-cta {
 	box-shadow: 0 8px 20px rgba(81, 52, 135, 0.35);
 }
-.ep-cal-form-fila {
-	margin-bottom: var(--space-sm);
-}
 .ep-cal-form-fila-3 {
 	display: flex;
 	gap: var(--space-sm);
-	margin-bottom: var(--space-md);
+}
+/* El gap del cuerpo separa los bloques; las filas del calendario llevan algo más de aire. */
+#epCalModal .ep-cal-filas-editor {
+	margin-top: 8px;
+}
+#epCalModal .ep-cal-campo .ep-input {
+	height: 40px;
 }
 .ep-cal-form-fila-3 .ep-cal-campo:nth-child(1) { width: 160px; }
 .ep-cal-form-fila-3 .ep-cal-campo:nth-child(2) { width: 170px; }
@@ -272,10 +94,13 @@
 	flex-direction: column;
 	gap: 4px;
 }
-.ep-cal-campo span {
+.ep-cal-campo > span {
 	font-size: 12px;
 	font-weight: 600;
 	color: var(--color-text-muted);
+}
+.ep-cal-combo-canal .ep-combo-trigger {
+	height: 40px;
 }
 .ep-cal-rango-auto {
 	display: flex;
@@ -301,7 +126,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: var(--space-sm);
+	margin-bottom: 8px;
 }
 .ep-cal-filas-editor-head strong {
 	font-family: 'Sora', sans-serif;
@@ -310,9 +135,9 @@
 }
 .ep-cal-fila-editor-head {
 	display: grid;
-	grid-template-columns: 118px 1fr 1fr 1fr 170px 36px;
+	grid-template-columns: 150px 1fr 1fr 1fr var(--ep-cal-sup-w, 140px) 36px;
 	gap: var(--space-sm);
-	padding: 0 2px 6px;
+	padding: 0 2px 4px;
 	font-size: 11px;
 	font-weight: 600;
 	text-transform: uppercase;
@@ -322,20 +147,20 @@
 .ep-cal-filas-editor-tabla {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
-	padding: 14px;
+	gap: 8px;
+	padding: 10px;
 	background: var(--color-surface-muted);
 	border-radius: 14px;
 }
 .ep-cal-fila-editor {
 	display: grid;
-	grid-template-columns: 118px 1fr 1fr 1fr 170px 36px;
+	grid-template-columns: 150px 1fr 1fr 1fr var(--ep-cal-sup-w, 140px) 36px;
 	gap: 12px;
 	align-items: center;
 	background: var(--color-surface);
 	border: 1px solid var(--color-border);
 	border-radius: 11px;
-	padding: 10px 12px;
+	padding: 8px 10px;
 }
 .ep-cal-fila-editor .ep-combo-trigger,
 .ep-cal-fila-editor .ep-cal-fecha-input {
@@ -345,7 +170,8 @@
 	border-color: var(--color-danger);
 	box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.12);
 }
-.ep-cal-fila-editor .ep-combo-trigger.ep-combo-desactivado {
+.ep-cal-fila-editor .ep-combo-trigger.ep-combo-desactivado,
+.ep-cal-combo-canal .ep-combo-trigger.ep-combo-desactivado {
 	color: var(--color-text-muted);
 	background: var(--color-surface-muted);
 	cursor: not-allowed;
@@ -373,16 +199,6 @@
 }
 
 @media (max-width: 900px) {
-	.ep-cal-tabla-head,
-	.ep-cal-fila {
-		grid-template-columns: 90px 1fr 1fr;
-	}
-	.ep-cal-tabla-head span:last-child { display: none; }
-	.ep-cal-fila em.ep-cal-pill {
-		grid-column: 1 / -1;
-		justify-self: start;
-		margin-top: 4px;
-	}
 	.ep-cal-form-fila-3 {
 		flex-wrap: wrap;
 	}
@@ -395,7 +211,7 @@
 	.ep-cal-fila-editor {
 		grid-template-columns: 1fr;
 	}
-	.ep-cal-fila-editor .ep-modelo-quitar {
+	.ep-cal-fila-editor .ep-cal-fila-accion {
 		justify-self: end;
 	}
 }

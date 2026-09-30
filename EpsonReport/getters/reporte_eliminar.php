@@ -12,5 +12,14 @@ if (!ep_login_check() || ep_rol_actual() !== 'admin') {
 	echo json_encode(['success' => false, 'error' => 'No tienes permiso para esto.']);
 	exit;
 }
-$ok = ep_reporte_eliminar((int) ($_POST['id'] ?? 0));
+$id = (int) ($_POST['id'] ?? 0);
+$reporte = ep_reporte_obtener($id);
+$ok = ep_reporte_eliminar($id);
+if ($ok && $reporte) {
+	require_once __DIR__.'/../includes/auditoria_datos.php';
+	ep_auditar('reporte_eliminar', 'reporte', $id, 'Eliminó el reporte «'.(trim((string) $reporte['titulo']) ?: $reporte['tipo']).'»', [
+		ep_auditoria_dato('Mes', $reporte['mes']),
+		ep_auditoria_dato('Registros liberados', $reporte['total_registros']),
+	]);
+}
 echo json_encode(['success' => $ok, 'error' => $ok ? null : 'No se pudo quitar el reporte.']);

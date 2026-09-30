@@ -3,6 +3,7 @@
 // la especificación de la actividad, el calendario del reporte (una vez) y las estadísticas de cada registro.
 
 require_once __DIR__.'/ppt_embudo.php';
+require_once __DIR__.'/ppt_calendario_tabla.php';
 
 function ep_ppt_activaciones_spec(): array {
 	return [
@@ -21,7 +22,7 @@ function ep_ppt_activaciones_spec(): array {
 }
 
 // Devuelve la ruta de un .pptx temporal con los registros dados. El llamador lo envía y lo borra.
-// $opciones: 'calendario_url' (imagen del calendario del reporte), 'programadas' (actividades programadas; vacío = igual a las ejecutadas) y 'solo_registro' (sin portada, título ni calendario).
+// $opciones: calendario_filas, calendario_canal, programadas, comentarios y solo_registro.
 function ep_ppt_activaciones(array $registros, string $tituloMes, array $opciones = []): string {
 	return ep_ppt_generar(ep_ppt_activaciones_spec(), $registros, $tituloMes, $opciones);
 }
@@ -35,12 +36,11 @@ function ep_ppt_activaciones_calendario(array &$ctx, array $registros, array $op
 	ep_ppt_texto($slide['dom'], $slide['xp'], 'CuadroTexto 12', [ep_ppt_pct($programadas > 0 ? $totalEjecutadas / $programadas * 100 : 0)]);
 	ep_ppt_texto($slide['dom'], $slide['xp'], 'CuadroTexto 13', [$programadas.' ACTIVACIONES PROGRAMADAS', $totalEjecutadas.' EJECUTADAS']);
 	ep_ppt_comentarios($slide['dom'], $slide['xp'], ['CuadroTexto 27', 'CuadroTexto 28', 'CuadroTexto 33'], $comentarios, 2293000);
-	$urlCalendario = $opciones['calendario_url'] ?? '';
-	if ($urlCalendario !== '' && isset($ctx['fotos'][$urlCalendario])) {
-		ep_ppt_slide_imagen($ctx, $slide, 'Rectángulo 14', $ctx['fotos'][$urlCalendario], true); // el calendario se ve entero, sin recortar
-	} else {
-		ep_ppt_quitar($slide['xp'], 'Rectángulo 14'); // sin imagen del calendario: se quita el cuadro de ejemplo
+	if (!empty($opciones['calendario_canal'])) {
+		ep_ppt_texto($slide['dom'], $slide['xp'], 'CuadroTexto 1', ['CALENDARIO DE ACTIVACIONES · '.ep_ppt_mayus($opciones['calendario_canal'])]);
 	}
+	// La tabla del calendario ocupa el recuadro de la plantilla; sin filas, el recuadro de ejemplo se quita.
+	ep_ppt_tabla_calendario($slide['dom'], $slide['xp'], 'Rectángulo 14', $opciones['calendario_filas'] ?? []);
 	ep_ppt_slide_guardar($ctx, $slide);
 }
 
@@ -64,5 +64,6 @@ function ep_ppt_activaciones_estadisticas(DOMDocument $dom, DOMXPath $xp, array 
 		'menor' => ['CuadroTexto 148', 'CuadroTexto 151'],
 		'embudo' => [['Rectángulo 155', 'CuadroTexto 165'], ['Rectángulo 158', 'CuadroTexto 166'], ['Rectángulo 163', 'CuadroTexto 167']],
 		'comentarios' => ['CuadroTexto 5', 'CuadroTexto 6', 'CuadroTexto 7', 'CuadroTexto 9', 'CuadroTexto 10'],
+		'comentarios_derecha' => ['card' => 'Gráfico 3', 'titulo' => 'CuadroTexto 4'],
 	]);
 }

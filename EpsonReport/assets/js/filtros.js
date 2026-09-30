@@ -2,8 +2,10 @@
 (function () {
 	function cerrarCombos(root, salvo) {
 		root.querySelectorAll('.ep-fl-combo').forEach(function (c) {
-			if (c === salvo) return;
-			c.querySelector('.ep-fl-combo-panel').classList.add('hidden');
+			var panel = c.querySelector('.ep-fl-combo-panel');
+			// Un combo sin panel (todavía no armado por crearCombo) no tiene nada que cerrar.
+			if (c === salvo || !panel) return;
+			panel.classList.add('hidden');
 			c.querySelector('.ep-fl-combo-btn').setAttribute('aria-expanded', 'false');
 		});
 	}

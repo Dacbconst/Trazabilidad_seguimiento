@@ -59,11 +59,26 @@ function ep_ppt_estadisticas_embudo(DOMDocument $dom, DOMXPath $xp, array $reg, 
 		ep_ppt_barra_vertical($xp, $barra, $largo, $base);
 		ep_ppt_posicion_y($xp, $numero, $base - $largo - 201556);
 	}
-	ep_ppt_comentarios($dom, $xp, $n['comentarios'], (array) ($reg['comentarios'] ?? []), 3009751);
+	$derecha = $n['comentarios_derecha'] ?? null;
+	ep_ppt_comentarios($dom, $xp, $n['comentarios'], (array) ($reg['comentarios'] ?? []), $derecha ? EP_PPT_COM_DER[2] - 196096 : 3009751);
+	if ($derecha) {
+		ep_ppt_comentarios_a_la_derecha($xp, $derecha['card'], $derecha['titulo'], $n['comentarios'][0]);
+	}
 
 	if (!empty($n['titulo'])) {
 		ep_ppt_ingresos_modelo($dom, $xp, $n, $reg['modelos'] ?? []);
 	}
+}
+
+// Tarjeta de comentarios en la columna derecha, alta: [x, y, ancho, alto] (de la fila de tarjetas al pie del embudo).
+const EP_PPT_COM_DER = [9239700, 1045029, 2633300, 5574877];
+
+// Activaciones: comentarios pasan a la columna derecha y dejan su lugar a "Ingresos por Modelo".
+function ep_ppt_comentarios_a_la_derecha(DOMXPath $xp, string $card, string $titulo, string $texto): void {
+	[$x, $y, $cx, $cy] = EP_PPT_COM_DER;
+	ep_ppt_geometria($xp, $card, $x, $y, $cx, $cy);
+	ep_ppt_geometria($xp, $titulo, $x + 91193, $y + 170000, $cx - 180000, 261610);
+	ep_ppt_geometria($xp, $texto, $x + 98048, $y + 1100000, $cx - 196096, 215444);
 }
 
 // Ingresos por modelo (cantidad × precio): clona el título y las filas de "Detalle de Ventas" y las mueve a la franja
@@ -79,30 +94,35 @@ function ep_ppt_ingresos_modelo(DOMDocument $dom, DOMXPath $xp, array $n, array 
 	// No cabían las dos tarjetas completas una junto a otra: "Detalle de Ventas" se corre un poco a la izquierda
 	// (hay margen antes de las tarjetas de SKU mayor/menor) y la de ingresos queda fija en su posición actual: $deltaX
 	// se recalcula a partir de ese destino fijo para que $corrimiento solo mueva "Detalle de Ventas", nunca "Ingresos".
-	$corrimiento = -160000;
-	$ingresosLeftFijo = 3129982; // posición (relativa a la tarjeta original) donde debe quedar "Ingresos por Modelo"
-	$anchoIngresosCard = 3059982; // no se pasa del borde de la diapositiva
+	// Con comentarios a la derecha (Activaciones), "Ingresos" baja al lugar que dejaron, debajo de "Detalle de Ventas" y alineada con ella.
+	$debajo = !empty($n['comentarios_derecha']);
+	$corrimiento = $debajo ? 0 : -160000;
+	$ingresosLeftFijo = $debajo ? 0 : 3129982; // posición (relativa a la tarjeta original) donde debe quedar "Ingresos por Modelo"
+	$anchoIngresosCard = $debajo ? 3209982 : 3059982; // no se pasa del borde de la diapositiva
 	$deltaX = $ingresosLeftFijo - $corrimiento;
+	$deltaY = $debajo ? 2128967 : 0; // de la tarjeta de "Detalle de Ventas" al lugar que dejó la de comentarios
 	$id = 90000;
-	if (!empty($n['card'])) {
-		ep_ppt_mover_x($xp, $n['card'], $corrimiento);
-	}
-	ep_ppt_mover_x($xp, $n['titulo'], $corrimiento);
-	foreach ($n['filas'] as [$nomTxt2, $nomNum2, $nomBarra2]) {
-		ep_ppt_mover_x($xp, $nomTxt2, $corrimiento);
-		ep_ppt_mover_x($xp, $nomNum2, $corrimiento);
-		$grupo2 = ep_ppt_grupo_de($xp, $nomBarra2);
-		if ($grupo2) {
-			ep_ppt_mover_x($xp, $grupo2, $corrimiento);
+	if ($corrimiento !== 0) {
+		if (!empty($n['card'])) {
+			ep_ppt_mover_x($xp, $n['card'], $corrimiento);
+		}
+		ep_ppt_mover_x($xp, $n['titulo'], $corrimiento);
+		foreach ($n['filas'] as [$nomTxt2, $nomNum2, $nomBarra2]) {
+			ep_ppt_mover_x($xp, $nomTxt2, $corrimiento);
+			ep_ppt_mover_x($xp, $nomNum2, $corrimiento);
+			$grupo2 = ep_ppt_grupo_de($xp, $nomBarra2);
+			if ($grupo2) {
+				ep_ppt_mover_x($xp, $grupo2, $corrimiento);
+			}
 		}
 	}
 
 	// La tarjeta (imagen de fondo con borde y sombra) va primero, para que quede detrás del título y las filas.
 	if (!empty($n['card'])) {
-		ep_ppt_clonar_y_mover($xp, $n['card'], 'Ingresos Card', $deltaX, [], $id++);
+		ep_ppt_clonar_y_mover($xp, $n['card'], 'Ingresos Card', $deltaX, [], $id++, $deltaY);
 		ep_ppt_ancho($xp, 'Ingresos Card', $anchoIngresosCard);
 	}
-	if (ep_ppt_clonar_y_mover($xp, $n['titulo'], 'Ingresos Titulo', $deltaX, [], $id++)) {
+	if (ep_ppt_clonar_y_mover($xp, $n['titulo'], 'Ingresos Titulo', $deltaX, [], $id++, $deltaY)) {
 		ep_ppt_texto($dom, $xp, 'Ingresos Titulo', ['INGRESOS POR MODELO']);
 	}
 	$maximo = max(1, ...array_map(fn($m) => $m['cantidad'] * $m['precio'], $conPrecio));
@@ -121,13 +141,13 @@ function ep_ppt_ingresos_modelo(DOMDocument $dom, DOMXPath $xp, array $n, array 
 		$nvFondo = 'Ingresos Fondo '.$i;
 		$nvBarra = 'Ingresos Barra '.$i;
 		$grupoOrigen = ep_ppt_grupo_de($xp, $nomBarra);
-		ep_ppt_clonar_y_mover($xp, $n['filas'][$i][0], $nvNombre, $deltaX, [], $id++);
+		ep_ppt_clonar_y_mover($xp, $n['filas'][$i][0], $nvNombre, $deltaX, [], $id++, $deltaY);
 		// El grupo (fondo+barra) se clona antes que el número: si no, el fondo (siempre a ancho completo) tapa el monto.
 		if ($grupoOrigen) {
-			ep_ppt_clonar_y_mover($xp, $grupoOrigen, 'Ingresos Grupo '.$i, $deltaX, [$nomFondo => $nvFondo, $nomBarra => $nvBarra], $id);
+			ep_ppt_clonar_y_mover($xp, $grupoOrigen, 'Ingresos Grupo '.$i, $deltaX, [$nomFondo => $nvFondo, $nomBarra => $nvBarra], $id, $deltaY);
 		}
 		$id += 3;
-		ep_ppt_clonar_y_mover($xp, $n['filas'][$i][1], $nvNumero, $deltaX, [], $id++);
+		ep_ppt_clonar_y_mover($xp, $n['filas'][$i][1], $nvNumero, $deltaX, [], $id++, $deltaY);
 		$ingreso = $m['cantidad'] * $m['precio'];
 		ep_ppt_texto($dom, $xp, $nvNombre, [ep_ppt_mayus($m['modelo'])]);
 		ep_ppt_texto($dom, $xp, $nvNumero, ['$'.number_format($ingreso, 2)]);

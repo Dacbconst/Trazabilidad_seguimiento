@@ -34,4 +34,8 @@ if (!$origen) {
 }
 
 $error = ep_actividad_crear($nombre, $origen['plantilla'], (int) $_SESSION['usuario_id']);
+if ($error === null) {
+	require_once __DIR__.'/../includes/auditoria_datos.php';
+	ep_auditar('actividad_crear', 'actividad', null, 'Creó la actividad «'.$nombre.'»', [ep_auditoria_dato('Copia la lógica de', $origen['label'])]);
+}
 echo json_encode($error === null ? ['ok' => true] : ['ok' => false, 'message' => $error]);

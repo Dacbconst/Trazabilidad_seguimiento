@@ -19,4 +19,15 @@ if ($id <= 0) {
 	exit;
 }
 
-echo json_encode(ep_calendario_reactivar($id, (int) $_SESSION['usuario_id']) ? ['ok' => true] : ['ok' => false, 'message' => 'No se pudo reactivar.']);
+$antes = ep_calendario_obtener($id);
+if (!$antes || !ep_calendario_reactivar($id, (int) $_SESSION['usuario_id'])) {
+	echo json_encode(['ok' => false, 'message' => 'No se pudo reactivar.']);
+	exit;
+}
+$despues = ep_calendario_obtener($id);
+require_once __DIR__.'/../includes/auditoria_datos.php';
+ep_auditar('calendario_reactivar', 'calendario', $id, 'Reactivó «'.ep_calendario_nombre($antes).'»', [
+	ep_auditoria_dato('Estaba cerrado desde', $antes['cerrado_en'] ? date('d/m/Y H:i', strtotime($antes['cerrado_en'])) : '—'),
+	ep_auditoria_dato('Nuevo vencimiento', $despues ? date('d/m/Y H:i', strtotime($despues['vence_en'])) : '—'),
+]);
+echo json_encode(['ok' => true]);

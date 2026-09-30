@@ -1,4 +1,6 @@
 <?php
+// Hora de Ecuador para todo date()/strtotime(); el servidor corre en UTC y la base ya está en hora local.
+date_default_timezone_set('America/Guayaquil');
 // DB configuration variables
 	define('HOST','mysqlecuadorsf.mysql.database.azure.com');
 	define('USER','xplora_mysql');

@@ -35,8 +35,11 @@ if (!$generador) {
 	ep_rep_error('Este formato de presentación todavía no está disponible.');
 }
 
-// Copia congelada al guardar; los reportes anteriores a esa copia se arman con los registros actuales.
-$registros = $reporte['snapshot']['registros'] ?? ep_registros_datos(5000, $reporte['ids']);
+// Copia congelada; si no hay (o solo trae ids), se arma con los registros actuales.
+$registros = $reporte['snapshot']['registros'] ?? [];
+if (!$registros || !is_array($registros[0] ?? null)) {
+	$registros = ep_registros_datos(5000, $reporte['ids']);
+}
 if (empty($registros)) {
 	ep_rep_error('Los registros de este reporte ya no existen.', 404);
 }
@@ -48,8 +51,15 @@ usort($registros, fn($a, $b) => strcmp(($a['promotor'] ?? '').($a['fecha_activid
 $meses = ep_ppt_meses();
 $titulo = $meses[(int) substr($reporte['mes'], 5, 2)].' '.substr($reporte['mes'], 0, 4);
 $opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? '')];
-if (!empty($reporte['calendario'])) {
-	$opciones['calendario_url'] = EP_FOTOS_URL_BASE.'AppEpson/EpsonReport/'.$reporte['calendario'];
+// Tabla del calendario: la congelada en la copia o, en reportes viejos, la del calendario.
+if ($reporte['tipo'] === 'activaciones') {
+	require_once __DIR__.'/../includes/calendario_datos.php';
+	$tabla = $reporte['snapshot']['calendario'] ?? ep_calendario_tabla_de_reporte((int) $reporte['id']);
+	if ($tabla && !empty($tabla['filas'])) {
+		$opciones['calendario_filas'] = $tabla['filas'];
+		$opciones['calendario_canal'] = $tabla['canal'] ?? '';
+		$opciones['programadas'] ??= count($tabla['filas']);
+	}
 }
 try {
 	$archivo = $generador($registros, $titulo, $opciones);

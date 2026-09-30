@@ -1,0 +1,36 @@
+<?php
+// Quita un registro del Historial (borrado lógico, POST codigo). Solo admin.
+require_once __DIR__.'/../config.php';
+session_set_cookie_params(0, '/', '', SECURE, true);
+session_start();
+require_once __DIR__.'/../includes/functions.php';
+require_once __DIR__.'/../includes/registros_datos.php';
+header('Content-Type: application/json; charset=utf-8');
+
+if (!ep_login_check() || ep_rol_actual() !== 'admin') {
+	http_response_code(403);
+	echo json_encode(['ok' => false, 'message' => 'No tienes permiso para esto.']);
+	exit;
+}
+
+// En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
+try {
+	$codigo = trim((string) ($_POST['codigo'] ?? ''));
+	$registro = ep_registro_por_codigo($codigo);
+	$ok = ep_registro_eliminar($codigo);
+	if ($ok && $registro) {
+		require_once __DIR__.'/../includes/auditoria_datos.php';
+		$fecha = $registro['fecha_actividad'] ?? ($registro['fecha_iso'] ?? '');
+		ep_auditar('registro_eliminar', 'registro', (int) $registro['db_id'], 'Eliminó el registro '.$codigo, [
+			ep_auditoria_dato('Actividad', $registro['actividad_label'] ?? ($registro['tipo'] ?? '')),
+			ep_auditoria_dato('Promotor', $registro['promotor'] ?? ''),
+			ep_auditoria_dato('Punto de venta', $registro['punto_venta'] ?? ''),
+			ep_auditoria_dato('Fecha de la actividad', $fecha !== '' ? date('d/m/Y', strtotime($fecha)) : '—'),
+		]);
+	}
+} catch (Throwable $e) {
+	error_log('registro_eliminar: '.$e->getMessage());
+	echo json_encode(['ok' => false, 'message' => 'Error del servidor: '.$e->getMessage()]);
+	exit;
+}
+echo json_encode($ok ? ['ok' => true] : ['ok' => false, 'message' => 'No se encontró el registro o ya estaba eliminado.']);

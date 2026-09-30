@@ -14,24 +14,24 @@ require_once __DIR__.'/../../includes/calendario_datos.php';
 $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
 session_write_close();
 
-// Antes de listar, se cierran solos los que ya vencieron (mismo camino que el botón "Generar ahora").
+// Primero se cruzan registros ya enviados, así un calendario que vence cierra con lo cumplido.
+ep_calendario_cruzar_pendientes();
 ep_calendario_verificar_vencidos($usuarioId);
-$calendarios = array_map(function ($c) {
-	$c['filas'] = array_map(fn($f) => ['fecha' => $f['fecha'], 'ciudad' => $f['ciudad'], 'pdv' => $f['punto_venta'], 'pos_id' => $f['pos_id'], 'promotor' => $f['promotor_nombre'], 'promotor_id' => (int) $f['promotor_usuario_id'], 'supervisor' => $f['supervisor_nombre'], 'estado' => $f['estado'], 'cumplido_en' => $f['cumplido_en'], 'fila_id' => (int) $f['id']], $c['filas']);
+// Editable según la grabación 28-09; el servidor lo vuelve a validar al guardar.
+$hoy = date('Y-m-d');
+$calendarios = array_map(function ($c) use ($hoy) {
+	$c['filas'] = array_map(fn($f) => ['fecha' => $f['fecha'], 'ciudad' => $f['ciudad'], 'pdv' => $f['punto_venta'], 'pos_id' => $f['pos_id'], 'promotor' => $f['promotor_nombre'], 'promotor_id' => (int) $f['promotor_usuario_id'], 'supervisor' => $f['supervisor_nombre'], 'estado' => $f['estado'], 'cumplido_en' => $f['cumplido_en'], 'fila_id' => (int) $f['id'], 'editable' => $c['estado'] === 'activo' && $f['estado'] === 'pendiente' && $f['fecha'] >= $hoy], $c['filas']);
 	return $c;
 }, ep_calendario_listar());
 
-$ruteroRetail = ep_calendario_rutero('RETAIL');
-$ruteroCanales = ep_calendario_rutero('CANALES');
+// Rutero, ciudades y PDV del modal ya no viajan en el HTML: calendario.js los pide a getters/calendario_catalogo.php.
+$canales = ep_calendario_canales();
 
-$estadoInfo = [
-	'activo'  => ['label' => 'Activo',  'clase' => 'azul'],
-	'cerrado' => ['label' => 'Cerrado', 'clase' => 'verde'],
-];
-$filaEstadoInfo = [
-	'pendiente' => ['label' => 'Pendiente', 'clase' => 'gris'],
-	'cumplido'  => ['label' => 'Cumplido',  'clase' => 'verde'],
-];
+$mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+$fechaCorta = fn(string $iso): string => (int) substr($iso, 8, 2).' '.$mesesCortos[(int) substr($iso, 5, 2)];
+$rango = fn(string $d, string $h): string => $d === $h ? $fechaCorta($d) : (substr($d, 0, 7) === substr($h, 0, 7) ? (int) substr($d, 8, 2).'–'.$fechaCorta($h) : $fechaCorta($d).' – '.$fechaCorta($h));
+$filasTxt = fn(int $n): string => $n.($n === 1 ? ' fila' : ' filas');
+$canalTxt = fn(string $c): string => ucfirst(strtolower($c));
 
 function ep_cal_dias_restantes(?string $venceEn): ?int {
 	if (!$venceEn) {
@@ -39,113 +39,165 @@ function ep_cal_dias_restantes(?string $venceEn): ?int {
 	}
 	return (int) ceil((strtotime($venceEn) - time()) / 86400);
 }
-$hoy = date('Y-m-d');
+
+// Estado que ve el usuario: activo, o cerrado completo/incompleto según si se cumplieron todas sus filas.
+function ep_cal_estado_vista(array $c, int $cumplidas, int $total): string {
+	if ($c['estado'] === 'activo') {
+		return 'activo';
+	}
+	return $total > 0 && $cumplidas === $total ? 'completo' : 'incompleto';
+}
+
+$canalesLista = array_values(array_unique(array_map(fn($c) => $c['canal'], $calendarios)));
+sort($canalesLista);
+$iconoReactivar = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>';
+$iconoMas = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+$etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq" aria-hidden="true"><span class="ep-cl-larga">'.$larga.'</span><span class="ep-cl-corta">'.$corta.'</span></span>';
 ?>
+<link rel="stylesheet" href="assets/css/calendario-lista.css?v=<?= filemtime(__DIR__.'/../../assets/css/calendario-lista.css') ?>">
 <main class="ep-content ep-cal" id="epCal">
 
-	<header class="ep-cal-head">
+	<header class="ep-cl-head">
 		<div>
 			<h1>Calendario de Activaciones</h1>
-			<p><?= count($calendarios) ?> <?= count($calendarios) === 1 ? 'calendario' : 'calendarios' ?> · el sistema cruza solo los registros que envíen los promotores</p>
+			<p id="epClResumen"><?= count($calendarios) ?> <?= count($calendarios) === 1 ? 'calendario' : 'calendarios' ?></p>
 		</div>
-		<button type="button" class="ep-rp-nuevo" id="epCalNuevo"><?= ep_icon('plus', 16) ?> <span>Crear Calendario</span></button>
+		<button type="button" class="ep-rp-nuevo" id="epCalNuevo"><?= ep_icon('plus', 16) ?> <span>Crear calendario</span></button>
 	</header>
 
 	<?php if (empty($calendarios)): ?>
-		<?= ep_estado_vacio('calendar', 'Todavía no hay calendarios', 'Crea el primero con "Crear Calendario".') ?>
+		<?= ep_estado_vacio('calendar', 'Todavía no hay calendarios', 'Crea el primero con "Crear calendario".') ?>
 	<?php else: ?>
-	<section class="ep-fl-barra">
-		<div class="ep-fl-combo" id="epCalComboCanal">
-			<button type="button" class="ep-fl-combo-btn" aria-haspopup="listbox" aria-expanded="false">Canal <span class="ep-fl-combo-valor">Todos</span><?= ep_icon('chevron', 16) ?></button>
-		</div>
-		<div class="ep-fl-combo" id="epCalComboEstado">
-			<button type="button" class="ep-fl-combo-btn" aria-haspopup="listbox" aria-expanded="false">Estado <span class="ep-fl-combo-valor">Todos</span><?= ep_icon('chevron', 16) ?></button>
-		</div>
+	<section class="ep-cl-kpis" aria-label="Calendarios por estado">
+		<button type="button" class="ep-cl-kpi ep-cl-kpi-activo" data-kpi="activo" aria-pressed="false"><span class="ep-cl-kpi-n">0</span><span class="ep-cl-kpi-t">Activos</span></button>
+		<button type="button" class="ep-cl-kpi ep-cl-kpi-completo" data-kpi="completo" aria-pressed="false"><span class="ep-cl-kpi-n">0</span><span class="ep-cl-kpi-t">Cerrado completo</span></button>
+		<button type="button" class="ep-cl-kpi ep-cl-kpi-incompleto" data-kpi="incompleto" aria-pressed="false"><span class="ep-cl-kpi-n">0</span><span class="ep-cl-kpi-t">Cerrado incompleto</span></button>
 	</section>
 
-	<section class="ep-cal-lista">
+	<div class="ep-cl-barra">
+		<div class="ep-cl-pop ep-cl-pop-periodo">
+			<button type="button" class="ep-cl-filtro" id="epClPeriodoBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="epClPeriodo">
+				<?= ep_icon('calendar', 16) ?> <span class="ep-cl-filtro-et">Período:</span> <strong id="epClPeriodoTxt">Todas las fechas</strong> <?= ep_icon('chevron', 14) ?>
+			</button>
+			<div class="ep-cl-panel" id="epClPeriodo" role="dialog" aria-label="Elegir período" hidden>
+				<div class="ep-cl-atajos">
+					<button type="button" class="ep-cl-chip" data-atajo="mes">Este mes</button>
+					<button type="button" class="ep-cl-chip" data-atajo="anterior">Mes anterior</button>
+					<button type="button" class="ep-cl-chip" data-atajo="30">Últimos 30 días</button>
+				</div>
+				<span class="ep-cl-panel-t">Elegir mes</span>
+				<div class="ep-cl-meses" id="epClMeses"></div>
+				<span class="ep-cl-panel-t">Rango personalizado</span>
+				<div class="ep-cl-rango">
+					<label>Desde <input type="date" id="epClDesde"></label>
+					<label>Hasta <input type="date" id="epClHasta"></label>
+				</div>
+				<div class="ep-cl-panel-pie">
+					<button type="button" class="ep-cl-limpiar" id="epClLimpiar">Limpiar</button>
+					<button type="button" class="ep-cl-aplicar" id="epClAplicar">Aplicar</button>
+				</div>
+			</div>
+		</div>
+		<label class="ep-cl-buscar">
+			<?= ep_icon('search', 16) ?>
+			<input type="search" id="epClBuscar" placeholder="Buscar calendario, punto o promotor" aria-label="Buscar calendario, punto o promotor" autocomplete="off">
+		</label>
+		<div class="ep-cl-pop ep-cl-pop-canal">
+			<button type="button" class="ep-cl-filtro" id="epClCanalBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="epClCanal">
+				<span class="ep-cl-filtro-et">Canal:</span> <strong id="epClCanalTxt">Todos</strong> <?= ep_icon('chevron', 14) ?>
+			</button>
+			<div class="ep-cl-panel ep-cl-panel-lista" id="epClCanal" role="listbox" aria-label="Canal" hidden>
+				<button type="button" role="option" data-canal="" aria-selected="true">Todos</button>
+				<?php foreach ($canalesLista as $canal): ?>
+					<button type="button" role="option" data-canal="<?= $h($canal) ?>" aria-selected="false"><?= $h($canalTxt($canal)) ?></button>
+				<?php endforeach; ?>
+			</div>
+		</div>
+	</div>
+
+	<div class="ep-cl-tabla" role="table" aria-label="Calendarios">
+		<div class="ep-cl-cab" role="row">
+			<span></span><span role="columnheader">Calendario</span><span role="columnheader">Canal</span><span role="columnheader">Fechas</span><span role="columnheader">Avance</span><span role="columnheader">Estado</span><span role="columnheader" class="ep-cl-der">Acciones</span>
+		</div>
 		<?php foreach ($calendarios as $c):
-			$cumplidas = count(array_filter($c['filas'], fn($f) => $f['estado'] === 'cumplido'));
 			$total = count($c['filas']);
-			$pct = $total > 0 ? round($cumplidas / $total * 100) : 0;
+			$cumplidas = count(array_filter($c['filas'], fn($f) => $f['estado'] === 'cumplido'));
+			$vista = ep_cal_estado_vista($c, $cumplidas, $total);
 			$dias = ep_cal_dias_restantes($c['vence_en']);
-			$ei = $estadoInfo[$c['estado']];
+			$nombre = $c['nombre'] ?: 'Activaciones '.$canalTxt($c['canal']);
+			$reporteUrl = !empty($c['reporte_mensual_id']) ? 'getters/reporte_descargar.php?id='.(int) $c['reporte_mensual_id'] : '';
+			$id = (int) $c['id'];
+			if ($vista === 'activo') {
+				$estadoTxt = $dias === null ? 'Activo' : ($dias > 0 ? 'Cierra en '.$dias.' '.($dias === 1 ? 'día' : 'días') : 'Cierra hoy');
+				$sub = $filasTxt($total).' · plazo '.(int) $c['plazo_dias'].' días';
+			} else {
+				$estadoTxt = $vista === 'completo' ? 'Cerrado completo' : 'Cerrado incompleto';
+				$sub = $filasTxt($total).' · cerró el '.$fechaCorta(substr((string) ($c['cerrado_en'] ?: $c['hasta']), 0, 10));
+			}
+			$urgente = $vista === 'activo' && $dias !== null && $dias <= 3;
 		?>
-		<article class="ep-cal-card" data-id="<?= (int) $c['id'] ?>">
-			<div class="ep-cal-card-head">
-				<div class="ep-cal-card-titulo">
-					<strong><?= $h($c['nombre'] ?: 'Activaciones '.ucfirst(strtolower($c['canal']))) ?></strong>
-					<span><?= $h(ucfirst(strtolower($c['canal']))) ?> · <?= $h(date('d/m', strtotime($c['desde']))) ?> al <?= $h(date('d/m/Y', strtotime($c['hasta']))) ?> · plazo <?= (int) $c['plazo_dias'] ?> días</span>
-				</div>
-				<div class="ep-cal-card-acciones">
-					<span class="ep-cal-badge ep-cal-badge-<?= $ei['clase'] ?>">
-						<?= $h($ei['label']) ?><?= $c['estado'] === 'activo' && $dias !== null ? ' · vence en '.($dias > 0 ? $dias.' '.($dias === 1 ? 'día' : 'días') : 'menos de 1 día') : '' ?>
-					</span>
-					<?php if ($c['estado'] === 'activo'): ?>
-						<button type="button" class="ep-btn-subtle-compact ep-cal-generar-ahora" data-id="<?= (int) $c['id'] ?>"><?= ep_icon('presentation', 13) ?> Generar ahora</button>
-					<?php endif; ?>
-					<?php if ($c['estado'] === 'cerrado'): ?>
-						<a href="index.php?vista=reportes" class="ep-btn-subtle-compact ep-cal-ver-reporte"><?= ep_icon('presentation', 13) ?> Ver en Reportes mensuales</a>
-						<button type="button" class="ep-cal-reactivar" data-id="<?= (int) $c['id'] ?>">Reactivar</button>
-					<?php endif; ?>
-				</div>
-			</div>
-
-			<div class="ep-cal-progreso">
-				<div class="ep-cal-progreso-barra"><div class="ep-cal-progreso-fill" style="width:<?= $pct ?>%;"></div></div>
-				<span><?= $cumplidas ?> de <?= $total ?> cumplidas</span>
-			</div>
-
-			<!-- Desplegable: puede haber 100+ filas, por defecto la tarjeta queda compacta. -->
-			<details class="ep-cal-desplegable">
-				<summary><?= ep_icon('table', 14) ?> Ver filas (<?= $total ?>) <?= ep_icon('chevron', 14) ?></summary>
-				<div class="ep-cal-tabla">
-					<div class="ep-cal-tabla-head">
-						<span>Fecha</span><span>Ciudad</span><span>Punto de venta</span><span>Promotor</span><span>Supervisor</span><span>Estado</span>
-					</div>
-					<?php foreach ($c['filas'] as $f):
-						$fi = $filaEstadoInfo[$f['estado']];
-						$editable = $c['estado'] === 'activo' && $f['fecha'] >= $hoy;
-					?>
-					<div class="ep-cal-fila<?= $editable ? ' es-editable' : '' ?>" data-fila-id="<?= (int) $f['fila_id'] ?>" data-canal="<?= $h($c['canal']) ?>">
-						<span><?= $h(date('d/m/Y', strtotime($f['fecha']))) ?></span>
-						<span><?= $h($f['ciudad']) ?></span>
-						<span class="ep-cal-valor-pdv" data-pos-id="<?= $h($f['pos_id']) ?>"><?= $h($f['pdv']) ?><?php if ($editable): ?><button type="button" class="ep-cal-editar-campo" data-campo="pdv" aria-label="Editar punto de venta"><?= ep_icon('chevron-right', 12) ?></button><?php endif; ?></span>
-						<span class="ep-cal-valor-promotor" data-promotor-id="<?= (int) $f['promotor_id'] ?>"><?= $h($f['promotor']) ?><?php if ($editable): ?><button type="button" class="ep-cal-editar-campo" data-campo="promotor" aria-label="Editar promotor"><?= ep_icon('chevron-right', 12) ?></button><?php endif; ?></span>
-						<span class="ep-cal-truncado" title="<?= $h($f['supervisor'] ?: '') ?>"><?= $h($f['supervisor'] ?: '—') ?></span>
-						<em class="ep-cal-pill ep-cal-pill-<?= $fi['clase'] ?>"><?= $h($fi['label']) ?><?= $f['estado'] === 'cumplido' ? ' · '.$h(date('d/m', strtotime($f['cumplido_en']))) : '' ?></em>
-					</div>
-					<?php endforeach; ?>
-				</div>
-			</details>
-
-			<?php
-				$porPromotor = [];
-				foreach ($c['filas'] as $f) {
-					$porPromotor[$f['promotor']] ??= ['ultima' => null];
-					if ($f['estado'] === 'cumplido' && (!$porPromotor[$f['promotor']]['ultima'] || $f['cumplido_en'] > $porPromotor[$f['promotor']]['ultima'])) {
-						$porPromotor[$f['promotor']]['ultima'] = $f['cumplido_en'];
-					}
-				}
-			?>
-			<details class="ep-cal-desplegable">
-				<summary><?= ep_icon('users', 14) ?> Registros y Seguimiento (<?= count($porPromotor) ?>) <?= ep_icon('chevron', 14) ?></summary>
-				<div class="ep-cal-seguimiento-lista">
-					<?php foreach ($porPromotor as $nombre => $info): ?>
-					<div class="ep-cal-seguimiento-fila">
-						<span><?= $h($nombre) ?></span>
-						<?php if ($info['ultima']): ?>
-							<em class="ep-cal-pill ep-cal-pill-verde"><?= $h(date('d/m/Y', strtotime($info['ultima']))) ?></em>
-						<?php else: ?>
-							<em class="ep-cal-pill ep-cal-pill-gris">Pendiente</em>
+		<article class="ep-cl-cal" data-id="<?= $id ?>" data-estado="<?= $vista ?>" data-canal="<?= $h($c['canal']) ?>" data-total="<?= $total ?>" data-nombre="<?= $h(mb_strtolower($nombre, 'UTF-8')) ?>">
+			<div class="ep-cl-fila" role="row">
+				<button type="button" class="ep-cl-toggle" aria-expanded="false" aria-label="Ver filas de <?= $h($nombre) ?>"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+				<div class="ep-cl-nombre"><strong title="<?= $h($nombre) ?>"><?= $h($nombre) ?></strong><span><?= $h($sub) ?></span></div>
+				<span class="ep-cl-tag ep-cl-tag-canal"><?= $h($canalTxt($c['canal'])) ?></span>
+				<span class="ep-cl-fechas"><?= $h($rango($c['desde'], $c['hasta'])) ?></span>
+				<div class="ep-cl-avance"><span class="ep-cl-barra-av"><span style="width: <?= $total > 0 ? round($cumplidas / $total * 100) : 0 ?>%"></span></span><span class="ep-cl-av-txt"><?= $cumplidas ?> de <?= $total ?><?= $vista === 'incompleto' ? ' · <em>faltaron '.($total - $cumplidas).'</em>' : '' ?></span></div>
+				<span class="ep-cl-tag ep-cl-estado ep-cl-estado-<?= $vista ?><?= $urgente ? ' ep-cl-urgente' : '' ?>"><?= $h($estadoTxt) ?></span>
+				<div class="ep-cl-acciones">
+					<?php if ($vista === 'activo'): ?>
+						<button type="button" class="ep-cl-pri ep-cal-generar-ahora" data-id="<?= $id ?>"><?= ep_icon('presentation', 15) ?> Generar reporte</button>
+						<button type="button" class="ep-cl-accion ep-cal-editar" data-id="<?= $id ?>" aria-label="Editar <?= $h($nombre) ?>"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Editar', 'Editar') ?></button>
+					<?php elseif ($vista === 'incompleto'): ?>
+						<button type="button" class="ep-cl-pri ep-cal-reactivar" data-id="<?= $id ?>"><?= $iconoReactivar ?> Reactivar</button>
+						<button type="button" class="ep-cl-accion" disabled aria-label="Editar: solo en calendarios activos"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Solo en activos', 'Editar') ?></button>
+					<?php else: ?>
+						<?php if ($reporteUrl): ?>
+							<a class="ep-cl-pri" href="<?= $h($reporteUrl) ?>"><?= ep_icon('download', 15) ?> Descargar PPT</a>
 						<?php endif; ?>
+						<button type="button" class="ep-cl-accion" disabled aria-label="Editar: solo en calendarios activos"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Solo en activos', 'Editar') ?></button>
+					<?php endif; ?>
+					<?php if ($vista === 'incompleto'): ?>
+						<?php if ($reporteUrl): ?>
+							<a class="ep-cl-accion" href="<?= $h($reporteUrl) ?>" aria-label="Descargar PPT de <?= $h($nombre) ?>"><?= ep_icon('presentation', 16) ?><?= $etiqueta('Descargar PPT', 'PPT') ?></a>
+						<?php else: ?>
+							<button type="button" class="ep-cl-accion" disabled aria-label="Sin reporte: no llegó ningún registro"><?= ep_icon('presentation', 16) ?><?= $etiqueta('Sin reporte', 'PPT') ?></button>
+						<?php endif; ?>
+					<?php endif; ?>
+					<div class="ep-cl-pop ep-cl-pop-mas">
+						<button type="button" class="ep-cl-accion ep-cl-mas" aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de <?= $h($nombre) ?>"><?= $iconoMas ?><?= $etiqueta('Más acciones', 'Más') ?></button>
+						<div class="ep-cl-menu" role="menu" hidden>
+							<?php if ($vista === 'completo'): ?>
+								<button type="button" role="menuitem" class="ep-cal-reactivar" data-id="<?= $id ?>"><?= $iconoReactivar ?> Reactivar</button>
+							<?php endif; ?>
+							<button type="button" role="menuitem" class="ep-cal-eliminar ep-cl-peligro" data-id="<?= $id ?>"><?= ep_icon('trash', 15) ?> Eliminar calendario</button>
+						</div>
 					</div>
-					<?php endforeach; ?>
 				</div>
-			</details>
+			</div>
+
+			<div class="ep-cl-detalle" hidden>
+				<div class="ep-cl-chips" role="group" aria-label="Filtrar filas">
+					<button type="button" class="ep-cl-chip" data-f="todas" aria-pressed="false">Todas <b></b></button>
+					<button type="button" class="ep-cl-chip" data-f="cumplido" aria-pressed="false">Cumplidas <b></b></button>
+					<button type="button" class="ep-cl-chip ep-cl-chip-falta" data-f="pendiente" aria-pressed="false"><?= $vista === 'activo' ? 'Pendientes' : 'No cumplidas' ?> <b></b></button>
+				</div>
+				<div class="ep-cl-f ep-cl-f-cab"><span>Fecha</span><span>Punto de venta</span><span>Ciudad</span><span>Promotor</span><span>Supervisor</span></div>
+				<?php foreach ($c['filas'] as $f): ?>
+				<div class="ep-cl-f" data-fecha="<?= $h($f['fecha']) ?>" data-estado="<?= $h($f['estado']) ?>" data-busca="<?= $h(mb_strtolower($f['pdv'].' '.$f['ciudad'].' '.$f['promotor'].' '.$f['supervisor'], 'UTF-8')) ?>">
+					<span class="ep-cl-f-fecha"><b><?= (int) substr($f['fecha'], 8, 2) ?></b> <?= $h($mesesCortos[(int) substr($f['fecha'], 5, 2)]) ?></span>
+					<span class="ep-cl-f-pdv"><?= $h($f['pdv']) ?></span>
+					<span class="ep-cl-f-ciudad"><?= $h($f['ciudad'] ?: '—') ?></span>
+					<span class="ep-cl-f-promotor"><?= $h($f['promotor']) ?></span>
+					<span class="ep-cl-f-sup"><?= $h($f['supervisor'] ?: '—') ?></span>
+				</div>
+				<?php endforeach; ?>
+				<p class="ep-cl-f-vacio" hidden>No hay filas con este filtro.</p>
+			</div>
 		</article>
 		<?php endforeach; ?>
-	</section>
+		<div class="ep-cl-sin" id="epClSin" hidden><?= ep_estado_vacio('search', 'Ningún calendario coincide', 'Cambia el período, el canal o la búsqueda, o toca de nuevo el indicador activo.') ?></div>
+	</div>
 	<?php endif; ?>
 
 	<!-- Modal "Crear Calendario": un solo guardado (crea y activa a la vez, no hay borrador). -->
@@ -162,15 +214,27 @@ $hoy = date('Y-m-d');
 				<button type="button" class="ep-modal-close-btn" id="epCalModalCerrar" aria-label="Cerrar"><?= ep_icon('close', 16) ?></button>
 			</div>
 			<div class="ep-modal-ppt-body">
+				<p class="ep-cal-aviso-edicion hidden" id="epCalAvisoEdicion"><?= ep_icon('lock', 14) ?> Se pueden cambiar los comentarios, y ciudad, promotor y punto de venta de las filas pendientes cuya fecha sea hoy o posterior. Las filas ya cumplidas o con fecha pasada quedan bloqueadas.</p>
 				<div class="ep-cal-form-fila">
 					<label class="ep-cal-campo"><span>Nombre del calendario (título del reporte generado)</span><input type="text" class="ep-input" id="epCalNombre" placeholder="Activaciones Retail · Noviembre"></label>
 				</div>
 				<div class="ep-cal-form-fila ep-cal-form-fila-3">
-					<label class="ep-cal-campo"><span>Canal</span>
-						<select class="ep-input" id="epCalCanal"><option value="RETAIL">Retail</option><option value="CANALES">Canales</option></select>
-					</label>
+					<div class="ep-cal-campo"><span>Canal</span>
+						<div class="ep-combo ep-cal-combo-canal" id="epCalCanalCombo" data-opciones="<?= $h(json_encode(array_map(fn($c) => ['texto' => ucfirst(strtolower($c)), 'valor' => $c], $canales), JSON_UNESCAPED_UNICODE)) ?>">
+							<button type="button" class="ep-input ep-combo-trigger" data-valor=""><span class="ep-combo-trigger-texto">Canal</span><?= ep_icon('chevron', 14) ?></button>
+							<div class="ep-combo-panel hidden">
+								<input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar canal..." autocomplete="off">
+								<div class="ep-combo-opciones"></div>
+							</div>
+						</div>
+						<input type="hidden" id="epCalCanal" value="<?= $h(in_array('RETAIL', $canales, true) ? 'RETAIL' : ($canales[0] ?? '')) ?>">
+					</div>
 					<label class="ep-cal-campo"><span>Plazo máximo (días)</span><input type="number" min="1" max="30" class="ep-input" id="epCalPlazo" value="5"></label>
 					<div class="ep-cal-campo"><span>Rango (automático)</span><div class="ep-cal-rango-auto" id="epCalRangoAuto">Se calcula al agregar filas</div></div>
+				</div>
+				<div class="ep-cal-campo ep-cal-campo-comentarios">
+					<span>Comentarios del reporte (opcional, hasta 5)</span>
+					<textarea class="ep-input" id="epCal-comentarios" rows="2"></textarea>
 				</div>
 
 				<div class="ep-cal-filas-editor">
@@ -209,7 +273,10 @@ $hoy = date('Y-m-d');
 								<span class="ep-cal-supervisor-auto">—</span>
 								<select class="ep-input ep-cal-supervisor-select hidden"></select>
 							</div>
-							<button type="button" class="ep-modelo-quitar" aria-label="Quitar fila"><?= ep_icon('trash', 14) ?></button>
+							<div class="ep-cal-fila-accion">
+								<button type="button" class="ep-modelo-quitar" aria-label="Quitar fila"><?= ep_icon('trash', 14) ?></button>
+								<span class="ep-cal-fila-candado hidden"><?= ep_icon('lock', 14) ?></span>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -223,7 +290,8 @@ $hoy = date('Y-m-d');
 		</div>
 	</div>
 
-	<script type="application/json" id="epCalDatosRutero">
-		<?= json_encode(['RETAIL' => $ruteroRetail, 'CANALES' => $ruteroCanales], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>
+	<script type="application/json" id="epCalDatosCalendarios">
+		<?= json_encode(array_values(array_map(fn($c) => ['id' => (int) $c['id'], 'nombre' => $c['nombre'], 'canal' => $c['canal'], 'plazo_dias' => (int) $c['plazo_dias'], 'comentarios' => (string) ($c['comentarios'] ?? ''), 'filas' => $c['filas']], array_filter($calendarios, fn($c) => $c['estado'] === 'activo'))), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>
 	</script>
+	<script src="assets/js/calendario-lista.js?v=<?= filemtime(__DIR__.'/../../assets/js/calendario-lista.js') ?>"></script>
 </main>

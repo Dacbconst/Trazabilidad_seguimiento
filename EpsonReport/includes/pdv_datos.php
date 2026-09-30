@@ -17,7 +17,8 @@ function ep_canales_usuario(): array {
 	$canales = EP_CANALES_PDV;
 	$db = ep_db();
 	if ($db) {
-		$stmt = $db->prepare("SELECT d.channel, COUNT(DISTINCT d.pos_id) AS n FROM lvi_rutero r JOIN repositorio_locales_dtt2 d ON d.pos_id = r.pos_id AND d.activar = 'SI' WHERE r.user = ? AND d.channel IN ('RETAIL', 'CANALES') GROUP BY d.channel");
+		// Tablas base del rutero, no la vista lvi_rutero (agrupa por fecha y tardaba ~3 s; mismo resultado en ~0,2 s).
+		$stmt = $db->prepare("SELECT d.channel, COUNT(DISTINCT d.pos_id) AS n FROM rutero_pdv rp JOIN repositorio_usuarios usu ON usu.id = rp.id_usuario JOIN repositorio_locales_dtt2 d ON d.id = rp.id_pdv AND d.activar = 'SI' WHERE usu.user = ? AND rp.status = 1 AND rp.habilitado = 1 AND d.channel IN ('RETAIL', 'CANALES') GROUP BY d.channel");
 		if ($stmt) {
 			$stmt->bind_param('s', $_SESSION['usuario']);
 			$stmt->execute();

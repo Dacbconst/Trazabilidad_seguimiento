@@ -377,6 +377,38 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - **Diseño del modal (2026-09-29)**: rediseñado con la herramienta de Diseño de Claude a pedido explícito del usuario (no con `impeccable`, que es la opción por defecto del repo, porque aquí se pidió por nombre). Supervisor quedó como columna propia en la fila (con truncado "…" y tooltip nativo si el nombre no entra), "Rango (automático)" bajó de expandirse a todo el ancho a un tamaño fijo de 200px, y el campo "Nombre del calendario" aclara que es el título con el que se genera el reporte PPTX automático. Versión móvil pensada como hoja inferior (mismo patrón que el selector de punto de venta), con las filas apiladas en una sola columna. Se limpiaron 3 reglas CSS que quedaron sin uso al sacar los estados "borrador" y "bloqueado" (`ep-cal-badge-gris`, `ep-cal-badge-alerta`, `ep-cal-pill-alerta`).
 - **Rendimiento (2026-09-29)**: `lvi_rutero` es una VISTA de Xplora (no una tabla, no se le puede poner índice) armada sobre `rutero_pdv` (237.000+ filas) con un `GROUP BY fecha_visita, id_pdv, id_usuario` — como es el calendario histórico de visitas, agrupa por día, y MySQL tiene que materializar eso completo antes de poder aplicar cualquier filtro nuestro, sin importar los índices de las tablas de abajo (comprobado: agregar índices en `rutero_pdv.status/habilitado/id_pdv/id_usuario/id_supervisor` casi no cambió el tiempo, ~4s). La solución real fue que `ep_calendario_rutero()` consulte directo `rutero_pdv` + `repositorio_locales_dtt2` + `repositorio_usuarios` + `repositorio_supervisores` (sin pasar por la vista ni por su agrupación por fecha, que no nos interesa) — de ~3.5-4s a ~1.7s por canal. Encima se cachea 5 minutos en `data/cache/rutero_<CANAL>.json` (dato compartido entre admins). `calendario.php` también llama `session_write_close()` apenas termina de leer la sesión, para no bloquear otras pestañas mientras esta pantalla carga.
 
+## Calendario: editar, eliminar y cruce por nombre (2026-09-29, SIN PROBAR en navegador)
+
+- **Editar** (botón en calendarios activos): reusa el modal de Crear con todo bloqueado salvo ciudad, promotor y punto de venta de las filas **pendientes con fecha de hoy o posterior** (grabación 28-09, líneas 259-333: "antes de o en el mismo día"; una fila con registro "queda quemada"). La fecha nunca se edita, no se agregan ni quitan filas. `getters/calendario_editar.php` revalida todo en el servidor y guarda en una transacción; solo viajan las filas que cambiaron, así `editado_por`/`editado_en` no marcan filas intactas. Reemplazó a la edición inline (`calendario_fila_editar.php`, eliminado).
+- **Eliminar** calendario y **eliminar registro** (Historial): solo admin, borrado lógico con `eliminado_en`. Un registro eliminado devuelve a "pendiente" la fila de calendario que había cumplido.
+- **Cruce registro ↔ fila**: la fila guarda el id de Xplora (`repositorio_usuarios.id`) y la sesión el de `repositorio_usuarios_reporte`; se traducen por el nombre de usuario (`x.user = u.usuario`), que es igual en ambas porque el login valida contra Xplora por nombre.
+- **Canales**: salen de `repositorio_locales_dtt2` (RETAIL, CANALES, OFICINA, BODEGA, EVENTOS, FERIAS); `insert_reporte_calendario.canal` pasó de ENUM a `VARCHAR(30)`.
+- **Cruce de registros ya enviados**: el cruce al guardar solo ve calendarios que ya existen; `ep_calendario_cruzar_pendientes()` corre al abrir la pantalla de Calendario (antes de cerrar vencidos) y empareja filas pendientes con registros enviados antes de crear, editar o reactivar el calendario. `cumplido_en` = hora de envío del registro.
+- **Reporte del calendario = reporte manual de Activaciones**: `ep_calendario_generar_ahora()` usa las mismas reglas que `reporte_guardar.php` (solo registros de Activaciones no ocupados por otro reporte activo, copia congelada completa en `snapshot`), con programadas = filas del calendario, ejecutadas = registros incluidos y los comentarios del calendario (columna `comentarios`, hasta 5, editable mientras esté activo). Sale el mismo PPTX; en la diapositiva de cumplimiento, el recuadro de la antigua foto del calendario (`Rectángulo 14`) ahora lo ocupa una tabla nativa de PowerPoint con las filas del calendario (`includes/ppt_calendario_tabla.php`: fecha, ciudad, punto de venta, promotor, estado; el canal va en el título). Siempre cabe en ese recuadro: una tabla hasta ~35 filas, dos lado a lado hasta ~70, y después "Y N FILAS MÁS". La tabla queda congelada en `snapshot.calendario`. La foto del calendario ya no existe en ningún flujo. El botón manual de Activaciones se ocultó en Reportes mensuales. Los primeros reportes generados por calendario guardaron solo ids en `snapshot`; `reporte_descargar.php` los rearma desde la base.
+- **Collations mezcladas**: `insert_reporte_registro.pos_id` es `utf8mb4_unicode_ci` y `insert_reporte_calendario_fila.pos_id` es `utf8mb4_0900_ai_ci`; compararlas columna contra columna da "Illegal mix of collations" (hay que poner `COLLATE utf8mb4_unicode_ci`). Con un parámetro `?` no pasa.
+- **Zona horaria**: `config.php` fija `America/Guayaquil`; antes PHP corría en UTC (5 h adelantado) y la base en hora local, lo que corría vencimientos y bloqueaba filas del día desde las 19:00.
+
+## Optimización de carga (2026-09-29, medida con Playwright y CPU 4x más lenta)
+
+- **Diagnóstico**: el servidor responde en 110–220 ms; lo pesado era el navegador (24 CSS/JS en cada pantalla, ~385 KB sin comprimir en la primera entrada) y, para promotores, la consulta a la vista `lvi_rutero` (~3,2 s) en su primera carga tras el login: esa era la "pantalla en blanco" después de la animación de bienvenida.
+- **CSS/JS por módulo** (`index.php`, `$porVista`): cada módulo carga solo lo suyo, en el orden de siempre; `base`, `shell` y `wizard-fotos` (tiene `.hidden`, encabezado móvil y fondo del sidebar) van siempre. Un módulo que no esté en la lista carga todo. Al agregar un módulo nuevo, sumarlo a `$porVista`. Dependencias ocultas: Historial necesita `app.js` (botón "Slide") y `actividades.css` (tarjetas `ep-stat-*`); el modal del Calendario usa `actividades.css` (combos), `reportes.css` (`ep-rp-*`), `ppt-export.css` y `comentarios`. Los estilos de SweetAlert se movieron a `base.css`; `.ep-hist-badge` a `actividades.css`.
+- **Calendario**: rutero, ciudades y PDV del modal ya no van en el HTML (701 KB → 30 KB); `calendario.js` los pide a `getters/calendario_catalogo.php` (gzip, caché 5 min) en segundo plano y los espera antes de abrir el modal.
+- **Precarga**: `<script type="speculationrules">` en `index.php` pide el módulo al detener el mouse sobre `.ep-sidebar-nav a` (Chrome/Edge); nunca "Cerrar sesión".
+- **Canales del promotor** (`ep_canales_usuario()` en `pdv_datos.php`): usa las tablas base del rutero en vez de `lvi_rutero` (mismo resultado verificado para los 3 promotores; 3,2 s → 0,24 s). No quedan consultas a `lvi_rutero` en el código.
+- **Pendiente fuera del código**: nginx de Azure no comprime CSS/JS (solo HTML) ni les pone `Cache-Control`; activarlo bajaría ~70 % la primera descarga.
+
+## Lista del Calendario rediseñada (2026-09-29, aprobada en Claude Design)
+
+- Diseño aprobado: tableros "B+ · Tabla con indicadores" y "B+ · Celular" de https://claude.ai/artifact/K3j1JQCksXk8vZpB3jFqix (hecho con `impeccable`, estructura elegida por sorteo entre 3).
+- `components/calendario/calendario.php` arma la lista; estilos en `assets/css/calendario-lista.css` y lógica en `assets/js/calendario-lista.js`, ambos cargados desde el propio componente (no desde `index.php`). `calendario.css` quedó solo para el modal.
+- 3 indicadores de CALENDARIOS (Activos, Cerrado completo, Cerrado incompleto; completo = todas sus filas cumplidas). Cada uno es un interruptor que filtra; se recalculan con Período, Canal y búsqueda. Período por defecto: todas las fechas; filtra por la fecha de cada fila y el avance muestra el período ("x de y (de N)").
+- Acción principal rellena según estado: Activo → Generar reporte; Cerrado incompleto → Reactivar; Cerrado completo → Descargar PPT (reactivar va en "Más"). Íconos secundarios se expanden con su nombre al pasar el mouse o con Tab; en celular llevan el nombre visible debajo. Las acciones reusan los manejadores de `calendario.js` (`.ep-cal-editar`, `.ep-cal-generar-ahora`, `.ep-cal-reactivar`, `.ep-cal-eliminar`).
+- No existe "atrasado": una fila con fecha pasada en calendario abierto es pendiente.
+
+## PPTX de Activaciones: comentarios a la derecha (2026-09-29)
+
+- Solo Activaciones (spec `comentarios_derecha` en `ppt_activaciones.php`; Epson Day sigue igual): la tarjeta de comentarios (`Gráfico 3`, `CuadroTexto 4`, `CuadroTexto 5`) pasa a la columna derecha y ocupa desde la fila de tarjetas hasta el pie del embudo (`EP_PPT_COM_DER` en `ppt_embudo.php`). "Ingresos por Modelo" baja al lugar que dejó, debajo de "Detalle de Ventas" y alineada con ella (sin el corrimiento de -160000 que usa Epson Day). Diseño pedido por el usuario con una imagen; verificado exportando la diapositiva desde PowerPoint.
+
 ## Reunión 28-09-2026: pendientes grandes (sin construir)
 
 - Registrado en `docs/grabaciones/28-09-2026.txt`. Quedan pendientes: 4 botones de "informe fotográfico simple" (Exhibiciones regulares y Competencia, cada uno Canal/Retail), descarga consolidada de varios reportes, y el bloque grande de rol Supervisor + calendario automático de activaciones (borrador → activar → quema de casillas al enviar registro → colchón de 5 días → bloqueo automático → reactivación solo admin/supervisor).
@@ -410,4 +442,46 @@ Del resto de lo hablado en `docs/grabaciones/28-09-2026.txt` (ver también "Reun
 1. 4 botones de "informe fotográfico simple" (Exhibiciones regulares y Competencia, cada uno Canal/Retail): solo foto + punto de venta, agrupado por ciudad.
 2. Descarga consolidada de varios reportes mensuales en uno solo.
 3. Rol Supervisor como perfil de sesión propio (hoy no existe: solo `usuario`/`admin` en `$_SESSION['rol']`) — el Calendario ya construido asume que el admin hace todo lo que haría un supervisor; falta decidir si el supervisor es un rol de acceso distinto o solo una etiqueta dentro de admin.
-4. Auditoría de reactivaciones (quién, cuándo, qué cambió) como módulo aparte — el usuario ya dijo explícitamente que esto es un módulo separado, no parte del Calendario; el Calendario solo guarda `reactivado_por`/`reactivado_en` como dato simple, sin historial completo.
+4. ~~Auditoría de reactivaciones~~ → construida como módulo propio, ver "Auditoría (2026-09-29)".
+
+## Auditoría (2026-09-29, requiere CREATE TABLE, SIN PROBAR en navegador)
+
+- **Alcance**: la aprobación de registros por supervisor que se oye en la grabación 28-09 fue conversación interna del cliente, NO un requisito de la app. Lo pedido era poder responder "quién autorizó, cuándo y con qué usuario".
+- **Tabla** `insert_reporte_auditoria` (solo se agrega, sin borrado lógico a propósito): `usuario_id` (NULL = Sistema), `usuario_nombre` congelado, `accion`, `entidad` + `entidad_id`, `resumen` legible, `detalle` JSON (`[{campo, antes, despues}]` o `[{campo, valor}]`), `ip`, `created_at`.
+- **Código**: `includes/auditoria_datos.php` (`ep_auditar()`, `ep_auditoria_cambio()`, `ep_auditoria_dato()`, `ep_auditoria_listar()`, `ep_auditoria_acciones()`). `ep_auditar()` nunca corta la acción: si la tabla no existe o falla, solo deja `error_log`.
+- **Qué se registra** (desde cada getter, después de que la acción salió bien): calendario crear / editar fila (antes→después de ciudad, punto de venta, promotor, supervisor; solo campos que cambiaron) / comentarios / generar ahora / reactivar / eliminar; cierre automático al vencer (usuario Sistema, en `ep_calendario_verificar_vencidos()`); eliminar registro; crear y eliminar reporte mensual; crear, activar y desactivar actividad. En `calendario_editar.php` la auditoría va dentro de la misma transacción.
+- **Pantalla** `index.php?vista=auditoria` (solo admin): `components/auditoria/auditoria.php` + `assets/css/auditoria.css` + `assets/js/auditoria.js`. Bitácora agrupada por día (un panel por día, filas separadas por línea fina), detalle siempre visible, búsqueda + combos Usuario/Acción (`epFiltros.crearCombo`) + periodos rápidos y rango (reusa `.ep-h2-rapidos` y `.ep-fl-combo-fechas` de `historial.css`). Muestra los últimos `EP_AUDITORIA_LIMITE` (1000); el filtro corre en el navegador. Eliminaciones con icono en tono de peligro; Sistema en gris.
+- Las columnas sueltas `editado_por/en` y `reactivado_por/en` del Calendario siguen escribiéndose igual; la auditoría las complementa con el historial completo.
+- **Por qué una tabla nueva y no solo consultar las existentes**: las tablas guardan el estado actual y sobrescriben al cambiar. Con ellas se sabe quién creó algo y quién hizo el ÚLTIMO cambio, pero no qué valor había antes, ni el historial de varios cambios, ni QUIÉN eliminó (solo `eliminado_en`, sin usuario), ni quién activó/desactivó una actividad, ni si un cierre fue automático o manual. Eso solo existe si se anota en el momento, por eso la bitácora.
+
+### Pendiente para probar (2026-09-30)
+
+1. **Crear la tabla** (lo corre el usuario en HeidiSQL; Claude no ejecuta CREATE TABLE). Verificado el 29-09 con SHOW TABLES que todavía no existe:
+```sql
+CREATE TABLE insert_reporte_auditoria (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  usuario_id INT NULL,
+  usuario_nombre VARCHAR(150) NOT NULL,
+  accion VARCHAR(40) NOT NULL,
+  entidad VARCHAR(30) NOT NULL,
+  entidad_id INT NULL,
+  resumen VARCHAR(255) NOT NULL,
+  detalle TEXT NULL,
+  ip VARCHAR(45) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_fecha (created_at),
+  KEY idx_entidad (entidad, entidad_id),
+  KEY idx_usuario (usuario_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+2. **Antes de crearla**: entrar a Auditoría debe mostrar el estado vacío "Todavía no hay movimientos" sin errores, y las acciones de admin deben seguir funcionando igual (solo dejan `ep_auditar:` en el error_log).
+3. **Después de crearla**, como admin, hacer y revisar que cada una aparezca bajo "Hoy" con nombre, hora y detalle:
+   - Calendario: crear uno; editar una fila (cambiar punto de venta o promotor → debe salir antes tachado → después); cambiar comentarios; "Generar ahora"; reactivar; eliminar.
+   - Historial: eliminar un registro (datos del registro en el detalle, icono rojo).
+   - Reportes mensuales: crear uno y eliminarlo ("Registros liberados").
+   - Constructor: crear una actividad, desactivarla y activarla.
+   - Cierre automático: un calendario con plazo vencido, al abrir la pantalla de Calendario, debe dejar un movimiento del usuario "Sistema" (icono gris).
+4. **Pantalla**: probar búsqueda, combos Usuario/Acción, Hoy/Semana/Mes y rango de fechas; que el contador de cada día y el resumen de arriba se actualicen; y la vista en celular (sin desborde lateral).
+5. **Editar sin cambios reales**: guardar una edición de calendario donde la fila queda igual no debe crear movimiento (solo se anotan campos que cambiaron).
+6. Si todo pasa, quitar "SIN PROBAR" del título de esta sección.

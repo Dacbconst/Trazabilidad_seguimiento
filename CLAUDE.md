@@ -14,12 +14,28 @@ endpoints PHP, o cualquier otro medio).
   modifique, borre o altere datos o esquema — bajo ninguna circunstancia,
   aunque el usuario lo pida explícitamente en el momento.** Si el usuario pide
   algo así, Claude debe negarse y recordarle esta regla, no ejecutarlo.
+  (Única salvedad: `ALTER TABLE` bajo las condiciones de la sección
+  "Única excepción" más abajo.)
 - Esto incluye: no crear scripts/endpoints que ejecuten esas operaciones para
   que el usuario los corra él mismo, no ofrecerse a "probarlo" con datos de
   prueba, no hacerlo "solo para verificar algo". Ninguna excepción.
 - Si Claude necesita verificar algo que normalmente requeriría escribir datos
   (ej. probar un INSERT), debe proponer el SQL exacto para que el usuario lo
   ejecute él mismo desde HeidiSQL u otra herramienta — nunca ejecutarlo Claude.
+
+### Única excepción: `ALTER TABLE` con aprobación manual del usuario (agregada 2026-09-29)
+
+- Claude puede ejecutar un `ALTER TABLE` **solo** si se cumplen las tres cosas:
+  1. el usuario lo pidió o autorizó explícitamente en la conversación;
+  2. Claude mostró antes el SQL exacto que va a correr;
+  3. el usuario aprueba manualmente esa ejecución puntual (el permiso de la
+     herramienta), nunca en modo automático ni con aprobaciones generales.
+- Solo cambios de esquema que no borran datos: `ADD COLUMN`, `MODIFY` que
+  amplía un tipo (ej. `ENUM` → `VARCHAR`), `ADD INDEX`. Nunca `DROP COLUMN`,
+  `DROP INDEX` ni un `MODIFY` que pueda truncar o perder datos existentes.
+- Una aprobación vale solo para ese `ALTER`; el siguiente necesita la suya.
+- `DELETE`, `DROP`, `TRUNCATE`, `UPDATE` e `INSERT` siguen prohibidos sin
+  excepción.
 
 **Por qué existe esta regla:** el usuario descubrió que las credenciales de
 `config.php` (usadas por Claude para conectarse directo a la base en scripts

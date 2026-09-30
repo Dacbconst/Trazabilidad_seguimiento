@@ -54,7 +54,12 @@
 .ep-h2-det-titulo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .ep-h2-det-titulo strong { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 600; color: var(--color-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ep-h2-det-titulo small { font-size: 12.5px; color: var(--color-text-muted); }
-.ep-h2-det-titulo span { font-size: 12px; color: var(--color-text-muted); }
+.ep-h2-det-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.ep-h2-det-meta span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 500; color: var(--color-text); }
+.ep-h2-det-meta svg { color: var(--color-primary); }
+.ep-h2-btn-eliminar { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid #F3C7C4; border-radius: 10px; background: #fff; color: var(--color-danger, #C5221F); }
+.ep-h2-btn-eliminar:hover { background: #FCE8E6; }
+.ep-h2-btn-eliminar:disabled { opacity: 0.6; cursor: progress; }
 .ep-h2-det-acciones { display: flex; align-items: center; gap: 8px; }
 .ep-h2-btn-ppt { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border: none; border-radius: 10px; background: var(--color-primary); color: #fff; font-size: 13.5px; font-weight: 600; }
 .ep-h2-btn-ppt:hover { filter: brightness(1.12); }
@@ -123,8 +128,6 @@
 .ep-h2-lb-una .ep-h2-lb-nav { display: none; }
 body.ep-h2-bloqueado { overflow: hidden; }
 
-.ep-hist-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--color-surface-muted); color: var(--color-text-muted); }
-.ep-hist-badge-ok { background: #E4F4EC; color: var(--color-success); }
 
 /* Celular: tarjetas a todo el ancho y detalle a pantalla completa */
 @media (max-width: 900px) {

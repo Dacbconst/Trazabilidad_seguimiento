@@ -183,6 +183,30 @@ function ep_registro_por_codigo(string $codigo): ?array {
 	return ep_registros_datos(1, [(int) $fila['id']])[0] ?? null;
 }
 
+// Borrado lógico de un registro (solo admin); libera la fila de calendario que había cumplido.
+function ep_registro_eliminar(string $codigo): bool {
+	$db = ep_db();
+	if (!$db) {
+		return false;
+	}
+	$stmt = $db->prepare('SELECT id FROM insert_reporte_registro WHERE codigo = ? AND eliminado_en IS NULL LIMIT 1');
+	$stmt->bind_param('s', $codigo);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	if (!$fila) {
+		return false;
+	}
+	$registroId = (int) $fila['id'];
+	$upd = $db->prepare('UPDATE insert_reporte_registro SET eliminado_en = NOW() WHERE id = ?');
+	$upd->bind_param('i', $registroId);
+	if (!$upd->execute()) {
+		return false;
+	}
+	require_once __DIR__.'/calendario_datos.php';
+	ep_calendario_liberar_registro($registroId);
+	return true;
+}
+
 // Código corto del registro: prefijo del tipo de actividad + usuario + número que sube por usuario y tipo, por ejemplo RACPABLOCASTELO-001.
 function ep_codigo_registro(string $tipo, int $usuarioId, string $usuario): string {
 	$prefijos = ['activaciones' => 'RAC', 'capacitaciones' => 'RCAP', 'colocacion-pop' => 'RPOP', 'epson-day' => 'RDAY', 'exhibiciones' => 'REXH', 'evento-ferias' => 'RFER'];
