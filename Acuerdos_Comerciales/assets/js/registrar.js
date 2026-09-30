@@ -374,20 +374,20 @@
 
 		cabecerasHead.innerHTML =
 			'<tr><th rowspan="2" class="ac-sticky-col">Segmento</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-3">Marca</th>' +
-			'<th colspan="' + count + '">Cabecera Pago x Mes</th><th rowspan="2" class="ac-th-2l">Pago Total<br>Cajas</th><th rowspan="2"></th></tr>' +
+			'<th colspan="' + count + '">Cabecera Pago x Mes</th><th rowspan="2" class="ac-th-2l">Pago Total' + (CANAL_USUARIO === 'distribuidor' ? '<br>Cajas' : '') + '</th><th rowspan="2"></th></tr>' +
 			'<tr>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '</tr>';
 
 		// Rumas tiene una columna por mes visualmente, pero las celdas están espejadas al mismo valor (valor_mensual_unico).
 		rumasHead.innerHTML =
 			'<tr><th rowspan="2" class="ac-sticky-col">Segmento</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="2" class="ac-sticky-col ac-sticky-col-3">Marca</th>' +
-			'<th colspan="' + count + '">Valor Ruma x Mes (se edita en la mini tabla de la derecha)</th><th rowspan="2" class="ac-th-2l">Pago Total<br>Cajas</th><th rowspan="2"></th></tr>' +
+			'<th colspan="' + count + '">Valor Ruma x Mes (se edita en la mini tabla de la derecha)</th><th rowspan="2" class="ac-th-2l">Pago Total' + (CANAL_USUARIO === 'distribuidor' ? '<br>Cajas' : '') + '</th><th rowspan="2"></th></tr>' +
 			'<tr>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '</tr>';
 
 		perchasHead.innerHTML =
 			'<tr><th rowspan="3" class="ac-sticky-col">Marca Perchas</th><th rowspan="3" class="ac-sticky-col ac-sticky-col-2">Categoría</th><th rowspan="1">Participación</th><th rowspan="1">Cantidad</th>' +
 			'<th colspan="' + (count + 1) + '">Pago Mensual</th><th rowspan="3"></th></tr>' +
 			'<tr><th colspan="' + (count + 2) + '">Pago x Mes x Percha' + (CANAL_USUARIO === 'distribuidor' ? '' : ' ($)') + '</th></tr>' +
-			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th class="ac-th-2l">Pago Total<br>Cajas</th></tr>';
+			'<tr><th>% de Peso</th><th>Max Percha</th>' + months.map(function (m) { return '<th>' + m + '</th>'; }).join('') + '<th class="ac-th-2l">Pago Total' + (CANAL_USUARIO === 'distribuidor' ? '<br>Cajas' : '') + '</th></tr>';
 	}
 
 	function syncTables() {
@@ -1453,7 +1453,8 @@
 			});
 			if (empresaDeCliente) {
 				empresaSelect.value = empresaDeCliente;
-				empresaSearch.value = empresaDeCliente;
+				// Texto visible: el del Excel si vino (aunque no coincida exacto con el maestro), el real del maestro si no. El valor real usado para filtrar Locales sigue siendo empresaDeCliente.
+				empresaSearch.value = p.empresa_distribuidora_excel || empresaDeCliente;
 				distribuidorSearch.disabled = false;
 			}
 		}

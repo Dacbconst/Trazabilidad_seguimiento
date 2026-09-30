@@ -20,6 +20,12 @@ function ep_auditoria_acciones(): array {
 		'actividad_crear'        => 'Creó una actividad',
 		'actividad_activar'      => 'Activó una actividad',
 		'actividad_desactivar'   => 'Desactivó una actividad',
+		'usuario_crear'          => 'Creó un usuario',
+		'usuario_editar'         => 'Cambió correo o rol de un usuario',
+		'usuario_clave'          => 'Cambió la clave de un usuario',
+		'usuario_foto'           => 'Cambió la foto de un usuario',
+		'usuario_activar'        => 'Reactivó un usuario',
+		'usuario_desactivar'     => 'Desactivó un usuario',
 	];
 }
 

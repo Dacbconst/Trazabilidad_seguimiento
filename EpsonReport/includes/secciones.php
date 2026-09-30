@@ -22,6 +22,11 @@ function ep_secciones(): array {
 			'icon'  => 'calendar',
 			'solo_admin' => true,
 		],
+		'usuarios' => [
+			'label' => 'Usuarios',
+			'icon'  => 'users',
+			'solo_admin' => true,
+		],
 		'auditoria' => [
 			'label' => 'Auditoría',
 			'icon'  => 'shield',

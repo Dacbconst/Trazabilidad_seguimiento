@@ -65,6 +65,16 @@ $totalPromotores = count(array_unique(array_filter(array_column($todosRegistros,
 
 	<div class="ep-h2-chips hidden" id="epH2Chips"></div>
 
+	<?php if ($esAdmin): ?>
+	<div class="ep-h2-multi hidden" id="epH2Multi">
+		<span id="epH2MultiTexto">0 seleccionados</span>
+		<div class="ep-h2-multi-acciones">
+			<button type="button" class="ep-btn-subtle-compact" id="epH2MultiCancelar">Cancelar</button>
+			<button type="button" class="ep-btn-ppt-cta" id="epH2MultiDescargar"><?= ep_icon('download', 14) ?> Descargar consolidado</button>
+		</div>
+	</div>
+	<?php endif; ?>
+
 	<div class="ep-h2-cuerpo">
 		<section class="ep-h2-lista" aria-label="Registros">
 			<div id="epH2Filas">

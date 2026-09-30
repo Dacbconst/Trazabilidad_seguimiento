@@ -1,6 +1,5 @@
 <?php
-// Bloque "Evidencia Fotográfica" — Tarjeta independiente ubicada debajo del formulario y estadísticas.
-// Requiere $epEvidenciaFotos y $epEvidenciaPrefix (definidos por actividad en actividades.php).
+// Bloque "Evidencia Fotográfica": requiere $epEvidenciaFotos y $epEvidenciaPrefix (definidos por actividad en actividades.php).
 if (empty($epEvidenciaFotos)) return;
 $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcional'])));
 ?>
@@ -61,5 +60,12 @@ $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcio
 			</div>
 		<?php endforeach; ?>
 	</div>
+
+	<?php if (ep_fotos_extensible($actividad['plantilla'] ?? '')): ?>
+		<button type="button" class="ep-btn-agregar-fila ep-btn-agregar-foto" data-prefix="<?= $epEvidenciaPrefix ?>" data-siguiente="<?= count($epEvidenciaFotos) + 1 ?>">
+			<?= ep_icon('plus', 14) ?>
+			Agregar foto
+		</button>
+	<?php endif; ?>
 
 </div>

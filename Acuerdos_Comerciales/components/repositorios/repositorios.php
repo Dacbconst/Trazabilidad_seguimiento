@@ -84,7 +84,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 				     alterna .hidden en activarTab()) — cola de clientes del Excel
 				     que no matchearon solos contra el maestro, ver
 				     getters/cuotas_pendientes_asignar.php. -->
-				<button type="button" class="ac-btn-outline ac-btn-inline hidden" id="repo-pendientes-abrir">
+				<button type="button" class="ac-btn-outline ac-btn-inline hidden" id="repo-pendientes-abrir" title="Clientes del Excel que no se pudieron identificar, con candidatos para asignar a mano">
 					<span class="material-symbols-outlined">person_search</span>
 					Pendientes de Asignar
 					<span class="ac-repo-tab-count" id="repo-pendientes-count">—</span>
@@ -308,14 +308,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			</button>
 		</div>
 		<div class="ac-modal-body">
-			<p class="ac-field-hint">El nombre del cliente en el Excel no coincidió con un único cliente del maestro. Elige uno de los candidatos, busca el pos_id correcto a mano, o descarta la fila si es un error de tipeo.</p>
+			<p class="ac-field-hint">El nombre del cliente en el Excel no coincidió con un único cliente del maestro. Cada fila es 1 Acta completa (todas sus categorías juntas) — elige uno de los candidatos, busca el pos_id correcto a mano, o descarta el Acta si es un error de tipeo.</p>
 			<div class="ac-table-scroll">
 				<table class="ac-table" id="repo-pendientes-tabla">
 					<thead>
 						<tr>
 							<th>Cliente (Excel)</th>
 							<th>CEDI</th>
-							<th>Categoría</th>
+							<th>Categorías</th>
 							<th>Período</th>
 							<th class="ac-text-right">Montos</th>
 							<th>Asignar cliente</th>

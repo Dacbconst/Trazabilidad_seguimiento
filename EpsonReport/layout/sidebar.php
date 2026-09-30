@@ -4,7 +4,8 @@
 	</button>
 	<div class="ep-sidebar-menu-principal" id="epSidebarMenuPrincipal">
 		<div class="ep-sidebar-user">
-			<div class="ep-sidebar-avatar"></div>
+			<?php require_once __DIR__.'/../includes/usuarios_datos.php'; $epFotoPerfil = ep_usuario_foto_actual(); ?>
+			<div class="ep-sidebar-avatar"<?= $epFotoPerfil ? ' style="background-image:url(\''.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'\')" data-zoom="'.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'" data-nombre="'.htmlspecialchars($_SESSION['nombre'] ?? '', ENT_QUOTES, 'UTF-8').'" role="button" tabindex="0" aria-label="Ver foto ampliada"' : '' ?>></div>
 			<span class="ep-sidebar-user-name ep-nav-label"><?= htmlspecialchars($_SESSION['usuario'] ?? '') ?></span>
 		</div>
 

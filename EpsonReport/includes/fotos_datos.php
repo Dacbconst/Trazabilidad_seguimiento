@@ -46,5 +46,20 @@ function ep_fotos_requeridas(string $plantilla): array {
 			['id' => 'implementacion-3', 'label' => 'Correcta implementación del material POP (3)'],
 		];
 	}
+	if ($plantilla === 'informe-fotografico') {
+		return [
+			['id' => 'foto-1', 'label' => 'Foto de lo encontrado en el punto de venta'],
+			['id' => 'foto-2', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
+			['id' => 'foto-3', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
+			['id' => 'foto-4', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
+			['id' => 'foto-5', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
+			['id' => 'foto-6', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
+		];
+	}
 	return [];
+}
+
+// Actividades donde el promotor puede sumar más fotos de las de la lista, sin límite (botón "+ Agregar foto").
+function ep_fotos_extensible(string $plantilla): bool {
+	return $plantilla === 'informe-fotografico';
 }

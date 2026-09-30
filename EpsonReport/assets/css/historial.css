@@ -21,6 +21,12 @@
 .ep-h2-chip button { width: 18px; height: 18px; display: grid; place-items: center; border: none; border-radius: 50%; background: #fff; color: var(--color-primary-dark); font-size: 13px; line-height: 1; padding: 0; }
 .ep-h2-chips-limpiar { border: none; background: transparent; color: var(--color-primary); font-weight: 600; font-size: 12.5px; }
 
+.ep-h2-check { flex-shrink: 0; width: 17px; height: 17px; accent-color: var(--color-primary); cursor: pointer; }
+.ep-h2-multi { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--color-primary-dark); color: #fff; border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 10px; font-size: 13.5px; font-weight: 600; }
+.ep-h2-multi.hidden { display: none; }
+.ep-h2-multi-acciones { display: flex; align-items: center; gap: 8px; }
+.ep-h2-multi .ep-btn-subtle-compact { background: rgba(255,255,255,0.15); color: #fff; border-color: transparent; }
+
 /* Lista agrupada por día */
 .ep-h2-cuerpo { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); gap: 16px; }
 .ep-h2-lista { min-width: 0; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; }

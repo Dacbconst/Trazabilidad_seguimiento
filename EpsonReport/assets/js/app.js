@@ -331,16 +331,10 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
 	}
 
-	// Tipo de actividad activa (mismo criterio que usa el envío del formulario).
+	// Tipo (plantilla) de la actividad activa, ya viene en el botón — no adivinar por el nombre (rompía con nombres como "Exhibiciones Regulares").
 	function tipoActividadActiva() {
 		var item = document.querySelector('.ep-activity-item.selected');
-		var nom = (item ? (item.dataset.nombre || '') : '').toLowerCase();
-		if (nom.indexOf('capacita') !== -1) return 'capacitaciones';
-		if (nom.indexOf('pop') !== -1) return 'colocacion-pop';
-		if (nom.indexOf('day') !== -1) return 'epson-day';
-		if (nom.indexOf('exhibi') !== -1) return 'exhibiciones';
-		if (nom.indexOf('feria') !== -1 || nom.indexOf('evento') !== -1) return 'evento-ferias';
-		return 'activaciones';
+		return (item && item.dataset.plantilla) || 'activaciones';
 	}
 
 	// Deja cada foto liviana (objetivo ~120 KB, máx. 1000px): son miles de fotos que luego irán a presentaciones PPT, el peso manda.
@@ -547,6 +541,25 @@ document.addEventListener('DOMContentLoaded', function () {
 				cargarArchivoEnSlot(files[0], slot);
 			}
 		}
+	});
+
+	// "Agregar foto": suma una casilla opcional más, con la misma marca que las fijas (los eventos de arriba son delegados, no hace falta re-wiring).
+	document.addEventListener('click', function (e) {
+		var btn = e.target.closest('.ep-btn-agregar-foto');
+		if (!btn) return;
+		var grid = btn.closest('.ep-evidencia-bloque-card').querySelector('.ep-evidencia-grid-panoramica');
+		var n = parseInt(btn.dataset.siguiente, 10) || 1;
+		var fotoId = 'foto-' + n;
+		var inputId = 'ep-foto-' + btn.dataset.prefix + '-' + fotoId;
+		grid.insertAdjacentHTML('beforeend', '<div class="ep-foto-slot" data-foto-id="' + fotoId + '" data-opcional="1">'
+			+ '<label class="ep-foto-dropzone" title="Subir foto adicional">'
+			+ '<input type="file" accept="image/*" class="ep-foto-input" id="' + inputId + '" hidden>'
+			+ '<img class="ep-foto-preview hidden" alt="Foto adicional">'
+			+ '<span class="ep-foto-dropzone-vacio"><span class="ep-foto-slot-icon">' + epIconMarkup('camera', 22) + '</span><span class="ep-foto-slot-action">Subir foto</span></span>'
+			+ '</label>'
+			+ '<div class="ep-foto-slot-info"><span class="ep-foto-slot-label">Foto adicional</span><span class="ep-hist-badge ep-foto-slot-estado">Pendiente</span></div>'
+			+ '</div>');
+		btn.dataset.siguiente = n + 1;
 	});
 
 	// Evidencia fotográfica: genérico para cualquier actividad, reacciona a cualquier .ep-foto-input sin wiring por actividad.

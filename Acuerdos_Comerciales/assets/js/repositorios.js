@@ -412,7 +412,8 @@
 		posicionarIndicadorTab(tabsPorTipo[tipo]);
 		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
-		// pendientesAbrirBtn: oculto a propósito, se deja el resto del mecanismo intacto por si se retoma después.
+		// Oculto de nuevo (pedido explícito): con el bypass de Distribuidor casi no quedan casos reales para esta cola.
+		pendientesAbrirBtn.classList.add('hidden');
 		// resumenAbrirBtn: vuelto a mostrar, cubre el panorama histórico ("a quién le asigné cada Acta"), no solo el archivo por subir.
 		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
 		exportarWrap.classList.toggle('hidden', tipo === 'cuotas');
@@ -589,6 +590,8 @@
 		filasPreview = null;
 		trimestrePreview = null;
 		estadosPreview = null;
+		verificandoEstados = false;
+		actualizarEstadoBotonGuardar();
 		previewAnioWrap.classList.add('hidden');
 		ocultarErroresPreview();
 		canalCuotasElegido = null;
@@ -883,11 +886,25 @@
 		return '';
 	}
 
+	// Bloquea Guardar mientras verifica: antes se podía guardar antes de tener respuesta y la alerta se salteaba en silencio.
+	var verificandoEstados = false;
+	function actualizarEstadoBotonGuardar() {
+		var btn = document.getElementById('repo-subir-guardar');
+		if (!btn) return;
+		var bloqueado = tipoActivo === 'cuotas' && verificandoEstados;
+		btn.disabled = bloqueado;
+		btn.classList.toggle('ac-btn-cargando', bloqueado);
+		if (bloqueado) btn.innerHTML = '<span class="material-symbols-outlined">progress_activity</span>Verificando…';
+		else if (btn.dataset.htmlOriginal) btn.innerHTML = btn.dataset.htmlOriginal;
+	}
+
 	// Se llama al terminar de subir (con el año por default, hoy) y cada vez que el superdesarrollador cambia el Año — resuelve cliente/sector de SOLO LECTURA (nunca escribe) contra la base real para decidir si cada fila sería nueva, actualizaría algo que ya existe, o ya no se puede tocar (ya usada).
 	function verificarEstadosPreview() {
 		if (tipoActivo !== 'cuotas' || !filasPreview || !trimestrePreview) return;
 		var anio = parseInt(previewAnioInput.value, 10);
 		if (!anio) return;
+		verificandoEstados = true;
+		actualizarEstadoBotonGuardar();
 		fetch('getters/cuotas_verificar_estado.php', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -899,7 +916,8 @@
 				estadosPreview = data.estados;
 				renderPreviewTabla();
 			})
-			.catch(function () { /* silencioso, ver comentario de arriba */ });
+			.catch(function () { /* silencioso, ver comentario de arriba */ })
+			.then(function () { verificandoEstados = false; actualizarEstadoBotonGuardar(); });
 	}
 	var verificarEstadosTimeout = null;
 	previewAnioInput.addEventListener('input', function () {
@@ -945,7 +963,7 @@
 			.replace(/[ÓÒÖÔ]/g, 'O').replace(/[ÚÙÜÛ]/g, 'U').replace(/Ñ/g, 'N');
 	}
 
-	// Confirmación visual antes de guardar Cuotas (2026-09-21, pedido explícito) — 3 casos, TODOS los que apliquen por cliente (no uno solo, pedido explícito: "si tiene error en ciudad Y el asesor, lánzame los dos"): cliente no identificado, cliente identificado pero sin asesor resuelto, y CEDI/Ciudad del Excel que no coincide con el real en base. La comparación de Ciudad SOLO aplica a Distribuidor (bug real reportado: en Directo el campo CEDI del Excel es el NOMBRE DEL ASESOR, no una ciudad — comparado contra el campo geográfico de la base, TODA fila de Directo salía "no coincide" aunque estuviera bien). Deduplicado por cliente+CEDI: un cliente con 4 categorías no debe listarse 4 veces por el mismo problema.
+	// Confirmación visual antes de guardar Cuotas: cliente no identificado, o identificado pero sin asesor resuelto. Sin chequeo de Ciudad (pedido explícito, el maestro mezcla ciudad/provincia y no afecta la asignación real).
 	function filasConProblemaDeAsignacion() {
 		if (!estadosPreview) return [];
 		var filas = leerFilasPreviewEditadas();
@@ -959,17 +977,19 @@
 			var sinCliente = e.estado === 'sin_cliente';
 			var sinAsesor = !!e.pos_id && !e.asignado_a;
 			var cediExcelNorm = normalizarParaComparar(f ? f.cedi_excel : '');
-			var cediRealNorm = normalizarParaComparar(e.cedi_real);
-			var cediNoCoincide = canalCuotasPreview === 'distribuidor' && !!e.pos_id && !!e.cedi_real && cediExcelNorm !== '' && cediExcelNorm !== cediRealNorm;
 			// Solo Directo (2026-09-21, caso real reportado: "puse CARLOS en vez de CARLOS PROAÑO") — el CEDI del Excel ahí SÍ es el nombre del asesor. Como no matcheó exacto contra ninguna cuenta activa, resolverNombreAsignadoCuota() cayó al respaldo del maestro y encontró bien al asesor real (por eso sinAsesor da false) — pero nadie avisaba que lo tipeado no coincidía con lo encontrado. Sin equivalente en Distribuidor: ahí el Excel nunca especifica asesor, se resuelve siempre del maestro.
 			var asignadoNorm = normalizarParaComparar(e.asignado_a);
 			var asesorNoCoincide = canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
-			if (!sinCliente && !sinAsesor && !cediNoCoincide && !asesorNoCoincide) return;
+			if (!sinCliente && !sinAsesor && !asesorNoCoincide) return;
 			vistos[clave] = true;
 			var motivos = [];
-			if (sinCliente) motivos.push({ texto: 'No se pudo identificar este cliente en el maestro' });
+			if (sinCliente && e.diagnostico) {
+				var campoEtiqueta = e.diagnostico.campo === 'distribuidor' ? 'Distribuidor' : 'Supervisor/CEDI';
+				motivos.push({ texto: 'Cliente encontrado, pero el ' + campoEtiqueta + ' en el maestro es', valor: (e.diagnostico.valores_reales || []).join(' / ') });
+			} else if (sinCliente) {
+				motivos.push({ texto: 'No se pudo identificar este cliente en el maestro' });
+			}
 			if (sinAsesor) motivos.push({ texto: 'Cliente identificado, pero no se pudo resolver a qué asesor pertenece' });
-			if (cediNoCoincide) motivos.push({ texto: 'En la base, la Ciudad de este cliente es', valor: e.cedi_real });
 			if (asesorNoCoincide) motivos.push({ texto: 'El asesor real de este cliente es', valor: e.asignado_a });
 			problemas.push({ cliente: f ? f.cliente_excel : '', cedi: f ? f.cedi_excel : '', motivos: motivos });
 		});
@@ -1035,7 +1055,9 @@
 
 	var subirGuardarBtn = document.getElementById('repo-subir-guardar');
 	var subirGuardarHtmlOriginal = subirGuardarBtn.innerHTML;
+	subirGuardarBtn.dataset.htmlOriginal = subirGuardarHtmlOriginal;
 	function ponerGuardarCargando(cargando) {
+		subirGuardarBtn.disabled = cargando;
 		subirGuardarBtn.classList.toggle('ac-btn-cargando', cargando);
 		subirGuardarBtn.innerHTML = cargando
 			? '<span class="material-symbols-outlined">progress_activity</span>Guardando…'
@@ -1211,28 +1233,29 @@
 		pendientesOverlay.classList.remove('ac-modal-open');
 	}
 
-	function renderPendientes(filas) {
-		if (!filas.length) {
-			pendientesBody.innerHTML = '<tr><td colspan="6" class="ac-table-empty">No quedan filas pendientes. Todo se resolvió.</td></tr>';
+	// Agrupado por cliente (2026-09-30, pedido explícito): "esas 4 categorías son 1 solo Acta, no 4 filas sueltas" — cada fila de acá ya viene agrupada desde listar_repositorio_cuotas_pendientes_match(), con `ids` = todas las categorías de ese cliente. Asignar/Descartar aplica a las `ids` juntas, una sola Acta se resuelve de una.
+	function renderPendientes(grupos) {
+		if (!grupos.length) {
+			pendientesBody.innerHTML = '<tr><td colspan="6" class="ac-table-empty">No quedan Actas pendientes. Todo se resolvió.</td></tr>';
 			return;
 		}
-		pendientesBody.innerHTML = filas.map(function (f) {
-			var candidatosHtml = (f.candidatos || []).map(function (c) {
+		pendientesBody.innerHTML = grupos.map(function (g) {
+			var candidatosHtml = (g.candidatos || []).map(function (c) {
 				return '<button type="button" class="ac-btn-outline ac-btn-inline repo-pend-btn-candidato" style="margin:2px;" data-pos-id="' + escapeHtml(c.pos_id) + '">' +
 					escapeHtml(c.pos_name) + (c.cedi ? ' (' + escapeHtml(c.cedi) + ')' : '') + '</button>';
 			}).join('');
-			return '<tr data-id="' + f.id + '">' +
-				'<td>' + escapeHtml(f.cliente_excel) + '</td>' +
-				'<td>' + escapeHtml(f.cedi_excel) + '</td>' +
-				'<td>' + escapeHtml(f.sector) + '</td>' +
-				'<td>Q' + f.trimestre + ' ' + f.anio + '</td>' +
-				'<td class="ac-text-right">' + montosMensualesTexto(f.valores_mensuales) + '</td>' +
+			return '<tr data-ids="' + g.ids.join(',') + '">' +
+				'<td>' + escapeHtml(g.cliente_excel) + '</td>' +
+				'<td>' + escapeHtml(g.cedi_excel) + '</td>' +
+				'<td>' + escapeHtml(g.categorias.join(', ')) + ' <span class="ac-field-hint">(' + g.categorias.length + ')</span></td>' +
+				'<td>Q' + g.trimestre + ' ' + g.anio + '</td>' +
+				'<td class="ac-text-right">$' + (parseFloat(g.monto_total) || 0).toFixed(2) + '</td>' +
 				'<td>' +
 				'<div class="repo-pend-candidatos">' + (candidatosHtml || '<span class="ac-field-hint">Sin candidatos sugeridos</span>') + '</div>' +
 				'<div class="ac-row-actions" style="margin-top:6px;">' +
 				'<input type="text" class="ac-input ac-mini-input repo-pend-pos-id" placeholder="pos_id manual..." style="max-width:160px;">' +
 				'<button type="button" class="ac-btn-outline ac-btn-inline repo-pend-btn-asignar">Asignar</button>' +
-				'<button type="button" class="ac-icon-btn ac-icon-btn-danger repo-pend-btn-descartar" title="Descartar"><span class="material-symbols-outlined">delete</span></button>' +
+				'<button type="button" class="ac-icon-btn ac-icon-btn-danger repo-pend-btn-descartar" title="Descartar las ' + g.categorias.length + ' categorías"><span class="material-symbols-outlined">delete</span></button>' +
 				'</div>' +
 				'</td></tr>';
 		}).join('');
@@ -1240,7 +1263,7 @@
 		Array.prototype.forEach.call(pendientesBody.querySelectorAll('.repo-pend-btn-candidato'), function (btn) {
 			btn.addEventListener('click', function () {
 				var tr = btn.closest('tr');
-				resolverPendiente(parseInt(tr.dataset.id, 10), 'matchear', btn.dataset.posId);
+				resolverPendiente(tr.dataset.ids, 'matchear', btn.dataset.posId);
 			});
 		});
 		Array.prototype.forEach.call(pendientesBody.querySelectorAll('.repo-pend-btn-asignar'), function (btn) {
@@ -1248,19 +1271,20 @@
 				var tr = btn.closest('tr');
 				var posId = tr.querySelector('.repo-pend-pos-id').value.trim();
 				if (!posId) { mostrarMensaje('Tipeá un pos_id.', false); return; }
-				resolverPendiente(parseInt(tr.dataset.id, 10), 'matchear', posId);
+				resolverPendiente(tr.dataset.ids, 'matchear', posId);
 			});
 		});
 		Array.prototype.forEach.call(pendientesBody.querySelectorAll('.repo-pend-btn-descartar'), function (btn) {
 			btn.addEventListener('click', function () {
 				var tr = btn.closest('tr');
-				resolverPendiente(parseInt(tr.dataset.id, 10), 'descartar', null);
+				resolverPendiente(tr.dataset.ids, 'descartar', null);
 			});
 		});
 	}
 
-	function resolverPendiente(id, accion, posId) {
-		var params = new URLSearchParams({ id: id, accion: accion });
+	// $ids: string "12,13,14,15" (todas las categorías de la misma Acta) — mismo endpoint, ahora resuelve el grupo entero de una.
+	function resolverPendiente(ids, accion, posId) {
+		var params = new URLSearchParams({ ids: ids, accion: accion });
 		if (posId) params.set('pos_id', posId);
 		fetch('getters/cuotas_resolver_match.php', { method: 'POST', body: params })
 			.then(function (r) { return r.json(); })

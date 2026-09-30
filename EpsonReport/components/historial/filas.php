@@ -1,6 +1,5 @@
 <?php
-// Registros del historial agrupados por día de la actividad (tarjetas) y las plantillas de su detalle; se usa al cargar la página y al refrescar en vivo.
-// Variables del contexto: $todosRegistros y $esAdmin.
+// Registros agrupados por día, con detalle en <template>; usa $todosRegistros y $esAdmin del contexto que la incluye.
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 $diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -41,6 +40,9 @@ foreach ($todosRegistros as $i => $r):
 	<div class="ep-h2-fila ep-h2-reg" tabindex="0" role="button"
 		data-idx="<?= $i ?>" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" data-actividad="<?= $h($etiqueta) ?>" data-fecha="<?= $h($dia) ?>"
 		data-promotor="<?= $h($r['promotor'] ?? '') ?>" data-busqueda="<?= $h($busqueda) ?>">
+		<?php if ($esAdmin): ?>
+			<input type="checkbox" class="ep-h2-check" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" aria-label="Seleccionar para descarga consolidada">
+		<?php endif; ?>
 		<span class="ep-fl-ico"><?= ep_icon(ep_icono_tipo($tipo), 20) ?></span>
 		<div class="ep-h2-c-main">
 			<strong><?= $h($punto) ?></strong>

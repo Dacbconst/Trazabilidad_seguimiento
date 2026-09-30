@@ -279,53 +279,79 @@ function repositorio_sql_comparable($columna) {
 	return $expr;
 }
 
-function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null) {
-	$condicionCanal = $canal === 'distribuidor' ? "canal = 'DISTRIBUIDOR'" : "canal <> 'DISTRIBUIDOR'";
+// Cache en memoria del maestro completo, una sola vez por request — antes escaneaba 42k filas por SQL sin índice en cada cliente (~300ms c/u).
+function maestroClientesEnMemoria($mysqli) {
+	static $filas = null;
+	if ($filas !== null) return $filas;
+	$filas = [];
+	$res = $mysqli->query('SELECT id, pos_id, pos_name, canal, tipo_distribuidor, supervisor, cedi FROM repositorio_locales_supervisores_cliente');
+	while ($fila = $res->fetch_assoc()) {
+		$fila['pos_name_comparable'] = repositorio_texto_comparable($fila['pos_name']);
+		$fila['tipo_distribuidor_comparable'] = repositorio_texto_comparable($fila['tipo_distribuidor']);
+		$fila['supervisor_comparable'] = repositorio_texto_comparable($fila['supervisor']);
+		$filas[] = $fila;
+	}
+	return $filas;
+}
+
+// $diagnostico (por referencia, opcional): si el cliente existe pero el Distribuidor/CEDI tipeado no matchea ninguno, queda el texto real registrado en el maestro.
+function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null, &$diagnostico = null) {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
-	$posNameComparable = repositorio_sql_comparable('pos_name');
-	$stmt = $mysqli->prepare(
-		"SELECT DISTINCT pos_id FROM repositorio_locales_supervisores_cliente
-		 WHERE $posNameComparable LIKE CONCAT(?, '%') AND $condicionCanal"
-	);
-	if (!$stmt) return null;
-	$stmt->bind_param('s', $clienteComparable);
-	$stmt->execute();
-	$posIds = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
-	$stmt->close();
+	$esDistribuidor = $canal === 'distribuidor';
+	$candidatos = array_values(array_filter(maestroClientesEnMemoria($mysqli), function ($f) use ($clienteComparable, $esDistribuidor) {
+		if (strncmp($f['pos_name_comparable'], $clienteComparable, strlen($clienteComparable)) !== 0) return false;
+		return $esDistribuidor ? $f['canal'] === 'DISTRIBUIDOR' : $f['canal'] !== 'DISTRIBUIDOR';
+	}));
 
-	if (count($posIds) === 1) return $posIds[0];
-	if (count($posIds) === 0) return null;
+	if (count($candidatos) === 1) return $candidatos[0]['pos_id'];
+	if (count($candidatos) === 0) return null;
 
-	if ($canal === 'distribuidor') {
+	if ($esDistribuidor) {
 		if (!$distribuidorExcel) return null;
 		$distribuidorComparable = repositorio_texto_comparable($distribuidorExcel);
-		$tipoDistribuidorComparable = repositorio_sql_comparable('tipo_distribuidor');
-		$stmt = $mysqli->prepare(
-			"SELECT DISTINCT id, pos_id FROM repositorio_locales_supervisores_cliente
-			 WHERE $posNameComparable LIKE CONCAT(?, '%') AND canal = 'DISTRIBUIDOR' AND $tipoDistribuidorComparable = ?"
-		);
-		if (!$stmt) return null;
-		$stmt->bind_param('ss', $clienteComparable, $distribuidorComparable);
+		$desempatados = array_values(array_filter($candidatos, fn($f) => $f['tipo_distribuidor_comparable'] === $distribuidorComparable));
+		if (!$desempatados) {
+			// Distribuidor no coincide pero el cliente sí matcheó por nombre+canal: se registra igual, sin inventar pos_id (pedido explícito).
+			$diagnostico = ['campo' => 'distribuidor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'tipo_distribuidor')))];
+			$desempatados = $candidatos;
+		}
 	} else {
 		if (!$cediExcel) return null;
 		$cediComparable = repositorio_texto_comparable($cediExcel);
-		$supervisorComparable = repositorio_sql_comparable('supervisor');
-		$stmt = $mysqli->prepare(
-			"SELECT DISTINCT id, pos_id FROM repositorio_locales_supervisores_cliente
-			 WHERE $posNameComparable LIKE CONCAT(?, '%') AND canal <> 'DISTRIBUIDOR' AND $supervisorComparable = ?"
-		);
-		if (!$stmt) return null;
-		$stmt->bind_param('ss', $clienteComparable, $cediComparable);
+		$desempatados = array_values(array_filter($candidatos, fn($f) => $f['supervisor_comparable'] === $cediComparable));
+		if (!$desempatados) $diagnostico = ['campo' => 'supervisor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'supervisor')))];
 	}
-	$stmt->execute();
-	$desempatados = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-	$stmt->close();
 
 	if (count($desempatados) === 1) return $desempatados[0]['pos_id'];
 	if (count($desempatados) === 0) return null;
-	// Siguen empatados en nombre+canal+distribuidor/supervisor: es un duplicado real del maestro, no una ambigüedad entre clientes distintos — toma el registro más reciente en vez de rendirse.
+	// Duplicado real del maestro (mismo nombre+canal+distribuidor/supervisor): toma el registro más reciente.
 	usort($desempatados, fn($a, $b) => $b['id'] <=> $a['id']);
 	return $desempatados[0]['pos_id'];
+}
+
+// CEDI/Ciudad real del cliente ya identificado, desambiguado por nombre (mismo criterio que resolverPosIdCliente) — vía el mismo cache en memoria, pos_id solo no es único en el maestro.
+function cediRealDePosId($mysqli, $posId, $clienteExcel) {
+	$clienteComparable = repositorio_texto_comparable($clienteExcel);
+	$candidatos = array_values(array_filter(maestroClientesEnMemoria($mysqli), fn($f) => $f['pos_id'] === $posId && $f['pos_name_comparable'] === $clienteComparable));
+	if (!$candidatos) return null;
+	$cedis = array_unique(array_column($candidatos, 'cedi'));
+	sort($cedis);
+	return $cedis[0];
+}
+
+// Fila completa del maestro para un pos_id, desambiguada por nombre cuando se conoce (pos_id solo no es único). Sin nombre, o sin match exacto, cae al primero que encuentre (comportamiento de antes).
+function clienteMaestroDePosId($mysqli, $posId, $clienteExcel = null) {
+	$maestro = maestroClientesEnMemoria($mysqli);
+	if ($clienteExcel) {
+		$clienteComparable = repositorio_texto_comparable($clienteExcel);
+		foreach ($maestro as $f) {
+			if ($f['pos_id'] === $posId && $f['pos_name_comparable'] === $clienteComparable) return $f;
+		}
+	}
+	foreach ($maestro as $f) {
+		if ($f['pos_id'] === $posId) return $f;
+	}
+	return null;
 }
 
 // Corrige "CATEGORIAS" del Excel de Cuotas contra el catálogo real: Sector directo, o "Sector Subcategoría" pegados. Sin match, null.
@@ -725,14 +751,14 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 	// Sin rebate_pct: se busca abajo vía buscarRebateProducto().
 	$stmt = $mysqli->prepare(
-		"SELECT id, sector, subcategoria, marca, valores_mensuales FROM repositorio_cuota_cliente
+		"SELECT id, cliente_excel, plan, sector, subcategoria, marca, valores_mensuales FROM repositorio_cuota_cliente
 		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
 		 ORDER BY sector"
 	);
 	// Fallback si subcategoria/marca todavía no existen en la base: nunca tumbar la Acta por columnas nuevas.
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
-			"SELECT id, sector, NULL AS subcategoria, NULL AS marca, valores_mensuales FROM repositorio_cuota_cliente
+			"SELECT id, cliente_excel, plan, sector, NULL AS subcategoria, NULL AS marca, valores_mensuales FROM repositorio_cuota_cliente
 			 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
 			 ORDER BY sector"
 		);
@@ -744,13 +770,8 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 	$stmt->close();
 	if (!$filasCuota) return null;
 
-	$stmtCliente = $mysqli->prepare(
-		"SELECT pos_name, cedi, canal, tipo_distribuidor FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1"
-	);
-	$stmtCliente->bind_param('s', $posId);
-	$stmtCliente->execute();
-	$cliente = $stmtCliente->get_result()->fetch_assoc();
-	$stmtCliente->close();
+	// Desambiguado por nombre: pos_id solo no es único en el maestro (bug real encontrado 2026-09-30, mismo criterio que resolverPosIdCliente()).
+	$cliente = clienteMaestroDePosId($mysqli, $posId, $filasCuota[0]['cliente_excel'] ?? null);
 	if (!$cliente) return null;
 
 	$stmtHistorial = $mysqli->prepare(
@@ -841,6 +862,8 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		'mes_fin'         => $mesInicio + 2,
 		'es_distribuidor' => ($cliente['canal'] ?? null) === 'DISTRIBUIDOR',
 		'empresa_distribuidora' => $cliente['tipo_distribuidor'] ?: '',
+		// Texto literal del Excel (columna DISTRIBUIDOR/plan), para mostrar lo que se subió aunque no coincida exacto con el maestro.
+		'empresa_distribuidora_excel' => $filasCuota[0]['plan'] ?? '',
 		'lineas'          => ['meta_compra' => $lineasMeta, 'cabecera' => [], 'ruma' => [], 'percha' => []],
 	];
 }
@@ -1691,40 +1714,55 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 
-// Cola de resolución manual: filas sin match único, con candidatos para elegir a mano (igual que liquidacion_pendientes.php).
+// Cola de resolución manual, agrupada por cliente (2026-09-30, pedido explícito: "esas 4 categorías son 1 solo Acta, no 4 filas sueltas") — candidatos para elegir a mano, igual que liquidacion_pendientes.php.
 function listar_repositorio_cuotas_pendientes_match($mysqli) {
 	$stmt = $mysqli->prepare(
 		"SELECT id, cliente_excel, cedi_excel, plan, sector, trimestre, anio, valores_mensuales
 		 FROM repositorio_cuota_cliente
 		 WHERE estado = 'pendiente_match'
-		 ORDER BY cliente_excel, sector"
+		 ORDER BY cliente_excel, cedi_excel, plan, trimestre, anio, sector"
 	);
 	if (!$stmt) return [];
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
-	foreach ($filas as &$fila) {
-		$fila['valores_mensuales'] = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
+	$grupos = [];
+	$ordenGrupos = [];
+	foreach ($filas as $fila) {
+		$valores = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
+		$clave = $fila['cliente_excel'].'|'.$fila['cedi_excel'].'|'.$fila['plan'].'|'.$fila['trimestre'].'|'.$fila['anio'];
+		if (!isset($grupos[$clave])) {
+			$grupos[$clave] = [
+				'ids' => [], 'cliente_excel' => $fila['cliente_excel'], 'cedi_excel' => $fila['cedi_excel'],
+				'plan' => $fila['plan'], 'trimestre' => (int) $fila['trimestre'], 'anio' => (int) $fila['anio'],
+				'categorias' => [], 'monto_total' => 0,
+			];
+			$ordenGrupos[] = $clave;
+		}
+		$grupos[$clave]['ids'][] = (int) $fila['id'];
+		$grupos[$clave]['categorias'][] = $fila['sector'];
+		$grupos[$clave]['monto_total'] += is_array($valores) ? array_sum($valores) : 0;
 	}
-	unset($fila);
 
 	$stmtCand = $mysqli->prepare(
 		"SELECT pos_id, pos_name, cedi, supervisor FROM repositorio_locales_supervisores_cliente
 		 WHERE pos_name LIKE CONCAT(?, '%') ORDER BY pos_name LIMIT 10"
 	);
-	foreach ($filas as &$fila) {
-		$fila['candidatos'] = [];
+	$resultado = [];
+	foreach ($ordenGrupos as $clave) {
+		$g = $grupos[$clave];
+		$g['candidatos'] = [];
 		if ($stmtCand) {
-			$stmtCand->bind_param('s', $fila['cliente_excel']);
+			$stmtCand->bind_param('s', $g['cliente_excel']);
 			$stmtCand->execute();
-			$fila['candidatos'] = $stmtCand->get_result()->fetch_all(MYSQLI_ASSOC);
+			$g['candidatos'] = $stmtCand->get_result()->fetch_all(MYSQLI_ASSOC);
 		}
+		$resultado[] = $g;
 	}
-	unset($fila);
 	if ($stmtCand) $stmtCand->close();
 
-	return $filas;
+	return $resultado;
 }
 
 // ---------- Seguimiento de Equipo ---------- maestro-detalle con filtro de estado. Reforzar el chequeo de rol acá.

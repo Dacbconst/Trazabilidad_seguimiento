@@ -29,18 +29,19 @@ if (!isset($secciones[$vista])) {
 }
 
 // Cada módulo carga solo sus hojas y scripts (en el orden de siempre); uno que no esté en la lista carga todo, así uno nuevo nunca queda sin estilos.
-$hojasTodas = ['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario', 'auditoria'];
-$scriptsTodos = ['sesion-watch', 'filtros', 'reportes-lista', 'reportes', 'historial', 'calendario', 'auditoria', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios'];
+$hojasTodas = ['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario', 'auditoria', 'usuarios'];
+$scriptsTodos = ['sesion-watch', 'filtros', 'reportes-lista', 'reportes', 'historial', 'calendario', 'auditoria', 'usuarios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios'];
 $porVista = [
 	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios']],
 	'historial' => [['actividades', 'ppt-export', 'filtros', 'historial'], ['filtros', 'historial', 'app']],
 	'reportes' => [['ppt-export', 'filtros', 'reportes'], ['filtros', 'reportes-lista', 'reportes']],
 	'calendario' => [['actividades', 'ppt-export', 'comentarios', 'reportes', 'calendario'], ['calendario', 'comentarios']],
-	'auditoria' => [['filtros', 'historial', 'auditoria'], ['filtros', 'auditoria']],
+	'auditoria' => [['auditoria'], ['auditoria']],
+	'usuarios' => [['usuarios'], ['usuarios']],
 ];
 [$hojasVista, $scriptsVista] = $porVista[$vista] ?? [$hojasTodas, $scriptsTodos];
 $hojas = array_values(array_intersect($hojasTodas, array_merge(['base', 'shell', 'wizard-fotos'], $hojasVista)));
-$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch'], $scriptsVista)));
+$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch', 'zoom-foto'], $scriptsVista)));
 ?>
 <!DOCTYPE html>
 <html lang="es">

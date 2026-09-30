@@ -30,13 +30,10 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 // Cachea dentro de esta verificación: resolverSectorReal()/resolverPosIdCliente() escanean sin índice útil y esto corre en cada cambio de Año.
 $cacheSector = [];
 $cachePosId  = [];
+$cacheDiagnostico = [];
 $cacheCediReal = [];
 $stmtExistente = $mysqli->prepare(
 	'SELECT estado FROM repositorio_cuota_cliente WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? LIMIT 1'
-);
-// CEDI/Ciudad real del cliente ya identificado (2026-09-21, pedido explícito: "si en base dice Guayaquil pero el Excel me pone Quito, avisar antes de guardar") — MIN() por si el pos_id se repite en el maestro.
-$stmtCediReal = $mysqli->prepare(
-	'SELECT MIN(cedi) AS cedi FROM repositorio_locales_supervisores_cliente WHERE pos_id = ?'
 );
 
 $estados = [];
@@ -62,7 +59,9 @@ foreach ($filas as $fila) {
 	$clavePos = $clienteExcel.'|'.$cediExcel;
 	if (!array_key_exists($clavePos, $cachePosId)) {
 		$plan = repositorio_normalizar_texto($fila['plan'] ?? '');
-		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
+		$diagnostico = null;
+		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnostico);
+		$cacheDiagnostico[$clavePos] = $diagnostico;
 	}
 	$posId = $cachePosId[$clavePos];
 
@@ -70,6 +69,7 @@ foreach ($filas as $fila) {
 		$estados[] = [
 			'estado' => 'sin_cliente', 'sector_resuelto' => $sectorResuelto,
 			'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
+			'diagnostico' => $cacheDiagnostico[$clavePos] ?? null,
 		];
 		continue;
 	}
@@ -96,26 +96,20 @@ foreach ($filas as $fila) {
 	// cuenta de usuario todavía" de "no se pudo identificar nada" (pedido explícito).
 	$asignado = resolverNombreAsignadoCuota($mysqli, $posId, $cediExcel, $clienteExcel, $usuarioExcel);
 
-	if (!array_key_exists($posId, $cacheCediReal)) {
-		$cediReal = null;
-		if ($stmtCediReal) {
-			$stmtCediReal->bind_param('s', $posId);
-			$stmtCediReal->execute();
-			$filaCedi = $stmtCediReal->get_result()->fetch_assoc();
-			$cediReal = $filaCedi ? $filaCedi['cedi'] : null;
-		}
-		$cacheCediReal[$posId] = $cediReal;
+	// Clave por pos_id+cliente (no solo pos_id): ese pos_id puede estar duplicado en el maestro entre clientes distintos.
+	$claveCediReal = $posId.'|'.$clienteExcel;
+	if (!array_key_exists($claveCediReal, $cacheCediReal)) {
+		$cacheCediReal[$claveCediReal] = cediRealDePosId($mysqli, $posId, $clienteExcel);
 	}
 
 	$estados[] = [
 		'estado' => $estado, 'sector_resuelto' => $sectorResuelto,
 		'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
 		'pos_id' => $posId, 'asignado_a' => $asignado['nombre'], 'tiene_cuenta' => $asignado['tiene_cuenta'],
-		'cedi_real' => $cacheCediReal[$posId],
+		'cedi_real' => $cacheCediReal[$claveCediReal],
 	];
 }
 if ($stmtExistente) $stmtExistente->close();
-if ($stmtCediReal) $stmtCediReal->close();
 
 responder(true, 'ok', ['estados' => $estados]);
 ?>

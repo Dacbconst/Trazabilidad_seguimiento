@@ -104,6 +104,15 @@ try {
 	$cacheSector = [];
 	$cachePosId  = [];
 
+	// Preparado una sola vez afuera del loop — antes se re-preparaba en cada fila y hacía lenta la subida.
+	$stmtCheck = $mysqli->prepare(
+		'SELECT c.estado, a.documento_no, a.created_at, u.usuario
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 WHERE c.pos_id = ? AND c.sector = ? AND c.trimestre = ? AND c.anio = ? LIMIT 1'
+	);
+
 	foreach ($filas as $indice => $fila) {
 		$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
 		$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
@@ -158,18 +167,10 @@ try {
 
 		// Protege una fila ya 'usada' (generó una Acta real): chequeo aparte del UPSERT para poder avisar con el Acta real (documento_no/usuario/fecha).
 		if ($posId) {
-			$stmtCheck = $mysqli->prepare(
-				'SELECT c.estado, a.documento_no, a.created_at, u.usuario
-				 FROM repositorio_cuota_cliente c
-				 LEFT JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
-				 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
-				 WHERE c.pos_id = ? AND c.sector = ? AND c.trimestre = ? AND c.anio = ? LIMIT 1'
-			);
 			if ($stmtCheck) {
 				$stmtCheck->bind_param('ssii', $posId, $sector, $trimestre, $anio);
 				$stmtCheck->execute();
 				$existente = $stmtCheck->get_result()->fetch_assoc();
-				$stmtCheck->close();
 				if ($existente && $existente['estado'] === 'usada') {
 					$avisos[] = [
 						'indice' => $indice, 'fila' => $etiqueta,
@@ -221,6 +222,7 @@ try {
 		}
 	}
 	$stmt->close();
+	if ($stmtCheck) $stmtCheck->close();
 
 	$mysqli->commit();
 } catch (Exception $e) {

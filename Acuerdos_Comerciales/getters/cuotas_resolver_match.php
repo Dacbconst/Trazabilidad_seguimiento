@@ -16,11 +16,13 @@ function responder($ok, $message, $extra = []) {
 	exit;
 }
 
-$id     = (int) ($_POST['id'] ?? 0);
-$accion = $_POST['accion'] ?? 'matchear';
-$posId  = trim($_POST['pos_id'] ?? '');
+// ids (2026-09-30): lista separada por comas — 1 Acta = todas las categorías de un mismo cliente, se resuelven juntas. "id" (singular) se mantiene como alias por compatibilidad.
+$idsCrudo = $_POST['ids'] ?? $_POST['id'] ?? '';
+$ids      = array_values(array_filter(array_map('intval', explode(',', (string) $idsCrudo)), fn($v) => $v > 0));
+$accion   = $_POST['accion'] ?? 'matchear';
+$posId    = trim($_POST['pos_id'] ?? '');
 
-if ($id <= 0) {
+if (!$ids) {
 	responder(false, 'Falta el id de la fila.');
 }
 if (!in_array($accion, ['matchear', 'descartar'], true)) {
@@ -31,15 +33,17 @@ if ($accion === 'matchear' && $posId === '') {
 }
 
 $usuarioSesion = $_SESSION['user_id'] ?? null;
+$marcadores = implode(',', array_fill(0, count($ids), '?'));
 
 if ($accion === 'descartar') {
 	$stmt = $mysqli->prepare(
-		"UPDATE repositorio_cuota_cliente SET estado = 'descartada', actualizado_por = ? WHERE id = ? AND estado = 'pendiente_match'"
+		"UPDATE repositorio_cuota_cliente SET estado = 'descartada', actualizado_por = ? WHERE id IN ($marcadores) AND estado = 'pendiente_match'"
 	);
-	$stmt->bind_param('ii', $usuarioSesion, $id);
+	$stmt->bind_param('i'.str_repeat('i', count($ids)), $usuarioSesion, ...$ids);
 	$ok = $stmt->execute();
+	$afectadas = $stmt->affected_rows;
 	$stmt->close();
-	responder((bool) $ok, $ok ? 'Marcada como descartada.' : 'No se pudo guardar.');
+	responder((bool) $ok, $ok ? "$afectadas categoría(s) descartada(s)." : 'No se pudo guardar.');
 }
 
 // Se valida que el pos_id exista de verdad en el maestro antes de asignarlo.
@@ -53,10 +57,11 @@ if (!$existe) {
 }
 
 $stmt = $mysqli->prepare(
-	"UPDATE repositorio_cuota_cliente SET pos_id = ?, estado = 'pendiente_uso', actualizado_por = ? WHERE id = ? AND estado = 'pendiente_match'"
+	"UPDATE repositorio_cuota_cliente SET pos_id = ?, estado = 'pendiente_uso', actualizado_por = ? WHERE id IN ($marcadores) AND estado = 'pendiente_match'"
 );
-$stmt->bind_param('sii', $posId, $usuarioSesion, $id);
+$stmt->bind_param('si'.str_repeat('i', count($ids)), $posId, $usuarioSesion, ...$ids);
 $ok = $stmt->execute();
+$afectadas = $stmt->affected_rows;
 $stmt->close();
 
 // La UNIQUE (pos_id, sector, trimestre, anio) puede chocar si ya existe una fila resuelta para el mismo cliente+categoría+período — se avisa en vez de fallar mudo.
@@ -64,5 +69,5 @@ if (!$ok && $mysqli->errno === 1062) {
 	responder(false, 'Ya existe una cuota guardada para ese cliente, categoría y período. Borrá la fila vieja en la tabla de Cuotas antes de asignar esta.');
 }
 
-responder((bool) $ok, $ok ? 'Cliente asignado correctamente.' : 'No se pudo guardar.');
+responder((bool) $ok, $ok ? "$afectadas categoría(s) asignada(s) correctamente." : 'No se pudo guardar.');
 ?>

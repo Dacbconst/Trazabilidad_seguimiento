@@ -3,6 +3,7 @@
 require_once __DIR__.'/db.php';
 require_once __DIR__.'/fotos_datos.php';
 require_once __DIR__.'/registros_hijos.php';
+require_once __DIR__.'/usuarios_datos.php';
 
 // Las fotos se guardan solo como ruta relativa (id => "Activaciones/23092026184602ADMINCALENDARIO.jpg"), como en las demás tablas de Epson; la URL pública y la etiqueta se arman al leer.
 const EP_FOTOS_URL_BASE = 'https://luckyecuadorweb.blob.core.windows.net/app/';
@@ -17,7 +18,8 @@ function ep_registros_datos(int $limite = 1000, array $ids = []): array {
 	if (!empty($ids)) {
 		$filtroIds = ' AND r.id IN ('.implode(',', array_map('intval', $ids)).')';
 	}
-	$stmt = $db->prepare('SELECT r.id AS db_id, r.codigo, r.tipo_actividad, r.fecha_actividad, r.hora_inicio, r.hora_fin, r.tiendas_nacional, r.tiendas_coberturadas, r.visitaron, r.interactuaron, r.compraron, r.valores, u.usuario, u.nombre FROM insert_reporte_registro r LEFT JOIN repositorio_usuarios_reporte u ON u.id = r.usuario_id WHERE r.eliminado_en IS NULL'.$filtroIds.' ORDER BY r.created_at DESC, r.id DESC LIMIT ?');
+	$colFoto = ep_usuarios_tiene_foto($db) ? ', u.foto' : ', NULL AS foto';
+	$stmt = $db->prepare('SELECT r.id AS db_id, r.codigo, r.tipo_actividad, r.fecha_actividad, r.hora_inicio, r.hora_fin, r.tiendas_nacional, r.tiendas_coberturadas, r.visitaron, r.interactuaron, r.compraron, r.valores, u.usuario, u.nombre'.$colFoto.' FROM insert_reporte_registro r LEFT JOIN repositorio_usuarios_reporte u ON u.id = r.usuario_id WHERE r.eliminado_en IS NULL'.$filtroIds.' ORDER BY r.created_at DESC, r.id DESC LIMIT ?');
 	if (!$stmt) {
 		return [];
 	}
@@ -39,6 +41,7 @@ function ep_registro_armar(array $fila, array $hijos): array {
 	$registro['db_id'] = (int) $fila['db_id'];
 	$registro['promotor_usuario'] = $fila['usuario'] ?? ($registro['promotor_usuario'] ?? '');
 	$registro['promotor'] = $fila['nombre'] ?: ucwords(str_replace('.', ' ', (string) $registro['promotor_usuario']));
+	$registro['promotor_foto_url'] = ep_usuario_foto_url($fila['foto'] ?? null);
 
 	if ($fila['tipo_actividad'] !== null) {
 		$registro['tipo_actividad'] = $fila['tipo_actividad'];
@@ -209,7 +212,7 @@ function ep_registro_eliminar(string $codigo): bool {
 
 // Código corto del registro: prefijo del tipo de actividad + usuario + número que sube por usuario y tipo, por ejemplo RACPABLOCASTELO-001.
 function ep_codigo_registro(string $tipo, int $usuarioId, string $usuario): string {
-	$prefijos = ['activaciones' => 'RAC', 'capacitaciones' => 'RCAP', 'colocacion-pop' => 'RPOP', 'epson-day' => 'RDAY', 'exhibiciones' => 'REXH', 'evento-ferias' => 'RFER'];
+	$prefijos = ['activaciones' => 'RAC', 'capacitaciones' => 'RCAP', 'colocacion-pop' => 'RPOP', 'epson-day' => 'RDAY', 'exhibiciones' => 'REXH', 'evento-ferias' => 'RFER', 'informe-fotografico' => 'RFOT'];
 	$prefijo = $prefijos[$tipo] ?? 'REG';
 	$limpio = strtr(mb_strtoupper($usuario, 'UTF-8'), ['Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N']);
 	$nombre = substr(preg_replace('/[^A-Z0-9]/', '', $limpio), 0, 18);

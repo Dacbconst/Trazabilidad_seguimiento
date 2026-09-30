@@ -11,6 +11,36 @@
         ],
         "createdAt": "2026-09-18T03:24:19.779Z",
         "reason": "Pre-existing .ep-sidebar width transition (260px<->72px collapse), predates this session. Genuine layout change, not decorative motion -- transform:scaleX would distort the nav text instead of collapsing it. Not part of today's task scope."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sora",
+        "createdAt": "2026-09-30T15:12:54.397Z",
+        "reason": "fuentes reales de EpsonReport/assets/css/base.css, el mockup las replica"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "ibm plex sans",
+        "createdAt": "2026-09-30T15:12:54.789Z",
+        "reason": "fuentes reales de EpsonReport/assets/css/base.css, el mockup las replica"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "EpsonReport/docs/diseno/gestion-usuarios.html"
+        ],
+        "createdAt": "2026-09-30T15:13:59.751Z",
+        "reason": "paleta morada real de EpsonReport/assets/css/base.css, el mockup la replica"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "EpsonReport/docs/diseno/auditoria-rediseno.html"
+        ],
+        "createdAt": "2026-09-30T17:07:04.007Z",
+        "reason": "paleta morada real de EpsonReport/assets/css/base.css, el mockup la replica"
       }
     ]
   }

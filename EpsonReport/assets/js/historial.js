@@ -241,8 +241,74 @@
 		});
 	}
 
+	// Descarga consolidada (solo admin): checkbox por fila, se acumulan códigos y deben ser todos del mismo tipo.
+	var multiBarra = document.getElementById('epH2Multi');
+	var multiTexto = document.getElementById('epH2MultiTexto');
+	var multiDescargar = document.getElementById('epH2MultiDescargar');
+	var multiCancelar = document.getElementById('epH2MultiCancelar');
+	var seleccionMulti = {};
+	function actualizarBarraMulti() {
+		if (!multiBarra) return;
+		var codigos = Object.keys(seleccionMulti);
+		var tipos = codigos.map(function (c) { return seleccionMulti[c]; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+		multiBarra.classList.toggle('hidden', codigos.length === 0);
+		if (!codigos.length) return;
+		multiTexto.textContent = codigos.length + (codigos.length === 1 ? ' seleccionado' : ' seleccionados') + (tipos.length > 1 ? ' · deben ser del mismo tipo de actividad' : '');
+		multiDescargar.disabled = tipos.length > 1;
+	}
+	function reaplicarMulti() {
+		filas.forEach(function (f) {
+			var chk = f.querySelector('.ep-h2-check');
+			if (chk) chk.checked = !!seleccionMulti[chk.dataset.codigo];
+		});
+	}
+	if (multiCancelar) {
+		multiCancelar.addEventListener('click', function () { seleccionMulti = {}; reaplicarMulti(); actualizarBarraMulti(); });
+	}
+	if (multiDescargar) {
+		multiDescargar.addEventListener('click', function () {
+			var codigos = Object.keys(seleccionMulti);
+			if (!codigos.length) return;
+			multiDescargar.disabled = true;
+			var original = multiDescargar.innerHTML;
+			multiDescargar.textContent = 'Generando...';
+			var fd = new FormData();
+			codigos.forEach(function (c) { fd.append('codigos[]', c); });
+			fetch('getters/registros_ppt_multiple.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+				.then(function (res) {
+					var tipoRespuesta = res.headers.get('Content-Type') || '';
+					if (tipoRespuesta.indexOf('json') !== -1) {
+						return res.json().then(function (d) { throw new Error(d.error || 'No se pudo generar la presentación.'); });
+					}
+					if (!res.ok) throw new Error('El servidor no pudo generar la presentación (código ' + res.status + ').');
+					return res.blob();
+				})
+				.then(function (blob) {
+					var enlace = document.createElement('a');
+					enlace.href = URL.createObjectURL(blob);
+					enlace.download = 'consolidado.pptx';
+					document.body.appendChild(enlace);
+					enlace.click();
+					enlace.remove();
+					seleccionMulti = {};
+					reaplicarMulti();
+					actualizarBarraMulti();
+				})
+				.catch(function (err) { if (window.Swal) Swal.fire({ icon: 'error', title: 'No se pudo generar', text: err.message || 'Intenta de nuevo.' }); })
+				.then(function () { multiDescargar.disabled = false; multiDescargar.innerHTML = original; });
+		});
+	}
+
 	// Selección de registro
+	root.addEventListener('change', function (ev) {
+		var chk = ev.target.closest('.ep-h2-check');
+		if (!chk) return;
+		if (chk.checked) seleccionMulti[chk.dataset.codigo] = chk.dataset.tipo;
+		else delete seleccionMulti[chk.dataset.codigo];
+		actualizarBarraMulti();
+	});
 	root.addEventListener('click', function (ev) {
+		if (ev.target.closest('.ep-h2-check')) return;
 		var btnEliminar = ev.target.closest('.ep-h2-btn-eliminar');
 		if (btnEliminar) { eliminarRegistro(btnEliminar); return; }
 		var fila = ev.target.closest('.ep-h2-reg');
@@ -368,6 +434,7 @@
 				estado.sel = null;
 				refrescarCombos();
 				aplicar();
+				reaplicarMulti();
 				var previa = codigoSel && filas.filter(function (f) { return f.dataset.codigo === codigoSel && !f.classList.contains('hidden'); })[0];
 				if (previa) seleccionar(previa, false);
 			})

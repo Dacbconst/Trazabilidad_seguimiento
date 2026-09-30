@@ -227,6 +227,27 @@ if ($faltantes > 0) {
 	echo json_encode(['success' => false, 'error' => 'Faltan '.$faltantes.' foto(s) por subir. Sube las fotos obligatorias.']);
 	exit;
 }
+// Actividades extensibles: además de la lista fija, se validan las fotos extra que el promotor haya sumado con "+ Agregar foto".
+if (ep_fotos_extensible($tipo)) {
+	$idsConocidos = array_column($reqFotos, 'id');
+	foreach ($fotosSubidas as $fotoId => $ruta) {
+		if (in_array($fotoId, $idsConocidos, true) || !preg_match('/^foto-\d+$/', $fotoId)) {
+			continue;
+		}
+		$esperado = $usuarioLimpio.$sinSimbolos($fotoId);
+		if (!preg_match('#^[A-Za-z]+/\d{14}'.preg_quote($esperado, '#').'\.(jpg|png|webp)$#', (string) $ruta)) {
+			continue;
+		}
+		$fotosFinal[] = [
+			'id'     => $fotoId,
+			'label'  => 'Foto adicional',
+			'hora'   => $hora,
+			'estado' => 'Verificada',
+			'ruta'   => $ruta,
+			'url'    => 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta,
+		];
+	}
+}
 $registro['fotos'] = $fotosFinal;
 
 // Comentarios

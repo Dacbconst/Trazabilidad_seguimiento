@@ -411,7 +411,19 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 
 ## Reunión 28-09-2026: pendientes grandes (sin construir)
 
-- Registrado en `docs/grabaciones/28-09-2026.txt`. Quedan pendientes: 4 botones de "informe fotográfico simple" (Exhibiciones regulares y Competencia, cada uno Canal/Retail), descarga consolidada de varios reportes, y el bloque grande de rol Supervisor + calendario automático de activaciones (borrador → activar → quema de casillas al enviar registro → colchón de 5 días → bloqueo automático → reactivación solo admin/supervisor).
+- Registrado en `docs/grabaciones/28-09-2026.txt`. Quedan pendientes: descarga consolidada de varios reportes, y el bloque grande de rol Supervisor como perfil de sesión propio (hoy el Calendario asume que el admin hace todo lo que haría un supervisor). El "informe fotográfico simple" ya se construyó, ver sección siguiente.
+
+## Lógica "Informe Fotográfico Simple" (2026-09-30, SIN PROBAR en navegador)
+
+- Séptima lógica base (`ep_logicas()` en `includes/actividades_datos.php`, id 7, plantilla `informe-fotografico`, `sin_estadisticas => true`): solo punto de venta (ya universal para toda actividad, vía `paso_pdv.php`) y fotos, sin ningún campo cuantitativo ni paso de "Datos de la actividad" (no pide tipo/fecha/hora). Pensada para que el admin cree con ella los botones "Exhibiciones Regulares" y "Competencia" que pidió el cliente (Retail y Canales no llevan botones separados: el canal ya sale del punto de venta elegido, igual que en las demás actividades).
+- **Fotos** (`includes/fotos_datos.php`): 1 obligatoria + 5 opcionales (`foto-1`..`foto-6`). El cliente pidió "sin mínimo, pueden subir 50.000 fotos"; se usó el mecanismo de casillas fijas que ya tiene todo el proyecto (obligatorias + opcionales) en vez de construir un uploader de galería abierta — es una simplificación consciente, más barata y sin tocar el motor de fotos compartido por todas las actividades. Si el cliente de verdad necesita un número no acotado de fotos, eso es una pieza nueva de UI a construir aparte.
+- **Formulario** (`components/actividades/formularios/informe-fotografico.php`) y **estadísticas** (`components/actividades/estadisticas/informe-fotografico.php`): placeholders mínimos, mismo patrón que `colocacion-pop.php` (que tampoco tiene panel de estadísticas).
+- **Sin cambios en `guardar_registro.php` ni en el detalle del Historial**: ambos ya eran genéricos por diseño (el guardado no exige campos cuantitativos si el tipo no los pide, y el detalle muestra fotos y comentarios sin importar el tipo) — la nueva lógica encaja sin tocar ninguno de los dos.
+- Código de registro con prefijo propio `RFOT` (`ep_codigo_registro()`) e ícono `camera` (`ep_icono_tipo()`).
+- **Bug encontrado y corregido de paso**: `tipoActividadActiva()` en `app.js` (usada al subir cada foto a Azure) adivinaba el tipo buscando palabras en el NOMBRE del botón ("exhibi", "pop", etc.) en vez de leer `data-plantilla` (que el botón ya trae). Con un botón llamado "Exhibiciones Regulares" esa función habría subido las fotos a la carpeta de Azure de `exhibiciones` en vez de `informe-fotografico`. Ahora lee `data-plantilla` directo.
+- **Falta que el usuario haga, desde la app** (no requiere tocar la base, es uso normal del Constructor): crear los botones "Exhibiciones Regulares" y "Competencia" desde "+ Nueva actividad" eligiendo la lógica "Informe Fotográfico Simple".
+- **Fotos extensibles (2026-09-30)**: además de las 6 casillas fijas (1 obligatoria + 5 opcionales), esta actividad muestra un botón "+ Agregar foto" que suma casillas opcionales sin límite (`ep_fotos_extensible()` en `fotos_datos.php`). Funciona sola porque el manejo de fotos ya es 100% por delegación de eventos a nivel `document` (`change`/`drag`/`drop` en `app.js`) — una casilla nueva no necesita re-inicializarse. `guardar_registro.php` valida cualquier `foto-N` extra que no esté en la lista fija, con la misma regla de ruta que las fijas.
+- **PPT (2026-09-30)**: `recursos/ppt/informe-fotografico.pptx` es una copia de `exhibiciones.pptx` (mismo diseño corporativo, sin plantilla propia de Epson para esto todavía). Sin diapositiva de estadísticas: `ep_ppt_registro()` en `ppt_motor.php` ahora vuelve OPCIONAL la clave `'stats'` del spec (si no está, no se clona esa diapositiva ni se llama la barra del promotor; el resto de actividades no cambia, todas siguen trayendo `'stats'`). `includes/ppt_informe_fotografico.php` solo trae `'fotos'` (sin `'orden'` fijo a propósito): cada diapositiva de fotos pone el punto de venta como título solo (mecanismo compartido de `ep_ppt_slide_fotos()`), y `ep_ppt_registro()` ahora usa las fotos reales del registro cuando el spec no trae `'orden'`, así que **sí entran todas las fotos que el promotor haya subido**, incluidas las agregadas con "+ Agregar foto" — sin el límite de 6 que tuvo al principio.
 
 ## Correcciones de "Ingresos por Modelo" (2026-09-29)
 
@@ -434,54 +446,63 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - **"Ingresos por Modelo" fijo, "Detalle de Ventas" se corre solo (2026-09-29)**: `$deltaX` (desplazamiento del clon de "Ingresos") ya no se calcula sumando `$corrimiento`, se calcula RESTÁNDOLO a partir de un destino fijo (`$ingresosLeftFijo`), así "Ingresos por Modelo" siempre queda en el mismo lugar sin importar cuánto se mueva "Detalle de Ventas" a la izquierda con `$corrimiento`. Ojo: la posición del número clonado usa `6415448 + $ingresosLeftFijo + ...` (el `6415448` es la base original del grupo de barra en la plantilla); quitarlo por error deja el monto flotando sobre la tarjeta de SKU mayor/menor.
 - **Segundo ajuste de espacio (2026-09-29)**: `$corrimiento` pasó de -120000 a -160000 (Detalle de Ventas un poco más a la izquierda) e `$ingresosLeftFijo` de 3089982 a 3129982 (Ingresos por Modelo se corrió 40000 EMU a la derecha para abrir más separación entre ambas tarjetas, no solo lo que ganaba por el corrimiento de la otra). Ambos valores se tocan juntos: si se sube uno sin el otro el hueco entre tarjetas se cierra o se abre de más.
 
+## Foto de perfil del promotor en el PPT (2026-09-30, SIN PROBAR en navegador)
+
+- Ya existía toda la infraestructura de foto de perfil (módulo "Usuarios", columna `foto` en `repositorio_usuarios_reporte`, subida a Azure vía `getters/usuario_foto.php`, `ep_usuario_foto_url()` en `includes/usuarios_datos.php`) — solo faltaba conectarla al armado del PPT.
+- `ep_registros_datos()`/`ep_registro_armar()` en `registros_datos.php` ahora traen `u.foto` (con el mismo chequeo defensivo `ep_usuarios_tiene_foto()` que ya usa el módulo Usuarios) y arman `$reg['promotor_foto_url']` por registro.
+- `ep_ppt_abrir()` descarga esa URL junto con las demás fotos del registro (mismo mecanismo de descarga en paralelo, sin duplicar código). `ep_ppt_barra_promotor()` cambió de firma (`&$ctx, &$slide` en vez de `$dom, $xp` sueltos, único call site, dentro de `ep_ppt_registro()`) para poder insertar la imagen: si hay foto descargada la pone en el cuadro `Gráfico 19` de la plantilla (recortada tipo "cover", como las demás fotos — no "contenida" con márgenes); si no hay, se comporta exactamente igual que antes (`ep_ppt_quitar()`, cuadro vacío). El espacio/nombre de forma para la foto ya estaba reservado en el mapa `$n['foto']` desde el principio, solo faltaba la lógica de inserción.
+- No rompe nada existente: ningún generador cambia su comportamiento hoy salvo que el promotor de ese registro ya tenga foto de perfil subida (confirmado que "admin" ya tiene una).
+
 ## Pendiente a seguir: bloque grande de la reunión 28-09-2026
 
 Del módulo **Calendario de Activaciones** (ver sección arriba) ya está construido y con su diseño real aplicado (escritorio y móvil, mockup aprobado por el usuario en la herramienta de Diseño de Claude): crear/listar calendarios, cascada Ciudad→Promotor→Punto de venta→Supervisor contra el rutero real, cruce automático de registros, cierre y generación de reporte (manual o al vencer el plazo), reactivación. Falta que el usuario lo pruebe en navegador real.
 
-Del resto de lo hablado en `docs/grabaciones/28-09-2026.txt` (ver también "Reunión 28-09-2026: pendientes grandes"), **todavía sin empezar**, para retomar en otra sesión/sección propia cuando el usuario lo pida:
-1. 4 botones de "informe fotográfico simple" (Exhibiciones regulares y Competencia, cada uno Canal/Retail): solo foto + punto de venta, agrupado por ciudad.
-2. Descarga consolidada de varios reportes mensuales en uno solo.
-3. Rol Supervisor como perfil de sesión propio (hoy no existe: solo `usuario`/`admin` en `$_SESSION['rol']`) — el Calendario ya construido asume que el admin hace todo lo que haría un supervisor; falta decidir si el supervisor es un rol de acceso distinto o solo una etiqueta dentro de admin.
+Del resto de lo hablado en `docs/grabaciones/28-09-2026.txt` (ver también "Reunión 28-09-2026: pendientes grandes"):
+1. ~~4 botones de "informe fotográfico simple"~~ → lógica construida, ver "Lógica 'Informe Fotográfico Simple'"; falta que el admin cree los botones "Exhibiciones Regulares" y "Competencia" desde el Constructor (revisado el 30-09: todavía no existen en `insert_reporte_actividad`).
+2. ~~Descarga consolidada de varios registros en uno solo~~ → construida, ver "Descarga consolidada de registros (2026-09-30)".
+3. **Pendiente real**: Rol Supervisor como perfil de sesión propio (hoy no existe: solo `usuario`/`admin` en `$_SESSION['rol']`) — el Calendario ya construido asume que el admin hace todo lo que haría un supervisor; falta decidir si el supervisor es un rol de acceso distinto o solo una etiqueta dentro de admin.
 4. ~~Auditoría de reactivaciones~~ → construida como módulo propio, ver "Auditoría (2026-09-29)".
+5. ~~Módulo de gestión de usuarios~~ → construido, ver "Usuarios (2026-09-30)".
 
-## Auditoría (2026-09-29, requiere CREATE TABLE, SIN PROBAR en navegador)
+## Descarga consolidada de registros (2026-09-30, SIN PROBAR en navegador)
+
+- **Alcance real**: no es "varios reportes mensuales en uno" (eso implicaría fusionar plantillas .pptx distintas, inviable con el motor actual de clonado de diapositivas), sino varios **registros individuales del mismo tipo de actividad** seleccionados a mano en Historial, descargados como un solo PPTX — el caso de uso real que se pidió ("check a un lado de cada registro").
+- **Historial** (`components/historial/filas.php`): checkbox por fila, solo admin (`ep-h2-check`, con `data-codigo`/`data-tipo`). Barra flotante (`components/historial/historial.php`, `#epH2Multi`) con contador y botón "Descargar consolidado"; se deshabilita sola si la selección mezcla tipos de actividad distintos. `assets/js/historial.js` mantiene la selección en memoria y la reaplica después de cada refresco en vivo (cada 3s) para no perderla.
+- **Backend** (`getters/registros_ppt_multiple.php`, solo admin): recibe códigos de registro, exige que todos sean del mismo tipo y que ese tipo tenga generador (`ep_ppt_generador()`), y llama al generador normal con `'solo_registro' => true` — el mismo mecanismo que ya soporta varios registros a la vez (usado hoy por Reportes mensuales), solo que sin guardar nada ni pedir mes. Tope de 100 registros por descarga.
+- **No toca nada existente**: reusa `ep_ppt_generador()` y los generadores tal cual están; no se tocó ningún archivo de `ppt_*.php` para esto.
+
+## Auditoría (2026-09-29, tabla ya creada, SIN PROBAR en navegador)
 
 - **Alcance**: la aprobación de registros por supervisor que se oye en la grabación 28-09 fue conversación interna del cliente, NO un requisito de la app. Lo pedido era poder responder "quién autorizó, cuándo y con qué usuario".
 - **Tabla** `insert_reporte_auditoria` (solo se agrega, sin borrado lógico a propósito): `usuario_id` (NULL = Sistema), `usuario_nombre` congelado, `accion`, `entidad` + `entidad_id`, `resumen` legible, `detalle` JSON (`[{campo, antes, despues}]` o `[{campo, valor}]`), `ip`, `created_at`.
 - **Código**: `includes/auditoria_datos.php` (`ep_auditar()`, `ep_auditoria_cambio()`, `ep_auditoria_dato()`, `ep_auditoria_listar()`, `ep_auditoria_acciones()`). `ep_auditar()` nunca corta la acción: si la tabla no existe o falla, solo deja `error_log`.
 - **Qué se registra** (desde cada getter, después de que la acción salió bien): calendario crear / editar fila (antes→después de ciudad, punto de venta, promotor, supervisor; solo campos que cambiaron) / comentarios / generar ahora / reactivar / eliminar; cierre automático al vencer (usuario Sistema, en `ep_calendario_verificar_vencidos()`); eliminar registro; crear y eliminar reporte mensual; crear, activar y desactivar actividad. En `calendario_editar.php` la auditoría va dentro de la misma transacción.
-- **Pantalla** `index.php?vista=auditoria` (solo admin): `components/auditoria/auditoria.php` + `assets/css/auditoria.css` + `assets/js/auditoria.js`. Bitácora agrupada por día (un panel por día, filas separadas por línea fina), detalle siempre visible, búsqueda + combos Usuario/Acción (`epFiltros.crearCombo`) + periodos rápidos y rango (reusa `.ep-h2-rapidos` y `.ep-fl-combo-fechas` de `historial.css`). Muestra los últimos `EP_AUDITORIA_LIMITE` (1000); el filtro corre en el navegador. Eliminaciones con icono en tono de peligro; Sistema en gris.
+- **Pantalla** `index.php?vista=auditoria` (solo admin, rediseñada 2026-09-30, SIN PROBAR en navegador; mockup en `docs/diseno/auditoria-rediseno.html`): `components/auditoria/auditoria.php` + `assets/css/auditoria.css` + `assets/js/auditoria.js`. Una línea por movimiento (hora, icono por tipo crea/cambio/elimina/sistema, resumen, usuario · acción, badge "N cambios"), días con encabezado fijo, y panel de detalle a la derecha (quién, fecha completa, antes/después lado a lado, sección, número, IP); en móvil el detalle es pantalla completa con botón Movimientos. Filtros: buscador, combo nativo de Usuario, chips por tipo con conteo y periodo Todo/Hoy/Semana/Mes (se quitó el rango de fechas y el combo de Acción). El tipo se deriva de `accion` (`_crear`, `_eliminar`, sin usuario = Sistema, resto = Cambio). Muestra los últimos `EP_AUDITORIA_LIMITE` (1000); el filtro corre en el navegador. Ya no carga `filtros`/`historial` (css y js) en esa vista.
 - Las columnas sueltas `editado_por/en` y `reactivado_por/en` del Calendario siguen escribiéndose igual; la auditoría las complementa con el historial completo.
 - **Por qué una tabla nueva y no solo consultar las existentes**: las tablas guardan el estado actual y sobrescriben al cambiar. Con ellas se sabe quién creó algo y quién hizo el ÚLTIMO cambio, pero no qué valor había antes, ni el historial de varios cambios, ni QUIÉN eliminó (solo `eliminado_en`, sin usuario), ni quién activó/desactivó una actividad, ni si un cierre fue automático o manual. Eso solo existe si se anota en el momento, por eso la bitácora.
 
 ### Pendiente para probar (2026-09-30)
 
-1. **Crear la tabla** (lo corre el usuario en HeidiSQL; Claude no ejecuta CREATE TABLE). Verificado el 29-09 con SHOW TABLES que todavía no existe:
-```sql
-CREATE TABLE insert_reporte_auditoria (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  usuario_id INT NULL,
-  usuario_nombre VARCHAR(150) NOT NULL,
-  accion VARCHAR(40) NOT NULL,
-  entidad VARCHAR(30) NOT NULL,
-  entidad_id INT NULL,
-  resumen VARCHAR(255) NOT NULL,
-  detalle TEXT NULL,
-  ip VARCHAR(45) NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_fecha (created_at),
-  KEY idx_entidad (entidad, entidad_id),
-  KEY idx_usuario (usuario_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-2. **Antes de crearla**: entrar a Auditoría debe mostrar el estado vacío "Todavía no hay movimientos" sin errores, y las acciones de admin deben seguir funcionando igual (solo dejan `ep_auditar:` en el error_log).
-3. **Después de crearla**, como admin, hacer y revisar que cada una aparezca bajo "Hoy" con nombre, hora y detalle:
+1. ~~Crear la tabla~~ → confirmado el 30-09 con `SHOW TABLES` que `insert_reporte_auditoria` ya existe en la base.
+2. Como admin, hacer y revisar que cada acción aparezca bajo "Hoy" con nombre, hora y detalle:
    - Calendario: crear uno; editar una fila (cambiar punto de venta o promotor → debe salir antes tachado → después); cambiar comentarios; "Generar ahora"; reactivar; eliminar.
    - Historial: eliminar un registro (datos del registro en el detalle, icono rojo).
    - Reportes mensuales: crear uno y eliminarlo ("Registros liberados").
    - Constructor: crear una actividad, desactivarla y activarla.
    - Cierre automático: un calendario con plazo vencido, al abrir la pantalla de Calendario, debe dejar un movimiento del usuario "Sistema" (icono gris).
-4. **Pantalla**: probar búsqueda, combos Usuario/Acción, Hoy/Semana/Mes y rango de fechas; que el contador de cada día y el resumen de arriba se actualicen; y la vista en celular (sin desborde lateral).
-5. **Editar sin cambios reales**: guardar una edición de calendario donde la fila queda igual no debe crear movimiento (solo se anotan campos que cambiaron).
-6. Si todo pasa, quitar "SIN PROBAR" del título de esta sección.
+3. **Pantalla**: probar búsqueda, combo Usuario, chips de tipo y Hoy/Semana/Mes; que el contador de cada día, los conteos de los chips y el resumen de arriba se vean bien; abrir el detalle de cada tipo de movimiento (con antes/después y sin él) y la vista en celular (detalle a pantalla completa, sin desborde lateral).
+4. **Editar sin cambios reales**: guardar una edición de calendario donde la fila queda igual no debe crear movimiento (solo se anotan campos que cambiaron).
+5. Si todo pasa, quitar "SIN PROBAR" del título de esta sección.
+
+## Usuarios (2026-09-30, SIN PROBAR contra la base real, solo con datos de prueba)
+
+- **Pantalla** `index.php?vista=usuarios` (solo admin, rediseño aprobado en Claude Design; mockups en `docs/diseno/gestion-usuarios.html`): `components/usuarios/usuarios.php` + `assets/css/usuarios.css` + `assets/js/usuarios.js`. Lista con buscador, filtros Rol/Estado y panel lateral (en móvil pantalla completa). La lista se pinta en el navegador desde un JSON.
+- **Datos**: `includes/usuarios_datos.php` sobre `repositorio_usuarios_reporte`. Ciudad y canal son solo informativos y salen del rutero activo (`rutero_pdv` + `repositorio_locales_dtt2`, mismo criterio del 20 % de `pdv_datos.php`): ciudad dominante, canal Retail, Canales o "Retail y Canales"; admin = "No aplica", promotor sin rutero = "Sin rutero".
+- **Qué se edita**: correo y rol. Nombre y ciudad/canal bloqueados porque el nombre viene de Xplora y el Calendario cruza por el usuario de Xplora (el correo es solo de contacto, el login es `usuario` y no cambia). Nadie puede cambiar su propio rol ni desactivarse.
+- **Clave**: "Cambiar clave" pide nueva y confirmación (ojito para verlas, botón "Generar una"), mínimo `EP_CLAVE_MINIMA` (6), texto plano como el resto. Cambiar la clave de otro cierra su sesión abierta y libera el bloqueo por intentos.
+- **Desactivar/Reactivar**: `status` activo/inactivo; al desactivar se borra `sesion_token` (lo expulsa). Reactivar lo deja entrar con su clave de siempre.
+- **Nuevo usuario**: pide usuario de ingreso, nombre, correo, rol y clave. Si el rol es Promotor, el usuario debe existir activo en Xplora y el nombre se toma de ahí; si es Admin, se escribe el nombre.
+- **Foto**: requiere la columna nueva `foto` (SQL abajo, lo corre el usuario en HeidiSQL). Se sube a Azure en `Usuarios/<id>_<fecha>.jpg` reducida a 400 px (`getters/usuario_foto.php`) y se muestra en la lista y en el avatar del menú lateral (`ep_usuario_foto_actual()`). Sin la columna, todo lo demás funciona y subir foto responde "Falta la columna foto". La foto elegida solo se previsualiza en el panel y se sube al pulsar Guardar cambios (Cancelar o cerrar la descarta); tocar la foto abre una vista ampliada compartida (`assets/js/zoom-foto.js` + estilos `.ep-zoom-foto` en `shell.css`, cargada en todas las vistas; `window.epZoomFoto(url, nombre)`). También se abre al tocar el avatar con foto del menú lateral (en vez de plegar el menú). Esc, clic en el fondo o la X la cierran.
+- **Getters** (POST, solo admin, responden JSON): `usuario_guardar.php` (crear sin id, editar correo/rol con id), `usuario_clave.php`, `usuario_estado.php`, `usuario_foto.php`.
+- **Auditoría**: cada acción queda anotada (`usuario_crear/editar/clave/foto/activar/desactivar`); la clave nunca se guarda en el detalle.
+- **SQL pendiente**: `ALTER TABLE repositorio_usuarios_reporte ADD COLUMN foto VARCHAR(255) NULL AFTER correo;`

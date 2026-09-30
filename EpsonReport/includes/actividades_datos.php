@@ -2,7 +2,7 @@
 // Lógicas base (plantilla, campos y fotos que hereda cada botón) y actividades (botones) guardadas en insert_reporte_actividad.
 require_once __DIR__.'/db.php';
 
-// Las seis lógicas del sistema, por plantilla; su id es el de la actividad base que las renderiza.
+// Las siete lógicas del sistema, por plantilla; su id es el de la actividad base que las renderiza.
 function ep_logicas(): array {
 	$base = [
 		[
@@ -85,6 +85,16 @@ function ep_logicas(): array {
 				['label' => 'POP Recibido (Bodega / Canales / Retail por material)', 'tipo' => 'manual'],
 				['label' => 'Detalle de Entrega a Puntos de Venta', 'tipo' => 'manual'],
 				['label' => 'Comentarios', 'tipo' => 'manual'],
+			],
+		],
+		[
+			'id' => 7,
+			'label' => 'Informe Fotográfico Simple',
+			'badge' => null,
+			'plantilla' => 'informe-fotografico',
+			'sin_estadisticas' => true,
+			'campos' => [
+				['label' => 'Foto de lo encontrado', 'tipo' => 'manual'],
 			],
 		],
 	];

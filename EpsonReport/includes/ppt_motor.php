@@ -1,6 +1,5 @@
 <?php
-// Motor común de los PPTX de Epson: arma el archivo desde la plantilla de cada actividad. Cada actividad aporta solo su especificación
-// (plantilla, diapositivas, orden de fotos) y la función que llena sus estadísticas; la barra del promotor y las fotos son iguales para todas.
+// Motor común de los PPTX de Epson: cada actividad solo aporta su especificación y la función que llena sus estadísticas.
 
 require_once __DIR__.'/ppt_base.php';
 
@@ -25,13 +24,20 @@ function ep_ppt_etiqueta_actividad(array $reg, string $prefijo): string {
 	return strpos($tipo, $prefijo) === 0 ? $tipo : $prefijo.' '.$tipo;
 }
 
-// Barra azul del promotor, igual en todas las plantillas: nombre, correo, punto de venta, actividad, fecha, horario y ciudad.
-// $n: nombres de forma de la plantilla (Epson Day usa otros que las demás).
-function ep_ppt_barra_promotor(DOMDocument $dom, DOMXPath $xp, array $reg, string $etiquetaActividad, ?array $n = null): void {
+// Barra azul del promotor, igual en todas las plantillas; $n son los nombres de forma (Epson Day usa otros que las demás).
+function ep_ppt_barra_promotor(array &$ctx, array &$slide, array $reg, string $etiquetaActividad, ?array $n = null): void {
+	$dom = $slide['dom'];
+	$xp = $slide['xp'];
 	$n = $n ?? ['nombre' => 'CuadroTexto 16', 'correo' => 'CuadroTexto 17', 'punto' => 'CuadroTexto 20', 'actividad' => 'CuadroTexto 21', 'fecha' => 'CuadroTexto 22', 'ciudad' => 'CuadroTexto 23', 'foto' => 'Gráfico 19'];
 	$punto = ep_ppt_mayus((string) ($reg['punto_venta'] ?? ''));
 	$horario = !empty($reg['hora_inicio']) ? $reg['hora_inicio'].' – '.$reg['hora_fin'] : (string) ($reg['hora'] ?? '');
-	ep_ppt_quitar($xp, $n['foto']); // foto de ejemplo del promotor de la plantilla (queda vacía)
+	// Con foto de perfil del promotor se inserta en el cuadro de la plantilla; sin ella, se quita (queda vacío, como hasta ahora).
+	$fotoUrl = $reg['promotor_foto_url'] ?? '';
+	if ($fotoUrl !== '' && isset($ctx['fotos'][$fotoUrl])) {
+		ep_ppt_slide_imagen($ctx, $slide, $n['foto'], $ctx['fotos'][$fotoUrl]);
+	} else {
+		ep_ppt_quitar($xp, $n['foto']);
+	}
 	ep_ppt_texto($dom, $xp, $n['nombre'], [ep_ppt_mayus((string) ($reg['promotor'] ?? ''))]);
 	ep_ppt_texto($dom, $xp, $n['correo'], [strtolower((string) ($reg['promotor_correo'] ?? ''))]);
 	ep_ppt_texto($dom, $xp, $n['punto'], [$punto]);
@@ -65,6 +71,9 @@ function ep_ppt_abrir(array $spec, array $registros, array $opciones): array {
 			if (!empty($f['url'])) {
 				$urls[] = $f['url'];
 			}
+		}
+		if (!empty($reg['promotor_foto_url'])) {
+			$urls[] = $reg['promotor_foto_url'];
 		}
 	}
 	$solo = !empty($opciones['solo_registro']);
@@ -160,14 +169,19 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
 		}
 	}
 	$antes = count($ctx['nuevas']);
-	$slide = ep_ppt_slide_nueva($ctx, $spec['stats']['n']);
-	ep_ppt_barra_promotor($slide['dom'], $slide['xp'], $reg, ep_ppt_etiqueta_actividad($reg, $spec['prefijo_actividad']), $spec['promotor'] ?? null);
-	$spec['stats']['llenar']($slide['dom'], $slide['xp'], $reg);
-	if (!empty($spec['stats']['ensanchar'])) {
-		ep_ppt_ensanchar($slide['xp'], (float) $spec['stats']['ensanchar']);
+	// Actividades sin dato cuantitativo (informe fotográfico simple) no llevan diapositiva de estadísticas, solo fotos.
+	if (!empty($spec['stats'])) {
+		$slide = ep_ppt_slide_nueva($ctx, $spec['stats']['n']);
+		ep_ppt_barra_promotor($ctx, $slide, $reg, ep_ppt_etiqueta_actividad($reg, $spec['prefijo_actividad']), $spec['promotor'] ?? null);
+		$spec['stats']['llenar']($slide['dom'], $slide['xp'], $reg);
+		if (!empty($spec['stats']['ensanchar'])) {
+			ep_ppt_ensanchar($slide['xp'], (float) $spec['stats']['ensanchar']);
+		}
+		ep_ppt_slide_guardar($ctx, $slide);
 	}
-	ep_ppt_slide_guardar($ctx, $slide);
-	$ids = array_values(array_filter($spec['fotos']['orden'], fn($id) => isset($mapaFotos[$id])));
+	// Sin 'orden' fijo en el spec, se usan las fotos reales del registro (para actividades sin tope de fotos, como el informe fotográfico simple).
+	$ordenFotos = $spec['fotos']['orden'] ?? array_column($reg['fotos'] ?? [], 'id');
+	$ids = array_values(array_filter($ordenFotos, fn($id) => isset($mapaFotos[$id])));
 	foreach (array_chunk($ids, 3) as $grupo) {
 		ep_ppt_slide_fotos($ctx, $spec, $reg, $grupo, $mapaFotos);
 	}
@@ -245,9 +259,7 @@ function ep_ppt_cerrar(array &$ctx): string {
 	return $ctx['destino'];
 }
 
-// Genera el PPTX de una actividad. Devuelve la ruta de un archivo temporal; el llamador lo envía y lo borra.
-// $spec: plantilla, titulo (del mes), prefijo_actividad, stats ['n', 'llenar'], fotos ['n', 'titulo', 'rects', 'orden'] y, opcional, fija (diapositiva una vez por reporte).
-// $opciones: 'solo_registro' (sin portada ni título del mes) y las propias de cada actividad.
+// Genera el PPTX de una actividad ($spec: plantilla/titulo/stats/fotos, opcional fija); devuelve la ruta de un temporal que el llamador borra.
 function ep_ppt_generar(array $spec, array $registros, string $tituloMes, array $opciones = []): string {
 	$ctx = ep_ppt_abrir($spec, $registros, $opciones);
 	if (!$ctx['solo']) {
@@ -274,6 +286,7 @@ function ep_ppt_generador(string $tipo): ?string {
 		'epson-day' => ['ppt_epson_day.php', 'ep_ppt_epson_day'],
 		'evento-ferias' => ['ppt_evento_ferias.php', 'ep_ppt_evento_ferias'],
 		'exhibiciones' => ['ppt_exhibiciones.php', 'ep_ppt_exhibiciones'],
+		'informe-fotografico' => ['ppt_informe_fotografico.php', 'ep_ppt_informe_fotografico'],
 	];
 	if (!isset($generadores[$tipo])) {
 		return null;
