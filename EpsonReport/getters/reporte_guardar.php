@@ -53,7 +53,16 @@ if (count($validos) === 0) {
 	ep_rep_responder(false, ['error' => 'Los registros elegidos ya están en otro reporte o no corresponden a la actividad.'], 400);
 }
 sort($fechas);
-$copia = json_encode(['desde' => $fechas[0], 'hasta' => end($fechas), 'actividad' => $nombreActividad, 'registros' => $snapshot], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$congelado = ['desde' => $fechas[0], 'hasta' => end($fechas), 'actividad' => $nombreActividad, 'registros' => $snapshot];
+// Colocación de POP: unidades recibidas en bodega por "CAMPAÑA|MATERIAL" (las escribe el admin en el paso final).
+if ($tipo === 'colocacion-pop') {
+	$bodega = [];
+	foreach (json_decode((string) ($_POST['pop_bodega'] ?? '{}'), true) ?: [] as $clave => $n) {
+		$bodega[mb_substr((string) $clave, 0, 110, 'UTF-8')] = min(999999, max(0, (int) $n));
+	}
+	$congelado['pop_bodega'] = $bodega;
+}
+$copia = json_encode($congelado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 // Imagen del calendario (opcional): se sube a Azure, carpeta Reportes.
 $rutaCalendario = null;

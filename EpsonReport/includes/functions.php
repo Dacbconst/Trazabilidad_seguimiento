@@ -48,7 +48,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 
 // Nombre del icono que representa cada tipo de actividad (pestañas y filas del Historial).
 function ep_icono_tipo(string $tipo): string {
-	return ['activaciones' => 'megaphone', 'capacitaciones' => 'graduation', 'colocacion-pop' => 'tag', 'epson-day' => 'star', 'exhibiciones' => 'shelves', 'evento-ferias' => 'tent', 'informe-fotografico' => 'camera'][$tipo] ?? 'file';
+	return ['activaciones' => 'megaphone', 'capacitaciones' => 'graduation', 'colocacion-pop' => 'tag', 'epson-day' => 'star', 'exhibiciones' => 'shelves', 'evento-ferias' => 'tent', 'informe-fotografico' => 'camera', 'competencia' => 'eye'][$tipo] ?? 'file';
 }
 
 // Rol actual desde la sesión real ('usuario' o 'admin').

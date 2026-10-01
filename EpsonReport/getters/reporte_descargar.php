@@ -50,7 +50,7 @@ usort($registros, fn($a, $b) => strcmp(($a['promotor'] ?? '').($a['fecha_activid
 @ini_set('memory_limit', '768M');
 $meses = ep_ppt_meses();
 $titulo = $meses[(int) substr($reporte['mes'], 5, 2)].' '.substr($reporte['mes'], 0, 4);
-$opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? '')];
+$opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? ''), 'pop_bodega' => $reporte['snapshot']['pop_bodega'] ?? []];
 // Tabla del calendario: la congelada en la copia o, en reportes viejos, la del calendario.
 if ($reporte['tipo'] === 'activaciones') {
 	require_once __DIR__.'/../includes/calendario_datos.php';

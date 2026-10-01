@@ -115,6 +115,7 @@
 .ep-h2-foto img, .ep-h2-foto-vacia { display: flex; align-items: center; justify-content: center; width: 118px; height: 118px; object-fit: cover; border-radius: 8px; background: #F0EBF8; color: #9B88BC; pointer-events: none; }
 .ep-h2-foto:hover img { outline: 2px solid var(--color-primary); }
 .ep-h2-foto-lbl { display: block; margin-top: 3px; font-size: 10.5px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-h2-foto-lbl.ep-h2-foto-desc { width: 118px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; color: var(--color-ink); line-height: 1.3; }
 .ep-h2-tabla-wrap { overflow-x: auto; margin-top: 8px; }
 .ep-h2-tabla { width: 100%; border-collapse: collapse; font-size: 12px; }
 .ep-h2-tabla th { text-align: left; padding: 6px 8px; font-size: 11px; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); }

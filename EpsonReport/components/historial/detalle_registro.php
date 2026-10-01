@@ -179,16 +179,17 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 			<?php endforeach; ?>
 		</div>
 
-	<?php elseif ($tipo === 'colocacion-pop' && !empty($r['pop_materiales'])): ?>
+	<?php elseif ($tipo === 'colocacion-pop' && !empty($r['pop_entregas'])): ?>
 		<div class="ep-stat-card-plano">
-			<div class="ep-stat-card-titulo"><?= ep_icon('file', 15) ?> Material POP</div>
+			<div class="ep-stat-card-titulo"><?= ep_icon('tag', 15) ?> Material POP entregado · Campaña <?= $h($r['campana'] ?? '') ?></div>
 			<div class="ep-h2-tabla-wrap">
 				<table class="ep-h2-tabla">
-					<thead><tr><th>Material</th><th>Bodega</th><th>Canales</th><th>Retail</th><th>Disp.</th></tr></thead>
+					<thead><tr><th>Material</th><th>Cantidad</th></tr></thead>
 					<tbody>
-					<?php foreach ($r['pop_materiales'] as $p): ?>
-						<tr><td><?= $h($p['material'] ?? '') ?></td><td><?= (int) ($p['bodega'] ?? 0) ?></td><td><?= (int) ($p['canales'] ?? 0) ?></td><td><?= (int) ($p['retail'] ?? 0) ?></td><td><?= (int) ($p['disponible'] ?? 0) ?></td></tr>
+					<?php foreach ($r['pop_entregas'] as $p): ?>
+						<tr><td><?= $h($p['material'] ?? '') ?></td><td><?= (int) ($p['cantidad'] ?? 0) ?></td></tr>
 					<?php endforeach; ?>
+						<tr><td><strong>Total</strong></td><td><strong><?= array_sum(array_column($r['pop_entregas'], 'cantidad')) ?></strong></td></tr>
 					</tbody>
 				</table>
 			</div>
@@ -231,14 +232,17 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 			<button type="button" class="ep-h2-car-btn ep-h2-car-prev" aria-label="Anterior" disabled>&#8249;</button>
 			<button type="button" class="ep-h2-car-btn ep-h2-car-next" aria-label="Siguiente">&#8250;</button>
 			<div class="ep-h2-fotos-grid ep-h2-carril">
-				<?php foreach ($fotos as $f): ?>
-					<button type="button" class="ep-h2-foto" data-url="<?= $h($f['url'] ?? '') ?>" data-label="<?= $h($f['label'] ?? 'Foto') ?>">
+				<?php foreach ($fotos as $f):
+					// Competencia: la descripción que escribió el promotor dice más que la etiqueta de la casilla.
+					$textoFoto = ($f['descripcion'] ?? '') !== '' ? $f['descripcion'] : ($f['label'] ?? 'Foto');
+				?>
+					<button type="button" class="ep-h2-foto" data-url="<?= $h($f['url'] ?? '') ?>" data-label="<?= $h($textoFoto) ?>">
 						<?php if (!empty($f['url'])): ?>
-							<img src="<?= $h($f['url']) ?>" alt="<?= $h($f['label'] ?? 'Foto') ?>" loading="lazy">
+							<img src="<?= $h($f['url']) ?>" alt="<?= $h($textoFoto) ?>" loading="lazy">
 						<?php else: ?>
 							<span class="ep-h2-foto-vacia"><?= ep_icon('camera', 18) ?></span>
 						<?php endif; ?>
-						<span class="ep-h2-foto-lbl"><?= $h($f['label'] ?? 'Foto') ?></span>
+						<span class="ep-h2-foto-lbl<?= ($f['descripcion'] ?? '') !== '' ? ' ep-h2-foto-desc' : '' ?>" title="<?= $h($textoFoto) ?>"><?= $h($textoFoto) ?></span>
 					</button>
 				<?php endforeach; ?>
 			</div>

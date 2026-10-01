@@ -14,28 +14,23 @@ if (($_SESSION['rol'] ?? '') !== 'admin') {
 require_once __DIR__.'/../includes/actividades_datos.php';
 
 $nombre = mb_substr(trim($_POST['nombre'] ?? ''), 0, 80);
-$origenId = (int) ($_POST['logica_id'] ?? 0);
+$plantilla = (string) ($_POST['logica'] ?? '');
 
 if ($nombre === '') {
 	echo json_encode(['ok' => false, 'message' => 'Ponle un nombre a la actividad.']);
 	exit;
 }
 
-$origen = null;
-foreach (ep_actividades() as $a) {
-	if ($a['id'] === $origenId) {
-		$origen = $a;
-		break;
-	}
-}
-if (!$origen) {
-	echo json_encode(['ok' => false, 'message' => 'Elige de qué actividad copiar la lógica.']);
+// La lógica se elige entre las base (ep_logicas), así una lógica nueva se puede usar aunque ningún botón la tenga todavía.
+$logica = ep_logicas()[$plantilla] ?? null;
+if (!$logica) {
+	echo json_encode(['ok' => false, 'message' => 'Elige qué lógica replicar.']);
 	exit;
 }
 
-$error = ep_actividad_crear($nombre, $origen['plantilla'], (int) $_SESSION['usuario_id']);
+$error = ep_actividad_crear($nombre, $plantilla, (int) $_SESSION['usuario_id']);
 if ($error === null) {
 	require_once __DIR__.'/../includes/auditoria_datos.php';
-	ep_auditar('actividad_crear', 'actividad', null, 'Creó la actividad «'.$nombre.'»', [ep_auditoria_dato('Copia la lógica de', $origen['label'])]);
+	ep_auditar('actividad_crear', 'actividad', null, 'Creó la actividad «'.$nombre.'»', [ep_auditoria_dato('Copia la lógica de', $logica['label'])]);
 }
 echo json_encode($error === null ? ['ok' => true] : ['ok' => false, 'message' => $error]);

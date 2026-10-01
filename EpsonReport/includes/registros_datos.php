@@ -74,6 +74,11 @@ function ep_registro_armar(array $fila, array $hijos): array {
 	}
 	$mapaFotos = json_encode($hijos['fotos'] ?? []);
 	$registro['fotos'] = ep_fotos_desde_json($mapaFotos, (string) ($registro['tipo'] ?? ''), (string) ($registro['hora'] ?? ''));
+	// Descripción por foto (Competencia): vive en el JSON del registro por id de casilla y se pega a cada foto.
+	foreach ($registro['fotos'] as &$foto) {
+		$foto['descripcion'] = (string) ($registro['descripciones'][$foto['id']] ?? '');
+	}
+	unset($foto);
 	$registro['comentarios'] = $hijos['comentarios'] ?? [];
 	return $registro;
 }
@@ -87,10 +92,18 @@ function ep_fotos_desde_json(string $json, string $tipo, string $hora): array {
 	if (isset($datos[0]) && is_array($datos[0])) {
 		return $datos;
 	}
+	$url = fn(string $ruta) => $ruta !== '' ? EP_FOTOS_URL_BASE . (strpos($ruta, 'AppEpson/') === 0 ? '' : 'AppEpson/EpsonReport/') . $ruta : '';
 	$lista = [];
 	foreach (ep_fotos_requeridas($tipo) as $req) {
 		$ruta = (string) ($datos[$req['id']] ?? '');
-		$lista[] = ['id' => $req['id'], 'label' => $req['label'], 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => $ruta, 'url' => $ruta !== '' ? EP_FOTOS_URL_BASE . (strpos($ruta, 'AppEpson/') === 0 ? '' : 'AppEpson/EpsonReport/') . $ruta : ''];
+		$lista[] = ['id' => $req['id'], 'label' => $req['label'], 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => $ruta, 'url' => $url($ruta)];
+		unset($datos[$req['id']]);
+	}
+	// Las fotos sumadas con "+ Agregar foto" no están en la lista fija: sin esto se guardaban pero no se veían en Historial ni en el PPT.
+	if (ep_fotos_extensible($tipo)) {
+		foreach ($datos as $id => $ruta) {
+			$lista[] = ['id' => (string) $id, 'label' => ep_foto_extra_label($tipo), 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => (string) $ruta, 'url' => $url((string) $ruta)];
+		}
 	}
 	return $lista;
 }
@@ -212,7 +225,7 @@ function ep_registro_eliminar(string $codigo): bool {
 
 // Código corto del registro: prefijo del tipo de actividad + usuario + número que sube por usuario y tipo, por ejemplo RACPABLOCASTELO-001.
 function ep_codigo_registro(string $tipo, int $usuarioId, string $usuario): string {
-	$prefijos = ['activaciones' => 'RAC', 'capacitaciones' => 'RCAP', 'colocacion-pop' => 'RPOP', 'epson-day' => 'RDAY', 'exhibiciones' => 'REXH', 'evento-ferias' => 'RFER', 'informe-fotografico' => 'RFOT'];
+	$prefijos = ['activaciones' => 'RAC', 'capacitaciones' => 'RCAP', 'colocacion-pop' => 'RPOP', 'epson-day' => 'RDAY', 'exhibiciones' => 'REXH', 'evento-ferias' => 'RFER', 'informe-fotografico' => 'RFOT', 'competencia' => 'RCOM'];
 	$prefijo = $prefijos[$tipo] ?? 'REG';
 	$limpio = strtr(mb_strtoupper($usuario, 'UTF-8'), ['Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N']);
 	$nombre = substr(preg_replace('/[^A-Z0-9]/', '', $limpio), 0, 18);

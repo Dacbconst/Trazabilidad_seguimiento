@@ -44,7 +44,7 @@ require_once __DIR__.'/../includes/pdv_datos.php';
 require_once __DIR__.'/../includes/login_datos.php';
 $posId = trim($payload['pos_id'] ?? '');
 $punto = $posId !== '' ? ep_pdv_obtener($posId, ep_canales_usuario()) : null;
-if ($tipo !== 'colocacion-pop' && !$punto) {
+if (!$punto) {
 	http_response_code(422);
 	echo json_encode(['success' => false, 'error' => 'Elige un punto de venta de la lista.']);
 	exit;
@@ -181,8 +181,23 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 		'interacciones'  => min(ep_entero($valores['interacciones'] ?? 0), $vendedores + $jefeTienda + $asistenteJefe),
 	];
 } elseif ($tipo === 'colocacion-pop') {
-	$popLista = is_array($valores['pop_materiales'] ?? null) ? $valores['pop_materiales'] : [];
-	$registro['pop_materiales'] = $popLista;
+	// Un registro = un punto de venta: campaña y material entregado ahí (nombre libre en mayúsculas + cantidad).
+	$campana = mb_substr(trim(mb_strtoupper((string) ($valores['campana'] ?? ''), 'UTF-8')), 0, 40, 'UTF-8');
+	$entregas = [];
+	foreach (is_array($valores['pop_entregas'] ?? null) ? $valores['pop_entregas'] : [] as $e) {
+		$material = mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtoupper((string) ($e['material'] ?? ''), 'UTF-8'))), 0, 60, 'UTF-8');
+		$cantidad = min(99999, max(0, (int) ($e['cantidad'] ?? 0)));
+		if ($material !== '' && $cantidad > 0) {
+			$entregas[] = ['material' => $material, 'cantidad' => $cantidad];
+		}
+	}
+	if ($campana === '' || !$entregas) {
+		http_response_code(422);
+		echo json_encode(['success' => false, 'error' => 'Escribe la campaña y al menos un material con su cantidad.']);
+		exit;
+	}
+	$registro['campana'] = $campana;
+	$registro['pop_entregas'] = $entregas;
 } elseif ($tipo === 'exhibiciones') {
 	$x = [];
 	foreach (['cabeceras', 'rumas', 'muebles', 'exh_regular', 'otras'] as $clave) {
@@ -240,7 +255,7 @@ if (ep_fotos_extensible($tipo)) {
 		}
 		$fotosFinal[] = [
 			'id'     => $fotoId,
-			'label'  => 'Foto adicional',
+			'label'  => ep_foto_extra_label($tipo),
 			'hora'   => $hora,
 			'estado' => 'Verificada',
 			'ruta'   => $ruta,
@@ -249,6 +264,25 @@ if (ep_fotos_extensible($tipo)) {
 	}
 }
 $registro['fotos'] = $fotosFinal;
+
+// Competencia: cada foto subida lleva su descripción (pie de la foto en el PPT); se guarda en el JSON del registro, por casilla.
+if (ep_fotos_con_descripcion($tipo)) {
+	$descripcionesRecibidas = is_array($valores['descripciones'] ?? null) ? $valores['descripciones'] : [];
+	$descripciones = [];
+	foreach ($fotosFinal as $f) {
+		if ($f['ruta'] === '') {
+			continue;
+		}
+		$texto = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) ($descripcionesRecibidas[$f['id']] ?? ''))), 0, EP_FOTO_DESCRIPCION_MAX, 'UTF-8');
+		if ($texto === '') {
+			http_response_code(422);
+			echo json_encode(['success' => false, 'error' => 'Cada foto necesita su descripción. Falta en: '.$f['label'].'.']);
+			exit;
+		}
+		$descripciones[$f['id']] = $texto;
+	}
+	$registro['descripciones'] = $descripciones;
+}
 
 // Comentarios
 $comentarioTexto = trim($valores['comentarios'] ?? '');

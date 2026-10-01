@@ -172,6 +172,10 @@ $actividades = ep_actividades_visibles();
 					<div class="ep-wizard-sidebar-list" id="epWizardSidebarList">
 						<!-- Items generados dinámicamente con JS -->
 					</div>
+					<button type="button" class="ep-wizard-sidebar-agregar ep-wizard-agregar hidden" id="epWizardBtnAgregarLateral">
+						<?= ep_icon('plus', 13) ?>
+						<span>Agregar otra foto</span>
+					</button>
 					<div class="ep-wizard-sidebar-hint">
 						<?= ep_icon('layers', 12) ?>
 						<span>Arrastra fotos desde cualquier carpeta o WhatsApp Web.</span>
@@ -182,7 +186,14 @@ $actividades = ep_actividades_visibles();
 				<div class="ep-wizard-body">
 					<div class="ep-wizard-info">
 						<span class="ep-wizard-subtitulo">Requerimiento de Campo</span>
-						<h3 class="ep-wizard-titulo" id="epWizardTituloFoto">Cargando...</h3>
+						<div class="ep-wizard-titulo-fila">
+							<h3 class="ep-wizard-titulo" id="epWizardTituloFoto">Cargando...</h3>
+							<!-- Solo en casillas sumadas con "Agregar otra foto": se pueden quitar -->
+							<button type="button" class="ep-wizard-btn-quitar-casilla hidden" id="epWizardBtnQuitarCasilla">
+								<?= ep_icon('trash', 13) ?>
+								<span>Quitar esta casilla</span>
+							</button>
+						</div>
 					</div>
 
 					<!-- Visor de captura con esquinas HUD fotográficas y Drag & Drop -->
@@ -219,9 +230,22 @@ $actividades = ep_actividades_visibles();
 						</div>
 					</div>
 
+					<!-- Descripción de la foto actual (solo actividades que la piden, como Competencia); se copia a la casilla de la página -->
+					<div class="ep-wizard-descripcion hidden" id="epWizardDescripcion">
+						<div class="ep-wizard-descripcion-head">
+							<label for="epWizardDescripcionTexto">¿Qué se ve en esta foto?</label>
+							<span id="epWizardDescripcionCuenta">0/<?= EP_FOTO_DESCRIPCION_MAX ?></span>
+						</div>
+						<textarea id="epWizardDescripcionTexto" rows="3" maxlength="<?= EP_FOTO_DESCRIPCION_MAX ?>" placeholder="Ej. Canon da un bono de $10 por cada G3110 vendida en Super Paco"></textarea>
+					</div>
+
 					<!-- Tira de miniaturas interactivas para navegación rápida -->
 					<div class="ep-wizard-reel-scroll">
 						<div class="ep-wizard-reel" id="epWizardReel"></div>
+						<button type="button" class="ep-wizard-btn-agregar ep-wizard-agregar hidden" id="epWizardBtnAgregar">
+							<?= ep_icon('plus', 14) ?>
+							<span>Agregar otra foto</span>
+						</button>
 					</div>
 				</div>
 			</div>
@@ -255,8 +279,8 @@ $actividades = ep_actividades_visibles();
 				<div style="display:flex;flex-direction:column;gap:6px;">
 					<label class="ep-label">Lógica a replicar</label>
 					<select class="ep-input" id="ep-nueva-logica">
-						<?php foreach ($actividades as $a): ?>
-							<option value="<?= (int) $a['id'] ?>"><?= htmlspecialchars($a['label']) ?></option>
+						<?php foreach (ep_logicas() as $plantilla => $l): ?>
+							<option value="<?= htmlspecialchars($plantilla) ?>"><?= htmlspecialchars($l['label']) ?></option>
 						<?php endforeach; ?>
 					</select>
 					<span style="font-size:12px;color:var(--color-text-muted);">El nuevo reporte usa el mismo formulario, cálculo y formato de fotos que la lógica elegida.</span>
@@ -332,7 +356,7 @@ $actividades = ep_actividades_visibles();
 
 <?php if ($esAdmin): ?>
 <script>
-	// Mockup: lógicas disponibles para que "Nueva actividad" arme su vista previa en vivo.
-	window.EP_LOGICAS = <?= json_encode(array_combine(array_column($actividades, 'id'), array_map(fn($a) => ['label' => $a['label'], 'plantilla' => $a['plantilla'], 'campos' => $a['campos'], 'fotos' => ep_fotos_requeridas($a['plantilla'])], $actividades)), JSON_UNESCAPED_UNICODE) ?>;
+	// Las lógicas base (no los botones), por plantilla, para la vista previa de "Nueva actividad".
+	window.EP_LOGICAS = <?= json_encode(array_map(fn($l) => ['label' => $l['label'], 'plantilla' => $l['plantilla'], 'campos' => $l['campos'], 'fotos' => ep_fotos_requeridas($l['plantilla'])], ep_logicas()), JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <?php endif; ?>

@@ -480,6 +480,9 @@
 		padding: 8px 10px;
 	}
 	.ep-modelo-fila-nueva .ep-combo { flex: 1; min-width: 0; }
+	/* Con precio (Activaciones, Epson Day) no cabían los 4 campos en una fila: el combo de modelo quedaba de 36px; pasa a su propia línea. */
+	.ep-modelo-fila-nueva.con-precio { flex-wrap: wrap; }
+	.ep-modelo-fila-nueva.con-precio .ep-combo { flex: 1 1 100%; }
 	.ep-modelo-fila-nueva .ep-combo-trigger {
 		height: 42px;
 		background: #FFFFFF;
@@ -665,12 +668,27 @@
 	background: #1E7B4D;
 }
 
+/* La zona central ocupa lo que dejan cabecera y pie, y hace scroll dentro: antes se salía de la ventana y se recortaba */
+.ep-wizard-main-grid {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
 .ep-wizard-body {
+	flex: 1 1 auto;
+	min-height: 0;
 	padding: 16px 18px 12px;
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+}
+/* Nada se aplasta: si no entra, el cuerpo hace scroll */
+.ep-wizard-body > * { flex-shrink: 0; }
+/* Celulares bajos: el visor cede alto para que se vean la descripción y la tira de fotos */
+@media (max-width: 900px) {
+	.ep-wizard-visor { max-height: 42dvh; }
 }
 .ep-wizard-info {
 	display: flex;
@@ -862,6 +880,67 @@
 	background: #EAF6F0;
 	color: #1E7B4D;
 }
+
+/* Descripción de la foto actual (Competencia), bajo el visor */
+.ep-wizard-descripcion { display: flex; flex-direction: column; gap: 6px; }
+.ep-wizard-descripcion.hidden { display: none; }
+.ep-wizard-descripcion-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ep-wizard-descripcion-head label { font-size: 13px; font-weight: 700; color: #22143B; }
+.ep-wizard-descripcion-head span { font-size: 11.5px; font-variant-numeric: tabular-nums; color: #64748B; }
+.ep-wizard-descripcion textarea {
+	width: 100%;
+	min-height: 68px;
+	padding: 10px 12px;
+	border: 1.5px solid #E0D6F2;
+	border-radius: 10px;
+	background: #FFFFFF;
+	font-family: inherit;
+	font-size: 16px;
+	line-height: 1.4;
+	color: #22143B;
+	resize: vertical;
+}
+.ep-wizard-descripcion textarea:focus { outline: none; border-color: #513487; box-shadow: 0 0 0 3px rgba(81, 52, 135, 0.14); }
+.ep-wizard-descripcion textarea:disabled { background: #F6F3FB; color: #8A7FA3; cursor: not-allowed; }
+
+/* Título de la foto actual con "Quitar esta casilla" a la derecha (solo casillas agregadas) */
+.ep-wizard-titulo-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ep-wizard-btn-quitar-casilla {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	flex-shrink: 0;
+	height: 30px;
+	padding: 0 10px;
+	border: 1px solid #F1D3D0;
+	border-radius: 8px;
+	background: #FFFFFF;
+	color: #B3261E;
+	font-size: 12px;
+	font-weight: 600;
+	transition: background 0.15s ease;
+}
+.ep-wizard-btn-quitar-casilla:hover { background: #FDF3F2; }
+.ep-wizard-btn-quitar-casilla.hidden { display: none; }
+
+/* "Agregar otra foto" bajo la tira de miniaturas (actividades sin tope de fotos) */
+.ep-wizard-reel-scroll:has(.ep-wizard-btn-agregar:not(.hidden)) { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ep-wizard-btn-agregar {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 36px;
+	padding: 0 14px;
+	border: 1.5px dashed #C9B8E6;
+	border-radius: 999px;
+	background: #FFFFFF;
+	color: #513487;
+	font-size: 13px;
+	font-weight: 600;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+.ep-wizard-btn-agregar:hover { background: #F4F1FA; border-color: #513487; }
+.ep-wizard-btn-agregar.hidden { display: none; }
 
 .ep-wizard-footer {
 	padding: 12px 18px 16px;

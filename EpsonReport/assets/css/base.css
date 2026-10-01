@@ -110,3 +110,6 @@ input:focus, select:focus, button:focus-visible {
 .ep-vacio-icono { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 8px; border-radius: 50%; background: #EEF0F4; color: #8A93A6; }
 .ep-vacio strong { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; color: #6B7488; }
 .ep-vacio p { max-width: 320px; margin: 0; font-size: 13px; line-height: 1.5; color: #8A93A6; }
+
+/* Etiqueta de los botones de actividad ("Nuevo"): oculta en pantalla a pedido del usuario; el dato sigue en la base */
+.ep-activity-badge, .ep-sidebar-sub-item-badge, .ep-rp-act-badge { display: none !important; }

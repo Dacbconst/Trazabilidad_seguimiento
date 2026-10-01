@@ -30,11 +30,11 @@ if (!isset($secciones[$vista])) {
 
 // Cada módulo carga solo sus hojas y scripts (en el orden de siempre); uno que no esté en la lista carga todo, así uno nuevo nunca queda sin estilos.
 $hojasTodas = ['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario', 'auditoria', 'usuarios'];
-$scriptsTodos = ['sesion-watch', 'filtros', 'reportes-lista', 'reportes', 'historial', 'calendario', 'auditoria', 'usuarios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios'];
+$scriptsTodos = ['sesion-watch', 'filtros', 'reportes-lista', 'reportes-pop', 'reportes', 'historial', 'calendario', 'auditoria', 'usuarios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios'];
 $porVista = [
 	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios']],
 	'historial' => [['actividades', 'ppt-export', 'filtros', 'historial'], ['filtros', 'historial', 'app']],
-	'reportes' => [['ppt-export', 'filtros', 'reportes'], ['filtros', 'reportes-lista', 'reportes']],
+	'reportes' => [['ppt-export', 'filtros', 'reportes'], ['filtros', 'reportes-lista', 'reportes-pop', 'reportes']],
 	'calendario' => [['actividades', 'ppt-export', 'comentarios', 'reportes', 'calendario'], ['calendario', 'comentarios']],
 	'auditoria' => [['auditoria'], ['auditoria']],
 	'usuarios' => [['usuarios'], ['usuarios']],

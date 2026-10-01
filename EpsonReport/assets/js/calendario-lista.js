@@ -62,7 +62,7 @@
 	function pintarAvance(cal, enRango) {
 		var hechas = enRango.filter(function (f) { return f.estado === 'cumplido'; }).length;
 		var total = enRango.length;
-		cal.barra.style.width = (total ? Math.round(hechas / total * 100) : 0) + '%';
+		cal.barra.style.transform = 'scaleX(' + (total ? (hechas / total).toFixed(4) : 0) + ')';
 		var txt = hechas + ' de ' + total;
 		if (cal.estado === 'incompleto' && total > hechas) txt += ' · <em>faltaron ' + (total - hechas) + '</em>';
 		if (total < cal.total) txt += ' <span class="ep-cl-de-total">(de ' + cal.total + ')</span>';

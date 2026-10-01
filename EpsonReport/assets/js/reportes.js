@@ -233,6 +233,11 @@
 
 			cargarRegistrosCapacitaciones();
 		} else if (n === 4) {
+			// Colocación de POP: tabla de bodega con lo entregado en los registros elegidos.
+			if (window.epRpPop) {
+				var regsPop = Object.keys(seleccionadosCapMap).map(function (k) { return seleccionadosCapMap[k]; });
+				window.epRpPop.mostrar((selTipo && selTipo.value) === 'colocacion-pop', regsPop);
+			}
 			if (pasoAct) pasoAct.classList.add('hidden');
 			if (workspaceAct) workspaceAct.classList.add('hidden');
 			if (workspaceCap) workspaceCap.classList.add('hidden');
@@ -249,6 +254,7 @@
 		quitarCalendario();
 		seleccionadosMap = {};
 		seleccionadosCapMap = {};
+		if (window.epRpPop) window.epRpPop.limpiar();
 		if (inpProg) inpProg.value = '';
 		if (inpTitulo) inpTitulo.value = '';
 		if (inpMes) inpMes.value = '';
@@ -1260,12 +1266,13 @@
 					+ '<div class="ep-cap-mini-cargo-item"><span class="ep-cap-mini-cargo-label">MUE</span><div class="ep-cap-mini-cargo-track"><div class="ep-cap-mini-cargo-bar" style="width:' + Math.round((mue/maxE)*100) + '%;background:#D97706;"></div></div><span class="ep-cap-mini-cargo-val" style="color:#D97706;">' + mue + '</span></div>'
 					+ '</div>';
 			} else {
-				var mats = r.pop_materiales || [];
+				var mats = r.pop_entregas || [];
+				var unidades = mats.reduce(function (t, m) { return t + (parseInt(m.cantidad, 10) || 0); }, 0);
 				miniBodyHtml = '<div class="ep-act-mini-title-row">'
-					+ '<span class="ep-act-mini-title">MATERIAL POP</span>'
+					+ '<span class="ep-act-mini-title">MATERIAL POP' + (r.campana ? ' · ' + esc(r.campana) : '') + '</span>'
 					+ '<span class="ep-act-mini-badge" style="background:#EDE9FE;color:#7C3AED;">Slide 1</span>'
 					+ '</div>'
-					+ '<div style="padding:6px 0;font-size:8px;color:#475569;"><strong>' + mats.length + '</strong> materiales registrados</div>';
+					+ '<div style="padding:6px 0;font-size:8px;color:#475569;"><strong>' + mats.length + '</strong> materiales · <strong>' + unidades + '</strong> unidades entregadas</div>';
 			}
 
 			html += '<div class="ep-act-dual-row' + (isChecked ? ' checked' : '') + '" data-id="' + r.id + '">'
@@ -1501,18 +1508,15 @@
 
 			} else if (tipoActual === 'colocacion-pop') {
 				// ================= COLOCACION POP =================
-				var mats = reg.pop_materiales || [];
+				var mats = reg.pop_entregas || [];
 				var filasMats = '';
 				if (mats.length > 0) {
 					mats.forEach(function (m) {
 						filasMats += '<tr><td style="padding:6px;font-weight:600;">' + esc(m.material || '') + '</td>'
-							+ '<td style="padding:6px;text-align:center;">' + (m.bodega || 0) + '</td>'
-							+ '<td style="padding:6px;text-align:center;">' + (m.canales || 0) + '</td>'
-							+ '<td style="padding:6px;text-align:center;">' + (m.retail || 0) + '</td>'
-							+ '<td style="padding:6px;text-align:center;font-weight:700;color:#7C3AED;">' + (m.disponible || 0) + '</td></tr>';
+							+ '<td style="padding:6px;text-align:center;font-weight:700;color:#7C3AED;">' + (m.cantidad || 0) + '</td></tr>';
 					});
 				} else {
-					filasMats = '<tr><td colspan="5" style="padding:10px;text-align:center;color:#94A3B8;">Sin materiales registrados</td></tr>';
+					filasMats = '<tr><td colspan="2" style="padding:10px;text-align:center;color:#94A3B8;">Sin materiales registrados</td></tr>';
 				}
 
 				var htmlSlidePop = '<div class="ep-slide-real-canvas">'
@@ -1521,9 +1525,9 @@
 					+ armarColumnaPromotor('ENTREGA DE MATERIAL POP')
 					+ '<div class="ep-slide-cap-main">'
 					+ '<div class="ep-slide-cap-sec">'
-					+ '<div class="ep-slide-cap-sec-title">INVENTARIO Y ENTREGA DE MATERIAL</div>'
+					+ '<div class="ep-slide-cap-sec-title">MATERIAL ENTREGADO' + (reg.campana ? ' · CAMPAÑA ' + esc(reg.campana) : '') + '</div>'
 					+ '<table style="width:100%;font-size:10px;border-collapse:collapse;margin-top:6px;">'
-					+ '<thead><tr style="background:#F1F5F9;color:#475569;text-align:left;"><th style="padding:6px;">Material</th><th style="padding:6px;text-align:center;">Bodega</th><th style="padding:6px;text-align:center;">Canales</th><th style="padding:6px;text-align:center;">Retail</th><th style="padding:6px;text-align:center;">Disp.</th></tr></thead>'
+					+ '<thead><tr style="background:#F1F5F9;color:#475569;text-align:left;"><th style="padding:6px;">Material</th><th style="padding:6px;text-align:center;">Cantidad</th></tr></thead>'
 					+ '<tbody>' + filasMats + '</tbody>'
 					+ '</table>'
 					+ '</div>'
@@ -1835,12 +1839,17 @@
 
 		var tipoEnvio = (selTipo && selTipo.value) || 'capacitaciones';
 		var labelEnvio = (selTipo && selTipo.dataset.label) || 'Actividad';
+		if (tipoEnvio === 'colocacion-pop' && window.epRpPop && window.epRpPop.faltantes()) {
+			aviso('warning', 'Falta la bodega', 'Escribe cuántas unidades de cada material llegaron a bodega.');
+			return;
+		}
 		var fd = new FormData();
 		fd.append('tipo', tipoEnvio);
 		fd.append('mes', inpMes ? inpMes.value : '');
 		fd.append('nombre_actividad', (selTipo && selTipo.dataset.label) || '');
 		fd.append('titulo', inpTitulo ? inpTitulo.value.trim() : '');
 		fd.append('registros', JSON.stringify(ids));
+		if (tipoEnvio === 'colocacion-pop' && window.epRpPop) fd.append('pop_bodega', JSON.stringify(window.epRpPop.valores()));
 
 		if (btnGuardarAct) btnGuardarAct.disabled = true;
 		if (window.Swal) Swal.fire({ title: 'Guardando reporte', html: 'Consolidando ' + esc(labelEnvio) + ' seleccionadas...', allowOutsideClick: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });

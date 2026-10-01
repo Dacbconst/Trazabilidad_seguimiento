@@ -84,6 +84,15 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-foto-slot-info { display: flex; flex-direction: column; gap: 3px; }
 .ep-foto-slot-label { font-size: 11px; font-weight: 600; color: var(--color-ink); line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ep-foto-slot-estado { align-self: flex-start; font-size: 9.5px; padding: 1px 6px; border-radius: 4px; }
+/* Descripción por foto (Competencia), bajo la casilla */
+.ep-foto-descripcion { width: 100%; min-height: 58px; padding: 7px 9px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); font-family: inherit; font-size: 12px; line-height: 1.35; color: var(--color-ink); resize: vertical; }
+.ep-foto-descripcion:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); }
+.ep-foto-descripcion::placeholder { color: var(--color-text-muted); }
+@media (max-width: 900px) { .ep-foto-descripcion { font-size: 16px; } }
+/* Casillas sumadas con "Agregar foto": botón para quitarlas, en la esquina de la foto */
+.ep-foto-slot[data-extra] { position: relative; }
+.ep-foto-quitar-casilla { position: absolute; top: 6px; right: 6px; z-index: 2; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid #F1D3D0; border-radius: 7px; background: rgba(255, 255, 255, 0.94); color: var(--color-danger); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.ep-foto-quitar-casilla:hover { background: #FDF3F2; }
 
 /* Fila de Envío al final de la tarjeta de evidencia */
 .ep-form-submit-row-desktop {
@@ -161,6 +170,10 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-pop-material-head-info strong { color: var(--color-text); }
 .ep-pop-entrega-fila { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 90px 34px; align-items: center; gap: 8px; }
 .ep-pop-entrega-fila .ep-input { height: 38px; }
+/* Material entregado en el punto de venta: nombre + cantidad + quitar */
+.ep-pop-entregas { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.ep-pop-entregas .ep-pop-entrega-fila { grid-template-columns: minmax(0, 1fr) 90px 34px; }
+.ep-pop-entrega-material { text-transform: uppercase; }
 .ep-hist-badge-pendiente { background: #FFF3D6; color: #8A6100; }
 .ep-hist-badge-danger { background: #FBEAE9; color: var(--color-danger); }
 /* Venían de historial.css; van después de las variantes para conservar la cascada de siempre. */

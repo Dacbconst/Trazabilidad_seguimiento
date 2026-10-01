@@ -142,7 +142,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 				<div class="ep-cl-nombre"><strong title="<?= $h($nombre) ?>"><?= $h($nombre) ?></strong><span><?= $h($sub) ?></span></div>
 				<span class="ep-cl-tag ep-cl-tag-canal"><?= $h($canalTxt($c['canal'])) ?></span>
 				<span class="ep-cl-fechas"><?= $h($rango($c['desde'], $c['hasta'])) ?></span>
-				<div class="ep-cl-avance"><span class="ep-cl-barra-av"><span style="width: <?= $total > 0 ? round($cumplidas / $total * 100) : 0 ?>%"></span></span><span class="ep-cl-av-txt"><?= $cumplidas ?> de <?= $total ?><?= $vista === 'incompleto' ? ' · <em>faltaron '.($total - $cumplidas).'</em>' : '' ?></span></div>
+				<div class="ep-cl-avance"><span class="ep-cl-barra-av"><span style="transform: scaleX(<?= $total > 0 ? round($cumplidas / $total, 4) : 0 ?>)"></span></span><span class="ep-cl-av-txt"><?= $cumplidas ?> de <?= $total ?><?= $vista === 'incompleto' ? ' · <em>faltaron '.($total - $cumplidas).'</em>' : '' ?></span></div>
 				<span class="ep-cl-tag ep-cl-estado ep-cl-estado-<?= $vista ?><?= $urgente ? ' ep-cl-urgente' : '' ?>"><?= $h($estadoTxt) ?></span>
 				<div class="ep-cl-acciones">
 					<?php if ($vista === 'activo'): ?>

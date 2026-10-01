@@ -4,13 +4,14 @@ require_once __DIR__.'/../config.php';
 session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
+require_once __DIR__.'/../includes/actividades_datos.php';
 
 if (($_SESSION['rol'] ?? '') !== 'admin') {
 	http_response_code(403);
 	exit;
 }
 
-$plantillasValidas = ['activaciones', 'capacitaciones', 'epson-day', 'evento-ferias', 'exhibiciones', 'colocacion-pop', 'generico', 'pendiente'];
+$plantillasValidas = array_keys(ep_logicas());
 $plantilla = $_GET['plantilla'] ?? '';
 if (!in_array($plantilla, $plantillasValidas, true)) {
 	http_response_code(400);

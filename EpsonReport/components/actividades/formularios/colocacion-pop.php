@@ -1,71 +1,39 @@
-<?php
-// Materiales fijos de "ESTADISTICOS COLOCACION DE POP.xlsx" — Campaña/Tipo son siempre "Mundial"/"Unidades" en el Excel real, no se piden por fila.
-$epPopMateriales = [
-	'vibrin' => 'Vibrin',
-	'hablador' => 'Hablador',
-	'rompe-trafico' => 'Rompe Tráfico',
-	'bases' => 'Bases',
-	'displays' => 'Displays',
-	'cenefas' => 'Cenefas',
-];
-?>
-<!-- IDs = contrato con assets/js/app.js -->
+<!-- Colocación de POP: un registro por punto de venta (elegido arriba). IDs = contrato con assets/js/app.js -->
 <div class="ep-steps">
 
-	<!-- Paso 1: POP Recibido -->
+	<!-- Paso 1: Campaña del material (Mundial, BTS...) -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
 			<div class="ep-step-num">1</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
-			<h3 class="ep-step-title">POP Recibido</h3>
-			<p class="ep-step-hint">Campaña Mundial · Unidades. Disponible se calcula solo (Bodega − Canales − Retail).</p>
-			<div class="ep-pop-tabla">
-				<div class="ep-pop-fila-header">
-					<span>Material</span><span>Bodega</span><span>Canales</span><span>Retail</span><span>Disponible</span>
-				</div>
-				<?php foreach ($epPopMateriales as $key => $nombre): ?>
-					<div class="ep-pop-fila">
-						<span class="ep-pop-material-nombre"><?= htmlspecialchars($nombre) ?></span>
-						<span class="ep-pop-fila-label-movil">Bodega</span>
-						<input type="number" min="0" class="ep-input" id="ep-pop-bodega-<?= $key ?>" placeholder="0" inputmode="numeric">
-						<span class="ep-pop-fila-label-movil">Canales</span>
-						<input type="number" min="0" class="ep-input" id="ep-pop-canales-<?= $key ?>" placeholder="0" inputmode="numeric">
-						<span class="ep-pop-fila-label-movil">Retail</span>
-						<input type="number" min="0" class="ep-input" id="ep-pop-retail-<?= $key ?>" placeholder="0" inputmode="numeric">
-						<span class="ep-pop-fila-label-movil">Disponible</span>
-						<div class="ep-pop-disponible" id="ep-pop-disponible-<?= $key ?>">0</div>
-					</div>
-				<?php endforeach; ?>
-			</div>
+			<h3 class="ep-step-title">Campaña</h3>
+			<p class="ep-step-hint">Campaña a la que pertenece el material POP que entregaste en este punto de venta.</p>
+			<input type="text" class="ep-input ep-input-mayusculas" id="ep-pop-campana" maxlength="40" placeholder="Ej. BTS" autocomplete="off" style="margin-top:10px;">
 		</div>
 	</div>
 
-	<!-- Paso 2: Detalle de Entrega a Puntos de Venta -->
+	<!-- Paso 2: Material entregado en este punto de venta -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
 			<div class="ep-step-num">2</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
-			<h3 class="ep-step-title">Detalle de Entrega a Puntos de Venta</h3>
-			<p class="ep-step-hint">Por material, a qué PDV se entregó y cuánto — el total debería calzar con el Retail del paso 1.</p>
-
-			<?php foreach ($epPopMateriales as $key => $nombre): ?>
-				<div class="ep-pop-material-card">
-					<div class="ep-pop-material-head">
-						<span class="ep-pop-material-nombre"><?= htmlspecialchars($nombre) ?></span>
-						<span class="ep-pop-material-head-info">Retail: <strong id="ep-pop-header-retail-<?= $key ?>">0</strong> · Entregado: <strong id="ep-pop-entregado-<?= $key ?>">0</strong></span>
-						<span class="ep-hist-badge" id="ep-pop-badge-<?= $key ?>">Sin registrar</span>
-					</div>
-					<div id="ep-pop-entregas-<?= $key ?>" style="display:flex;flex-direction:column;gap:8px;"></div>
-					<button type="button" class="ep-btn-agregar-fila" id="ep-pop-entregas-agregar-<?= $key ?>">
-						<?= ep_icon('plus', 14) ?>
-						Agregar PDV
-					</button>
+			<h3 class="ep-step-title">Material POP entregado</h3>
+			<p class="ep-step-hint">Un material por fila y cuántas unidades entregaste en este punto de venta.</p>
+			<div class="ep-pop-entregas" id="ep-pop-entregas">
+				<div class="ep-pop-entrega-fila">
+					<input type="text" class="ep-input ep-pop-entrega-material" maxlength="60" placeholder="Material (ej. Vibrin)" autocomplete="off">
+					<input type="number" min="1" class="ep-input ep-pop-entrega-cantidad" placeholder="Cant." inputmode="numeric">
+					<button type="button" class="ep-modelo-quitar" aria-label="Quitar material"><?= ep_icon('trash', 14) ?></button>
 				</div>
-			<?php endforeach; ?>
+			</div>
+			<button type="button" class="ep-btn-agregar-fila" id="ep-pop-entregas-agregar">
+				<?= ep_icon('plus', 14) ?>
+				Agregar material
+			</button>
 		</div>
 	</div>
 

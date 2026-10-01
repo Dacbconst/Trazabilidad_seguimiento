@@ -2,8 +2,9 @@
 // Bloque "Evidencia Fotográfica": requiere $epEvidenciaFotos y $epEvidenciaPrefix (definidos por actividad en actividades.php).
 if (empty($epEvidenciaFotos)) return;
 $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcional'])));
+$conDescripcion = ep_fotos_con_descripcion($actividad['plantilla'] ?? '');
 ?>
-<div class="ep-evidencia-bloque-card ep-evidencia-actividad" data-actividad-id="<?= (int) ($actividad['id'] ?? 1) ?>">
+<div class="ep-evidencia-bloque-card ep-evidencia-actividad" data-actividad-id="<?= (int) ($actividad['id'] ?? 1) ?>"<?= $conDescripcion ? ' data-con-descripcion="1"' : '' ?>>
 	
 	<!-- Cabecera de la Card de Evidencia -->
 	<div class="ep-evidencia-card-head">
@@ -18,7 +19,11 @@ $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcio
 						<span class="ep-desktop-flow-status-pill pendiente" id="epDesktopFlowBadge">Pendiente (<?= $totalReqFotos ?> faltantes)</span>
 					</div>
 					<p style="margin:2px 0 0;font-size:12px;color:var(--color-text-muted);">
-						Las fotos obligatorias son las primeras; las marcadas como opcionales suman evidencia pero no son necesarias.
+						<?php if ($conDescripcion): ?>
+							Cada foto que subas lleva debajo su descripción: qué hizo la competencia y dónde. Sale tal cual en la presentación.
+						<?php else: ?>
+							Las fotos obligatorias son las primeras; las marcadas como opcionales suman evidencia pero no son necesarias.
+						<?php endif; ?>
 					</p>
 				</div>
 			</div>
@@ -57,12 +62,15 @@ $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcio
 					<span class="ep-foto-slot-label" title="<?= htmlspecialchars($foto['label']) ?>"><?= htmlspecialchars($foto['label']) ?></span>
 					<span class="ep-hist-badge ep-foto-slot-estado">Pendiente</span>
 				</div>
+				<?php if ($conDescripcion): ?>
+					<textarea class="ep-foto-descripcion" rows="3" maxlength="<?= EP_FOTO_DESCRIPCION_MAX ?>" placeholder="¿Qué se ve en la foto?" aria-label="Descripción de <?= htmlspecialchars($foto['label']) ?>"></textarea>
+				<?php endif; ?>
 			</div>
 		<?php endforeach; ?>
 	</div>
 
 	<?php if (ep_fotos_extensible($actividad['plantilla'] ?? '')): ?>
-		<button type="button" class="ep-btn-agregar-fila ep-btn-agregar-foto" data-prefix="<?= $epEvidenciaPrefix ?>" data-siguiente="<?= count($epEvidenciaFotos) + 1 ?>">
+		<button type="button" class="ep-btn-agregar-fila ep-btn-agregar-foto" data-prefix="<?= $epEvidenciaPrefix ?>" data-siguiente="<?= count($epEvidenciaFotos) + 1 ?>" data-label="<?= htmlspecialchars(ep_foto_extra_label($actividad['plantilla'] ?? '')) ?>">
 			<?= ep_icon('plus', 14) ?>
 			Agregar foto
 		</button>

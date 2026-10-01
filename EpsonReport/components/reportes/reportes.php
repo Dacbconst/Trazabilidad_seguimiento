@@ -20,8 +20,10 @@ $subtitulosTipo = [
 	'evento-ferias'  => 'Stands y ferias tecnológicas',
 	'exhibiciones'   => 'Auditoría de espacios físicos',
 	'colocacion-pop' => 'Entrega de material POP',
+	'informe-fotografico' => 'Fotos por punto de venta',
+	'competencia'    => 'Hallazgos con su descripción',
 ];
-$nombresTipo = ['activaciones' => 'Activaciones', 'capacitaciones' => 'Capacitaciones', 'colocacion-pop' => 'Colocación de POP', 'epson-day' => 'Epson Day', 'exhibiciones' => 'Exhibiciones', 'evento-ferias' => 'Evento o Ferias'];
+$nombresTipo = ['activaciones' => 'Activaciones', 'capacitaciones' => 'Capacitaciones', 'colocacion-pop' => 'Colocación de POP', 'epson-day' => 'Epson Day', 'exhibiciones' => 'Exhibiciones', 'evento-ferias' => 'Evento o Ferias', 'informe-fotografico' => 'Informe Fotográfico', 'competencia' => 'Competencia'];
 $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 ?>
 <main class="ep-content ep-rp" id="epRp">

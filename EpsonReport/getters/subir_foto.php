@@ -42,7 +42,7 @@ $fotoId = $limpiar($_POST['foto_id'] ?? '') ?: 'foto';
 $usuario = $limpiar(str_replace('.', '_', $_SESSION['usuario'])) ?: 'usuario';
 
 // Nombre al estilo de las demás tablas de Epson: Carpeta/ddmmaaaaHHMMSS + USUARIO + FOTO.ext (ruta relativa, sin URL).
-$carpetas = ['activaciones' => 'Activaciones', 'capacitaciones' => 'Capacitaciones', 'colocacion-pop' => 'ColocacionPOP', 'epson-day' => 'EpsonDay', 'exhibiciones' => 'Exhibiciones', 'evento-ferias' => 'EventoFerias'];
+$carpetas = ['activaciones' => 'Activaciones', 'capacitaciones' => 'Capacitaciones', 'colocacion-pop' => 'ColocacionPOP', 'epson-day' => 'EpsonDay', 'exhibiciones' => 'Exhibiciones', 'evento-ferias' => 'EventoFerias', 'informe-fotografico' => 'InformeFotografico', 'competencia' => 'Competencia'];
 $carpeta = $carpetas[$tipo] ?? 'General';
 $sinSimbolos = function ($v) { return preg_replace('/[^A-Z0-9]/', '', strtoupper((string) $v)); };
 $nombre = $carpeta.'/'.date('dmYHis').$sinSimbolos($_SESSION['usuario']).$sinSimbolos($fotoId).'.'.$extensiones[$mime];

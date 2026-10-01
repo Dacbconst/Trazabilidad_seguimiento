@@ -3,12 +3,12 @@
 function ep_fotos_requeridas(string $plantilla): array {
 	if ($plantilla === 'activaciones') {
 		return [
-			['id' => 'stand', 'label' => 'Promotor en su stand con todos los materiales y POP correctamente ubicados'],
-			['id' => 'interaccion-1', 'label' => 'Promotor en una interacción con el cliente'],
-			['id' => 'venta-1', 'label' => 'Promotor con el cliente luego de ejecutar la venta'],
-			['id' => 'interaccion-2', 'label' => 'Otra interacción con el cliente (opcional)', 'opcional' => true],
-			['id' => 'venta-2', 'label' => 'Otra venta ejecutada (opcional)', 'opcional' => true],
-			['id' => 'venta-3', 'label' => 'Otra venta ejecutada (opcional)', 'opcional' => true],
+			['id' => 'stand', 'label' => 'Promotor junto a su stand con todos los materiales y POP correctamente ubicados'],
+			['id' => 'interaccion-1', 'label' => 'Promotor ejecutando una atención o interacción con los clientes (1)'],
+			['id' => 'venta-1', 'label' => 'Promotor con el cliente luego de ejecutar la venta (1)'],
+			['id' => 'interaccion-2', 'label' => 'Promotor ejecutando una atención o interacción con los clientes (2)', 'opcional' => true],
+			['id' => 'venta-2', 'label' => 'Promotor con el cliente luego de ejecutar la venta (2)', 'opcional' => true],
+			['id' => 'venta-3', 'label' => 'Promotor con el cliente luego de ejecutar la venta (3)', 'opcional' => true],
 		];
 	}
 	if ($plantilla === 'capacitaciones') {
@@ -21,15 +21,15 @@ function ep_fotos_requeridas(string $plantilla): array {
 	if ($plantilla === 'epson-day') {
 		return [
 			['id' => 'materiales', 'label' => 'Materiales enviados'],
-			['id' => 'redes-1', 'label' => 'Evidencia de publicación en redes sociales (1)'],
-			['id' => 'redes-2', 'label' => 'Evidencia de publicación en redes sociales (2)'],
+			['id' => 'redes-1', 'label' => 'Evidencia de publicación en las redes sociales (1)'],
+			['id' => 'redes-2', 'label' => 'Evidencia de publicación en las redes sociales (2)'],
 		];
 	}
 	if ($plantilla === 'evento-ferias') {
 		return [
-			['id' => 'stand', 'label' => 'Promotor en su stand con todos los materiales y POP correctamente ubicados'],
-			['id' => 'interaccion-1', 'label' => 'Promotor en una interacción con el cliente (1)'],
-			['id' => 'interaccion-2', 'label' => 'Promotor en una interacción con el cliente (2)'],
+			['id' => 'stand', 'label' => 'Promotor junto a su stand con todos los materiales y POP correctamente ubicados'],
+			['id' => 'interaccion-1', 'label' => 'Promotor ejecutando una atención o interacción con los clientes (1)'],
+			['id' => 'interaccion-2', 'label' => 'Promotor ejecutando una atención o interacción con los clientes (2)'],
 		];
 	}
 	if ($plantilla === 'exhibiciones') {
@@ -56,10 +56,30 @@ function ep_fotos_requeridas(string $plantilla): array {
 			['id' => 'foto-6', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
 		];
 	}
+	if ($plantilla === 'competencia') {
+		return [
+			['id' => 'foto-1', 'label' => 'Hallazgo de la competencia'],
+			['id' => 'foto-2', 'label' => 'Otro hallazgo (opcional)', 'opcional' => true],
+			['id' => 'foto-3', 'label' => 'Otro hallazgo (opcional)', 'opcional' => true],
+		];
+	}
 	return [];
 }
 
 // Actividades donde el promotor puede sumar más fotos de las de la lista, sin límite (botón "+ Agregar foto").
 function ep_fotos_extensible(string $plantilla): bool {
-	return $plantilla === 'informe-fotografico';
+	return in_array($plantilla, ['informe-fotografico', 'competencia'], true);
 }
+
+// Actividades donde cada foto subida lleva su propia descripción obligatoria (va como pie de la foto en el PPT).
+function ep_fotos_con_descripcion(string $plantilla): bool {
+	return $plantilla === 'competencia';
+}
+
+// Etiqueta de las casillas que se suman con "+ Agregar foto".
+function ep_foto_extra_label(string $plantilla): string {
+	return $plantilla === 'competencia' ? 'Otro hallazgo' : 'Foto adicional';
+}
+
+// Máximo de caracteres de la descripción de una foto (lo que entra en el pie de la diapositiva).
+const EP_FOTO_DESCRIPCION_MAX = 200;

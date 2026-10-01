@@ -560,7 +560,6 @@
 	width: 28px;
 	border-radius: 2px 2px 0 0;
 	min-height: 4px;
-	transition: height 0.2s ease;
 }
 .ep-slide-emb-bar.bar-visitaron { background: #164194; }
 .ep-slide-emb-bar.bar-interactuaron { background: #3062A9; }
@@ -815,7 +814,6 @@
 	height: 100%;
 	background: #164194;
 	border-radius: 4px;
-	transition: width 0.3s ease;
 }
 .ep-slide-cap-cargo-num {
 	font-size: 11px;
@@ -850,7 +848,6 @@
 	width: 44px;
 	border-radius: 4px 4px 0 0;
 	min-height: 6px;
-	transition: height 0.3s ease;
 }
 .ep-slide-cap-inter-bar.bar-asistentes { background: #164194; }
 .ep-slide-cap-inter-bar.bar-interacciones { background: #3062A9; }
@@ -905,7 +902,16 @@
 .ep-act-opcional { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--color-text-muted); }
 
 /* Paso final: nombre, mes y resumen */
-.ep-rp-final { display: flex; justify-content: center; padding: 28px 24px 32px; }
+.ep-rp-final { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 24px 32px; }
+/* Colocación de POP: tabla "POP recibido en bodega" del paso final */
+.ep-rp-pop.hidden { display: none; }
+.ep-rp-pop-wrap { margin-top: 10px; overflow-x: auto; }
+.ep-rp-pop-tabla { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ep-rp-pop-tabla th { padding: 8px 10px; background: var(--color-primary-soft); color: var(--color-primary-dark); font-size: 11.5px; font-weight: 700; text-align: left; text-transform: uppercase; letter-spacing: 0.03em; }
+.ep-rp-pop-tabla td { padding: 6px 10px; border-bottom: 1px solid #EFEBF5; color: var(--color-ink); }
+.ep-rp-pop-tabla td .ep-input { width: 90px; height: 36px; padding: 0 10px; }
+.ep-rp-pop-disp { font-weight: 700; color: var(--color-primary); }
+.ep-rp-pop-disp.ep-rp-pop-negativo { color: var(--color-danger); }
 .ep-rp-final-card { width: 100%; max-width: 640px; background: #fff; border: 1px solid var(--color-border); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 6px; }
 .ep-rp-final-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
 .ep-rp-final-nombre { grid-column: 1 / -1; }

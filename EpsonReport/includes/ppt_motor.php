@@ -128,10 +128,33 @@ function ep_ppt_slide_imagen(array &$ctx, array &$slide, string $rect, array $im
 	ep_ppt_foto($slide['dom'], $slide['xp'], $rect, $rId, $ancho, $alto, $completa);
 }
 
-// Diapositiva de fotos: título con el punto de venta y hasta 3 fotos. Con 2 ocupan mitad y mitad y con 1 va centrada.
+// Pie de cada foto ('pies' en el spec, paralelo a 'rects'): sigue el ancho y la posición de su foto; sin foto, se quita.
+function ep_ppt_pies_fotos(array $slide, array $spec, array $reg, array $colocacion): void {
+	$pies = $spec['fotos']['pies'] ?? [];
+	$fotos = array_column($reg['fotos'] ?? [], null, 'id');
+	foreach ($spec['fotos']['rects'] as $i => $rect) {
+		$pie = $pies[$i] ?? null;
+		if ($pie === null) {
+			continue;
+		}
+		if (!isset($colocacion[$rect])) {
+			ep_ppt_quitar($slide['xp'], $pie);
+			continue;
+		}
+		$foto = ep_ppt_medidas($slide['xp'], $rect);
+		$caja = ep_ppt_medidas($slide['xp'], $pie);
+		if ($foto && $caja) {
+			ep_ppt_geometria($slide['xp'], $pie, $foto[0], $caja[1], $foto[2], $caja[3]);
+		}
+		ep_ppt_texto($slide['dom'], $slide['xp'], $pie, $spec['fotos']['pie_texto']($reg, $fotos[$colocacion[$rect]] ?? []));
+	}
+}
+
+// Diapositiva de fotos: título (el punto de venta, o el que arme el spec) y hasta 3 fotos. Con 2 ocupan mitad y mitad y con 1 va centrada.
 function ep_ppt_slide_fotos(array &$ctx, array $spec, array $reg, array $grupo, array $mapaFotos): void {
 	$slide = ep_ppt_slide_nueva($ctx, $spec['fotos']['n']);
-	ep_ppt_texto($slide['dom'], $slide['xp'], $spec['fotos']['titulo'], [strtoupper((string) ($reg['punto_venta'] ?? ''))]);
+	$titulo = isset($spec['fotos']['titulo_texto']) ? $spec['fotos']['titulo_texto']($reg) : strtoupper((string) ($reg['punto_venta'] ?? ''));
+	ep_ppt_texto($slide['dom'], $slide['xp'], $spec['fotos']['titulo'], [$titulo]);
 	$rects = $spec['fotos']['rects'];
 	if (count($grupo) === 3) {
 		$colocacion = array_combine($rects, $grupo);
@@ -149,6 +172,8 @@ function ep_ppt_slide_fotos(array &$ctx, array $spec, array $reg, array $grupo, 
 	} else {
 		$colocacion = [$rects[1] => $grupo[0]];
 	}
+	// Los pies se acomodan antes de poner las fotos: al ponerla, el cuadro marcador se reemplaza y pierde su nombre.
+	ep_ppt_pies_fotos($slide, $spec, $reg, $colocacion);
 	foreach ($rects as $rect) {
 		if (!isset($colocacion[$rect])) {
 			ep_ppt_quitar($slide['xp'], $rect); // sin foto para ese lugar: se quita el cuadro de ejemplo
@@ -264,9 +289,9 @@ function ep_ppt_generar(array $spec, array $registros, string $tituloMes, array 
 	$ctx = ep_ppt_abrir($spec, $registros, $opciones);
 	if (!$ctx['solo']) {
 		[$dom, $xp] = ep_ppt_cargar((string) $ctx['tpl']->getFromName('ppt/slides/slide2.xml'));
-		// Un botón nuevo que replica esta lógica lleva su propio nombre en el título.
-		$nombre = trim((string) ($opciones['nombre_actividad'] ?? '')) ?: $spec['titulo'];
-		ep_ppt_texto($dom, $xp, 'Subtítulo 2', [ep_ppt_mayus($nombre), $tituloMes]);
+		// Un botón nuevo que replica esta lógica lleva su propio nombre en el título, salvo que el formato de Epson lo fije ('titulo_fijo').
+		$nombre = empty($spec['titulo_fijo']) ? (trim((string) ($opciones['nombre_actividad'] ?? '')) ?: $spec['titulo']) : $spec['titulo'];
+		ep_ppt_texto($dom, $xp, $spec['portada_titulo'] ?? 'Subtítulo 2', [ep_ppt_mayus($nombre), $tituloMes]);
 		$ctx['out']->addFromString('ppt/slides/slide2.xml', $dom->saveXML());
 		if (!empty($spec['fija'])) {
 			$spec['fija']($ctx, $registros, $opciones);
@@ -287,6 +312,8 @@ function ep_ppt_generador(string $tipo): ?string {
 		'evento-ferias' => ['ppt_evento_ferias.php', 'ep_ppt_evento_ferias'],
 		'exhibiciones' => ['ppt_exhibiciones.php', 'ep_ppt_exhibiciones'],
 		'informe-fotografico' => ['ppt_informe_fotografico.php', 'ep_ppt_informe_fotografico'],
+		'competencia' => ['ppt_competencia.php', 'ep_ppt_competencia'],
+		'colocacion-pop' => ['ppt_colocacion_pop.php', 'ep_ppt_colocacion_pop'],
 	];
 	if (!isset($generadores[$tipo])) {
 		return null;

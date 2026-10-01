@@ -41,6 +41,24 @@
         ],
         "createdAt": "2026-09-30T17:07:04.007Z",
         "reason": "paleta morada real de EpsonReport/assets/css/base.css, el mockup la replica"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "EpsonReport/assets/js/app.js"
+        ],
+        "createdAt": "2026-10-01T03:08:03.756Z",
+        "reason": "Claude: img.ep-foto-preview nace hidden sin src y JS le asigna src al elegir la foto (patrón de casillas de evidencia)"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "EpsonReport/assets/css/calendario-lista.css"
+        ],
+        "createdAt": "2026-10-01T03:31:10.761Z",
+        "reason": "user confirmed: pidio que el boton de accion se expanda mostrando su texto al pasar el mouse; el ancho debe ser real para empujar a los botones vecinos, transform no lo reproduce"
       }
     ]
   }

@@ -27,4 +27,19 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Solo Colocación de POP: tabla "POP RECIBIDO"; Canales y Retail se suman de los registros, Bodega la escribe el admin -->
+	<div class="ep-rp-final-card ep-rp-pop hidden" id="epRpPopBodega">
+		<h3 class="ep-act-sec-title">
+			<span class="ep-act-dot"></span>
+			<span>POP recibido en bodega</span>
+		</h3>
+		<p class="ep-act-sec-sub">Escribe cuántas unidades de cada material llegaron a bodega. Canales y Retail salen de lo entregado en los registros elegidos; Disponible se calcula solo.</p>
+		<div class="ep-rp-pop-wrap">
+			<table class="ep-rp-pop-tabla">
+				<thead><tr><th>Material</th><th>Campaña</th><th>Bodega</th><th>Canales</th><th>Retail</th><th>Disponible</th></tr></thead>
+				<tbody id="epRpPopFilas"></tbody>
+			</table>
+		</div>
+	</div>
 </div>

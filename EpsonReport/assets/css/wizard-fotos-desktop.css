@@ -130,11 +130,13 @@
 	.ep-wizard-main-grid {
 		display: grid;
 		grid-template-columns: 290px 1fr;
-		min-height: 440px;
+		grid-template-rows: minmax(0, 1fr);
 	}
 	.ep-wizard-sidebar-checklist {
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
+		overflow-y: auto;
 		background: #FBFAFD;
 		border-right: 1px solid #EFEAF8;
 		padding: 16px;
@@ -164,8 +166,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		overflow-y: auto;
-		max-height: 330px;
 		padding-right: 2px;
 	}
 	.ep-wizard-sidebar-item {
@@ -250,10 +250,30 @@
 	.ep-wizard-body {
 		padding: 20px 24px 16px;
 	}
+	/* Visor más bajo en pantallas cortas, para que entren la descripción y la tira de fotos sin scroll */
 	.ep-wizard-visor {
 		aspect-ratio: 16 / 10;
-		max-height: 300px;
+		max-height: min(300px, 34vh);
 	}
+	/* En escritorio "Agregar otra foto" vive en la lista de requerimientos; el de la tira es para celular */
+	.ep-wizard-reel-scroll .ep-wizard-btn-agregar { display: none; }
+	.ep-wizard-sidebar-agregar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		width: 100%;
+		padding: 9px 11px;
+		border: 1.5px dashed #C9B8E6;
+		border-radius: 8px;
+		background: #FFFFFF;
+		color: #513487;
+		font-size: 11.5px;
+		font-weight: 700;
+		transition: background 0.15s ease, border-color 0.15s ease;
+	}
+	.ep-wizard-sidebar-agregar:hover { background: #F6F3FB; border-color: #513487; }
+	.ep-wizard-sidebar-agregar.hidden { display: none; }
 }
 
 /* Efectos Drag & Drop visuales */
