@@ -16,5 +16,5 @@ if (!ep_login_check()) {
 session_write_close();
 
 $db = ep_db();
-$fila = $db ? $db->query('SELECT COUNT(*) AS total, COALESCE(MAX(id), 0) AS ultimo FROM insert_reporte_registro WHERE eliminado_en IS NULL')->fetch_assoc() : null;
-echo json_encode(['firma' => $fila ? $fila['total'].'-'.$fila['ultimo'] : '']);
+$fila = $db ? $db->query("SELECT COUNT(*) AS total, COALESCE(MAX(id), 0) AS ultimo, COALESCE(SUM(estado = 'Pendiente'), 0) AS pend, COALESCE(SUM(estado = 'Devuelto'), 0) AS dev FROM insert_reporte_registro r WHERE eliminado_en IS NULL".(ep_es_supervisor() ? ' AND r.supervisor_id = '.(int) $_SESSION['usuario_id'] : ''))->fetch_assoc() : null;
+echo json_encode(['firma' => $fila ? $fila['total'].'-'.$fila['ultimo'].'-'.$fila['pend'].'-'.$fila['dev'] : '']);

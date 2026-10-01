@@ -329,6 +329,27 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 	return $desempatados[0]['pos_id'];
 }
 
+// Sugerencias de "¿quisiste decir?" cuando el cliente no matcheó nada (solo para mostrar, nunca para resolver pos_id solo). Prefijo en cualquier dirección, con mínimo de letras para no traer basura corta del maestro (ej. una fila real con pos_name="CH").
+function sugerirClienteSimilar($mysqli, $clienteExcel, $canal = 'directo') {
+	$clienteComparable = repositorio_texto_comparable($clienteExcel);
+	if (strlen($clienteComparable) < 6) return [];
+	$esDistribuidor = $canal === 'distribuidor';
+	$minLargo = 6;
+	$vistos = [];
+	$sugerencias = [];
+	foreach (maestroClientesEnMemoria($mysqli) as $f) {
+		if ($esDistribuidor ? $f['canal'] !== 'DISTRIBUIDOR' : $f['canal'] === 'DISTRIBUIDOR') continue;
+		$masCorto = strlen($f['pos_name_comparable']) < strlen($clienteComparable) ? $f['pos_name_comparable'] : $clienteComparable;
+		if (strlen($masCorto) < $minLargo) continue;
+		$coincide = strncmp($f['pos_name_comparable'], $clienteComparable, strlen($masCorto)) === 0;
+		if (!$coincide || isset($vistos[$f['pos_name']])) continue;
+		$vistos[$f['pos_name']] = true;
+		$sugerencias[] = $f['pos_name'];
+		if (count($sugerencias) >= 5) break;
+	}
+	return $sugerencias;
+}
+
 // CEDI/Ciudad real del cliente ya identificado, desambiguado por nombre (mismo criterio que resolverPosIdCliente) — vía el mismo cache en memoria, pos_id solo no es único en el maestro.
 function cediRealDePosId($mysqli, $posId, $clienteExcel) {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
@@ -911,12 +932,58 @@ function resumen_cuotas($mysqli) {
 	$pendientes = count($grupos);
 
 	$usadas = 0;
-	$r = $mysqli->query("SELECT COUNT(DISTINCT CONCAT(c.pos_id, '|', c.trimestre, '|', c.anio)) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'usada'");
+	// Excluye Actas que siguen en 'borrador' (bug real: contaba como "generada" un Acta que todavía ni se termina de llenar).
+	$r = $mysqli->query(
+		"SELECT COUNT(DISTINCT CONCAT(c.pos_id, '|', c.trimestre, '|', c.anio)) AS n
+		 FROM repositorio_cuota_cliente c
+		 LEFT JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
+		 WHERE c.estado = 'usada' AND (a.estado IS NULL OR a.estado <> 'borrador')"
+	);
 	if ($r) $usadas = (int) $r->fetch_assoc()['n'];
 
 	$pendientesMatch = 0;
 	$r = $mysqli->query("SELECT COUNT(DISTINCT c.cliente_excel, c.trimestre, c.anio) AS n FROM repositorio_cuota_cliente c WHERE c.estado = 'pendiente_match'");
 	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
+
+	// Borradores: mismo concepto que "usadas" pero el Acta vinculada no se terminó de generar. Agrupado por a.creado_por directo (ya es el usuario real, sin inferir por CEDI/supervisor).
+	$gruposBorradorMapa = [];
+	$rBorrador = $mysqli->query(
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.updated_at, u.usuario
+		 FROM repositorio_cuota_cliente c
+		 JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 WHERE c.estado = 'usada' AND a.estado = 'borrador'"
+	);
+	if ($rBorrador) {
+		while ($f = $rBorrador->fetch_assoc()) {
+			$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
+			if (!isset($gruposBorradorMapa[$clave])) {
+				$gruposBorradorMapa[$clave] = [
+					'pos_id' => $f['pos_id'], 'cliente' => $f['cliente_excel'], 'trimestre' => (int) $f['trimestre'],
+					'anio' => (int) $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at'],
+					'usuario' => $f['usuario'] ?: 'Sin identificar',
+				];
+			}
+			$gruposBorradorMapa[$clave]['categorias']++;
+			if ($f['updated_at'] > $gruposBorradorMapa[$clave]['actualizado_en']) $gruposBorradorMapa[$clave]['actualizado_en'] = $f['updated_at'];
+		}
+	}
+	$gruposBorrador = array_values($gruposBorradorMapa);
+	$borradores = count($gruposBorrador);
+
+	$porUsuarioBorradorMapa = [];
+	foreach ($gruposBorrador as $g) {
+		if (!isset($porUsuarioBorradorMapa[$g['usuario']])) {
+			$porUsuarioBorradorMapa[$g['usuario']] = ['nombre' => $g['usuario'], 'actas_pendientes' => 0, 'tiene_cuenta' => true, 'actas' => []];
+		}
+		$porUsuarioBorradorMapa[$g['usuario']]['actas_pendientes']++;
+		$porUsuarioBorradorMapa[$g['usuario']]['actas'][] = [
+			'pos_id' => $g['pos_id'], 'cliente' => $g['cliente'], 'trimestre' => $g['trimestre'],
+			'anio' => $g['anio'], 'categorias' => $g['categorias'], 'actualizado_en' => $g['actualizado_en'],
+		];
+	}
+	$porUsuarioBorrador = array_values($porUsuarioBorradorMapa);
+	usort($porUsuarioBorrador, function ($a, $b) { return $b['actas_pendientes'] <=> $a['actas_pendientes']; });
 
 	// Resolución EN LOTE por rendimiento: 3 consultas fijas en vez de hasta 162 (una por grupo).
 	$usuariosActivos = [];
@@ -1029,8 +1096,10 @@ function resumen_cuotas($mysqli) {
 	return [
 		'pendientes'        => $pendientes,
 		'usadas'            => $usadas,
+		'borradores'        => $borradores,
 		'pendientes_match'  => $pendientesMatch,
 		'por_usuario'       => $porUsuario,
+		'por_usuario_borrador' => $porUsuarioBorrador,
 		'chocan'            => $chocan,
 	];
 }

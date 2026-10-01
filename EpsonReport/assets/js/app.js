@@ -1479,9 +1479,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	// ENVÍO DE FORMULARIO DE CAMPO EN VIVO (MÓDULO ACTIVIDADES)
 	// =========================================================================
 	// Ventanas de aviso (SweetAlert2); si no cargó, cae al alert nativo.
-	function epAviso(icono, titulo, texto, boton) {
+	function epAviso(icono, titulo, texto, boton, extra) {
 		if (!window.Swal) { alert(titulo); return Promise.resolve(); }
-		return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#513487', allowOutsideClick: false });
+		return Swal.fire(Object.assign({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#513487', allowOutsideClick: false }, extra || {}));
 	}
 	function epToast(icono, titulo) {
 		if (!window.Swal) { alert(titulo); return; }
@@ -1693,7 +1693,14 @@ document.addEventListener('DOMContentLoaded', function () {
 			btnEnviar.textContent = 'Enviando formulario...';
 		}
 
-		subirFotosPendientes(slotsFotos).then(function (fotos) {
+		// Antes de subir fotos se revisa que no haya ya una Activación de ese punto y día.
+		var chequeo = tipo === 'activaciones' && payload.pos_id
+			? fetch('getters/registro_duplicado.php?tipo=' + encodeURIComponent(tipo) + '&pos_id=' + encodeURIComponent(payload.pos_id) + '&fecha_actividad=' + encodeURIComponent(valores.fecha_actividad || ''), { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return { duplicado: false }; })
+			: Promise.resolve({ duplicado: false });
+		chequeo.then(function (c) {
+			if (c && c.duplicado) throw { duplicado: true, mensaje: c.mensaje };
+			return subirFotosPendientes(slotsFotos);
+		}).then(function (fotos) {
 			payload.fotos = fotos;
 			var metaUsuario = document.querySelector('meta[name="ep-usuario"]');
 			payload.usuario_ref = metaUsuario ? metaUsuario.content : '';
@@ -1706,7 +1713,10 @@ document.addEventListener('DOMContentLoaded', function () {
 		.then(function(res) { return res.json(); })
 		.then(function(data) {
 			if (data.success) {
-epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente.<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#513487;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros').then(function () {					window.location.href = data.redirect || 'index.php?vista=historial';				});
+epAviso('success', 'Registro enviado', (data.pendiente ? 'Tu registro quedó enviado y espera la aprobación de tu supervisor.' : 'Tu reporte quedó guardado correctamente.') + '<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#513487;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros', { showCloseButton: true }).then(function (r) {
+					// Con la X (o Esc) se queda en Actividades con el formulario limpio; solo el botón lleva al Historial.
+					window.location.href = r && r.isConfirmed === false ? 'index.php?vista=actividades' : (data.redirect || 'index.php?vista=historial');
+				});
 			} else {
 				epAviso('error', 'No se pudo enviar', data.error || 'Ocurrió un inconveniente. Intenta de nuevo.').then(function () {
 					if (data.redirect) window.location.href = data.redirect;
@@ -1720,7 +1730,9 @@ epAviso('success', 'Registro enviado', 'Tu reporte quedó guardado correctamente
 		})
 		.catch(function(err) {
 			if (window.Swal) Swal.close();
-			if (err && err.foto) {
+			if (err && err.duplicado) {
+				epAviso('warning', 'Ya enviaste este punto', err.mensaje);
+			} else if (err && err.foto) {
 				epAviso('error', 'No se pudo subir una foto', err.message + ' Intenta de nuevo.').then(function () { if (err.redirect) window.location.href = err.redirect; });
 			} else {
 				epAviso('error', 'Sin conexión', 'No se pudo enviar el formulario. Revisa tu conexión e intenta de nuevo.');

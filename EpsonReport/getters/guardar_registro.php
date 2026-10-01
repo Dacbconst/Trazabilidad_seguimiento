@@ -55,6 +55,11 @@ $ciudad = $punto ? $punto['ciudad'] : '';
 $canal = $punto ? $punto['canal'] : '';
 $valores = is_array($payload['valores'] ?? null) ? $payload['valores'] : [];
 
+// Con la aprobación activa el registro nace pendiente y se asigna al supervisor de su categoría.
+require_once __DIR__.'/../includes/aprobacion_datos.php';
+$conAprobacion = ep_aprobacion_activa();
+$supervisorId = $conAprobacion ? ep_supervisor_asignado((int) $_SESSION['usuario_id'], $canal) : null;
+
 $usuario = $_SESSION['usuario'];
 $partes = explode('.', $usuario);
 $avatar = '';
@@ -91,8 +96,9 @@ $registro = [
 	'hora'            => $hora,
 	'duracion'        => '',
 	'grupo_dia'       => $grupoDia,
-	'estado'          => 'Aprobado',
-	'estado_tipo'     => 'ok',
+	'estado'          => $conAprobacion ? 'Pendiente' : 'Aprobado',
+	'estado_tipo'     => $conAprobacion ? 'warn' : 'ok',
+	'supervisor_id'   => $supervisorId,
 	'pos_id'          => $punto ? $punto['pos_id'] : null,
 	'punto_venta'     => $puntoVenta,
 	'cadena'          => $cadena,
@@ -113,6 +119,14 @@ if (in_array($tipo, ['activaciones', 'capacitaciones', 'epson-day', 'evento-feri
 		exit;
 	}
 	$registro = array_merge($registro, $datosActividad);
+	// Una sola Activación por punto y día: si ya envió una, no se guarda otra hasta que el admin elimine la primera.
+	require_once __DIR__.'/../includes/registros_datos.php';
+	$codigoPrevio = ep_registro_duplicado((int) $_SESSION['usuario_id'], $tipo, $posId, $datosActividad['fecha_actividad']);
+	if ($codigoPrevio) {
+		http_response_code(409);
+		echo json_encode(['success' => false, 'duplicado' => true, 'error' => ep_registro_duplicado_mensaje($codigoPrevio, $datosActividad['fecha_actividad'])]);
+		exit;
+	}
 	$registro['promotor_correo'] = ep_correo_usuario((int) $_SESSION['usuario_id']);
 }
 
@@ -299,8 +313,9 @@ if ($ok) {
 	echo json_encode([
 		'success'  => true,
 		'id'       => $id,
+		'pendiente' => $conAprobacion,
 		'mensaje'  => 'Registro '.$id.' guardado exitosamente en el sistema.',
-		'redirect' => 'index.php?vista=historial',
+		'redirect' => 'index.php?vista=historial&nuevo='.urlencode($id),
 	]);
 } else {
 	http_response_code(500);

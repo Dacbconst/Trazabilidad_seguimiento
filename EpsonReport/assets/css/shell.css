@@ -102,6 +102,14 @@ body { overflow-x: hidden; }
 .ep-sidebar-avatar[style*="background-image"] { background-size: cover; background-position: center; }
 .ep-sidebar-avatar[style*="background-image"]::before { display: none; }
 .ep-sidebar-avatar[data-zoom] { cursor: zoom-in; }
+.ep-vivo { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; margin-left: 10px; border-radius: 999px; background: #E4F4EB; color: #17603D; font-family: 'IBM Plex Sans', sans-serif; font-size: 11.5px; font-weight: 600; letter-spacing: 0; vertical-align: middle; }
+.ep-vivo i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #1E7B4D; }
+.ep-vivo i::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid #1E7B4D; animation: ep-vivo-pulso 1.8s ease-out infinite; }
+.ep-vivo.sin-conexion { background: #F0F0F2; color: #565860; }
+.ep-vivo.sin-conexion i { background: #8A8C93; }
+.ep-vivo.sin-conexion i::after { animation: none; opacity: 0; }
+@keyframes ep-vivo-pulso { 0% { transform: scale(0.8); opacity: 0.9; } 70%, 100% { transform: scale(1.8); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ep-vivo i::after { animation: none; opacity: 0; } }
 .ep-zoom-foto { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(17, 10, 30, 0.8); backdrop-filter: blur(6px); opacity: 0; visibility: hidden; transition: opacity 0.22s ease, visibility 0.22s; cursor: zoom-out; }
 .ep-zoom-foto.on { opacity: 1; visibility: visible; }
 .ep-zoom-foto figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; transform: scale(0.94); transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -570,3 +578,11 @@ body { overflow-x: hidden; }
 /* Copyright bajo "Cerrar sesión" */
 .ep-sidebar-copy { margin: 10px 0 0; text-align: center; font-size: 11px; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.7); white-space: nowrap; }
 .ep-sidebar.collapsed .ep-sidebar-copy { display: none; }
+
+/* Etiqueta del rol bajo el nombre: cápsula translúcida con un punto de color por rol */
+.ep-rol-etiqueta { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 11px 0 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.94); font-family: 'IBM Plex Sans', sans-serif; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+.ep-rol-etiqueta i { width: 7px; height: 7px; border-radius: 50%; background: #B9A5E8; box-shadow: 0 0 0 3px rgba(185, 165, 232, 0.22); }
+.ep-rol-etiqueta-admin { background: rgba(245, 194, 107, 0.14); border-color: rgba(245, 194, 107, 0.4); }
+.ep-rol-etiqueta-admin i { background: #F5C26B; box-shadow: 0 0 0 3px rgba(245, 194, 107, 0.22); }
+.ep-rol-etiqueta-supervisor { background: rgba(125, 180, 255, 0.14); border-color: rgba(125, 180, 255, 0.4); }
+.ep-rol-etiqueta-supervisor i { background: #7DB4FF; box-shadow: 0 0 0 3px rgba(125, 180, 255, 0.22); }

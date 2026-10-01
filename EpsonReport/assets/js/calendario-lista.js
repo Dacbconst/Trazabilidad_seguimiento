@@ -236,5 +236,43 @@
 	document.getElementById('epClAplicar').addEventListener('click', function () { fijarPeriodo(inDesde.value, inHasta.value); });
 	document.getElementById('epClLimpiar').addEventListener('click', function () { elegidos = []; marcarMeses(); fijarPeriodo('', ''); });
 
+	// ---- En vivo: la lista se actualiza sola cuando un promotor cumple una fila o cambia un calendario ----
+	function actualizarEnVivo(d) {
+		var mapa = {};
+		d.cals.forEach(function (c) { mapa[c.id] = c; });
+		var igual = d.cals.length === cals.length && cals.every(function (cal) {
+			var c = mapa[cal.el.dataset.id];
+			return c && c.vista === cal.estado && c.total === cal.total;
+		});
+		if (!igual) {
+			// Un calendario nuevo, cerrado, reactivado o eliminado cambia botones y estados: se recarga, salvo que haya un modal abierto.
+			var modal = document.getElementById('epCalModal');
+			if (modal && !modal.classList.contains('hidden')) return false;
+			window.location.reload();
+			return true;
+		}
+		var cambio = false;
+		cals.forEach(function (cal) {
+			var nuevos = mapa[cal.el.dataset.id].filas;
+			cal.filas.forEach(function (f) {
+				var e = nuevos[f.el.dataset.filaId];
+				if (!e || e === f.estado) return;
+				f.estado = e;
+				f.el.dataset.estado = e;
+				cambio = true;
+				[f.el, cal.avTxt, cal.el.querySelector('.ep-cl-nombre')].forEach(function (x) {
+					if (!x) return;
+					x.classList.remove('ep-cl-destello');
+					void x.offsetWidth;
+					x.classList.add('ep-cl-destello');
+				});
+			});
+		});
+		if (cambio) aplicar();
+	}
+	document.addEventListener('DOMContentLoaded', function () {
+		if (window.epVivo) window.epVivo({ url: 'getters/calendario_vivo.php', indicador: 'epClVivo', cada: 4000, alCambiar: actualizarEnVivo });
+	});
+
 	aplicar();
 })();

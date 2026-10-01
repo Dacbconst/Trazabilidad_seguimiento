@@ -23,6 +23,16 @@ try {
 	} else {
 		$r = ep_usuario_crear((string) ($_POST['usuario'] ?? ''), (string) ($_POST['nombre'] ?? ''), $correo, $rol, (string) ($_POST['clave'] ?? ''), (string) ($_POST['clave2'] ?? ''));
 	}
+	if (!empty($r['ok'])) {
+		$ruta = ep_usuario_guardar_ruta($id > 0 ? $id : (int) ($r['id'] ?? 0), $rol, (string) ($_POST['categorias'] ?? ''), (int) ($_POST['sup_canales'] ?? 0), (int) ($_POST['sup_retail'] ?? 0));
+		if (empty($ruta['ok'])) {
+			$r = $ruta;
+		} elseif (!empty($ruta['cambio']) && empty($r['cambio'])) {
+			// Solo cambió la ruta (categorías o supervisores): no es "sin cambios".
+			$r['cambio'] = true;
+			$r['message'] = 'Cambios guardados.';
+		}
+	}
 } catch (Throwable $e) {
 	error_log('usuario_guardar: '.$e->getMessage());
 	$r = ['ok' => false, 'message' => 'Error del servidor: '.$e->getMessage()];

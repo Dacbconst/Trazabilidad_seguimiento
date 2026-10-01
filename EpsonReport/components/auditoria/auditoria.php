@@ -11,8 +11,8 @@ $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $eventos = ep_auditoria_listar();
 $acciones = ep_auditoria_acciones();
 $entidades = ['calendario' => 'Calendario', 'registro' => 'Registro', 'reporte' => 'Reporte mensual', 'actividad' => 'Actividad', 'usuario' => 'Usuario'];
-$iconoTipo = ['crea' => 'plus', 'edita' => 'pencil', 'borra' => 'trash', 'sis' => 'clock'];
-$nombreTipo = ['crea' => 'Creaciones', 'edita' => 'Cambios', 'borra' => 'Eliminaciones', 'sis' => 'Sistema'];
+$iconoTipo = ['crea' => 'plus', 'edita' => 'pencil', 'borra' => 'trash', 'aviso' => 'shield', 'sis' => 'clock'];
+$nombreTipo = ['crea' => 'Creaciones', 'edita' => 'Cambios', 'borra' => 'Eliminaciones', 'aviso' => 'Alertas', 'sis' => 'Sistema'];
 $dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 $hoy = date('Y-m-d');
@@ -28,6 +28,9 @@ $tipoDe = function (array $e): string {
 	if ($e['usuario_id'] === null) {
 		return 'sis';
 	}
+	if (str_ends_with($e['accion'], '_duplicado')) {
+		return 'aviso';
+	}
 	if (str_ends_with($e['accion'], '_eliminar')) {
 		return 'borra';
 	}
@@ -36,7 +39,7 @@ $tipoDe = function (array $e): string {
 
 // Datos ya resueltos por movimiento: la lista los pinta y el panel de detalle los lee del JSON
 $movs = [];
-$conteoTipo = ['crea' => 0, 'edita' => 0, 'borra' => 0, 'sis' => 0];
+$conteoTipo = ['crea' => 0, 'edita' => 0, 'borra' => 0, 'aviso' => 0, 'sis' => 0];
 $usuarios = [];
 foreach ($eventos as $i => $e) {
 	$tipo = $tipoDe($e);
@@ -47,6 +50,7 @@ foreach ($eventos as $i => $e) {
 	$conteoTipo[$tipo]++;
 	$usuarios[$quien] = ($usuarios[$quien] ?? 0) + 1;
 	$movs[] = [
+		'id' => (int) $e['id'],
 		'fecha' => substr($e['created_at'], 0, 10),
 		'hora' => date('H:i', $t),
 		'tipo' => $tipo,
@@ -54,9 +58,9 @@ foreach ($eventos as $i => $e) {
 		'resumen' => $e['resumen'],
 		'quien' => $quien,
 		'usuario' => $esSistema ? '' : (string) ($e['usuario'] ?? ''),
-		'seccion' => $entidades[$e['entidad']] ?? ucfirst((string) $e['entidad']),
-		'numero' => $e['entidad_id'] !== null ? '#'.$e['entidad_id'] : '',
-		'ip' => (string) ($e['ip'] ?? ''),
+		'afectado' => (string) ($e['afectado'] ?? ''),
+		// Las direcciones internas del balanceador (169.254.x) no sirven de nada: no se muestran.
+		'ip' => preg_match('/^(169\.254\.|127\.)/', (string) ($e['ip'] ?? '')) ? '' : (string) ($e['ip'] ?? ''),
 		'cuando' => $fechaLarga($t).', '.date('H:i', $t),
 		'cambios' => $cambios,
 		'detalle' => $e['detalle'],
@@ -74,7 +78,7 @@ $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? 
 	<div class="ep-au-top">
 		<header class="ep-au-head">
 			<div>
-				<h1>Auditoría</h1>
+				<h1>Auditoría <span class="ep-vivo" id="epAuVivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span></h1>
 				<p id="epAuResumen"><?= $plural(count($movs), 'movimiento', 'movimientos') ?> · quién hizo qué y cuándo</p>
 			</div>
 			<?php if ($movs): ?>
@@ -120,7 +124,7 @@ $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? 
 					<?php foreach ($delDia as $i => $m):
 						$busqueda = mb_strtolower($m['resumen'].' '.$m['quien'].' '.$m['usuario'].' '.$m['accion'].' '.implode(' ', array_map(fn($d) => ($d['campo'] ?? '').' '.($d['antes'] ?? '').' '.($d['despues'] ?? '').' '.($d['valor'] ?? ''), $m['detalle'])), 'UTF-8');
 					?>
-						<div class="ep-au-ev" tabindex="0" role="button" data-i="<?= $i ?>" data-fecha="<?= $h($fecha) ?>" data-usuario="<?= $h($m['quien']) ?>" data-tipo="<?= $m['tipo'] ?>" data-busqueda="<?= $h($busqueda) ?>">
+						<div class="ep-au-ev" tabindex="0" role="button" data-i="<?= $i ?>" data-id="<?= (int) $m['id'] ?>" data-fecha="<?= $h($fecha) ?>" data-usuario="<?= $h($m['quien']) ?>" data-tipo="<?= $m['tipo'] ?>" data-busqueda="<?= $h($busqueda) ?>">
 							<time class="ep-au-hora"><?= $h($m['hora']) ?></time>
 							<span class="ep-au-ico ep-au-t-<?= $m['tipo'] ?>"><?= ep_icon($iconoTipo[$m['tipo']], 16) ?></span>
 							<div class="ep-au-tx">

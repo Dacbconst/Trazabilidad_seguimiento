@@ -102,6 +102,13 @@ window.epPdv = { elegido: function () { return null; } };
 		cerrar(true);
 	}
 
+	// Para "Corregir y reenviar": deja elegido el punto de venta del registro devuelto.
+	window.epPdv.elegirPorId = function (posId) {
+		var p = puntos.filter(function (x) { return x.pos_id === posId; })[0];
+		if (p) elegir(p);
+		return !!p;
+	};
+
 	trigger.addEventListener('click', function () { if (panel.hidden) abrir(); else cerrar(false); });
 	fondo.addEventListener('click', function () { cerrar(false); });
 	document.getElementById('ep-pdv-cerrar').addEventListener('click', function () { cerrar(true); });

@@ -19,6 +19,9 @@ require_once __DIR__.'/includes/secciones.php';
 require_once __DIR__.'/includes/actividades_datos.php';
 
 $secciones = ep_secciones();
+require_once __DIR__.'/includes/avisos_datos.php';
+$avisos = ep_avisos_promotor();
+$conAvisos = !ep_es_gestor();
 $actividadesNav = ep_actividades_visibles();
 $vista = $_GET['vista'] ?? 'actividades';
 if ($vista === 'registros') {
@@ -29,19 +32,20 @@ if (!isset($secciones[$vista])) {
 }
 
 // Cada módulo carga solo sus hojas y scripts (en el orden de siempre); uno que no esté en la lista carga todo, así uno nuevo nunca queda sin estilos.
-$hojasTodas = ['base', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario', 'auditoria', 'usuarios'];
-$scriptsTodos = ['sesion-watch', 'filtros', 'reportes-lista', 'reportes-pop', 'reportes', 'historial', 'calendario', 'auditoria', 'usuarios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios'];
+$hojasTodas = ['base', 'avisos', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'reportes', 'calendario', 'auditoria', 'usuarios'];
+$scriptsTodos = ['sesion-watch', 'avisos', 'en-vivo', 'filtros', 'reportes-lista', 'reportes-pop', 'reportes', 'historial', 'calendario', 'auditoria', 'usuarios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir'];
 $porVista = [
-	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios']],
+	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir']],
 	'historial' => [['actividades', 'ppt-export', 'filtros', 'historial'], ['filtros', 'historial', 'app']],
+	'aprobaciones' => [['actividades', 'ppt-export', 'filtros', 'historial'], ['filtros', 'historial', 'app']],
 	'reportes' => [['ppt-export', 'filtros', 'reportes'], ['filtros', 'reportes-lista', 'reportes-pop', 'reportes']],
-	'calendario' => [['actividades', 'ppt-export', 'comentarios', 'reportes', 'calendario'], ['calendario', 'comentarios']],
-	'auditoria' => [['auditoria'], ['auditoria']],
+	'calendario' => [['actividades', 'ppt-export', 'comentarios', 'reportes', 'calendario'], ['en-vivo', 'calendario', 'comentarios']],
+	'auditoria' => [['auditoria'], ['en-vivo', 'auditoria']],
 	'usuarios' => [['usuarios'], ['usuarios']],
 ];
 [$hojasVista, $scriptsVista] = $porVista[$vista] ?? [$hojasTodas, $scriptsTodos];
-$hojas = array_values(array_intersect($hojasTodas, array_merge(['base', 'shell', 'wizard-fotos'], $hojasVista)));
-$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch', 'zoom-foto'], $scriptsVista)));
+$hojas = array_values(array_intersect($hojasTodas, array_merge(['base', 'shell', 'wizard-fotos', 'avisos'], $hojasVista)));
+$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch', 'zoom-foto', 'avisos'], $scriptsVista)));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -69,6 +73,12 @@ $scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watc
 			<span class="ep-mobile-header-sep">/</span>
 			<span class="ep-mobile-header-vista"><?= htmlspecialchars($secciones[$vista]['label'] ?? 'Actividades') ?></span>
 		</div>
+		<?php if ($conAvisos): ?>
+		<button type="button" class="ep-avisos-abrir ep-mobile-avisos" aria-label="Avisos">
+			<?= ep_icon('bell', 20) ?>
+			<span class="ep-avisos-badge<?= $avisos['urgentes'] ? ' urgente' : '' ?>" data-n="<?= (int) $avisos['total'] ?>"><?= (int) $avisos['total'] ?></span>
+		</button>
+		<?php endif; ?>
 		<div class="ep-mobile-header-user" title="<?= htmlspecialchars($_SESSION['usuario'] ?? '') ?>">
 			<?= strtoupper(substr($_SESSION['usuario'] ?? 'U', 0, 1)) ?>
 		</div>
@@ -77,6 +87,7 @@ $scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watc
 	<div class="ep-shell">
 		<?php require __DIR__.'/layout/sidebar.php'; ?>
 		<div class="ep-sidebar-backdrop" id="epSidebarBackdrop"></div>
+		<?php if ($conAvisos) { require __DIR__.'/layout/avisos.php'; } ?>
 
 		<?php require __DIR__.'/components/'.$vista.'/'.$vista.'.php'; ?>
 	</div>

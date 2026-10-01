@@ -26,6 +26,7 @@
 .ep-au-pt-crea { background: var(--color-success); }
 .ep-au-pt-edita { background: var(--color-primary); }
 .ep-au-pt-borra { background: var(--color-danger); }
+.ep-au-pt-aviso { background: #B25E00; }
 .ep-au-pt-sis { background: #5B6478; }
 .ep-au-chip.on .ep-au-pt { background: #fff; }
 
@@ -45,6 +46,7 @@
 .ep-au-t-crea { background: #E4F4EB; color: #17603D; }
 .ep-au-t-edita { background: var(--color-primary-soft); color: var(--color-primary); }
 .ep-au-t-borra { background: #FBEAE9; color: var(--color-danger); }
+.ep-au-t-aviso { background: #FFF1DD; color: #8A4A00; }
 .ep-au-t-sis { background: #EEF0F4; color: #5B6478; }
 .ep-au-ev.on .ep-au-ico { background: #fff; }
 .ep-au-tx { min-width: 0; }
@@ -53,6 +55,10 @@
 .ep-au-tx u { text-decoration: none; font-weight: 500; color: var(--color-text); }
 .ep-au-cambios { font-size: 12px; font-weight: 600; color: var(--color-primary-dark); background: var(--color-primary-soft); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
 .ep-au-ev.on .ep-au-cambios { background: #fff; }
+.ep-au-ev-nuevo { animation: ep-au-destello 2.8s ease-out; }
+@keyframes ep-au-destello { 0% { background: #E4DAF7; } 100% { background: transparent; } }
+.ep-au-ev.on.ep-au-ev-nuevo { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ep-au-ev-nuevo { animation: none; } }
 .ep-au-tope { margin: 0; padding: 14px; text-align: center; font-size: 12.5px; color: var(--color-text-muted); }
 
 /* Panel de detalle */

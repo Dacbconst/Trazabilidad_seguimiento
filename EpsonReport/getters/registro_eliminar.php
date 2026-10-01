@@ -7,7 +7,7 @@ require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/registros_datos.php';
 header('Content-Type: application/json; charset=utf-8');
 
-if (!ep_login_check() || ep_rol_actual() !== 'admin') {
+if (!ep_login_check() || !ep_es_gestor()) {
 	http_response_code(403);
 	echo json_encode(['ok' => false, 'message' => 'No tienes permiso para esto.']);
 	exit;
@@ -17,7 +17,8 @@ if (!ep_login_check() || ep_rol_actual() !== 'admin') {
 try {
 	$codigo = trim((string) ($_POST['codigo'] ?? ''));
 	$registro = ep_registro_por_codigo($codigo);
-	$ok = ep_registro_eliminar($codigo);
+	// El supervisor solo elimina lo que le toca: fuera de su alcance el registro no aparece.
+	$ok = $registro ? ep_registro_eliminar($codigo) : false;
 	if ($ok && $registro) {
 		require_once __DIR__.'/../includes/auditoria_datos.php';
 		$fecha = $registro['fecha_actividad'] ?? ($registro['fecha_iso'] ?? '');

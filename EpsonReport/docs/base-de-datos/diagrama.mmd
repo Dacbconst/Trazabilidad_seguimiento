@@ -40,11 +40,15 @@ erDiagram
         varchar contrasena
         varchar nombre
         varchar correo
-        varchar foto "ruta relativa en Azure, Usuarios/id_fecha.jpg, NULL = sin foto"
-        enum rol "admin | promotor"
+        varchar foto "ruta relativa en Azure, Usuarios/USUARIO.jpg, NULL = sin foto"
+        enum rol "admin | supervisor | promotor"
+        enum categorias "todas, retail, canales; NULL = por su ruta en Xplora"
+        int supervisor_canales_id "supervisor de sus registros no retail"
+        int supervisor_retail_id "supervisor de sus registros retail"
         enum status "activo | inactivo"
         varchar sesion_token
         datetime ultima_actividad
+        datetime avisos_visto_en "hasta cuando vio sus avisos de calendario, NULL = nunca"
         int intentos_fallidos
         datetime bloqueado_hasta
         datetime created_at
@@ -68,13 +72,17 @@ erDiagram
         varchar codigo "RACPABLOCASTELO-001"
         varchar tipo "logica del boton"
         int usuario_id FK
+        int supervisor_id FK "supervisor que aprueba, NULL = solo admin"
+        varchar estado "Pendiente, Aprobado, Devuelto, Reemplazado"
+        varchar motivo_devolucion
+        int revisado_por FK
+        datetime revisado_en
         varchar pos_id
         varchar punto_venta
         varchar ciudad
         varchar canal
         date fecha
         time hora
-        varchar estado
         varchar tipo_actividad "escrito por el promotor"
         date fecha_actividad
         time hora_inicio

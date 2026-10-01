@@ -11,6 +11,8 @@ usort($modelos, fn($a, $b) => ($b['cantidad'] ?? 0) <=> ($a['cantidad'] ?? 0));
 $comentarios = array_values(array_filter((array) ($r['comentarios'] ?? [])));
 $fotos = $r['fotos'] ?? [];
 $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
+$estadoReg = $r['estado'] ?? 'Aprobado';
+$enModoAprobacion = !empty($modoAprobacion);
 ?>
 <div class="ep-h2-det-head">
 	<span class="ep-h2-det-ico"><?= ep_icon(ep_icono_tipo($tipo), 22) ?></span>
@@ -34,6 +36,16 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 		<button type="button" class="ep-h2-cerrar" aria-label="Cerrar detalle"><?= ep_icon('close', 14) ?></button>
 	</div>
 </div>
+
+<?php if ($estadoReg === 'Devuelto'): ?>
+	<div class="ep-h2-banner ep-h2-banner-dev">
+		<strong><?= ep_icon('info', 15) ?> Devuelto<?= !empty($r['revisor']) ? ' por '.$h($r['revisor']) : '' ?><?= !empty($r['revisado_en']) ? ' · '.$h(date('d/m H:i', strtotime($r['revisado_en']))) : '' ?></strong>
+		<p><?= $h($r['motivo_devolucion'] ?? '') ?></p>
+		<?php if (!$esAdmin): ?><a class="ep-h2-btn-corregir" href="index.php?vista=actividades&corregir=<?= urlencode((string) ($r['id'] ?? '')) ?>">Corregir y reenviar</a><?php endif; ?>
+	</div>
+<?php elseif ($estadoReg === 'Pendiente' && !$esAdmin): ?>
+	<div class="ep-h2-banner ep-h2-banner-pend"><strong><?= ep_icon('clock', 15) ?> Pendiente de aprobación</strong><p>Tu supervisor lo revisará pronto. Si lo devuelve, te lo avisamos en la campana.</p></div>
+<?php endif; ?>
 
 <div class="ep-h2-det-cuerpo">
 	<div class="ep-stats-panel ep-h2-stats">
@@ -250,3 +262,9 @@ $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 		<?php endif; ?>
 	</div>
 </div>
+<?php if ($enModoAprobacion && $estadoReg === 'Pendiente'): ?>
+<div class="ep-h2-det-aprobar">
+	<button type="button" class="ep-h2-btn-devolver" data-codigo="<?= $h($r['id'] ?? '') ?>" data-punto="<?= $h($r['punto_venta'] ?? '') ?>"><?= ep_icon('arrow-left', 15) ?> Devolver</button>
+	<button type="button" class="ep-h2-btn-aprobar" data-codigo="<?= $h($r['id'] ?? '') ?>"><?= ep_icon('check', 15) ?> Aprobar</button>
+</div>
+<?php endif; ?>

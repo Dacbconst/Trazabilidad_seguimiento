@@ -13,7 +13,7 @@ if (!ep_login_check()) {
 	echo json_encode(['success' => false, 'error' => 'Tu sesión se cerró. Inicia sesión de nuevo.', 'redirect' => 'login.php?error=sesion']);
 	exit;
 }
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	http_response_code(403);
 	echo json_encode(['success' => false, 'error' => 'No tienes permiso para esto.']);
 	exit;
@@ -28,7 +28,7 @@ $filtroCanal = trim((string) ($_GET['canal'] ?? ''));
 
 // Los registros que ya están en un reporte activo no se ofrecen; al eliminar ese reporte vuelven a aparecer.
 $ocupados = array_flip(ep_registros_ocupados());
-$todosRegistros = array_values(array_filter(ep_registros_datos(5000), fn($r) => !isset($ocupados[(int) $r['db_id']])));
+$todosRegistros = array_values(array_filter(ep_registros_datos(5000, [], ['Aprobado']), fn($r) => !isset($ocupados[(int) $r['db_id']])));
 $promotoresSet = [];
 $canalesSet = [];
 

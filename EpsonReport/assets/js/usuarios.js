@@ -77,6 +77,24 @@
 		return p;
 	}
 
+	// ---- Ruta del promotor: categorías y supervisores (solo promotores y solo si ya existen las columnas) ----
+	function opcionesSup(sel, valor) {
+		var h = '<option value="0">Sin asignar</option>';
+		usuarios.filter(function (u) { return u.rol === 'supervisor' && u.activo; }).forEach(function (u) { h += '<option value="' + u.id + '">' + esc(u.nombre) + '</option>'; });
+		sel.innerHTML = h;
+		sel.value = String(valor || 0);
+	}
+	function pintarRuta() {
+		var conRuta = usuarios.length && usuarios[0].con_ruta;
+		var esProm = $('epUsRolCampo').value === 'promotor';
+		var esSup = $('epUsRolCampo').value === 'supervisor';
+		$('epUsWRuta').style.display = conRuta && (esProm || esSup) ? '' : 'none';
+		var cat = $('epUsCategorias').value;
+		// Un promotor solo de retail no necesita supervisor de canales, y al revés; con "todas" o por su ruta hacen falta los dos.
+		$('epUsWSupCanales').style.display = esProm && cat !== 'retail' ? '' : 'none';
+		$('epUsWSupRetail').style.display = esProm && cat !== 'canales' ? '' : 'none';
+	}
+
 	// ---- Panel ----
 	function pintarEstado() {
 		var on = actual.activo;
@@ -103,7 +121,7 @@
 		av.tabIndex = foto ? 0 : -1;
 		av.setAttribute('role', foto ? 'button' : 'img');
 		av.setAttribute('aria-label', foto ? 'Ver foto ampliada' : 'Sin foto');
-		$('epUsFotoNota').textContent = fotoPendiente ? 'Foto lista: se guarda al pulsar Guardar cambios.' : 'JPG, PNG o WEBP, hasta 5 MB';
+		$('epUsFotoNota').textContent = fotoPendiente ? 'Foto lista: se guarda al pulsar Guardar cambios.' : 'JPG, PNG o WEBP';
 	}
 	function abrirZoom() {
 		var foto = fotoVisible();
@@ -119,6 +137,10 @@
 		$('epUsCorreo').value = actual.correo;
 		$('epUsRolCampo').value = actual.rol;
 		$('epUsRolCampo').disabled = actual.propio;
+		$('epUsCategorias').value = actual.categorias || '';
+		opcionesSup($('epUsSupCanales'), actual.sup_canales);
+		opcionesSup($('epUsSupRetail'), actual.sup_retail);
+		pintarRuta();
 		$('epUsCiudad').value = actual.ciudad || '—';
 		$('epUsCanal').value = actual.canal;
 		$('epUsNombre').disabled = !nuevo;
@@ -150,7 +172,7 @@
 
 	function guardar() {
 		var btn = $('epUsGuardar');
-		var datos = { id: actual.id, correo: $('epUsCorreo').value, rol: $('epUsRolCampo').value };
+		var datos = { id: actual.id, correo: $('epUsCorreo').value, rol: $('epUsRolCampo').value, categorias: $('epUsCategorias').value, sup_canales: $('epUsSupCanales').value, sup_retail: $('epUsSupRetail').value };
 		if (nuevo) {
 			datos.usuario = $('epUsUsuario').value;
 			datos.nombre = $('epUsNombre').value;
@@ -161,10 +183,12 @@
 		enviar('getters/usuario_guardar.php', datos).then(function (r) {
 			if (!r.ok) { btn.disabled = false; toast('error', r.message || 'No se pudo guardar.'); return; }
 			// Un usuario nuevo recién tiene id ahora; la foto elegida se sube después de guardarlo.
+			var conFoto = !!fotoPendiente;
 			return subirFotoPendiente(nuevo ? r.id : actual.id).then(function (fotoOk) {
 				btn.disabled = false;
 				if (!fotoOk) return;
-				toast('success', r.message);
+				// Si lo único que cambió fue la foto, el aviso de datos dice "sin cambios": aquí se corrige.
+				toast('success', conFoto && r.cambio === false ? 'Foto actualizada.' : r.message);
 				// Se recarga para que la lista salga con los datos reales (nombre de Xplora, ciudad, canal, foto).
 				setTimeout(function () { window.location.reload(); }, 700);
 			});
@@ -206,6 +230,8 @@
 		if (e.key === 'Escape' && actual) cerrar();
 	});
 	$('epUsGuardar').addEventListener('click', guardar);
+	$('epUsRolCampo').addEventListener('change', pintarRuta);
+	$('epUsCategorias').addEventListener('change', pintarRuta);
 
 	$('epUsBuscar').addEventListener('input', function (e) { filtro.q = e.target.value.trim().toLowerCase(); pintarLista(); });
 	$('epUsRol').addEventListener('change', function (e) { filtro.rol = e.target.value; pintarLista(); });
@@ -254,16 +280,47 @@
 	});
 
 	$('epUsFotoBtn').addEventListener('click', function () { $('epUsFotoArchivo').click(); });
+	// Reduce la foto a un JPEG liviano (máx. 800 px, bajo 700 KB): el servidor rechaza peticiones de más de ~1 MB.
+	function reducirFoto(archivo) {
+		return new Promise(function (resolve) {
+			var img = new Image();
+			var url = URL.createObjectURL(archivo);
+			img.onerror = function () { URL.revokeObjectURL(url); resolve(archivo); };
+			img.onload = function () {
+				URL.revokeObjectURL(url);
+				var escala = Math.min(1, 800 / Math.max(img.width, img.height));
+				var lienzo = document.createElement('canvas');
+				lienzo.width = Math.round(img.width * escala);
+				lienzo.height = Math.round(img.height * escala);
+				lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+				var calidades = [0.85, 0.75, 0.65, 0.55, 0.45];
+				(function probar(i) {
+					lienzo.toBlob(function (blob) {
+						if (!blob) { resolve(archivo); return; }
+						if (blob.size <= 700 * 1024 || i === calidades.length - 1) {
+							resolve(new File([blob], 'foto.jpg', { type: 'image/jpeg' }));
+							return;
+						}
+						probar(i + 1);
+					}, 'image/jpeg', calidades[i]);
+				})(0);
+			};
+			img.src = url;
+		});
+	}
+
 	$('epUsFotoArchivo').addEventListener('change', function () {
 		var archivo = this.files[0];
 		this.value = '';
 		if (!archivo) return;
 		if (['image/jpeg', 'image/png', 'image/webp'].indexOf(archivo.type) === -1) { toast('error', 'Solo se permiten fotos JPG, PNG o WEBP.'); return; }
-		if (archivo.size > 5 * 1024 * 1024) { toast('error', 'La foto supera los 5 MB.'); return; }
-		// Solo se muestra; se sube al pulsar Guardar cambios.
-		soltarFotoPendiente();
-		fotoPendiente = { archivo: archivo, url: URL.createObjectURL(archivo) };
-		pintarAvatar();
+		if (archivo.size > 25 * 1024 * 1024) { toast('error', 'La foto es demasiado grande.'); return; }
+		// Solo se muestra; se sube al pulsar Guardar cambios, ya reducida.
+		reducirFoto(archivo).then(function (liviana) {
+			soltarFotoPendiente();
+			fotoPendiente = { archivo: liviana, url: URL.createObjectURL(liviana) };
+			pintarAvatar();
+		});
 	});
 
 	$('epUsAv').addEventListener('click', abrirZoom);

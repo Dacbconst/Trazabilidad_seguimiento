@@ -5,7 +5,7 @@ session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
-if (($_SESSION['rol'] ?? '') !== 'admin') {
+if (!in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true)) {
 	http_response_code(403);
 	echo json_encode(['ok' => false, 'message' => 'No autorizado.']);
 	exit;
@@ -16,6 +16,10 @@ require_once __DIR__.'/../includes/calendario_datos.php';
 // En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
 try {
 	$id = (int) ($_POST['id'] ?? 0);
+	if (!ep_calendario_permitido($id)) {
+		echo json_encode(['ok' => false, 'message' => 'Ese calendario no es tuyo.']);
+		exit;
+	}
 	$cal = ep_calendario_obtener($id);
 	$ok = ep_calendario_eliminar($id);
 	if ($ok && $cal) {

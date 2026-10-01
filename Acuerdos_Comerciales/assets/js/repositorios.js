@@ -986,6 +986,8 @@
 			if (sinCliente && e.diagnostico) {
 				var campoEtiqueta = e.diagnostico.campo === 'distribuidor' ? 'Distribuidor' : 'Supervisor/CEDI';
 				motivos.push({ texto: 'Cliente encontrado, pero el ' + campoEtiqueta + ' en el maestro es', valor: (e.diagnostico.valores_reales || []).join(' / ') });
+			} else if (sinCliente && (e.sugerencias || []).length) {
+				motivos.push({ texto: 'No se pudo identificar este cliente. ¿Quisiste decir?', valor: e.sugerencias.join(' / ') });
 			} else if (sinCliente) {
 				motivos.push({ texto: 'No se pudo identificar este cliente en el maestro' });
 			}
@@ -1308,14 +1310,18 @@
 	var resumenChoque = document.getElementById('repo-resumen-choque');
 
 	// "Sin usuario asignado" como número suelto se sacó (2026-08-26, pedido explícito: "me hace ruido... quítalo, lo veo innecesario") — esa misma información ahora vive en la lista de abajo, con nombre y una marca pasiva por fila (ver renderResumenChart()), no como un conteo ciego.
+	// Tiles clickeables (2026-10-01, pedido explícito): "Pendientes" y "Borrador" cambian qué lista se ve abajo, mismo formato agrupado por asesor.
+	var resumenVistaActiva = 'pendientes';
 	function renderResumenStats(data) {
 		var tiles = [
-			{ label: 'Actas pendientes de completar', value: String(data.pendientes) },
+			{ label: 'Actas pendientes de completar', value: String(data.pendientes), vista: 'pendientes' },
+			{ label: 'En borrador', value: String(data.borradores), vista: 'borrador' },
 			{ label: 'Ya generadas (usadas)', value: String(data.usadas) },
 			{ label: 'Clientes sin identificar', value: String(data.pendientes_match), warn: data.pendientes_match > 0 }
 		];
 		resumenStats.innerHTML = tiles.map(function (t) {
-			return '<div class="ac-stat-tile' + (t.warn ? ' ac-stat-tile-warn' : '') + '">' +
+			var clases = 'ac-stat-tile' + (t.warn ? ' ac-stat-tile-warn' : '') + (t.vista ? ' ac-stat-tile-clicable' : '') + (t.vista === resumenVistaActiva ? ' ac-stat-tile-activa' : '');
+			return '<div class="' + clases + '"' + (t.vista ? ' data-vista="' + t.vista + '"' : '') + '>' +
 				'<p class="ac-stat-label">' + t.label + '</p>' +
 				'<p class="ac-stat-value">' + t.value + '</p>' +
 				'</div>';
@@ -1381,6 +1387,18 @@
 		resumenChart.innerHTML = html;
 	}
 
+	// Lista plana para Borrador: siempre viene de a.creado_por (cuenta real), sin la separación "con/sin cuenta" que sí aplica a Pendientes.
+	function renderResumenChartBorrador(porUsuario) {
+		if (!porUsuario.length) {
+			resumenChart.innerHTML = '<p class="ac-field-hint">No hay Actas en borrador ahora mismo.</p>';
+			return;
+		}
+		var max = Math.max.apply(null, porUsuario.map(function (u) { return u.actas_pendientes; })) || 1;
+		var idxGlobal = 0;
+		porUsuario.forEach(function (u) { u._max = max; u._idx = idxGlobal++; });
+		resumenChart.innerHTML = '<div class="ac-chart-rows">' + porUsuario.map(function (u) { return filaResumenUsuario(u, true, u._idx); }).join('') + '</div>';
+	}
+
 	// Delegado, no por fila (renderResumenChart() reescribe innerHTML cada vez que se abre el modal) — clickear la fila despliega/oculta su tabla de detalle, gira la flecha.
 	resumenChart.addEventListener('click', function (e) {
 		var btn = e.target.closest('[data-detalle-toggle]');
@@ -1423,8 +1441,23 @@
 			'<div class="ac-choque-list">' + chocan.map(filaResumenChoque).join('') + '</div>';
 	}
 
+	var resumenDataActual = null;
+	function renderResumenSegunVista() {
+		if (!resumenDataActual) return;
+		if (resumenVistaActiva === 'borrador') renderResumenChartBorrador(resumenDataActual.por_usuario_borrador || []);
+		else renderResumenChart(resumenDataActual.por_usuario);
+	}
+	resumenStats.addEventListener('click', function (e) {
+		var tile = e.target.closest('[data-vista]');
+		if (!tile) return;
+		resumenVistaActiva = tile.getAttribute('data-vista');
+		renderResumenStats(resumenDataActual);
+		renderResumenSegunVista();
+	});
+
 	function abrirResumen() {
 		resumenOverlay.classList.add('ac-modal-open');
+		resumenVistaActiva = 'pendientes';
 		resumenStats.innerHTML = '';
 		resumenChart.innerHTML = '<p class="ac-field-hint">Cargando...</p>';
 		resumenChoque.classList.add('hidden');
@@ -1433,8 +1466,9 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el resumen.', false); return; }
+				resumenDataActual = data;
 				renderResumenStats(data);
-				renderResumenChart(data.por_usuario);
+				renderResumenSegunVista();
 				renderResumenChoque(data.chocan);
 			})
 			.catch(function () { mostrarMensaje('Error de conexión al cargar el resumen.', false); });

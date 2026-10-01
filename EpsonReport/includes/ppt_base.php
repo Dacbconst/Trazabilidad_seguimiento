@@ -356,7 +356,8 @@ function ep_ppt_ancho(DOMXPath $xp, string $nombre, int $cx): void {
 
 // Cambia el rectángulo marcador por la foto, recortada para llenar el cuadro sin deformarse.
 // Por defecto la foto llena el cuadro recortada; con $completa se ve entera, centrada y sin deformarse (por ejemplo el calendario).
-function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId, int $anchoImg, int $altoImg, bool $completa = false): void {
+// $circular: recorta al centro en cuadrado y la deja redonda (foto de perfil del promotor).
+function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId, int $anchoImg, int $altoImg, bool $completa = false, bool $circular = false): void {
 	$forma = ep_ppt_forma($xp, $nombre);
 	if (!$forma || $anchoImg <= 0 || $altoImg <= 0) {
 		return;
@@ -371,6 +372,13 @@ function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId
 	$l = $r = $t = $b = 0;
 	$x = (int) $off->getAttribute('x');
 	$y = (int) $off->getAttribute('y');
+	if ($circular) {
+		$lado = min($cx, $cy);
+		$x += intdiv($cx - $lado, 2);
+		$y += intdiv($cy - $lado, 2);
+		$cx = $cy = $lado;
+		$objetivo = 1;
+	}
 	if ($completa) {
 		$escala = min($cx / $anchoImg, $cy / $altoImg);
 		$ancho = (int) round($anchoImg * $escala);
@@ -387,7 +395,7 @@ function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId
 	$xml = '<p:pic xmlns:a="'.EP_PPT_NS_A.'" xmlns:p="'.EP_PPT_NS_P.'" xmlns:r="'.EP_PPT_NS_R.'">'
 		.'<p:nvPicPr><p:cNvPr id="'.$id.'" name="Foto '.$id.'"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
 		.'<p:blipFill><a:blip r:embed="'.$rId.'"/><a:srcRect l="'.$l.'" t="'.$t.'" r="'.$r.'" b="'.$b.'"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>'
-		.'<p:spPr><a:xfrm><a:off x="'.$x.'" y="'.$y.'"/><a:ext cx="'.$cx.'" cy="'.$cy.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
+		.'<p:spPr><a:xfrm><a:off x="'.$x.'" y="'.$y.'"/><a:ext cx="'.$cx.'" cy="'.$cy.'"/></a:xfrm><a:prstGeom prst="'.($circular ? 'ellipse' : 'rect').'"><a:avLst/></a:prstGeom>'.($circular ? '<a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>' : '').'</p:spPr></p:pic>';
 	$frag = new DOMDocument();
 	$frag->loadXML($xml);
 	$nuevo = $dom->importNode($frag->documentElement, true);

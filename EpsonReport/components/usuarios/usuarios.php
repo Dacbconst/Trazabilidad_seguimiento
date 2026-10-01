@@ -51,7 +51,7 @@ $clave = EP_CLAVE_MINIMA;
 				<div class="ep-us-av ep-us-av-grande" id="epUsAv"></div>
 				<div>
 					<button type="button" class="ep-us-btn" id="epUsFotoBtn">Cambiar foto</button>
-					<small id="epUsFotoNota">JPG, PNG o WEBP, hasta 5 MB</small>
+					<small id="epUsFotoNota">JPG, PNG o WEBP</small>
 					<input type="file" id="epUsFotoArchivo" accept="image/jpeg,image/png,image/webp" hidden>
 				</div>
 			</div>
@@ -81,6 +81,25 @@ $clave = EP_CLAVE_MINIMA;
 				<div class="ep-us-fl" id="epUsWCiudad">
 					<label for="epUsCiudad" class="ep-us-lk">Ciudad <?= ep_icon('lock', 13) ?></label>
 					<input id="epUsCiudad" disabled>
+				</div>
+			</div>
+			<div class="ep-us-sec" id="epUsWRuta">
+				<h3>Ruta del promotor</h3>
+				<div class="ep-us-fl">
+					<label for="epUsCategorias">Puntos de venta que ve</label>
+					<select id="epUsCategorias">
+						<?php foreach (EP_CATEGORIAS_PDV as $k => $txt): ?><option value="<?= $h($k) ?>"><?= $h($txt) ?></option><?php endforeach; ?>
+					</select>
+					<small>Define qué puntos de venta le salen al registrar.</small>
+				</div>
+				<div class="ep-us-fl" id="epUsWSupCanales">
+					<label for="epUsSupCanales">Supervisor de canales</label>
+					<select id="epUsSupCanales"></select>
+				</div>
+				<div class="ep-us-fl" id="epUsWSupRetail">
+					<label for="epUsSupRetail">Supervisor de retail</label>
+					<select id="epUsSupRetail"></select>
+					<small>Quien aprueba o devuelve sus registros de cada categoría.</small>
 				</div>
 			</div>
 			<div class="ep-us-fl" id="epUsWCanal">

@@ -17,7 +17,7 @@ function ep_rep_responder($ok, $datos = [], $codigo = 200) {
 if (!ep_login_check()) {
 	ep_rep_responder(false, ['error' => 'Tu sesión se cerró. Inicia sesión de nuevo.', 'redirect' => 'login.php?error=sesion'], 401);
 }
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	ep_rep_responder(false, ['error' => 'No tienes permiso para esto.'], 403);
 }
 
@@ -41,7 +41,7 @@ $ocupados = array_flip(ep_registros_ocupados());
 $validos = [];
 $snapshot = [];
 $fechas = [];
-foreach (ep_registros_datos(5000, $ids) as $r) {
+foreach (ep_registros_datos(5000, $ids, ['Aprobado']) as $r) {
 	if (($r['tipo'] ?? '') !== $tipo || isset($ocupados[(int) $r['db_id']])) {
 		continue;
 	}

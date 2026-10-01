@@ -34,7 +34,7 @@ function ep_ppt_barra_promotor(array &$ctx, array &$slide, array $reg, string $e
 	// Con foto de perfil del promotor se inserta en el cuadro de la plantilla; sin ella, se quita (queda vacío, como hasta ahora).
 	$fotoUrl = $reg['promotor_foto_url'] ?? '';
 	if ($fotoUrl !== '' && isset($ctx['fotos'][$fotoUrl])) {
-		ep_ppt_slide_imagen($ctx, $slide, $n['foto'], $ctx['fotos'][$fotoUrl]);
+		ep_ppt_slide_imagen($ctx, $slide, $n['foto'], $ctx['fotos'][$fotoUrl], false, true);
 	} else {
 		ep_ppt_quitar($xp, $n['foto']);
 	}
@@ -118,14 +118,14 @@ function ep_ppt_slide_guardar(array &$ctx, array $slide): void {
 }
 
 // Pone una imagen descargada ([bytes, ancho, alto, extensión]) en el cuadro marcador de la diapositiva.
-function ep_ppt_slide_imagen(array &$ctx, array &$slide, string $rect, array $imagen, bool $completa = false): void {
+function ep_ppt_slide_imagen(array &$ctx, array &$slide, string $rect, array $imagen, bool $completa = false, bool $circular = false): void {
 	[$bytes, $ancho, $alto, $extension] = $imagen;
 	$indice = count($ctx['media']) + 1;
 	$nombre = 'img'.$indice.'.'.$extension;
 	$ctx['media'][$nombre] = $bytes;
 	$rId = 'rIdImg'.$indice;
 	$slide['extra'] .= '<Relationship Id="'.$rId.'" Type="'.EP_PPT_TIPO_IMAGEN.'" Target="../media/'.$nombre.'"/>';
-	ep_ppt_foto($slide['dom'], $slide['xp'], $rect, $rId, $ancho, $alto, $completa);
+	ep_ppt_foto($slide['dom'], $slide['xp'], $rect, $rId, $ancho, $alto, $completa, $circular);
 }
 
 // Pie de cada foto ('pies' en el spec, paralelo a 'rects'): sigue el ancho y la posición de su foto; sin foto, se quita.
@@ -206,6 +206,10 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
 	}
 	// Sin 'orden' fijo en el spec, se usan las fotos reales del registro (para actividades sin tope de fotos, como el informe fotográfico simple).
 	$ordenFotos = $spec['fotos']['orden'] ?? array_column($reg['fotos'] ?? [], 'id');
+	// Las fotos sumadas con "Agregar otra foto" van después de las fijas del spec.
+	if (isset($spec['fotos']['orden'])) {
+		$ordenFotos = array_merge($ordenFotos, array_values(array_diff(array_column($reg['fotos'] ?? [], 'id'), $ordenFotos)));
+	}
 	$ids = array_values(array_filter($ordenFotos, fn($id) => isset($mapaFotos[$id])));
 	foreach (array_chunk($ids, 3) as $grupo) {
 		ep_ppt_slide_fotos($ctx, $spec, $reg, $grupo, $mapaFotos);

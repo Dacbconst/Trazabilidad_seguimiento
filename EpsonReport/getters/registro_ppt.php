@@ -15,7 +15,7 @@ function ep_reg_ppt_error($mensaje, $codigo = 400, $extra = []) {
 if (!ep_login_check()) {
 	ep_reg_ppt_error('Tu sesión se cerró. Inicia sesión de nuevo.', 401, ['redirect' => 'login.php?error=sesion']);
 }
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	ep_reg_ppt_error('No tienes permiso para descargar presentaciones.', 403);
 }
 if (!class_exists('ZipArchive')) {

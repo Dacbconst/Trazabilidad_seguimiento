@@ -3,6 +3,15 @@ require_once __DIR__.'/../../includes/actividades_datos.php';
 require_once __DIR__.'/../../includes/fotos_datos.php';
 $esAdmin = ep_rol_actual() === 'admin';
 $actividades = ep_actividades_visibles();
+// "Corregir y reenviar": un registro devuelto del propio promotor llega con su actividad, punto de venta y fecha ya elegidos.
+$corregir = null;
+if (!empty($_GET['corregir']) && !ep_es_gestor()) {
+	require_once __DIR__.'/../../includes/registros_datos.php';
+	$rc = ep_registro_por_codigo((string) $_GET['corregir']);
+	if ($rc && ($rc['estado'] ?? '') === 'Devuelto' && strcasecmp($rc['promotor_usuario'] ?? '', $_SESSION['usuario'] ?? '') === 0) {
+		$corregir = ['codigo' => $rc['id'], 'tipo' => $rc['tipo'] ?? '', 'pos_id' => $rc['pos_id'] ?? '', 'punto' => $rc['punto_venta'] ?? '', 'fecha' => $rc['fecha_actividad'] ?? '', 'motivo' => $rc['motivo_devolucion'] ?? '', 'revisor' => $rc['revisor'] ?? ''];
+	}
+}
 ?>
 <aside class="ep-side">
 	<div>
@@ -359,4 +368,7 @@ $actividades = ep_actividades_visibles();
 	// Las lógicas base (no los botones), por plantilla, para la vista previa de "Nueva actividad".
 	window.EP_LOGICAS = <?= json_encode(array_map(fn($l) => ['label' => $l['label'], 'plantilla' => $l['plantilla'], 'campos' => $l['campos'], 'fotos' => ep_fotos_requeridas($l['plantilla'])], ep_logicas()), JSON_UNESCAPED_UNICODE) ?>;
 </script>
+<?php endif; ?>
+<?php if ($corregir): ?>
+<script>window.EP_CORREGIR = <?= json_encode($corregir, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;</script>
 <?php endif; ?>

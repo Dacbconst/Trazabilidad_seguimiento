@@ -1,0 +1,74 @@
+/* ============ Avisos del promotor: campana con contador y panel de activaciones pendientes ============ */
+.ep-avisos-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--color-primary-mid); color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; margin-left: auto; }
+.ep-avisos-badge.urgente { background: #D93025; }
+.ep-avisos-badge[data-n="0"] { display: none; }
+.ep-sidebar.collapsed .ep-avisos-badge { position: absolute; top: 2px; right: 4px; margin: 0; }
+.ep-avisos-abrir { position: relative; }
+.ep-mobile-avisos { display: none; width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid #E2D8F2; background: #F8F5FC; color: var(--color-primary); align-items: center; justify-content: center; padding: 0; flex-shrink: 0; margin-left: auto; margin-right: 8px; }
+.ep-mobile-avisos .ep-avisos-badge { position: absolute; top: -6px; right: -6px; margin: 0; }
+
+.ep-avisos-scrim { position: fixed; inset: 0; z-index: 99; display: none; }
+.ep-avisos-scrim.on { display: block; }
+.ep-avisos { position: fixed; z-index: 100; top: 16px; left: 280px; width: 380px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border: 1px solid #E6E1EF; border-radius: 16px; box-shadow: 0 12px 40px rgba(24, 14, 42, 0.22); opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s; }
+.ep-avisos.on { opacity: 1; visibility: visible; transform: none; }
+.ep-avisos-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid #EFEBF5; }
+.ep-avisos-head h2 { font-size: 17px; color: var(--color-primary-dark); }
+.ep-avisos-head p { margin: 3px 0 0; font-size: 12.5px; color: var(--color-text-muted); }
+.ep-avisos-x { width: 34px; height: 34px; border: none; border-radius: 10px; background: transparent; color: var(--color-text-muted); display: grid; place-items: center; }
+.ep-avisos-x:hover { background: var(--color-surface-muted); }
+.ep-avisos-cuerpo { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.ep-avisos-vacio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 12px; text-align: center; color: var(--color-text-muted); font-size: 13px; }
+.ep-avisos-vacio svg { color: var(--color-success); }
+.ep-avisos-vacio strong { color: var(--color-ink); font-size: 14px; }
+.ep-avisos-cal { border: 1px solid #EFEBF5; border-radius: 12px; padding: 12px 14px; background: #fff; }
+.ep-avisos-cal.urgente { border-color: #F2C4C0; background: #FFF9F8; }
+.ep-avisos-cal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ep-avisos-cal-top h3 { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.ep-avisos-etq { flex: 0 0 auto; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary-dark); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.ep-avisos-etq.urgente { background: #FBE3E1; color: #9F1F18; }
+.ep-avisos-sub { margin: 6px 0 8px; font-size: 12.5px; color: var(--color-text-muted); }
+.ep-avisos-filas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ep-avisos-filas li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid #F3F0F8; font-size: 13px; }
+.ep-avisos-fecha { font-weight: 600; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.ep-avisos-punto { min-width: 0; color: var(--color-text); overflow-wrap: anywhere; }
+.ep-avisos-punto em { display: block; font-style: normal; font-size: 12px; color: var(--color-text-muted); }
+.ep-avisos-nueva { font-size: 11px; font-weight: 700; color: var(--color-primary-dark); background: var(--color-primary-soft); border-radius: 999px; padding: 2px 8px; }
+.ep-avisos-pie { padding: 12px 16px 16px; border-top: 1px solid #EFEBF5; }
+.ep-avisos-ir { display: flex; align-items: center; justify-content: center; height: 42px; border-radius: 10px; background: var(--color-primary); color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+.ep-avisos-ir:hover { background: var(--color-primary-dark); }
+.ep-avisos button:focus-visible, .ep-avisos a:focus-visible { outline: 2px solid var(--color-primary-mid); outline-offset: 2px; }
+
+@media (max-width: 900px) {
+	.ep-mobile-avisos { display: flex; }
+	.ep-avisos-scrim.on { background: rgba(24, 14, 42, 0.38); }
+	.ep-avisos { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 82vh; border-radius: 18px 18px 0 0; border-bottom: none; transform: translateY(100%); }
+	.ep-avisos.on { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ep-avisos { transition: none; } }
+
+/* Campana que suena mientras haya avisos sin ver: se mueve, el contador pulsa y desaparece al abrirla */
+.ep-avisos-badge { position: relative; --ring: #C9B6F0; }
+.ep-avisos-badge.urgente { --ring: #FF8A82; }
+.ep-sidebar-nav a.ep-avisos-abrir.llamando { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.ep-sidebar-nav a.ep-avisos-abrir.llamando svg { color: #fff; }
+.ep-mobile-avisos.llamando { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.ep-avisos-abrir.llamando .ep-avisos-badge::after { content: ''; position: absolute; inset: -3px; border-radius: 999px; border: 2px solid var(--ring); animation: ep-pulso 1.8s ease-out infinite; pointer-events: none; }
+.ep-mobile-avisos.llamando .ep-avisos-badge::after { border-color: #D93025; }
+@keyframes ep-campana {
+	0% { transform: rotate(0); }
+	6% { transform: rotate(18deg); }
+	12% { transform: rotate(-16deg); }
+	18% { transform: rotate(13deg); }
+	24% { transform: rotate(-10deg); }
+	30% { transform: rotate(6deg); }
+	36% { transform: rotate(-3deg); }
+	42%, 100% { transform: rotate(0); }
+}
+@keyframes ep-pulso {
+	0% { transform: scale(0.85); opacity: 0.9; }
+	70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.ep-avisos-abrir.llamando svg, .ep-avisos-abrir.llamando .ep-avisos-badge::after { animation: none; }
+	.ep-avisos-abrir.llamando .ep-avisos-badge { outline: 2px solid var(--ring); outline-offset: 2px; }
+}

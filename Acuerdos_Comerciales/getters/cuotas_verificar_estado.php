@@ -66,10 +66,13 @@ foreach ($filas as $fila) {
 	$posId = $cachePosId[$clavePos];
 
 	if (!$posId) {
+		// Sugerencias solo cuando no hay diagnostico de Distribuidor (ese caso ya tiene su propio mensaje) — el nombre del cliente en sí no matcheó nada.
+		$sugerencias = ($cacheDiagnostico[$clavePos] ?? null) === null ? sugerirClienteSimilar($mysqli, $clienteExcel, $canal) : [];
 		$estados[] = [
 			'estado' => 'sin_cliente', 'sector_resuelto' => $sectorResuelto,
 			'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
 			'diagnostico' => $cacheDiagnostico[$clavePos] ?? null,
+			'sugerencias' => $sugerencias,
 		];
 		continue;
 	}

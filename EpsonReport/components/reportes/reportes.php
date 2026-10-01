@@ -4,7 +4,7 @@ require_once __DIR__.'/../../includes/functions.php';
 require_once __DIR__.'/../../includes/reportes_datos.php';
 require_once __DIR__.'/../../includes/actividades_datos.php';
 
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	echo '<main class="ep-content"><p>No tienes permiso para ver esta sección.</p></main>';
 	return;
 }

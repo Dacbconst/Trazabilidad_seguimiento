@@ -3,11 +3,18 @@ require_once __DIR__.'/../../includes/functions.php';
 require_once __DIR__.'/../../includes/fotos_datos.php';
 require_once __DIR__.'/../../includes/registros_datos.php';
 
-$esAdmin = (ep_rol_actual() === 'admin');
+$esAdmin = ep_es_gestor();
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
-// Registros reales desde la base; el promotor solo ve los suyos.
-$todosRegistros = ep_registros_datos();
+// Modo Aprobaciones: lo pendiente y lo devuelto (el supervisor solo recibe lo que le toca). Historial: el gestor ve lo aprobado; el promotor ve lo suyo en cualquier estado.
+$modoAprobacion = !empty($modoAprobacion);
+if ($modoAprobacion) {
+	$todosRegistros = ep_registros_datos(1000, [], ['Pendiente', 'Devuelto']);
+} elseif ($esAdmin) {
+	$todosRegistros = ep_registros_datos(1000, [], ['Aprobado']);
+} else {
+	$todosRegistros = ep_registros_datos();
+}
 $usuarioSesion = $_SESSION['usuario'] ?? '';
 if (!$esAdmin) {
 	$todosRegistros = array_values(array_filter($todosRegistros, fn($r) => strcasecmp($r['promotor_usuario'] ?? '', $usuarioSesion) === 0));
@@ -15,11 +22,15 @@ if (!$esAdmin) {
 $totalRegistros = count($todosRegistros);
 $totalPromotores = count(array_unique(array_filter(array_column($todosRegistros, 'promotor'))));
 ?>
-<main class="ep-content ep-h2" id="epH2" data-admin="<?= $esAdmin ? '1' : '0' ?>">
+<main class="ep-content ep-h2" id="epH2" data-admin="<?= $esAdmin ? '1' : '0' ?>" data-modo="<?= $modoAprobacion ? 'aprobacion' : 'historial' ?>">
 
 	<header class="ep-h2-head">
 		<div>
-			<h1>Historial de registros <span class="ep-rol-chip <?= $esAdmin ? 'ep-rol-chip-admin' : 'ep-rol-chip-user' ?>"><?= $esAdmin ? 'Admin' : 'Promotor' ?></span></h1>
+			<?php if ($modoAprobacion): ?>
+			<h1>Aprobaciones</h1>
+<?php else: ?>
+			<h1>Historial de registros <span class="ep-rol-chip <?= $esAdmin ? 'ep-rol-chip-admin' : 'ep-rol-chip-user' ?>"><?= ep_es_admin() ? 'Admin' : (ep_es_supervisor() ? 'Supervisor' : 'Promotor') ?></span></h1>
+<?php endif; ?>
 			<p id="epH2Resumen"></p>
 		</div>
 		<div class="ep-h2-rapidos" id="epH2Rapidos" role="group" aria-label="Periodo">
@@ -29,6 +40,14 @@ $totalPromotores = count(array_unique(array_filter(array_column($todosRegistros,
 			<button type="button" data-rapido="mes">Mes</button>
 		</div>
 	</header>
+
+	<?php if ($modoAprobacion): $cuentas = ep_aprobaciones_contar(); ?>
+	<div class="ep-h2-tabs-est" id="epH2Estados" role="group" aria-label="Estado">
+		<button type="button" class="ep-h2-tab-est on" data-estado="Pendiente">Pendientes <b><?= (int) $cuentas['Pendiente'] ?></b></button>
+		<button type="button" class="ep-h2-tab-est" data-estado="Devuelto">Devueltos <b><?= (int) $cuentas['Devuelto'] ?></b></button>
+		<a class="ep-h2-tab-link" href="index.php?vista=historial">Ver aprobados</a>
+	</div>
+	<?php endif; ?>
 
 	<section class="ep-fl-barra">
 		<label class="ep-fl-buscar">

@@ -5,7 +5,8 @@ $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep
 $diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 $diaDe = fn($r) => substr((string) ($r['fecha_actividad'] ?? ($r['fecha_iso'] ?? '')), 0, 10);
-$claveOrden = fn($r) => $diaDe($r).($r['hora_inicio'] ?? ($r['hora'] ?? ''));
+// Los días van del más reciente al más antiguo y, dentro de cada día, por orden de llegada (el último en enviarse primero), no por la hora de la actividad.
+$claveOrden = fn($r) => $diaDe($r).str_pad((string) ($r['db_id'] ?? 0), 10, '0', STR_PAD_LEFT);
 uasort($todosRegistros, fn($a, $b) => strcmp($claveOrden($b), $claveOrden($a)));
 
 // "Hoy", "Ayer" o el nombre del día; y la fecha corta al lado.
@@ -38,7 +39,7 @@ foreach ($todosRegistros as $i => $r):
 		<div class="ep-h2-dia" data-dia="<?= $h($dia) ?>"><h3><?= $h($titulo) ?></h3><span><?= $h($fechaCorta) ?></span><em></em></div>
 	<?php endif; ?>
 	<div class="ep-h2-fila ep-h2-reg" tabindex="0" role="button"
-		data-idx="<?= $i ?>" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" data-actividad="<?= $h($etiqueta) ?>" data-fecha="<?= $h($dia) ?>"
+		data-idx="<?= $i ?>" data-estado="<?= $h($r['estado'] ?? 'Aprobado') ?>" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" data-actividad="<?= $h($etiqueta) ?>" data-fecha="<?= $h($dia) ?>"
 		data-promotor="<?= $h($r['promotor'] ?? '') ?>" data-busqueda="<?= $h($busqueda) ?>">
 		<?php if ($esAdmin): ?>
 			<input type="checkbox" class="ep-h2-check" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" aria-label="Seleccionar para descarga consolidada">
@@ -50,6 +51,9 @@ foreach ($todosRegistros as $i => $r):
 		</div>
 		<div class="ep-h2-c-meta">
 			<b><?= $h($etiqueta) ?></b>
+			<?php $estReg = $r['estado'] ?? 'Aprobado'; if ($estReg !== 'Aprobado' || !$esAdmin): $claseEst = ['Pendiente' => 'pend', 'Devuelto' => 'dev', 'Aprobado' => 'ok'][$estReg] ?? 'ok'; ?>
+				<span class="ep-h2-est ep-h2-est-<?= $claseEst ?>"><?= $estReg === 'Pendiente' ? 'Pendiente de aprobación' : $h($estReg) ?></span>
+			<?php endif; ?>
 			<small><?= $conFoto ?> / <?= count($fotos) ?> fotos</small>
 		</div>
 	</div>

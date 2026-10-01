@@ -1,5 +1,6 @@
 /* ============ Usuarios: lista con filtros y panel lateral de edición ============ */
 .ep-content.ep-us { display: flex; flex-direction: column; gap: 18px; padding: 32px 36px 48px; }
+.ep-content.ep-us > * { flex-shrink: 0; }
 .ep-us-head, .ep-us-tools, .ep-us-panel { max-width: 1120px; width: 100%; margin-left: auto; margin-right: auto; }
 .ep-us-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ep-us-head h1 { font-size: 26px; font-weight: 700; color: var(--color-primary-dark); }
@@ -104,3 +105,5 @@
 	.ep-us-d-foot .ep-us-btn { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .ep-us-drawer, .ep-us-scrim { transition: none; } }
+
+.ep-us-tag-supervisor { background: #E6F0FB; color: #1B4F8F; }

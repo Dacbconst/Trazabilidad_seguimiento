@@ -12,8 +12,15 @@ if (!ep_login_check()) {
 require_once __DIR__.'/../includes/fotos_datos.php';
 require_once __DIR__.'/../includes/registros_datos.php';
 
-$esAdmin = (ep_rol_actual() === 'admin');
-$todosRegistros = ep_registros_datos();
+$esAdmin = ep_es_gestor();
+$modoAprobacion = ($_GET['modo'] ?? '') === 'aprobacion' && $esAdmin;
+if ($modoAprobacion) {
+	$todosRegistros = ep_registros_datos(1000, [], ['Pendiente', 'Devuelto']);
+} elseif ($esAdmin) {
+	$todosRegistros = ep_registros_datos(1000, [], ['Aprobado']);
+} else {
+	$todosRegistros = ep_registros_datos();
+}
 if (!$esAdmin) {
 	$usuarioSesion = $_SESSION['usuario'] ?? '';
 	$todosRegistros = array_values(array_filter($todosRegistros, fn($r) => strcasecmp($r['promotor_usuario'] ?? '', $usuarioSesion) === 0));

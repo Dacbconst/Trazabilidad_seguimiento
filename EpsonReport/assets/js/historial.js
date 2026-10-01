@@ -19,7 +19,8 @@
 	var rapidos = document.getElementById('epH2Rapidos');
 	var movil = window.matchMedia('(max-width: 900px)');
 	var POR_TANDA = 40;
-	var estado = { act: 'all', q: '', prom: 'all', desde: '', hasta: '', limite: POR_TANDA, sel: null };
+	var modoAprobacion = root.dataset.modo === 'aprobacion';
+	var estado = { act: 'all', q: '', prom: 'all', est: modoAprobacion ? 'Pendiente' : '', desde: '', hasta: '', limite: POR_TANDA, sel: null };
 	var filas = [];
 	var dias = [];
 
@@ -29,6 +30,7 @@
 	}
 
 	function coincide(f) {
+		if (estado.est && f.dataset.estado !== estado.est) return false;
 		if (estado.act !== 'all' && f.dataset.actividad !== estado.act) return false;
 		if (estado.prom !== 'all' && f.dataset.promotor !== estado.prom) return false;
 		if (estado.q && f.dataset.busqueda.indexOf(estado.q) === -1) return false;
@@ -208,6 +210,47 @@
 		aplicar();
 	});
 
+	// Aprobar o devolver un registro pendiente (Aprobaciones); al terminar se recarga para que los contadores y la lista queden al día.
+	function enviarRevision(url, datos, btn, tituloError) {
+		var form = new FormData();
+		Object.keys(datos).forEach(function (k) { form.append(k, datos[k]); });
+		btn.disabled = true;
+		return fetch(url, { method: 'POST', body: form, credentials: 'same-origin' })
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (!d.ok) { btn.disabled = false; Swal.fire({ icon: 'error', title: tituloError, text: d.message || '' }); return; }
+				window.location.reload();
+			})
+			.catch(function () { btn.disabled = false; Swal.fire({ icon: 'error', title: tituloError, text: 'El servidor no respondió correctamente. Intenta de nuevo.' }); });
+	}
+	function aprobarRegistro(btn) {
+		if (!window.Swal) return;
+		Swal.fire({ icon: 'question', title: '¿Aprobar este registro?', text: 'Pasa al Historial y puede entrar a los reportes y al Calendario.', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar', confirmButtonColor: '#513487' })
+			.then(function (res) { if (res.isConfirmed) enviarRevision('getters/aprobacion_aprobar.php', { codigo: btn.dataset.codigo }, btn, 'No se pudo aprobar'); });
+	}
+	function devolverRegistro(btn) {
+		if (!window.Swal) return;
+		Swal.fire({
+			title: 'Devolver registro', text: (btn.dataset.punto || '') + '. El promotor lo verá en sus avisos, lo corregirá y lo reenviará.',
+			input: 'textarea', inputLabel: '¿Qué debe corregir?', inputPlaceholder: 'Escribe qué debe corregir el promotor', inputAttributes: { maxlength: 300 },
+			inputValidator: function (v) { return !v || v.trim().length < 8 ? 'Escribe qué debe corregir (mínimo 8 caracteres).' : null; },
+			showCancelButton: true, confirmButtonText: 'Devolver al promotor', cancelButtonText: 'Cancelar', confirmButtonColor: '#B3261E'
+		}).then(function (res) { if (res.isConfirmed) enviarRevision('getters/aprobacion_devolver.php', { codigo: btn.dataset.codigo, motivo: res.value }, btn, 'No se pudo devolver'); });
+	}
+
+	// Pestañas Pendientes / Devueltos de Aprobaciones.
+	var tabsEstado = document.getElementById('epH2Estados');
+	if (tabsEstado) {
+		tabsEstado.addEventListener('click', function (e) {
+			var b = e.target.closest('.ep-h2-tab-est');
+			if (!b) return;
+			estado.est = b.dataset.estado;
+			tabsEstado.querySelectorAll('.ep-h2-tab-est').forEach(function (x) { x.classList.toggle('on', x === b); });
+			reiniciarLimite();
+			aplicar();
+		});
+	}
+
 	// Eliminar registro (solo admin): borrado lógico, confirma antes y lo saca de la lista sin recargar.
 	function eliminarRegistro(btn) {
 		if (!window.Swal) return;
@@ -311,6 +354,10 @@
 		if (ev.target.closest('.ep-h2-check')) return;
 		var btnEliminar = ev.target.closest('.ep-h2-btn-eliminar');
 		if (btnEliminar) { eliminarRegistro(btnEliminar); return; }
+		var btnAprobar = ev.target.closest('.ep-h2-btn-aprobar');
+		if (btnAprobar) { aprobarRegistro(btnAprobar); return; }
+		var btnDevolver = ev.target.closest('.ep-h2-btn-devolver');
+		if (btnDevolver) { devolverRegistro(btnDevolver); return; }
 		var fila = ev.target.closest('.ep-h2-reg');
 		if (fila) { seleccionar(fila, true); return; }
 		if (ev.target.closest('.ep-h2-cerrar')) cerrarPanelMovil();
@@ -418,7 +465,7 @@
 	}
 	function refrescar() {
 		if (root.querySelector('.ep-h2-panel-abierto')) { ultimaFirma = null; return; }
-		fetch('getters/historial_filas.php', { cache: 'no-store', credentials: 'same-origin' })
+		fetch('getters/historial_filas.php' + (modoAprobacion ? '?modo=aprobacion' : ''), { cache: 'no-store', credentials: 'same-origin' })
 			.then(function (r) {
 				if (r.status === 401) { window.location.href = 'login.php?error=sesion'; return null; }
 				return r.ok ? r.text() : null;
@@ -448,4 +495,24 @@
 	leerFilas();
 	refrescarCombos();
 	aplicar();
+
+	// Si viene de enviar un registro (?nuevo=CÓDIGO): se selecciona, se lleva a la vista y se resalta unos segundos.
+	var codigoNuevo = new URLSearchParams(window.location.search).get('nuevo');
+	if (codigoNuevo) {
+		var nueva = filas.filter(function (f) { return f.dataset.codigo === codigoNuevo; })[0];
+		if (nueva) {
+			if (nueva.classList.contains('hidden')) { estado.limite = filas.length; aplicar(); }
+			seleccionar(nueva, false);
+			var titulo = nueva.querySelector('.ep-h2-c-main strong');
+			var chip = document.createElement('span');
+			chip.className = 'ep-h2-nuevo';
+			chip.textContent = 'Nuevo';
+			if (titulo) titulo.insertBefore(chip, titulo.firstChild);
+			nueva.classList.add('ep-h2-nueva');
+			nueva.scrollIntoView({ block: 'center', behavior: 'smooth' });
+			setTimeout(function () { nueva.classList.remove('ep-h2-nueva'); if (chip.parentNode) chip.parentNode.removeChild(chip); }, 3600);
+		}
+		// Se limpia la dirección para que al recargar no se repita el resaltado.
+		window.history.replaceState(null, '', 'index.php?vista=historial');
+	}
 })();

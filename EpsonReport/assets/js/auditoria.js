@@ -20,6 +20,7 @@
 		crea: '<path d="M12 5v14M5 12h14"/>',
 		edita: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
 		borra: '<path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/>',
+		aviso: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/>',
 		sis: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'
 	};
 
@@ -74,14 +75,15 @@
 				return '<dt>' + esc(d.campo) + '</dt><dd>' + esc(d.valor) + '</dd>';
 			}).join('') + '</dl></div>';
 		}
-		var refs = '<dt>Sección</dt><dd>' + esc(m.seccion) + '</dd>' + (m.numero ? '<dt>Número</dt><dd>' + esc(m.numero) + '</dd>' : '') + '<dt>Dirección IP</dt><dd>' + (m.ip ? esc(m.ip) : 'No aplica') + '</dd>';
+		// Solo lo que aporta: a quién o qué afectó, y la dirección IP real si existe.
+		var refs = (m.afectado ? '<dt>Afectado</dt><dd>' + esc(m.afectado) + '</dd>' : '') + (m.ip ? '<dt>Desde la IP</dt><dd>' + esc(m.ip) + '</dd>' : '');
 		var esSis = m.tipo === 'sis';
 		panelIn.innerHTML =
 			'<button type="button" class="ep-au-atras" id="epAuAtras"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Movimientos</button>' +
 			'<div class="ep-au-det-top"><span class="ep-au-det-tag ep-au-t-' + m.tipo + '">' + svg(m.tipo, 14) + esc(m.accion) + '</span><h2>' + esc(m.resumen) + '</h2><span class="ep-au-det-cuando">' + esc(m.cuando) + '</span></div>' +
 			'<div class="ep-au-quien"><div class="ep-au-av' + (esSis ? ' sis' : '') + '">' + esc(esSis ? 'SI' : iniciales(m.quien)) + '</div><div><b>' + esc(m.quien) + '</b><span>' + (m.usuario ? 'Usuario ' + esc(m.usuario) : 'Acción automática, sin usuario') + '</span></div></div>' +
 			cuerpo +
-			'<div class="ep-au-refs"><h3>Referencia</h3><dl class="ep-au-meta">' + refs + '</dl></div>';
+			(refs ? '<div class="ep-au-refs"><h3>Referencia</h3><dl class="ep-au-meta">' + refs + '</dl></div>' : '');
 		document.getElementById('epAuAtras').addEventListener('click', cerrar);
 	}
 
@@ -144,6 +146,43 @@
 		estado.q = e.target.value.trim().toLowerCase();
 		aplicar();
 	});
+
+	// ---- En vivo: los movimientos nuevos aparecen solos arriba, sin perder filtros ni el detalle abierto ----
+	function refrescar() {
+		return fetch('index.php?vista=auditoria', { credentials: 'same-origin', cache: 'no-store' })
+			.then(function (r) { return r.text(); })
+			.then(function (html) {
+				var doc = new DOMParser().parseFromString(html, 'text/html');
+				var nuevaLista = doc.getElementById('epAuLista');
+				var nuevosDatos = doc.getElementById('epAuDatos');
+				if (!nuevaLista || !nuevosDatos) return;
+				var previos = {};
+				eventos.forEach(function (ev) { previos[ev.dataset.id] = true; });
+				var abiertoId = elegido ? elegido.dataset.id : null;
+				lista.innerHTML = nuevaLista.innerHTML;
+				datos = JSON.parse(nuevosDatos.textContent);
+				eventos = Array.prototype.slice.call(lista.querySelectorAll('.ep-au-ev'));
+				dias = Array.prototype.slice.call(lista.querySelectorAll('.ep-au-dia'));
+				sin = document.getElementById('epAuSin');
+				eventos.forEach(function (ev) { if (!previos[ev.dataset.id]) ev.classList.add('ep-au-ev-nuevo'); });
+				// El movimiento que se estaba viendo sigue abierto aunque cambie su posición en la lista.
+				elegido = null;
+				if (abiertoId) {
+					var igual = eventos.filter(function (ev) { return ev.dataset.id === abiertoId; })[0];
+					if (igual) { igual.classList.add('on'); elegido = igual; } else { cerrar(); }
+				}
+				doc.querySelectorAll('#epAuTipos .ep-au-chip').forEach(function (c) {
+					var mio = document.querySelector('#epAuTipos .ep-au-chip[data-tipo="' + c.dataset.tipo + '"] em');
+					if (mio) mio.textContent = c.querySelector('em').textContent;
+				});
+				var selUsuario = document.getElementById('epAuUsuario');
+				var nuevoSel = doc.getElementById('epAuUsuario');
+				if (selUsuario && nuevoSel) { var v = selUsuario.value; selUsuario.innerHTML = nuevoSel.innerHTML; selUsuario.value = v; }
+				aplicar();
+			})
+			.catch(function () {});
+	}
+	if (window.epVivo) window.epVivo({ url: 'getters/auditoria_vivo.php', indicador: 'epAuVivo', cada: 4000, alCambiar: function () { refrescar(); } });
 
 	aplicar();
 })();

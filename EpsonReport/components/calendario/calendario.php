@@ -2,7 +2,7 @@
 // Calendario de Activaciones (solo admin/supervisor): cruza solo registros reales; sin borrador, crea y activa de una vez.
 require_once __DIR__.'/../../includes/functions.php';
 
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	echo '<main class="ep-content"><p>No tienes permiso para ver esta sección.</p></main>';
 	return;
 }
@@ -17,6 +17,7 @@ session_write_close();
 // Primero se cruzan registros ya enviados, así un calendario que vence cierra con lo cumplido.
 ep_calendario_cruzar_pendientes();
 ep_calendario_verificar_vencidos($usuarioId);
+ep_calendario_cerrar_completos();
 // Editable según la grabación 28-09; el servidor lo vuelve a validar al guardar.
 $hoy = date('Y-m-d');
 $calendarios = array_map(function ($c) use ($hoy) {
@@ -59,7 +60,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 
 	<header class="ep-cl-head">
 		<div>
-			<h1>Calendario de Activaciones</h1>
+			<h1>Calendario de Activaciones <span class="ep-vivo" id="epClVivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span></h1>
 			<p id="epClResumen"><?= count($calendarios) ?> <?= count($calendarios) === 1 ? 'calendario' : 'calendarios' ?></p>
 		</div>
 		<button type="button" class="ep-rp-nuevo" id="epCalNuevo"><?= ep_icon('plus', 16) ?> <span>Crear calendario</span></button>
@@ -154,6 +155,8 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 					<?php else: ?>
 						<?php if ($reporteUrl): ?>
 							<a class="ep-cl-pri" href="<?= $h($reporteUrl) ?>"><?= ep_icon('download', 15) ?> Descargar PPT</a>
+						<?php else: ?>
+							<button type="button" class="ep-cl-pri" disabled title="No se generó reporte: sus registros ya estaban en otro reporte mensual activo"><?= ep_icon('presentation', 15) ?> Sin reporte</button>
 						<?php endif; ?>
 						<button type="button" class="ep-cl-accion" disabled aria-label="Editar: solo en calendarios activos"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Solo en activos', 'Editar') ?></button>
 					<?php endif; ?>
@@ -184,7 +187,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 				</div>
 				<div class="ep-cl-f ep-cl-f-cab"><span>Fecha</span><span>Punto de venta</span><span>Ciudad</span><span>Promotor</span><span>Supervisor</span></div>
 				<?php foreach ($c['filas'] as $f): ?>
-				<div class="ep-cl-f" data-fecha="<?= $h($f['fecha']) ?>" data-estado="<?= $h($f['estado']) ?>" data-busca="<?= $h(mb_strtolower($f['pdv'].' '.$f['ciudad'].' '.$f['promotor'].' '.$f['supervisor'], 'UTF-8')) ?>">
+				<div class="ep-cl-f" data-fila-id="<?= (int) $f['fila_id'] ?>" data-fecha="<?= $h($f['fecha']) ?>" data-estado="<?= $h($f['estado']) ?>" data-busca="<?= $h(mb_strtolower($f['pdv'].' '.$f['ciudad'].' '.$f['promotor'].' '.$f['supervisor'], 'UTF-8')) ?>">
 					<span class="ep-cl-f-fecha"><b><?= (int) substr($f['fecha'], 8, 2) ?></b> <?= $h($mesesCortos[(int) substr($f['fecha'], 5, 2)]) ?></span>
 					<span class="ep-cl-f-pdv"><?= $h($f['pdv']) ?></span>
 					<span class="ep-cl-f-ciudad"><?= $h($f['ciudad'] ?: '—') ?></span>
@@ -227,7 +230,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 								<div class="ep-combo-opciones"></div>
 							</div>
 						</div>
-						<input type="hidden" id="epCalCanal" value="<?= $h(in_array('RETAIL', $canales, true) ? 'RETAIL' : ($canales[0] ?? '')) ?>">
+						<input type="hidden" id="epCalCanal" value="<?= $h(in_array('RETAIL', $canales, true) ? 'RETAIL' : (in_array('CANALES', $canales, true) ? 'CANALES' : ($canales[0] ?? ''))) ?>">
 					</div>
 					<label class="ep-cal-campo"><span>Plazo máximo (días)</span><input type="number" min="1" max="30" class="ep-input" id="epCalPlazo" value="5"></label>
 					<div class="ep-cal-campo"><span>Rango (automático)</span><div class="ep-cal-rango-auto" id="epCalRangoAuto">Se calcula al agregar filas</div></div>
@@ -243,7 +246,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 						<button type="button" class="ep-btn-subtle-compact" id="epCalAgregarFila"><?= ep_icon('plus', 13) ?> Agregar fila</button>
 					</div>
 					<div class="ep-cal-fila-editor-head">
-						<span>Fecha</span><span>Ciudad</span><span>Promotor</span><span>Punto de venta</span><span>Supervisor</span><span></span>
+						<span>Fecha</span><span>Ciudad</span><span>Promotor</span><span>Punto de venta</span><span></span>
 					</div>
 					<div class="ep-cal-filas-editor-tabla" id="epCalFilasEditor">
 						<div class="ep-cal-fila-editor">
@@ -269,7 +272,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 									<div class="ep-combo-opciones"></div>
 								</div>
 							</div>
-							<div class="ep-cal-supervisor-wrap">
+							<div class="ep-cal-supervisor-wrap hidden">
 								<span class="ep-cal-supervisor-auto">—</span>
 								<select class="ep-input ep-cal-supervisor-select hidden"></select>
 							</div>

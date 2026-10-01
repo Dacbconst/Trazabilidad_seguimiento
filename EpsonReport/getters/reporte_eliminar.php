@@ -7,7 +7,7 @@ require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/reportes_datos.php';
 header('Content-Type: application/json; charset=utf-8');
 
-if (!ep_login_check() || ep_rol_actual() !== 'admin') {
+if (!ep_login_check() || !ep_es_gestor()) {
 	http_response_code(403);
 	echo json_encode(['success' => false, 'error' => 'No tienes permiso para esto.']);
 	exit;

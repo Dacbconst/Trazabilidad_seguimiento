@@ -469,3 +469,9 @@ textarea.ep-input-mayusculas { height: auto; min-height: 44px; padding: 11px 14p
 .ep-car-btn:disabled { opacity: 0; pointer-events: none; }
 .ep-car-prev { left: -10px; }
 .ep-car-next { right: -10px; }
+
+/* Registro devuelto: banner con el motivo al corregir y reenviar */
+.ep-corregir { margin-bottom: 16px; padding: 14px 16px; border-radius: 12px; background: #FFF9F8; border: 1px solid #F2C4C0; display: flex; flex-direction: column; gap: 4px; }
+.ep-corregir strong { color: #9F1F18; font-size: 14px; }
+.ep-corregir span { font-size: 12.5px; color: var(--color-text-muted); }
+.ep-corregir p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--color-text); }

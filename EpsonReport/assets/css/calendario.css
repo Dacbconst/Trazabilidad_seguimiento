@@ -135,7 +135,7 @@
 }
 .ep-cal-fila-editor-head {
 	display: grid;
-	grid-template-columns: 150px 1fr 1fr 1fr var(--ep-cal-sup-w, 140px) 36px;
+	grid-template-columns: 150px 1fr 1fr 1fr 36px;
 	gap: var(--space-sm);
 	padding: 0 2px 4px;
 	font-size: 11px;
@@ -154,7 +154,7 @@
 }
 .ep-cal-fila-editor {
 	display: grid;
-	grid-template-columns: 150px 1fr 1fr 1fr var(--ep-cal-sup-w, 140px) 36px;
+	grid-template-columns: 150px 1fr 1fr 1fr 36px;
 	gap: 12px;
 	align-items: center;
 	background: var(--color-surface);

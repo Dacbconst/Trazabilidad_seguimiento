@@ -15,7 +15,7 @@ function ep_rep_error($mensaje, $codigo = 400, $extra = []) {
 if (!ep_login_check()) {
 	ep_rep_error('Tu sesión se cerró. Inicia sesión de nuevo.', 401, ['redirect' => 'login.php?error=sesion']);
 }
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	ep_rep_error('No tienes permiso para descargar reportes.', 403);
 }
 if (!class_exists('ZipArchive')) {
@@ -38,7 +38,7 @@ if (!$generador) {
 // Copia congelada; si no hay (o solo trae ids), se arma con los registros actuales.
 $registros = $reporte['snapshot']['registros'] ?? [];
 if (!$registros || !is_array($registros[0] ?? null)) {
-	$registros = ep_registros_datos(5000, $reporte['ids']);
+	$registros = ep_registros_datos(5000, $reporte['ids'], null, false);
 }
 if (empty($registros)) {
 	ep_rep_error('Los registros de este reporte ya no existen.', 404);

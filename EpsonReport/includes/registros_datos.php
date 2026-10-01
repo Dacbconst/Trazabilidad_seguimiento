@@ -9,7 +9,8 @@ require_once __DIR__.'/usuarios_datos.php';
 const EP_FOTOS_URL_BASE = 'https://luckyecuadorweb.blob.core.windows.net/app/';
 
 // Registros más recientes primero, misma forma que consume Historial; $ids filtra a esos nomás; vacío si la base no responde.
-function ep_registros_datos(int $limite = 1000, array $ids = []): array {
+// $estados: solo los registros en esos estados (null = todos menos los reemplazados). El supervisor solo recibe lo que le toca.
+function ep_registros_datos(int $limite = 1000, array $ids = [], ?array $estados = null, bool $conAlcance = true): array {
 	$db = ep_db();
 	if (!$db) {
 		return [];
@@ -19,7 +20,15 @@ function ep_registros_datos(int $limite = 1000, array $ids = []): array {
 		$filtroIds = ' AND r.id IN ('.implode(',', array_map('intval', $ids)).')';
 	}
 	$colFoto = ep_usuarios_tiene_foto($db) ? ', u.foto' : ', NULL AS foto';
-	$stmt = $db->prepare('SELECT r.id AS db_id, r.codigo, r.tipo_actividad, r.fecha_actividad, r.hora_inicio, r.hora_fin, r.tiendas_nacional, r.tiendas_coberturadas, r.visitaron, r.interactuaron, r.compraron, r.valores, u.usuario, u.nombre'.$colFoto.' FROM insert_reporte_registro r LEFT JOIN repositorio_usuarios_reporte u ON u.id = r.usuario_id WHERE r.eliminado_en IS NULL'.$filtroIds.' ORDER BY r.created_at DESC, r.id DESC LIMIT ?');
+	require_once __DIR__.'/aprobacion_datos.php';
+	$filtroExtra = " AND r.estado <> 'Reemplazado'";
+	if ($estados !== null) {
+		$filtroExtra .= " AND r.estado IN ('".implode("','", array_map(fn($e) => $db->real_escape_string($e), $estados))."')";
+	}
+	$filtroExtra .= $conAlcance ? ep_aprobacion_filtro_alcance($db) : '';
+	$colAprob = ep_aprobacion_activa($db) ? ', r.supervisor_id, r.motivo_devolucion, r.revisado_por, r.revisado_en, rv.nombre AS revisor' : '';
+	$joinRev = ep_aprobacion_activa($db) ? ' LEFT JOIN repositorio_usuarios_reporte rv ON rv.id = r.revisado_por' : '';
+	$stmt = $db->prepare('SELECT r.id AS db_id, r.estado AS estado_db'.$colAprob.', r.codigo, r.tipo_actividad, r.fecha_actividad, r.hora_inicio, r.hora_fin, r.tiendas_nacional, r.tiendas_coberturadas, r.visitaron, r.interactuaron, r.compraron, r.valores, u.usuario, u.nombre'.$colFoto.' FROM insert_reporte_registro r LEFT JOIN repositorio_usuarios_reporte u ON u.id = r.usuario_id'.$joinRev.' WHERE r.eliminado_en IS NULL'.$filtroIds.$filtroExtra.' ORDER BY r.created_at DESC, r.id DESC LIMIT ?');
 	if (!$stmt) {
 		return [];
 	}
@@ -39,6 +48,13 @@ function ep_registro_armar(array $fila, array $hijos): array {
 	}
 	$registro['id'] = $fila['codigo'];
 	$registro['db_id'] = (int) $fila['db_id'];
+	// El estado de aprobación vive en la columna, no en el JSON.
+	$registro['estado'] = $fila['estado_db'];
+	$registro['estado_tipo'] = ['Aprobado' => 'ok', 'Pendiente' => 'warn', 'Devuelto' => 'err'][$fila['estado_db']] ?? 'ok';
+	$registro['supervisor_id'] = isset($fila['supervisor_id']) ? (int) $fila['supervisor_id'] : null;
+	$registro['motivo_devolucion'] = (string) ($fila['motivo_devolucion'] ?? '');
+	$registro['revisado_en'] = $fila['revisado_en'] ?? null;
+	$registro['revisor'] = (string) ($fila['revisor'] ?? '');
 	$registro['promotor_usuario'] = $fila['usuario'] ?? ($registro['promotor_usuario'] ?? '');
 	$registro['promotor'] = $fila['nombre'] ?: ucwords(str_replace('.', ' ', (string) $registro['promotor_usuario']));
 	$registro['promotor_foto_url'] = ep_usuario_foto_url($fila['foto'] ?? null);
@@ -140,6 +156,8 @@ function ep_guardar_nuevo_registro(array $registro, int $usuarioId): bool {
 	$visitaron = $embudo['visitaron'] ?? null;
 	$interactuaron = $embudo['interactuaron'] ?? null;
 	$compraron = $embudo['compraron'] ?? null;
+	$supervisorId = (int) ($registro['supervisor_id'] ?? 0);
+	unset($registro['supervisor_id']);
 	$valores = json_encode($registro, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 	$mapaFotos = [];
 	foreach ($fotos as $f) {
@@ -163,6 +181,12 @@ function ep_guardar_nuevo_registro(array $registro, int $usuarioId): bool {
 	}
 	$registroId = (int) $db->insert_id;
 	$stmt->close();
+	if ($supervisorId > 0 && ep_aprobacion_activa($db)) {
+		$sup = $db->prepare('UPDATE insert_reporte_registro SET supervisor_id = ? WHERE id = ?');
+		$sup->bind_param('ii', $supervisorId, $registroId);
+		$sup->execute();
+		$sup->close();
+	}
 	if (!ep_hijos_guardar($db, $registroId, $modelos, $mapaFotos, $comentarios)) {
 		error_log('ep_guardar_nuevo_registro (hijos): '.$db->error);
 		$db->rollback();
@@ -171,8 +195,15 @@ function ep_guardar_nuevo_registro(array $registro, int $usuarioId): bool {
 	if (!$db->commit()) {
 		return false;
 	}
-	// El cruce con el Calendario de Activaciones es aparte: si falla, el registro ya se guardó bien y no se pierde.
-	if ($tipo === 'activaciones') {
+	// Un registro devuelto que se corrige y reenvía queda reemplazado por el nuevo.
+	if (ep_aprobacion_activa($db)) {
+		$rep = $db->prepare("UPDATE insert_reporte_registro SET estado = 'Reemplazado' WHERE usuario_id = ? AND tipo = ? AND estado = 'Devuelto' AND id <> ? AND pos_id <=> ? AND fecha_actividad <=> ?");
+		$rep->bind_param('isiss', $usuarioId, $tipo, $registroId, $posId, $fechaActividad);
+		$rep->execute();
+		$rep->close();
+	}
+	// El cruce con el Calendario de Activaciones es aparte (solo con registros aprobados): si falla, el registro ya se guardó bien y no se pierde.
+	if ($tipo === 'activaciones' && $estado === 'Aprobado') {
 		require_once __DIR__.'/calendario_datos.php';
 		ep_calendario_cruzar_registro($registroId, $usuarioId, $posId, $fechaActividad);
 	}
@@ -224,6 +255,24 @@ function ep_registro_eliminar(string $codigo): bool {
 }
 
 // Código corto del registro: prefijo del tipo de actividad + usuario + número que sube por usuario y tipo, por ejemplo RACPABLOCASTELO-001.
+// Código del registro de Activaciones ya enviado por este usuario para ese punto y día (sin eliminar); null si no hay.
+function ep_registro_duplicado(int $usuarioId, string $tipo, string $posId, string $fechaActividad): ?string {
+	$db = ep_db();
+	if ($tipo !== 'activaciones' || $posId === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaActividad) || !$db) {
+		return null;
+	}
+	$stmt = $db->prepare("SELECT codigo FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'activaciones' AND pos_id = ? AND fecha_actividad = ? AND eliminado_en IS NULL AND estado NOT IN ('Devuelto', 'Reemplazado') ORDER BY id LIMIT 1");
+	$stmt->bind_param('iss', $usuarioId, $posId, $fechaActividad);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $fila['codigo'] ?? null;
+}
+
+function ep_registro_duplicado_mensaje(string $codigo, string $fechaActividad): string {
+	return 'Ya enviaste un registro de este punto de venta para el '.date('d/m/Y', strtotime($fechaActividad)).' ('.$codigo.'). Comunícate con el administrador para que lo elimine y así puedas enviarlo de nuevo.';
+}
+
 function ep_codigo_registro(string $tipo, int $usuarioId, string $usuario): string {
 	$prefijos = ['activaciones' => 'RAC', 'capacitaciones' => 'RCAP', 'colocacion-pop' => 'RPOP', 'epson-day' => 'RDAY', 'exhibiciones' => 'REXH', 'evento-ferias' => 'RFER', 'informe-fotografico' => 'RFOT', 'competencia' => 'RCOM'];
 	$prefijo = $prefijos[$tipo] ?? 'REG';

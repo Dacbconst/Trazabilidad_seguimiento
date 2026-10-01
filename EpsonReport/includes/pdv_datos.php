@@ -6,10 +6,57 @@ const EP_CANALES_PDV = ['RETAIL', 'CANALES'];
 // Si el canal menor pesa al menos esto en su rutero, se le muestran ambos canales.
 const EP_PDV_MINORIA_MIXTO = 0.2;
 
-// Canales de PDV que ve el usuario: el admin ve ambos; el promotor, el dominante de su rutero (ambos si es mixto o no tiene puntos).
+// Todas las categorías (canales) de punto de venta activas: Retail, Canales, Oficina, Eventos, Ferias, Bodega...
+function ep_todos_los_canales(): array {
+	static $todos = null;
+	if ($todos === null) {
+		$todos = [];
+		$db = ep_db();
+		$res = $db ? $db->query("SELECT DISTINCT channel FROM repositorio_locales_dtt2 WHERE activar = 'SI' AND channel <> '' ORDER BY channel") : false;
+		foreach ($res ?: [] as $f) {
+			$todos[] = $f['channel'];
+		}
+		$todos = $todos ?: EP_CANALES_PDV;
+	}
+	return $todos;
+}
+
+// Categoría de punto de venta configurada para el usuario en sesión (todas, retail, canales); vacío si no la tiene o la columna no existe.
+function ep_categoria_pdv_usuario(): string {
+	$db = ep_db();
+	if (!$db) {
+		return '';
+	}
+	require_once __DIR__.'/aprobacion_datos.php';
+	if (!ep_usuarios_tiene_ruta($db)) {
+		return '';
+	}
+	$stmt = $db->prepare('SELECT categorias FROM repositorio_usuarios_reporte WHERE id = ? LIMIT 1');
+	$stmt->bind_param('i', $_SESSION['usuario_id']);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return (string) ($fila['categorias'] ?? '');
+}
+
+// Canales de PDV que ve el usuario: el gestor, todos; el promotor, los de su categoría configurada (retail = todas menos canales, canales = todas menos retail) o, sin ella, el dominante de su rutero.
 function ep_canales_usuario(): array {
-	if (ep_rol_actual() === 'admin') {
-		return EP_CANALES_PDV;
+	if (ep_es_admin()) {
+		return ep_todos_los_canales();
+	}
+	$categoria = ep_categoria_pdv_usuario();
+	// El supervisor sin categoría configurada ve todas; con ella (por ejemplo retail) se aplica igual que a un promotor.
+	if (ep_es_supervisor() && $categoria === '') {
+		return ep_todos_los_canales();
+	}
+	if ($categoria === 'todas') {
+		return ep_todos_los_canales();
+	}
+	if ($categoria === 'retail') {
+		return array_values(array_diff(ep_todos_los_canales(), ['CANALES']));
+	}
+	if ($categoria === 'canales') {
+		return array_values(array_diff(ep_todos_los_canales(), ['RETAIL']));
 	}
 	if (isset($_SESSION['pdv_canales']) && is_array($_SESSION['pdv_canales'])) {
 		return $_SESSION['pdv_canales'];

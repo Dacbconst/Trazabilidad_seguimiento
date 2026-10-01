@@ -15,7 +15,7 @@ function ep_multi_ppt_error($mensaje, $codigo = 400) {
 if (!ep_login_check()) {
 	ep_multi_ppt_error('Tu sesión se cerró. Inicia sesión de nuevo.', 401);
 }
-if (ep_rol_actual() !== 'admin') {
+if (!ep_es_gestor()) {
 	ep_multi_ppt_error('No tienes permiso para descargar presentaciones.', 403);
 }
 if (!class_exists('ZipArchive')) {
@@ -33,7 +33,7 @@ if (count($codigos) > 100) {
 	ep_multi_ppt_error('Selecciona como máximo 100 registros por descarga.');
 }
 
-$porCodigo = array_column(ep_registros_datos(5000), null, 'id');
+$porCodigo = array_column(ep_registros_datos(5000, [], ['Aprobado']), null, 'id');
 $registros = array_values(array_intersect_key($porCodigo, array_flip($codigos)));
 if (empty($registros)) {
 	ep_multi_ppt_error('No se encontraron los registros seleccionados.', 404);

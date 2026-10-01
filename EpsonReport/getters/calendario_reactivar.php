@@ -5,7 +5,7 @@ session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
-if (($_SESSION['rol'] ?? '') !== 'admin') {
+if (!in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true)) {
 	http_response_code(403);
 	echo json_encode(['ok' => false, 'message' => 'No autorizado.']);
 	exit;
@@ -14,10 +14,22 @@ if (($_SESSION['rol'] ?? '') !== 'admin') {
 require_once __DIR__.'/../includes/calendario_datos.php';
 
 $id = (int) ($_POST['id'] ?? 0);
+if (!ep_calendario_permitido($id)) {
+	echo json_encode(['ok' => false, 'message' => 'Ese calendario no es tuyo.']);
+	exit;
+}
 if ($id <= 0) {
 	echo json_encode(['ok' => false, 'message' => 'Calendario no válido.']);
 	exit;
 }
+
+// El motivo es obligatorio y queda en Auditoría.
+$motivo = trim((string) ($_POST['motivo'] ?? ''));
+if (mb_strlen($motivo) < 8) {
+	echo json_encode(['ok' => false, 'message' => 'Escribe el motivo de la reactivación (mínimo 8 caracteres).']);
+	exit;
+}
+$motivo = mb_substr($motivo, 0, 300);
 
 $antes = ep_calendario_obtener($id);
 if (!$antes || !ep_calendario_reactivar($id, (int) $_SESSION['usuario_id'])) {
@@ -27,6 +39,7 @@ if (!$antes || !ep_calendario_reactivar($id, (int) $_SESSION['usuario_id'])) {
 $despues = ep_calendario_obtener($id);
 require_once __DIR__.'/../includes/auditoria_datos.php';
 ep_auditar('calendario_reactivar', 'calendario', $id, 'Reactivó «'.ep_calendario_nombre($antes).'»', [
+	ep_auditoria_dato('Motivo', $motivo),
 	ep_auditoria_dato('Estaba cerrado desde', $antes['cerrado_en'] ? date('d/m/Y H:i', strtotime($antes['cerrado_en'])) : '—'),
 	ep_auditoria_dato('Nuevo vencimiento', $despues ? date('d/m/Y H:i', strtotime($despues['vence_en'])) : '—'),
 ]);

@@ -7,6 +7,8 @@
 			<?php require_once __DIR__.'/../includes/usuarios_datos.php'; $epFotoPerfil = ep_usuario_foto_actual(); ?>
 			<div class="ep-sidebar-avatar"<?= $epFotoPerfil ? ' style="background-image:url(\''.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'\')" data-zoom="'.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'" data-nombre="'.htmlspecialchars($_SESSION['nombre'] ?? '', ENT_QUOTES, 'UTF-8').'" role="button" tabindex="0" aria-label="Ver foto ampliada"' : '' ?>></div>
 			<span class="ep-sidebar-user-name ep-nav-label"><?= htmlspecialchars($_SESSION['usuario'] ?? '') ?></span>
+			<?php $epRolEtq = ep_es_admin() ? ['admin', 'Administrador'] : (ep_es_supervisor() ? ['supervisor', 'Supervisor'] : ['promotor', 'Promotor']); ?>
+			<span class="ep-rol-etiqueta ep-rol-etiqueta-<?= $epRolEtq[0] ?> ep-nav-label"><i aria-hidden="true"></i><?= $epRolEtq[1] ?></span>
 		</div>
 
 		<ul class="ep-sidebar-nav">
@@ -15,9 +17,21 @@
 					<a href="index.php?vista=<?= urlencode($id) ?>" title="<?= htmlspecialchars($s['label']) ?>"<?= $id === 'actividades' ? ' data-abre-submenu="epSidebarSubActividades"' : '' ?>>
 						<?= ep_icon($s['icon']) ?>
 						<span class="ep-nav-label"><?= htmlspecialchars($s['label']) ?></span>
+						<?php if ($id === 'aprobaciones'): require_once __DIR__.'/../includes/aprobacion_datos.php'; $pendAprob = ep_aprobaciones_contar()['Pendiente']; ?>
+							<span class="ep-avisos-badge" data-n="<?= (int) $pendAprob ?>"><?= (int) $pendAprob ?></span>
+						<?php endif; ?>
 					</a>
 				</li>
 			<?php endforeach; ?>
+			<?php if (!empty($conAvisos)): ?>
+				<li class="ep-avisos-li">
+					<a href="#" class="ep-avisos-abrir" title="Avisos">
+						<?= ep_icon('bell') ?>
+						<span class="ep-nav-label">Avisos</span>
+						<span class="ep-avisos-badge<?= $avisos['urgentes'] ? ' urgente' : '' ?>" data-n="<?= (int) $avisos['total'] ?>"><?= (int) $avisos['total'] ?></span>
+					</a>
+				</li>
+			<?php endif; ?>
 		</ul>
 
 		<div class="ep-sidebar-footer">

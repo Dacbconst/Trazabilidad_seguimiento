@@ -12,15 +12,20 @@ function ep_secciones(): array {
 			'label' => 'Registros de Actividades',
 			'icon'  => 'clock',
 		],
+		'aprobaciones' => [
+			'label' => 'Aprobaciones',
+			'icon'  => 'check',
+			'solo_gestor' => true,
+		],
 		'reportes' => [
 			'label' => 'Reportes mensuales',
 			'icon'  => 'presentation',
-			'solo_admin' => true,
+			'solo_gestor' => true,
 		],
 		'calendario' => [
 			'label' => 'Calendario de Activaciones',
 			'icon'  => 'calendar',
-			'solo_admin' => true,
+			'solo_gestor' => true,
 		],
 		'usuarios' => [
 			'label' => 'Usuarios',
@@ -34,5 +39,5 @@ function ep_secciones(): array {
 		],
 	];
 	// Las secciones marcadas solo_admin no existen para el rol usuario (tampoco se puede entrar por la URL).
-	return array_filter($todas, fn($s) => empty($s['solo_admin']) || ep_rol_actual() === 'admin');
+	return array_filter($todas, fn($s) => (empty($s['solo_admin']) || ep_es_admin()) && (empty($s['solo_gestor']) || ep_es_gestor()));
 }

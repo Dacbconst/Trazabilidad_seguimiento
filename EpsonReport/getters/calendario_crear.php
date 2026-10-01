@@ -5,7 +5,7 @@ session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
-if (($_SESSION['rol'] ?? '') !== 'admin') {
+if (!in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true)) {
 	http_response_code(403);
 	echo json_encode(['ok' => false, 'message' => 'No autorizado.']);
 	exit;

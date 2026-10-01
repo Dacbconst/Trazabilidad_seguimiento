@@ -73,6 +73,12 @@
 	// Copia limpia de la fila (sin listeners) para armar filas nuevas en crear y en editar.
 	var plantillaFila = filasEditor.firstElementChild.cloneNode(true);
 	var canalInicial = canalSelect.value;
+	var MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+	// El ejemplo del nombre sigue al canal elegido y al mes en curso.
+	function ponerEjemploNombre() {
+		var o = opcionesCanal.find(function (x) { return x.valor === canalSelect.value; });
+		inpNombre.placeholder = 'Activaciones ' + (o ? o.texto : '') + ' · ' + MESES[new Date().getMonth()];
+	}
 	var modo = 'crear';
 	var editandoId = 0;
 
@@ -243,6 +249,12 @@
 		comboPromotor.addEventListener('elegido', function (e) {
 			var promotorId = +e.detail.valor;
 			var entradas = datosRutero().filter(function (r) { return r.promotor_id === promotorId; });
+			// Los puntos de venta quedan en los de la ruta de ese promotor en la ciudad; si no tiene, siguen los de la ciudad.
+			var ciudad = comboCiudad.valor();
+			var suyos = entradas.filter(function (r) { return r.ciudad === ciudad; });
+			var puntos = suyos.length ? suyos : datosPdv().filter(function (p) { return p.ciudad === ciudad; });
+			var vistos = {};
+			comboPdv.habilitar(puntos.filter(function (p) { return !vistos[p.pos_id] && (vistos[p.pos_id] = 1); }).map(function (p) { return { texto: p.punto_venta, valor: p.pos_id }; }), 'Punto de venta');
 			var supervisores = Array.from(new Set(entradas.map(function (r) { return r.supervisor; }).filter(Boolean)));
 			if (supervisores.length > 1) mostrarSupervisorAmbiguo(supervisores);
 			else mostrarSupervisor(supervisores[0] || 'Sin asignar');
@@ -291,9 +303,13 @@
 		opcionesCanal = JSON.parse(comboCanal.dataset.opciones || '[]');
 		comboCanal.habilitar(opcionesCanal);
 		comboCanal.fijar(canalSelect.value, etiquetaCanal(canalSelect.value));
+		// Un supervisor con una sola categoría no puede cambiarla.
+		if (opcionesCanal.length === 1) comboCanal.bloquear(true);
+		ponerEjemploNombre();
 		comboCanal.addEventListener('elegido', function (e) {
 			if (canalSelect.value === e.detail.valor) return;
 			canalSelect.value = e.detail.valor;
+			ponerEjemploNombre();
 			filasEditor.querySelectorAll('.ep-cal-fila-editor').forEach(function (f) { if (f.refrescar) f.refrescar(); });
 		});
 	}
@@ -316,8 +332,9 @@
 			inpPlazo.value = 5;
 			fijarComentarios('');
 			canalSelect.value = canalInicial;
-			comboCanal.bloquear(false);
+			comboCanal.bloquear(opcionesCanal.length === 1);
 			comboCanal.fijar(canalInicial, etiquetaCanal(canalInicial));
+			ponerEjemploNombre();
 			filasEditor.innerHTML = '';
 			nuevaFila();
 			recalcularRango();
@@ -470,7 +487,9 @@
 				if (!window.Swal) return;
 				Swal.fire(confirmacion).then(function (res) {
 					if (!res.isConfirmed) return;
-					post(url, { id: btn.dataset.id }).then(function (r) {
+					var datos = { id: btn.dataset.id };
+					if (confirmacion.input) datos.motivo = res.value;
+					post(url, datos).then(function (r) {
 						if (r.ok) location.reload();
 						else avisar('error', tituloError, r.message);
 					}).catch(errorServidor(tituloError));
@@ -485,7 +504,9 @@
 	}, 'getters/calendario_generar.php', 'No se pudo generar');
 	accionTarjeta('.ep-cal-reactivar', {
 		icon: 'warning', title: '¿Reactivar este calendario?',
-		text: 'Vuelve a aceptar registros con un plazo nuevo desde ahora. Esta acción queda registrada con tu usuario y la fecha.',
+		text: 'Vuelve a aceptar registros con un plazo nuevo desde ahora. Esta acción queda registrada en Auditoría con tu usuario, la fecha y el motivo.',
+		input: 'textarea', inputLabel: 'Motivo de la reactivación', inputPlaceholder: 'Escribe por qué se reactiva este calendario', inputAttributes: { maxlength: 300 },
+		inputValidator: function (v) { return !v || v.trim().length < 8 ? 'Escribe el motivo (mínimo 8 caracteres).' : null; },
 		showCancelButton: true, confirmButtonText: 'Sí, reactivar', cancelButtonText: 'Cancelar',
 	}, 'getters/calendario_reactivar.php', 'No se pudo reactivar');
 	accionTarjeta('.ep-cal-eliminar', {

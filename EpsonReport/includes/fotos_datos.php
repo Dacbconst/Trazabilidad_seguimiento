@@ -66,9 +66,9 @@ function ep_fotos_requeridas(string $plantilla): array {
 	return [];
 }
 
-// Actividades donde el promotor puede sumar más fotos de las de la lista, sin límite (botón "+ Agregar foto").
+// Toda actividad con lista de fotos deja sumar más, sin límite hasta nuevo aviso (botón "Agregar otra foto", en la página y en el asistente).
 function ep_fotos_extensible(string $plantilla): bool {
-	return in_array($plantilla, ['informe-fotografico', 'competencia'], true);
+	return ep_fotos_requeridas($plantilla) !== [];
 }
 
 // Actividades donde cada foto subida lleva su propia descripción obligatoria (va como pie de la foto en el PPT).

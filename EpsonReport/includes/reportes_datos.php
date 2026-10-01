@@ -1,13 +1,14 @@
 <?php
 // Reportes mensuales (insert_reporte_mensual): guardan la selección congelada (copia de los registros, calendario, programadas, comentarios); el PPTX se arma al descargar.
 require_once __DIR__.'/db.php';
+require_once __DIR__.'/functions.php';
 
 function ep_reportes_listar(): array {
 	$db = ep_db();
 	if (!$db) {
 		return [];
 	}
-	$res = $db->query('SELECT m.id, m.tipo, m.mes, m.titulo, m.calendario, m.programadas, m.total_registros, m.created_at, SUBSTRING(m.snapshot, 1, 60) AS snapshot_ini, u.nombre AS creador FROM insert_reporte_mensual m LEFT JOIN repositorio_usuarios_reporte u ON u.id = m.creado_por WHERE m.eliminado_en IS NULL ORDER BY m.created_at DESC, m.id DESC LIMIT 200');
+	$res = $db->query('SELECT m.id, m.tipo, m.mes, m.titulo, m.calendario, m.programadas, m.total_registros, m.created_at, SUBSTRING(m.snapshot, 1, 60) AS snapshot_ini, u.nombre AS creador FROM insert_reporte_mensual m LEFT JOIN repositorio_usuarios_reporte u ON u.id = m.creado_por WHERE m.eliminado_en IS NULL'.(ep_es_supervisor() ? ' AND m.creado_por = '.(int) $_SESSION['usuario_id'] : '').' ORDER BY m.created_at DESC, m.id DESC LIMIT 200');
 	return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
@@ -16,7 +17,7 @@ function ep_reporte_obtener(int $id): ?array {
 	if (!$db) {
 		return null;
 	}
-	$stmt = $db->prepare('SELECT id, tipo, mes, titulo, calendario, programadas, comentarios, registros, snapshot, total_registros FROM insert_reporte_mensual WHERE id = ? AND eliminado_en IS NULL LIMIT 1');
+	$stmt = $db->prepare('SELECT id, tipo, mes, titulo, calendario, programadas, comentarios, registros, snapshot, total_registros FROM insert_reporte_mensual WHERE id = ? AND eliminado_en IS NULL'.(ep_es_supervisor() ? ' AND creado_por = '.(int) $_SESSION['usuario_id'] : '').' LIMIT 1');
 	$stmt->bind_param('i', $id);
 	$stmt->execute();
 	$fila = $stmt->get_result()->fetch_assoc();

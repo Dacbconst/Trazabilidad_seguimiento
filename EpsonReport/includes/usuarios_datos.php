@@ -4,7 +4,9 @@ require_once __DIR__.'/db.php';
 require_once __DIR__.'/login_datos.php';
 require_once __DIR__.'/auditoria_datos.php';
 
-const EP_ROLES_USUARIO = ['admin' => 'Administrador', 'promotor' => 'Promotor'];
+const EP_ROLES_USUARIO = ['admin' => 'Administrador', 'supervisor' => 'Supervisor', 'promotor' => 'Promotor'];
+// Qué categorías de punto de venta ve un promotor; vacío = se deduce de su ruta en Xplora (como antes).
+const EP_CATEGORIAS_PDV = ['' => 'Por su ruta en Xplora', 'todas' => 'Todas las categorías', 'retail' => 'Retail y las demás, menos canales', 'canales' => 'Canales y las demás, menos retail'];
 const EP_CANAL_ETIQUETA = ['RETAIL' => 'Retail', 'CANALES' => 'Canales'];
 const EP_FOTO_USUARIO_MAX = 5 * 1024 * 1024;
 
@@ -16,6 +18,17 @@ function ep_usuarios_tiene_foto($db): bool {
 		$tiene = $res && $res->num_rows > 0;
 	}
 	return $tiene;
+}
+
+// Mientras la columna rol no acepte "supervisor" (falta el ALTER), no se puede crear ni cambiar a ese rol.
+function ep_usuarios_acepta_supervisor($db): bool {
+	static $acepta = null;
+	if ($acepta === null) {
+		$res = $db->query("SHOW COLUMNS FROM repositorio_usuarios_reporte LIKE 'rol'");
+		$fila = $res ? $res->fetch_assoc() : null;
+		$acepta = $fila && strpos((string) $fila['Type'], 'supervisor') !== false;
+	}
+	return $acepta;
 }
 
 function ep_usuario_foto_url(?string $ruta): string {
@@ -61,7 +74,9 @@ function ep_usuarios_listar(): array {
 	}
 	require_once __DIR__.'/pdv_datos.php';
 	$colFoto = ep_usuarios_tiene_foto($db) ? 'foto' : 'NULL AS foto';
-	$res = $db->query("SELECT id, usuario, nombre, correo, rol, status, $colFoto FROM repositorio_usuarios_reporte ORDER BY status = 'activo' DESC, nombre ASC");
+	require_once __DIR__.'/aprobacion_datos.php';
+	$colRuta = ep_usuarios_tiene_ruta($db) ? 'categorias, supervisor_canales_id, supervisor_retail_id' : "NULL AS categorias, NULL AS supervisor_canales_id, NULL AS supervisor_retail_id";
+	$res = $db->query("SELECT id, usuario, nombre, correo, rol, status, $colFoto, $colRuta FROM repositorio_usuarios_reporte ORDER BY status = 'activo' DESC, nombre ASC");
 	if (!$res) {
 		error_log('ep_usuarios_listar: '.$db->error);
 		return [];
@@ -69,7 +84,7 @@ function ep_usuarios_listar(): array {
 	$rutero = ep_usuarios_rutero($db);
 	$lista = [];
 	foreach ($res as $f) {
-		$esAdmin = $f['rol'] === 'admin';
+		$esAdmin = $f['rol'] !== 'promotor';
 		$datos = $rutero[$f['usuario']] ?? null;
 		$lista[] = [
 			'id' => (int) $f['id'],
@@ -83,6 +98,10 @@ function ep_usuarios_listar(): array {
 			'ciudad' => $datos['ciudad'] ?? '',
 			'canal' => $esAdmin ? 'No aplica' : ($datos['canal'] ?? 'Sin rutero'),
 			'propio' => (int) $f['id'] === (int) ($_SESSION['usuario_id'] ?? 0),
+			'categorias' => (string) $f['categorias'],
+			'sup_canales' => (int) $f['supervisor_canales_id'],
+			'sup_retail' => (int) $f['supervisor_retail_id'],
+			'con_ruta' => ep_usuarios_tiene_ruta($db),
 		];
 	}
 	return $lista;
@@ -118,6 +137,9 @@ function ep_usuario_actualizar(int $id, string $correo, string $rol): array {
 	if (!isset(EP_ROLES_USUARIO[$rol])) {
 		return ['ok' => false, 'message' => 'El rol no es válido.'];
 	}
+	if ($rol === 'supervisor' && !ep_usuarios_acepta_supervisor(ep_db())) {
+		return ['ok' => false, 'message' => 'Falta ejecutar el SQL que agrega el rol Supervisor en la base de datos.'];
+	}
 	if ($id === (int) ($_SESSION['usuario_id'] ?? 0) && $rol !== $u['rol']) {
 		return ['ok' => false, 'message' => 'No puedes cambiar tu propio rol.'];
 	}
@@ -126,15 +148,73 @@ function ep_usuario_actualizar(int $id, string $correo, string $rol): array {
 		ep_auditoria_cambio('Rol', EP_ROLES_USUARIO[$u['rol']] ?? $u['rol'], EP_ROLES_USUARIO[$rol]),
 	]));
 	if (!$cambios) {
-		return ['ok' => true, 'message' => 'No hubo cambios.'];
+		return ['ok' => true, 'cambio' => false, 'message' => 'No hubo cambios.'];
 	}
 	$db = ep_db();
-	$stmt = $db->prepare('UPDATE repositorio_usuarios_reporte SET correo = ?, rol = ? WHERE id = ?');
+	// Si cambia de rol se cierra su sesión abierta: entra de nuevo ya con el rol nuevo.
+	$stmt = $db->prepare('UPDATE repositorio_usuarios_reporte SET correo = ?, rol = ?'.($rol !== $u['rol'] ? ', sesion_token = NULL' : '').' WHERE id = ?');
 	$stmt->bind_param('ssi', $correo, $rol, $id);
 	$stmt->execute();
 	$stmt->close();
 	ep_auditar('usuario_editar', 'usuario', $id, 'Editó al usuario «'.ep_usuario_nombre($u).'»', $cambios);
-	return ['ok' => true, 'message' => 'Cambios guardados.'];
+	return ['ok' => true, 'cambio' => true, 'message' => 'Cambios guardados.'];
+}
+
+// Categorías de punto de venta y supervisores de un promotor (solo si ya existen las columnas); admin y supervisor no llevan ruta.
+function ep_usuario_guardar_ruta(int $id, string $rol, string $categorias, int $supCanales, int $supRetail): array {
+	$db = ep_db();
+	require_once __DIR__.'/aprobacion_datos.php';
+	if (!$db || $id <= 0 || !ep_usuarios_tiene_ruta($db)) {
+		return ['ok' => true];
+	}
+	// El admin no lleva categoría; el supervisor sí (qué puntos de venta ve) pero no supervisores; el promotor lleva todo.
+	if ($rol === 'admin') {
+		$categorias = '';
+	}
+	if ($rol !== 'promotor') {
+		$supCanales = $supRetail = 0;
+	}
+	if (!array_key_exists($categorias, EP_CATEGORIAS_PDV)) {
+		return ['ok' => false, 'message' => 'La categoría de puntos de venta no es válida.'];
+	}
+	$nombresSup = [];
+	foreach ([$supCanales, $supRetail] as $supId) {
+		if ($supId <= 0) {
+			continue;
+		}
+		$s = ep_usuario_obtener($supId);
+		if (!$s || $s['rol'] !== 'supervisor') {
+			return ['ok' => false, 'message' => 'El supervisor elegido no es válido.'];
+		}
+		$nombresSup[$supId] = ep_usuario_nombre($s);
+	}
+	$u = $db->query('SELECT nombre, usuario, categorias, supervisor_canales_id, supervisor_retail_id FROM repositorio_usuarios_reporte WHERE id = '.$id)->fetch_assoc();
+	if (!$u) {
+		return ['ok' => false, 'message' => 'El usuario no existe.'];
+	}
+	$nombreDe = function ($supId) use ($db, $nombresSup) {
+		if (!$supId) {
+			return 'Sin asignar';
+		}
+		return $nombresSup[(int) $supId] ?? ($db->query('SELECT nombre FROM repositorio_usuarios_reporte WHERE id = '.(int) $supId)->fetch_assoc()['nombre'] ?? '#'.$supId);
+	};
+	$cambios = array_values(array_filter([
+		ep_auditoria_cambio('Categorías de puntos de venta', EP_CATEGORIAS_PDV[(string) $u['categorias']] ?? '', EP_CATEGORIAS_PDV[$categorias]),
+		ep_auditoria_cambio('Supervisor de canales', $nombreDe($u['supervisor_canales_id']), $nombreDe($supCanales)),
+		ep_auditoria_cambio('Supervisor de retail', $nombreDe($u['supervisor_retail_id']), $nombreDe($supRetail)),
+	]));
+	if (!$cambios) {
+		return ['ok' => true, 'cambio' => false];
+	}
+	$cat = $categorias !== '' ? $categorias : null;
+	$sc = $supCanales > 0 ? $supCanales : null;
+	$sr = $supRetail > 0 ? $supRetail : null;
+	$stmt = $db->prepare('UPDATE repositorio_usuarios_reporte SET categorias = ?, supervisor_canales_id = ?, supervisor_retail_id = ? WHERE id = ?');
+	$stmt->bind_param('siii', $cat, $sc, $sr, $id);
+	$stmt->execute();
+	$stmt->close();
+	ep_auditar('usuario_ruta', 'usuario', $id, 'Cambió las categorías o supervisores de «'.($u['nombre'] ?: $u['usuario']).'»', $cambios);
+	return ['ok' => true, 'cambio' => true];
 }
 
 // Clave nueva en texto plano, como el resto del sistema; se cierra su sesión abierta y se libera el bloqueo.
@@ -193,6 +273,9 @@ function ep_usuario_crear(string $usuario, string $nombre, string $correo, strin
 	}
 	if (!isset(EP_ROLES_USUARIO[$rol])) {
 		return ['ok' => false, 'message' => 'El rol no es válido.'];
+	}
+	if ($rol === 'supervisor' && !ep_usuarios_acepta_supervisor(ep_db())) {
+		return ['ok' => false, 'message' => 'Falta ejecutar el SQL que agrega el rol Supervisor en la base de datos.'];
 	}
 	if ($clave !== $clave2) {
 		return ['ok' => false, 'message' => 'Las claves no coinciden.'];

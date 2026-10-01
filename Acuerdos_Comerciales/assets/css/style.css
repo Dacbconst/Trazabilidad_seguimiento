@@ -1693,6 +1693,9 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 	padding: var(--space-sm) var(--space-md);
 }
 .ac-stat-tile-warn { background: #fff2cc; border-color: #f0d68a; }
+.ac-stat-tile-clicable { cursor: pointer; transition: border-color .15s ease; }
+.ac-stat-tile-clicable:hover { border-color: var(--color-primary); }
+.ac-stat-tile-activa { border-color: var(--color-primary); border-width: 2px; }
 .ac-stat-label {
 	margin: 0 0 2px; font-size: 11px; font-weight: 600; text-transform: uppercase;
 	letter-spacing: 0.04em; color: var(--color-on-surface-variant);

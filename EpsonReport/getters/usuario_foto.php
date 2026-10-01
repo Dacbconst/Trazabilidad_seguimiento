@@ -20,7 +20,8 @@ require_once __DIR__.'/../includes/azure_storage.php';
 
 try {
 	$id = (int) ($_POST['id'] ?? 0);
-	if (!ep_usuario_obtener($id)) {
+	$usuario = ep_usuario_obtener($id);
+	if (!$usuario) {
 		ep_usuario_foto_responder(false, ['message' => 'El usuario no existe.'], 404);
 	}
 	$archivo = $_FILES['archivo'] ?? null;
@@ -54,7 +55,9 @@ try {
 			$ext = 'jpg';
 		}
 	}
-	$nombre = 'Usuarios/'.$id.'_'.date('dmYHis').'.'.$ext;
+	// Una foto por usuario, con su nombre de usuario: subir otra reemplaza la anterior.
+	$limpio = trim(preg_replace('/[^A-Za-z0-9_-]+/', '_', strtr((string) $usuario['usuario'], ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'ñ' => 'n', 'Ñ' => 'N', 'ü' => 'u', 'Ü' => 'U'])), '_');
+	$nombre = 'Usuarios/'.($limpio !== '' ? $limpio : 'usuario_'.$id).'.'.$ext;
 	$blob = ep_azure_subir($nombre, $contenido, $mime);
 	if ($blob === false) {
 		ep_usuario_foto_responder(false, ['message' => 'No se pudo subir la foto. Intenta de nuevo.'], 502);

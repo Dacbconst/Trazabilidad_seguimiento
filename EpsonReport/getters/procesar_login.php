@@ -22,7 +22,8 @@ if (!$db) {
 }
 
 $perfil = ep_login_perfil($db, $usuario);
-$esAdmin = $perfil && $perfil['rol'] === 'admin';
+// Admin y supervisor entran con clave propia (no pasan por el registro de Xplora).
+$esAdmin = $perfil && in_array($perfil['rol'], ['admin', 'supervisor'], true);
 
 // Mercaderista de Xplora que todavía no creó su contraseña: se le pide registrarse.
 if (!$perfil || (!$esAdmin && $perfil['contrasena'] === '')) {
@@ -72,7 +73,7 @@ $_SESSION['ult_interaccion'] = time();
 $_SESSION['usuario_id'] = (int) $perfil['id'];
 $_SESSION['usuario'] = $perfil['usuario'];
 $_SESSION['nombre'] = $perfil['nombre'] ?: $perfil['usuario'];
-$_SESSION['rol'] = $esAdmin ? 'admin' : 'usuario';
+$_SESSION['rol'] = $perfil['rol'] === 'admin' ? 'admin' : ($perfil['rol'] === 'supervisor' ? 'supervisor' : 'usuario');
 $_SESSION['sesion_token'] = $token;
 
 // Solo rutas locales, nunca login.php ni URLs con protocolo.

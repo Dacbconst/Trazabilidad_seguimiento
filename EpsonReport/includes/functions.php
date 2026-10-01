@@ -19,6 +19,7 @@ function ep_icon(string $nombre, int $size = 18): string {
 		'chevron-up' => '<path d="M18 15l-6-6-6 6"/>',
 		'check'   => '<path d="M5 13l4 4L19 7"/>',
 		'file'    => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+		'bell'    => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
 		'users'   => '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="18" cy="7" r="3"/><path d="M22 21v-1a4 4 0 0 0-3-3.87"/>',
 		'store'   => '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
 		'arrow-left' => '<path d="M19 12H5M12 19l-7-7 7-7"/>',
@@ -51,9 +52,23 @@ function ep_icono_tipo(string $tipo): string {
 	return ['activaciones' => 'megaphone', 'capacitaciones' => 'graduation', 'colocacion-pop' => 'tag', 'epson-day' => 'star', 'exhibiciones' => 'shelves', 'evento-ferias' => 'tent', 'informe-fotografico' => 'camera', 'competencia' => 'eye'][$tipo] ?? 'file';
 }
 
-// Rol actual desde la sesión real ('usuario' o 'admin').
+// Rol actual desde la sesión real ('usuario', 'supervisor' o 'admin').
 function ep_rol_actual(): string {
 	return $_SESSION['rol'] ?? 'usuario';
+}
+
+// Administrador global: ve todo y es el único con Auditoría, Usuarios y el constructor de actividades.
+function ep_es_admin(): bool {
+	return ep_rol_actual() === 'admin';
+}
+
+function ep_es_supervisor(): bool {
+	return ep_rol_actual() === 'supervisor';
+}
+
+// Quien gestiona (admin o supervisor); el supervisor solo dentro de lo suyo.
+function ep_es_gestor(): bool {
+	return ep_es_admin() || ep_es_supervisor();
 }
 
 // Sesión única (latido de sesion-watch.js cada 15s) + cierre por 20 min sin interacción real, libera el token.
