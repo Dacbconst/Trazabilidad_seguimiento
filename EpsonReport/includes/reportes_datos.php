@@ -30,17 +30,45 @@ function ep_reporte_obtener(int $id): ?array {
 	return $fila;
 }
 
-// Ids de los registros que ya pertenecen a un reporte activo; al eliminar un reporte quedan libres.
-function ep_registros_ocupados(): array {
+// Ids de los registros que ya no se pueden meter en OTRO reporte: los que ya están en un reporte guardado, y los que ya cumplieron
+// la fila de un calendario todavía activo (su reporte se arma solo al cerrarse, no antes de forma manual). $exceptoCalendarioId
+// deja pasar las filas de ESE calendario, así puede reclamar sus propios registros al cerrarse.
+function ep_registros_ocupados(?int $exceptoCalendarioId = null): array {
 	$db = ep_db();
-	$res = $db ? $db->query('SELECT registros FROM insert_reporte_mensual WHERE eliminado_en IS NULL') : false;
+	if (!$db) {
+		return [];
+	}
 	$ocupados = [];
+	$res = $db->query('SELECT registros FROM insert_reporte_mensual WHERE eliminado_en IS NULL');
 	foreach ($res ? $res->fetch_all(MYSQLI_ASSOC) : [] as $fila) {
 		foreach (json_decode((string) $fila['registros'], true) ?: [] as $id) {
 			$ocupados[(int) $id] = true;
 		}
 	}
+	$sql = "SELECT f.registro_id FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id
+		WHERE c.estado = 'activo' AND c.eliminado_en IS NULL AND f.estado = 'cumplido' AND f.registro_id IS NOT NULL"
+		.($exceptoCalendarioId ? ' AND c.id <> '.$exceptoCalendarioId : '');
+	$res2 = $db->query($sql);
+	foreach ($res2 ? $res2->fetch_all(MYSQLI_ASSOC) : [] as $fila) {
+		$ocupados[(int) $fila['registro_id']] = true;
+	}
 	return array_keys($ocupados);
+}
+
+// Reporte mensual guardado (no eliminado) que ya incluye este registro, o null si no está en ninguno.
+function ep_registro_en_reporte(int $registroId): ?array {
+	$db = ep_db();
+	if (!$db) {
+		return null;
+	}
+	$res = $db->query('SELECT id, titulo, tipo, registros FROM insert_reporte_mensual WHERE eliminado_en IS NULL');
+	foreach ($res ? $res->fetch_all(MYSQLI_ASSOC) : [] as $fila) {
+		$ids = array_map('intval', json_decode((string) $fila['registros'], true) ?: []);
+		if (in_array($registroId, $ids, true)) {
+			return ['id' => (int) $fila['id'], 'titulo' => trim((string) $fila['titulo']) ?: $fila['tipo']];
+		}
+	}
+	return null;
 }
 
 function ep_reporte_crear(string $tipo, string $mes, ?string $titulo, ?string $calendario, ?int $programadas, ?string $comentarios, array $ids, string $snapshot, int $creadoPor): int {

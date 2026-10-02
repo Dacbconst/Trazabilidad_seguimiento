@@ -32,7 +32,14 @@ function ep_ppt_estadisticas_embudo(DOMDocument $dom, DOMXPath $xp, array $reg, 
 			ep_ppt_quitar($xp, $nomFondo);
 			continue;
 		}
-		ep_ppt_texto($dom, $xp, $nomTxt, [ep_ppt_mayus($m['modelo'])]);
+		// Un modelo largo se recorta con "..." antes de llegar a donde empieza la barra, para no montarse encima.
+		$nombreModelo = ep_ppt_mayus($m['modelo']);
+		$medLabel = ep_ppt_medidas($xp, $nomTxt);
+		$medBarra = ep_ppt_medidas($xp, $nomFondo);
+		if ($medLabel && $medBarra) {
+			$nombreModelo = ep_ppt_recortar_ancho($nombreModelo, $medBarra[0] - $medLabel[0] - 40000, 8);
+		}
+		ep_ppt_texto($dom, $xp, $nomTxt, [$nombreModelo]);
 		ep_ppt_texto($dom, $xp, $nomNum, [(string) $m['cantidad']]);
 		ep_ppt_estilo_barra($xp, $nomFondo, false);
 		ep_ppt_estilo_barra($xp, $nomBarra, true);
@@ -42,9 +49,20 @@ function ep_ppt_estadisticas_embudo(DOMDocument $dom, DOMXPath $xp, array $reg, 
 	}
 	$mayor = $modelos[0] ?? null;
 	$menor = !empty($modelos) ? $modelos[count($modelos) - 1] : null;
-	ep_ppt_texto($dom, $xp, $n['mayor'][0], [$mayor ? ep_ppt_mayus($mayor['modelo']) : 'SIN DATOS']);
+	// Las dos tarjetas traían ancho distinto en la plantilla (una se quedaba corta); se igualan a la más ancha, y aun así
+	// un nombre largo se recorta con "..." en vez de pasar a una 2da línea, que se montaba con "SKU CON MAYOR/MENOR VENTA".
+	$medMayor = ep_ppt_medidas($xp, $n['mayor'][0]);
+	$medMenor = ep_ppt_medidas($xp, $n['menor'][0]);
+	$anchoSku = max($medMayor[2] ?? 0, $medMenor[2] ?? 0);
+	if ($anchoSku > 0) {
+		ep_ppt_ancho($xp, $n['mayor'][0], $anchoSku);
+		ep_ppt_ancho($xp, $n['menor'][0], $anchoSku);
+	}
+	// Texto grande en negrita: cada letra ocupa más que en las filas de 8pt, por eso el ancho por carácter es mayor aquí.
+	$textoSku = fn(?array $m) => $m ? ep_ppt_recortar_ancho(ep_ppt_mayus($m['modelo']), $anchoSku ?: 1500000, 14, 0.75) : 'SIN DATOS';
+	ep_ppt_texto($dom, $xp, $n['mayor'][0], [$textoSku($mayor)]);
 	ep_ppt_texto($dom, $xp, $n['mayor'][1], [$mayor ? ep_ppt_pct(rtrim($mayor['pct'], '%')) : ep_ppt_pct(0)]);
-	ep_ppt_texto($dom, $xp, $n['menor'][0], [$menor ? ep_ppt_mayus($menor['modelo']) : 'SIN DATOS']);
+	ep_ppt_texto($dom, $xp, $n['menor'][0], [$textoSku($menor)]);
 	ep_ppt_texto($dom, $xp, $n['menor'][1], [$menor ? ep_ppt_pct(rtrim($menor['pct'], '%')) : ep_ppt_pct(0)]);
 
 	// Embudo: clientes / interacciones / ventas, barras proporcionales a los clientes en tienda.
@@ -149,7 +167,16 @@ function ep_ppt_ingresos_modelo(DOMDocument $dom, DOMXPath $xp, array $n, array 
 		$id += 3;
 		ep_ppt_clonar_y_mover($xp, $n['filas'][$i][1], $nvNumero, $deltaX, [], $id++, $deltaY);
 		$ingreso = $m['cantidad'] * $m['precio'];
-		ep_ppt_texto($dom, $xp, $nvNombre, [ep_ppt_mayus($m['modelo'])]);
+		// Igual que en "Detalle de Ventas": recorta antes de llegar a donde empieza la barra clonada (mismo hueco relativo, se movieron juntas).
+		// El fondo/barra viven dentro de un grupo: clonar un grupo solo mueve su ancla (ep_ppt_clonar_y_mover), nunca la posición
+		// interna de sus hijos — hay que sumarle $deltaX a lo que se lea, o la comparación sale con la posición vieja, sin mover.
+		$nombreModelo = ep_ppt_mayus($m['modelo']);
+		$medLabel = ep_ppt_medidas($xp, $nvNombre);
+		$medBarra = $grupoOrigen ? ep_ppt_medidas($xp, $nvFondo) : null;
+		if ($medLabel && $medBarra) {
+			$nombreModelo = ep_ppt_recortar_ancho($nombreModelo, ($medBarra[0] + $deltaX) - $medLabel[0] - 40000, 8);
+		}
+		ep_ppt_texto($dom, $xp, $nvNombre, [$nombreModelo]);
 		ep_ppt_texto($dom, $xp, $nvNumero, ['$'.number_format($ingreso, 2)]);
 		ep_ppt_sin_autoajuste($xp, $nvNumero);
 		// El número va siempre justo después del final de la barra (a todo lo largo, no según cuánto esté rellena), nunca se monta encima.

@@ -43,8 +43,8 @@ if (!$registros || !is_array($registros[0] ?? null)) {
 if (empty($registros)) {
 	ep_rep_error('Los registros de este reporte ya no existen.', 404);
 }
-// Agrupados por persona (cada una será una sección del PPTX) y por fecha dentro de ella.
-usort($registros, fn($a, $b) => strcmp(($a['promotor'] ?? '').($a['fecha_actividad'] ?? $a['fecha_iso'] ?? '').($a['hora_inicio'] ?? $a['hora'] ?? ''), ($b['promotor'] ?? '').($b['fecha_actividad'] ?? $b['fecha_iso'] ?? '').($b['hora_inicio'] ?? $b['hora'] ?? '')));
+// Orden de los registros: por promotor y fecha, salvo Exhibiciones Regulares, que va por ciudad (Guayaquil primero).
+$registros = ep_ppt_ordenar_registros($registros, $reporte['tipo']);
 
 @set_time_limit(300);
 @ini_set('memory_limit', '768M');

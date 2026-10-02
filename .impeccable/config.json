@@ -59,6 +59,15 @@
         ],
         "createdAt": "2026-10-01T03:31:10.761Z",
         "reason": "user confirmed: pidio que el boton de accion se expanda mostrando su texto al pasar el mouse; el ancho debe ser real para empujar a los botones vecinos, transform no lo reproduce"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "EpsonReport/assets/css/reportes.css"
+        ],
+        "createdAt": "2026-10-01T23:29:27.856Z",
+        "reason": "preexistente desde 7df7cbf (24-09), ancho de modal anima pocas veces por interacción, no loop; costo despreciable"
       }
     ]
   }

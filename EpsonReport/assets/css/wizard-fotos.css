@@ -841,18 +841,20 @@
 }
 
 .ep-wizard-reel-scroll {
-	overflow-x: auto;
-	-webkit-overflow-scrolling: touch;
 	padding: 2px 0 6px;
-	scrollbar-width: none;
 }
-.ep-wizard-reel-scroll::-webkit-scrollbar { display: none; }
 .ep-wizard-reel {
 	display: flex;
 	gap: 8px;
 	align-items: center;
-	justify-content: center;
+	justify-content: safe center;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: none;
+	width: 100%;
+	min-width: 0;
 }
+.ep-wizard-reel::-webkit-scrollbar { display: none; }
 .ep-wizard-reel-item {
 	width: 36px;
 	height: 36px;

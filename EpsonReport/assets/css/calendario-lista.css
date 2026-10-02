@@ -97,6 +97,7 @@
 .ep-cl-estado-activo.ep-cl-urgente { background: #FFF4E5; color: #8A4B00; }
 .ep-cl-estado-completo { background: #E7F5EC; color: var(--color-success); }
 .ep-cl-estado-incompleto { background: #FFF4E5; color: #8A4B00; }
+.ep-cl-estado-sin-reporte { background: #FFF4E5; color: #8A4B00; }
 
 /* Acciones: la principal va rellena; las secundarias son íconos que se abren con su nombre al pasar el mouse o con el teclado */
 .ep-cl-acciones { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }

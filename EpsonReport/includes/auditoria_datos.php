@@ -13,6 +13,8 @@ function ep_auditoria_acciones(): array {
 		'calendario_generar'     => 'Generó el reporte del calendario',
 		'calendario_cierre_auto' => 'Calendario cerrado al vencer',
 		'calendario_cierre_completo' => 'Calendario cerrado al completarse',
+		'calendario_cierre_sin_reporte' => 'Calendario cerrado sin reporte',
+		'calendario_generar_sin_reporte' => 'Generó el calendario sin reporte',
 		'calendario_reactivar'   => 'Reactivó un calendario',
 		'calendario_eliminar'    => 'Eliminó un calendario',
 		'registro_eliminar'      => 'Eliminó un registro',

@@ -5,6 +5,7 @@ session_set_cookie_params(0, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/registros_datos.php';
+require_once __DIR__.'/../includes/reportes_datos.php';
 header('Content-Type: application/json; charset=utf-8');
 
 if (!ep_login_check() || !ep_es_gestor()) {
@@ -17,6 +18,12 @@ if (!ep_login_check() || !ep_es_gestor()) {
 try {
 	$codigo = trim((string) ($_POST['codigo'] ?? ''));
 	$registro = ep_registro_por_codigo($codigo);
+	// Ya guardado en un reporte mensual: no se borra en silencio y se deja un reporte con datos fantasma, hay que quitarlo de ahí primero.
+	$reporte = $registro ? ep_registro_en_reporte((int) $registro['db_id']) : null;
+	if ($reporte) {
+		echo json_encode(['ok' => false, 'message' => 'Este registro ya está en el reporte mensual «'.$reporte['titulo'].'». Elimina ese reporte primero si de verdad quieres borrar el registro.']);
+		exit;
+	}
 	// El supervisor solo elimina lo que le toca: fuera de su alcance el registro no aparece.
 	$ok = $registro ? ep_registro_eliminar($codigo) : false;
 	if ($ok && $registro) {

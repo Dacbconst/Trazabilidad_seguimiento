@@ -343,6 +343,21 @@ function ep_ppt_comentarios(DOMDocument $dom, DOMXPath $xp, array $cuadros, arra
 	ep_ppt_ancho($xp, $cuadros[0], $ancho);
 }
 
+// Recorta un texto con "..." si no entra en el ancho disponible (EMU) a ese tamaño de fuente; mismo cálculo que ep_ppt_cal_recortar.
+// $anchoPorCaracter: fracción del tamaño de fuente que ocupa cada letra en promedio — más alta para texto en negrita/mayúsculas.
+function ep_ppt_recortar_ancho(string $texto, int $anchoEMU, int $fuentePt, float $anchoPorCaracter = 0.55): string {
+	$disponiblePt = $anchoEMU / 12700;
+	$maxLetras = max(3, (int) floor($disponiblePt / ($fuentePt * $anchoPorCaracter)));
+	return mb_strlen($texto) > $maxLetras ? rtrim(mb_substr($texto, 0, $maxLetras - 3)).'...' : $texto;
+}
+
+// Mismo cálculo que ep_ppt_recortar_ancho() pero solo para saber si el texto pasaría a una segunda línea, sin recortarlo.
+function ep_ppt_cabe_una_linea(string $texto, int $anchoEMU, int $fuentePt, float $anchoPorCaracter = 0.55): bool {
+	$disponiblePt = $anchoEMU / 12700;
+	$maxLetras = max(3, (int) floor($disponiblePt / ($fuentePt * $anchoPorCaracter)));
+	return mb_strlen($texto) <= $maxLetras;
+}
+
 function ep_ppt_ancho(DOMXPath $xp, string $nombre, int $cx): void {
 	$forma = ep_ppt_forma($xp, $nombre);
 	if (!$forma) {

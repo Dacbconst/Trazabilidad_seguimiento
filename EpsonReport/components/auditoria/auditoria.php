@@ -25,11 +25,12 @@ $etiquetaDia = function (string $fecha) use ($hoy, $ayer, $fechaLarga): string {
 	return $fecha === $ayer ? 'Ayer' : ucfirst($fechaLarga(strtotime($fecha)));
 };
 $tipoDe = function (array $e): string {
+	// Van primero: son alertas aunque las haya disparado el Sistema (sin usuario), no un simple registro de rutina.
+	if (str_ends_with($e['accion'], '_duplicado') || str_ends_with($e['accion'], '_sin_reporte')) {
+		return 'aviso';
+	}
 	if ($e['usuario_id'] === null) {
 		return 'sis';
-	}
-	if (str_ends_with($e['accion'], '_duplicado')) {
-		return 'aviso';
 	}
 	if (str_ends_with($e['accion'], '_eliminar')) {
 		return 'borra';

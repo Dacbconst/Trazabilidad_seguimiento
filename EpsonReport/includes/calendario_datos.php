@@ -279,14 +279,15 @@ function ep_calendario_tabla_de_reporte(int $reporteId): ?array {
 }
 
 // Cierra el calendario (manual con "Generar ahora" o automático al vencer) y genera el reporte mensual con lo cumplido.
-function ep_calendario_generar_ahora(int $calendarioId, int $usuarioId): bool {
+// Cierra el calendario; null si no se pudo cerrar, 0 si cerró SIN reporte (sus registros ya estaban en otro reporte activo) o el id del reporte generado.
+function ep_calendario_generar_ahora(int $calendarioId, int $usuarioId): ?int {
 	$db = ep_db();
 	if (!$db) {
-		return false;
+		return null;
 	}
 	$cal = $db->query('SELECT * FROM insert_reporte_calendario WHERE id = '.$calendarioId.' AND eliminado_en IS NULL')->fetch_assoc();
 	if (!$cal || $cal['estado'] !== 'activo') {
-		return false;
+		return null;
 	}
 	$filasCalendario = ep_calendario_filas_tabla($calendarioId);
 	$programadas = count($filasCalendario);
@@ -294,7 +295,7 @@ function ep_calendario_generar_ahora(int $calendarioId, int $usuarioId): bool {
 
 	// Mismas reglas que el reporte manual: solo registros libres y con su copia completa.
 	require_once __DIR__.'/registros_datos.php';
-	$ocupados = array_flip(ep_registros_ocupados());
+	$ocupados = array_flip(ep_registros_ocupados($calendarioId));
 	$validos = [];
 	$copia = [];
 	foreach ($ids ? ep_registros_datos(5000, $ids, ['Aprobado'], false) : [] as $r) {
@@ -316,7 +317,7 @@ function ep_calendario_generar_ahora(int $calendarioId, int $usuarioId): bool {
 	$stmt = $db->prepare("UPDATE insert_reporte_calendario SET estado = 'cerrado', cerrado_en = ?, reporte_mensual_id = ? WHERE id = ?");
 	$reporteIdParam = $reporteId > 0 ? $reporteId : null;
 	$stmt->bind_param('sii', $ahora, $reporteIdParam, $calendarioId);
-	return $stmt->execute();
+	return $stmt->execute() ? $reporteId : null;
 }
 
 // Un calendario con todas sus filas cumplidas se cierra y genera su reporte ya, sin esperar el plazo (lo registra el Sistema).
@@ -334,8 +335,15 @@ function ep_calendario_cerrar_completos(): void {
 	require_once __DIR__.'/auditoria_datos.php';
 	while ($row = $res->fetch_assoc()) {
 		$id = (int) $row['id'];
-		if (ep_calendario_generar_ahora($id, (int) $row['creado_por'])) {
+		$reporteId = ep_calendario_generar_ahora($id, (int) $row['creado_por']);
+		if ($reporteId === null) {
+			continue;
+		}
+		if ($reporteId > 0) {
 			ep_auditar('calendario_cierre_completo', 'calendario', $id, 'Se cerró «'.ep_calendario_nombre($row).'» al completarse todas sus filas', ep_calendario_detalle_cierre($id), 0);
+		} else {
+			// No es un cierre normal: quedó cerrado pero sin reporte porque sus registros ya estaban en otro reporte activo.
+			ep_auditar('calendario_cierre_sin_reporte', 'calendario', $id, 'Se cerró «'.ep_calendario_nombre($row).'» al completarse, pero no se generó el reporte: sus registros ya estaban en otro reporte mensual activo', ep_calendario_detalle_cierre($id), 0);
 		}
 	}
 }
@@ -390,8 +398,14 @@ function ep_calendario_verificar_vencidos(int $usuarioId): void {
 	require_once __DIR__.'/auditoria_datos.php';
 	while ($row = $res->fetch_assoc()) {
 		$id = (int) $row['id'];
-		if (ep_calendario_generar_ahora($id, $usuarioId)) {
+		$reporteId = ep_calendario_generar_ahora($id, $usuarioId);
+		if ($reporteId === null) {
+			continue;
+		}
+		if ($reporteId > 0) {
 			ep_auditar('calendario_cierre_auto', 'calendario', $id, 'Se cerró «'.ep_calendario_nombre($row).'» al vencer su plazo', ep_calendario_detalle_cierre($id), 0);
+		} else {
+			ep_auditar('calendario_cierre_sin_reporte', 'calendario', $id, 'Se cerró «'.ep_calendario_nombre($row).'» al vencer su plazo, pero no se generó el reporte: sus registros ya estaban en otro reporte mensual activo', ep_calendario_detalle_cierre($id), 0);
 		}
 	}
 }

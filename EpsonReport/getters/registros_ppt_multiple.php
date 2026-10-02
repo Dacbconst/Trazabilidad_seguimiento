@@ -48,6 +48,7 @@ $generador = ep_ppt_generador($tipo);
 if (!$generador) {
 	ep_multi_ppt_error('Este formato de presentación todavía no está disponible.');
 }
+$registros = ep_ppt_ordenar_registros($registros, $tipo);
 
 @set_time_limit(180);
 @ini_set('memory_limit', '512M');

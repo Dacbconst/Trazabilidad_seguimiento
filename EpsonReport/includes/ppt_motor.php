@@ -38,13 +38,21 @@ function ep_ppt_barra_promotor(array &$ctx, array &$slide, array $reg, string $e
 	} else {
 		ep_ppt_quitar($xp, $n['foto']);
 	}
-	ep_ppt_texto($dom, $xp, $n['nombre'], [ep_ppt_mayus((string) ($reg['promotor'] ?? ''))]);
+	$nombrePromotor = ep_ppt_mayus((string) ($reg['promotor'] ?? ''));
+	ep_ppt_texto($dom, $xp, $n['nombre'], [$nombrePromotor]);
+	// El nombre es el legal completo (2 apellidos + 2 nombres, de Xplora): la mayoría no entra en una línea y pasa a 2, montándose con el correo justo debajo. Se corre todo ese bloque, nunca se recorta un nombre de persona.
+	$medNombre = ep_ppt_medidas($xp, $n['nombre']);
+	if ($medNombre && !ep_ppt_cabe_una_linea($nombrePromotor, $medNombre[2], 16)) {
+		foreach ([$n['correo'], $n['punto'], $n['ciudad']] as $campo) {
+			ep_ppt_mover($xp, $campo, 290000);
+		}
+	}
 	ep_ppt_texto($dom, $xp, $n['correo'], [strtolower((string) ($reg['promotor_correo'] ?? ''))]);
 	ep_ppt_texto($dom, $xp, $n['punto'], [$punto]);
 	ep_ppt_texto($dom, $xp, $n['actividad'], [$etiquetaActividad]);
 	ep_ppt_texto($dom, $xp, $n['fecha'], [ep_ppt_fecha_texto((string) ($reg['fecha_actividad'] ?? ($reg['fecha_iso'] ?? ''))), $horario]);
 	ep_ppt_texto($dom, $xp, $n['ciudad'], [ep_ppt_mayus((string) ($reg['ciudad'] ?? '')).' - ECUADOR']);
-	// Si el punto de venta se parte en varias líneas, la ciudad baja para no montarse.
+	// Si el punto de venta se parte en varias líneas, la ciudad baja para no montarse (además del corrimiento de arriba, si aplicó).
 	ep_ppt_mover($xp, $n['ciudad'], min(3, max(0, (int) ceil(mb_strlen($punto) / 15) - 1)) * 190000);
 }
 
@@ -305,6 +313,22 @@ function ep_ppt_generar(array $spec, array $registros, string $tituloMes, array 
 		ep_ppt_registro($ctx, $spec, $reg);
 	}
 	return ep_ppt_cerrar($ctx);
+}
+
+// Orden de los registros antes de armar el PPTX. Por defecto, por promotor y fecha (una sección de PowerPoint por persona).
+// Exhibiciones Regulares (pedido explícito 28-09): por ciudad, Guayaquil primero; dentro de cada ciudad el orden es indiferente, se usa el punto de venta para que quede estable.
+function ep_ppt_ordenar_registros(array $registros, string $tipo): array {
+	if ($tipo === 'informe-fotografico') {
+		usort($registros, function ($a, $b) {
+			$ciudadA = ep_ppt_mayus(trim((string) ($a['ciudad'] ?? '')));
+			$ciudadB = ep_ppt_mayus(trim((string) ($b['ciudad'] ?? '')));
+			$clave = fn($c) => ($c === 'GUAYAQUIL' ? '0' : '1').$c;
+			return strcmp($clave($ciudadA).($a['punto_venta'] ?? ''), $clave($ciudadB).($b['punto_venta'] ?? ''));
+		});
+		return $registros;
+	}
+	usort($registros, fn($a, $b) => strcmp(($a['promotor'] ?? '').($a['fecha_actividad'] ?? $a['fecha_iso'] ?? '').($a['hora_inicio'] ?? $a['hora'] ?? ''), ($b['promotor'] ?? '').($b['fecha_actividad'] ?? $b['fecha_iso'] ?? '').($b['hora_inicio'] ?? $b['hora'] ?? '')));
+	return $registros;
 }
 
 // Función que arma el PPTX de cada tipo de actividad; null si todavía no existe su plantilla.

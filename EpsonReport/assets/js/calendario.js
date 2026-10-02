@@ -490,8 +490,10 @@
 					var datos = { id: btn.dataset.id };
 					if (confirmacion.input) datos.motivo = res.value;
 					post(url, datos).then(function (r) {
-						if (r.ok) location.reload();
-						else avisar('error', tituloError, r.message);
+						if (!r.ok) { avisar('error', tituloError, r.message); return; }
+						// Se cerró, pero sin reporte (registros ya ocupados en otro reporte): no se puede decir que salió bien sin más.
+						if (r.aviso && window.Swal) Swal.fire({ icon: 'warning', title: 'Cerrado sin reporte', text: r.aviso }).then(function () { location.reload(); });
+						else location.reload();
 					}).catch(errorServidor(tituloError));
 				});
 			});
