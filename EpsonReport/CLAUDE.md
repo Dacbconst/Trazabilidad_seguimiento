@@ -409,6 +409,62 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 
 - Solo Activaciones (spec `comentarios_derecha` en `ppt_activaciones.php`; Epson Day sigue igual): la tarjeta de comentarios (`Gráfico 3`, `CuadroTexto 4`, `CuadroTexto 5`) pasa a la columna derecha y ocupa desde la fila de tarjetas hasta el pie del embudo (`EP_PPT_COM_DER` en `ppt_embudo.php`). "Ingresos por Modelo" baja al lugar que dejó, debajo de "Detalle de Ventas" y alineada con ella (sin el corrimiento de -160000 que usa Epson Day). Diseño pedido por el usuario con una imagen; verificado exportando la diapositiva desde PowerPoint.
 
+## Cerrar un calendario incompleto a mano: botón discreto y aviso con cifras (2026-10-02, SIN PROBAR en navegador)
+
+- Un calendario activo siempre está incompleto (al cumplir todas sus filas se cierra solo), así que el botón "Generar reporte" siempre cerraba algo a medias y era el botón lleno y más llamativo de la fila. Ahora se llama "Cerrar y generar" y es secundario (`.ep-cl-pri-suave`: fondo blanco, borde lila); el botón lleno queda para lo que sí es la acción natural (Reactivar, Descargar PPT).
+- La confirmación (`calendario.js`, `accionTarjeta()` ahora acepta una función que arma el cuadro al hacer clic) dice en una sola línea "X de Y filas cumplidas, faltan N" (leído del DOM en vivo) y qué entra en el reporte (solo las cumplidas; si son 0, que no se generará). Icono de advertencia, "Seguir esperando" es el botón con foco por defecto y el de confirmar es naranja ("Sí, cerrar incompleto").
+- **Regla de textos para el usuario (pedida por el cliente, 02-10)**: los mensajes y avisos van cortos y directos. Nunca mencionar "Auditoría" en lo que ve un supervisor o promotor: no saben que existe (solo la ve el admin). El aviso de reactivar quedó en "Volverá a aceptar registros con un plazo nuevo desde hoy."
+
+## PPT: portada única con logo, línea y título (2026-10-02, SIN ABRIR en PowerPoint)
+- Pedido del cliente: ya no va la diapositiva de rombos ("EVENTO SIGLO XXI / AGOSTO 2026"); el formato nuevo es el logo Epson centrado con su línea turquesa y el título debajo.
+- Plantillas cambiadas: activaciones, capacitaciones, colocacion-pop, epson-day, evento-ferias, exhibiciones, informe-fotografico. La diapositiva 2 ahora tiene fondo blanco, el mismo gráfico del logo (`image2.svg`) y el título centrado debajo; se quitó el fondo `image3.jpeg`. Copias originales en el scratchpad de la sesión (`ppt_backup`).
+- `includes/ppt_motor.php`: con `unica` (por defecto) se omite la diapositiva 1 (solo logo) en presentación, relaciones, tipos y secciones, así no quedan dos portadas seguidas. Competencia lleva `portada_doble => true` y conserva sus dos diapositivas (su diseño es otro).
+- Verificado: los 8 tipos generan con estructura válida (relaciones, XML y diapositivas); falta abrir uno en PowerPoint para ver el resultado.
+
+## Supervisores no envían registros (2026-10-02)
+- `guardar_registro.php` y `subir_foto.php` responden 403 a un supervisor; antes pasaba y el registro quedaba sin supervisor (solo lo veía el admin).
+- Prueba de aislamiento (solo lectura, 3 supervisores): ningún registro lo ven dos supervisores, nadie aprueba/devuelve registros ajenos, nadie toca ni lista calendarios ajenos, y el calendario solo deja programar su equipo, sus canales y las ciudades del promotor. Todo OK.
+- Hallazgo conocido: RACTATIANAMOROCHO-001 y -003 (Retail) sin supervisor porque Tatiana no tiene supervisor de retail (ver hallazgo de Tatiana).
+
+## Calendario del supervisor: solo lo suyo (2026-10-02, SIN PROBAR en navegador)
+- Canales: solo donde tiene promotores a su cargo (`ep_calendario_canales`); promotores: los de su equipo en ese canal. Ciudades y puntos son los del canal completo (ver "Sin filtro de ciudades").
+- `ep_calendario_fila_validar` rechaza un promotor que no es de su equipo en ese canal (probado: Fabricio con un promotor ajeno). El admin no tiene estos límites.
+
+## Calendario: el supervisor mostrado es el que aprueba en la app (2026-10-02, SIN PROBAR en navegador)
+- Antes salía del rutero de Xplora (`repositorio_supervisores`) y podía no coincidir con quien aprueba (ej. Karina en Canales: Xplora decía Cristhian, la app Fabricio).
+- `ep_calendario_supervisores_app($canal)` (`includes/calendario_datos.php`) da, por promotor, el supervisor de `ep_supervisor_de_fila`; lo usan `calendario_catalogo.php` (modal) y `ep_calendario_fila_validar` (lo que se guarda en la fila).
+- El del rutero queda solo de respaldo si el promotor no tiene supervisor asignado en la app.
+
+## Usuarios carga más rápido (2026-10-02, SIN PROBAR en navegador)
+- La demora venía de `ep_usuarios_rutero()` (`includes/usuarios_datos.php`): recorre todo `rutero_pdv` con GROUP BY en cada carga (~2 s).
+- Ahora guarda el resultado 5 min en `data/cache/usuarios_rutero.json` (~0,01 s con caché). Ciudad y canal del listado son solo informativos, así que hasta 5 min de retraso no afecta.
+
+## Foto de perfil del menú: sin salto al pasar el mouse y zoom del mismo tamaño (2026-10-02, SIN PROBAR)
+- `assets/css/shell.css`: el hover usaba `background:` y borraba la foto (ahora `background-color`), y el cursor ya no es la lupa (`pointer`); el avatar con foto (`[data-zoom]`) ya no sube 1px en hover ni se encoge al presionar.
+- La vista ampliada (`.ep-zoom-foto img`) es un cuadrado fijo de 320px (máx. 80vw) con `object-fit: cover`, así todas las fotos se ven igual sin importar su proporción original.
+
+## Sin filtro de ciudades: solo se limita por canal (2026-10-02, reunión con el cliente, SIN PROBAR en navegador)
+- Decisión del cliente (`docs/grabaciones/02-10-2026 12.05.txt`): todo sale de `repositorio_locales_dtt2`; lo único limitante es el canal (Canales solo Canales, Retail solo Retail, los que ven ambas ven todo). El rutero cambia seguido (cobertura, vacaciones, permisos) y un filtro por ciudades bloquearía a quien cubre a otro.
+- Se quitó el filtro por ciudades de la ruta que había hoy: `ep_pdv_listar()` ya no lo aplica (spinner de Actividades y `guardar_registro.php`), el modal del Calendario ofrece todas las ciudades y todos los puntos del canal, y `ep_calendario_fila_validar` ya no revisa la ciudad.
+- Se mantiene: el supervisor solo ve sus canales y sus promotores (equipo en ese canal), y el supervisor que se muestra es el que aprueba en la app.
+- Calendario: el Promotor se busca directo (lista sin ciudades); elegirlo solo calcula el supervisor, no fija ni limita la ciudad.
+
+## Avisos del promotor: enviado o devuelto ya no es "pendiente" (2026-10-02, SIN PROBAR)
+- La fila del calendario solo pasa a cumplida al APROBARSE el registro, así que antes el aviso seguía hasta entonces.
+- `ep_avisos_promotor()` ahora excluye las filas que ya tienen un registro de Activaciones (mismo punto y día) en estado Pendiente o Devuelto.
+- Enviado: el aviso desaparece. Devuelto: sale el aviso "Devuelto" con "Corregir y reenviar" (no se duplica con la fila). Reenviado: vuelve a Pendiente y no avisa.
+- El panel se arma al cargar la página: el aviso se va en la siguiente carga, no en vivo.
+
+## Calendario: no repetir promotor + punto de venta + día (2026-10-02, SIN PROBAR)
+- Misma regla que ya tienen los promotores en Activaciones (`ep_registro_duplicado`): un promotor no puede tener el mismo punto el mismo día dos veces.
+- `ep_calendario_fila_repetida()` revisa los calendarios activos (otros o el mismo, incluso entre las filas del envío); `getters/calendario_crear.php` y `calendario_editar.php` rechazan con el nombre del calendario que ya lo pide.
+- Solo el servidor la valida; el modal muestra su mensaje. Calendarios cerrados o eliminados no cuentan.
+
+## Calendario: buscar al promotor directo (2026-10-02, SIN PROBAR en navegador)
+
+- La fila va **Fecha, Promotor, Ciudad, Punto de venta** (`calendario.php`); el combo de Promotor arranca activo con los del canal (solo el nombre, sin ciudades) y se puede buscar directo.
+- Elegir promotor solo calcula el supervisor que aprueba. Ya no fija ni limita la ciudad (la versión que la ataba a su rutero se quitó tras la reunión del 02-10; ver "Sin filtro de ciudades"). Al editar un calendario guardado (`fila.cargar`) se aplica lo mismo.
+
 ## Reunión 28-09-2026: pendientes grandes (sin construir)
 
 - Registrado en `docs/grabaciones/28-09-2026.txt`. Quedan pendientes: descarga consolidada de varios reportes, y el bloque grande de rol Supervisor como perfil de sesión propio (hoy el Calendario asume que el admin hace todo lo que haría un supervisor). El "informe fotográfico simple" ya se construyó, ver sección siguiente.
@@ -539,6 +595,8 @@ Del resto de lo hablado en `docs/grabaciones/28-09-2026.txt` (ver también "Reun
 1. ~~Exhibiciones regulares agrupado por ciudad, Guayaquil primero~~ → construido 2026-10-02, ver "Orden por ciudad en Exhibiciones Regulares" más abajo.
 2. (Opcional, no pedido) Competencia agrupada por marca con su logo (HP/Canon/Brother).
 
+**Decisión pendiente del cliente (hallazgo del 02-10, solo lectura):** Tatiana Morocho tiene `categorias = 'todas'` (el correo del cliente la lista como "canales y retail") y `supervisor_canales_id = 5` (Fabricio), pero `supervisor_retail_id` vacío: el correo no la incluye ni en la lista de Cristhian ni en la de Andrea. Verificados los otros 22 promotores contra el correo (categorías y supervisores coinciden uno por uno; Karina y Gabriela con Fabricio+Cristhian, Jonathan con Fabricio+Andrea; Fabricio `todas`, Cristhian y Andrea `retail`, admins ven todo). Efecto: si Tatiana envía un registro en un punto RETAIL, `ep_supervisor_asignado()` devuelve NULL y solo el admin lo ve en Aprobaciones. Falta que el cliente diga si su supervisor de retail es Cristhian o Andrea (o si su categoría debería ser `canales`); el cambio lo hace el usuario desde Usuarios → "Ruta del promotor".
+
 **Fuera del código:**
 3. nginx de Azure: sigue sin compresión ni `Cache-Control` para CSS/JS (comprobado con los encabezados de `app.js`, 94 KB sin comprimir).
 4. (Cosmético) los botones Competencia (id 7) y Exhibiciones Regulares (id 8) guardan la etiqueta "Nuevo"; está oculta en pantalla. Para limpiarla: `UPDATE insert_reporte_actividad SET badge = NULL WHERE id IN (7, 8);` (lo corre el usuario).
@@ -600,7 +658,7 @@ Del resto de lo hablado en `docs/grabaciones/28-09-2026.txt` (ver también "Reun
 - **Ruta del promotor** (Usuarios, sección "Ruta del promotor"): `categorias` (todas, retail = todas menos canales, canales = todas menos retail; vacío = deducir por su ruta de Xplora como antes) y dos supervisores, `supervisor_canales_id` y `supervisor_retail_id`. Un registro de punto RETAIL va al supervisor de retail; los demás al de canales; sin supervisor asignado lo ve solo el admin. `ep_canales_usuario()` (`pdv_datos.php`) usa `categorias`; el gestor ve todas las categorías de PDV (`ep_todos_los_canales()`: Retail, Canales, Oficina, Eventos, Ferias, Bodega).
 - **Estados** (`insert_reporte_registro.estado`): Pendiente (nace así), Aprobado, Devuelto y Reemplazado (un devuelto que se corrigió y reenvió; no se muestra). `includes/aprobacion_datos.php`: `ep_aprobar_registro()`, `ep_devolver_registro()` (motivo obligatorio de 8 a 300 caracteres), `ep_aprobaciones_contar()`, `ep_devueltos_usuario()`. Getters `aprobacion_aprobar.php` y `aprobacion_devolver.php`. Todo queda en Auditoría (`registro_aprobar`, `registro_devolver`, `usuario_ruta`). Sin las columnas nuevas el flujo anterior sigue igual (todo nace Aprobado).
 - **Pantallas**: "Aprobaciones" (`index.php?vista=aprobaciones`, solo gestores) reutiliza el Historial en modo aprobación (`$modoAprobacion`, `data-modo`): pestañas Pendientes y Devueltos con contador, detalle con botones Aprobar y Devolver, refresco en vivo con `historial_filas.php?modo=aprobacion`. El menú muestra el contador de pendientes. El **Historial** del gestor muestra solo lo aprobado; el del promotor muestra lo suyo con chip de estado y, en un devuelto, el motivo y "Corregir y reenviar".
-- **Corregir y reenviar**: `index.php?vista=actividades&corregir=<código>` (`assets/js/corregir.js`) preelige actividad, punto de venta (`epPdv.elegirPorId`) y fecha, y muestra el motivo; al enviar, el devuelto pasa a Reemplazado. El promotor se entera en la campana (Avisos): los devueltos cuentan como avisos nuevos y urgentes.
+- **Corregir y reenviar**: `index.php?vista=actividades&corregir=<código>` (`assets/js/corregir.js`) preelige actividad, punto de venta (`epPdv.elegirPorId`) y fecha, rellena todo lo que envió (campos, modelos, entregas POP, comentarios y fotos ya subidas, con `window.epRelleno` de app.js y `datos` de actividades.php; SIN PROBAR en navegador) y muestra el motivo; al enviar, el devuelto pasa a Reemplazado. El promotor se entera en la campana (Avisos): los devueltos cuentan como avisos nuevos y urgentes.
 - **Calendario y reportes**: una fila solo se cumple con un registro **aprobado** (se cruza al aprobar, `ep_calendario_cruzar_pendientes()` solo toma aprobados); los reportes mensuales, el consolidado y el reporte del calendario incluyen solo registros aprobados. El duplicado por punto y día ignora los devueltos y reemplazados.
 - **SQL ya corrido** (confirmado el 01-10 con `SHOW COLUMNS`, solo lectura): `rol` ya es `ENUM('admin','supervisor','promotor')`, y existen `categorias`, `supervisor_canales_id`, `supervisor_retail_id` en usuarios, y `supervisor_id`, `motivo_devolucion`, `revisado_por`, `revisado_en` en registros. Los registros anteriores quedan Aprobados y sin supervisor (solo el admin los ve). Falta probar el flujo completo contra la base real en navegador.
 - **Etiqueta de rol en el menú lateral (2026-10-02)**: cápsula translúcida bajo el nombre con un punto de color (Administrador dorado, Supervisor azul, Promotor lila), en `layout/sidebar.php` y `.ep-rol-etiqueta` de `shell.css`; se oculta con el menú plegado. Los supervisores también llevan categoría de puntos de venta (Fabricio todas, Cristhian y Andrea retail), según el correo.

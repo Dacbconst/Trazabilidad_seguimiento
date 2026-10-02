@@ -124,7 +124,7 @@
 
 		function pintar(filtro) {
 			var q = (filtro || '').toLowerCase();
-			var visibles = (combo._opciones || []).filter(function (o) { return o.texto.toLowerCase().indexOf(q) !== -1; });
+			var visibles = (combo._opciones || []).filter(function (o) { return (o.texto + ' ' + (o.sub || '')).toLowerCase().indexOf(q) !== -1; });
 			lista.innerHTML = visibles.length
 				? visibles.map(function (o, i) { return '<div class="ep-combo-opcion" data-i="' + i + '">' + o.texto + (o.sub ? '<small>' + o.sub + '</small>' : '') + '</div>'; }).join('')
 				: '<div class="ep-combo-vacio">Sin resultados</div>';
@@ -196,7 +196,7 @@
 		};
 	}
 
-	// Cascada de una fila: Ciudad habilita Promotor y PDV; el Supervisor nunca se elige a mano.
+	// Fila: el Promotor se busca directo, la Ciudad habilita los PDV del canal y el Supervisor sale del promotor.
 	function iniciarFila(fila) {
 		var inpFecha = fila.querySelector('.ep-cal-fecha-input');
 		var comboCiudad = fila.querySelector('.ep-cal-combo-ciudad');
@@ -228,34 +228,32 @@
 
 		function datosRutero() { return RUTERO[canalSelect.value] || []; }
 		function datosPdv() { return PDVDATA[canalSelect.value] || []; }
+		function opcionesCiudad(ciudades) { return ciudades.map(function (c) { return { texto: c, valor: c }; }); }
+		// Promotores del canal (para un supervisor, solo los de su equipo); la ciudad y el punto de venta no dependen del promotor.
+		function opcionesPromotor() {
+			var unicos = {};
+			datosRutero().forEach(function (r) {
+				unicos[r.promotor_id] = unicos[r.promotor_id] || { texto: r.promotor_nombre, valor: String(r.promotor_id) };
+			});
+			return Object.keys(unicos).map(function (id) { return unicos[id]; })
+				.sort(function (a, b) { return a.texto.localeCompare(b.texto); });
+		}
+		// Todos los puntos del canal en esa ciudad (repositorio_locales_dtt2), sin importar el rutero del promotor.
+		function cargarPdv(ciudad) {
+			var vistos = {};
+			comboPdv.habilitar(datosPdv().filter(function (p) { return p.ciudad === ciudad && !vistos[p.pos_id] && (vistos[p.pos_id] = 1); }).map(function (p) { return { texto: p.punto_venta, valor: p.pos_id }; }), 'Punto de venta');
+		}
 		function refrescarCiudades() {
-			var ciudades = CIUDADES[canalSelect.value] || [];
-			comboCiudad.habilitar(ciudades.map(function (c) { return { texto: c, valor: c }; }));
-			comboPromotor.deshabilitar('Elige ciudad');
+			comboCiudad.habilitar(opcionesCiudad(CIUDADES[canalSelect.value] || []));
+			comboPromotor.habilitar(opcionesPromotor());
 			comboPdv.deshabilitar('Elige ciudad');
 			mostrarSupervisor('—');
 		}
-		// PDV de repositorio_locales_dtt2 (como en Actividades); promotor del rutero de esa ciudad.
-		function cargarPorCiudad(ciudad) {
-			var unicos = {};
-			datosRutero().filter(function (r) { return r.ciudad === ciudad; }).forEach(function (r) { unicos[r.promotor_id] = r.promotor_nombre; });
-			comboPromotor.habilitar(Object.keys(unicos).map(function (id) { return { texto: unicos[id], valor: id }; }));
-			var puntos = datosPdv().filter(function (p) { return p.ciudad === ciudad; });
-			comboPdv.habilitar(puntos.map(function (p) { return { texto: p.punto_venta, valor: p.pos_id }; }));
-			mostrarSupervisor('—');
-		}
-		comboCiudad.addEventListener('elegido', function (e) { cargarPorCiudad(e.detail.valor); });
+		comboCiudad.addEventListener('elegido', function (e) { cargarPdv(e.detail.valor); });
 		// El supervisor sale del promotor (cualquier punto de su rutero), no del punto de venta elegido.
 		comboPromotor.addEventListener('elegido', function (e) {
 			var promotorId = +e.detail.valor;
-			var entradas = datosRutero().filter(function (r) { return r.promotor_id === promotorId; });
-			// Los puntos de venta quedan en los de la ruta de ese promotor en la ciudad; si no tiene, siguen los de la ciudad.
-			var ciudad = comboCiudad.valor();
-			var suyos = entradas.filter(function (r) { return r.ciudad === ciudad; });
-			var puntos = suyos.length ? suyos : datosPdv().filter(function (p) { return p.ciudad === ciudad; });
-			var vistos = {};
-			comboPdv.habilitar(puntos.filter(function (p) { return !vistos[p.pos_id] && (vistos[p.pos_id] = 1); }).map(function (p) { return { texto: p.punto_venta, valor: p.pos_id }; }), 'Punto de venta');
-			var supervisores = Array.from(new Set(entradas.map(function (r) { return r.supervisor; }).filter(Boolean)));
+			var supervisores = Array.from(new Set(datosRutero().filter(function (r) { return r.promotor_id === promotorId; }).map(function (r) { return r.supervisor; }).filter(Boolean)));
 			if (supervisores.length > 1) mostrarSupervisorAmbiguo(supervisores);
 			else mostrarSupervisor(supervisores[0] || 'Sin asignar');
 		});
@@ -266,9 +264,11 @@
 		fila.cargar = function (d) {
 			inpFecha.value = d.fecha;
 			inpFecha.disabled = true;
-			comboCiudad.fijar(d.ciudad || '', d.ciudad || '—');
-			cargarPorCiudad(d.ciudad || '');
+			comboPromotor.habilitar(opcionesPromotor());
 			comboPromotor.fijar(String(d.promotor_id), d.promotor);
+			comboCiudad.habilitar(opcionesCiudad(CIUDADES[canalSelect.value] || []));
+			comboCiudad.fijar(d.ciudad || '', d.ciudad || '—');
+			cargarPdv(d.ciudad || '');
 			comboPdv.fijar(d.pos_id, d.pdv);
 			mostrarSupervisor(d.supervisor || 'Sin asignar');
 			fila.dataset.filaId = d.fila_id;
@@ -485,10 +485,11 @@
 		document.querySelectorAll(selector).forEach(function (btn) {
 			btn.addEventListener('click', function () {
 				if (!window.Swal) return;
-				Swal.fire(confirmacion).then(function (res) {
+				var config = typeof confirmacion === 'function' ? confirmacion(btn) : confirmacion;
+				Swal.fire(config).then(function (res) {
 					if (!res.isConfirmed) return;
 					var datos = { id: btn.dataset.id };
-					if (confirmacion.input) datos.motivo = res.value;
+					if (config.input) datos.motivo = res.value;
 					post(url, datos).then(function (r) {
 						if (!r.ok) { avisar('error', tituloError, r.message); return; }
 						// Se cerró, pero sin reporte (registros ya ocupados en otro reporte): no se puede decir que salió bien sin más.
@@ -499,14 +500,23 @@
 			});
 		});
 	}
-	accionTarjeta('.ep-cal-generar-ahora', {
-		icon: 'question', title: '¿Generar el reporte ahora?',
-		text: 'El calendario se cierra con lo que se haya cumplido hasta ahora y pasa automáticamente a Reportes mensuales.',
-		showCancelButton: true, confirmButtonText: 'Sí, generar y cerrar', cancelButtonText: 'Cancelar',
+	// Un calendario activo siempre está incompleto (al completarse se cierra solo), así que cerrarlo a mano se avisa con las cifras reales.
+	accionTarjeta('.ep-cal-generar-ahora', function (btn) {
+		var tarjeta = btn.closest('.ep-cl-cal');
+		var total = tarjeta.querySelectorAll('.ep-cl-f[data-fila-id]').length;
+		var cumplidas = tarjeta.querySelectorAll('.ep-cl-f[data-estado="cumplido"]').length;
+		var faltan = total - cumplidas;
+		var consecuencia = cumplidas === 0 ? 'No se generará reporte.' : 'El reporte incluirá solo las cumplidas.';
+		return {
+			icon: 'warning', title: 'Cerrar sin completar',
+			html: '<b>' + cumplidas + ' de ' + total + '</b> filas cumplidas, faltan <b>' + faltan + '</b>. ' + consecuencia,
+			showCancelButton: true, focusCancel: true, reverseButtons: true,
+			confirmButtonText: 'Sí, cerrar incompleto', cancelButtonText: 'Seguir esperando', confirmButtonColor: '#B25E00',
+		};
 	}, 'getters/calendario_generar.php', 'No se pudo generar');
 	accionTarjeta('.ep-cal-reactivar', {
 		icon: 'warning', title: '¿Reactivar este calendario?',
-		text: 'Vuelve a aceptar registros con un plazo nuevo desde ahora. Esta acción queda registrada en Auditoría con tu usuario, la fecha y el motivo.',
+		text: 'Volverá a aceptar registros con un plazo nuevo desde hoy.',
 		input: 'textarea', inputLabel: 'Motivo de la reactivación', inputPlaceholder: 'Escribe por qué se reactiva este calendario', inputAttributes: { maxlength: 300 },
 		inputValidator: function (v) { return !v || v.trim().length < 8 ? 'Escribe el motivo (mínimo 8 caracteres).' : null; },
 		showCancelButton: true, confirmButtonText: 'Sí, reactivar', cancelButtonText: 'Cancelar',

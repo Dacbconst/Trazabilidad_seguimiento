@@ -582,6 +582,23 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 	window.epFotos = { slots: obtenerSlotsActividadVisible, quitar: quitarFotoDeSlot };
 
+	// Para "Corregir y reenviar": deja en una casilla una foto ya subida (su ruta viaja tal cual al reenviar).
+	function ponerFotoSubida(slot, url, ruta) {
+		var preview = slot.querySelector('.ep-foto-preview');
+		var vacio = slot.querySelector('.ep-foto-dropzone-vacio');
+		var estado = slot.querySelector('.ep-foto-slot-estado');
+		if (preview) { preview.src = url; preview.classList.remove('hidden'); }
+		if (vacio) vacio.classList.add('hidden');
+		slot.classList.add('ep-foto-slot-completa');
+		slot.dataset.fotoRuta = ruta;
+		if (estado) { estado.textContent = 'Cargada'; estado.classList.add('ep-hist-badge-ok'); }
+		var bloque = slot.closest('.ep-evidencia-bloque');
+		var contador = bloque ? bloque.querySelector('.ep-evidencia-contador') : null;
+		if (contador) contador.textContent = bloque.querySelectorAll('.ep-foto-slot-completa').length;
+		actualizarContadorFotosMovil();
+	}
+	window.epRelleno = { foto: ponerFotoSubida, modelos: function (prefijo, lista) { var g = { act: actModelos, eday: edayModelos, evento: eventoModelos }[prefijo]; if (g) g.cargar(lista); } };
+
 	// Quita del todo una casilla sumada con "Agregar foto" (las fijas no se quitan); su foto, si la tenía, no se envía.
 	function quitarCasillaExtra(slot) {
 		if (!slot || !slot.dataset.extra) return;
@@ -685,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		cargarArchivoEnSlot(archivo, input.closest('.ep-foto-slot'));
 	});
 
-	// Campos numéricos de todos los formularios (incluidos los creados dinámicamente): solo enteros, máximo 3 dígitos.
+	// Campos numéricos de todos los formularios (incluidos los creados dinámicamente): solo enteros, máximo 3 dígitos y sin ceros a la izquierda (014 pasa a 14).
 	document.addEventListener('keydown', function (ev) {
 		if (ev.target.type !== 'number') return;
 		if (['e', 'E', '+', '-', '.', ','].indexOf(ev.key) !== -1) ev.preventDefault();
@@ -693,7 +710,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	document.addEventListener('input', function (ev) {
 		var campo = ev.target;
 		if (campo.type !== 'number') return;
-		var limpio = String(campo.value).replace(/D/g, '').slice(0, 3);
+		var limpio = String(campo.value).replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 3);
 		if (campo.value !== limpio) campo.value = limpio;
 	}, true);
 
@@ -1105,7 +1122,24 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (agregarBtn) agregarBtn.addEventListener('click', agregarFila);
 		document.addEventListener('click', function (ev) { if (!ev.target.closest('.ep-combo')) cerrarPaneles(); });
 
-		return { modelos: function () {
+		// Reemplaza las filas por una lista [{ modelo, cantidad, precio }] (la usa "Corregir y reenviar").
+		function cargar(lista) {
+			filas.innerHTML = '';
+			(lista.length ? lista : [{}]).forEach(function (m) {
+				agregarFila();
+				var fila = filas.lastElementChild;
+				if (m.modelo) {
+					fila.querySelector('.ep-combo-trigger').dataset.valor = m.modelo;
+					fila.querySelector('.ep-combo-trigger-texto').textContent = m.modelo;
+				}
+				if (m.cantidad) fila.querySelector('.ep-modelo-cantidad').value = m.cantidad;
+				var precio = fila.querySelector('.ep-modelo-precio');
+				if (precio && m.precio) precio.value = String(m.precio);
+			});
+			actualizarTotal();
+		}
+
+		return { cargar: cargar, modelos: function () {
 			var out = [];
 			filas.querySelectorAll('.ep-modelo-fila-nueva').forEach(function (fila) {
 				var nombre = fila.querySelector('.ep-combo-trigger').dataset.valor;

@@ -85,6 +85,8 @@ function ep_ppt_abrir(array $spec, array $registros, array $opciones): array {
 		}
 	}
 	$solo = !empty($opciones['solo_registro']);
+	// Portada única (logo, línea y título); Competencia conserva su portada y su diapositiva de título.
+	$unica = empty($spec['portada_doble']);
 	$out = new ZipArchive();
 	$destino = tempnam(sys_get_temp_dir(), 'epppt');
 	$out->open($destino, ZipArchive::OVERWRITE);
@@ -97,13 +99,13 @@ function ep_ppt_abrir(array $spec, array $registros, array $opciones): array {
 		if (preg_match('#^ppt/slides/(?:_rels/)?slide(\d+)\.xml(\.rels)?$#', $nombre, $m)) {
 			$numero = (int) $m[1];
 			$esRels = !empty($m[2]);
-			if ($numero >= 3 || ($solo && $numero <= 2) || (!$solo && $numero === 2 && !$esRels)) {
+			if ($numero >= 3 || ($solo && $numero <= 2) || (!$solo && $numero === 2 && !$esRels) || ($unica && $numero === 1)) {
 				continue;
 			}
 		}
 		$out->addFromString($nombre, $tpl->getFromIndex($i));
 	}
-	return ['tpl' => $tpl, 'out' => $out, 'destino' => $destino, 'solo' => $solo, 'fotos' => ep_ppt_descargar_fotos($urls), 'media' => [], 'nuevas' => [], 'siguiente' => 4];
+	return ['tpl' => $tpl, 'out' => $out, 'destino' => $destino, 'solo' => $solo, 'unica' => $unica, 'fotos' => ep_ppt_descargar_fotos($urls), 'media' => [], 'nuevas' => [], 'siguiente' => 4];
 }
 
 // Diapositiva nueva clonada de una de la plantilla; $numero fijo solo para las que van una vez por reporte (el calendario).
@@ -241,7 +243,7 @@ function ep_ppt_secciones(array $ctx): string {
 		if ($i === 0) {
 			$g['desde'] = 0; // también la diapositiva fija del reporte (calendario), que no es de nadie
 		}
-		$ids = $i === 0 && !$ctx['solo'] ? '<p14:sldId id="256"/><p14:sldId id="257"/>' : '';
+		$ids = $i === 0 && !$ctx['solo'] ? (empty($ctx['unica']) ? '<p14:sldId id="256"/>' : '').'<p14:sldId id="257"/>' : '';
 		for ($n = $g['desde']; $n < $g['hasta']; $n++) {
 			$ids .= '<p14:sldId id="'.(1000 + $n).'"/>';
 		}
@@ -259,11 +261,14 @@ function ep_ppt_cerrar(array &$ctx): string {
 	foreach ($ctx['media'] as $nombre => $bytes) {
 		$out->addFromString('ppt/media/'.$nombre, $bytes);
 	}
-	$lista = $solo ? '<p:sldIdLst>' : '<p:sldIdLst><p:sldId id="256" r:id="rId2"/><p:sldId id="257" r:id="rId3"/>';
+	$unica = !empty($ctx['unica']);
+	$lista = $solo ? '<p:sldIdLst>' : '<p:sldIdLst>'.($unica ? '' : '<p:sldId id="256" r:id="rId2"/>').'<p:sldId id="257" r:id="rId3"/>';
 	$relsPres = (string) $tpl->getFromName('ppt/_rels/presentation.xml.rels');
 	$relsPres = preg_replace('#<Relationship [^>]*Target="slides/slide(?:[3-9]|[1-9][0-9])\.xml"[^>]*/>#', '', $relsPres);
 	if ($solo) {
 		$relsPres = preg_replace('#<Relationship [^>]*Target="slides/slide[12]\.xml"[^>]*/>#', '', $relsPres);
+	} elseif ($unica) {
+		$relsPres = preg_replace('#<Relationship [^>]*Target="slides/slide1\.xml"[^>]*/>#', '', $relsPres);
 	}
 	$nuevasRel = '';
 	foreach ($ctx['nuevas'] as $i => $n) {
@@ -280,6 +285,8 @@ function ep_ppt_cerrar(array &$ctx): string {
 	$tipos = preg_replace('#<Override PartName="/ppt/slides/slide(?:[3-9]|[1-9][0-9])\.xml"[^>]*/>#', '', $tipos);
 	if ($solo) {
 		$tipos = preg_replace('#<Override PartName="/ppt/slides/slide[12]\.xml"[^>]*/>#', '', $tipos);
+	} elseif ($unica) {
+		$tipos = preg_replace('#<Override PartName="/ppt/slides/slide1\.xml"[^>]*/>#', '', $tipos);
 	}
 	$agregado = '';
 	foreach (['png' => 'image/png', 'jpeg' => 'image/jpeg'] as $extension => $tipo) {

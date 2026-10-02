@@ -9,7 +9,7 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 	require_once __DIR__.'/../../includes/registros_datos.php';
 	$rc = ep_registro_por_codigo((string) $_GET['corregir']);
 	if ($rc && ($rc['estado'] ?? '') === 'Devuelto' && strcasecmp($rc['promotor_usuario'] ?? '', $_SESSION['usuario'] ?? '') === 0) {
-		$corregir = ['codigo' => $rc['id'], 'tipo' => $rc['tipo'] ?? '', 'pos_id' => $rc['pos_id'] ?? '', 'punto' => $rc['punto_venta'] ?? '', 'fecha' => $rc['fecha_actividad'] ?? '', 'motivo' => $rc['motivo_devolucion'] ?? '', 'revisor' => $rc['revisor'] ?? ''];
+		$corregir = ['codigo' => $rc['id'], 'tipo' => $rc['tipo'] ?? '', 'pos_id' => $rc['pos_id'] ?? '', 'punto' => $rc['punto_venta'] ?? '', 'fecha' => $rc['fecha_actividad'] ?? '', 'motivo' => $rc['motivo_devolucion'] ?? '', 'revisor' => $rc['revisor'] ?? '', 'datos' => array_intersect_key($rc, array_flip(['tipo_actividad', 'hora_inicio', 'hora_fin', 'cobertura', 'embudo', 'modelos', 'capacitacion', 'exhibiciones', 'campana', 'pop_entregas', 'comentarios', 'fotos', 'descripciones']))];
 	}
 }
 ?>

@@ -39,8 +39,15 @@ function ep_usuario_foto_url(?string $ruta): string {
 	return ep_azure_url(EP_AZURE_PREFIX.$ruta);
 }
 
-// Ciudad y canal de cada usuario según su rutero activo (solo informativo, tablas de Xplora en solo lectura).
+// Ciudad y canal de cada usuario según su rutero activo (solo informativo, tablas de Xplora en solo lectura); caché 5 min porque recorre todo el rutero.
 function ep_usuarios_rutero($db): array {
+	$cacheFile = __DIR__.'/../data/cache/usuarios_rutero.json';
+	if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 300) {
+		$cacheado = json_decode(file_get_contents($cacheFile), true);
+		if (is_array($cacheado)) {
+			return $cacheado;
+		}
+	}
 	$stmt = $db->prepare("SELECT usu.user AS usuario, d.city, d.channel, COUNT(DISTINCT d.pos_id) AS n FROM rutero_pdv rp JOIN repositorio_usuarios usu ON usu.id = rp.id_usuario JOIN repositorio_locales_dtt2 d ON d.id = rp.id_pdv AND d.activar = 'SI' WHERE rp.status = 1 AND rp.habilitado = 1 AND d.channel IN ('RETAIL', 'CANALES') GROUP BY usu.user, d.city, d.channel");
 	if (!$stmt) {
 		return [];
@@ -64,6 +71,10 @@ function ep_usuarios_rutero($db): array {
 		arsort($ciudades[$usuario]);
 		$salida[$usuario] = ['ciudad' => (string) array_key_first($ciudades[$usuario]), 'canal' => $canal];
 	}
+	if (!is_dir(dirname($cacheFile))) {
+		mkdir(dirname($cacheFile), 0755, true);
+	}
+	file_put_contents($cacheFile, json_encode($salida));
 	return $salida;
 }
 

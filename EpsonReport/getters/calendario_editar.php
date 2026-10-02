@@ -33,6 +33,7 @@ if (!is_array($filasJson) || (empty($filasJson) && !$cambiaComentarios)) {
 
 // Primero se valida todo; si una fila no pasa, no se guarda ninguna.
 $cambios = [];
+$vistas = [];
 foreach ($filasJson as $f) {
 	$filaId = (int) ($f['fila_id'] ?? 0);
 	if (!ep_calendario_fila_es_editable($calendarioId, $filaId)) {
@@ -44,6 +45,15 @@ foreach ($filasJson as $f) {
 		echo json_encode(['ok' => false, 'message' => 'Una de las filas tiene un punto de venta o promotor inválidos.']);
 		exit;
 	}
+	$antes = ep_calendario_fila_obtener($filaId);
+	$fechaFila = (string) ($antes['fecha'] ?? '');
+	$llave = (int) $f['promotor_id'].'|'.$f['pos_id'].'|'.$fechaFila;
+	$previo = ep_calendario_fila_repetida((int) $f['promotor_id'], (string) $f['pos_id'], $fechaFila, $filaId);
+	if ($previo !== null || isset($vistas[$llave])) {
+		echo json_encode(['ok' => false, 'message' => ep_calendario_fila_repetida_mensaje($real['promotor_nombre'], $fechaFila, $previo ?? ep_calendario_nombre($cal))]);
+		exit;
+	}
+	$vistas[$llave] = true;
 	$cambios[] = [$filaId, (string) $f['pos_id'], (int) $f['promotor_id'], $real, ep_calendario_fila_obtener($filaId)];
 }
 

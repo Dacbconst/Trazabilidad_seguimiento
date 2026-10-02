@@ -13,6 +13,13 @@ if (!ep_login_check()) {
 	exit;
 }
 
+// Los supervisores revisan y programan, no envían registros: sin esto uno quedaba sin supervisor y solo el admin lo veía.
+if (ep_es_supervisor()) {
+	http_response_code(403);
+	echo json_encode(['success' => false, 'error' => 'Un supervisor no envía registros de actividad.']);
+	exit;
+}
+
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/fotos_datos.php';
 require_once __DIR__.'/../includes/registros_datos.php';

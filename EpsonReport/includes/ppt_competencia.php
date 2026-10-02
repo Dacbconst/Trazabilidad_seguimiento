@@ -9,6 +9,7 @@ function ep_ppt_competencia_spec(): array {
 		'titulo' => 'INFORME DE COMPETENCIA',
 		'titulo_fijo' => true,
 		'portada_titulo' => 'Título 1',
+		'portada_doble' => true,
 		'prefijo_actividad' => 'COMPETENCIA',
 		// Sin 'orden': entran todas las fotos que traiga cada registro, también las sumadas con "+ Agregar foto".
 		'fotos' => [

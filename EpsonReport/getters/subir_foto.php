@@ -17,6 +17,10 @@ if (!ep_login_check()) {
 	ep_subir_foto_responder(false, ['error' => 'Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo, o expiró.', 'redirect' => 'login.php?error=sesion'], 401);
 }
 
+if (ep_es_supervisor()) {
+	ep_subir_foto_responder(false, ['error' => 'Un supervisor no envía registros de actividad.'], 403);
+}
+
 require_once __DIR__.'/../includes/azure_storage.php';
 
 $archivo = $_FILES['archivo'] ?? null;

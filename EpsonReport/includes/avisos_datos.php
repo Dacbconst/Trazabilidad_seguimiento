@@ -26,7 +26,7 @@ function ep_avisos_ultimo_dia(int $dias, string $fecha): string {
 	return $dias === 1 ? 'Último día: mañana' : 'Último día: '.$corta;
 }
 
-// Una entrada por calendario activo con las filas pendientes del usuario en sesión; el admin no recibe avisos.
+// Una entrada por calendario activo con las filas sin registro del usuario (enviada o devuelta ya no cuenta aquí); el admin no recibe avisos.
 function ep_avisos_promotor(): array {
 	static $cache = null;
 	if ($cache !== null) {
@@ -59,12 +59,12 @@ function ep_avisos_promotor(): array {
 	}
 	$cache['devueltos_nuevos'] = count(array_filter($cache['devueltos'], fn($x) => $x['nuevo']));
 	// La fila guarda el id de Xplora; se traduce por el nombre de usuario, igual que el cruce del calendario.
-	$stmt = $db->prepare("SELECT c.id AS cal_id, c.nombre, c.canal, c.vence_en, f.fecha, f.punto_venta, f.ciudad, GREATEST(f.created_at, COALESCE(f.editado_en, f.created_at)) AS cambio FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id JOIN repositorio_usuarios xu ON xu.id = f.promotor_usuario_id WHERE xu.user = ? AND f.estado = 'pendiente' AND c.estado = 'activo' AND c.eliminado_en IS NULL AND c.vence_en > NOW() ORDER BY c.vence_en, f.fecha, f.id");
+	$stmt = $db->prepare("SELECT c.id AS cal_id, c.nombre, c.canal, c.vence_en, f.fecha, f.punto_venta, f.ciudad, GREATEST(f.created_at, COALESCE(f.editado_en, f.created_at)) AS cambio FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id JOIN repositorio_usuarios xu ON xu.id = f.promotor_usuario_id WHERE xu.user = ? AND f.estado = 'pendiente' AND c.estado = 'activo' AND c.eliminado_en IS NULL AND c.vence_en > NOW() AND NOT EXISTS (SELECT 1 FROM insert_reporte_registro r WHERE r.usuario_id = ? AND r.tipo = 'activaciones' AND r.pos_id = f.pos_id COLLATE utf8mb4_unicode_ci AND r.fecha_actividad = f.fecha AND r.eliminado_en IS NULL AND r.estado IN ('Pendiente', 'Devuelto')) ORDER BY c.vence_en, f.fecha, f.id");
 	if (!$stmt) {
 		error_log('ep_avisos_promotor: '.$db->error);
 		return $cache;
 	}
-	$stmt->bind_param('s', $_SESSION['usuario']);
+	$stmt->bind_param('si', $_SESSION['usuario'], $_SESSION['usuario_id']);
 	$stmt->execute();
 	$hoy = strtotime(date('Y-m-d'));
 	$grupos = [];

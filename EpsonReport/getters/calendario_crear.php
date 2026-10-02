@@ -28,6 +28,7 @@ if (!is_array($filasJson) || empty($filasJson)) {
 }
 
 $filas = [];
+$vistas = [];
 foreach ($filasJson as $f) {
 	$fecha = $f['fecha'] ?? '';
 	$posId = $f['pos_id'] ?? '';
@@ -38,6 +39,14 @@ foreach ($filasJson as $f) {
 		echo json_encode(['ok' => false, 'message' => 'Una de las filas tiene un punto de venta, promotor o fecha inválidos.']);
 		exit;
 	}
+	// Un promotor no puede tener el mismo punto el mismo día en otro calendario activo ni dos veces en este.
+	$llave = $promotorId.'|'.$posId.'|'.$fecha;
+	$previo = ep_calendario_fila_repetida($promotorId, $posId, $fecha);
+	if ($previo !== null || isset($vistas[$llave])) {
+		echo json_encode(['ok' => false, 'message' => ep_calendario_fila_repetida_mensaje($real['promotor_nombre'], $fecha, $previo ?? 'este calendario')]);
+		exit;
+	}
+	$vistas[$llave] = true;
 	$filas[] = [
 		'fecha' => $fecha,
 		'pos_id' => $posId,

@@ -1154,6 +1154,7 @@
 		actualizarBloqueoPorDistribuidor();
 		visibilidadActiva = true;
 		visibilidadToggle.checked = true;
+		visibilidadToggle.disabled = false;
 		aplicarBloqueoVisibilidad();
 		// "Agregar Fila" pudo quedar bloqueado por una Acta precargada anterior; el siguiente Acuerdo empieza limpio.
 		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
@@ -1325,8 +1326,10 @@
 		actualizarBloqueoPorDistribuidor();
 
 		// No se llama a resetearZonaVisibilidad() aunque esté desactivado: poblarTablasConLineas() ya reconstruye desde a.lineas (vacías si el switch estaba apagado).
-		visibilidadActiva = !a.sin_visibilidad;
+		// de_cuotas (viene de una precarga de Cuotas, aunque se haya guardado como Borrador): siempre sin Visibilidad y bloqueado, no se puede reactivar.
+		visibilidadActiva = a.de_cuotas ? false : !a.sin_visibilidad;
 		visibilidadToggle.checked = visibilidadActiva;
+		visibilidadToggle.disabled = !!a.de_cuotas;
 		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(a.lineas);
@@ -1376,48 +1379,6 @@
 		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta viene de una precarga — la tabla de Meta de Compras es fija'; }
 	}
 
-	// Cabeceras/Rumas/Perchas no vienen en el Excel de Cuotas: se dejan tantas filas vacías como Meta de Compras trajo, con "Eliminar Fila" habilitado.
-	function generarFilasVaciasOtrasTablas(cantidadLineasMeta) {
-		var cantidad = cantidadLineasMeta > 0 ? cantidadLineasMeta : 1;
-		for (var i = cabecerasBody.querySelectorAll('tr').length; i < cantidad; i++) addCabeceraRow();
-		for (var j = rumasBody.querySelectorAll('tr').length; j < cantidad; j++) addRumaRow();
-		for (var k = perchasBody.querySelectorAll('tr').length; k < cantidad; k++) addPerchaRow();
-	}
-
-	// Mismo criterio que bloquearFilasPrecargadas() para las filas espejo: la fila i corresponde a la línea i de Meta de Compras.
-	function espejarIdentidadOtrasTablas(lineasMeta) {
-		var filasCab = cabecerasBody.querySelectorAll('tr');
-		var filasRuma = rumasBody.querySelectorAll('tr');
-		var filasPercha = perchasBody.querySelectorAll('tr');
-		lineasMeta.forEach(function (fila, i) {
-			if (fila.segmento && fila.categoria && fila.marca) {
-				[filasCab[i], filasRuma[i]].forEach(function (tr) {
-					if (!tr || !tr._combo) return;
-					tr._combo.sugerir(fila.segmento, fila.categoria, fila.marca);
-					['.seg-input', '.cat-input', '.marca-input'].forEach(function (sel) {
-						var input = tr.querySelector(sel);
-						if (input) { input.disabled = true; input.classList.add('ac-combo-input-precargado'); }
-					});
-				});
-			}
-			var trPercha = filasPercha[i];
-			if (fila.marca && trPercha && trPercha._comboMarca) {
-				trPercha._comboMarca.sugerir(fila.marca);
-				var marcaInput = trPercha.querySelector('.marca-input');
-				if (marcaInput) { marcaInput.disabled = true; marcaInput.classList.add('ac-combo-input-precargado'); }
-				// A diferencia de restaurar un borrador, acá la fila es nueva: se busca en vivo el % real, igual que si el asesor eligiera a mano.
-				buscarYAplicarParticipacion(trPercha, fila.marca);
-			}
-		});
-	}
-
-	function bloquearAgregarOtrasTablas() {
-		['ac-add-cabecera-row', 'ac-add-ruma-row', 'ac-add-percha-row'].forEach(function (id) {
-			var btn = document.getElementById(id);
-			if (btn) { btn.disabled = true; btn.title = 'Esta Acta viene de una precarga. Completa las filas ya generadas, no se agregan más.'; }
-		});
-	}
-
 	function desbloquearAgregarOtrasTablas() {
 		['ac-add-cabecera-row', 'ac-add-ruma-row', 'ac-add-percha-row'].forEach(function (id) {
 			var btn = document.getElementById(id);
@@ -1463,17 +1424,15 @@
 		localidadEl.textContent = p.localidad || '—';
 		actualizarBloqueoPorDistribuidor();
 
-		// Acta nueva de verdad (no un borrador restaurado): Visibilidad arranca en su estado por defecto, igual que "Nuevo Acuerdo".
-		visibilidadActiva = true;
-		visibilidadToggle.checked = true;
+		// Acta de Cuotas: siempre SIN Visibilidad, bloqueada — este Acuerdo se cargó desde ese repositorio, no se arma a mano (pedido explícito).
+		visibilidadActiva = false;
+		visibilidadToggle.checked = false;
+		visibilidadToggle.disabled = true;
+		resetearZonaVisibilidad();
 		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(p.lineas);
-		// Orden importa: generarFilasVaciasOtrasTablas() rehabilita todos los .seg-input, así que bloquearFilasPrecargadas() va después.
-		generarFilasVaciasOtrasTablas(p.lineas.meta_compra.length);
 		bloquearFilasPrecargadas(p.lineas.meta_compra);
-		espejarIdentidadOtrasTablas(p.lineas.meta_compra);
-		bloquearAgregarOtrasTablas();
 
 		// Cargar la precarga no es en sí un cambio "sin guardar": recién se vuelve sucio si el asesor edita a partir de acá (mismo criterio que un Borrador).
 		formSucio = false;

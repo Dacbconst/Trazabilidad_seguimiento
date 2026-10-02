@@ -1553,6 +1553,16 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		];
 	}
 
+	// Un Acuerdo que viene del repositorio de Cuotas siempre va sin Visibilidad, bloqueado para que no se pueda prender (pedido explícito).
+	$deCuotas = false;
+	$stmtCuotas = $mysqli->prepare('SELECT 1 FROM repositorio_cuota_cliente WHERE acuerdo_id_generado = ? LIMIT 1');
+	if ($stmtCuotas) {
+		$stmtCuotas->bind_param('i', $acuerdoId);
+		$stmtCuotas->execute();
+		$deCuotas = (bool) $stmtCuotas->get_result()->fetch_assoc();
+		$stmtCuotas->close();
+	}
+
 	return [
 		'id'                => (int) $cabecera['id'],
 		'documento_no'      => $cabecera['documento_no'],
@@ -1567,6 +1577,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'localidad'         => $cabecera['cedi'] ?: '—',
 		'es_distribuidor'   => ($cabecera['canal'] ?? null) === 'DISTRIBUIDOR',
 		'sin_visibilidad'   => !empty($cabecera['sin_visibilidad']),
+		'de_cuotas'         => $deCuotas,
 		'empresa_distribuidora' => $cabecera['tipo_distribuidor'] ?: '',
 		'ejecutivo_comercial' => $cabecera['ejecutivo_comercial'] ?: '',
 		'lineas'            => $lineas,

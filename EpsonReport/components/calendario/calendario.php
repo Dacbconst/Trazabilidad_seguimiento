@@ -149,7 +149,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 				<span class="ep-cl-tag ep-cl-estado ep-cl-estado-<?= $vista ?><?= $sinReporte ? ' ep-cl-estado-sin-reporte' : '' ?><?= $urgente ? ' ep-cl-urgente' : '' ?>" title="<?= $sinReporte ? 'No se pudo generar el reporte: sus registros ya estaban en otro reporte mensual activo' : '' ?>"><?= $h($estadoTxt) ?></span>
 				<div class="ep-cl-acciones">
 					<?php if ($vista === 'activo'): ?>
-						<button type="button" class="ep-cl-pri ep-cal-generar-ahora" data-id="<?= $id ?>"><?= ep_icon('presentation', 15) ?> Generar reporte</button>
+						<button type="button" class="ep-cl-pri ep-cl-pri-suave ep-cal-generar-ahora" data-id="<?= $id ?>"><?= ep_icon('presentation', 15) ?> Cerrar y generar</button>
 						<button type="button" class="ep-cl-accion ep-cal-editar" data-id="<?= $id ?>" aria-label="Editar <?= $h($nombre) ?>"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Editar', 'Editar') ?></button>
 					<?php elseif ($vista === 'incompleto' || $sinReporte): ?>
 						<button type="button" class="ep-cl-pri ep-cal-reactivar" data-id="<?= $id ?>"><?= $iconoReactivar ?> Reactivar</button>
@@ -244,22 +244,22 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 						<button type="button" class="ep-btn-subtle-compact" id="epCalAgregarFila"><?= ep_icon('plus', 13) ?> Agregar fila</button>
 					</div>
 					<div class="ep-cal-fila-editor-head">
-						<span>Fecha</span><span>Ciudad</span><span>Promotor</span><span>Punto de venta</span><span></span>
+						<span>Fecha</span><span>Promotor</span><span>Ciudad</span><span>Punto de venta</span><span></span>
 					</div>
 					<div class="ep-cal-filas-editor-tabla" id="epCalFilasEditor">
 						<div class="ep-cal-fila-editor">
 							<input type="date" class="ep-input ep-cal-fecha-input">
+							<div class="ep-combo ep-cal-combo-promotor">
+								<button type="button" class="ep-input ep-combo-trigger" data-valor=""><span class="ep-combo-trigger-texto">Promotor</span><?= ep_icon('chevron', 14) ?></button>
+								<div class="ep-combo-panel hidden">
+									<input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar promotor..." autocomplete="off">
+									<div class="ep-combo-opciones"></div>
+								</div>
+							</div>
 							<div class="ep-combo ep-cal-combo-ciudad">
 								<button type="button" class="ep-input ep-combo-trigger" data-valor=""><span class="ep-combo-trigger-texto">Ciudad</span><?= ep_icon('chevron', 14) ?></button>
 								<div class="ep-combo-panel hidden">
 									<input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar ciudad..." autocomplete="off">
-									<div class="ep-combo-opciones"></div>
-								</div>
-							</div>
-							<div class="ep-combo ep-cal-combo-promotor">
-								<button type="button" class="ep-input ep-combo-trigger ep-combo-desactivado" data-valor="" disabled><span class="ep-combo-trigger-texto">Elige ciudad</span><?= ep_icon('chevron', 14) ?></button>
-								<div class="ep-combo-panel hidden">
-									<input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar promotor..." autocomplete="off">
 									<div class="ep-combo-opciones"></div>
 								</div>
 							</div>

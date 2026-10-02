@@ -17,10 +17,11 @@ function ep_calendario_canales(): array {
 	while ($row = $res->fetch_assoc()) {
 		$canales[] = $row['channel'];
 	}
-	// Un supervisor solo programa en las categorías de su canal.
+	// Un supervisor solo programa en los canales donde tiene promotores a su cargo.
 	if (ep_es_supervisor()) {
 		require_once __DIR__.'/aprobacion_datos.php';
-		$canales = array_values(array_intersect($canales, ep_supervisor_canales_gestion((int) $_SESSION['usuario_id'])));
+		$miId = (int) $_SESSION['usuario_id'];
+		$canales = array_values(array_filter(array_intersect($canales, ep_supervisor_canales_gestion($miId)), fn($c) => ep_promotores_de_supervisor($miId, $c)));
 	}
 	return $canales;
 }
@@ -63,6 +64,31 @@ function ep_calendario_rutero(string $canal): array {
 	}
 	file_put_contents($cacheFile, json_encode($filas));
 	return $filas;
+}
+
+// Supervisor que la app asigna a cada promotor en ese canal (usuario en mayúsculas => supervisor); es quien aprueba, no el del rutero de Xplora.
+function ep_calendario_supervisores_app(string $canal): array {
+	static $cache = [];
+	if (isset($cache[$canal])) {
+		return $cache[$canal];
+	}
+	$cache[$canal] = [];
+	$db = ep_db();
+	require_once __DIR__.'/aprobacion_datos.php';
+	if (!$db || !ep_usuarios_tiene_ruta($db)) {
+		return $cache[$canal];
+	}
+	$nombres = [];
+	foreach ($db->query("SELECT id, usuario FROM repositorio_usuarios_reporte WHERE rol <> 'promotor'") ?: [] as $s) {
+		$nombres[(int) $s['id']] = $s['usuario'];
+	}
+	foreach ($db->query('SELECT usuario, categorias, supervisor_canales_id, supervisor_retail_id FROM repositorio_usuarios_reporte') ?: [] as $f) {
+		$id = ep_supervisor_de_fila($f, $canal);
+		if ($id && isset($nombres[$id])) {
+			$cache[$canal][mb_strtoupper($f['usuario'], 'UTF-8')] = $nombres[$id];
+		}
+	}
+	return $cache[$canal];
 }
 
 // Ciudades del canal en repositorio_locales_dtt2, haya o no rutero en ellas.
@@ -163,6 +189,7 @@ function ep_calendario_fila_validar(string $canal, int $promotorId, string $posI
 	}
 
 	$supervisor = '';
+	$deLaApp = ep_calendario_supervisores_app($canal)[mb_strtoupper($promotor['user'], 'UTF-8')] ?? '';
 	foreach (ep_calendario_rutero($canal) as $f) {
 		if ($f['promotor_id'] === $promotorId && $f['supervisor']) {
 			$supervisor = $f['supervisor'];
@@ -170,12 +197,33 @@ function ep_calendario_fila_validar(string $canal, int $promotorId, string $posI
 		}
 	}
 
+	// Manda el supervisor de la app (quien aprueba); el del rutero solo si el promotor no tiene uno asignado.
+	$supervisor = $deLaApp ?: $supervisor;
+
 	return [
 		'punto_venta' => $pdv['pos_name'],
 		'ciudad' => $pdv['city'],
 		'promotor_nombre' => $promotor['user'],
 		'supervisor' => $supervisor,
 	];
+}
+
+// Nombre del calendario activo que ya le pide a ese promotor ese punto ese día (sin contar $excluirFilaId); null si está libre.
+function ep_calendario_fila_repetida(int $promotorId, string $posId, string $fecha, int $excluirFilaId = 0): ?string {
+	$db = ep_db();
+	if (!$db) {
+		return null;
+	}
+	$stmt = $db->prepare("SELECT c.nombre, c.canal FROM insert_reporte_calendario_fila f JOIN insert_reporte_calendario c ON c.id = f.calendario_id WHERE c.estado = 'activo' AND c.eliminado_en IS NULL AND f.promotor_usuario_id = ? AND f.pos_id = ? AND f.fecha = ? AND f.id <> ? LIMIT 1");
+	$stmt->bind_param('issi', $promotorId, $posId, $fecha, $excluirFilaId);
+	$stmt->execute();
+	$cal = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $cal ? ep_calendario_nombre($cal) : null;
+}
+
+function ep_calendario_fila_repetida_mensaje(string $promotor, string $fecha, string $calendario): string {
+	return $promotor.' ya tiene ese punto de venta pedido para el '.date('d/m/Y', strtotime($fecha)).' en «'.$calendario.'».';
 }
 
 // Lista de calendarios con sus filas, más recientes primero. $soloActivos filtra los ya cerrados.
