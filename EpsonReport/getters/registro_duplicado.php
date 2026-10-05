@@ -1,7 +1,7 @@
 <?php
 // Avisa antes de subir fotos si el promotor ya envió una Activación de ese punto y día (GET tipo, pos_id, fecha_actividad).
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 

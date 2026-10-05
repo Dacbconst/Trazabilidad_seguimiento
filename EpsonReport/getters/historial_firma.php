@@ -1,7 +1,7 @@
 <?php
 // Firma liviana de los registros (total y último id) para saber si el Historial cambió sin pedir la lista completa.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/db.php';

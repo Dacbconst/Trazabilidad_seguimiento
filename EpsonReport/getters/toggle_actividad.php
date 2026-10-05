@@ -1,7 +1,7 @@
 <?php
 // Activa o desactiva un botón de actividad (solo admin); el cambio lo ven de inmediato los promotores y el modal de reportes.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 

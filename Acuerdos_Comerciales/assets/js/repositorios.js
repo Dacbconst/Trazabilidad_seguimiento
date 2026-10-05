@@ -87,6 +87,66 @@
 					render: function (fila) { return mesMensualPorPosicion(fila.valores_mensuales, 2); }
 				}
 			]
+		},
+		// Acuerdo Completo: mismas columnas que Cuotas + bloques opcionales de Cabecera/Ruma/Percha en la misma fila. Genera Acuerdos nuevos.
+		acuerdo_completo: {
+			label: 'Acuerdo Completo',
+			descripcion: 'Sube el Excel con la Meta de Compras y, si aplica, Cabecera/Ruma/Percha ya completos en la misma fila — cada línea bloqueada queda lista para que el asesor dueño del cliente genere el Acuerdo completo desde su lista de Actas Asignadas.',
+			buscarPlaceholder: 'Buscar por CEDI, cliente, plan, categoría, subcategoría o marca...',
+			editable: false,
+			agruparPor: 'pos_id',
+			columnasPreview: [
+				{ key: 'usuario_excel', label: 'Usuario' },
+				{ key: 'cedi_excel', label: 'CEDI' },
+				{ key: 'cliente_excel', label: 'Cliente' },
+				{ key: 'plan', label: 'Plan' },
+				{ key: 'sector', label: 'Categoría' },
+				{ key: 'subcategoria', label: 'Subcategoría' },
+				{ key: 'marca', label: 'Marca' },
+				{ key: 'mes1', label: 'Mes 1', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
+				{ key: 'mes2', label: 'Mes 2', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
+				{ key: 'mes3', label: 'Mes 3', numero: true, formato: function (v) { return '$' + parseFloat(v).toFixed(2); } },
+				{ key: 'cab_mes1', label: 'Cabecera 1' },
+				{ key: 'cab_mes2', label: 'Cabecera 2' },
+				{ key: 'cab_mes3', label: 'Cabecera 3' },
+				{ key: 'ruma_valor', label: 'Ruma' },
+				{ key: 'percha_cantidad', label: 'Percha Cant' },
+				{ key: 'percha_mes1', label: 'Percha 1' },
+				{ key: 'percha_mes2', label: 'Percha 2' },
+				{ key: 'percha_mes3', label: 'Percha 3' }
+			],
+			// Tabla ya guardada: mezcla filas de los 4 tipos (normalizadas en la base), columna "Tabla" distingue cuál es cada una.
+			columnas: [
+				{ key: 'tipo', label: 'Tabla', render: function (fila) { return ({ meta_compra: 'Meta de Compras', cabecera: 'Cabecera', ruma: 'Ruma', percha: 'Percha' })[fila.tipo] || fila.tipo; } },
+				{ key: 'cedi_excel', label: 'CEDI' },
+				{ key: 'cliente_excel', label: 'Cliente' },
+				{ key: 'plan', label: 'Plan' },
+				{ key: 'sector', label: 'Sector', render: function (fila) { return fila.sector || '—'; } },
+				{ key: 'categoria', label: 'Categoría', render: function (fila) { return fila.categoria || '—'; } },
+				{ key: 'marca', label: 'Marca' },
+				{ key: 'periodo', label: 'Período', render: function (fila) { return 'Q' + fila.trimestre + ' ' + fila.anio; } },
+				{
+					key: 'valor', label: 'Valor', numero: true,
+					render: function (fila) {
+						if (fila.tipo === 'ruma') return '$' + parseFloat(fila.valor_mensual_unico || 0).toFixed(2) + ' (x mes)';
+						return montosMensualesTexto(fila.valores_mensuales);
+					}
+				}
+			]
+		}
+	};
+
+	// Tipos con el flujo extendido de Cuotas (canal, "Se asigna a", Pendientes de Asignar, Resumen, año a mano) — hoy Cuotas y Acuerdo Completo.
+	var TIPOS_CON_ASIGNACION = { cuotas: true, acuerdo_completo: true };
+	// Endpoints propios por tipo (payload/estructura distinta a Rebate/Participación/Jerarquía, que comparten repositorio_*.php genéricos).
+	var ENDPOINTS_ASIGNACION = {
+		cuotas: {
+			previsualizar: 'getters/cuotas_previsualizar_excel.php', guardar: 'getters/cuotas_guardar.php',
+			verificar: 'getters/cuotas_verificar_estado.php', reactivar: 'getters/cuotas_reactivar.php'
+		},
+		acuerdo_completo: {
+			previsualizar: 'getters/acuerdo_completo_previsualizar_excel.php', guardar: 'getters/acuerdo_completo_guardar.php',
+			verificar: 'getters/acuerdo_completo_verificar_estado.php', reactivar: 'getters/acuerdo_completo_reactivar.php'
 		}
 	};
 
@@ -127,6 +187,7 @@
 	var tabParticipacion = document.getElementById('repo-tab-participacion');
 	var tabCuotas = document.getElementById('repo-tab-cuotas');
 	var tabJerarquia = document.getElementById('repo-tab-jerarquia');
+	var tabAcuerdoCompleto = document.getElementById('repo-tab-acuerdo_completo');
 	var tabsIndicador = document.getElementById('repo-tabs-indicador');
 	var raizRepo = document.getElementById('ac-repo-lista');
 	var pendientesAbrirBtn = document.getElementById('repo-pendientes-abrir');
@@ -209,11 +270,12 @@
 			var tds = cols.map(function (c) {
 				return '<td' + (c.numero ? ' class="ac-text-right"' : '') + ' data-key="' + c.key + '" data-label="' + escapeHtml(c.label) + '">' + celdaValor(c, fila) + '</td>';
 			}).join('');
-			// Cuotas descartada (borrado lógico): "Eliminar" se reemplaza por "Reactivar", no tiene sentido descartar 2 veces.
+			// Descartada (borrado lógico, tipos con TIPOS_CON_ASIGNACION): "Eliminar" se reemplaza por "Reactivar", no tiene sentido descartar 2 veces.
+			var etiquetaBorrar = TIPOS_CON_ASIGNACION[tipoActivo] ? 'Descartar' : 'Eliminar';
 			var accionesHtml = (fila.estado === 'descartada')
 				? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-repo-reactivar" title="Reactivar"><span class="material-symbols-outlined">restore</span><span class="ac-btn-text">Reactivar</span></button>'
 				: (editable ? '<button type="button" class="ac-icon-btn ac-repo-editar" title="Editar"><span class="material-symbols-outlined">edit</span><span class="ac-btn-text">Editar</span></button>' : '') +
-				  '<button type="button" class="ac-icon-btn ac-icon-btn-danger ac-repo-eliminar" title="' + (tipoActivo === 'cuotas' ? 'Descartar' : 'Eliminar') + '"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">' + (tipoActivo === 'cuotas' ? 'Descartar' : 'Eliminar') + '</span></button>';
+				  '<button type="button" class="ac-icon-btn ac-icon-btn-danger ac-repo-eliminar" title="' + etiquetaBorrar + '"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">' + etiquetaBorrar + '</span></button>';
 			return '<tr data-id="' + fila.id + '"' + (agruparPor ? ' class="' + GRUPO_CLASES[grupoIndice] + '"' : '') + '>' + tds +
 				'<td class="ac-text-right" data-key="acciones"><div class="ac-row-actions">' + accionesHtml + '</div></td></tr>';
 		}).join('');
@@ -235,7 +297,8 @@
 			btn.addEventListener('click', function () {
 				var tr = btn.closest('tr');
 				var params = new URLSearchParams({ id: tr.dataset.id });
-				fetch('getters/cuotas_reactivar.php', { method: 'POST', body: params })
+				var urlReactivar = (ENDPOINTS_ASIGNACION[tipoActivo] || ENDPOINTS_ASIGNACION.cuotas).reactivar;
+				fetch(urlReactivar, { method: 'POST', body: params })
 					.then(function (r) { return r.json(); })
 					.then(function (data) {
 						mostrarMensaje(data.message, data.ok);
@@ -273,7 +336,7 @@
 	}
 
 	function confirmarYEliminar(id) {
-		var esCuotas = tipoActivo === 'cuotas';
+		var esCuotas = !!TIPOS_CON_ASIGNACION[tipoActivo];
 		Swal.fire({
 			icon: 'warning',
 			title: esCuotas ? '¿Descartar esta categoría?' : '¿Eliminar registro?',
@@ -372,8 +435,8 @@
 			.catch(function () {});
 	}
 	function cargarContadoresTabs() {
-		['rebate', 'participacion', 'cuotas', 'jerarquia'].forEach(function (tipo) {
-			if (tipo !== tipoActivo) cargarContadorTab(tipo); // el de la pestaña activa ya lo llena cargarLista()
+		['rebate', 'participacion', 'cuotas', 'jerarquia', 'acuerdo_completo'].forEach(function (tipo) {
+			if (tipo !== tipoActivo) cargarContadorTab(tipo);
 		});
 	}
 
@@ -408,16 +471,14 @@
 		tabParticipacion.classList.toggle('active', tipo === 'participacion');
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
 		if (tabJerarquia) tabJerarquia.classList.toggle('active', tipo === 'jerarquia');
-		var tabsPorTipo = { rebate: tabRebate, participacion: tabParticipacion, cuotas: tabCuotas, jerarquia: tabJerarquia };
+		if (tabAcuerdoCompleto) tabAcuerdoCompleto.classList.toggle('active', tipo === 'acuerdo_completo');
+		var tabsPorTipo = { rebate: tabRebate, participacion: tabParticipacion, cuotas: tabCuotas, jerarquia: tabJerarquia, acuerdo_completo: tabAcuerdoCompleto };
 		posicionarIndicadorTab(tabsPorTipo[tipo]);
-		// Tarjeta mobile con jerarquía propia solo en Cuotas (ver style.css).
-		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', tipo === 'cuotas');
-		// Oculto de nuevo (pedido explícito): con el bypass de Distribuidor casi no quedan casos reales para esta cola.
+		// Tarjeta mobile con jerarquía propia, mismo layout para los 2 tipos agrupados.
+		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', !!TIPOS_CON_ASIGNACION[tipo]);
 		pendientesAbrirBtn.classList.add('hidden');
-		// resumenAbrirBtn: vuelto a mostrar, cubre el panorama histórico ("a quién le asigné cada Acta"), no solo el archivo por subir.
-		resumenAbrirBtn.classList.toggle('hidden', tipo !== 'cuotas');
-		exportarWrap.classList.toggle('hidden', tipo === 'cuotas');
-		// Filtro de Canal: solo Rebate, se resetea a "Todas" al cambiar de tab. Guardado con "if": sin esto, un despliegue a medias cortaba la función antes de cargarLista().
+		resumenAbrirBtn.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo]);
+		exportarWrap.classList.toggle('hidden', !!TIPOS_CON_ASIGNACION[tipo]);
 		if (rebateCanalGroup) {
 			rebateCanalGroup.classList.toggle('hidden', tipo !== 'rebate');
 			if (tipo !== 'rebate' && canalRebateFiltro !== 'total') {
@@ -425,13 +486,15 @@
 				Array.prototype.forEach.call(rebateCanalGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.toggle('ac-seg-pill-activo', b.dataset.canal === 'total'); });
 			}
 		}
-		// eliminadosAbrirBtn oculto a propósito; mecanismo intacto por si se retoma.
-		plantillaDescargarLink.classList.toggle('hidden', tipo === 'cuotas');
-		if (tipo !== 'cuotas') plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
-		// Cuotas (2026-09-17): picker Directo/Distribuidor en vez de link directo —
-		// esos 2 canales tienen columnas distintas, ver includes/repositorio_import.php.
-		plantillaCuotasWrap.classList.toggle('hidden', tipo !== 'cuotas');
-		if (tipo === 'cuotas') actualizarContadorPendientes();
+		plantillaDescargarLink.classList.toggle('hidden', !!TIPOS_CON_ASIGNACION[tipo]);
+		if (!TIPOS_CON_ASIGNACION[tipo]) plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
+		// Picker Directo/Distribuidor compartido por Cuotas y Acuerdo Completo, hrefs actualizados según tipo.
+		plantillaCuotasWrap.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo]);
+		if (TIPOS_CON_ASIGNACION[tipo]) {
+			plantillaCuotasDirectoLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo + '&canal=directo';
+			plantillaCuotasDistribuidorLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo + '&canal=distribuidor';
+			actualizarContadorPendientes();
+		}
 		actualizarHrefsExportar();
 		cargarLista();
 	}
@@ -439,6 +502,7 @@
 	tabParticipacion.addEventListener('click', function () { activarTab('participacion'); });
 	tabCuotas.addEventListener('click', function () { activarTab('cuotas'); });
 	if (tabJerarquia) tabJerarquia.addEventListener('click', function () { activarTab('jerarquia'); });
+	if (tabAcuerdoCompleto) tabAcuerdoCompleto.addEventListener('click', function () { activarTab('acuerdo_completo'); });
 
 	// ---------- Búsqueda ----------
 	buscarInput.addEventListener('input', function () {
@@ -506,7 +570,7 @@
 			contenedor.scrollLeft = startScroll - (e.pageX - startX);
 		});
 	}
-	activarArrastreScroll(document.querySelector('.ac-preview-table-scroll'));
+	Array.prototype.forEach.call(document.querySelectorAll('.ac-table-scroll'), activarArrastreScroll);
 
 	// Columnas de la previsualización: para Cuotas es distinto al de la tabla principal; para Rebate/Participación es el mismo de siempre.
 	function columnasPreview() {
@@ -576,7 +640,7 @@
 		subirOverlay.classList.remove('ac-modal-open');
 	}
 	function actualizarDropzoneBloqueo() {
-		var bloqueado = tipoActivo === 'cuotas' && !canalCuotasElegido;
+		var bloqueado = TIPOS_CON_ASIGNACION[tipoActivo] && !canalCuotasElegido;
 		dropzone.classList.toggle('ac-dropzone-bloqueado', bloqueado);
 	}
 
@@ -595,7 +659,7 @@
 		previewAnioWrap.classList.add('hidden');
 		ocultarErroresPreview();
 		canalCuotasElegido = null;
-		if (subirCanalWrap) subirCanalWrap.classList.toggle('hidden', tipoActivo !== 'cuotas');
+		if (subirCanalWrap) subirCanalWrap.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipoActivo]);
 		if (subirCanalGroup) Array.prototype.forEach.call(subirCanalGroup.querySelectorAll('.ac-canal-picker-opcion'), function (btn) { btn.classList.remove('ac-canal-picker-opcion-activa'); });
 		actualizarDropzoneBloqueo();
 	}
@@ -625,7 +689,7 @@
 	}
 
 	dropzone.addEventListener('click', function () {
-		if (tipoActivo === 'cuotas' && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
+		if (TIPOS_CON_ASIGNACION[tipoActivo] && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
 		archivoInput.click();
 	});
 	dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.classList.add('ac-dropzone-hover'); });
@@ -633,7 +697,7 @@
 	dropzone.addEventListener('drop', function (e) {
 		e.preventDefault();
 		dropzone.classList.remove('ac-dropzone-hover');
-		if (tipoActivo === 'cuotas' && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
+		if (TIPOS_CON_ASIGNACION[tipoActivo] && !canalCuotasElegido) { mostrarMensaje('Elegí primero si es Directo o Distribuidor.', false); return; }
 		if (e.dataTransfer.files.length) previsualizarArchivo(e.dataTransfer.files[0]);
 	});
 	archivoInput.addEventListener('change', function () {
@@ -648,7 +712,7 @@
 
 		mostrarProgresoCarga();
 		var xhr = new XMLHttpRequest();
-		var url = tipoActivo === 'cuotas' ? 'getters/cuotas_previsualizar_excel.php' : 'getters/repositorio_previsualizar_excel.php';
+		var url = ENDPOINTS_ASIGNACION[tipoActivo] ? ENDPOINTS_ASIGNACION[tipoActivo].previsualizar : 'getters/repositorio_previsualizar_excel.php';
 		xhr.open('POST', url);
 		xhr.upload.addEventListener('progress', function (e) {
 			if (!e.lengthComputable) return;
@@ -670,7 +734,7 @@
 			}
 			if (!data.ok) { mostrarMensaje(data.message, false); return; }
 			// El archivo elegido no coincide con lo que la persona dijo que iba a subir; el canal real lo sigue detectando el Excel.
-			if (tipoActivo === 'cuotas' && canalCuotasElegido && data.canal_detectado && data.canal_detectado !== canalCuotasElegido) {
+			if (TIPOS_CON_ASIGNACION[tipoActivo] && canalCuotasElegido && data.canal_detectado && data.canal_detectado !== canalCuotasElegido) {
 				var etiquetaElegido = canalCuotasElegido === 'distribuidor' ? 'Distribuidor' : 'Directo';
 				var etiquetaDetectado = data.canal_detectado === 'distribuidor' ? 'Distribuidor' : 'Directo';
 				Swal.fire({
@@ -691,7 +755,7 @@
 			var detalleCuotas = [etiquetaCanalCuotas, trimestrePreview ? 'Q' + trimestrePreview : ''].filter(Boolean).join(', ');
 			previewCantidad.textContent = data.filas.length + ' fila(s) detectada(s)' + (detalleCuotas ? ' (' + detalleCuotas + ')' : '');
 			estadosPreview = null;
-			if (tipoActivo === 'cuotas') {
+			if (TIPOS_CON_ASIGNACION[tipoActivo]) {
 				previewAnioInput.value = new Date().getFullYear();
 				previewAnioWrap.classList.remove('hidden');
 				if (trimestrePreview) {
@@ -773,7 +837,7 @@
 	// activarTab()). Cuenta Actas por `pos_id` distinto (no por fila — un cliente con 3
 	// categorías es 1 sola Acta), agrupadas por a quién se le asignaría cada una.
 	function renderPreviewResumen() {
-		if (tipoActivo !== 'cuotas' || !estadosPreview) { previewResumenBanner.classList.add('hidden'); return; }
+		if (!TIPOS_CON_ASIGNACION[tipoActivo] || !estadosPreview) { previewResumenBanner.classList.add('hidden'); return; }
 		// grupos: clave = nombre real, o 'Sin identificar todavía' (bucket único para lo que
 		// ni siquiera se pudo identificar). tieneCuentaPorGrupo guarda si ESE nombre tiene
 		// cuenta activa — un nombre real sin cuenta (2026-09-17, pedido explícito: "pronto
@@ -814,7 +878,7 @@
 
 	function renderPreviewTabla() {
 		var cols = columnasPreview();
-		var conEstado = tipoActivo === 'cuotas';
+		var conEstado = !!TIPOS_CON_ASIGNACION[tipoActivo];
 		if (conEstado) renderPreviewResumen();
 		previewTablaHead.innerHTML = '<tr>' + cols.map(function (c) {
 			return '<th>' + escapeHtml(c.label) + '</th>';
@@ -891,7 +955,7 @@
 	function actualizarEstadoBotonGuardar() {
 		var btn = document.getElementById('repo-subir-guardar');
 		if (!btn) return;
-		var bloqueado = tipoActivo === 'cuotas' && verificandoEstados;
+		var bloqueado = TIPOS_CON_ASIGNACION[tipoActivo] && verificandoEstados;
 		btn.disabled = bloqueado;
 		btn.classList.toggle('ac-btn-cargando', bloqueado);
 		if (bloqueado) btn.innerHTML = '<span class="material-symbols-outlined">progress_activity</span>Verificando…';
@@ -900,7 +964,7 @@
 
 	// Se llama al terminar de subir (con el año por default, hoy) y cada vez que el superdesarrollador cambia el Año — resuelve cliente/sector de SOLO LECTURA (nunca escribe) contra la base real para decidir si cada fila sería nueva, actualizaría algo que ya existe, o ya no se puede tocar (ya usada).
 	function verificarEstadosPreview() {
-		if (tipoActivo !== 'cuotas' || !filasPreview || !trimestrePreview) return;
+		if (!TIPOS_CON_ASIGNACION[tipoActivo] || !filasPreview || !trimestrePreview) return;
 		var anio = parseInt(previewAnioInput.value, 10);
 		if (!anio) return;
 		verificandoEstados = true;
@@ -977,9 +1041,10 @@
 			var sinCliente = e.estado === 'sin_cliente';
 			var sinAsesor = !!e.pos_id && !e.asignado_a;
 			var cediExcelNorm = normalizarParaComparar(f ? f.cedi_excel : '');
-			// Solo Directo (2026-09-21, caso real reportado: "puse CARLOS en vez de CARLOS PROAÑO") — el CEDI del Excel ahí SÍ es el nombre del asesor. Como no matcheó exacto contra ninguna cuenta activa, resolverNombreAsignadoCuota() cayó al respaldo del maestro y encontró bien al asesor real (por eso sinAsesor da false) — pero nadie avisaba que lo tipeado no coincidía con lo encontrado. Sin equivalente en Distribuidor: ahí el Excel nunca especifica asesor, se resuelve siempre del maestro.
+			// Solo Directo, y solo si no vino USUARIO (esa columna ya decide sola, sin comparar contra CEDI).
+			var usuarioExcelVacio = !f || !f.usuario_excel || !f.usuario_excel.trim();
 			var asignadoNorm = normalizarParaComparar(e.asignado_a);
-			var asesorNoCoincide = canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
+			var asesorNoCoincide = usuarioExcelVacio && canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
 			if (!sinCliente && !sinAsesor && !asesorNoCoincide) return;
 			vistos[clave] = true;
 			var motivos = [];
@@ -1001,7 +1066,7 @@
 	// Mismas clases .ac-choque-* que ya usa el modal "Resumen" para comparar Acta precargada vs Acuerdo existente — acá el lado izquierdo es el cliente+CEDI tal cual viene del Excel, el derecho TODOS los motivos que apliquen para ese cliente (2026-09-21, antes solo mostraba el primero por un if/else, pedido explícito de mostrar todos a la vez).
 	function confirmarAsignacionYGuardar(onDone) {
 		var problemas = filasConProblemaDeAsignacion();
-		if (!problemas.length) { guardarCuotas(onDone); return; }
+		if (!problemas.length) { guardarConAsignacion(onDone); return; }
 		var filasHtml = problemas.map(function (p) {
 			var ladoDerecho = p.motivos.map(function (m) {
 				return '<p class="ac-choque-eyebrow ac-choque-eyebrow-existente">' + escapeHtml(m.texto) + '</p>' +
@@ -1027,12 +1092,12 @@
 			cancelButtonText: 'Revisar el archivo',
 			confirmButtonColor: '#00288e'
 		}).then(function (r) {
-			if (r.isConfirmed) guardarCuotas(onDone);
+			if (r.isConfirmed) guardarConAsignacion(onDone);
 		});
 	}
 
-	// Guarda el paso 2 de la subida de Cuotas — endpoint y payload distintos a Rebate/Participación (getters/cuotas_guardar.php espera {filas, trimestre, anio}, no {tipo, filas}), y el año lo tipeó el usuario a mano (el Excel no lo trae, ver previsualizarArchivo()).
-	function guardarCuotas(onDone) {
+	// Guarda el paso 2 de la subida de Cuotas/Acuerdo Completo — endpoint y payload distintos a Rebate/Participación ({filas, trimestre, anio, canal}, no {tipo, filas}), y el año lo tipeó el usuario a mano (el Excel no lo trae, ver previsualizarArchivo()).
+	function guardarConAsignacion(onDone) {
 		var anio = parseInt(previewAnioInput.value, 10);
 		var anioActual = new Date().getFullYear();
 		if (!anio || anio < anioActual - 1 || anio > anioActual + 1) {
@@ -1041,14 +1106,15 @@
 		}
 		var filas = leerFilasPreviewEditadas();
 		ponerGuardarCargando(true);
-		fetch('getters/cuotas_guardar.php', {
+		var urlGuardar = (ENDPOINTS_ASIGNACION[tipoActivo] || ENDPOINTS_ASIGNACION.cuotas).guardar;
+		fetch(urlGuardar, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ filas: filas, trimestre: trimestrePreview, anio: anio, canal: canalCuotasPreview })
 		})
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				// Mismo bug de arriba (ver guardarFilas()) — cuotas_guardar.php también responde `ok:true` aunque 0 filas se hayan guardado de verdad; `data.guardadas` sí lo refleja.
+				// Mismo bug de arriba (ver guardarFilas()) — también responde `ok:true` aunque 0 filas se hayan guardado de verdad; `data.guardadas` sí lo refleja.
 				mostrarMensaje(data.message, data.ok && data.guardadas > 0);
 				if (onDone) onDone(data);
 			})
@@ -1071,7 +1137,7 @@
 			ponerGuardarCargando(false);
 			if (!data.ok) return;
 			cargarLista(); // lo que sí se guardó ya debe verse en la tabla de atrás
-			if (tipoActivo === 'cuotas') actualizarContadorPendientes();
+			if (TIPOS_CON_ASIGNACION[tipoActivo]) actualizarContadorPendientes();
 			var errores = data.errores || [];
 			var avisos = data.avisos || [];
 			// Bug real reportado 2026-08-30 ("después de guardar me da la impresión de que no se guardó porque aún veo la tabla") — antes, CUALQUIER aviso (aunque nada haya fallado de verdad, ej. "esta fila se repite en el archivo") dejaba el modal abierto con la MISMA tabla vieja, igual que si hubiera un error real que corregir — nada que corregir + tabla todavía ahí = parece que no guardó. Ahora: el modal se queda abierto SOLO si hay errores de verdad (algo no se guardó, tiene sentido poder corregir sin perder el resto del archivo); si son solo avisos, ya se guardó todo — se cierra el modal (mismo criterio que "nada que revisar") y el detalle de los avisos se muestra en un modal aparte (SweetAlert2, mismo componente que el resto de la app), para no perderlo sin dejar la sensación de "quedó a medias".
@@ -1119,7 +1185,7 @@
 				});
 			}
 		};
-		if (tipoActivo === 'cuotas') {
+		if (TIPOS_CON_ASIGNACION[tipoActivo]) {
 			confirmarAsignacionYGuardar(onDone);
 		} else if (tipoActivo === 'rebate') {
 			confirmarMaximoRebateYGuardar(onDone);
@@ -1207,20 +1273,24 @@
 	var pendientesOverlay = document.getElementById('repo-pendientes-modal-overlay');
 	var pendientesBody = document.getElementById('repo-pendientes-body');
 
+	function urlPendientesAsignar() {
+		return tipoActivo === 'acuerdo_completo' ? 'getters/acuerdo_completo_pendientes_asignar.php' : 'getters/cuotas_pendientes_asignar.php';
+	}
+
 	function actualizarContadorPendientes() {
-		fetch('getters/cuotas_pendientes_asignar.php')
+		fetch(urlPendientesAsignar())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) return;
 				pendientesCount.textContent = data.filas.length;
 			})
-			.catch(function () { /* silencioso — el contador no es crítico */ });
+			.catch(function () {});
 	}
 
 	function abrirPendientes() {
 		pendientesOverlay.classList.add('ac-modal-open');
 		pendientesBody.innerHTML = '<tr><td colspan="6" class="ac-table-empty">Cargando...</td></tr>';
-		fetch('getters/cuotas_pendientes_asignar.php')
+		fetch(urlPendientesAsignar())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar la cola.', false); return; }
@@ -1288,13 +1358,14 @@
 	function resolverPendiente(ids, accion, posId) {
 		var params = new URLSearchParams({ ids: ids, accion: accion });
 		if (posId) params.set('pos_id', posId);
-		fetch('getters/cuotas_resolver_match.php', { method: 'POST', body: params })
+		var urlResolver = tipoActivo === 'acuerdo_completo' ? 'getters/acuerdo_completo_resolver_match.php' : 'getters/cuotas_resolver_match.php';
+		fetch(urlResolver, { method: 'POST', body: params })
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				mostrarMensaje(data.message, data.ok);
 				if (!data.ok) return;
 				abrirPendientes(); // recarga la cola completa (cuenta y filas quedan consistentes)
-				if (tipoActivo === 'cuotas') cargarLista(); // la fila resuelta ya debe verse en la tabla principal
+				if (TIPOS_CON_ASIGNACION[tipoActivo]) cargarLista(); // la fila resuelta ya debe verse en la tabla principal
 			})
 			.catch(function () { mostrarMensaje('Error de conexión.', false); });
 	}
@@ -1457,12 +1528,15 @@
 
 	function abrirResumen() {
 		resumenOverlay.classList.add('ac-modal-open');
+		var tituloEl = document.getElementById('repo-resumen-modal-titulo');
+		if (tituloEl) tituloEl.textContent = 'Resumen de ' + CONFIG[tipoActivo].label;
 		resumenVistaActiva = 'pendientes';
 		resumenStats.innerHTML = '';
 		resumenChart.innerHTML = '<p class="ac-field-hint">Cargando...</p>';
 		resumenChoque.classList.add('hidden');
 		resumenChoque.innerHTML = '';
-		fetch('getters/cuotas_resumen.php')
+		var urlResumen = tipoActivo === 'acuerdo_completo' ? 'getters/acuerdo_completo_resumen.php' : 'getters/cuotas_resumen.php';
+		fetch(urlResumen)
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el resumen.', false); return; }

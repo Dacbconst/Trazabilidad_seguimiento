@@ -313,6 +313,25 @@
 	.ep-foto-slot {
 		width: 100% !important;
 	}
+	/* Competencia puede tener muchos puntos de fotos (sin tope): en celular esa fila se desliza de lado, el resto de la pantalla no. */
+	.ep-evidencia-actividad[data-plantilla="competencia"] .ep-evidencia-grid-panoramica {
+		display: flex;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		scroll-snap-type: x proximity;
+		gap: 10px;
+		padding-bottom: 4px;
+		scrollbar-width: none;
+	}
+	.ep-evidencia-actividad[data-plantilla="competencia"] .ep-evidencia-grid-panoramica::-webkit-scrollbar {
+		display: none;
+	}
+	.ep-evidencia-actividad[data-plantilla="competencia"] .ep-foto-slot {
+		flex: 0 0 148px;
+		width: 148px !important;
+		scroll-snap-align: start;
+	}
 	.ep-foto-dropzone {
 		border: 1.5px dashed #C9B8E6;
 		background: #F9F8FD;

@@ -182,7 +182,7 @@
 			})
 			.catch(function () {});
 	}
-	if (window.epVivo) window.epVivo({ url: 'getters/auditoria_vivo.php', indicador: 'epAuVivo', cada: 4000, alCambiar: function () { refrescar(); } });
+	if (window.epVivo) window.epVivo({ url: 'getters/auditoria_vivo.php', indicador: 'epAuVivo', cada: 1200, alCambiar: function () { refrescar(); } });
 
 	aplicar();
 })();

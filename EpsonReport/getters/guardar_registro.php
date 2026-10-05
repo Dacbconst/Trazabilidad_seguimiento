@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -13,12 +13,8 @@ if (!ep_login_check()) {
 	exit;
 }
 
-// Los supervisores revisan y programan, no envían registros: sin esto uno quedaba sin supervisor y solo el admin lo veía.
-if (ep_es_supervisor()) {
-	http_response_code(403);
-	echo json_encode(['success' => false, 'error' => 'Un supervisor no envía registros de actividad.']);
-	exit;
-}
+// Liberado a pedido del cliente (2026-10-03, "hasta nuevo aviso"): un supervisor sí puede enviar registros de cualquier tipo.
+// Si se vuelve a restringir, el bloqueo iba aquí (ep_es_supervisor() -> 403).
 
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/fotos_datos.php';
@@ -46,6 +42,135 @@ function ep_entero($v) {
 $tipo = trim($payload['tipo'] ?? 'activaciones');
 $actividadLabel = trim($payload['actividad_label'] ?? ucfirst($tipo));
 $actividadBadge = trim($payload['actividad_badge'] ?? 'Registro de Campo');
+
+// Competencia: un solo registro con varios puntos de venta (cada uno con sus propias fotos y descripciones), no un pos_id único.
+if ($tipo === 'competencia') {
+	require_once __DIR__.'/../includes/pdv_datos.php';
+	require_once __DIR__.'/../includes/login_datos.php';
+	require_once __DIR__.'/../includes/fotos_datos.php';
+	require_once __DIR__.'/../includes/registros_datos.php';
+	require_once __DIR__.'/../includes/aprobacion_datos.php';
+
+	$valores = is_array($payload['valores'] ?? null) ? $payload['valores'] : [];
+	$puntosEntrada = is_array($valores['puntos'] ?? null) ? $valores['puntos'] : [];
+	if (!$puntosEntrada) {
+		http_response_code(422);
+		echo json_encode(['success' => false, 'error' => 'Agrega al menos un punto de venta.']);
+		exit;
+	}
+
+	$conAprobacion = ep_aprobacion_activa();
+	$canales = ep_canales_usuario();
+	$reqFotos = ep_fotos_requeridas($tipo);
+	$idsConocidos = array_column($reqFotos, 'id');
+	$sinSimbolos = function ($v) { return preg_replace('/[^A-Z0-9]/', '', strtoupper((string) $v)); };
+	$usuarioLimpio = $sinSimbolos($_SESSION['usuario']);
+	$hora = date('H:i');
+
+	$puntosFinal = [];
+	$supervisoresVistos = [];
+	foreach ($puntosEntrada as $i => $p) {
+		// Igual que con un solo punto: nunca se confía en lo que manda el navegador, se revalida contra la base.
+		$posIdPunto = trim((string) ($p['pos_id'] ?? ''));
+		$punto = $posIdPunto !== '' ? ep_pdv_obtener($posIdPunto, $canales) : null;
+		if (!$punto) {
+			http_response_code(422);
+			echo json_encode(['success' => false, 'error' => 'El punto de venta '.($i + 1).' no es válido.']);
+			exit;
+		}
+		$fotosSubidas = is_array($p['fotos'] ?? null) ? $p['fotos'] : [];
+		$descripcionesRecibidas = is_array($p['descripciones'] ?? null) ? $p['descripciones'] : [];
+		$fotosFinal = [];
+		$faltantes = 0;
+		foreach ($reqFotos as $rf) {
+			$ruta = (string) ($fotosSubidas[$rf['id']] ?? '');
+			$esperado = $usuarioLimpio.$sinSimbolos($rf['id']);
+			if ($ruta !== '' && !preg_match('#^[A-Za-z]+/\d{14}'.preg_quote($esperado, '#').'\.(jpg|png|webp)$#', $ruta)) {
+				$ruta = '';
+			}
+			if ($ruta === '' && empty($rf['opcional'])) {
+				$faltantes++;
+			}
+			$fotosFinal[] = ['id' => $rf['id'], 'label' => $rf['label'], 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => $ruta, 'url' => $ruta !== '' ? 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta : ''];
+		}
+		if ($faltantes > 0) {
+			http_response_code(422);
+			echo json_encode(['success' => false, 'error' => 'Al punto de venta '.$punto['nombre'].' le falta subir una foto obligatoria.']);
+			exit;
+		}
+		foreach ($fotosSubidas as $fotoId => $ruta) {
+			if (in_array($fotoId, $idsConocidos, true) || !preg_match('/^foto-\d+$/', $fotoId)) {
+				continue;
+			}
+			$esperado = $usuarioLimpio.$sinSimbolos($fotoId);
+			if (!preg_match('#^[A-Za-z]+/\d{14}'.preg_quote($esperado, '#').'\.(jpg|png|webp)$#', (string) $ruta)) {
+				continue;
+			}
+			$fotosFinal[] = ['id' => $fotoId, 'label' => ep_foto_extra_label($tipo), 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => $ruta, 'url' => 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta];
+		}
+		$descripciones = [];
+		foreach ($fotosFinal as $f) {
+			if ($f['ruta'] === '') {
+				continue;
+			}
+			$texto = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) ($descripcionesRecibidas[$f['id']] ?? ''))), 0, EP_FOTO_DESCRIPCION_MAX, 'UTF-8');
+			if ($texto === '') {
+				http_response_code(422);
+				echo json_encode(['success' => false, 'error' => 'Falta la descripción de una foto en '.$punto['nombre'].'.']);
+				exit;
+			}
+			$descripciones[$f['id']] = $texto;
+		}
+		$supervisorPunto = $conAprobacion ? ep_supervisor_asignado((int) $_SESSION['usuario_id'], $punto['canal']) : null;
+		if ($supervisorPunto) {
+			$supervisoresVistos[$supervisorPunto] = true;
+		}
+		$puntosFinal[] = [
+			'pos_id' => $punto['pos_id'], 'punto_venta' => $punto['nombre'], 'cadena' => $punto['cadena'], 'ciudad' => $punto['ciudad'], 'canal' => $punto['canal'],
+			'fotos' => $fotosFinal, 'descripciones' => $descripciones,
+		];
+	}
+
+	// El primer supervisor que aparece es el "dueño" del registro (columna supervisor_id); si hay otro canal de por medio,
+	// el resto queda en supervisores_extra dentro del JSON (ver ep_aprobacion_filtro_alcance) para que también lo vean.
+	$supervisorIds = array_keys($supervisoresVistos);
+	$supervisorPrincipal = $supervisorIds ? array_shift($supervisorIds) : null;
+
+	$usuario = $_SESSION['usuario'];
+	$id = ep_codigo_registro($tipo, (int) $_SESSION['usuario_id'], $usuario);
+	$primero = $puntosFinal[0];
+	$registro = [
+		'id' => $id,
+		'tipo' => $tipo,
+		'actividad_label' => $actividadLabel,
+		'actividad_badge' => $actividadBadge,
+		'fecha_iso' => date('Y-m-d'),
+		'hora' => $hora,
+		'estado' => $conAprobacion ? 'Pendiente' : 'Aprobado',
+		'supervisor_id' => $supervisorPrincipal,
+		'pos_id' => $primero['pos_id'],
+		'punto_venta' => $primero['punto_venta'],
+		'cadena' => $primero['cadena'],
+		'ciudad' => $primero['ciudad'],
+		'canal' => $primero['canal'],
+		'promotor' => $_SESSION['nombre'] ?? ucwords(str_replace('.', ' ', $usuario)),
+		'promotor_usuario' => $usuario,
+		'puntos' => $puntosFinal,
+		'supervisores_extra' => $supervisorIds,
+		'fotos' => [],
+		'comentarios' => [],
+	];
+
+	$ok = ep_guardar_nuevo_registro($registro, (int) $_SESSION['usuario_id']);
+	if ($ok) {
+		echo json_encode(['success' => true, 'id' => $id, 'pendiente' => $conAprobacion, 'mensaje' => 'Registro '.$id.' guardado con '.count($puntosFinal).' punto(s) de venta.', 'redirect' => 'index.php?vista=historial&nuevo='.urlencode($id)]);
+	} else {
+		http_response_code(500);
+		echo json_encode(['success' => false, 'error' => 'No se pudo guardar el registro. Intenta de nuevo.']);
+	}
+	exit;
+}
+
 // El punto de venta se resuelve en la base, activo y de un canal permitido para el usuario; nunca se toma tal cual del navegador.
 require_once __DIR__.'/../includes/pdv_datos.php';
 require_once __DIR__.'/../includes/login_datos.php';

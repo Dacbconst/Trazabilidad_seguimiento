@@ -70,4 +70,22 @@
 	comboAct.pintar();
 	comboMes.pintar();
 	aplicar();
+
+	// En vivo: si cambió algo (nuevo reporte, uno eliminado), se vuelve a traer la lista sin perder los filtros.
+	function refrescar() {
+		fetch('getters/reportes_filas.php', { cache: 'no-store', credentials: 'same-origin' })
+			.then(function (r) { return r.ok ? r.text() : null; })
+			.then(function (html) {
+				if (html === null) return;
+				lista.innerHTML = html;
+				tarjetas = Array.prototype.slice.call(lista.querySelectorAll('.ep-rp-card'));
+				grupos = Array.prototype.slice.call(lista.querySelectorAll('.ep-rp-grupo'));
+				sin = document.getElementById('epRpSin');
+				comboAct.pintar();
+				comboMes.pintar();
+				aplicar();
+			})
+			.catch(function () {});
+	}
+	if (window.epVivo) window.epVivo({ url: 'getters/reportes_vivo.php', indicador: 'epRpVivo', cada: 1200, alCambiar: refrescar });
 })();

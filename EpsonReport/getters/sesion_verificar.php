@@ -1,7 +1,7 @@
 <?php
 // Ping liviano para sesion-watch.js: ep_login_check() ya vacía la sesión si otro login pisó el token; acá solo se avisa al frontend.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 header('Content-Type: application/json; charset=utf-8');

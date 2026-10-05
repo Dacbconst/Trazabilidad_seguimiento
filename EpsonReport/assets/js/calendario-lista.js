@@ -150,7 +150,7 @@
 	raiz.querySelectorAll('.ep-cl-pop-mas').forEach(function (pop) {
 		var menu = pop.querySelector('.ep-cl-menu');
 		conectar(pop.querySelector('.ep-cl-mas'), menu);
-		menu.addEventListener('click', function (e) { if (e.target.closest('button')) cerrarPanel(); });
+		menu.addEventListener('click', function (e) { if (e.target.closest('button, a')) cerrarPanel(); });
 	});
 
 	// Canal
@@ -271,7 +271,7 @@
 		if (cambio) aplicar();
 	}
 	document.addEventListener('DOMContentLoaded', function () {
-		if (window.epVivo) window.epVivo({ url: 'getters/calendario_vivo.php', indicador: 'epClVivo', cada: 4000, alCambiar: actualizarEnVivo });
+		if (window.epVivo) window.epVivo({ url: 'getters/calendario_vivo.php', indicador: 'epClVivo', cada: 1200, alCambiar: actualizarEnVivo });
 	});
 
 	aplicar();

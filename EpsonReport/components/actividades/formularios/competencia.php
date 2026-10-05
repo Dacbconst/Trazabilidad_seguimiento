@@ -1,4 +1,6 @@
 <!-- Sin campos cuantitativos: punto de venta (arriba, común a todas) y fotos con su descripción (abajo). -->
+<!-- Puntos de venta ya guardados en esta sesión (Competencia permite varios antes de terminar); JS lo llena. -->
+<div class="ep-competencia-completados" id="epCompetenciaCompletados"></div>
 <div class="ep-steps">
 	<div class="ep-step">
 		<div class="ep-step-rail">

@@ -750,7 +750,8 @@
 			var marca = fila.querySelector('.marca-select').value;
 			var reps = fila.querySelectorAll('.v-val-repetido');
 			var valorActual = reps.length ? (parseFloat(reps[0].value) || 0) : 0;
-			return '<tr><td>' + escapeHtml(marca) + '</td><td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-ruma-legend-input" value="' + valorActual + '"></div></td></tr>';
+			var bloqueada = fila.dataset.bloqueado === '1';
+			return '<tr><td>' + escapeHtml(marca) + '</td><td class="ac-text-right"><div class="ac-money-field"><input type="number" step="0.01" min="0" class="ac-input ac-mini-input ac-ruma-legend-input" value="' + valorActual + '"' + (bloqueada ? ' readonly' : '') + '></div></td></tr>';
 		}).join('');
 
 		Array.prototype.forEach.call(rumasLegendBody.querySelectorAll('.ac-ruma-legend-input'), function (input, i) {
@@ -1325,14 +1326,22 @@
 		localidadEl.textContent = a.localidad || '—';
 		actualizarBloqueoPorDistribuidor();
 
-		// No se llama a resetearZonaVisibilidad() aunque esté desactivado: poblarTablasConLineas() ya reconstruye desde a.lineas (vacías si el switch estaba apagado).
-		// de_cuotas (viene de una precarga de Cuotas, aunque se haya guardado como Borrador): siempre sin Visibilidad y bloqueado, no se puede reactivar.
-		visibilidadActiva = a.de_cuotas ? false : !a.sin_visibilidad;
+		// de_cuotas: siempre sin Visibilidad. de_acuerdo_completo: Visibilidad según si hay datos reales, igual bloqueada.
+		visibilidadActiva = a.de_cuotas ? false : (a.de_acuerdo_completo ? !!(a.lineas.cabecera.length || a.lineas.ruma.length || a.lineas.percha.length) : !a.sin_visibilidad);
 		visibilidadToggle.checked = visibilidadActiva;
-		visibilidadToggle.disabled = !!a.de_cuotas;
+		visibilidadToggle.disabled = !!a.de_cuotas || !!a.de_acuerdo_completo;
 		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(a.lineas);
+		if (a.de_acuerdo_completo) {
+			bloquearFilasPrecargadas(purchaseBody, a.lineas.meta_compra);
+			if ((a.lineas.cabecera || []).length) bloquearFilasPrecargadas(cabecerasBody, a.lineas.cabecera);
+			else bloquearTablaSinDatos(cabecerasBody, 'ac-add-cabecera-row');
+			if ((a.lineas.ruma || []).length) bloquearFilasPrecargadas(rumasBody, a.lineas.ruma);
+			else bloquearTablaSinDatos(rumasBody, 'ac-add-ruma-row');
+			if ((a.lineas.percha || []).length) bloquearFilasPrecargadas(perchasBody, a.lineas.percha);
+			else bloquearTablaSinDatos(perchasBody, 'ac-add-percha-row');
+		}
 		// Cargar un borrador no es un cambio "sin guardar" propio: recién se vuelve sucio si el usuario lo edita a partir de acá.
 		formSucio = false;
 		mostrarMensaje('Borrador #' + a.documento_no + ' cargado. Puedes seguir editándolo.', true);
@@ -1348,35 +1357,55 @@
 			.catch(function () { mostrarMensaje('Error de conexión al cargar el borrador.', false); });
 	}
 
-	// Deja readonly las celdas de Meta de Compras precargada: Segmento/Sector y montos siempre; Subcategoría/Marca solo si vinieron resueltas.
-	function bloquearFilasPrecargadas(lineasMeta) {
-		var filas = purchaseBody.querySelectorAll('tr');
-		Array.prototype.forEach.call(filas, function (tr, i) {
-			var fila = lineasMeta[i];
-			if (!fila || !fila.bloqueado) return;
-			Array.prototype.forEach.call(tr.querySelectorAll('.month-input'), function (inp) { inp.readOnly = true; });
-			// Segmento/Sector solo se bloquean si vinieron resueltos: si quedó ambiguo, la fila sigue el cascade normal.
-			if (fila.segmento) {
-				tr.querySelector('.seg-input').disabled = true;
-				tr.querySelector('.seg-input').classList.add('ac-combo-input-precargado');
-				tr.querySelector('.sector-input').disabled = true;
-				tr.querySelector('.sector-input').classList.add('ac-combo-input-precargado');
-			}
-			if (fila.categoria) {
-				tr.querySelector('.cat-input').disabled = true;
-				tr.querySelector('.cat-input').classList.add('ac-combo-input-precargado');
-			}
-			if (fila.marca) {
-				tr.querySelector('.marca-input').disabled = true;
-				tr.querySelector('.marca-input').classList.add('ac-combo-input-precargado');
-			}
-			// La fila no debe poder eliminarse: se deshabilita el botón en vez de sacarlo del DOM para no tocar el layout.
-			var btnEliminar = tr.querySelector('.ac-remove-row');
-			if (btnEliminar) { btnEliminar.disabled = true; btnEliminar.title = 'Esta fila viene de una Acta precargada — no se puede quitar'; }
+	// Bloquea Segmento/Sector/Categoría/Marca de una fila SOLO si vinieron resueltos — si quedó ambiguo, sigue el cascade normal.
+	function bloquearIdentidadFila(tr, fila) {
+		if (!fila || !fila.bloqueado) return false;
+		[['.seg-input', fila.segmento], ['.sector-input', fila.segmento], ['.cat-input', fila.categoria], ['.categoria-input', fila.categoria], ['.marca-input', fila.marca]].forEach(function (par) {
+			var el = tr.querySelector(par[0]);
+			if (el && par[1]) { el.disabled = true; el.classList.add('ac-combo-input-precargado'); }
 		});
-		// "Agregar Fila" de Meta de Compras también se bloquea: la tabla es fija cuando la Acta vino de una precarga.
-		var btnAgregar = document.getElementById('ac-add-purchase-row');
-		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta viene de una precarga — la tabla de Meta de Compras es fija'; }
+		return true;
+	}
+
+	// Bloquea una tabla precargada; Ruma usa data-bloqueado porque su valor vive en la leyenda, no en la fila.
+	function bloquearFilasPrecargadas(body, lineas) {
+		if (!lineas || !lineas.length) return;
+		var botonesAgregar = { };
+		botonesAgregar[purchaseBody.id] = 'ac-add-purchase-row';
+		botonesAgregar[cabecerasBody.id] = 'ac-add-cabecera-row';
+		botonesAgregar[rumasBody.id] = 'ac-add-ruma-row';
+		botonesAgregar[perchasBody.id] = 'ac-add-percha-row';
+
+		var algoBloqueado = false;
+		Array.prototype.forEach.call(body.querySelectorAll('tr'), function (tr, i) {
+			if (!bloquearIdentidadFila(tr, lineas[i])) return;
+			algoBloqueado = true;
+			if (body === rumasBody) tr.dataset.bloqueado = '1';
+			else {
+				var selectoresValor = body === perchasBody ? ['.v-val', '.v-cantidad'] : (body === cabecerasBody ? ['.v-val'] : ['.month-input']);
+				selectoresValor.forEach(function (sel) {
+					Array.prototype.forEach.call(tr.querySelectorAll(sel), function (inp) { inp.readOnly = true; });
+				});
+			}
+			var btnEliminar = tr.querySelector('.ac-remove-row');
+			if (btnEliminar) { btnEliminar.disabled = true; btnEliminar.title = 'Esta fila viene de una Acta precargada'; }
+		});
+		if (!algoBloqueado) return;
+		if (body === rumasBody) updateRumaLegend();
+		var btnAgregar = document.getElementById(botonesAgregar[body.id]);
+		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta viene de una precarga'; }
+	}
+
+	// Tabla que el Acuerdo Completo mandó sin ninguna línea: se bloquea entera (ni tipear ni agregar fila), no solo "Agregar Fila" — a diferencia de Cuotas, acá "vacía" significa "esta Acta no trae esto", no "complétalo si querés".
+	function bloquearTablaSinDatos(body, idBotonAgregar) {
+		var tr = body.querySelector('tr');
+		if (tr) {
+			Array.prototype.forEach.call(tr.querySelectorAll('input, select, button'), function (el) { el.disabled = true; });
+			if (body === rumasBody) tr.dataset.bloqueado = '1';
+		}
+		var btnAgregar = document.getElementById(idBotonAgregar);
+		if (btnAgregar) { btnAgregar.disabled = true; btnAgregar.title = 'Esta Acta no trae esta tabla.'; }
+		if (body === rumasBody) updateRumaLegend();
 	}
 
 	function desbloquearAgregarOtrasTablas() {
@@ -1389,7 +1418,7 @@
 	function aplicarPrecarga(p, trimestre, anio) {
 		acuerdoId = null;
 		documentoNo = null;
-		origenPrecarga = { pos_id: p.pos_id, trimestre: trimestre, anio: anio };
+		origenPrecarga = { pos_id: p.pos_id, trimestre: trimestre, anio: anio, origen: 'cuotas' };
 
 		anioSelect.value = p.anio;
 		selectedStart = p.mes_inicio;
@@ -1432,22 +1461,79 @@
 		aplicarBloqueoVisibilidad();
 
 		poblarTablasConLineas(p.lineas);
-		bloquearFilasPrecargadas(p.lineas.meta_compra);
+		bloquearFilasPrecargadas(purchaseBody, p.lineas.meta_compra);
 
 		// Cargar la precarga no es en sí un cambio "sin guardar": recién se vuelve sucio si el asesor edita a partir de acá (mismo criterio que un Borrador).
 		formSucio = false;
 		mostrarMensaje('Acta precargada cargada. Completa lo que falte y genera el Acta.', true);
 	}
 
-	function cargarPrecarga(posId, trimestre, anio) {
+	// A diferencia de Cuotas, acá las 4 tablas pueden venir bloqueadas con datos reales.
+	function aplicarAcuerdoCompleto(p, trimestre, anio) {
+		acuerdoId = null;
+		documentoNo = null;
+		origenPrecarga = { pos_id: p.pos_id, trimestre: trimestre, anio: anio, origen: 'completo' };
+
+		anioSelect.value = p.anio;
+		selectedStart = p.mes_inicio;
+		selectedEnd = p.mes_fin;
+		activeMonthsIndices = [];
+		for (var i = selectedStart; i <= selectedEnd; i++) activeMonthsIndices.push(i);
+		for (var q = 0; q < TRIMESTRES.length; q++) {
+			if (TRIMESTRES[q][0] === selectedStart && TRIMESTRES[q][1] === selectedEnd) { periodoSelect.value = String(q); break; }
+		}
+		updatePickerUI();
+
+		if (catalogoDistribuidor.canal === 'distribuidor') {
+			var empresaDeCliente = null;
+			Object.keys(catalogoDistribuidor.empresas).some(function (emp) {
+				var match = catalogoDistribuidor.empresas[emp].some(function (c) { return c.pos_id === p.pos_id; });
+				if (match) empresaDeCliente = emp;
+				return match;
+			});
+			if (empresaDeCliente) {
+				empresaSelect.value = empresaDeCliente;
+				empresaSearch.value = p.empresa_distribuidora_excel || empresaDeCliente;
+				distribuidorSearch.disabled = false;
+			}
+		}
+		distribuidorSelect.value = p.pos_id;
+		distribuidorSearch.value = p.distribuidor;
+		localidadEl.textContent = p.localidad || '—';
+		actualizarBloqueoPorDistribuidor();
+
+		var hayVisibilidad = (p.lineas.cabecera || []).length || (p.lineas.ruma || []).length || (p.lineas.percha || []).length;
+		visibilidadActiva = !!hayVisibilidad;
+		visibilidadToggle.checked = visibilidadActiva;
+		visibilidadToggle.disabled = true;
+		if (!hayVisibilidad) resetearZonaVisibilidad();
+		aplicarBloqueoVisibilidad();
+
+		poblarTablasConLineas(p.lineas);
+		bloquearFilasPrecargadas(purchaseBody, p.lineas.meta_compra);
+		if ((p.lineas.cabecera || []).length) bloquearFilasPrecargadas(cabecerasBody, p.lineas.cabecera);
+		else bloquearTablaSinDatos(cabecerasBody, 'ac-add-cabecera-row');
+		if ((p.lineas.ruma || []).length) bloquearFilasPrecargadas(rumasBody, p.lineas.ruma);
+		else bloquearTablaSinDatos(rumasBody, 'ac-add-ruma-row');
+		if ((p.lineas.percha || []).length) bloquearFilasPrecargadas(perchasBody, p.lineas.percha);
+		else bloquearTablaSinDatos(perchasBody, 'ac-add-percha-row');
+
+		formSucio = false;
+		mostrarMensaje('Acta cargada. Completa lo que falte y genera el Acuerdo.', true);
+	}
+
+	function cargarPrecarga(posId, trimestre, anio, origen) {
+		var esCompleto = origen === 'completo';
+		var url = esCompleto ? 'getters/obtener_acuerdo_completo_precargado.php' : 'getters/obtener_acta_precargada.php';
 		var params = new URLSearchParams({ pos_id: posId, trimestre: trimestre, anio: anio });
-		fetch('getters/obtener_acta_precargada.php?' + params.toString())
+		fetch(url + '?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
-				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar la Acta precargada.', false); return; }
-				aplicarPrecarga(data.precarga, trimestre, anio);
+				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el Acta.', false); return; }
+				if (esCompleto) aplicarAcuerdoCompleto(data.precarga, trimestre, anio);
+				else aplicarPrecarga(data.precarga, trimestre, anio);
 			})
-			.catch(function () { mostrarMensaje('Error de conexión al cargar la Acta precargada.', false); });
+			.catch(function () { mostrarMensaje('Error de conexión al cargar el Acta.', false); });
 	}
 
 	// La campanita vive en assets/js/alertas-firma.js, pero cargar la precarga en el formulario solo lo puede hacer este módulo.

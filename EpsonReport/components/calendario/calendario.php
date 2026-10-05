@@ -168,6 +168,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 					<div class="ep-cl-pop ep-cl-pop-mas">
 						<button type="button" class="ep-cl-accion ep-cl-mas" aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de <?= $h($nombre) ?>"><?= $iconoMas ?><?= $etiqueta('Más acciones', 'Más') ?></button>
 						<div class="ep-cl-menu" role="menu" hidden>
+							<a role="menuitem" href="getters/calendario_excel.php?id=<?= $id ?>"><?= ep_icon('file', 15) ?> Descargar Excel</a>
 							<?php if ($vista === 'completo' && !$sinReporte): ?>
 								<button type="button" role="menuitem" class="ep-cal-reactivar" data-id="<?= $id ?>"><?= $iconoReactivar ?> Reactivar</button>
 							<?php endif; ?>

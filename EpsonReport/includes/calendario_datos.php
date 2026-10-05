@@ -307,10 +307,10 @@ function ep_calendario_filas_tabla(int $calendarioId): array {
 	if (!$db) {
 		return [];
 	}
-	$stmt = $db->prepare('SELECT fecha, ciudad, punto_venta, promotor_nombre AS promotor, estado, registro_id FROM insert_reporte_calendario_fila WHERE calendario_id = ? ORDER BY fecha, ciudad, punto_venta');
+	$stmt = $db->prepare('SELECT fecha, ciudad, punto_venta, promotor_nombre AS promotor, supervisor_nombre AS supervisor, estado, registro_id FROM insert_reporte_calendario_fila WHERE calendario_id = ? ORDER BY fecha, ciudad, punto_venta');
 	$stmt->bind_param('i', $calendarioId);
 	$stmt->execute();
-	return array_map(fn($f) => ['fecha' => $f['fecha'], 'ciudad' => (string) $f['ciudad'], 'punto_venta' => $f['punto_venta'], 'promotor' => $f['promotor'], 'estado' => $f['estado'], 'registro_id' => $f['registro_id'] !== null ? (int) $f['registro_id'] : null], $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+	return array_map(fn($f) => ['fecha' => $f['fecha'], 'ciudad' => (string) $f['ciudad'], 'punto_venta' => $f['punto_venta'], 'promotor' => $f['promotor'], 'supervisor' => (string) ($f['supervisor'] ?? ''), 'estado' => $f['estado'], 'registro_id' => $f['registro_id'] !== null ? (int) $f['registro_id'] : null], $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
 }
 
 // Tabla del calendario de un reporte guardado antes de congelarla en su copia.

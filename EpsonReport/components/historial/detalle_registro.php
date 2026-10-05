@@ -10,6 +10,17 @@ $modelos = $r['modelos'] ?? [];
 usort($modelos, fn($a, $b) => ($b['cantidad'] ?? 0) <=> ($a['cantidad'] ?? 0));
 $comentarios = array_values(array_filter((array) ($r['comentarios'] ?? [])));
 $fotos = $r['fotos'] ?? [];
+// Competencia con varios puntos de venta: no hay una sola grilla de fotos, se juntan las de todos los puntos con el punto en la etiqueta.
+$puntosCompetencia = $r['puntos'] ?? [];
+if ($puntosCompetencia && is_array($puntosCompetencia)) {
+	$fotos = [];
+	foreach ($puntosCompetencia as $punto) {
+		foreach ($punto['fotos'] ?? [] as $f) {
+			$f['label'] = trim((string) ($punto['punto_venta'] ?? '')).' — '.($f['label'] ?? '');
+			$fotos[] = $f;
+		}
+	}
+}
 $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
 $estadoReg = $r['estado'] ?? 'Aprobado';
 $enModoAprobacion = !empty($modoAprobacion);
@@ -18,7 +29,7 @@ $enModoAprobacion = !empty($modoAprobacion);
 	<span class="ep-h2-det-ico"><?= ep_icon(ep_icono_tipo($tipo), 22) ?></span>
 	<?php $fechaPlan = $r['fecha_actividad'] ?? ($r['fecha_iso'] ?? ''); ?>
 	<div class="ep-h2-det-titulo">
-		<strong title="<?= $h($r['id'] ?? '') ?>"><?= $h(trim((string) ($r['punto_venta'] ?? '')) ?: ($r['actividad_label'] ?? 'Actividad')) ?></strong>
+		<strong title="<?= $h($r['id'] ?? '') ?>"><?= $h(trim((string) ($r['punto_venta'] ?? '')) ?: ($r['actividad_label'] ?? 'Actividad')) ?><?= count($puntosCompetencia) > 1 ? ' + '.(count($puntosCompetencia) - 1).' punto'.(count($puntosCompetencia) > 2 ? 's' : '').' más' : '' ?></strong>
 		<small><?= $h($r['actividad_label'] ?? 'Actividad') ?><?= !empty($r['tipo_actividad']) ? ' · '.$h($r['tipo_actividad']) : '' ?></small>
 		<div class="ep-h2-det-meta">
 			<?php if ($fechaPlan): ?><span><?= ep_icon('calendar', 13) ?> <?= $h(date('d/m/Y', strtotime($fechaPlan))) ?></span><?php endif; ?>

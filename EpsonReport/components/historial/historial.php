@@ -21,15 +21,39 @@ if (!$esAdmin) {
 }
 $totalRegistros = count($todosRegistros);
 $totalPromotores = count(array_unique(array_filter(array_column($todosRegistros, 'promotor'))));
+
+// Datos para el modal "Exportar a Excel": lista de actividades y promotores, en cascada por supervisor (solo el admin ve el filtro de Supervisor).
+$epExcelEsAdminReal = ep_es_admin();
+$epExcelActividades = array_map(fn($l) => ['tipo' => $l['plantilla'], 'nombre' => $l['label']], ep_logicas());
+$epExcelSupervisores = [];
+$epExcelPromotoresPorSupervisor = [];
+if ($esAdmin) {
+	$dbExcel = ep_db();
+	if ($dbExcel) {
+		if ($epExcelEsAdminReal) {
+			$resSup = $dbExcel->query("SELECT id, nombre FROM repositorio_usuarios_reporte WHERE rol = 'supervisor' AND status = 'activo' ORDER BY nombre");
+			$epExcelSupervisores = $resSup ? $resSup->fetch_all(MYSQLI_ASSOC) : [];
+		}
+		// El admin ve el equipo de cada supervisor; un supervisor solo el suyo (misma consulta, se filtra abajo por su propio id).
+		$resProm = $dbExcel->query("SELECT nombre, supervisor_canales_id, supervisor_retail_id FROM repositorio_usuarios_reporte WHERE rol = 'promotor' AND status = 'activo' ORDER BY nombre");
+		foreach ($resProm ? $resProm->fetch_all(MYSQLI_ASSOC) : [] as $p) {
+			foreach (array_filter([$p['supervisor_canales_id'], $p['supervisor_retail_id']]) as $supId) {
+				if ($epExcelEsAdminReal || (int) $supId === (int) ($_SESSION['usuario_id'] ?? 0)) {
+					$epExcelPromotoresPorSupervisor[(int) $supId][] = $p['nombre'];
+				}
+			}
+		}
+	}
+}
 ?>
 <main class="ep-content ep-h2" id="epH2" data-admin="<?= $esAdmin ? '1' : '0' ?>" data-modo="<?= $modoAprobacion ? 'aprobacion' : 'historial' ?>">
 
 	<header class="ep-h2-head">
 		<div>
 			<?php if ($modoAprobacion): ?>
-			<h1>Aprobaciones</h1>
+			<h1>Aprobaciones<?php if ($esAdmin): ?> <span class="ep-vivo" id="epH2Vivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span><?php endif; ?></h1>
 <?php else: ?>
-			<h1>Historial de registros <span class="ep-rol-chip <?= $esAdmin ? 'ep-rol-chip-admin' : 'ep-rol-chip-user' ?>"><?= ep_es_admin() ? 'Admin' : (ep_es_supervisor() ? 'Supervisor' : 'Promotor') ?></span></h1>
+			<h1>Historial de registros <span class="ep-rol-chip <?= $esAdmin ? 'ep-rol-chip-admin' : 'ep-rol-chip-user' ?>"><?= ep_es_admin() ? 'Admin' : (ep_es_supervisor() ? 'Supervisor' : 'Promotor') ?></span><?php if ($esAdmin): ?> <span class="ep-vivo" id="epH2Vivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span><?php endif; ?></h1>
 <?php endif; ?>
 			<p id="epH2Resumen"></p>
 		</div>
@@ -39,7 +63,89 @@ $totalPromotores = count(array_unique(array_filter(array_column($todosRegistros,
 			<button type="button" data-rapido="semana">Semana</button>
 			<button type="button" data-rapido="mes">Mes</button>
 		</div>
+		<?php if ($esAdmin && !$modoAprobacion): ?>
+			<button type="button" class="ep-h2-btn-excel" id="epHexAbrir" title="Elige fecha y actividad; descarga un CSV sin fotos">
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="2" width="18" height="20" rx="2" fill="#1D7A3C"/><rect x="6.2" y="6" width="11.6" height="2.3" fill="#FFFFFF"/><rect x="6.2" y="10.3" width="11.6" height="2.3" fill="#FFFFFF"/><rect x="6.2" y="14.6" width="5.3" height="2.3" fill="#FFFFFF"/><rect x="12.4" y="14.6" width="5.4" height="2.3" fill="#1D7A3C"/></svg>
+				Exportar a Excel
+			</button>
+		<?php endif; ?>
 	</header>
+
+	<?php if ($esAdmin && !$modoAprobacion): ?>
+	<div class="ep-hex-overlay hidden" id="epHexOverlay">
+		<div class="ep-hex-dialog" role="dialog" aria-modal="true" aria-label="Exportar a Excel">
+			<div class="ep-hex-head">
+				<span class="ep-hex-head-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="2" width="18" height="20" rx="2" fill="#1D7A3C"/><rect x="6.2" y="6" width="11.6" height="2.3" fill="#FFFFFF"/><rect x="6.2" y="10.3" width="11.6" height="2.3" fill="#FFFFFF"/><rect x="6.2" y="14.6" width="5.3" height="2.3" fill="#FFFFFF"/><rect x="12.4" y="14.6" width="5.4" height="2.3" fill="#1D7A3C"/></svg></span>
+				<div class="ep-hex-head-info">
+					<h2>Exportar a Excel</h2>
+					<p><?= $epExcelEsAdminReal ? 'Supervisor y Promotor son opcionales: sin elegir ninguno, trae todo.' : 'Promotor es opcional: sin elegir uno, trae todo tu equipo.' ?></p>
+				</div>
+				<button type="button" class="ep-hex-cerrar" id="epHexCerrar" aria-label="Cerrar"><?= ep_icon('close', 15) ?></button>
+			</div>
+			<div class="ep-hex-body">
+				<div class="ep-hex-filtros<?= $epExcelEsAdminReal ? '' : ' ep-hex-filtros-sin-sup' ?>" id="epHexFiltros">
+					<div class="ep-hex-filtro">
+						<div class="ep-hex-filtro-cab">
+							<span>Fecha *</span>
+							<div class="ep-hex-pills" role="group" aria-label="Modo de fecha">
+								<button type="button" class="ep-hex-pill active" id="epHexPillUnica" data-modo="unica">Única</button>
+								<button type="button" class="ep-hex-pill" id="epHexPillRango" data-modo="rango">Rango</button>
+							</div>
+						</div>
+						<div class="ep-hex-fecha-caja">
+							<?= ep_icon('calendar', 13) ?>
+							<input type="date" id="epHexFechaDesde" aria-label="Fecha">
+							<span class="ep-hex-fecha-sep hidden" id="epHexFechaSep">–</span>
+							<input type="date" id="epHexFechaHasta" class="hidden" aria-label="Fecha hasta">
+						</div>
+					</div>
+					<?php if ($epExcelEsAdminReal): ?>
+					<div class="ep-hex-filtro" id="epHexColSupervisor">
+						<span>Supervisor</span>
+						<div class="ep-hex-combo" id="epHexComboSupervisor">
+							<button type="button" class="ep-hex-combo-trigger" id="epHexSupervisorTrigger"><span>Todos</span><?= ep_icon('chevron', 13) ?></button>
+							<div class="ep-hex-combo-menu hidden" id="epHexSupervisorMenu"></div>
+						</div>
+					</div>
+					<?php endif; ?>
+					<div class="ep-hex-filtro">
+						<span>Promotor</span>
+						<div class="ep-hex-combo" id="epHexComboPromotor">
+							<button type="button" class="ep-hex-combo-trigger" id="epHexPromotorTrigger"><span>Todos</span><?= ep_icon('chevron', 13) ?></button>
+							<div class="ep-hex-combo-menu hidden" id="epHexPromotorMenu"></div>
+						</div>
+					</div>
+				</div>
+
+				<div class="ep-hex-act-cab">
+					<span>Tipo de actividad</span>
+				</div>
+				<div class="ep-hex-act-grid" id="epHexActGrid">
+					<button type="button" class="ep-hex-act-card selected" data-tipo="">
+						<span class="ep-hex-act-ico"><?= ep_icon('layers', 16) ?></span>
+						<span class="ep-hex-act-nombre">Todas las actividades</span>
+						<span class="ep-hex-act-radio"></span>
+					</button>
+					<?php foreach ($epExcelActividades as $act): ?>
+					<button type="button" class="ep-hex-act-card" data-tipo="<?= $h($act['tipo']) ?>">
+						<span class="ep-hex-act-ico"><?= ep_icon(ep_icono_tipo($act['tipo']), 16) ?></span>
+						<span class="ep-hex-act-nombre"><?= $h($act['nombre']) ?></span>
+						<span class="ep-hex-act-radio"></span>
+					</button>
+					<?php endforeach; ?>
+				</div>
+			</div>
+			<div class="ep-hex-pie">
+				<button type="button" class="ep-hex-btn-cancelar" id="epHexCancelar">Cancelar</button>
+				<a class="ep-hex-btn-descargar" id="epHexDescargar" href="#">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/><polyline points="7 10 12 15 17 10" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><line x1="12" y1="15" x2="12" y2="3" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/></svg>
+					<span>Descargar Excel</span>
+				</a>
+			</div>
+		</div>
+	</div>
+	<script type="application/json" id="epHexDatos"><?= json_encode(['supervisores' => $epExcelSupervisores, 'promotoresPorSupervisor' => $epExcelPromotoresPorSupervisor], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+	<?php endif; ?>
 
 	<?php if ($modoAprobacion): $cuentas = ep_aprobaciones_contar(); ?>
 	<div class="ep-h2-tabs-est" id="epH2Estados" role="group" aria-label="Estado">

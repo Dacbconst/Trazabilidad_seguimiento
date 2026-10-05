@@ -35,7 +35,7 @@
 	}
 	function claveFirmar(a) { return 'firmar:' + a.id; }
 	// Incluye actualizado_en: si el cliente/trimestre se resube o reasigna, la clave cambia y vuelve a marcarse como no visto.
-	function claveAsignada(p) { return 'asignadas:' + p.pos_id + ':' + p.trimestre + ':' + p.anio + ':' + p.actualizado_en; }
+	function claveAsignada(p) { return 'asignadas:' + (p.origen || 'cuotas') + ':' + p.pos_id + ':' + p.trimestre + ':' + p.anio + ':' + p.actualizado_en; }
 	// Último fetch en memoria: marcarTodoVisto() lo necesita sin pedir la data de nuevo.
 	var ultimasMias = [];
 	var ultimasPrecargadas = [];
@@ -48,12 +48,12 @@
 		cerrarPanel();
 	}
 
-	// Actas Precargadas: a diferencia de "Actas Por Firmar", el click va directo a Registrar con el formulario ya cargado.
-	function irARegistrarConPrecarga(posId, trimestre, anio) {
+	// Actas Precargadas: a diferencia de "Actas Por Firmar", el click va directo a Registrar con el formulario ya cargado. $origen ('cuotas'|'completo') decide a qué endpoint pega Registrar — nunca se distingue visualmente, solo puertas adentro.
+	function irARegistrarConPrecarga(posId, trimestre, anio, origen) {
 		var link = document.querySelector('.ac-sidebar-nav a[href="#sec-registrar"]');
 		if (link) link.click();
 		cerrarPanel();
-		if (window.acRegistrarCargarPrecarga) window.acRegistrarCargarPrecarga(posId, trimestre, anio);
+		if (window.acRegistrarCargarPrecarga) window.acRegistrarCargarPrecarga(posId, trimestre, anio, origen);
 	}
 
 	// ---------- Pestaña "Actas Asignadas" (activity feed) ----------
@@ -64,7 +64,7 @@
 		}
 		bodyAsignadas.innerHTML = precargadas.map(function (p) {
 			var puntito = vistas[claveAsignada(p)] ? '' : '<span class="ac-notif-dot" title="No visto"></span>';
-			return '<div class="ac-activity-item" data-pos-id="' + p.pos_id + '" data-trimestre="' + p.trimestre + '" data-anio="' + p.anio + '">' +
+			return '<div class="ac-activity-item" data-pos-id="' + p.pos_id + '" data-trimestre="' + p.trimestre + '" data-anio="' + p.anio + '" data-origen="' + (p.origen || 'cuotas') + '">' +
 				'<span class="ac-activity-icon"><span class="material-symbols-outlined">assignment</span></span>' +
 				'<span class="ac-activity-texto">' +
 					'<span class="ac-activity-titulo">' + puntito + escapeHtml(p.cliente_excel) + '</span>' +
@@ -74,7 +74,7 @@
 		}).join('');
 		Array.prototype.forEach.call(bodyAsignadas.querySelectorAll('.ac-activity-item'), function (el) {
 			el.addEventListener('click', function () {
-				irARegistrarConPrecarga(el.dataset.posId, parseInt(el.dataset.trimestre, 10), parseInt(el.dataset.anio, 10));
+				irARegistrarConPrecarga(el.dataset.posId, parseInt(el.dataset.trimestre, 10), parseInt(el.dataset.anio, 10), el.dataset.origen);
 			});
 		});
 	}

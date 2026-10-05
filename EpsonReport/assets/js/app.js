@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		document.querySelectorAll('.ep-formulario-actividad, .ep-estadisticas-actividad, .ep-evidencia-actividad').forEach(function (el) {
 			el.classList.toggle('hidden', el.dataset.actividadId !== id);
 		});
+		// Cambiar de actividad abandona cualquier sesión de Competencia a medias (lo ya guardado no se pierde, solo la lista en pantalla).
+		if (typeof epCompetenciaReiniciarCompletados === 'function') epCompetenciaReiniciarCompletados();
 		var estadisticaVisible = document.querySelector('.ep-estadisticas-actividad[data-actividad-id="' + id + '"]');
 		var layout = document.getElementById('ep-actividad-layout');
 		if (layout && estadisticaVisible) {
@@ -190,6 +192,75 @@ document.addEventListener('DOMContentLoaded', function () {
 		var bloqueVisible = document.querySelector('.ep-formulario-actividad:not(.hidden) .ep-evidencia-actividad') || document.querySelector('.ep-evidencia-actividad:not(.hidden)');
 		if (!bloqueVisible) return [];
 		return Array.from(bloqueVisible.querySelectorAll('.ep-foto-slot'));
+	}
+
+	// Competencia: un solo registro por sesión, con varios puntos de venta adentro (cada uno con sus propias fotos).
+	// "Añadir otro punto de venta" NO manda nada al servidor: sube las fotos de este punto (ya quedan en Azure) y lo
+	// guarda en memoria; recién "Enviar registro" arma el registro completo con todos los puntos juntos.
+	var epCompetenciaPuntos = [];
+	function epCompetenciaEscapar(t) {
+		return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+	}
+	function renderizarCompetenciaCompletados() {
+		var cont = document.getElementById('epCompetenciaCompletados');
+		if (!cont) return;
+		cont.innerHTML = epCompetenciaPuntos.map(function (p) {
+			var totalFotos = Object.keys(p.fotos).length;
+			return '<div class="ep-competencia-completado-fila">'
+				+ '<span class="ep-competencia-completado-check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>'
+				+ '<span class="ep-competencia-completado-info"><span class="ep-competencia-completado-nombre">' + epCompetenciaEscapar(p.nombre) + '</span><span class="ep-competencia-completado-sub">' + totalFotos + ' foto' + (totalFotos === 1 ? '' : 's') + '</span></span>'
+				+ '<span class="ep-competencia-completado-badge">Listo</span>'
+				+ '</div>';
+		}).join('');
+	}
+	function epCompetenciaReiniciarCompletados() {
+		epCompetenciaPuntos = [];
+		renderizarCompetenciaCompletados();
+	}
+	// Deja el punto de venta y las fotos en blanco, listos para el siguiente punto (las casillas sumadas con "Agregar foto" se quitan).
+	function epCompetenciaReiniciarFormulario() {
+		if (window.epPdv && window.epPdv.limpiar) window.epPdv.limpiar();
+		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		if (!bloqueEv) return;
+		Array.prototype.slice.call(bloqueEv.querySelectorAll('.ep-foto-slot')).forEach(function (slot) {
+			if (slot.dataset.extra) quitarCasillaExtra(slot); else quitarFotoDeSlot(slot);
+		});
+	}
+	// Fotos subidas + descripciones del punto que está activo ahora mismo en el formulario (lo usan tanto "Añadir otro" como el envío final).
+	function epCompetenciaPuntoActivo() {
+		var bloqueEv = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
+		var slotsFotos = bloqueEv ? Array.prototype.slice.call(bloqueEv.querySelectorAll('.ep-foto-slot')) : [];
+		var pdvElegido = window.epPdv.elegido();
+		var descripciones = {};
+		slotsFotos.forEach(function (s) {
+			var d = descripcionDeSlot(s);
+			if (d && slotTieneFoto(s)) descripciones[s.dataset.fotoId] = d.value.trim();
+		});
+		return { slotsFotos: slotsFotos, pdvElegido: pdvElegido, nombre: pdvElegido ? pdvElegido.nombre : '', descripciones: descripciones };
+	}
+	var epBtnCompetenciaOtroPunto = document.getElementById('epBtnCompetenciaOtroPunto');
+	if (epBtnCompetenciaOtroPunto) {
+		epBtnCompetenciaOtroPunto.addEventListener('click', function () {
+			if (!validarRegistroActivo()) return;
+			var activo = epCompetenciaPuntoActivo();
+			if (activo.slotsFotos.some(function (s) { return s.dataset.subiendo; })) {
+				epAviso('info', 'Preparando fotos', 'Hay fotos preparándose todavía. Espera unos segundos e intenta de nuevo.');
+				return;
+			}
+			epBtnCompetenciaOtroPunto.disabled = true;
+			var textoBtn = epBtnCompetenciaOtroPunto.querySelector('span');
+			if (textoBtn) textoBtn.textContent = 'Subiendo fotos...';
+			subirFotosPendientes(activo.slotsFotos).then(function (fotos) {
+				epCompetenciaPuntos.push({ pos_id: activo.pdvElegido ? activo.pdvElegido.pos_id : '', nombre: activo.nombre, fotos: fotos, descripciones: activo.descripciones });
+				renderizarCompetenciaCompletados();
+				epCompetenciaReiniciarFormulario();
+			}).catch(function () {
+				epAviso('error', 'No se pudieron subir las fotos', 'Intenta de nuevo.');
+			}).then(function () {
+				epBtnCompetenciaOtroPunto.disabled = false;
+				if (textoBtn) textoBtn.textContent = 'Añadir otro punto de venta';
+			});
+		});
 	}
 
 	function abrirWizardFotos() {
@@ -1710,13 +1781,15 @@ document.addEventListener('DOMContentLoaded', function () {
 			var d = descripcionDeSlot(s);
 			if (d && slotTieneFoto(s)) descripciones[s.dataset.fotoId] = d.value.trim();
 		});
-		if (Object.keys(descripciones).length) valores.descripciones = descripciones;
+		// Competencia manda un solo registro con todos los puntos de venta de la sesión adentro (valores.puntos), no un pos_id suelto.
+		var pdvActivo = window.epPdv.elegido();
+		if (tipo !== 'competencia' && Object.keys(descripciones).length) valores.descripciones = descripciones;
 
 		var payload = {
 			tipo: tipo,
 			actividad_label: actNombre,
 			actividad_badge: actBadge,
-			pos_id: window.epPdv.elegido() ? window.epPdv.elegido().pos_id : '',
+			pos_id: tipo === 'competencia' ? '' : (pdvActivo ? pdvActivo.pos_id : ''),
 			valores: valores,
 			fotos: {}
 		};
@@ -1735,7 +1808,12 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (c && c.duplicado) throw { duplicado: true, mensaje: c.mensaje };
 			return subirFotosPendientes(slotsFotos);
 		}).then(function (fotos) {
-			payload.fotos = fotos;
+			if (tipo === 'competencia') {
+				var puntoActivo = { pos_id: pdvActivo ? pdvActivo.pos_id : '', fotos: fotos, descripciones: descripciones };
+				payload.valores.puntos = epCompetenciaPuntos.map(function (p) { return { pos_id: p.pos_id, fotos: p.fotos, descripciones: p.descripciones }; }).concat([puntoActivo]);
+			} else {
+				payload.fotos = fotos;
+			}
 			var metaUsuario = document.querySelector('meta[name="ep-usuario"]');
 			payload.usuario_ref = metaUsuario ? metaUsuario.content : '';
 			return fetch('getters/guardar_registro.php', {
@@ -1747,7 +1825,12 @@ document.addEventListener('DOMContentLoaded', function () {
 		.then(function(res) { return res.json(); })
 		.then(function(data) {
 			if (data.success) {
-epAviso('success', 'Registro enviado', (data.pendiente ? 'Tu registro quedó enviado y espera la aprobación de tu supervisor.' : 'Tu reporte quedó guardado correctamente.') + '<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#513487;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros', { showCloseButton: true }).then(function (r) {
+				// Competencia con varios puntos de venta en esta sesión: el mensaje final cuenta todos, no solo el último.
+				var totalSesionCompetencia = tipo === 'competencia' ? epCompetenciaPuntos.length + 1 : 1;
+				var mensajeBase = data.pendiente ? 'Tu registro quedó enviado y espera la aprobación de tu supervisor.' : 'Tu reporte quedó guardado correctamente.';
+				if (totalSesionCompetencia > 1) mensajeBase = 'Enviaste ' + totalSesionCompetencia + ' puntos de venta en esta sesión. ' + mensajeBase;
+				if (tipo === 'competencia') epCompetenciaReiniciarCompletados();
+epAviso('success', 'Registro enviado', mensajeBase + '<br><span style="display:inline-block;margin-top:8px;padding:4px 10px;border-radius:6px;background:#F4F1FA;color:#513487;font-weight:700;font-size:13px;">' + data.id + '</span>', 'Ver mis registros', { showCloseButton: true }).then(function (r) {
 					// Con la X (o Esc) se queda en Actividades con el formulario limpio; solo el botón lleva al Historial.
 					window.location.href = r && r.isConfirmed === false ? 'index.php?vista=actividades' : (data.redirect || 'index.php?vista=historial');
 				});

@@ -92,69 +92,132 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/cumplimiento.js') ?: time();
 		</button>
 	</div>
 
-	<!-- Mismo componente visual que los KPI de Historial de Acuerdos
-	     (.ac-hist-stat*, ver ese componente) — pedido explícito del usuario
-	     ("usa el mismo estilo de card... así como están bonitos allá"), en
-	     vez del .ac-stat-tile plano que traía este módulo. Reusa las clases
-	     TAL CUAL (nada nuevo salvo .ac-hist-stat-static, que solo saca el
-	     cursor:pointer/hover — estas 3 tarjetas son informativas, no
-	     filtran nada al hacer click, a diferencia de las de Historial). -->
-	<div class="ac-hist-stats" id="cumpl-stats">
-		<div class="ac-hist-stat ac-hist-stat-static">
-			<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">storefront</span></span>
-			<span class="ac-hist-stat-body">
-				<p class="ac-stat-label">Clientes evaluados</p>
-				<p class="ac-stat-value" id="cumpl-stat-clientes">—</p>
-			</span>
-		</div>
-		<div class="ac-hist-stat ac-hist-stat-static ac-hist-stat-ok">
-			<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">trending_up</span></span>
-			<span class="ac-hist-stat-body">
-				<p class="ac-stat-label">Ganan la categoría</p>
-				<p class="ac-stat-value" id="cumpl-stat-ganan">—</p>
-			</span>
-		</div>
-		<div class="ac-hist-stat ac-hist-stat-static ac-hist-stat-bad">
-			<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">trending_down</span></span>
-			<span class="ac-hist-stat-body">
-				<p class="ac-stat-label">No ganan</p>
-				<p class="ac-stat-value" id="cumpl-stat-no-ganan">—</p>
-			</span>
-		</div>
-		<!-- Tarjeta oculta a pedido explícito del usuario (2026-08-31) —
-		     el <span id="cumpl-stat-promedio"> se queda para que
-		     cumplimiento.js le siga escribiendo el valor sin romper nada,
-		     solo se dejó de mostrar la tarjeta entera. .ac-hist-stats
-		     usa una grilla de 3 columnas fija (a diferencia del auto-fit
-		     de .ac-resumen-stats) — con esta tarjeta oculta quedan 3
-		     visibles, calza exacto sin dejar un hueco. -->
-		<div class="ac-hist-stat ac-hist-stat-static" style="display:none;">
-			<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">percent</span></span>
-			<span class="ac-hist-stat-body">
-				<p class="ac-stat-label">Cumplimiento promedio</p>
-				<p class="ac-stat-value" id="cumpl-stat-promedio">—</p>
-			</span>
-		</div>
+	<!-- 2 pestañas, mismo indicador deslizante que .ac-repo-tabs de Repositorios (reusado tal cual, sin CSS nuevo). -->
+	<div class="ac-repo-tabs" id="cumpl-tabs">
+		<button type="button" class="ac-repo-tab active" id="cumpl-tab-cliente" data-tab="cliente">
+			<span class="material-symbols-outlined">groups</span> Por Cliente
+		</button>
+		<button type="button" class="ac-repo-tab" id="cumpl-tab-categoria" data-tab="categoria">
+			<span class="material-symbols-outlined">category</span> Por Categoría
+		</button>
+		<div class="ac-repo-tabs-indicador" id="cumpl-tabs-indicador"></div>
 	</div>
 
-	<section class="ac-card">
-		<div class="ac-card-header">
-			<h3>Resultado por asesor</h3>
+	<div id="cumpl-panel-cliente">
+		<!-- Mismo componente visual que los KPI de Historial de Acuerdos
+		     (.ac-hist-stat*, ver ese componente) — pedido explícito del usuario
+		     ("usa el mismo estilo de card... así como están bonitos allá"), en
+		     vez del .ac-stat-tile plano que traía este módulo. Reusa las clases
+		     TAL CUAL (nada nuevo salvo .ac-hist-stat-static, que solo saca el
+		     cursor:pointer/hover — estas 3 tarjetas son informativas, no
+		     filtran nada al hacer click, a diferencia de las de Historial). -->
+		<div class="ac-hist-stats" id="cumpl-stats">
+			<div class="ac-hist-stat ac-hist-stat-static">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">storefront</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">Clientes evaluados</p>
+					<p class="ac-stat-value" id="cumpl-stat-clientes">—</p>
+				</span>
+			</div>
+			<div class="ac-hist-stat ac-hist-stat-static ac-hist-stat-ok">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">trending_up</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">Ganan la categoría</p>
+					<p class="ac-stat-value" id="cumpl-stat-ganan">—</p>
+				</span>
+			</div>
+			<div class="ac-hist-stat ac-hist-stat-static ac-hist-stat-bad">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">trending_down</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">No ganan</p>
+					<p class="ac-stat-value" id="cumpl-stat-no-ganan">—</p>
+				</span>
+			</div>
+			<!-- Tarjeta oculta a pedido explícito del usuario (2026-08-31) —
+			     el <span id="cumpl-stat-promedio"> se queda para que
+			     cumplimiento.js le siga escribiendo el valor sin romper nada,
+			     solo se dejó de mostrar la tarjeta entera. .ac-hist-stats
+			     usa una grilla de 3 columnas fija (a diferencia del auto-fit
+			     de .ac-resumen-stats) — con esta tarjeta oculta quedan 3
+			     visibles, calza exacto sin dejar un hueco. -->
+			<div class="ac-hist-stat ac-hist-stat-static" style="display:none;">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">percent</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">Cumplimiento promedio</p>
+					<p class="ac-stat-value" id="cumpl-stat-promedio">—</p>
+				</span>
+			</div>
 		</div>
-		<div class="ac-cumpl-col-header">
-			<div>Categoría</div>
-			<div>Cuota total</div>
-			<div>Venta real</div>
-			<div>Cumplimiento</div>
-			<div>Gana categoría</div>
-			<div>Gana total</div>
-			<div>Rebate ganado</div>
-			<div></div>
+
+		<section class="ac-card">
+			<div class="ac-card-header">
+				<h3>Resultado por asesor</h3>
+			</div>
+			<div class="ac-cumpl-col-header">
+				<div>Categoría</div>
+				<div>Cuota total</div>
+				<div>Venta real</div>
+				<div>Cumplimiento</div>
+				<div>Gana categoría</div>
+				<div>Gana total</div>
+				<div>Rebate ganado</div>
+				<div></div>
+			</div>
+			<div id="cumpl-lista">
+				<div class="ac-seg-cargando">Cargando...</div>
+			</div>
+		</section>
+	</div>
+
+	<div id="cumpl-panel-categoria" class="hidden">
+		<div class="ac-hist-stats" id="cumpl-cat-stats">
+			<div class="ac-hist-stat ac-hist-stat-static">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">category</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">Categorías evaluadas</p>
+					<p class="ac-stat-value" id="cumpl-cat-stat-categorias">—</p>
+				</span>
+			</div>
+			<div class="ac-hist-stat ac-hist-stat-static ac-hist-stat-ok">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">trending_up</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">Ganan la categoría</p>
+					<p class="ac-stat-value" id="cumpl-cat-stat-ganan">—</p>
+				</span>
+			</div>
+			<div class="ac-hist-stat ac-hist-stat-static ac-hist-stat-bad">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">trending_down</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">No ganan</p>
+					<p class="ac-stat-value" id="cumpl-cat-stat-no-ganan">—</p>
+				</span>
+			</div>
+			<div class="ac-hist-stat ac-hist-stat-static">
+				<span class="ac-hist-stat-icon"><span class="material-symbols-outlined">percent</span></span>
+				<span class="ac-hist-stat-body">
+					<p class="ac-stat-label">Cumplimiento consolidado</p>
+					<p class="ac-stat-value" id="cumpl-cat-stat-consolidado">—</p>
+				</span>
+			</div>
 		</div>
-		<div id="cumpl-lista">
-			<div class="ac-seg-cargando">Cargando...</div>
-		</div>
-	</section>
+
+		<section class="ac-card">
+			<div class="ac-card-header">
+				<h3>Resultado consolidado por categoría</h3>
+			</div>
+			<div class="ac-cumpl-cat-col-header">
+				<div></div>
+				<div>Categoría</div>
+				<div>Cuota asignada</div>
+				<div>Resultado alcanzado</div>
+				<div>% Cumplimiento</div>
+				<div>Estado</div>
+			</div>
+			<div id="cumpl-categoria-lista">
+				<div class="ac-seg-cargando">Cargando...</div>
+			</div>
+		</section>
+	</div>
 </div>
 
 <!-- Modal de subida, 2 pasos: elegir archivo + año, después previsualizar

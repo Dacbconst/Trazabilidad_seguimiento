@@ -1,7 +1,7 @@
 <?php
 // Devuelve el HTML real de una plantilla, sin ids (evita chocar con el formulario real) y sin poder tipear — solo para la vista previa del constructor.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/actividades_datos.php';

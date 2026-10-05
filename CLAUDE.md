@@ -14,8 +14,8 @@ endpoints PHP, o cualquier otro medio).
   modifique, borre o altere datos o esquema — bajo ninguna circunstancia,
   aunque el usuario lo pida explícitamente en el momento.** Si el usuario pide
   algo así, Claude debe negarse y recordarle esta regla, no ejecutarlo.
-  (Única salvedad: `ALTER TABLE` bajo las condiciones de la sección
-  "Única excepción" más abajo.)
+  (Única salvedad: `ALTER TABLE`/`CREATE TABLE` bajo las condiciones de la
+  sección "Única excepción" más abajo.)
 - Esto incluye: no crear scripts/endpoints que ejecuten esas operaciones para
   que el usuario los corra él mismo, no ofrecerse a "probarlo" con datos de
   prueba, no hacerlo "solo para verificar algo". Ninguna excepción.
@@ -23,17 +23,22 @@ endpoints PHP, o cualquier otro medio).
   (ej. probar un INSERT), debe proponer el SQL exacto para que el usuario lo
   ejecute él mismo desde HeidiSQL u otra herramienta — nunca ejecutarlo Claude.
 
-### Única excepción: `ALTER TABLE` con aprobación manual del usuario (agregada 2026-09-29)
+### Única excepción: `ALTER TABLE`/`CREATE TABLE` con aprobación manual del usuario (agregada 2026-09-29, ampliada a `CREATE TABLE` 2026-10-04)
 
-- Claude puede ejecutar un `ALTER TABLE` **solo** si se cumplen las tres cosas:
+- Claude puede ejecutar un `ALTER TABLE` o `CREATE TABLE` **solo** si se
+  cumplen las tres cosas:
   1. el usuario lo pidió o autorizó explícitamente en la conversación;
   2. Claude mostró antes el SQL exacto que va a correr;
   3. el usuario aprueba manualmente esa ejecución puntual (el permiso de la
      herramienta), nunca en modo automático ni con aprobaciones generales.
-- Solo cambios de esquema que no borran datos: `ADD COLUMN`, `MODIFY` que
-  amplía un tipo (ej. `ENUM` → `VARCHAR`), `ADD INDEX`. Nunca `DROP COLUMN`,
-  `DROP INDEX` ni un `MODIFY` que pueda truncar o perder datos existentes.
-- Una aprobación vale solo para ese `ALTER`; el siguiente necesita la suya.
+- `ALTER TABLE`: solo cambios que no borran datos (`ADD COLUMN`, `MODIFY`
+  que amplía un tipo, `ADD INDEX`). Nunca `DROP COLUMN`, `DROP INDEX` ni un
+  `MODIFY` que pueda truncar o perder datos existentes.
+- `CREATE TABLE`: solo tablas nuevas, nunca reemplazando/sobrescribiendo una
+  existente (`CREATE TABLE IF NOT EXISTS` o chequeo previo con `SHOW TABLES`,
+  nunca `DROP TABLE` + `CREATE TABLE` ni `CREATE OR REPLACE`).
+- Una aprobación vale solo para esa ejecución puntual; la siguiente necesita
+  la suya, aunque sea el mismo tipo de sentencia.
 - `DELETE`, `DROP`, `TRUNCATE`, `UPDATE` e `INSERT` siguen prohibidos sin
   excepción.
 

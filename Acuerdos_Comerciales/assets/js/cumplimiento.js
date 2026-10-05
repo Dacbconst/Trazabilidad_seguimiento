@@ -15,6 +15,41 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	var estado = { trimestre: 0, anio: 0, busqueda: '', canal: 'total' };
 	var listaReqId = 0;
+	var categoriaReqId = 0;
+
+	// ---------- Pestañas "Por Cliente" / "Por Categoría" ---------- mismo indicador deslizante que .ac-repo-tabs de Repositorios.
+	var tabCliente = document.getElementById('cumpl-tab-cliente');
+	var tabCategoria = document.getElementById('cumpl-tab-categoria');
+	var tabsIndicador = document.getElementById('cumpl-tabs-indicador');
+	var panelCliente = document.getElementById('cumpl-panel-cliente');
+	var panelCategoria = document.getElementById('cumpl-panel-categoria');
+	var categoriaLista = document.getElementById('cumpl-categoria-lista');
+	var catStatCategorias = document.getElementById('cumpl-cat-stat-categorias');
+	var catStatGanan = document.getElementById('cumpl-cat-stat-ganan');
+	var catStatNoGanan = document.getElementById('cumpl-cat-stat-no-ganan');
+	var catStatConsolidado = document.getElementById('cumpl-cat-stat-consolidado');
+	var tabActiva = 'cliente';
+
+	function posicionarIndicadorTab(tabEl) {
+		if (!tabsIndicador || !tabEl) return;
+		tabsIndicador.style.left = tabEl.offsetLeft + 'px';
+		tabsIndicador.style.width = tabEl.offsetWidth + 'px';
+	}
+	function activarTabCumpl(tab) {
+		tabActiva = tab;
+		tabCliente.classList.toggle('active', tab === 'cliente');
+		tabCategoria.classList.toggle('active', tab === 'categoria');
+		panelCliente.classList.toggle('hidden', tab !== 'cliente');
+		panelCategoria.classList.toggle('hidden', tab !== 'categoria');
+		posicionarIndicadorTab(tab === 'cliente' ? tabCliente : tabCategoria);
+		if (tab === 'categoria') cargarConsolidadoCategoria();
+	}
+	if (tabCliente && tabCategoria) {
+		tabCliente.addEventListener('click', function () { activarTabCumpl('cliente'); });
+		tabCategoria.addEventListener('click', function () { activarTabCumpl('categoria'); });
+		posicionarIndicadorTab(tabCliente);
+		window.addEventListener('resize', function () { posicionarIndicadorTab(tabActiva === 'cliente' ? tabCliente : tabCategoria); });
+	}
 
 	// Vista+Periodo+Año viven detrás de este botón en mobile; el badge cuenta filtros en valor no-default.
 	var filtrosToggleBtn = document.getElementById('cumpl-filtros-toggle');
@@ -106,6 +141,9 @@ document.addEventListener('DOMContentLoaded', function () {
 		return '<span class="ac-badge ' + clase + (outline ? ' ac-cumpl-badge-outline' : '') + '">' + (esGana ? 'GANA' : 'NO GANA') + '</span>';
 	}
 
+	// Los 2 filtros compartidos (Vista/Período/Año) recargan la pestaña que esté activa en ese momento.
+	function recargarActivo() { if (tabActiva === 'categoria') cargarConsolidadoCategoria(); else cargarLista(); }
+
 	// ---------- Vista por canal ---------- "total" | "directo" | "distribuidor", mismo mecanismo que la pastilla de Canal en Historial: filtra la lista y decide el formato de Excel.
 	var canalGroup = document.getElementById('cumpl-canal-group');
 	Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
@@ -116,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				b.classList.toggle('ac-seg-pill-activo', b === btn);
 			});
 			actualizarBadgeFiltros();
-			cargarLista();
+			recargarActivo();
 		});
 	});
 
@@ -127,12 +165,12 @@ document.addEventListener('DOMContentLoaded', function () {
 			btn.classList.add('ac-seg-pill-activo');
 			estado.trimestre = parseInt(btn.dataset.trimestre, 10) || 0;
 			actualizarBadgeFiltros();
-			cargarLista();
+			recargarActivo();
 		});
 	});
 	anioSelect.addEventListener('change', function () {
 		estado.anio = parseInt(anioSelect.value, 10) || 0;
-		cargarLista();
+		recargarActivo();
 	});
 	var buscarTimeout = null;
 	buscarInput.addEventListener('input', function () {
@@ -302,8 +340,75 @@ document.addEventListener('DOMContentLoaded', function () {
 				lista.innerHTML = '<div class="ac-table-empty">Error de conexión.</div>';
 			});
 	}
-	if (actualizarBtn) actualizarBtn.addEventListener('click', cargarLista);
-	window.acCumplimientoRefrescar = cargarLista;
+
+	// ---------- Pestaña "Por Categoría" ---------- 1 fila por Sector, acordeón con el desglose por cliente (mismo mecanismo .hidden + chevron que el resto del módulo).
+	function detalleFilaCategoria(d) {
+		return '<div class="ac-cumpl-cat-detalle-fila">' +
+			'<div>' + escapeHtml(d.cliente) + (d.cedi ? '<span class="ac-cumpl-cat-sub">' + escapeHtml(d.cedi) + '</span>' : '') + '</div>' +
+			'<div>' + valorMonetario(d.cuota_total, d.canal) + '</div>' +
+			'<div>' + valorMonetario(d.venta_total, d.canal) + '</div>' +
+			'<div>' + donutCumplimiento(d.cumplimiento_pct) + '</div>' +
+			'<div>' + badgeGana(d.gana_categoria, false) + '</div>' +
+			'</div>';
+	}
+	function filaConsolidadoCategoria(cat, indice) {
+		var idGrupo = 'cumpl-cat-grupo-' + indice;
+		var canalFila = cat.detalle.length ? cat.detalle[0].canal : 'directo';
+		var cabecera = '<div class="ac-cumpl-cat-fila" data-grupo="' + idGrupo + '">' +
+			'<div><span class="material-symbols-outlined ac-cumpl-chevron">chevron_right</span></div>' +
+			'<div><span class="ac-cumpl-cat-nombre">' + escapeHtml(cat.sector) + '</span>' +
+			'<span class="ac-cumpl-cat-sub">' + cat.clientes + ' cliente(s)</span></div>' +
+			'<div>' + valorMonetario(cat.cuota_total, canalFila) + '</div>' +
+			'<div>' + valorMonetario(cat.venta_total, canalFila) + '</div>' +
+			'<div>' + donutCumplimiento(cat.cumplimiento_pct) + '</div>' +
+			'<div>' + badgeGana(cat.gana, false) + '</div>' +
+			'</div>';
+		var detalle = cat.detalle.map(detalleFilaCategoria).join('');
+		return cabecera + '<div class="hidden ac-cumpl-cat-detalle" id="' + idGrupo + '">' + detalle + '</div>';
+	}
+	function renderConsolidadoCategoria(categorias) {
+		if (!categorias.length) {
+			categoriaLista.innerHTML = '<div class="ac-table-empty">Sin registros para este filtro.</div>';
+			return;
+		}
+		categoriaLista.innerHTML = categorias.map(filaConsolidadoCategoria).join('');
+		Array.prototype.forEach.call(categoriaLista.querySelectorAll('.ac-cumpl-cat-fila'), function (cabeceraEl) {
+			cabeceraEl.addEventListener('click', function () {
+				var grupo = document.getElementById(cabeceraEl.dataset.grupo);
+				if (!grupo) return;
+				grupo.classList.toggle('hidden');
+				cabeceraEl.querySelector('.ac-cumpl-chevron').classList.toggle('ac-cumpl-chevron-abierto', !grupo.classList.contains('hidden'));
+			});
+		});
+	}
+	function cargarConsolidadoCategoria() {
+		var miReqId = ++categoriaReqId;
+		if (window.acBotonCargando && actualizarBtn) acBotonCargando(actualizarBtn, true);
+		if (window.acMostrarCargando) acMostrarCargando(panelCategoria.querySelector('.ac-card') || panelCategoria);
+		var params = new URLSearchParams({ trimestre: estado.trimestre, anio: estado.anio, canal: estado.canal });
+		fetch('getters/cumplimiento_consolidado_categoria.php?' + params.toString())
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (miReqId !== categoriaReqId) return;
+				if (window.acOcultarCargando) acOcultarCargando(panelCategoria.querySelector('.ac-card') || panelCategoria);
+				if (window.acBotonCargando && actualizarBtn) acBotonCargando(actualizarBtn, false);
+				if (!data.ok) { categoriaLista.innerHTML = '<div class="ac-table-empty">No se pudo cargar.</div>'; return; }
+				renderConsolidadoCategoria(data.categorias);
+				catStatCategorias.textContent = data.stats.categorias;
+				catStatGanan.textContent = data.stats.ganan;
+				catStatNoGanan.textContent = data.stats.no_ganan;
+				catStatConsolidado.textContent = data.stats.cumplimiento_consolidado.toFixed(2) + '%';
+			})
+			.catch(function () {
+				if (miReqId !== categoriaReqId) return;
+				if (window.acOcultarCargando) acOcultarCargando(panelCategoria.querySelector('.ac-card') || panelCategoria);
+				if (window.acBotonCargando && actualizarBtn) acBotonCargando(actualizarBtn, false);
+				categoriaLista.innerHTML = '<div class="ac-table-empty">Error de conexión.</div>';
+			});
+	}
+
+	if (actualizarBtn) actualizarBtn.addEventListener('click', recargarActivo);
+	window.acCumplimientoRefrescar = recargarActivo;
 	actualizarBadgeFiltros();
 	cargarLista();
 
@@ -574,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				// data.ok siempre es true si la petición se procesó (aunque 0 filas se guardaran); el color del toast usa data.guardadas, no data.ok.
 				mostrarMensaje(data.message, data.ok && data.guardadas > 0);
 				if (!data.ok) return;
-				cargarLista();
+				recargarActivo();
 				var errores = data.errores || [];
 				var avisos = data.avisos || [];
 				if (errores.length) {

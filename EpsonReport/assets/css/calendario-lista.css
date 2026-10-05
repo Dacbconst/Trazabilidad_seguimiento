@@ -114,8 +114,8 @@
 .ep-cl-accion:hover .ep-cl-etq, .ep-cl-accion:focus-visible .ep-cl-etq, .ep-cl-accion[aria-expanded="true"] .ep-cl-etq { max-width: 150px; opacity: 1; margin-left: 6px; }
 .ep-cl-accion:disabled { color: #8A8C92; background: var(--color-surface-muted); border-color: #E6E6E9; cursor: not-allowed; }
 .ep-cl-menu { position: absolute; top: 40px; right: 0; z-index: 30; min-width: 210px; display: flex; flex-direction: column; gap: 2px; padding: 6px; border: 1px solid #E1DCEA; border-radius: 12px; background: #FFFFFF; box-shadow: 0 12px 32px rgba(40, 24, 80, .16); animation: ep-cl-aparece .16s ease-out; }
-.ep-cl-menu button { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; font-size: 13.5px; font-weight: 500; color: var(--color-text); text-align: left; }
-.ep-cl-menu button:hover { background: var(--color-surface-muted); }
+.ep-cl-menu button, .ep-cl-menu a { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; font-size: 13.5px; font-weight: 500; color: var(--color-text); text-align: left; text-decoration: none; }
+.ep-cl-menu button:hover, .ep-cl-menu a:hover { background: var(--color-surface-muted); }
 .ep-cl-menu .ep-cl-peligro { color: var(--color-danger); }
 .ep-cl-menu .ep-cl-peligro:hover { background: #FCE8E6; }
 

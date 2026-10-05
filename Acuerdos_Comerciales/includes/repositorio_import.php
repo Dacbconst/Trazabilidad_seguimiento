@@ -232,6 +232,172 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'distribuidor'];
 }
 
+// Repositorio "Acuerdo Completo": copia columnas de identidad+Meta de Compras de Cuotas + 3 bloques opcionales (Cabecera/Ruma/Percha), devuelve filas planas (1 por línea), separar por tipo es trabajo de acuerdo_completo_guardar.php.
+function repositorio_parsear_acuerdo_completo($rutaArchivo) {
+	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
+	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
+	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
+	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
+
+	$encDirecto = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS']);
+	if ($encDirecto) return repositorio_parsear_acuerdo_completo_directo($filas, $encDirecto);
+
+	$encDistribuidor = xlsx_encontrar_encabezado($filas, ['CIUDAD', 'NOMBRE', 'CATEGORIA']);
+	if ($encDistribuidor) return repositorio_parsear_acuerdo_completo_distribuidor($filas, $encDistribuidor);
+
+	return ['error' => 'No se encontraron las columnas esperadas: CEDI, CLIENTE y CATEGORIAS (canal Directo), o DISTRIBUIDOR, CIUDAD, NOMBRE y CATEGORIA (canal Distribuidor).'];
+}
+
+// Columna de cada mes del trimestre para la ocurrencia $n (0=Meta de Compras, 1=Cabecera, 2=Percha) — null si ese bloque no existe en el archivo (nunca se detecta un trimestre nuevo ahí, se reusan los mismos 3 meses ya detectados en Meta de Compras).
+function acuerdo_completo_cols_bloque($filaEncabezado, $mesesTrimestre, $ocurrencia) {
+	$porMes = [];
+	foreach (xlsx_detectar_columnas_mes($filaEncabezado) as $d) { $porMes[$d['mes']][] = $d['col']; }
+	$cols = [];
+	foreach ($mesesTrimestre as $mes) {
+		if (!isset($porMes[$mes][$ocurrencia])) return null;
+		$cols[] = $porMes[$mes][$ocurrencia];
+	}
+	return $cols;
+}
+
+// null = celda vacía (el bloque no aplica a esta línea), nunca 0 — quien guarda decide si "vacío" significa "sin esta tabla".
+function acuerdo_completo_numero($v) {
+	if ($v === null || $v === '') return null;
+	return is_numeric($v) ? (float) $v : (float) str_replace(['$', ',', ' '], '', (string) $v);
+}
+
+// Lee los 3 bloques opcionales de UNA fila (columnas ya localizadas) y los agrega PLANOS al array de la línea de Meta de Compras — cab_mes1..3 (null si el bloque no existe o está vacío), ruma_valor, percha_cantidad + percha_mes1..3.
+function acuerdo_completo_leer_bloques($fila, $colesCab, $colRuma, $colCantidad, $colesPercha) {
+	$out = ['cab_mes1' => null, 'cab_mes2' => null, 'cab_mes3' => null, 'ruma_valor' => null, 'percha_cantidad' => null, 'percha_mes1' => null, 'percha_mes2' => null, 'percha_mes3' => null];
+	if ($colesCab) {
+		$valores = array_map(function ($c) use ($fila) { return acuerdo_completo_numero($fila[$c] ?? null); }, $colesCab);
+		if (array_filter($valores, function ($v) { return $v !== null; })) {
+			$out['cab_mes1'] = round($valores[0] ?? 0, 2);
+			$out['cab_mes2'] = round($valores[1] ?? 0, 2);
+			$out['cab_mes3'] = round($valores[2] ?? 0, 2);
+		}
+	}
+	if ($colRuma !== null) {
+		$valor = acuerdo_completo_numero($fila[$colRuma] ?? null);
+		if ($valor !== null) $out['ruma_valor'] = round($valor, 2);
+	}
+	if ($colesPercha || $colCantidad !== null) {
+		$valores = $colesPercha ? array_map(function ($c) use ($fila) { return acuerdo_completo_numero($fila[$c] ?? null); }, $colesPercha) : [null, null, null];
+		$cantidad = $colCantidad !== null ? acuerdo_completo_numero($fila[$colCantidad] ?? null) : null;
+		if ($cantidad !== null || array_filter($valores, function ($v) { return $v !== null; })) {
+			$out['percha_cantidad'] = $cantidad !== null ? (int) $cantidad : null;
+			$out['percha_mes1'] = round($valores[0] ?? 0, 2);
+			$out['percha_mes2'] = round($valores[1] ?? 0, 2);
+			$out['percha_mes3'] = round($valores[2] ?? 0, 2);
+		}
+	}
+	return $out;
+}
+
+function repositorio_parsear_acuerdo_completo_directo($filas, $enc) {
+	$det = repositorio_cuotas_detectar_trimestre($filas[$enc['fila']]);
+	if (isset($det['error'])) return ['error' => $det['error']];
+	$trimestre = $det['trimestre'];
+	$mesInicio = ($trimestre - 1) * 3;
+	$mesesTrimestre = [$mesInicio, $mesInicio + 1, $mesInicio + 2];
+	$colesMesMeta = $det['colesMes'];
+
+	$m = $enc['mapa'];
+	$filaEnc = $filas[$enc['fila']];
+	$colUsuario = xlsx_col($m, 'USUARIO');
+	$colCedi = xlsx_col($m, 'CEDI');
+	$colCliente = xlsx_col($m, 'CLIENTE');
+	$colPlan = xlsx_col($m, 'PLAN');
+	$colCategorias = xlsx_col($m, 'CATEGORIAS');
+	$colSubcategoria = xlsx_col($m, 'SUBCATEGORIA');
+	$colMarca = xlsx_col($m, 'MARCA');
+
+	$colesCab = acuerdo_completo_cols_bloque($filaEnc, $mesesTrimestre, 1);
+	$colRuma = xlsx_col($m, 'RUMA');
+	$colCantidad = xlsx_col($m, 'CANTIDAD') ?? xlsx_col($m, 'CANT');
+	$colesPercha = acuerdo_completo_cols_bloque($filaEnc, $mesesTrimestre, 2);
+
+	$resultado = [];
+	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
+		$fila = $filas[$i];
+		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
+		$sector  = repositorio_normalizar_texto($fila[$colCategorias] ?? '');
+		if ($cliente === '' && $sector === '') continue;
+		if ($sector === 'OTRAS CATEGORIAS') continue;
+
+		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
+		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';
+		$plan = $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '';
+		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
+		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
+
+		$valoresMeta = array_map(function ($d) use ($fila) { return round(acuerdo_completo_numero($fila[$d['col']] ?? 0) ?? 0, 2); }, $colesMesMeta);
+		$bloques = acuerdo_completo_leer_bloques($fila, $colesCab, $colRuma, $colCantidad, $colesPercha);
+
+		$resultado[] = array_merge([
+			'cliente_excel' => $cliente, 'cedi_excel' => $cedi, 'usuario_excel' => $usuarioExcel, 'plan' => $plan,
+			'sector' => $sector, 'subcategoria' => $subcategoria, 'marca' => $marca,
+			'mes1' => $valoresMeta[0] ?? 0, 'mes2' => $valoresMeta[1] ?? 0, 'mes3' => $valoresMeta[2] ?? 0,
+		], $bloques);
+	}
+	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
+	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'directo'];
+}
+
+function repositorio_parsear_acuerdo_completo_distribuidor($filas, $enc) {
+	$det = repositorio_cuotas_detectar_trimestre($filas[$enc['fila']]);
+	if (isset($det['error'])) return ['error' => $det['error']];
+	$trimestre = $det['trimestre'];
+	$mesInicio = ($trimestre - 1) * 3;
+	$mesesTrimestre = [$mesInicio, $mesInicio + 1, $mesInicio + 2];
+	$colesMesMeta = $det['colesMes'];
+
+	$m = $enc['mapa'];
+	$filaEnc = $filas[$enc['fila']];
+	$colUsuario = xlsx_col($m, 'USUARIO');
+	$colDistribuidor = xlsx_col($m, 'DISTRIBUIDOR');
+	$colCiudad = xlsx_col($m, 'CIUDAD');
+	$colNombre = xlsx_col($m, 'NOMBRE');
+	$colCategoria = xlsx_col($m, 'CATEGORIA');
+	$colSubcategoria = xlsx_col($m, 'SUBCATEGORIA');
+	$colMarca = xlsx_col($m, 'MARCA');
+	$colCodigo = xlsx_col($m, 'CODIGO');
+	$colRuc = xlsx_col($m, 'RUC');
+
+	$colesCab = acuerdo_completo_cols_bloque($filaEnc, $mesesTrimestre, 1);
+	$colRuma = xlsx_col($m, 'RUMA');
+	$colCantidad = xlsx_col($m, 'CANTIDAD') ?? xlsx_col($m, 'CANT');
+	$colesPercha = acuerdo_completo_cols_bloque($filaEnc, $mesesTrimestre, 2);
+
+	$resultado = [];
+	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
+		$fila = $filas[$i];
+		$cliente = repositorio_normalizar_texto($fila[$colNombre] ?? '');
+		$sector  = repositorio_normalizar_texto($fila[$colCategoria] ?? '');
+		if ($cliente === '' && $sector === '') continue;
+		if ($sector === 'OTRAS CATEGORIAS') continue;
+
+		$ciudad = $colCiudad !== null ? repositorio_normalizar_texto($fila[$colCiudad] ?? '') : '';
+		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';
+		$distribuidor = $colDistribuidor !== null ? repositorio_normalizar_texto($fila[$colDistribuidor] ?? '') : '';
+		$subcategoria = $colSubcategoria !== null ? repositorio_normalizar_texto($fila[$colSubcategoria] ?? '') : '';
+		$marca = $colMarca !== null ? repositorio_normalizar_texto($fila[$colMarca] ?? '') : '';
+		$codigo = $colCodigo !== null ? trim((string) ($fila[$colCodigo] ?? '')) : '';
+		$ruc = $colRuc !== null ? trim((string) ($fila[$colRuc] ?? '')) : '';
+
+		$valoresMeta = array_map(function ($d) use ($fila) { return round(acuerdo_completo_numero($fila[$d['col']] ?? 0) ?? 0, 2); }, $colesMesMeta);
+		$bloques = acuerdo_completo_leer_bloques($fila, $colesCab, $colRuma, $colCantidad, $colesPercha);
+
+		$resultado[] = array_merge([
+			'cliente_excel' => $cliente, 'cedi_excel' => $ciudad, 'usuario_excel' => $usuarioExcel, 'plan' => $distribuidor,
+			'sector' => $sector, 'subcategoria' => $subcategoria, 'marca' => $marca, 'codigo' => $codigo, 'ruc' => $ruc,
+			'mes1' => $valoresMeta[0] ?? 0, 'mes2' => $valoresMeta[1] ?? 0, 'mes3' => $valoresMeta[2] ?? 0,
+		], $bloques);
+	}
+	if (!$resultado) return ['error' => 'El archivo no tiene filas de datos reconocibles.'];
+	return ['filas' => $resultado, 'avisos' => [], 'trimestre' => $trimestre, 'canal_detectado' => 'distribuidor'];
+}
+
 // Jerarquía de Supervisores (2026-09-24): SUPERVISOR CAMPO (nombre del maestro de Alicorp, sin cuenta propia) -> SUPERVISOR REAL (a quién reporta, con cuenta). Ver repositorio_jerarquia_supervisores / supervisorRealDeJerarquia() en functions.php.
 function repositorio_parsear_jerarquia($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);

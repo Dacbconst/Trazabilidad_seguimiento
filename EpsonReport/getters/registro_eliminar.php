@@ -1,7 +1,7 @@
 <?php
 // Quita un registro del Historial (borrado lógico, POST codigo). Solo admin.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/registros_datos.php';

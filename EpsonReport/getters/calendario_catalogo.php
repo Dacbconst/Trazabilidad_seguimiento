@@ -1,7 +1,7 @@
 <?php
 // Rutero, ciudades y PDV por canal para el modal del Calendario (solo admin); se piden aparte para no cargar cientos de KB en el HTML.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 $esAdmin = in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true);
 $miRol = $_SESSION['rol'] ?? '';

@@ -1,7 +1,7 @@
 <?php
 // Arma el PPTX de un reporte mensual guardado y lo envía (?id=). Solo admin. El archivo no se guarda: se genera en cada descarga.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 

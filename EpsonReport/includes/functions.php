@@ -71,8 +71,8 @@ function ep_es_gestor(): bool {
 	return ep_es_admin() || ep_es_supervisor();
 }
 
-// Sesión única (latido de sesion-watch.js cada 15s) + cierre por 20 min sin interacción real, libera el token.
-const EP_MINUTOS_INACTIVIDAD = 20;
+// Sesión única (latido de sesion-watch.js cada 15s) + cierre por 21 min sin interacción real, libera el token.
+const EP_MINUTOS_INACTIVIDAD = 21;
 const EP_SEGUNDOS_SESION_VIVA = 180;
 
 // $interaccion=false para el ping automático (solo latido, no cuenta como actividad del usuario); el motivo del cierre queda en $GLOBALS['ep_motivo_cierre'].

@@ -39,3 +39,13 @@ function ep_vivo_auditoria(): array {
 	$fila = $db ? $db->query('SELECT COUNT(*) AS total, COALESCE(MAX(id), 0) AS ultimo FROM insert_reporte_auditoria')->fetch_assoc() : null;
 	return ['firma' => $fila ? $fila['total'].'-'.$fila['ultimo'] : ''];
 }
+
+// Total y último id de los reportes mensuales (alcance del supervisor igual que ep_reportes_listar).
+function ep_vivo_reportes(): array {
+	$db = ep_db();
+	if (!$db) {
+		return ['firma' => ''];
+	}
+	$fila = $db->query('SELECT COUNT(*) AS total, COALESCE(MAX(id), 0) AS ultimo FROM insert_reporte_mensual WHERE eliminado_en IS NULL'.(ep_es_supervisor() ? ' AND creado_por = '.(int) $_SESSION['usuario_id'] : ''))->fetch_assoc();
+	return ['firma' => $fila ? $fila['total'].'-'.$fila['ultimo'] : ''];
+}

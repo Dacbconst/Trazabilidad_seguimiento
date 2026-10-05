@@ -11,7 +11,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 }
 
 $tipo = $_GET['tipo'] ?? '';
-if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia', 'acuerdo_completo'], true)) {
 	http_response_code(400);
 	echo 'Tipo de repositorio inválido.';
 	exit;
@@ -47,6 +47,55 @@ if ($tipo === 'rebate') {
 	$cols = ['SUPERVISOR CAMPO', 'JEFE DE AGENCIA'];
 	foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 	$nombreBase = 'Formato_Jerarquia_Supervisores';
+} elseif ($tipo === 'acuerdo_completo') {
+	// El parser detecta Cabecera/Percha por OCURRENCIA del nombre real del mes (ENERO repetido), no por texto compuesto — fila 2 debe decir "ENERO" liso, nunca "CABECERA ENERO".
+	$canal = $_GET['canal'] ?? 'directo';
+	if (!in_array($canal, ['directo', 'distribuidor'], true)) {
+		http_response_code(400);
+		echo 'Canal inválido.';
+		exit;
+	}
+	$hoja = $wb->agregarHoja('ACUERDO COMPLETO');
+	if ($canal === 'directo') {
+		$identidad = ['USUARIO', 'CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA'];
+		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'NOMBRE DEL ASESOR', 'CLIENTE EJEMPLO', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
+		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'NOMBRE DEL ASESOR', 'CLIENTE EJEMPLO', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
+		$nombreBase = 'Formato_AcuerdoCompleto_Directo';
+	} else {
+		$identidad = ['USUARIO', 'DISTRIBUIDOR', 'CIUDAD', 'NOMBRE', 'CODIGO', 'RUC', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA'];
+		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'ASERTIA COMERCIAL SA', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
+		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'ASERTIA COMERCIAL SA', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
+		$nombreBase = 'Formato_AcuerdoCompleto_Distribuidor';
+	}
+	$nIdent = count($identidad);
+	$colMeta = $nIdent + 1;
+	$colCab = $colMeta + 3;
+	$colRuma = $colCab + 3;
+	$colCant = $colRuma + 1;
+	$colPercha = $colCant + 1;
+	$colesMoneda = [$colMeta, $colMeta + 1, $colMeta + 2, $colCab, $colCab + 1, $colCab + 2, $colRuma, $colPercha, $colPercha + 1, $colPercha + 2];
+
+	foreach ($identidad as $i => $titulo) $wb->celda($hoja, 2, $i + 1, $titulo, true);
+	foreach (['ENERO', 'FEBRERO', 'MARZO'] as $i => $m) { $wb->celda($hoja, 2, $colMeta + $i, $m, true); $wb->celda($hoja, 2, $colCab + $i, $m, true); $wb->celda($hoja, 2, $colPercha + $i, $m, true); }
+	$wb->celda($hoja, 2, $colRuma, 'RUMA', true);
+	$wb->celda($hoja, 2, $colCant, 'CANTIDAD', true);
+
+	$wb->celda($hoja, 1, $colMeta, 'META DE COMPRAS', true);
+	$wb->celda($hoja, 1, $colCab, 'CABECERA', true);
+	$wb->celda($hoja, 1, $colRuma, 'RUMA', true);
+	$wb->celda($hoja, 1, $colCant, 'PERCHA', true);
+	$wb->combinarCeldas($hoja, XlsxWriter::colLetra($colMeta).'1:'.XlsxWriter::colLetra($colMeta + 2).'1');
+	$wb->combinarCeldas($hoja, XlsxWriter::colLetra($colCab).'1:'.XlsxWriter::colLetra($colCab + 2).'1');
+	$wb->combinarCeldas($hoja, XlsxWriter::colLetra($colCant).'1:'.XlsxWriter::colLetra($colPercha + 2).'1');
+
+	foreach ([3 => $fila1, 4 => $fila2] as $filaNum => $valores) {
+		foreach ($valores as $i => $v) {
+			$col = $i + 1;
+			if ($v === '') { $wb->celda($hoja, $filaNum, $col, ''); continue; }
+			$esMoneda = in_array($col, $colesMoneda, true);
+			$wb->celda($hoja, $filaNum, $col, $v, false, $esMoneda ? 'money' : null);
+		}
+	}
 } else {
 	// Cuotas Trimestrales — 2 formatos según canal (repositorio_parsear_cuotas()
 	// detecta cuál es solo, sin picker: Directo por CEDI/CLIENTE/CATEGORIAS,

@@ -1,7 +1,7 @@
 <?php
 // Firma liviana de la bitácora para la pantalla de Auditoría en vivo (solo admin).
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 

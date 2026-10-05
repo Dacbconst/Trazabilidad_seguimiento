@@ -20,34 +20,35 @@ $body = json_decode(file_get_contents('php://input'), true);
 $tipo = $body['tipo'] ?? '';
 $id   = (int) ($body['id'] ?? 0);
 
-if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia'], true) || $id <= 0) {
+if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia', 'acuerdo_completo'], true) || $id <= 0) {
 	responder(false, 'Parámetros inválidos.');
 }
 
 $tablasPorTipo = [
-	'rebate'        => 'repositorio_rebate_producto',
-	'participacion' => 'repositorio_participacion_percha',
-	'cuotas'        => 'repositorio_cuota_cliente',
-	'jerarquia'     => 'repositorio_jerarquia_supervisores',
+	'rebate'           => 'repositorio_rebate_producto',
+	'participacion'    => 'repositorio_participacion_percha',
+	'cuotas'           => 'repositorio_cuota_cliente',
+	'jerarquia'        => 'repositorio_jerarquia_supervisores',
+	'acuerdo_completo' => 'repositorio_acuerdo_completo_linea',
 ];
 $tabla = $tablasPorTipo[$tipo];
 
-if ($tipo === 'cuotas') {
-	$stmt = $mysqli->prepare("SELECT estado FROM repositorio_cuota_cliente WHERE id = ? LIMIT 1");
+if ($tipo === 'cuotas' || $tipo === 'acuerdo_completo') {
+	$stmt = $mysqli->prepare("SELECT estado FROM $tabla WHERE id = ? LIMIT 1");
 	if ($stmt) {
 		$stmt->bind_param('i', $id);
 		$stmt->execute();
 		$fila = $stmt->get_result()->fetch_assoc();
 		$stmt->close();
 		if ($fila && $fila['estado'] === 'usada') {
-			responder(false, 'Esta fila ya generó una Acta. No se puede eliminar. Si el dato está mal, corregilo desde la Acta en Historial.');
+			responder(false, 'Esta fila ya generó un Acuerdo. No se puede eliminar. Si el dato está mal, corregilo desde el Acuerdo en Historial.');
 		}
 	}
 
 	$usuarioSesion = $_SESSION['user_id'] ?? null;
-	$stmt = $mysqli->prepare("UPDATE repositorio_cuota_cliente SET estado = 'descartada', actualizado_por = ? WHERE id = ?");
+	$stmt = $mysqli->prepare("UPDATE $tabla SET estado = 'descartada', actualizado_por = ? WHERE id = ?");
 	if (!$stmt) {
-		responder(false, 'El Repositorio de Cuotas todavía no está disponible. Avisa al equipo técnico.');
+		responder(false, 'Este repositorio todavía no está disponible. Avisa al equipo técnico.');
 	}
 	$stmt->bind_param('ii', $usuarioSesion, $id);
 	$stmt->execute();

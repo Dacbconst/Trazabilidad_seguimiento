@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -17,9 +17,7 @@ if (!ep_login_check()) {
 	ep_subir_foto_responder(false, ['error' => 'Tu sesión se cerró porque se inició sesión con esta cuenta en otro dispositivo, o expiró.', 'redirect' => 'login.php?error=sesion'], 401);
 }
 
-if (ep_es_supervisor()) {
-	ep_subir_foto_responder(false, ['error' => 'Un supervisor no envía registros de actividad.'], 403);
-}
+// Liberado a pedido del cliente (2026-10-03, "hasta nuevo aviso"): un supervisor sí puede subir fotos de cualquier tipo de registro.
 
 require_once __DIR__.'/../includes/azure_storage.php';
 

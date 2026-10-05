@@ -1433,6 +1433,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-hist-banner-critica .ac-hist-banner-cta { background: var(--color-error); }
 
 .ac-hist-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin: var(--space-md) 0; }
+/* "Por Categoría" tiene 4 tiles, no 3 — mismo componente, solo cambia la cantidad de columnas. */
+#cumpl-cat-stats { grid-template-columns: repeat(4, 1fr); }
 .ac-hist-stat {
 	width: 100%; display: flex; align-items: flex-start; gap: var(--space-md);
 	text-align: left; cursor: pointer; font-family: var(--font-body);
@@ -1486,6 +1488,8 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 
 	/* min-width:0 en los 3 items: un item de grid no se encoge por debajo del ancho de su contenido si no se lo decís explícito. */
 	.ac-hist-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
+	/* "Por Categoría" tiene 4 tiles — 2x2 en mobile, 4 en una sola fila no entra. */
+	#cumpl-cat-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.ac-hist-stat { flex-direction: column; align-items: flex-start; gap: 6px; padding: var(--space-sm) var(--space-sm); min-width: 0; }
 	/* align-items:flex-start hace que .ac-hist-stat-body deje de estirarse — sin width:100% la etiqueta se sale del borde. */
 	.ac-hist-stat-body { width: 100%; }
@@ -2424,6 +2428,32 @@ tr.ac-preview-grupo-c { box-shadow: inset 8px 0 0 0 #a3690a; }
 .ac-cumpl-fila-cliente.ac-repo-fila-grupo-b, .ac-cumpl-fila-cat.ac-repo-fila-grupo-b { background: #e8d9f6; box-shadow: inset 3px 0 0 0 #9668c4; }
 .ac-cumpl-fila-cliente.ac-repo-fila-grupo-c, .ac-cumpl-fila-cat.ac-repo-fila-grupo-c { background: #f1e0c8; box-shadow: inset 3px 0 0 0 #b98a45; }
 
+/* Pestaña "Por Categoría" — fila consolidada por Sector, chevron propio (acordeón) que expande el desglose por cliente. */
+.ac-cumpl-cat-col-header, .ac-cumpl-cat-fila {
+	display: grid;
+	grid-template-columns: 32px 1.6fr 1fr 1fr 1.1fr 1fr;
+	gap: var(--space-sm);
+	padding: 14px var(--space-lg);
+	align-items: center;
+	min-width: 0;
+}
+.ac-cumpl-cat-col-header {
+	background: var(--color-surface-container-low);
+	font-size: 11px; font-weight: 700; color: var(--color-on-surface-variant);
+	text-transform: uppercase; letter-spacing: 0.03em;
+	border-bottom: 1px solid var(--color-outline-variant);
+}
+.ac-cumpl-cat-fila { font-size: 14px; border-top: 1px solid var(--color-outline-variant); cursor: pointer; }
+.ac-cumpl-cat-fila:first-of-type { border-top: none; }
+.ac-cumpl-cat-fila:hover { background: var(--color-surface-container-low); }
+.ac-cumpl-cat-nombre { font-weight: 700; font-size: 15px; }
+.ac-cumpl-cat-sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 600; color: var(--color-outline); text-transform: none; letter-spacing: 0; }
+
+/* Desglose por cliente de una categoría — mismo grid, sin la columna de chevron (ver cumplimiento.js). */
+.ac-cumpl-cat-detalle { padding: 0 var(--space-lg) var(--space-sm) calc(32px + var(--space-lg)); background: var(--color-surface-container-lowest); }
+.ac-cumpl-cat-detalle-fila { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.1fr 1fr; gap: var(--space-sm); padding: 8px 0; font-size: 13px; border-top: 1px solid var(--color-surface-container-high); }
+.ac-cumpl-cat-detalle-fila:first-child { border-top: none; }
+
 /* Resumen de la subida en el modal (nombre de archivo + año), previo a la
    tabla de previsualización. */
 .ac-cumpl-preview-resumen { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
@@ -2444,6 +2474,28 @@ tr.ac-preview-grupo-c { box-shadow: inset 8px 0 0 0 #a3690a; }
 	.ac-cumpl-fila-cat > div:nth-child(6) { grid-area: ganatotal; }
 	/* nth-child(7) = Rebate ganado, ya oculta arriba, sin mapeo de grid-area acá. */
 	.ac-cumpl-fila-cat > div:nth-child(8) { grid-area: acciones; justify-self: end; }
+
+	/* Mismo criterio para "Por Categoría": header oculto, fila a tarjeta — acá el chevron (columna 1) se queda fijo en su propia celda. */
+	.ac-cumpl-cat-col-header { display: none; }
+	.ac-cumpl-cat-fila {
+		grid-template-columns: 24px 1fr 1fr;
+		grid-template-areas: "chev nombre nombre" ". cuota venta" ". cumpl estado";
+		row-gap: 6px;
+		padding: 10px var(--space-md) 14px;
+	}
+	.ac-cumpl-cat-fila > div:nth-child(1) { grid-area: chev; }
+	.ac-cumpl-cat-fila > div:nth-child(2) { grid-area: nombre; }
+	.ac-cumpl-cat-fila > div:nth-child(3) { grid-area: cuota; }
+	.ac-cumpl-cat-fila > div:nth-child(4) { grid-area: venta; }
+	.ac-cumpl-cat-fila > div:nth-child(5) { grid-area: cumpl; }
+	.ac-cumpl-cat-fila > div:nth-child(6) { grid-area: estado; justify-self: end; }
+	.ac-cumpl-cat-detalle { padding-left: var(--space-md); }
+	.ac-cumpl-cat-detalle-fila { grid-template-columns: 1fr 1fr; grid-template-areas: "cliente cliente" "cuota venta" "cumpl estado"; row-gap: 4px; }
+	.ac-cumpl-cat-detalle-fila > div:nth-child(1) { grid-area: cliente; }
+	.ac-cumpl-cat-detalle-fila > div:nth-child(2) { grid-area: cuota; }
+	.ac-cumpl-cat-detalle-fila > div:nth-child(3) { grid-area: venta; }
+	.ac-cumpl-cat-detalle-fila > div:nth-child(4) { grid-area: cumpl; }
+	.ac-cumpl-cat-detalle-fila > div:nth-child(5) { grid-area: estado; justify-self: end; }
 }
 
 /* ---------- Cumplimiento: filtros colapsables en mobile ---------- */

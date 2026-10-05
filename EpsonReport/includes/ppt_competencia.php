@@ -9,7 +9,6 @@ function ep_ppt_competencia_spec(): array {
 		'titulo' => 'INFORME DE COMPETENCIA',
 		'titulo_fijo' => true,
 		'portada_titulo' => 'Título 1',
-		'portada_doble' => true,
 		'prefijo_actividad' => 'COMPETENCIA',
 		// Sin 'orden': entran todas las fotos que traiga cada registro, también las sumadas con "+ Agregar foto".
 		'fotos' => [
@@ -37,7 +36,30 @@ function ep_ppt_competencia_pie(array $reg, array $foto): array {
 	return [ep_ppt_mayus((string) ($foto['descripcion'] ?? '')), $donde];
 }
 
+// Un registro de Competencia puede traer varios puntos de venta: cada uno sale como su propia diapositiva,
+// con el nombre del promotor del registro (así quedan agrupadas en la misma sección de PowerPoint).
+function ep_ppt_competencia_expandir(array $registros): array {
+	$expandido = [];
+	foreach ($registros as $reg) {
+		if (empty($reg['puntos']) || !is_array($reg['puntos'])) {
+			$expandido[] = $reg;
+			continue;
+		}
+		foreach ($reg['puntos'] as $punto) {
+			$expandido[] = [
+				'fecha_iso' => $reg['fecha_iso'] ?? '',
+				'canal' => $punto['canal'] ?? ($reg['canal'] ?? ''),
+				'punto_venta' => $punto['punto_venta'] ?? '',
+				'ciudad' => $punto['ciudad'] ?? '',
+				'promotor' => $reg['promotor'] ?? '',
+				'fotos' => $punto['fotos'] ?? [],
+			];
+		}
+	}
+	return $expandido;
+}
+
 // Devuelve la ruta de un .pptx temporal con los registros dados. El llamador lo envía y lo borra.
 function ep_ppt_competencia(array $registros, string $tituloMes, array $opciones = []): string {
-	return ep_ppt_generar(ep_ppt_competencia_spec(), $registros, $tituloMes, $opciones);
+	return ep_ppt_generar(ep_ppt_competencia_spec(), ep_ppt_competencia_expandir($registros), $tituloMes, $opciones);
 }

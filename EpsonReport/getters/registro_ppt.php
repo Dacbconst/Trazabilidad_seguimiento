@@ -1,7 +1,7 @@
 <?php
 // PPTX de un solo registro (estadísticas y fotos con el punto de venta) del tipo de actividad que tenga generador; se arma al descargar y no se guarda. Solo admin.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 

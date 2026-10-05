@@ -67,13 +67,16 @@ $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()), solo si el guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
+// Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()) o del repo "Acuerdo Completo" (usuarioIdDeAcuerdoCompleto()), solo si el guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
 if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
 	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
+	$origenTipo = ($origenPrecarga['origen'] ?? 'cuotas') === 'completo' ? 'completo' : 'cuotas';
 	if ($trimestrePrecarga >= 1 && $trimestrePrecarga <= 4 && $anioPrecarga > 0) {
-		$duenoCuota = usuarioIdDeCuota($mysqli, $posId, $trimestrePrecarga, $anioPrecarga);
-		if ($duenoCuota && (int) $duenoCuota === (int) ($_SESSION['user_id'] ?? 0)) {
+		$duenoPrecarga = $origenTipo === 'completo'
+			? usuarioIdDeAcuerdoCompleto($mysqli, $posId, $trimestrePrecarga, $anioPrecarga)
+			: usuarioIdDeCuota($mysqli, $posId, $trimestrePrecarga, $anioPrecarga);
+		if ($duenoPrecarga && (int) $duenoPrecarga === (int) ($_SESSION['user_id'] ?? 0)) {
 			$existePos = true;
 		}
 	}
@@ -356,9 +359,12 @@ try {
 if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
 	$anioPrecarga = (int) ($origenPrecarga['anio'] ?? 0);
+	$origenTipo = ($origenPrecarga['origen'] ?? 'cuotas') === 'completo' ? 'completo' : 'cuotas';
+	$tablaOrigen = $origenTipo === 'completo' ? 'repositorio_acuerdo_completo_linea' : 'repositorio_cuota_cliente';
 	if ($trimestrePrecarga >= 1 && $trimestrePrecarga <= 4 && $anioPrecarga > 0) {
+		// "Acuerdo Completo" marca TODOS los tipos (meta_compra/cabecera/ruma/percha) del mismo grupo a la vez, sin filtrar por sector/categoria/marca.
 		$stmtUsada = $mysqli->prepare(
-			"UPDATE repositorio_cuota_cliente SET estado = 'usada', acuerdo_id_generado = ?
+			"UPDATE $tablaOrigen SET estado = 'usada', acuerdo_id_generado = ?
 			 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'"
 		);
 		if ($stmtUsada) {

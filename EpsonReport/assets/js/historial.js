@@ -446,25 +446,10 @@
 		if (carril) requestAnimationFrame(function () { estadoFlechas(carril); });
 	}).observe(panelContenido, { childList: true });
 
-	// Refresco: se consulta una firma liviana y solo si cambió se piden las filas, conservando filtros y selección.
+	// Refresco: si cambió la firma liviana, se piden las filas de nuevo, conservando filtros y selección.
 	var ultimoHtml = null;
-	var ultimaFirma = null;
-	function vigilar() {
-		if (document.hidden) return;
-		fetch('getters/historial_firma.php', { cache: 'no-store', credentials: 'same-origin' })
-			.then(function (r) {
-				if (r.status === 401) { window.location.href = 'login.php?error=sesion'; return null; }
-				return r.ok ? r.json() : null;
-			})
-			.then(function (d) {
-				if (!d || !d.firma || d.firma === ultimaFirma) return;
-				ultimaFirma = d.firma;
-				refrescar();
-			})
-			.catch(function () {});
-	}
 	function refrescar() {
-		if (root.querySelector('.ep-h2-panel-abierto')) { ultimaFirma = null; return; }
+		if (root.querySelector('.ep-h2-panel-abierto')) return false;
 		fetch('getters/historial_filas.php' + (modoAprobacion ? '?modo=aprobacion' : ''), { cache: 'no-store', credentials: 'same-origin' })
 			.then(function (r) {
 				if (r.status === 401) { window.location.href = 'login.php?error=sesion'; return null; }
@@ -487,11 +472,15 @@
 			})
 			.catch(function () {});
 	}
-	// En vivo cada 3 s solo para el admin; el promotor se actualiza al volver a la pestaña (menos carga en el servidor).
-	if (esAdmin) setInterval(vigilar, 3000);
-	document.addEventListener('visibilitychange', function () { if (!document.hidden) vigilar(); });
+	// En vivo (cada 1.2 s) solo para admin/supervisor; el promotor se actualiza al volver a la pestaña (menos carga en el servidor).
+	if (esAdmin && window.epVivo) {
+		window.epVivo({ url: 'getters/historial_firma.php', indicador: 'epH2Vivo', cada: 1200, alCambiar: refrescar });
+	} else {
+		document.addEventListener('visibilitychange', function () { if (!document.hidden) refrescar(); });
+	}
 
 	movil.addEventListener('change', function () { cerrarPanelMovil(); aplicar(); });
+
 	leerFilas();
 	refrescarCombos();
 	aplicar();

@@ -95,6 +95,20 @@ function ep_registro_armar(array $fila, array $hijos): array {
 		$foto['descripcion'] = (string) ($registro['descripciones'][$foto['id']] ?? '');
 	}
 	unset($foto);
+	// Competencia con varios puntos de venta: cada uno ya trae sus propias fotos (array), se les pega su descripción igual que arriba.
+	if (!empty($registro['puntos']) && is_array($registro['puntos'])) {
+		foreach ($registro['puntos'] as &$punto) {
+			// Ojo: "foreach ($punto['fotos'] ?? [] as &$x)" NO modifica el array real (el "??" lo copia a un temporal); hay que aislar la variable primero.
+			if (empty($punto['fotos']) || !is_array($punto['fotos'])) {
+				continue;
+			}
+			foreach ($punto['fotos'] as &$fotoPunto) {
+				$fotoPunto['descripcion'] = (string) ($punto['descripciones'][$fotoPunto['id']] ?? '');
+			}
+			unset($fotoPunto);
+		}
+		unset($punto);
+	}
 	$registro['comentarios'] = $hijos['comentarios'] ?? [];
 	return $registro;
 }

@@ -1,7 +1,7 @@
 <?php
 // Estado liviano del Calendario para la pantalla en vivo del admin; también cierra al vencer los calendarios que ya cumplieron su plazo.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 

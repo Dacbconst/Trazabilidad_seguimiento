@@ -1,7 +1,7 @@
 <?php
 // Desactiva o reactiva un usuario (POST id, activo 1|0). Solo admin.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 

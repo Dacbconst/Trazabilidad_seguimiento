@@ -1,7 +1,7 @@
 <?php
 // Devuelve un registro pendiente al promotor con un motivo obligatorio (POST codigo, motivo). Admin, o el supervisor al que le toca.
 require_once __DIR__.'/../config.php';
-session_set_cookie_params(0, '/', '', SECURE, true);
+session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
 require_once __DIR__.'/../includes/functions.php';
 header('Content-Type: application/json; charset=utf-8');

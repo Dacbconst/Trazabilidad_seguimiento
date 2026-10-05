@@ -102,6 +102,15 @@ window.epPdv = { elegido: function () { return null; } };
 		cerrar(true);
 	}
 
+	// Para Competencia (varios puntos de venta en una sesión): vuelve al estado "sin elegir" para el siguiente.
+	window.epPdv.limpiar = function () {
+		estado.elegido = null;
+		titulo.textContent = 'Selecciona el punto de venta';
+		sub.hidden = true;
+		sub.textContent = '';
+		trigger.classList.remove('con-valor');
+	};
+
 	// Para "Corregir y reenviar": deja elegido el punto de venta del registro devuelto.
 	window.epPdv.elegirPorId = function (posId) {
 		var p = puntos.filter(function (x) { return x.pos_id === posId; })[0];

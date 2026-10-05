@@ -40,7 +40,7 @@ foreach ($todosRegistros as $i => $r):
 	<?php endif; ?>
 	<div class="ep-h2-fila ep-h2-reg" tabindex="0" role="button"
 		data-idx="<?= $i ?>" data-estado="<?= $h($r['estado'] ?? 'Aprobado') ?>" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" data-actividad="<?= $h($etiqueta) ?>" data-fecha="<?= $h($dia) ?>"
-		data-promotor="<?= $h($r['promotor'] ?? '') ?>" data-busqueda="<?= $h($busqueda) ?>">
+		data-promotor="<?= $h($r['promotor'] ?? '') ?>" data-busqueda="<?= $h($busqueda) ?>" data-punto="<?= $h($punto) ?>">
 		<?php if ($esAdmin): ?>
 			<input type="checkbox" class="ep-h2-check" data-codigo="<?= $h($r['id'] ?? '') ?>" data-tipo="<?= $h($tipo) ?>" aria-label="Seleccionar para descarga consolidada">
 		<?php endif; ?>

@@ -43,6 +43,12 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			Jerarquía de Supervisores
 			<span class="ac-repo-tab-count" id="repo-tab-jerarquia-count">—</span>
 		</button>
+		<!-- Acuerdo Completo (2026-10-03, pedido explícito): copia funcional de Cuotas Trimestrales (mismas acciones — canal, Pendientes de Asignar, Resumen, Descargar Formato), pero genera Acuerdos NUEVOS sobre su propia tabla (repositorio_acuerdo_completo_linea), sin relación con Cuotas Trimestrales — el Excel acepta, además de la Meta de Compras, Cabecera/Ruma/Percha ya completos en la misma fila. Ver includes/repositorio_import.php. -->
+		<button type="button" class="ac-repo-tab" id="repo-tab-acuerdo_completo" data-tipo="acuerdo_completo">
+			<span class="material-symbols-outlined">fact_check</span>
+			Acuerdo Completo
+			<span class="ac-repo-tab-count" id="repo-tab-acuerdo_completo-count">—</span>
+		</button>
 		<!-- Indicador deslizante (2026-09-18) — posición/ancho calculados en JS,
 		     ver posicionarIndicadorTab() en repositorios.js. -->
 		<div class="ac-repo-tabs-indicador" id="repo-tabs-indicador"></div>
@@ -339,7 +345,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 <div class="ac-modal-overlay" id="repo-resumen-modal-overlay">
 	<div class="ac-modal ac-acta-modal">
 		<div class="ac-modal-header">
-			<h3>Resumen de Cuotas Trimestrales</h3>
+			<h3 id="repo-resumen-modal-titulo">Resumen de Cuotas Trimestrales</h3>
 			<button type="button" class="ac-modal-close" id="repo-resumen-modal-close" aria-label="Cerrar">
 				<span class="material-symbols-outlined">close</span>
 			</button>

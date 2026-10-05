@@ -33,7 +33,10 @@ function ep_aprobacion_filtro_alcance($db): string {
 	if (!ep_es_supervisor() || !ep_aprobacion_activa($db)) {
 		return '';
 	}
-	return ' AND r.supervisor_id = '.(int) ($_SESSION['usuario_id'] ?? 0);
+	$id = (int) ($_SESSION['usuario_id'] ?? 0);
+	// Competencia con puntos de venta de más de un canal puede sumar un supervisor extra dentro del JSON (ver guardar_registro.php);
+	// el resto de los tipos nunca tiene esa clave, así que esto no les cambia nada.
+	return ' AND (r.supervisor_id = '.$id.' OR (JSON_VALID(r.valores) AND JSON_CONTAINS(r.valores, CAST('.$id.' AS JSON), \'$.supervisores_extra\')))';
 }
 
 // Supervisor de un registro según la categoría del punto de venta: retail va a su supervisor de retail, lo demás al de canales.

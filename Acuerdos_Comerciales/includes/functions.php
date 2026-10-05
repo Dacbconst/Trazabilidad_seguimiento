@@ -760,12 +760,23 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 		if (!is_array($valores) || array_sum($valores) <= 0) continue;
 		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
 		if (!isset($grupos[$clave])) {
-			$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at']];
+			$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at'], 'origen' => 'cuotas'];
 		}
 		$grupos[$clave]['categorias']++;
 		if ($f['updated_at'] > $grupos[$clave]['actualizado_en']) $grupos[$clave]['actualizado_en'] = $f['updated_at'];
 	}
-	return array_values($grupos);
+
+	// Fusión con "Acuerdo Completo" (2026-10-03) — misma lista de "Actas Asignadas" en la campanita, sin distinguir origen en la UI; 'origen' queda solo puertas adentro para saber a qué endpoint pegarle al hacer click.
+	foreach (listar_acuerdos_completos_pendientes($mysqli, $usuarioId) as $g) {
+		$g['origen'] = 'completo';
+		$grupos[$g['pos_id'].'|'.$g['trimestre'].'|'.$g['anio'].'|completo'] = $g;
+	}
+
+	$resultado = array_values($grupos);
+	usort($resultado, function ($a, $b) {
+		return $b['anio'] <=> $a['anio'] ?: $b['trimestre'] <=> $a['trimestre'] ?: strcmp($a['cliente_excel'], $b['cliente_excel']);
+	});
+	return $resultado;
 }
 
 // Arma el detalle de una Acta precargada para poblar Registrar. Segmento/Categoría/Marca vienen del Excel o, si falta, del historial del cliente.
@@ -1236,14 +1247,26 @@ function trimestreABounds($trimestre) {
 	return [$inicio, $inicio + 2];
 }
 
-// Un Acta con 20+ días desde fecha_generacion pasa a 'vencido'. Sin cron: corre cada vez que se listan Actas o se calculan alertas.
+// 20 días hábiles = 28 días calendario si fecha_generacion cae en día de semana, 30 si cae sábado/domingo (WEEKDAY: 0=Lun..6=Dom).
+function sqlFechaLimiteFirma($col) {
+	return "DATE_ADD($col, INTERVAL IF(WEEKDAY($col) > 4, 30, 28) DAY)";
+}
+
+// Misma regla que sqlFechaLimiteFirma() pero en PHP, para renderFilaHistorial() (no pasa por una query).
+function fechaLimiteFirmaPhp($fechaGeneracion) {
+	$d = new DateTime($fechaGeneracion);
+	return $d->modify('+'.((int) $d->format('N') >= 6 ? 30 : 28).' days');
+}
+
+// Un Acta con 20+ días HÁBILES desde fecha_generacion pasa a 'vencido'. Sin cron: corre cada vez que se listan Actas o se calculan alertas.
 function barrer_actas_vencidas($mysqli) {
+	$limite = sqlFechaLimiteFirma('fecha_generacion');
 	$mysqli->query(
 		"UPDATE repositorio_acuerdos
 		 SET estado = 'vencido'
 		 WHERE estado IN ('generado', 'enviado')
 		   AND fecha_generacion IS NOT NULL
-		   AND fecha_generacion < DATE_SUB(CURDATE(), INTERVAL 20 DAY)"
+		   AND $limite < CURDATE()"
 	);
 }
 
@@ -1251,9 +1274,10 @@ function barrer_actas_vencidas($mysqli) {
 function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 	if (!$usuarioId) return [];
 	barrer_actas_vencidas($mysqli);
+	$limite = sqlFechaLimiteFirma('a.fecha_generacion');
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion,
-		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
+		        DATEDIFF($limite, CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a
 		 WHERE a.creado_por = ?
 		   AND a.estado IN ('generado', 'enviado')
@@ -1459,7 +1483,7 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	} else {
 		$diasRestantes = null;
 		if (!empty($a['fecha_generacion']) && in_array($a['estado'] ?? '', ['generado', 'enviado'], true)) {
-			$limite = (new DateTime($a['fecha_generacion']))->modify('+20 days');
+			$limite = fechaLimiteFirmaPhp($a['fecha_generacion']);
 			$diasRestantes = (int) (new DateTime('today'))->diff($limite)->format('%r%a');
 		}
 		if ($diasRestantes !== null && $diasRestantes <= 5) {
@@ -1536,6 +1560,24 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
 
+	// Origen del Acuerdo, calculado antes de armar las líneas: Cuotas siempre bloquea Visibilidad; Acuerdo Completo marca cada línea como bloqueada en pantalla.
+	$deCuotas = false;
+	$stmtCuotas = $mysqli->prepare('SELECT 1 FROM repositorio_cuota_cliente WHERE acuerdo_id_generado = ? LIMIT 1');
+	if ($stmtCuotas) {
+		$stmtCuotas->bind_param('i', $acuerdoId);
+		$stmtCuotas->execute();
+		$deCuotas = (bool) $stmtCuotas->get_result()->fetch_assoc();
+		$stmtCuotas->close();
+	}
+	$deAcuerdoCompleto = false;
+	$stmtCompleto = $mysqli->prepare('SELECT 1 FROM repositorio_acuerdo_completo_linea WHERE acuerdo_id_generado = ? LIMIT 1');
+	if ($stmtCompleto) {
+		$stmtCompleto->bind_param('i', $acuerdoId);
+		$stmtCompleto->execute();
+		$deAcuerdoCompleto = (bool) $stmtCompleto->get_result()->fetch_assoc();
+		$stmtCompleto->close();
+	}
+
 	$lineas = ['meta_compra' => [], 'cabecera' => [], 'ruma' => [], 'percha' => []];
 	foreach ($filas as $f) {
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
@@ -1550,17 +1592,8 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 			'precio_percha'       => $f['precio_percha'] !== null ? (float) $f['precio_percha'] : 0,
 			'valores_mensuales'   => is_array($valores) ? $valores : [],
 			'valor_mensual_unico' => $f['valor_mensual_unico'] !== null ? (float) $f['valor_mensual_unico'] : 0,
+			'bloqueado'           => $deAcuerdoCompleto,
 		];
-	}
-
-	// Un Acuerdo que viene del repositorio de Cuotas siempre va sin Visibilidad, bloqueado para que no se pueda prender (pedido explícito).
-	$deCuotas = false;
-	$stmtCuotas = $mysqli->prepare('SELECT 1 FROM repositorio_cuota_cliente WHERE acuerdo_id_generado = ? LIMIT 1');
-	if ($stmtCuotas) {
-		$stmtCuotas->bind_param('i', $acuerdoId);
-		$stmtCuotas->execute();
-		$deCuotas = (bool) $stmtCuotas->get_result()->fetch_assoc();
-		$stmtCuotas->close();
 	}
 
 	return [
@@ -1578,6 +1611,7 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 		'es_distribuidor'   => ($cabecera['canal'] ?? null) === 'DISTRIBUIDOR',
 		'sin_visibilidad'   => !empty($cabecera['sin_visibilidad']),
 		'de_cuotas'         => $deCuotas,
+		'de_acuerdo_completo' => $deAcuerdoCompleto,
 		'empresa_distribuidora' => $cabecera['tipo_distribuidor'] ?: '',
 		'ejecutivo_comercial' => $cabecera['ejecutivo_comercial'] ?: '',
 		'lineas'            => $lineas,
@@ -1794,6 +1828,326 @@ function listar_repositorio_cuotas($mysqli, $busqueda = '', $pagina = 1, $porPag
 	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
 }
 
+// ---------- Repositorio "Acuerdo Completo" ---------- paralelo a Cuotas, tabla propia repositorio_acuerdo_completo_linea.
+
+function listar_repositorio_acuerdo_completo($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+
+	$stmtTotal = $mysqli->prepare(
+		"SELECT COUNT(*) AS total FROM repositorio_acuerdo_completo_linea
+		 WHERE estado <> 'pendiente_match' AND (cedi_excel LIKE ? OR cliente_excel LIKE ? OR pos_id LIKE ? OR plan LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)"
+	);
+	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmtTotal->bind_param('sssssss', $like, $like, $like, $like, $like, $like, $like);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
+
+	$stmt = $mysqli->prepare(
+		"SELECT id, pos_id, cliente_excel, cedi_excel, plan, tipo, sector, categoria, marca, cantidad_max_percha, valores_mensuales, valor_mensual_unico, trimestre, anio, estado
+		 FROM repositorio_acuerdo_completo_linea
+		 WHERE estado <> 'pendiente_match' AND (cedi_excel LIKE ? OR cliente_excel LIKE ? OR pos_id LIKE ? OR plan LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?)
+		 ORDER BY anio DESC, trimestre DESC, cliente_excel, pos_id, FIELD(tipo,'meta_compra','cabecera','ruma','percha'), sector, categoria, marca
+		 LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmt->bind_param('sssssssii', $like, $like, $like, $like, $like, $like, $like, $porPagina, $offset);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	foreach ($filas as &$fila) {
+		$fila['valores_mensuales'] = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
+	}
+	unset($fila);
+	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
+}
+
+// Cola de resolución manual, agrupada por cliente (todos los tipos de un mismo cliente se resuelven juntos) — mismo patrón que listar_repositorio_cuotas_pendientes_match().
+function listar_repositorio_acuerdo_completo_pendientes_match($mysqli) {
+	$stmt = $mysqli->prepare(
+		"SELECT id, cliente_excel, cedi_excel, plan, sector, trimestre, anio, valores_mensuales
+		 FROM repositorio_acuerdo_completo_linea
+		 WHERE estado = 'pendiente_match'
+		 ORDER BY cliente_excel, cedi_excel, plan, trimestre, anio, sector"
+	);
+	if (!$stmt) return [];
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$grupos = [];
+	$ordenGrupos = [];
+	foreach ($filas as $fila) {
+		$valores = $fila['valores_mensuales'] !== null ? json_decode($fila['valores_mensuales'], true) : [];
+		$clave = $fila['cliente_excel'].'|'.$fila['cedi_excel'].'|'.$fila['plan'].'|'.$fila['trimestre'].'|'.$fila['anio'];
+		if (!isset($grupos[$clave])) {
+			$grupos[$clave] = [
+				'ids' => [], 'cliente_excel' => $fila['cliente_excel'], 'cedi_excel' => $fila['cedi_excel'],
+				'plan' => $fila['plan'], 'trimestre' => (int) $fila['trimestre'], 'anio' => (int) $fila['anio'],
+				'categorias' => [], 'monto_total' => 0,
+			];
+			$ordenGrupos[] = $clave;
+		}
+		$grupos[$clave]['ids'][] = (int) $fila['id'];
+		$grupos[$clave]['categorias'][] = $fila['sector'] !== '' ? $fila['sector'] : $fila['marca'];
+		$grupos[$clave]['monto_total'] += is_array($valores) ? array_sum($valores) : 0;
+	}
+
+	$stmtCand = $mysqli->prepare(
+		"SELECT pos_id, pos_name, cedi, supervisor FROM repositorio_locales_supervisores_cliente
+		 WHERE pos_name LIKE CONCAT(?, '%') ORDER BY pos_name LIMIT 10"
+	);
+	$resultado = [];
+	foreach ($ordenGrupos as $clave) {
+		$g = $grupos[$clave];
+		$g['candidatos'] = [];
+		if ($stmtCand) {
+			$stmtCand->bind_param('s', $g['cliente_excel']);
+			$stmtCand->execute();
+			$g['candidatos'] = $stmtCand->get_result()->fetch_all(MYSQLI_ASSOC);
+		}
+		$resultado[] = $g;
+	}
+	if ($stmtCand) $stmtCand->close();
+	return $resultado;
+}
+
+// Dueño real del grupo, mismo criterio que usuarioIdDeCuota() (Usuario del Excel manda, CEDI de respaldo, maestro al final).
+function usuarioIdDeAcuerdoCompleto($mysqli, $posId, $trimestre, $anio) {
+	$posName = null;
+	$stmt = $mysqli->prepare(
+		"SELECT cedi_excel, cliente_excel, usuario_excel FROM repositorio_acuerdo_completo_linea
+		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND tipo = 'meta_compra' LIMIT 1"
+	);
+	if ($stmt) {
+		$stmt->bind_param('sii', $posId, $trimestre, $anio);
+		$stmt->execute();
+		$fila = $stmt->get_result()->fetch_assoc();
+		$stmt->close();
+		$posName = $fila['cliente_excel'] ?? null;
+		$usuarioExacto = resolverUsuarioExacto($mysqli, $fila['usuario_excel'] ?? '');
+		if ($usuarioExacto) return (int) $usuarioExacto['id'];
+		$cedi = $fila ? trim((string) $fila['cedi_excel']) : '';
+		if ($cedi !== '') {
+			$stmtCedi = $mysqli->prepare(
+				"SELECT id FROM repositorio_usuarios_acuerdos
+				 WHERE status = 'activo'
+				   AND (UPPER(TRIM(usuario)) = UPPER(TRIM(?)) OR UPPER(TRIM(supervisor)) = UPPER(TRIM(?)))
+				 LIMIT 1"
+			);
+			if ($stmtCedi) {
+				$stmtCedi->bind_param('ss', $cedi, $cedi);
+				$stmtCedi->execute();
+				$filaCedi = $stmtCedi->get_result()->fetch_assoc();
+				$stmtCedi->close();
+				if ($filaCedi) return (int) $filaCedi['id'];
+			}
+		}
+	}
+	return usuarioIdDePosId($mysqli, $posId, $posName);
+}
+
+// Clientes listos para generar su Acuerdo, mismo criterio que listar_actas_precargadas_pendientes().
+function listar_acuerdos_completos_pendientes($mysqli, $usuarioId) {
+	if (!$usuarioId) return [];
+	$stmt = $mysqli->prepare(
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.sector, c.valores_mensuales, c.updated_at
+		 FROM repositorio_acuerdo_completo_linea c
+		 LEFT JOIN repositorio_usuarios_acuerdos u_usuario
+		   ON u_usuario.status = 'activo' AND UPPER(TRIM(u_usuario.usuario)) = UPPER(TRIM(c.usuario_excel)) AND c.usuario_excel <> ''
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) m ON m.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = m.supervisor AND u_master.status = 'activo'
+		 WHERE c.tipo = 'meta_compra' AND c.estado = 'pendiente_uso' AND COALESCE(u_usuario.id, u_cedi.id, u_master.id) = ?
+		 ORDER BY c.anio DESC, c.trimestre DESC, c.cliente_excel"
+	);
+	if (!$stmt) return [];
+	$stmt->bind_param('i', $usuarioId);
+	$stmt->execute();
+	$filasCrudas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$grupos = [];
+	foreach ($filasCrudas as $f) {
+		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
+		if (!is_array($valores) || array_sum($valores) <= 0) continue;
+		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
+		if (!isset($grupos[$clave])) {
+			$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at']];
+		}
+		$grupos[$clave]['categorias']++;
+		if ($f['updated_at'] > $grupos[$clave]['actualizado_en']) $grupos[$clave]['actualizado_en'] = $f['updated_at'];
+	}
+	return array_values($grupos);
+}
+
+// Arma el detalle completo (4 tipos) para Registrar — Segmento se resuelve 1 vez por línea de Meta y se reusa en Cabecera/Ruma/Percha de la misma Categoría+Marca.
+function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
+	$stmt = $mysqli->prepare(
+		"SELECT id, tipo, cliente_excel, plan, sector, categoria, marca, cantidad_max_percha, valores_mensuales, valor_mensual_unico
+		 FROM repositorio_acuerdo_completo_linea
+		 WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso'
+		 ORDER BY FIELD(tipo,'meta_compra','cabecera','ruma','percha')"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('sii', $posId, $trimestre, $anio);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	if (!$filas) return null;
+
+	$primeraMeta = null;
+	foreach ($filas as $f) { if ($f['tipo'] === 'meta_compra') { $primeraMeta = $f; break; } }
+	$cliente = clienteMaestroDePosId($mysqli, $posId, $primeraMeta['cliente_excel'] ?? null);
+	if (!$cliente) return null;
+
+	$esDistribuidorRebate = ($cliente['canal'] ?? null) === 'DISTRIBUIDOR';
+	$ciudadRebate = $esDistribuidorRebate ? 'TODAS' : ($cliente['cedi'] ?: '');
+	$canalRebate  = $esDistribuidorRebate ? 'DISTRIBUIDOR' : 'DIRECTA';
+
+	$lineasMeta = []; $lineasCab = []; $lineasRuma = []; $lineasPercha = [];
+	$segmentoPorClave = []; // "categoria|marca" -> segmento, resuelto al procesar meta_compra, reusado por los otros 3 tipos.
+
+	foreach ($filas as $f) {
+		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
+		$valores = is_array($valores) ? $valores : [];
+		$claveProducto = $f['categoria'].'|'.$f['marca'];
+
+		if ($f['tipo'] === 'meta_compra') {
+			$match = resolverProductoCuota($mysqli, $f['sector'], $f['categoria'], $f['marca']);
+			$segmento = $match['segmento'] ?? null;
+			$categoriaFinal = $match['categoria'] ?? $f['categoria'];
+			$marcaFinal = $match['marca'] ?? $f['marca'];
+			$segmentoPorClave[$claveProducto] = $segmento;
+
+			$rebatePct = 0;
+			if ($categoriaFinal !== '' && $marcaFinal !== '') {
+				$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $f['sector'], $categoriaFinal, $marcaFinal);
+				if ($valorRebate !== null) $rebatePct = $valorRebate;
+			}
+			$lineasMeta[] = [
+				'segmento' => $segmento, 'sector' => $f['sector'], 'categoria' => $categoriaFinal, 'marca' => $marcaFinal,
+				'rebate_pct' => $rebatePct, 'valores_mensuales' => $valores, 'bloqueado' => true,
+			];
+		} elseif ($f['tipo'] === 'cabecera') {
+			$segmento = $segmentoPorClave[$claveProducto] ?? null;
+			$lineasCab[] = ['segmento' => $segmento, 'categoria' => $f['categoria'], 'marca' => $f['marca'], 'valores_mensuales' => $valores, 'bloqueado' => true];
+		} elseif ($f['tipo'] === 'ruma') {
+			$segmento = $segmentoPorClave[$claveProducto] ?? null;
+			$lineasRuma[] = ['segmento' => $segmento, 'categoria' => $f['categoria'], 'marca' => $f['marca'], 'valor_mensual_unico' => $f['valor_mensual_unico'] !== null ? (float) $f['valor_mensual_unico'] : 0, 'bloqueado' => true];
+		} elseif ($f['tipo'] === 'percha') {
+			$participacionPct = 0;
+			$valorPart = buscarParticipacionPercha($mysqli, $esDistribuidorRebate ? 'TODAS' : ($cliente['cedi'] ?: ''), $f['marca']);
+			if ($valorPart !== null) $participacionPct = $valorPart;
+			$lineasPercha[] = [
+				'categoria' => $f['categoria'], 'marca' => $f['marca'],
+				'cantidad_max_percha' => $f['cantidad_max_percha'] !== null ? (int) $f['cantidad_max_percha'] : 0,
+				'participacion' => $participacionPct ? number_format($participacionPct, 2).'%' : '',
+				'valores_mensuales' => $valores, 'bloqueado' => true,
+			];
+		}
+	}
+
+	$mesInicio = ($trimestre - 1) * 3;
+	return [
+		'pos_id'          => $posId,
+		'distribuidor'    => $cliente['pos_name'],
+		'localidad'       => $cliente['cedi'] ?: '—',
+		'anio'            => (int) $anio,
+		'mes_inicio'      => $mesInicio,
+		'mes_fin'         => $mesInicio + 2,
+		'es_distribuidor' => $esDistribuidorRebate,
+		'empresa_distribuidora' => $cliente['tipo_distribuidor'] ?: '',
+		'empresa_distribuidora_excel' => $primeraMeta['plan'] ?? '',
+		'lineas'          => ['meta_compra' => $lineasMeta, 'cabecera' => $lineasCab, 'ruma' => $lineasRuma, 'percha' => $lineasPercha],
+	];
+}
+
+// Panorama para el superdesarrollador, mismo espíritu que resumen_cuotas() pero sin el toggle "Borrador" (sin casos reales todavía).
+function resumen_acuerdo_completo($mysqli) {
+	$grupos = [];
+	$stmt = $mysqli->prepare(
+		"SELECT pos_id, cliente_excel, cedi_excel, usuario_excel, trimestre, anio, sector, valores_mensuales, updated_at
+		 FROM repositorio_acuerdo_completo_linea WHERE tipo = 'meta_compra' AND estado = 'pendiente_uso'
+		 ORDER BY anio DESC, trimestre DESC, cliente_excel"
+	);
+	if ($stmt) {
+		$stmt->execute();
+		$filasCrudas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+		$stmt->close();
+		foreach ($filasCrudas as $f) {
+			$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
+			if (!is_array($valores) || array_sum($valores) <= 0) continue;
+			$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
+			if (!isset($grupos[$clave])) {
+				$grupos[$clave] = ['pos_id' => $f['pos_id'], 'cliente_excel' => $f['cliente_excel'], 'cedi_excel' => $f['cedi_excel'], 'usuario_excel' => $f['usuario_excel'] ?? '', 'trimestre' => $f['trimestre'], 'anio' => $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at']];
+			}
+			$grupos[$clave]['categorias']++;
+			if ($f['updated_at'] > $grupos[$clave]['actualizado_en']) $grupos[$clave]['actualizado_en'] = $f['updated_at'];
+		}
+	}
+	$grupos = array_values($grupos);
+	$pendientes = count($grupos);
+
+	$usadas = 0;
+	$r = $mysqli->query(
+		"SELECT COUNT(DISTINCT CONCAT(pos_id, '|', trimestre, '|', anio)) AS n
+		 FROM repositorio_acuerdo_completo_linea WHERE tipo = 'meta_compra' AND estado = 'usada'"
+	);
+	if ($r) $usadas = (int) $r->fetch_assoc()['n'];
+
+	$pendientesMatch = 0;
+	$r = $mysqli->query("SELECT COUNT(DISTINCT cliente_excel, trimestre, anio) AS n FROM repositorio_acuerdo_completo_linea WHERE estado = 'pendiente_match'");
+	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
+
+	$porUsuarioMapa = [];
+	foreach ($grupos as $g) {
+		$asignado = resolverNombreAsignadoCuota($mysqli, $g['pos_id'], $g['cedi_excel'], $g['cliente_excel'], $g['usuario_excel']);
+		$nombre = $asignado['nombre'] ?: 'Sin identificar todavía';
+		if (!isset($porUsuarioMapa[$nombre])) {
+			$porUsuarioMapa[$nombre] = ['nombre' => $nombre, 'actas_pendientes' => 0, 'tiene_cuenta' => $asignado['tiene_cuenta'], 'actas' => []];
+		}
+		$porUsuarioMapa[$nombre]['actas_pendientes']++;
+		$porUsuarioMapa[$nombre]['actas'][] = ['pos_id' => $g['pos_id'], 'cliente' => $g['cliente_excel'], 'trimestre' => $g['trimestre'], 'anio' => $g['anio'], 'categorias' => $g['categorias'], 'actualizado_en' => $g['actualizado_en']];
+	}
+	$porUsuario = array_values($porUsuarioMapa);
+	usort($porUsuario, function ($a, $b) { return $b['actas_pendientes'] <=> $a['actas_pendientes']; });
+
+	$chocan = [];
+	foreach ($grupos as $g) {
+		$mesInicio = ($g['trimestre'] - 1) * 3;
+		$stmtChoque = $mysqli->prepare(
+			"SELECT a.documento_no, a.created_at, u.usuario
+			 FROM repositorio_acuerdos a LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+			 WHERE a.pos_id = ? AND a.anio = ? AND a.mes_inicio = ? AND a.mes_fin = ? AND a.estado NOT IN ('borrador','anulado') LIMIT 1"
+		);
+		if (!$stmtChoque) continue;
+		$mesFin = $mesInicio + 2;
+		$stmtChoque->bind_param('siii', $g['pos_id'], $g['anio'], $mesInicio, $mesFin);
+		$stmtChoque->execute();
+		$existente = $stmtChoque->get_result()->fetch_assoc();
+		$stmtChoque->close();
+		if (!$existente) continue;
+		$asignado = resolverNombreAsignadoCuota($mysqli, $g['pos_id'], $g['cedi_excel'], $g['cliente_excel'], $g['usuario_excel']);
+		$chocan[] = [
+			'local' => $g['cliente_excel'], 'trimestre' => $g['trimestre'], 'anio' => $g['anio'], 'asignado_a' => $asignado['nombre'],
+			'existente_documento_no' => $existente['documento_no'], 'existente_usuario' => $existente['usuario'], 'existente_fecha' => $existente['created_at'],
+		];
+	}
+
+	return [
+		'pendientes' => $pendientes, 'usadas' => $usadas, 'pendientes_match' => $pendientesMatch, 'borradores' => 0,
+		'por_usuario' => $porUsuario, 'chocan' => $chocan,
+	];
+}
+
 // Cola de resolución manual, agrupada por cliente (2026-09-30, pedido explícito: "esas 4 categorías son 1 solo Acta, no 4 filas sueltas") — candidatos para elegir a mano, igual que liquidacion_pendientes.php.
 function listar_repositorio_cuotas_pendientes_match($mysqli) {
 	$stmt = $mysqli->prepare(
@@ -1870,7 +2224,8 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 
 	$vacio = ['stats' => ['total' => 0, 'firmadas' => 0, 'pendientes' => 0, 'vencidas' => 0], 'equipo' => []];
 
-		// Pendientes: cualquier Acta sin firma real y sin vencer. Depender de si HAY un archivo real, no del texto del estado.
+	// Pendientes: cualquier Acta sin firma real y sin vencer. Depender de si HAY un archivo real, no del texto del estado.
+	$limite = sqlFechaLimiteFirma('a.fecha_generacion');
 	$stmt = $mysqli->prepare(
 		"SELECT u.id AS usuario_id, u.usuario AS nombre,
 		        COUNT(*) AS total,
@@ -1878,7 +2233,7 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 		        COUNT(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado <> 'vencido' THEN 1 END) AS pendientes,
 		        COUNT(CASE WHEN a.estado = 'vencido' THEN 1 END) AS vencidas,
 		        MIN(CASE WHEN a.acta_firmada_azure_path IS NULL AND a.estado <> 'vencido'
-		                 THEN DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) END) AS dias_mas_proxima
+		                 THEN DATEDIFF($limite, CURDATE()) END) AS dias_mas_proxima
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 		 WHERE a.estado NOT IN ('borrador', 'anulado')
@@ -1936,13 +2291,14 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	}
 
 	// LEFT JOIN a propósito: si el pos_id ya no matchea el maestro, un JOIN normal la haría desaparecer del detalle.
+	$limite = sqlFechaLimiteFirma('a.fecha_generacion');
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
 		        a.acta_firmada_subido_en, a.acta_firmada_mime,
 		        a.firma_validada_en, a.firma_rechazada_en, a.firma_rechazada_motivo,
 		        d.pos_name,
-		        DATEDIFF(DATE_ADD(a.fecha_generacion, INTERVAL 20 DAY), CURDATE()) AS dias_restantes
+		        DATEDIFF($limite, CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a
 		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.creado_por = ?
@@ -2230,6 +2586,80 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 		'cumplimiento_promedio' => round((float) $fila['cumplimiento_promedio'], 1),
 		'clientes_ganan_total'  => (int) $fila['clientes_ganan_total'],
 	];
+}
+
+// Consolidado por Categoría: mismas filas que listar_cumplimiento_cuota(), agrupadas por Sector en vez de por asesor/cliente.
+function resumen_consolidado_categoria($mysqli, $trimestre, $anio, $canal = 'total') {
+	$condiciones = ['c.eliminado_en IS NULL'];
+	$params = [];
+	$tipos = '';
+	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
+	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor)');
+	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
+	$where = implode(' AND ', $condiciones);
+
+	// Mismo criterio de resolución de dueño que listar_cumplimiento_cuota(): USUARIO de Cuotas Trimestrales > CEDI > maestro.
+	$stmt = $mysqli->prepare(
+		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.sector,
+		        c.cuota_total, c.venta_total, c.cumplimiento_pct, c.gana_categoria,
+		        COALESCE(u_usuario.usuario, u_cedi.usuario, u_master.usuario) AS usuario_nombre,
+		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal
+		 FROM repositorio_cumplimiento_cuota c
+		 LEFT JOIN (SELECT pos_id, trimestre, anio, MAX(usuario_excel) AS usuario_excel FROM repositorio_cuota_cliente WHERE usuario_excel IS NOT NULL AND usuario_excel <> '' GROUP BY pos_id, trimestre, anio) rc
+		   ON rc.pos_id = c.pos_id AND rc.trimestre = c.trimestre AND rc.anio = c.anio
+		 LEFT JOIN repositorio_usuarios_acuerdos u_usuario
+		   ON u_usuario.status = 'activo' AND UPPER(TRIM(u_usuario.usuario)) = UPPER(TRIM(rc.usuario_excel))
+		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
+		   ON u_cedi.status = 'activo'
+		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
+		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) mst ON mst.pos_id = c.pos_id
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
+		 WHERE $where
+		 ORDER BY c.sector, c.cliente_excel"
+	);
+	if (!$stmt) return [];
+	if ($params) $stmt->bind_param($tipos, ...$params);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	$porSector = [];
+	foreach ($filas as $f) {
+		$sector = $f['sector'];
+		if (!isset($porSector[$sector])) {
+			$porSector[$sector] = ['sector' => $sector, 'cuota_total' => 0.0, 'venta_total' => 0.0, 'clientes' => [], 'detalle' => []];
+		}
+		$porSector[$sector]['cuota_total'] += (float) $f['cuota_total'];
+		$porSector[$sector]['venta_total'] += (float) $f['venta_total'];
+		$porSector[$sector]['clientes'][$f['pos_id']] = true;
+		$porSector[$sector]['detalle'][] = [
+			'cliente'   => $f['cliente_excel'],
+			'cedi'      => $f['cedi_excel'],
+			'usuario'   => $f['usuario_nombre'],
+			'canal'     => $f['canal'],
+			'cuota_total'       => (float) $f['cuota_total'],
+			'venta_total'       => (float) $f['venta_total'],
+			'cumplimiento_pct'  => (float) $f['cumplimiento_pct'],
+			'gana_categoria'    => $f['gana_categoria'],
+		];
+	}
+
+	$resultado = array_values(array_map(function ($c) {
+		$pct = $c['cuota_total'] > 0 ? round(($c['venta_total'] / $c['cuota_total']) * 100, 2) : 0.0;
+		return [
+			'sector'           => $c['sector'],
+			'clientes'         => count($c['clientes']),
+			'cuota_total'      => $c['cuota_total'],
+			'venta_total'      => $c['venta_total'],
+			'cumplimiento_pct' => $pct,
+			'gana'             => $pct >= 100 ? 'gana' : 'no_gana',
+			'detalle'          => $c['detalle'],
+		];
+	}, $porSector));
+
+	usort($resultado, function ($a, $b) { return strcmp($a['sector'], $b['sector']); });
+	return $resultado;
 }
 
 function listar_anios_disponibles_cumplimiento($mysqli) {

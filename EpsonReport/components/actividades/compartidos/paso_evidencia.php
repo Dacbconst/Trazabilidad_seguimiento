@@ -3,8 +3,9 @@
 if (empty($epEvidenciaFotos)) return;
 $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcional'])));
 $conDescripcion = ep_fotos_con_descripcion($actividad['plantilla'] ?? '');
+$esCompetencia = ($actividad['plantilla'] ?? '') === 'competencia';
 ?>
-<div class="ep-evidencia-bloque-card ep-evidencia-actividad" data-actividad-id="<?= (int) ($actividad['id'] ?? 1) ?>"<?= $conDescripcion ? ' data-con-descripcion="1"' : '' ?>>
+<div class="ep-evidencia-bloque-card ep-evidencia-actividad" data-actividad-id="<?= (int) ($actividad['id'] ?? 1) ?>" data-plantilla="<?= htmlspecialchars($actividad['plantilla'] ?? '') ?>"<?= $conDescripcion ? ' data-con-descripcion="1"' : '' ?>>
 	
 	<!-- Cabecera de la Card de Evidencia -->
 	<div class="ep-evidencia-card-head">
@@ -73,6 +74,14 @@ $conDescripcion = ep_fotos_con_descripcion($actividad['plantilla'] ?? '');
 		<button type="button" class="ep-btn-agregar-fila ep-btn-agregar-foto" data-prefix="<?= $epEvidenciaPrefix ?>" data-siguiente="<?= count($epEvidenciaFotos) + 1 ?>" data-label="<?= htmlspecialchars(ep_foto_extra_label($actividad['plantilla'] ?? '')) ?>">
 			<?= ep_icon('plus', 14) ?>
 			Agregar foto
+		</button>
+	<?php endif; ?>
+
+	<?php if ($esCompetencia): ?>
+		<!-- Guarda este punto de venta y deja el formulario en blanco para el siguiente, sin perder los ya guardados. -->
+		<button type="button" class="ep-btn-competencia-otro-punto" id="epBtnCompetenciaOtroPunto">
+			<?= ep_icon('plus', 16) ?>
+			<span>Añadir otro punto de venta</span>
 		</button>
 	<?php endif; ?>
 

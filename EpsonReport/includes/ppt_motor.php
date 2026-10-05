@@ -85,8 +85,8 @@ function ep_ppt_abrir(array $spec, array $registros, array $opciones): array {
 		}
 	}
 	$solo = !empty($opciones['solo_registro']);
-	// Portada única (logo, línea y título); Competencia conserva su portada y su diapositiva de título.
-	$unica = empty($spec['portada_doble']);
+	// Las dos portadas se quedan siempre: 1) logo de Grupo Lucky, 2) logo Epson + título del mes.
+	$unica = false;
 	$out = new ZipArchive();
 	$destino = tempnam(sys_get_temp_dir(), 'epppt');
 	$out->open($destino, ZipArchive::OVERWRITE);
