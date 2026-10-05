@@ -25,8 +25,6 @@ $body      = json_decode(file_get_contents('php://input'), true);
 $filas     = is_array($body['filas'] ?? null) ? $body['filas'] : [];
 $trimestre = (int) ($body['trimestre'] ?? 0);
 $anio      = (int) ($body['anio'] ?? 0);
-// Canal detectado al parsear el archivo (repositorio_parsear_cumplimiento_cuota()) — decide el criterio de desempate de resolverPosIdCliente().
-$canal     = ($body['canal'] ?? '') === 'distribuidor' ? 'distribuidor' : 'directo';
 
 if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio < 2000) {
 	responderVerificar(['ok' => true, 'estados' => []]);
@@ -66,7 +64,6 @@ function filaSinCambios($existente, $fila, $ganaCategoriaNueva, $ganaTotalNueva)
 $estados = [];
 foreach ($filas as $indice => $fila) {
 	$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
-	$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
 	$sectorCrudo  = repositorio_normalizar_texto($fila['sector'] ?? '');
 	$linea        = is_numeric($fila['linea'] ?? null) ? (int) $fila['linea'] : 1;
 	$ganaCategoriaNueva = strtolower((string) ($fila['gana_categoria'] ?? 'no_gana')) === 'gana' ? 'gana' : 'no_gana';
@@ -82,12 +79,10 @@ foreach ($filas as $indice => $fila) {
 	}
 	$sector = $cacheSector[$sectorCrudo] ?? $sectorCrudo;
 
-	$clavePos = $clienteExcel.'|'.$cediExcel;
-	if (!array_key_exists($clavePos, $cachePosId)) {
-		$plan = repositorio_normalizar_texto($fila['plan_excel'] ?? '');
-		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
+	if (!array_key_exists($clienteExcel, $cachePosId)) {
+		$cachePosId[$clienteExcel] = resolverPosIdDesdeRepoPrincipal($mysqli, $clienteExcel, $trimestre, $anio);
 	}
-	$posId = $cachePosId[$clavePos];
+	$posId = $cachePosId[$clienteExcel];
 
 	if (!$posId) {
 		$estados[$indice] = ['estado' => 'sin_cliente'];

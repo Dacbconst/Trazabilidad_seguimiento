@@ -134,10 +134,36 @@
 
 			updatePickerUI();
 			syncTables();
+			reabrirPendienteSiCorresponde();
 		}).catch(function () {
 			distribuidorSearch.placeholder = 'Error al cargar';
 			mostrarMensaje('No se pudo cargar el catálogo de productos ni distribuidores. Recarga la página.', false);
 		});
+	}
+
+	// Reapertura automática de un Borrador/Acta tras cambiar el canal del admin sin cartera (ver cambiarCanalAdminYReabrir) — sessionStorage sobrevive el location.reload() que hace falta para que el catálogo se arme con el canal correcto.
+	var CLAVE_REABRIR_PENDIENTE = 'ac_reabrir_pendiente';
+	function cambiarCanalAdminYReabrir(canalCorrecto, pendiente) {
+		sessionStorage.setItem(CLAVE_REABRIR_PENDIENTE, JSON.stringify(pendiente));
+		fetch('getters/admin_set_canal.php', {
+			method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ canal: canalCorrecto })
+		})
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (!data.ok) { sessionStorage.removeItem(CLAVE_REABRIR_PENDIENTE); mostrarMensaje(data.message || 'No se pudo cambiar de canal.', false); return; }
+				location.reload();
+			})
+			.catch(function () { sessionStorage.removeItem(CLAVE_REABRIR_PENDIENTE); mostrarMensaje('Error de conexión al cambiar de canal.', false); });
+	}
+	function reabrirPendienteSiCorresponde() {
+		var crudo = sessionStorage.getItem(CLAVE_REABRIR_PENDIENTE);
+		if (!crudo) return;
+		sessionStorage.removeItem(CLAVE_REABRIR_PENDIENTE);
+		try {
+			var p = JSON.parse(crudo);
+			if (p.tipo === 'borrador') cargarBorrador(p.id);
+			else if (p.tipo === 'precarga') cargarPrecarga(p.posId, p.trimestre, p.anio, p.origen);
+		} catch (e) { /* silencioso */ }
 	}
 
 	// Localidad nunca se guarda: siempre se deriva del `cedi` del cliente elegido, nunca de un valor tipeado.
@@ -1352,6 +1378,12 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el borrador.', false); return; }
+				// Admin sin cartera propia: el catálogo de Locales/Distribuidor está armado para CANAL_USUARIO, no para el canal real de este borrador — sin este chequeo, el combo queda vacío o roto.
+				var canalReal = data.acuerdo.es_distribuidor ? 'distribuidor' : 'directo';
+				if (MODO_ADMIN_SIN_CARTERA && canalReal !== CANAL_USUARIO) {
+					cambiarCanalAdminYReabrir(canalReal, { tipo: 'borrador', id: id });
+					return;
+				}
 				aplicarBorrador(data.acuerdo);
 			})
 			.catch(function () { mostrarMensaje('Error de conexión al cargar el borrador.', false); });
@@ -1530,6 +1562,11 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el Acta.', false); return; }
+				var canalReal = data.precarga.es_distribuidor ? 'distribuidor' : 'directo';
+				if (MODO_ADMIN_SIN_CARTERA && canalReal !== CANAL_USUARIO) {
+					cambiarCanalAdminYReabrir(canalReal, { tipo: 'precarga', posId: posId, trimestre: trimestre, anio: anio, origen: origen });
+					return;
+				}
 				if (esCompleto) aplicarAcuerdoCompleto(data.precarga, trimestre, anio);
 				else aplicarPrecarga(data.precarga, trimestre, anio);
 			})

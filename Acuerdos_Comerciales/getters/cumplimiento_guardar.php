@@ -53,7 +53,26 @@ $avisos  = []; // [{indice, fila, motivo}, ...] — SÍ se guardaron, pero convi
 $mysqli->begin_transaction();
 try {
 	// Orden del SET importa: MySQL evalúa izquierda a derecha, así "gana_categoria_anterior" captura el valor previo antes de que "gana_categoria" se pise (ver datos/cumplimiento_cuota_schema.sql).
+	// usuario_excel (columna nueva, ver ALTER pendiente) primero; fallback sin ella si todavía no se corrió el ALTER.
 	$stmt = $mysqli->prepare(
+		'INSERT INTO repositorio_cumplimiento_cuota
+		 (pos_id, cliente_excel, cedi_excel, usuario_excel, plan_excel, sector, linea, trimestre, anio,
+		  cuota_total, venta_total, cumplimiento_pct, gana_categoria, gana_total,
+		  rebate_pct, pre_rebate, rebate_maximo_110, rebate_real_vol, actualizado_por)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE
+		   gana_categoria_anterior = gana_categoria,
+		   cliente_excel = VALUES(cliente_excel), cedi_excel = VALUES(cedi_excel), usuario_excel = VALUES(usuario_excel), plan_excel = VALUES(plan_excel),
+		   cuota_total = VALUES(cuota_total), venta_total = VALUES(venta_total),
+		   cumplimiento_pct = VALUES(cumplimiento_pct),
+		   gana_categoria = VALUES(gana_categoria), gana_total = VALUES(gana_total),
+		   rebate_pct = VALUES(rebate_pct), pre_rebate = VALUES(pre_rebate),
+		   rebate_maximo_110 = VALUES(rebate_maximo_110), rebate_real_vol = VALUES(rebate_real_vol),
+		   actualizado_por = VALUES(actualizado_por), updated_at = NOW(),
+		   eliminado_en = NULL, eliminado_por = NULL'
+	);
+	$conUsuarioExcel = (bool) $stmt;
+	if (!$stmt) $stmt = $mysqli->prepare(
 		'INSERT INTO repositorio_cumplimiento_cuota
 		 (pos_id, cliente_excel, cedi_excel, plan_excel, sector, linea, trimestre, anio,
 		  cuota_total, venta_total, cumplimiento_pct, gana_categoria, gana_total,
@@ -72,12 +91,20 @@ try {
 	);
 	if (!$stmt) throw new Exception('El módulo de Cumplimiento de Cuota todavía no está disponible. Avisa al equipo técnico.');
 
+	// Canal: siempre el elegido/detectado al subir el archivo (nunca inferido del contenido de PLAN) — UPDATE aparte, silencioso si el ALTER de esta columna todavía no corrió.
+	$stmtCanal = $mysqli->prepare(
+		'UPDATE repositorio_cumplimiento_cuota SET canal = ? WHERE pos_id = ? AND sector = ? AND linea = ? AND trimestre = ? AND anio = ? LIMIT 1'
+	);
+
 	$cacheSector = []; // cache por subida, mismo criterio que cuotas_guardar.php
 	$cachePosId  = [];
+	$cacheUsuarioEsperado = [];
 
 	foreach ($filas as $indice => $fila) {
 		$clienteExcel = repositorio_normalizar_texto($fila['cliente_excel'] ?? '');
 		$cediExcel    = repositorio_normalizar_texto($fila['cedi_excel'] ?? '');
+		// Sin normalizar a mayúsculas: exacto contra `usuario`, mismo criterio que Cuotas/Acuerdo Completo.
+		$usuarioExcel = trim((string) ($fila['usuario_excel'] ?? ''));
 		$plan         = repositorio_normalizar_texto($fila['plan_excel'] ?? '');
 		$sectorCrudo  = repositorio_normalizar_texto($fila['sector'] ?? '');
 		// "linea" distingue 2+ filas del mismo cliente+Sector (ver repositorio_parsear_cumplimiento_cuota()); `?: 1` solo por compatibilidad vieja.
@@ -111,33 +138,56 @@ try {
 			$etiqueta = $clienteExcel.' / '.$sector;
 		}
 
-		$clavePos = $clienteExcel.'|'.$cediExcel;
-		if (!array_key_exists($clavePos, $cachePosId)) {
-			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
+		if (!array_key_exists($clienteExcel, $cachePosId)) {
+			$cachePosId[$clienteExcel] = resolverPosIdDesdeRepoPrincipal($mysqli, $clienteExcel, $trimestre, $anio);
 		}
-		$posId = $cachePosId[$clavePos];
+		$posId = $cachePosId[$clienteExcel];
 		if (!$posId) {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo identificar el cliente'];
 			continue;
 		}
 
+		// Usuario debe ser el mismo que registró este cliente en Cuotas/Acuerdo Completo, nunca otro distinto por error de digitación.
+		if (!array_key_exists($posId, $cacheUsuarioEsperado)) {
+			$cacheUsuarioEsperado[$posId] = usuarioEsperadoDesdeRepoPrincipal($mysqli, $posId, $trimestre, $anio);
+		}
+		$usuarioEsperado = $cacheUsuarioEsperado[$posId];
+		if ($usuarioEsperado && $usuarioExcel !== '' && strtoupper($usuarioEsperado) !== strtoupper($usuarioExcel)) {
+			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'tipo' => 'usuario_no_coincide',
+				'motivo' => 'El Excel trae "'.$usuarioExcel.'", pero este cliente lo registró "'.$usuarioEsperado.'"'];
+		}
+
 		// `linea` ya diferencia cada renglón: 2 filas del mismo cliente+Sector son legítimas, no duplicado.
-		$stmt->bind_param(
-			'sssssiiidddssddddi',
-			$posId, $clienteExcel, $cediExcel, $plan, $sector, $linea, $trimestre, $anio,
-			$cuotaTotal, $ventaTotal, $cumplPct, $ganaCategoria, $ganaTotal,
-			$rebatePct, $preRebate, $rebateMax110, $rebateRealVol, $usuarioSesion
-		);
+		if ($conUsuarioExcel) {
+			$stmt->bind_param(
+				'ssssssiiidddssddddi',
+				$posId, $clienteExcel, $cediExcel, $usuarioExcel, $plan, $sector, $linea, $trimestre, $anio,
+				$cuotaTotal, $ventaTotal, $cumplPct, $ganaCategoria, $ganaTotal,
+				$rebatePct, $preRebate, $rebateMax110, $rebateRealVol, $usuarioSesion
+			);
+		} else {
+			$stmt->bind_param(
+				'sssssiiidddssddddi',
+				$posId, $clienteExcel, $cediExcel, $plan, $sector, $linea, $trimestre, $anio,
+				$cuotaTotal, $ventaTotal, $cumplPct, $ganaCategoria, $ganaTotal,
+				$rebatePct, $preRebate, $rebateMax110, $rebateRealVol, $usuarioSesion
+			);
+		}
 		if ($stmt->execute()) {
 			$guardadas++;
 			if ($stmt->affected_rows === 1) { $nuevas++; }
 			elseif ($stmt->affected_rows === 2) { $actualizadas++; }
 			else { $sinCambios++; }
+			if ($stmtCanal) {
+				$stmtCanal->bind_param('sssiii', $canal, $posId, $sector, $linea, $trimestre, $anio);
+				$stmtCanal->execute();
+			}
 		} else {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo guardar esta fila'];
 		}
 	}
 	$stmt->close();
+	if ($stmtCanal) $stmtCanal->close();
 
 	$mysqli->commit();
 } catch (Throwable $e) {

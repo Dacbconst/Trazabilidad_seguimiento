@@ -36,5 +36,19 @@ $stmt->bind_param('i', $acuerdoId);
 $ok = $stmt->execute();
 $stmt->close();
 
+// Libera las filas de origen (Cuotas/Acuerdo Completo) que quedaron en 'usada' apuntando a esta Acta — bug real: sin esto, quedaban bloqueadas para siempre aunque la Acta ya no existiera.
+if ($ok) {
+	foreach (['repositorio_cuota_cliente', 'repositorio_acuerdo_completo_linea'] as $tabla) {
+		$stmtLiberar = $mysqli->prepare(
+			"UPDATE $tabla SET estado = 'pendiente_uso', acuerdo_id_generado = NULL WHERE acuerdo_id_generado = ? AND estado = 'usada'"
+		);
+		if ($stmtLiberar) {
+			$stmtLiberar->bind_param('i', $acuerdoId);
+			$stmtLiberar->execute();
+			$stmtLiberar->close();
+		}
+	}
+}
+
 echo json_encode(['ok' => (bool) $ok, 'message' => $ok ? 'Acuerdo eliminado.' : 'No se pudo eliminar el acuerdo.']);
 ?>

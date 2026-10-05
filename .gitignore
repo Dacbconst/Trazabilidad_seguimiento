@@ -2,6 +2,7 @@ EpsonReport/epson/08. AGOSTO 2026/
 EpsonReport/epson/FORMATOS FOTOGRAFICOS 2026/
 EpsonReport/data/
 EpsonReport/epson datos/
+Acuerdos_Comerciales/logs/*.log
 
 # Claude Code skills (installed via `npx skills add`, `npx impeccable install`)
 /.agents/

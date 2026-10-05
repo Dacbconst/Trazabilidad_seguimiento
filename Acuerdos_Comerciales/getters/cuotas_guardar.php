@@ -104,6 +104,11 @@ try {
 	$cacheSector = [];
 	$cachePosId  = [];
 
+	// Canal: siempre el que se eligió/detectó al subir el archivo (nunca inferido del contenido de otra columna, pedido explícito) — UPDATE aparte, silencioso si el ALTER de esta columna todavía no corrió.
+	$stmtCanal = $mysqli->prepare(
+		'UPDATE repositorio_cuota_cliente SET canal = ? WHERE pos_id = ? AND sector = ? AND trimestre = ? AND anio = ? LIMIT 1'
+	);
+
 	// Preparado una sola vez afuera del loop — antes se re-preparaba en cada fila y hacía lenta la subida.
 	$stmtCheck = $mysqli->prepare(
 		'SELECT c.estado, a.documento_no, a.created_at, u.usuario
@@ -160,7 +165,7 @@ try {
 
 		$clavePos = $clienteExcel.'|'.$cediExcel;
 		if (!array_key_exists($clavePos, $cachePosId)) {
-			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
+			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnosticoNoUsado, $usuarioSesion);
 		}
 		$posId = $cachePosId[$clavePos];
 		$estado = $posId ? 'pendiente_uso' : 'pendiente_match';
@@ -217,11 +222,16 @@ try {
 			if ($stmt->affected_rows === 1) { $nuevas++; }
 			elseif ($stmt->affected_rows === 2) { $actualizadas++; }
 			else { $sinCambios++; }
+			if ($posId && $stmtCanal) {
+				$stmtCanal->bind_param('sssii', $canal, $posId, $sector, $trimestre, $anio);
+				$stmtCanal->execute();
+			}
 		} else {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo guardar esta fila'];
 		}
 	}
 	$stmt->close();
+	if ($stmtCanal) $stmtCanal->close();
 	if ($stmtCheck) $stmtCheck->close();
 
 	$mysqli->commit();

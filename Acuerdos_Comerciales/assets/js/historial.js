@@ -261,11 +261,17 @@
 		else if (canalFiltroActual === 'distribuidor') exportarBtn.title = 'Descarga el Excel de canal Distribuidor';
 		else exportarBtn.title = 'Elige el formato a descargar';
 	};
+	// "Cliente" por defecto (Directo y Total, donde la columna es casi siempre una persona) — "Distribuidor" solo con ese filtro activo a propósito.
+	var thCliente = document.getElementById('hist-th-cliente');
+	var actualizarTituloColumnaCliente = function () {
+		if (thCliente) thCliente.textContent = canalFiltroActual === 'distribuidor' ? 'Distribuidor' : 'Cliente';
+	};
 	if (canalGroup) {
 		// Arranca con la pastilla que el servidor ya marcó activa (ej. ?canal=directo en la URL); sin esto la variable quedaba en 'total' igual.
 		var pillActiva = canalGroup.querySelector('.ac-seg-pill-activo');
 		if (pillActiva) canalFiltroActual = pillActiva.dataset.canal;
 		actualizarTituloExportar();
+		actualizarTituloColumnaCliente();
 		Array.prototype.forEach.call(canalGroup.querySelectorAll('.ac-seg-pill'), function (btn) {
 			btn.addEventListener('click', function () {
 				if (btn.dataset.canal === canalFiltroActual) return;
@@ -274,11 +280,13 @@
 					b.classList.toggle('ac-seg-pill-activo', b === btn);
 				});
 				actualizarTituloExportar();
+				actualizarTituloColumnaCliente();
 				cargarHistorial(1);
 			});
 		});
 	} else {
 		actualizarTituloExportar();
+		actualizarTituloColumnaCliente();
 	}
 
 	// ---------- Listado: búsqueda + filtro de período (trimestre + año + firma) + paginación ----------
@@ -408,7 +416,9 @@
 		if (link) link.click();
 	}
 
-	document.getElementById('hist-nuevo-acuerdo').addEventListener('click', irARegistrar);
+	// Solo existe para superdesarrollador (ver $esSuperdev en historial.php) — null para los demás roles.
+	var nuevoAcuerdoBtn = document.getElementById('hist-nuevo-acuerdo');
+	if (nuevoAcuerdoBtn) nuevoAcuerdoBtn.addEventListener('click', irARegistrar);
 
 	// ---------- Mis Borradores ---------- El listado y el modal viven acá; cargar el borrador en el formulario lo hace registrar.js (el estado de las 4 tablas vive ahí).
 	var borraModalOverlay = document.getElementById('hist-borradores-modal-overlay');

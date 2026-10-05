@@ -266,12 +266,17 @@ function acuerdo_completo_numero($v) {
 	return is_numeric($v) ? (float) $v : (float) str_replace(['$', ',', ' '], '', (string) $v);
 }
 
+// 0 cuenta como "vacío" para decidir si un bloque tiene datos (pedido explícito: mandar 0 en una fila no debe hacer que esa tabla se guarde).
+function acuerdo_completo_tiene_valor($v) {
+	return $v !== null && $v != 0;
+}
+
 // Lee los 3 bloques opcionales de UNA fila (columnas ya localizadas) y los agrega PLANOS al array de la línea de Meta de Compras — cab_mes1..3 (null si el bloque no existe o está vacío), ruma_valor, percha_cantidad + percha_mes1..3.
 function acuerdo_completo_leer_bloques($fila, $colesCab, $colRuma, $colCantidad, $colesPercha) {
 	$out = ['cab_mes1' => null, 'cab_mes2' => null, 'cab_mes3' => null, 'ruma_valor' => null, 'percha_cantidad' => null, 'percha_mes1' => null, 'percha_mes2' => null, 'percha_mes3' => null];
 	if ($colesCab) {
 		$valores = array_map(function ($c) use ($fila) { return acuerdo_completo_numero($fila[$c] ?? null); }, $colesCab);
-		if (array_filter($valores, function ($v) { return $v !== null; })) {
+		if (array_filter($valores, 'acuerdo_completo_tiene_valor')) {
 			$out['cab_mes1'] = round($valores[0] ?? 0, 2);
 			$out['cab_mes2'] = round($valores[1] ?? 0, 2);
 			$out['cab_mes3'] = round($valores[2] ?? 0, 2);
@@ -279,12 +284,12 @@ function acuerdo_completo_leer_bloques($fila, $colesCab, $colRuma, $colCantidad,
 	}
 	if ($colRuma !== null) {
 		$valor = acuerdo_completo_numero($fila[$colRuma] ?? null);
-		if ($valor !== null) $out['ruma_valor'] = round($valor, 2);
+		if (acuerdo_completo_tiene_valor($valor)) $out['ruma_valor'] = round($valor, 2);
 	}
 	if ($colesPercha || $colCantidad !== null) {
 		$valores = $colesPercha ? array_map(function ($c) use ($fila) { return acuerdo_completo_numero($fila[$c] ?? null); }, $colesPercha) : [null, null, null];
 		$cantidad = $colCantidad !== null ? acuerdo_completo_numero($fila[$colCantidad] ?? null) : null;
-		if ($cantidad !== null || array_filter($valores, function ($v) { return $v !== null; })) {
+		if (acuerdo_completo_tiene_valor($cantidad) || array_filter($valores, 'acuerdo_completo_tiene_valor')) {
 			$out['percha_cantidad'] = $cantidad !== null ? (int) $cantidad : null;
 			$out['percha_mes1'] = round($valores[0] ?? 0, 2);
 			$out['percha_mes2'] = round($valores[1] ?? 0, 2);
@@ -493,6 +498,7 @@ function repositorio_parsear_cumplimiento_cuota_directo($filas) {
 	$m = $enc['mapa'];
 
 	$colCedi = xlsx_col($m, 'CEDI');
+	$colUsuario = xlsx_col($m, 'USUARIO');
 	$colCliente = xlsx_col($m, 'CLIENTE');
 	$colPlan = xlsx_col($m, 'PLAN');
 	$colCategorias = xlsx_col($m, 'CATEGORIAS');
@@ -559,6 +565,7 @@ function repositorio_parsear_cumplimiento_cuota_directo($filas) {
 		$resultado[] = [
 			'cliente_excel'     => $cliente,
 			'cedi_excel'        => $cediCruda,
+			'usuario_excel'     => $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '',
 			'plan_excel'        => $colPlan !== null ? repositorio_normalizar_texto($fila[$colPlan] ?? '') : '',
 			'sector'            => $sector,
 			'linea'             => $vecesVistoSector[$claveLinea],
@@ -588,6 +595,7 @@ function repositorio_parsear_cumplimiento_cuota_distribuidor($filas) {
 	$m = $enc['mapa'];
 
 	$colDistribuidor = xlsx_col($m, 'DISTRIBUIDOR');
+	$colUsuario = xlsx_col($m, 'USUARIO');
 	$colCiudad = xlsx_col($m, 'CIUDAD');
 	$colNombre = xlsx_col($m, 'NOMBRE');
 	$colCategoria = xlsx_col($m, 'CATEGORIA');
@@ -648,6 +656,7 @@ function repositorio_parsear_cumplimiento_cuota_distribuidor($filas) {
 		$resultado[] = [
 			'cliente_excel'     => $cliente,
 			'cedi_excel'        => $cediCruda,
+			'usuario_excel'     => $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '',
 			'plan_excel'        => $colDistribuidor !== null ? repositorio_normalizar_texto($fila[$colDistribuidor] ?? '') : '',
 			'sector'            => $sector,
 			'linea'             => $vecesVistoSector[$claveLinea],

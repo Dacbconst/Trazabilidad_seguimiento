@@ -51,10 +51,12 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-abrir-borradores" title="Mis Borradores">
 				<span class="material-symbols-outlined">draft</span> <span class="ac-btn-text">Mis Borradores</span>
 			</button>
+			<?php if ($esSuperdev): ?>
 			<button type="button" class="ac-btn-primary ac-btn-inline" id="hist-nuevo-acuerdo">
 				<span class="material-symbols-outlined">add</span>
 				Nuevo Acuerdo
 			</button>
+			<?php endif; ?>
 		</div>
 	</div>
 
@@ -192,7 +194,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 				<thead>
 					<tr>
 						<th>ID</th>
-						<th>Distribuidor</th>
+						<th id="hist-th-cliente">Cliente</th>
 						<th>Localidad</th>
 						<?php if ($esSuperdev): ?><th>Canal</th><th>Generado por</th><?php endif; ?>
 						<th class="ac-text-center">Periodo</th>

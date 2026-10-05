@@ -43,7 +43,8 @@ $canalExport = ($_GET['canal'] ?? '') === 'distribuidor' ? 'distribuidor' : 'dir
 // Chequeo previo (?verificar=1, sin generar el archivo): el frontend lo llama antes de descargar
 // para no bajar un Excel vacío cuando el filtro no tiene ningún acuerdo real.
 if (($_GET['verificar'] ?? '') === '1') {
-	$condicionCanalVerificar = $canalExport === 'distribuidor' ? "d.canal = 'DISTRIBUIDOR'" : "d.canal <> 'DISTRIBUIDOR'";
+	$canalOrigenSql = sqlCanalOrigenAcuerdo('a');
+	$condicionCanalVerificar = "$canalOrigenSql = '".($canalExport === 'distribuidor' ? 'DISTRIBUIDOR' : 'DIRECTO')."'";
 	$hayDatos = false;
 	$stmtV = $mysqli->prepare(
 		"SELECT COUNT(DISTINCT a.id) AS total
@@ -68,14 +69,23 @@ if (($_GET['verificar'] ?? '') === '1') {
 	exit;
 }
 
+// USUARIO: prioriza lo que se tipeó en Cuotas/Acuerdo Completo al subir el Excel (mismo criterio "el Excel manda" de siempre); solo cae al creador real de la cuenta si el Acuerdo se armó a mano, sin precarga.
+// Definida ANTES del require de Distribuidor (ese archivo también la usa) — moverla después del require la dejaba indefinida para ese canal.
+$usuarioOrigenSql = "COALESCE(
+	(SELECT cc.usuario_excel FROM repositorio_cuota_cliente cc WHERE cc.acuerdo_id_generado = a.id AND cc.usuario_excel IS NOT NULL AND cc.usuario_excel <> '' LIMIT 1),
+	(SELECT acl.usuario_excel FROM repositorio_acuerdo_completo_linea acl WHERE acl.acuerdo_id_generado = a.id AND acl.usuario_excel IS NOT NULL AND acl.usuario_excel <> '' LIMIT 1),
+	u.usuario
+)";
+
 if ($canalExport === 'distribuidor') {
 	require __DIR__.'/exportar_cuota_categoria_distribuidor.php';
 	exit;
 }
 
 // GROUP BY a.id, l.id colapsa duplicados de pos_id sin perder líneas reales. Sin filtro de creado_por: exporta Actas de todos los asesores del canal (u.usuario identifica cada línea).
+$canalOrigenSql = sqlCanalOrigenAcuerdo('a');
 $stmt = $mysqli->prepare(
-	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
+	"SELECT $usuarioOrigenSql AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
@@ -85,7 +95,7 @@ $stmt = $mysqli->prepare(
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
-	   AND d.canal <> 'DISTRIBUIDOR'
+	   AND $canalOrigenSql = 'DIRECTO'
 	 GROUP BY a.id, l.id"
 );
 if (!$stmt) {
@@ -140,9 +150,11 @@ usort($filasFinal, function ($a, $b) {
 });
 
 // ---------- Layout de columnas (dinámico según cuántos meses hay) ---------- SUBCATEGORIA/MARCA van a la derecha de CATEGORIAS/PLAN, antes de CONCAT.
-$colCedi = 1; $colCliente = 2; $colPlan = 3; $colCategorias = 4;
-$colSubcategoria = 5; $colMarca = 6; $colConcat = 7;
-$colCuotaInicio = 8;
+// USUARIO va primero, igual que en las plantillas de subida de Cuotas/Acuerdo Completo.
+$colUsuario = 1;
+$colCedi = 2; $colCliente = 3; $colPlan = 4; $colCategorias = 5;
+$colSubcategoria = 6; $colMarca = 7; $colConcat = 8;
+$colCuotaInicio = 9;
 $colTotalQ2 = $colCuotaInicio + $M;
 $colRebatePct = $colTotalQ2 + 1;
 $colRebateDolar = $colTotalQ2 + 2;
@@ -204,6 +216,7 @@ $wb->celda($s1, $filaEnc, $colGanaCategoria, 'GANA POR CATEGORÍA', true, null, 
 $wb->celda($s1, $filaEnc, $colGanaTotal, 'GANA TOTAL', true, null, $bgResultado, '000000');
 $wb->celda($s1, $filaEnc, $colPreRebate, 'PRE REBATE', true, null, $bgResultado, '000000');
 $wb->celda($s1, $filaEnc, $colRebateRealVol, 'REBATE REAL VOL', true, null, $bgRebateReal, '000000');
+$wb->celda($s1, $filaEnc, $colUsuario, 'USUARIO', true, null, $bgEncabezado, '000000');
 
 // Columnas de fila 1 fuera de la fusión de VENTA necesitan celda propia (vacía, mismo color que la fila 2 de abajo) o quedan sin pintar/sin borde.
 $wb->celda($s1, 1, $colCedi, '', false, null, $bgEncabezado, '000000');
@@ -227,6 +240,7 @@ $wb->celda($s1, 1, $colGanaCategoria, '', false, null, $bgResultado, '000000');
 $wb->celda($s1, 1, $colGanaTotal, '', false, null, $bgResultado, '000000');
 $wb->celda($s1, 1, $colPreRebate, '', false, null, $bgResultado, '000000');
 $wb->celda($s1, 1, $colRebateRealVol, '', false, null, $bgRebateReal, '000000');
+$wb->celda($s1, 1, $colUsuario, '', false, null, $bgEncabezado, '000000');
 
 // ---------- Hoja 1: filas de datos ---------- Colores de datos leídos del archivo real: CLIENTE rosa, bloque Cuota+Total+Rebate% verde.
 $bgClienteDato = 'F2CEEF'; $bgCuotaDato = '92D050';
@@ -236,6 +250,7 @@ $fila = $primeraFilaDatos;
 $clientesVistos = []; // para armar la hoja CUOTA TOTAL (únicos), en orden de aparición
 foreach ($filasFinal as $g) {
 	$wb->celda($s1, $fila, $colCedi, $g['ejecutivo']);
+	$wb->celda($s1, $fila, $colUsuario, $g['ejecutivo']);
 	$wb->celda($s1, $fila, $colCliente, $g['cliente'], false, null, $bgClienteDato, '000000');
 	// PLAN = canal del cliente en el maestro (COBERTURA/MAYORISTA/AUTOSERVICIO), ver nota arriba — confirmado con el usuario 2026-08-28.
 	$wb->celda($s1, $fila, $colPlan, $g['plan']);
@@ -326,14 +341,14 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 	}
 	$wb->formula($s1, $filaTotal, $colCumplimiento, 'IFERROR('.$cl($colVentaTotal).$filaTotal.'/'.$cl($colTotalQ2).$filaTotal.',0)', true, 'pct');
 	// Estas columnas no se totalizan, pero necesitan celda vacía igual para que el borde pinte parejo.
-	foreach ([$colCliente, $colPlan, $colCategorias, $colConcat, $colCartera, $colGanaCategoria, $colGanaTotal] as $col) {
+	foreach ([$colCliente, $colPlan, $colCategorias, $colConcat, $colCartera, $colGanaCategoria, $colGanaTotal, $colUsuario] as $col) {
 		$wb->celda($s1, $filaTotal, $col, '', true);
 	}
 }
 
 // ==================== Hoja "VISIBILIDAD" ==================== cabecera->CABECERA, ruma->ISLA, percha->PERCHA; cuenta si el TOTAL de la línea es > 0. "MARCA" muestra Categoría (Percha usa Marca).
 $stmtVis = $mysqli->prepare(
-	"SELECT u.usuario AS ejecutivo, d.pos_name AS cliente, d.canal, l.tipo, l.marca, l.categoria,
+	"SELECT $usuarioOrigenSql AS ejecutivo, d.pos_name AS cliente, d.canal, l.tipo, l.marca, l.categoria,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
@@ -344,7 +359,7 @@ $stmtVis = $mysqli->prepare(
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
-	   AND d.canal <> 'DISTRIBUIDOR'
+	   AND $canalOrigenSql = 'DIRECTO'
 	 GROUP BY a.id, l.id"
 );
 $filasVis = [];

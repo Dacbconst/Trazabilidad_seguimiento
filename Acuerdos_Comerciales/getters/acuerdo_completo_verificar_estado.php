@@ -17,6 +17,7 @@ function responder($ok, $message, $extra = []) {
 	exit;
 }
 
+$usuarioSesion = $_SESSION['user_id'] ?? null;
 $body      = json_decode(file_get_contents('php://input'), true);
 $filas     = is_array($body['filas'] ?? null) ? $body['filas'] : [];
 $trimestre = (int) ($body['trimestre'] ?? 0);
@@ -60,7 +61,7 @@ foreach ($filas as $fila) {
 	if (!array_key_exists($clavePos, $cachePosId)) {
 		$plan = repositorio_normalizar_texto($fila['plan'] ?? '');
 		$diagnostico = null;
-		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnostico);
+		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnostico, $usuarioSesion);
 		$cacheDiagnostico[$clavePos] = $diagnostico;
 	}
 	$posId = $cachePosId[$clavePos];

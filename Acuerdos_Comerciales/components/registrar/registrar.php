@@ -36,7 +36,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 		</div>
 	</div>
 
-	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>';</script>
+	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>'; var MODO_ADMIN_SIN_CARTERA = <?= $modoAdminSinCartera ? 'true' : 'false' ?>;</script>
 
 	<!-- Filtros -->
 	<!-- Labels renombrados en pantalla; IDs/variables internas sin cambiar. -->

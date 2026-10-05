@@ -1,19 +1,21 @@
 <?php
 // Hoja "CUOTAS POR CAT -DISTRIBUIDORES", incluida desde exportar_cuota_categoria.php cuando el canal es distribuidor. Sin fila TOTAL (confirmado contra el archivo real). Usa CATEGORIA/SUBCATEGORIA/MARCA (decisión del usuario, 2026-09-15). CODIGO/RUC (2026-09-16) se rellenan desde repositorio_cuota_cliente, cruce por pos_id+sector+trimestre+año — vienen de una subida previa al Repositorio de Cuotas (ver repositorio_parsear_cuotas_distribuidor()); sin match quedan vacías.
 
+$canalOrigenSql = sqlCanalOrigenAcuerdo('a');
 $stmtD = $mysqli->prepare(
-	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales,
+	"SELECT $usuarioOrigenSql AS ejecutivo, d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales,
 	        c.codigo AS codigo_cuota, c.ruc AS ruc_cuota
 	 FROM repositorio_acuerdos a
 	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 LEFT JOIN repositorio_cuota_cliente c ON c.pos_id = a.pos_id AND c.sector = l.sector AND c.trimestre = ? AND c.anio = a.anio
+	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.acta_firmada_azure_path IS NOT NULL
 	   AND d.pos_name LIKE ?
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
-	   AND d.canal = 'DISTRIBUIDOR'
+	   AND $canalOrigenSql = 'DISTRIBUIDOR'
 	 GROUP BY a.id, l.id"
 );
 $tieneCodigoRuc = (bool) $stmtD;
@@ -23,16 +25,17 @@ if ($stmtD) {
 } else {
 	// Fallback si `codigo`/`ruc` todavía no existen en repositorio_cuota_cliente (ALTER pendiente): mismo comportamiento de siempre, columnas vacías.
 	$stmtD = $mysqli->prepare(
-		"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
+		"SELECT $usuarioOrigenSql AS ejecutivo, d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 		 FROM repositorio_acuerdos a
 		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 		 WHERE a.estado NOT IN ('borrador', 'anulado')
 		   AND a.acta_firmada_azure_path IS NOT NULL
 		   AND d.pos_name LIKE ?
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
-		   AND d.canal = 'DISTRIBUIDOR'
+		   AND $canalOrigenSql = 'DISTRIBUIDOR'
 		 GROUP BY a.id, l.id"
 	);
 	if (!$stmtD) {
@@ -60,6 +63,7 @@ foreach ($filasD as $f) {
 		$valoresPorMes[$mi] = (float) $valor;
 	}
 	$filasFinalD[] = [
+		'ejecutivo'    => $f['ejecutivo'] ?? '',
 		'distribuidor' => $f['distribuidor'] ?? '',
 		'ciudad'       => $f['ciudad'] ?? '',
 		'cliente'      => $f['cliente'],
@@ -87,9 +91,11 @@ usort($filasFinalD, function ($a, $b) {
 });
 
 // ---------- Layout de columnas ---------- CODIGO/RUC van a la derecha de NOMBRE (vacías), SUBCATEGORIA/MARCA a la derecha de CATEGORIA (sin columna PLAN acá).
-$colDistribuidor = 1; $colCiudad = 2; $colNombre = 3; $colCodigo = 4; $colRuc = 5; $colCategoria = 6;
-$colSubcategoria = 7; $colMarca = 8; $colConcat = 9;
-$colCuotaInicio = 10;
+// USUARIO va primero, igual que en las plantillas de subida de Cuotas/Acuerdo Completo.
+$colUsuario = 1;
+$colDistribuidor = 2; $colCiudad = 3; $colNombre = 4; $colCodigo = 5; $colRuc = 6; $colCategoria = 7;
+$colSubcategoria = 8; $colMarca = 9; $colConcat = 10;
+$colCuotaInicio = 11;
 $colCuotaTotal = $colCuotaInicio + $MD;
 $colRebatePct = $colCuotaTotal + 1;
 $colRebateDolar = $colCuotaTotal + 2;
@@ -146,6 +152,7 @@ $wbD->celda($sD1, $filaEncD, $colGanaTotal, 'GANA TOTAL Q', true, null, $bgVenta
 $wbD->celda($sD1, $filaEncD, $colPreRebate, 'PRE REBATE', true, null, $bgVentaD, $fontVentaD);
 $wbD->celda($sD1, $filaEncD, $colRebateRealVol, 'REBATE REAL VOL', true, null, $bgVentaD, $fontVentaD);
 $wbD->celda($sD1, $filaEncD, $colNovedades, 'NOVEDADES', true, null, $bgVentaD, $fontVentaD);
+$wbD->celda($sD1, $filaEncD, $colUsuario, 'USUARIO', true, null, $bgEncD, $fontEncD);
 
 // ---------- Fila 1: títulos de grupo fusionados ----------
 $wbD->celda($sD1, 1, $colCuotaInicio, $tituloCuotaGrupo, true, null, $bgEncD, $fontEncD);
@@ -157,7 +164,7 @@ $wbD->celda($sD1, 1, $colVentaInicio, $tituloVentaGrupo, true, null, $bgVentaD, 
 $wbD->combinarCeldas($sD1, XlsxWriter::colLetra($colVentaInicio).'1:'.XlsxWriter::colLetra($colVentaTotal).'1');
 
 // Columnas de fila 1 fuera de la fusión necesitan celda propia o quedan sin pintar.
-foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCodigo, $colRuc, $colCategoria, $colSubcategoria, $colMarca, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110] as $c) {
+foreach ([$colDistribuidor, $colCiudad, $colNombre, $colCodigo, $colRuc, $colCategoria, $colSubcategoria, $colMarca, $colConcat, $colCuotaTotal, $colRebatePct, $colRebateDolar, $colRebateMax110, $colUsuario] as $c) {
 	$wbD->celda($sD1, 1, $c, '', false, null, $bgEncD, $fontEncD);
 }
 foreach ([$colCumplimiento, $colGanaCategoria, $colGanaTotal, $colPreRebate, $colRebateRealVol, $colNovedades] as $c) {
@@ -169,6 +176,7 @@ $primeraFilaDatosD = $filaEncD + 1;
 $filaD = $primeraFilaDatosD;
 $clientesVistosD = [];
 foreach ($filasFinalD as $g) {
+	$wbD->celda($sD1, $filaD, $colUsuario, $g['ejecutivo']);
 	$wbD->celda($sD1, $filaD, $colDistribuidor, $g['distribuidor']);
 	$wbD->celda($sD1, $filaD, $colCiudad, $g['ciudad']);
 	$wbD->celda($sD1, $filaD, $colNombre, $g['cliente'], false, null, $bgClienteD, '000000');
@@ -179,10 +187,10 @@ foreach ($filasFinalD as $g) {
 	$wbD->celda($sD1, $filaD, $colMarca, $g['marca']);
 	$wbD->formula($sD1, $filaD, $colConcat, 'CONCATENATE('.XlsxWriter::colLetra($colNombre).$filaD.','.XlsxWriter::colLetra($colCategoria).$filaD.')');
 	foreach ($mesesColsD as $i => $mi) {
-		$wbD->celda($sD1, $filaD, $colCuotaInicio + $i, round($g['valores'][$mi] ?? 0, 2), false, 'money');
+		$wbD->celda($sD1, $filaD, $colCuotaInicio + $i, round($g['valores'][$mi] ?? 0, 2), false, 'numero');
 	}
 	$rangoCuotaD = XlsxWriter::colLetra($colCuotaInicio).$filaD.':'.XlsxWriter::colLetra($colCuotaInicio + $MD - 1).$filaD;
-	$wbD->formula($sD1, $filaD, $colCuotaTotal, 'SUM('.$rangoCuotaD.')', false, 'money');
+	$wbD->formula($sD1, $filaD, $colCuotaTotal, 'SUM('.$rangoCuotaD.')', false, 'numero');
 	$wbD->celda($sD1, $filaD, $colRebatePct, round($g['rebate_pct'], 4), false, 'pct');
 	$wbD->formula($sD1, $filaD, $colRebateDolar, XlsxWriter::colLetra($colCuotaTotal).$filaD.'*'.XlsxWriter::colLetra($colRebatePct).$filaD, false, 'numero');
 	$wbD->formula($sD1, $filaD, $colRebateMax110, '('.XlsxWriter::colLetra($colCuotaTotal).$filaD.'*1.1)*'.XlsxWriter::colLetra($colRebatePct).$filaD, false, 'numero');
@@ -190,7 +198,7 @@ foreach ($filasFinalD as $g) {
 		$wbD->celda($sD1, $filaD, $colVentaInicio + $i, '');
 	}
 	$rangoVentaD = XlsxWriter::colLetra($colVentaInicio).$filaD.':'.XlsxWriter::colLetra($colVentaInicio + $MD - 1).$filaD;
-	$wbD->formula($sD1, $filaD, $colVentaTotal, 'SUM('.$rangoVentaD.')', false, 'money');
+	$wbD->formula($sD1, $filaD, $colVentaTotal, 'SUM('.$rangoVentaD.')', false, 'numero');
 	$wbD->formula($sD1, $filaD, $colCumplimiento, 'IFERROR('.XlsxWriter::colLetra($colVentaTotal).$filaD.'/'.XlsxWriter::colLetra($colCuotaTotal).$filaD.',0)', false, 'pct');
 	$wbD->formula($sD1, $filaD, $colGanaCategoria, 'IF('.XlsxWriter::colLetra($colCumplimiento).$filaD.'>=80%,"GANA","NO GANA")');
 	$wbD->celda($sD1, $filaD, $colNovedades, '');
@@ -221,8 +229,8 @@ if ($ultimaFilaDatosD >= $primeraFilaDatosD) {
 		$rangoNombreS1 = "'CUOTAS POR CAT -DISTRIBUIDORES'!\$".XlsxWriter::colLetra($colNombre).'$'.$primeraFilaDatosD.':$'.XlsxWriter::colLetra($colNombre).'$'.$ultimaFilaDatosD;
 		$rangoCuotaTotalS1 = "'CUOTAS POR CAT -DISTRIBUIDORES'!\$".XlsxWriter::colLetra($colCuotaTotal).'$'.$primeraFilaDatosD.':$'.XlsxWriter::colLetra($colCuotaTotal).'$'.$ultimaFilaDatosD;
 		$rangoVentaTotalS1 = "'CUOTAS POR CAT -DISTRIBUIDORES'!\$".XlsxWriter::colLetra($colVentaTotal).'$'.$primeraFilaDatosD.':$'.XlsxWriter::colLetra($colVentaTotal).'$'.$ultimaFilaDatosD;
-		$wbD->formula($sD2, $filaD2, 3, 'SUMIF('.$rangoNombreS1.',B'.$filaD2.','.$rangoCuotaTotalS1.')', false, 'money');
-		$wbD->formula($sD2, $filaD2, 4, 'SUMIF('.$rangoNombreS1.',B'.$filaD2.','.$rangoVentaTotalS1.')', false, 'money');
+		$wbD->formula($sD2, $filaD2, 3, 'SUMIF('.$rangoNombreS1.',B'.$filaD2.','.$rangoCuotaTotalS1.')', false, 'numero');
+		$wbD->formula($sD2, $filaD2, 4, 'SUMIF('.$rangoNombreS1.',B'.$filaD2.','.$rangoVentaTotalS1.')', false, 'numero');
 		$wbD->formula($sD2, $filaD2, 5, 'IFERROR(D'.$filaD2.'/C'.$filaD2.',0)', false, 'pct');
 		$wbD->formula($sD2, $filaD2, 6, 'IF(E'.$filaD2.'>=99.99%,"GANA","NO GANA")');
 		$filaD2++;

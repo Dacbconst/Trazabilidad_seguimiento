@@ -852,3 +852,24 @@ Del resto de lo hablado en `docs/grabaciones/28-09-2026.txt` (ver también "Reun
 - **Decisión del usuario**: una sola fila por registro (no una fila por punto, como sí hace el PPT), pero las columnas "Punto de venta" y "Ciudad" listan TODOS los puntos separados por coma.
 - `getters/historial_excel.php`: nueva función `$listaPuntos($r, $campo)` — si el registro tiene `puntos` (array), junta ese campo de cada uno con `', '`; si no (cualquier otro tipo de actividad), usa el valor normal de siempre. Se usa para `Punto de venta` y `Ciudad`.
 - **Probado en vivo (04-10)**: registro real de Competencia con 2 puntos (ADVANCE - 9 de Octubre en Guayaquil + ARTEFACTA - 25 de Junio en Machala) enviado por Pablo Castelo vía Playwright; Excel descargado y verificado abriendo el XML interno del .xlsx — la fila trae `"ADVANCE - 9 DE OCTUBRE, ARTEFACTA - 25 DE JUNIO"` y `"GUAYAQUIL, MACHALA"`. Registro de prueba eliminado al terminar.
+
+## Colocación de POP: cómo trabaja realmente el cliente vs. lo que hace la app (2026-10-05, análisis, sin construir)
+
+- **Fuente**: correos de Epson/Lucky (campaña HOME ECUADOR, sep-2026) y `epson/POP/ECUADOR CAMPAÑA HOME ACT- 11-09-2026.xlsx` (hojas MARCOM-ECUADOR, retail, canal, DIRECCIONES ENTREGA PROMOTORES). Actores: Epson (Julián Tobar, Carolina Riofrío, Danny García), Fabricio Luzarraga (distribución en canal), Lucky Quito (bodega), Marco Salazar (entregas).
+- **Cómo trabajan ellos**:
+  - Cada campaña tiene un catálogo fijo de materiales: tendcard, afiche, roll-up, dangler/escudo, banderines (líneas de 10), cuadríptico, volante cotizador, hablador, glorificador, ruma sola nueva, ruma rebrandeo, kit de ruma con arco, solo arco rebrandeo y stand desmontable.
+  - Epson asigna cantidades por **canal**: QTY Retail, QTY Canal Distry y QTY Bodega (reserva mínima para reponer material roto o desgastado). Total Ecuador = suma de las tres.
+  - Cada cantidad se reparte por **ciudad/provincia** (Quito, Guayaquil, Cuenca, Santo Domingo, Manabí, Machala): es un plan de distribución, no una lista por punto de venta (ej. 245 tendcards Retail = 88 + 101 + 14×4).
+  - Cada línea lleva un **comentario de estado** ("ok", "PENDIENTE POR ENTREGAR", "en bodega esperando direcciones", "se rebrandea al terminar BTS").
+  - Los promotores de provincia reciben el material en direcciones concretas (logística fuera de la app); el material llega y se devuelve por tandas (banderines llegaron después, volvieron a bodega tras eventos y se recontaron).
+  - Dos tipos de material mezclados: de **conteo** (tendcard, afiche, volantes) y de **proceso** (rumas, kits con arco, stands: rebrandeo, entrega con calendario).
+- **Lo que la app hace distinto o no cubre** (hoy: un registro de POP = un punto de venta con campaña y materiales en texto libre; el reporte mensual suma Canales/Retail desde esos registros y el admin escribe solo Bodega):
+  1. No hay **campaña como catálogo**: "Tendcard", "TENDCARD" y "Tend card" son materiales distintos y no se puede comparar contra lo asignado por Epson.
+  2. No se guarda el **plan por canal** (Retail / Distry / Bodega como cantidades asignadas); la app los calcula sumando lo colocado por punto de venta, y para el cliente son cantidades planificadas, no sumas de lo ejecutado.
+  3. No existe el **plan por ciudad**; el modelo por punto de venta no sirve para materiales masivos (nadie registra 10.000 volantes ni 2.850 cuadrípticos punto por punto).
+  4. No hay **estado por material** (ok, pendiente, en bodega, en rebrandeo).
+  5. "Recibido" es un solo número del admin: no hay recepción por tandas ni devoluciones.
+  6. Materiales de conteo y de proceso comparten una sola cantidad.
+- **Dirección propuesta (pendiente de confirmar con el cliente)**: maestro de campaña (material, tipo conteo/proceso, cantidad por canal y por ciudad, estado por línea) y registros de promotores para medir cumplimiento (planificado vs. colocado).
+- **Preguntas abiertas antes de diseñar**: quién carga el plan (¿admin o Fabricio pegando el Excel?); si el promotor registra por punto de venta todos los materiales o solo algunos (tendcard, dangler, stand, ruma) y cómo se tratan los volantes a granel; qué espera ver Epson en el PPT (asignado por canal y ciudad con estado, colocado por punto de venta, o ambos); frecuencia del reporte (por campaña o mensual con tandas); si rumas, kits y stands necesitan seguimiento propio con estados.
+- **Ojo con el Excel**: trae artefactos (`#VALUE!`, 0.8235 de roll-up proporcional en Guayaquil) y "VOLANTE COTIZADOR" Retail con 10000 en un resumen y 1000 en la hoja retail; no copiar sus fórmulas sin validar.

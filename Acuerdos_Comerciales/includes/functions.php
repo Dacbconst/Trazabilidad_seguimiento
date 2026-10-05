@@ -1,6 +1,15 @@
 <?php
 // Sesión y roles en un solo archivo a propósito, proyecto independiente de Xplora.
 
+// En este hosting (nginx) un fatal error de PHP se ve en el navegador como "404 Not Found", sin pista real — esto deja la causa real en logs/errores_fatales.log.
+register_shutdown_function(function () {
+	$error = error_get_last();
+	if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+		$linea = '['.date('Y-m-d H:i:s').'] '.($_SERVER['REQUEST_URI'] ?? 'cli').' -> '.$error['message'].' en '.$error['file'].':'.$error['line'].PHP_EOL;
+		@file_put_contents(__DIR__.'/../logs/errores_fatales.log', $linea, FILE_APPEND);
+	}
+});
+
 function iniciar_sesion() {
 	if (session_status() === PHP_SESSION_NONE) {
 		// 8 horas: el gc_maxlifetime del hosting es más corto que una jornada de uso normal.
@@ -280,31 +289,73 @@ function repositorio_sql_comparable($columna) {
 }
 
 // Cache en memoria del maestro completo, una sola vez por request — antes escaneaba 42k filas por SQL sin índice en cada cliente (~300ms c/u).
-function maestroClientesEnMemoria($mysqli) {
+function maestroClientesEnMemoria($mysqli, $forzarRecarga = false) {
 	static $filas = null;
-	if ($filas !== null) return $filas;
+	if ($filas !== null && !$forzarRecarga) return $filas;
 	$filas = [];
 	$res = $mysqli->query('SELECT id, pos_id, pos_name, canal, tipo_distribuidor, supervisor, cedi FROM repositorio_locales_supervisores_cliente');
 	while ($fila = $res->fetch_assoc()) {
 		$fila['pos_name_comparable'] = repositorio_texto_comparable($fila['pos_name']);
 		$fila['tipo_distribuidor_comparable'] = repositorio_texto_comparable($fila['tipo_distribuidor']);
 		$fila['supervisor_comparable'] = repositorio_texto_comparable($fila['supervisor']);
+		$fila['es_propio'] = false;
 		$filas[] = $fila;
+	}
+	// Clientes que Alicorp todavía no tiene en su maestro (ver resolverPosIdCliente()/crearClientePropio()) — mismo formato de fila para que el resto de funciones de este archivo los trate igual; `es_propio` hace que el match sea EXACTO, nunca por prefijo como el maestro real. Silencioso si la tabla todavía no existe (ALTER/CREATE pendiente).
+	$resPropios = $mysqli->query("SELECT id, pos_id, cliente_excel AS pos_name, UPPER(canal) AS canal, distribuidor_excel AS tipo_distribuidor, cedi_excel AS supervisor, cedi_excel AS cedi FROM repositorio_clientes_propiosac");
+	if ($resPropios) {
+		while ($fila = $resPropios->fetch_assoc()) {
+			$fila['pos_name_comparable'] = repositorio_texto_comparable($fila['pos_name']);
+			$fila['tipo_distribuidor_comparable'] = repositorio_texto_comparable($fila['tipo_distribuidor']);
+			$fila['supervisor_comparable'] = repositorio_texto_comparable($fila['supervisor']);
+			$fila['es_propio'] = true;
+			$filas[] = $fila;
+		}
 	}
 	return $filas;
 }
 
+// Crea un pos_id propio (formato PDVAC0001...) para un cliente que no existe en el maestro de Alicorp — pedido explícito del cliente: su base está incompleta y seguirá pasando, así que armamos la nuestra poco a poco. Match de reuso EXACTO por nombre+canal (ver maestroClientesEnMemoria()), nunca por prefijo: un typo nuevo crea otro cliente propio en vez de mezclarse con uno ya creado.
+function crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel = null, $creadoPor = null) {
+	$canalDb = $canal === 'distribuidor' ? 'distribuidor' : 'directo';
+	$clienteComparable = repositorio_texto_comparable($clienteExcel);
+	$cediExcel = $cediExcel !== null ? trim((string) $cediExcel) : null;
+	$distribuidorExcel = $distribuidorExcel !== null ? trim((string) $distribuidorExcel) : null;
+
+	$stmt = $mysqli->prepare(
+		'INSERT INTO repositorio_clientes_propiosac (pos_id, cliente_excel, cliente_comparable, cedi_excel, distribuidor_excel, canal, creado_por)
+		 VALUES (\'\', ?, ?, ?, ?, ?, ?)'
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('sssssi', $clienteExcel, $clienteComparable, $cediExcel, $distribuidorExcel, $canalDb, $creadoPor);
+	if (!$stmt->execute()) { $stmt->close(); return null; }
+	$id = $stmt->insert_id;
+	$stmt->close();
+
+	$posId = 'PDVAC'.str_pad($id, 4, '0', STR_PAD_LEFT);
+	$stmtUp = $mysqli->prepare('UPDATE repositorio_clientes_propiosac SET pos_id = ? WHERE id = ?');
+	if ($stmtUp) { $stmtUp->bind_param('si', $posId, $id); $stmtUp->execute(); $stmtUp->close(); }
+	// Sin esto, una 2da consulta en el mismo request no lo ve (cache en memoria de maestroClientesEnMemoria()) y crea un duplicado.
+	maestroClientesEnMemoria($mysqli, true);
+	return $posId;
+}
+
 // $diagnostico (por referencia, opcional): si el cliente existe pero el Distribuidor/CEDI tipeado no matchea ninguno, queda el texto real registrado en el maestro.
-function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null, &$diagnostico = null) {
+function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null, &$diagnostico = null, $creadoPor = null) {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
 	$esDistribuidor = $canal === 'distribuidor';
 	$candidatos = array_values(array_filter(maestroClientesEnMemoria($mysqli), function ($f) use ($clienteComparable, $esDistribuidor) {
-		if (strncmp($f['pos_name_comparable'], $clienteComparable, strlen($clienteComparable)) !== 0) return false;
+		// Fila propia (ver crearClientePropio()): match EXACTO, nunca por prefijo como el maestro real de Alicorp.
+		$coincideNombre = !empty($f['es_propio'])
+			? $f['pos_name_comparable'] === $clienteComparable
+			: strncmp($f['pos_name_comparable'], $clienteComparable, strlen($clienteComparable)) === 0;
+		if (!$coincideNombre) return false;
 		return $esDistribuidor ? $f['canal'] === 'DISTRIBUIDOR' : $f['canal'] !== 'DISTRIBUIDOR';
 	}));
 
 	if (count($candidatos) === 1) return $candidatos[0]['pos_id'];
-	if (count($candidatos) === 0) return null;
+	// Ni el maestro de Alicorp ni nuestra base propia tienen este cliente: lo creamos nosotros (pedido explícito, base de Alicorp incompleta) para que el próximo trimestre ya lo reconozca solo.
+	if (count($candidatos) === 0) return crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel, $creadoPor);
 
 	if ($esDistribuidor) {
 		if (!$distribuidorExcel) return null;
@@ -327,6 +378,40 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 	// Duplicado real del maestro (mismo nombre+canal+distribuidor/supervisor): toma el registro más reciente.
 	usort($desempatados, fn($a, $b) => $b['id'] <=> $a['id']);
 	return $desempatados[0]['pos_id'];
+}
+
+// Cumplimiento de Cuota no valida contra el maestro de Alicorp: valida contra lo que YA se ingresó en los repositorios principales (Cuotas Trimestrales, Acuerdo Completo) para el mismo trimestre/año. Si no matchea ahí, el cliente queda sin identificar — no se busca en el maestro como respaldo.
+function resolverPosIdDesdeRepoPrincipal($mysqli, $clienteExcel, $trimestre, $anio) {
+	$clienteComparable = repositorio_texto_comparable($clienteExcel);
+	$colComparable = repositorio_sql_comparable('cliente_excel');
+	foreach (['repositorio_cuota_cliente', 'repositorio_acuerdo_completo_linea'] as $tabla) {
+		$stmt = $mysqli->prepare(
+			"SELECT DISTINCT pos_id FROM $tabla WHERE $colComparable = ? AND trimestre = ? AND anio = ? AND pos_id IS NOT NULL AND pos_id <> ''"
+		);
+		if (!$stmt) continue;
+		$stmt->bind_param('sii', $clienteComparable, $trimestre, $anio);
+		$stmt->execute();
+		$posIds = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pos_id');
+		$stmt->close();
+		if (count($posIds) === 1) return $posIds[0];
+	}
+	return null;
+}
+
+// Usuario que registró este cliente en el repo principal (Cuotas/Acuerdo Completo), para avisar si el Excel de Cumplimiento trae otro nombre.
+function usuarioEsperadoDesdeRepoPrincipal($mysqli, $posId, $trimestre, $anio) {
+	foreach (['repositorio_cuota_cliente', 'repositorio_acuerdo_completo_linea'] as $tabla) {
+		$stmt = $mysqli->prepare(
+			"SELECT DISTINCT usuario_excel FROM $tabla WHERE pos_id = ? AND trimestre = ? AND anio = ? AND usuario_excel IS NOT NULL AND usuario_excel <> ''"
+		);
+		if (!$stmt) continue;
+		$stmt->bind_param('sii', $posId, $trimestre, $anio);
+		$stmt->execute();
+		$usuarios = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'usuario_excel');
+		$stmt->close();
+		if (count($usuarios) === 1) return $usuarios[0];
+	}
+	return null;
 }
 
 // Sugerencias de "¿quisiste decir?" cuando el cliente no matcheó nada (solo para mostrar, nunca para resolver pos_id solo). Prefijo en cualquier dirección, con mínimo de letras para no traer basura corta del maestro (ej. una fila real con pos_name="CH").
@@ -361,13 +446,19 @@ function cediRealDePosId($mysqli, $posId, $clienteExcel) {
 }
 
 // Fila completa del maestro para un pos_id, desambiguada por nombre cuando se conoce (pos_id solo no es único). Sin nombre, o sin match exacto, cae al primero que encuentre (comportamiento de antes).
-function clienteMaestroDePosId($mysqli, $posId, $clienteExcel = null) {
+// $canalHint ('directo'/'distribuidor'/null): desempate cuando el nombre por sí solo no alcanza — bug real confirmado: el mismo pos_name existe en 2 filas del maestro con canal distinto (ej. "ACOSTA SANTAMARIA EDGAR PATRICIO" en DISTRIBUIDOR y en MAYORISTA), sin esto la elegida era arbitraria.
+function clienteMaestroDePosId($mysqli, $posId, $clienteExcel = null, $canalHint = null) {
 	$maestro = maestroClientesEnMemoria($mysqli);
 	if ($clienteExcel) {
 		$clienteComparable = repositorio_texto_comparable($clienteExcel);
-		foreach ($maestro as $f) {
-			if ($f['pos_id'] === $posId && $f['pos_name_comparable'] === $clienteComparable) return $f;
+		$candidatos = array_values(array_filter($maestro, fn($f) => $f['pos_id'] === $posId && $f['pos_name_comparable'] === $clienteComparable));
+		if (count($candidatos) === 1) return $candidatos[0];
+		if (count($candidatos) > 1 && $canalHint !== null) {
+			$esDistribuidor = $canalHint === 'distribuidor';
+			$porCanal = array_values(array_filter($candidatos, fn($f) => $esDistribuidor ? $f['canal'] === 'DISTRIBUIDOR' : $f['canal'] !== 'DISTRIBUIDOR'));
+			if ($porCanal) return $porCanal[0];
 		}
+		if ($candidatos) return $candidatos[0];
 	}
 	foreach ($maestro as $f) {
 		if ($f['pos_id'] === $posId) return $f;
@@ -802,8 +893,9 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 	$stmt->close();
 	if (!$filasCuota) return null;
 
-	// Desambiguado por nombre: pos_id solo no es único en el maestro (bug real encontrado 2026-09-30, mismo criterio que resolverPosIdCliente()).
-	$cliente = clienteMaestroDePosId($mysqli, $posId, $filasCuota[0]['cliente_excel'] ?? null);
+	// Desambiguado por nombre + canal de origen (bug real: el mismo pos_name puede existir bajo 2 canales distintos en el maestro, ver clienteMaestroDePosId()).
+	$canalOrigenCuota = ($filasCuota[0]['plan'] ?? '') !== '' ? 'distribuidor' : 'directo';
+	$cliente = clienteMaestroDePosId($mysqli, $posId, $filasCuota[0]['cliente_excel'] ?? null, $canalOrigenCuota);
 	if (!$cliente) return null;
 
 	$stmtHistorial = $mysqli->prepare(
@@ -1294,6 +1386,11 @@ function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 }
 
 // $usuarioId filtra por creado_por real. $trimestre/$anio: 0="Todos". $filtroFirma: 'todos'|'firmadas'|'pendientes'.
+// Canal real de un Acuerdo: lee directo la columna `canal` de repositorio_acuerdos, grabada una sola vez al crearlo (ver guardar_acuerdo.php) — nunca se vuelve a comparar contra el maestro ni ninguna otra tabla acá (pedido explícito: la única validación contra el maestro vive en Repositorios, al subir el Excel). Reusado por Historial y por los 2 export de Excel.
+function sqlCanalOrigenAcuerdo($aliasAcuerdo = 'a') {
+	return "UPPER($aliasAcuerdo.canal)";
+}
+
 function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $anio = 0, $filtroFirma = 'todos', $pagina = 1, $usuarioId = null, $porPagina = 10, $rol = null, $canal = 'total') {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
@@ -1316,26 +1413,29 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 	// "Ver todo": superdesarrollador ve Actas de todos. `? = 1 OR a.creado_por = ?` fija el conteo de parámetros sin bind_param variable.
 	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
 
-	// Filtro de Canal vía EXISTS, no comparación directa: un pos_id puede tener 2+ filas de canal distinto en el maestro.
+	$canalOrigenSql = sqlCanalOrigenAcuerdo('a');
 	$condicionCanal = '';
 	if ($canal === 'directo') {
-		$condicionCanal = " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+		$condicionCanal = " AND $canalOrigenSql = 'DIRECTO'";
 	} elseif ($canal === 'distribuidor') {
-		$condicionCanal = " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+		$condicionCanal = " AND $canalOrigenSql = 'DISTRIBUIDOR'";
 	}
 
-	// JOIN solo para pos_name/cedi/canal; GROUP BY a.id evita duplicar el Acuerdo por pos_id repetidos en el maestro.
 	$condicionFirma = '';
 	if ($filtroFirma === 'firmadas') $condicionFirma = ' AND a.acta_firmada_azure_path IS NOT NULL';
 	elseif ($filtroFirma === 'pendientes') $condicionFirma = ' AND a.acta_firmada_azure_path IS NULL';
 
+	// Cliente: SIEMPRE lo que ya se guardó al subir el Excel (Cuotas/Acuerdo Completo) — nunca el maestro, ni para buscar ni para mostrar.
+	$clienteOrigenSql = "COALESCE(
+		(SELECT cc.cliente_excel FROM repositorio_cuota_cliente cc WHERE cc.acuerdo_id_generado = a.id LIMIT 1),
+		(SELECT acl.cliente_excel FROM repositorio_acuerdo_completo_linea acl WHERE acl.acuerdo_id_generado = a.id LIMIT 1)
+	)";
 	// LEFT JOIN para "Generado por": un Acta huérfana (creado_por NULL) no debe desaparecer de Historial.
 	$sqlBase = "FROM repositorio_acuerdos a
-		JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		LEFT JOIN repositorio_usuarios_acuerdos ug ON ug.id = a.creado_por
 		WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
 		  AND (? = 1 OR a.creado_por = ?)
-		  AND d.pos_name LIKE ?
+		  AND COALESCE($clienteOrigenSql, '') LIKE ?
 		  AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		  AND (? = 0 OR a.anio = ?)
 		  $condicionFirma
@@ -1357,24 +1457,26 @@ function listar_historial_acuerdos($mysqli, $busqueda = '', $trimestre = 0, $ani
 		$offset = ($pagina - 1) * $porPagina;
 	}
 
-	// Canal canónico: `d.canal` crudo es ambiguo con pos_id duplicados, usa el mismo EXISTS que decide la pastilla.
-	$canalCanonico = "(CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR') THEN 'DISTRIBUIDOR' ELSE 'OTRO' END) AS canal";
+	// Canal: columna propia de repositorio_acuerdos, grabada al crear el Acuerdo (ver guardar_acuerdo.php) — nunca el maestro.
+	$canalCanonico = "UPPER(a.canal) AS canal";
+	$cediOrigenSql = "COALESCE(
+		(SELECT cc2.cedi_excel FROM repositorio_cuota_cliente cc2 WHERE cc2.acuerdo_id_generado = a.id LIMIT 1),
+		(SELECT acl2.cedi_excel FROM repositorio_acuerdo_completo_linea acl2 WHERE acl2.acuerdo_id_generado = a.id LIMIT 1)
+	)";
 	$stmt = $mysqli->prepare(
-		"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
+		"SELECT a.id, a.pos_id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma, a.acta_firmada_mime,
-		        d.pos_name, d.cedi, $canalCanonico, ug.usuario AS generado_por
+		        $clienteOrigenSql AS pos_name, $cediOrigenSql AS cedi, $canalCanonico, ug.usuario AS generado_por
 		 $sqlBase
-		 GROUP BY a.id
 		 ORDER BY a.fecha_generacion DESC, a.id DESC
 		 LIMIT ? OFFSET ?"
 	);
 	if (!$stmt) {
 		$stmt = $mysqli->prepare(
-			"SELECT a.id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
+			"SELECT a.id, a.pos_id, a.documento_no, a.mes_inicio, a.mes_fin, a.fecha_generacion, a.estado, a.creado_por,
 			        0 AS tiene_firma, NULL AS acta_firmada_mime,
-			        d.pos_name, d.cedi, $canalCanonico, ug.usuario AS generado_por
+			        $clienteOrigenSql AS pos_name, $cediOrigenSql AS cedi, $canalCanonico, ug.usuario AS generado_por
 			 $sqlBase
-			 GROUP BY a.id
 			 ORDER BY a.fecha_generacion DESC, a.id DESC
 			 LIMIT ? OFFSET ?"
 		);
@@ -1406,13 +1508,13 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 	$trimestreActivo = $bounds ? 1 : 0;
 	$mesInicioFiltro = $bounds ? $bounds[0] : -1;
 	$mesFinFiltro    = $bounds ? $bounds[1] : -1;
-	// Mismo criterio "ver todo" y filtro de Canal que listar_historial_acuerdos().
+	// Mismo criterio "ver todo" y filtro de Canal que listar_historial_acuerdos() (sqlCanalOrigenAcuerdo()).
 	$verTodos = ($rol === 'superdesarrollador') ? 1 : 0;
 	$condicionCanal = '';
 	if ($canal === 'directo') {
-		$condicionCanal = " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+		$condicionCanal = " AND ".sqlCanalOrigenAcuerdo('a')." = 'DIRECTO'";
 	} elseif ($canal === 'distribuidor') {
-		$condicionCanal = " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+		$condicionCanal = " AND ".sqlCanalOrigenAcuerdo('a')." = 'DISTRIBUIDOR'";
 	}
 
 	$stmt = $mysqli->prepare(
@@ -1534,12 +1636,10 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 
 // Cabecera + 4 tablas de líneas de un Acuerdo puntual, para el detalle/Acta imprimible.
 function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
-	// LIMIT 1 alcanza pese a pos_id duplicados en el maestro. d.canal decide el formato; d.tipo_distribuidor es la Empresa Distribuidora.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.pos_id, a.anio, a.mes_inicio, a.mes_fin, a.estado, a.fecha_generacion, a.creado_por, a.sin_visibilidad,
-		        d.pos_name, d.cedi, d.canal, d.tipo_distribuidor, u.usuario AS ejecutivo_comercial
+		        u.usuario AS ejecutivo_comercial
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 		 WHERE a.id = ? LIMIT 1"
 	);
@@ -1549,6 +1649,40 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 	$cabecera = $stmt->get_result()->fetch_assoc();
 	$stmt->close();
 	if (!$cabecera) return null;
+
+	// Desambiguado por nombre (pos_id solo no es único en el maestro — bug real confirmado: el mismo pos_id resolvía a veces como "Directo", a veces como "Distribuidor" según qué fila devolviera MySQL). El nombre real del cliente se recupera del repositorio de origen (Cuotas o Acuerdo Completo), si vino de una precarga.
+	$clienteOrigen = null;
+	$canalOrigen = null;
+	$stmtOrigenCuota = $mysqli->prepare('SELECT cliente_excel, plan FROM repositorio_cuota_cliente WHERE acuerdo_id_generado = ? LIMIT 1');
+	if ($stmtOrigenCuota) {
+		$stmtOrigenCuota->bind_param('i', $acuerdoId);
+		$stmtOrigenCuota->execute();
+		$filaOrigen = $stmtOrigenCuota->get_result()->fetch_assoc();
+		$stmtOrigenCuota->close();
+		if ($filaOrigen) {
+			$clienteOrigen = $filaOrigen['cliente_excel'];
+			$canalOrigen = ($filaOrigen['plan'] ?? '') !== '' ? 'distribuidor' : 'directo';
+		}
+	}
+	if ($clienteOrigen === null) {
+		$stmtOrigenCompleto = $mysqli->prepare('SELECT cliente_excel, plan FROM repositorio_acuerdo_completo_linea WHERE acuerdo_id_generado = ? LIMIT 1');
+		if ($stmtOrigenCompleto) {
+			$stmtOrigenCompleto->bind_param('i', $acuerdoId);
+			$stmtOrigenCompleto->execute();
+			$filaOrigen = $stmtOrigenCompleto->get_result()->fetch_assoc();
+			$stmtOrigenCompleto->close();
+			if ($filaOrigen) {
+				$clienteOrigen = $filaOrigen['cliente_excel'];
+				$canalOrigen = ($filaOrigen['plan'] ?? '') !== '' ? 'distribuidor' : 'directo';
+			}
+		}
+	}
+	$d = clienteMaestroDePosId($mysqli, $cabecera['pos_id'], $clienteOrigen, $canalOrigen);
+	if (!$d) return null;
+	$cabecera['pos_name'] = $d['pos_name'];
+	$cabecera['cedi'] = $d['cedi'];
+	$cabecera['canal'] = $d['canal'];
+	$cabecera['tipo_distribuidor'] = $d['tipo_distribuidor'];
 
 	$stmt = $mysqli->prepare(
 		"SELECT tipo, segmento, sector, categoria, marca, rebate_pct, cantidad_max_percha, participacion_pct, precio_percha,
@@ -1621,13 +1755,19 @@ function obtener_acuerdo_detalle($mysqli, $acuerdoId) {
 // Borradores propios, para "Mis Borradores", mismo scoping por creador que listar_historial_acuerdos().
 function listar_borradores_usuario($mysqli, $usuarioId) {
 	if (!$usuarioId) return [];
+	// pos_name/cedi: SIEMPRE lo que ya se guardó al subir el Excel (Cuotas/Acuerdo Completo) — nunca el maestro.
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.anio, a.mes_inicio, a.mes_fin, a.updated_at,
-		        d.pos_name, d.cedi
+		        COALESCE(
+		          (SELECT cc.cliente_excel FROM repositorio_cuota_cliente cc WHERE cc.acuerdo_id_generado = a.id LIMIT 1),
+		          (SELECT acl.cliente_excel FROM repositorio_acuerdo_completo_linea acl WHERE acl.acuerdo_id_generado = a.id LIMIT 1)
+		        ) AS pos_name,
+		        COALESCE(
+		          (SELECT cc2.cedi_excel FROM repositorio_cuota_cliente cc2 WHERE cc2.acuerdo_id_generado = a.id LIMIT 1),
+		          (SELECT acl2.cedi_excel FROM repositorio_acuerdo_completo_linea acl2 WHERE acl2.acuerdo_id_generado = a.id LIMIT 1)
+		        ) AS cedi
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.estado = 'borrador' AND a.creado_por = ?
-		 GROUP BY a.id
 		 ORDER BY a.updated_at DESC"
 	);
 	if (!$stmt) return [];
@@ -2005,7 +2145,9 @@ function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
 
 	$primeraMeta = null;
 	foreach ($filas as $f) { if ($f['tipo'] === 'meta_compra') { $primeraMeta = $f; break; } }
-	$cliente = clienteMaestroDePosId($mysqli, $posId, $primeraMeta['cliente_excel'] ?? null);
+	// Desambiguado por nombre + canal de origen (mismo bug/criterio que obtener_precarga_detalle()): este era el que faltaba, por eso la campanita abría el Acta en el canal equivocado.
+	$canalOrigenCompleto = ($primeraMeta['plan'] ?? '') !== '' ? 'distribuidor' : 'directo';
+	$cliente = clienteMaestroDePosId($mysqli, $posId, $primeraMeta['cliente_excel'] ?? null, $canalOrigenCompleto);
 	if (!$cliente) return null;
 
 	$esDistribuidorRebate = ($cliente['canal'] ?? null) === 'DISTRIBUIDOR';
@@ -2290,22 +2432,23 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 		default:           $condicionEstado = "a.estado NOT IN ('borrador', 'anulado')"; $orden = 'a.fecha_generacion DESC';
 	}
 
-	// LEFT JOIN a propósito: si el pos_id ya no matchea el maestro, un JOIN normal la haría desaparecer del detalle.
+	// pos_name: SIEMPRE lo que ya se guardó al subir el Excel (Cuotas/Acuerdo Completo) — nunca el maestro, ni como respaldo (pedido explícito).
 	$limite = sqlFechaLimiteFirma('a.fecha_generacion');
 	$stmt = $mysqli->prepare(
 		"SELECT a.id, a.documento_no, a.fecha_generacion, a.estado,
 		        (a.acta_firmada_azure_path IS NOT NULL) AS tiene_firma,
 		        a.acta_firmada_subido_en, a.acta_firmada_mime,
 		        a.firma_validada_en, a.firma_rechazada_en, a.firma_rechazada_motivo,
-		        d.pos_name,
+		        COALESCE(
+		          (SELECT cc.cliente_excel FROM repositorio_cuota_cliente cc WHERE cc.acuerdo_id_generado = a.id LIMIT 1),
+		          (SELECT acl.cliente_excel FROM repositorio_acuerdo_completo_linea acl WHERE acl.acuerdo_id_generado = a.id LIMIT 1)
+		        ) AS pos_name,
 		        DATEDIFF($limite, CURDATE()) AS dias_restantes
 		 FROM repositorio_acuerdos a
-		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
 		 WHERE a.creado_por = ?
 		   AND $condicionEstado
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
-		 GROUP BY a.id
 		 ORDER BY $orden"
 	);
 	if (!$stmt) return [];
@@ -2321,9 +2464,10 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	return $filas;
 }
 
+// Mismo bug/arreglo que Historial: antes comparaba d.canal directo contra el maestro (ambiguo con pos_id duplicados). Ahora usa el canal de origen de la precarga (sqlCanalOrigenAcuerdo()).
 function condicionCanalNegociacion($canal) {
-	if ($canal === "directo") return " AND NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
-	if ($canal === "distribuidor") return " AND EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.pos_id = a.pos_id AND d2.canal = 'DISTRIBUIDOR')";
+	if ($canal === "directo") return " AND ".sqlCanalOrigenAcuerdo('a')." = 'DIRECTO'";
+	if ($canal === "distribuidor") return " AND ".sqlCanalOrigenAcuerdo('a')." = 'DISTRIBUIDOR'";
 	return "";
 }
 
@@ -2396,7 +2540,11 @@ function listar_actas_negociacion_usuario($mysqli, $usuarioId, $trimestre = 0, $
 
 	// Solo el nombre del Acta acá; el detalle de tablas se pide aparte, al expandir, vía obtener_negociacion_detalle_acuerdo().
 	$stmt = $mysqli->prepare(
-		"SELECT a.id, a.documento_no, (SELECT MIN(m.pos_name) FROM repositorio_locales_supervisores_cliente m WHERE m.pos_id = a.pos_id) AS cliente
+		"SELECT a.id, a.documento_no,
+		        COALESCE(
+		          (SELECT cc.cliente_excel FROM repositorio_cuota_cliente cc WHERE cc.acuerdo_id_generado = a.id LIMIT 1),
+		          (SELECT acl.cliente_excel FROM repositorio_acuerdo_completo_linea acl WHERE acl.acuerdo_id_generado = a.id LIMIT 1)
+		        ) AS cliente
 		 FROM repositorio_acuerdos a
 		 WHERE a.creado_por = ?
 		   AND a.estado <> 'anulado' AND a.acta_firmada_azure_path IS NOT NULL
@@ -2482,13 +2630,10 @@ function obtener_negociacion_detalle_acuerdo($mysqli, $acuerdoId) {
 }
 
 // ---------- Módulo "Cumplimiento de Cuota" ---------- CEDI del Excel gana sobre el maestro. $canal filtra por el SUPERVISOR ya resuelto.
-function condicionCanalCumplimiento($canal, $columnaSupervisor) {
-	if ($canal === 'directo') {
-		return "NOT EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.supervisor = $columnaSupervisor AND d2.canal = 'DISTRIBUIDOR')";
-	}
-	if ($canal === 'distribuidor') {
-		return "EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d2 WHERE d2.supervisor = $columnaSupervisor AND d2.canal = 'DISTRIBUIDOR')";
-	}
+// Lee directo c.canal (grabado al subir el Excel, ver cumplimiento_guardar.php) — nunca vuelve a comparar contra el maestro. COALESCE a 'directo' para filas de antes de que existiera esta columna (mismo criterio que el SELECT de canal, para que filtro y badge mostrado siempre coincidan).
+function condicionCanalCumplimiento($canal) {
+	if ($canal === 'directo') return "COALESCE(c.canal, 'directo') = 'directo'";
+	if ($canal === 'distribuidor') return "COALESCE(c.canal, 'directo') = 'distribuidor'";
 	return '';
 }
 
@@ -2505,7 +2650,7 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		$params[] = $busqueda;
 		$tipos .= 'ss';
 	}
-	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor)');
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_subio.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
@@ -2515,9 +2660,9 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct,
 		        c.gana_categoria, c.gana_categoria_anterior, c.gana_total,
 		        c.rebate_real_vol, c.updated_at,
-		        COALESCE(u_usuario.id, u_cedi.id, u_master.id) AS usuario_id,
-		        COALESCE(u_usuario.usuario, u_cedi.usuario, u_master.usuario) AS usuario_nombre,
-		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal,
+		        COALESCE(u_usuario.id, u_cedi.id, u_subio.id, u_master.id) AS usuario_id,
+		        COALESCE(u_usuario.usuario, u_cedi.usuario, u_subio.usuario, u_master.usuario) AS usuario_nombre,
+		        COALESCE(c.canal, 'directo') AS canal,
 		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_productos p WHERE p.fabricante = 'JABONERIA WILSON' AND p.sector = c.sector AND p.activar = 'SI') THEN 1 ELSE 0 END) AS categoria_valida
 		 FROM repositorio_cumplimiento_cuota c
 		 LEFT JOIN (SELECT pos_id, trimestre, anio, MAX(usuario_excel) AS usuario_excel FROM repositorio_cuota_cliente WHERE usuario_excel IS NOT NULL AND usuario_excel <> '' GROUP BY pos_id, trimestre, anio) rc
@@ -2527,8 +2672,14 @@ function listar_cumplimiento_cuota($mysqli, $trimestre, $anio, $busqueda, $canal
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) mst ON mst.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
+		 LEFT JOIN repositorio_usuarios_acuerdos u_subio
+		   ON u_subio.id = c.actualizado_por AND u_subio.status = 'activo'
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master
+		   ON u_master.status = 'activo'
+		  AND u_master.supervisor = (SELECT d4.supervisor FROM repositorio_locales_supervisores_cliente d4
+		                              WHERE d4.pos_id = c.pos_id
+		                                AND (CASE WHEN c.plan_excel IS NOT NULL AND c.plan_excel <> '' THEN d4.canal = 'DISTRIBUIDOR' ELSE d4.canal <> 'DISTRIBUIDOR' END)
+		                              ORDER BY (UPPER(TRIM(d4.pos_name)) = UPPER(TRIM(c.cliente_excel))) DESC, d4.id DESC LIMIT 1)
 		 WHERE $where
 		 ORDER BY usuario_nombre IS NULL, usuario_nombre, c.cliente_excel, c.sector"
 	);
@@ -2547,7 +2698,7 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
 	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
 	// Mismo criterio que listar_cumplimiento_cuota(): USUARIO de Cuotas Trimestrales manda primero, luego CEDI, luego maestro.
-	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor)');
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_subio.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
@@ -2567,8 +2718,14 @@ function resumen_cumplimiento_cuota($mysqli, $trimestre, $anio, $canal = 'total'
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) mst ON mst.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
+		 LEFT JOIN repositorio_usuarios_acuerdos u_subio
+		   ON u_subio.id = c.actualizado_por AND u_subio.status = 'activo'
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master
+		   ON u_master.status = 'activo'
+		  AND u_master.supervisor = (SELECT d4.supervisor FROM repositorio_locales_supervisores_cliente d4
+		                              WHERE d4.pos_id = c.pos_id
+		                                AND (CASE WHEN c.plan_excel IS NOT NULL AND c.plan_excel <> '' THEN d4.canal = 'DISTRIBUIDOR' ELSE d4.canal <> 'DISTRIBUIDOR' END)
+		                              ORDER BY (UPPER(TRIM(d4.pos_name)) = UPPER(TRIM(c.cliente_excel))) DESC, d4.id DESC LIMIT 1)
 		 WHERE $where"
 	);
 	$vacio = ['clientes' => 0, 'categorias' => 0, 'ganan_categoria' => 0, 'no_ganan_categoria' => 0, 'cumplimiento_promedio' => 0.0, 'clientes_ganan_total' => 0];
@@ -2595,7 +2752,7 @@ function resumen_consolidado_categoria($mysqli, $trimestre, $anio, $canal = 'tot
 	$tipos = '';
 	if ($trimestre > 0) { $condiciones[] = 'c.trimestre = ?'; $params[] = $trimestre; $tipos .= 'i'; }
 	if ($anio > 0) { $condiciones[] = 'c.anio = ?'; $params[] = $anio; $tipos .= 'i'; }
-	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor)');
+	$condicionCanal = condicionCanalCumplimiento($canal, 'COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_subio.supervisor, u_master.supervisor)');
 	if ($condicionCanal !== '') $condiciones[] = $condicionCanal;
 	$where = implode(' AND ', $condiciones);
 
@@ -2603,8 +2760,8 @@ function resumen_consolidado_categoria($mysqli, $trimestre, $anio, $canal = 'tot
 	$stmt = $mysqli->prepare(
 		"SELECT c.id, c.pos_id, c.cliente_excel, c.cedi_excel, c.sector,
 		        c.cuota_total, c.venta_total, c.cumplimiento_pct, c.gana_categoria,
-		        COALESCE(u_usuario.usuario, u_cedi.usuario, u_master.usuario) AS usuario_nombre,
-		        (CASE WHEN EXISTS (SELECT 1 FROM repositorio_locales_supervisores_cliente d3 WHERE d3.supervisor = COALESCE(u_usuario.supervisor, u_cedi.supervisor, u_master.supervisor) AND d3.canal = 'DISTRIBUIDOR') THEN 'distribuidor' ELSE 'directo' END) AS canal
+		        COALESCE(u_usuario.usuario, u_cedi.usuario, u_subio.usuario, u_master.usuario) AS usuario_nombre,
+		        COALESCE(c.canal, 'directo') AS canal
 		 FROM repositorio_cumplimiento_cuota c
 		 LEFT JOIN (SELECT pos_id, trimestre, anio, MAX(usuario_excel) AS usuario_excel FROM repositorio_cuota_cliente WHERE usuario_excel IS NOT NULL AND usuario_excel <> '' GROUP BY pos_id, trimestre, anio) rc
 		   ON rc.pos_id = c.pos_id AND rc.trimestre = c.trimestre AND rc.anio = c.anio
@@ -2613,8 +2770,14 @@ function resumen_consolidado_categoria($mysqli, $trimestre, $anio, $canal = 'tot
 		 LEFT JOIN repositorio_usuarios_acuerdos u_cedi
 		   ON u_cedi.status = 'activo'
 		  AND (UPPER(TRIM(u_cedi.usuario)) = UPPER(TRIM(c.cedi_excel)) OR UPPER(TRIM(u_cedi.supervisor)) = UPPER(TRIM(c.cedi_excel)))
-		 LEFT JOIN (SELECT pos_id, MIN(supervisor) AS supervisor FROM repositorio_locales_supervisores_cliente GROUP BY pos_id) mst ON mst.pos_id = c.pos_id
-		 LEFT JOIN repositorio_usuarios_acuerdos u_master ON u_master.supervisor = mst.supervisor AND u_master.status = 'activo'
+		 LEFT JOIN repositorio_usuarios_acuerdos u_subio
+		   ON u_subio.id = c.actualizado_por AND u_subio.status = 'activo'
+		 LEFT JOIN repositorio_usuarios_acuerdos u_master
+		   ON u_master.status = 'activo'
+		  AND u_master.supervisor = (SELECT d4.supervisor FROM repositorio_locales_supervisores_cliente d4
+		                              WHERE d4.pos_id = c.pos_id
+		                                AND (CASE WHEN c.plan_excel IS NOT NULL AND c.plan_excel <> '' THEN d4.canal = 'DISTRIBUIDOR' ELSE d4.canal <> 'DISTRIBUIDOR' END)
+		                              ORDER BY (UPPER(TRIM(d4.pos_name)) = UPPER(TRIM(c.cliente_excel))) DESC, d4.id DESC LIMIT 1)
 		 WHERE $where
 		 ORDER BY c.sector, c.cliente_excel"
 	);

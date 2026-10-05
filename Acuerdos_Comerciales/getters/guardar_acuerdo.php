@@ -32,6 +32,8 @@ $mesFin     = (int) ($body['mes_fin'] ?? -1);
 $estado     = $body['estado'] ?? 'borrador';
 $sinVisibilidad = !empty($body['sin_visibilidad']);
 $lineas     = is_array($body['lineas'] ?? null) ? $body['lineas'] : [];
+// Canal de la Acta, grabado UNA sola vez acá — nunca más se vuelve a inferir del maestro ni de ninguna otra columna en el resto de la app (pedido explícito).
+$canalActa  = canalEfectivoUsuario($mysqli);
 // Si viene de una Acta precargada, se valida que el pos_id coincida antes de marcar esas filas como consumidas.
 $origenPrecarga = is_array($body['origen_precarga'] ?? null) ? $body['origen_precarga'] : null;
 
@@ -67,6 +69,19 @@ $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
+// Cliente propio (el maestro de Alicorp no lo tiene, ver crearClientePropio()): mismo criterio "cedi_excel hace de supervisor" ya usado en resolverPosIdCliente().
+if (!$existePos) {
+	$stmtPropio = $mysqli->prepare(
+		'SELECT pos_id FROM repositorio_clientes_propiosac WHERE pos_id = ? AND canal = \'directo\' AND cedi_excel = ? LIMIT 1'
+	);
+	if ($stmtPropio) {
+		$stmtPropio->bind_param('ss', $posId, $supervisorSesion);
+		$stmtPropio->execute();
+		$existePos = $stmtPropio->get_result()->fetch_assoc();
+		$stmtPropio->close();
+	}
+}
+
 // Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()) o del repo "Acuerdo Completo" (usuarioIdDeAcuerdoCompleto()), solo si el guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
 if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);
@@ -94,6 +109,19 @@ if (!$existePos && esModoAdminSinCartera()) {
 		$stmtAdmin->execute();
 		$existePos = $stmtAdmin->get_result()->fetch_assoc();
 		$stmtAdmin->close();
+	}
+	// Mismo respaldo de cliente propio, para admin sin cartera: cualquier pos_id propio de ese mismo canal.
+	if (!$existePos) {
+		$canalAdminPropio = $canalAdmin ? 'distribuidor' : 'directo';
+		$stmtAdminPropio = $mysqli->prepare(
+			'SELECT pos_id FROM repositorio_clientes_propiosac WHERE pos_id = ? AND canal = ? LIMIT 1'
+		);
+		if ($stmtAdminPropio) {
+			$stmtAdminPropio->bind_param('ss', $posId, $canalAdminPropio);
+			$stmtAdminPropio->execute();
+			$existePos = $stmtAdminPropio->get_result()->fetch_assoc();
+			$stmtAdminPropio->close();
+		}
 	}
 }
 
@@ -234,11 +262,21 @@ try {
 		// updated_at = NOW() explícito: editar solo las 4 tablas de líneas no dispara el ON UPDATE de la cabecera.
 		$stmt = $mysqli->prepare(
 			'UPDATE repositorio_acuerdos
-			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, sin_visibilidad = ?, updated_at = NOW()
+			 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, sin_visibilidad = ?, canal = ?, updated_at = NOW()
 			 WHERE id = ?'
 		);
 		$sinVisibilidadInt = (int) $sinVisibilidad;
-		$stmt->bind_param('siiissii', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $sinVisibilidadInt, $acuerdoId);
+		if ($stmt) {
+			$stmt->bind_param('siiissisi', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $sinVisibilidadInt, $canalActa, $acuerdoId);
+		} else {
+			// Fallback si el ALTER de `canal` todavía no corrió.
+			$stmt = $mysqli->prepare(
+				'UPDATE repositorio_acuerdos
+				 SET pos_id = ?, anio = ?, mes_inicio = ?, mes_fin = ?, estado = ?, fecha_generacion = ?, sin_visibilidad = ?, updated_at = NOW()
+				 WHERE id = ?'
+			);
+			$stmt->bind_param('siiissii', $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $sinVisibilidadInt, $acuerdoId);
+		}
 		$stmt->execute();
 		$stmt->close();
 
@@ -260,11 +298,21 @@ try {
 		do {
 			$documentoNo = sprintf('ADN-%d-%04d', $anio, $seq);
 			$stmt = $mysqli->prepare(
+				'INSERT INTO repositorio_acuerdos (documento_no, pos_id, anio, mes_inicio, mes_fin, estado, fecha_generacion, creado_por, sin_visibilidad, canal)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+			);
+			$sinVisibilidadInt = (int) $sinVisibilidad;
+			$conCanal = (bool) $stmt;
+			// Fallback si el ALTER de `canal` todavía no corrió.
+			if (!$stmt) $stmt = $mysqli->prepare(
 				'INSERT INTO repositorio_acuerdos (documento_no, pos_id, anio, mes_inicio, mes_fin, estado, fecha_generacion, creado_por, sin_visibilidad)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
 			);
-			$sinVisibilidadInt = (int) $sinVisibilidad;
-			$stmt->bind_param('ssiiissii', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $creadoPor, $sinVisibilidadInt);
+			if ($conCanal) {
+				$stmt->bind_param('ssiiissiis', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $creadoPor, $sinVisibilidadInt, $canalActa);
+			} else {
+				$stmt->bind_param('ssiiissii', $documentoNo, $posId, $anio, $mesInicio, $mesFin, $estado, $fechaGeneracion, $creadoPor, $sinVisibilidadInt);
+			}
 			$insertOk = $stmt->execute();
 			if ($insertOk) {
 				$acuerdoId = $stmt->insert_id;

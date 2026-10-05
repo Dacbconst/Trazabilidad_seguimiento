@@ -74,8 +74,13 @@ try {
 	$cachePosId  = [];
 	$cacheUsada  = []; // pos_id -> datos de la Acta existente, o false si no está usada
 
+	// Canal: siempre el elegido/detectado al subir el archivo (nunca inferido del contenido de otra columna) — UPDATE aparte, silencioso si el ALTER de esta columna todavía no corrió.
+	$stmtCanal = $mysqli->prepare(
+		'UPDATE repositorio_acuerdo_completo_linea SET canal = ? WHERE pos_id = ? AND tipo = ? AND sector = ? AND categoria = ? AND marca = ? AND trimestre = ? AND anio = ? LIMIT 1'
+	);
+
 	// Inserta/actualiza UNA línea y devuelve 'nueva'/'actualizada'/'sin_cambios'/null (error).
-	$insertarLinea = function ($identidad, $tipo, $sector, $categoria, $marca, $cantidad, $valoresMensuales, $valorUnico) use ($stmt, $usuarioSesion) {
+	$insertarLinea = function ($identidad, $tipo, $sector, $categoria, $marca, $cantidad, $valoresMensuales, $valorUnico) use ($stmt, $usuarioSesion, $stmtCanal, $canal) {
 		$valoresJson = $valoresMensuales !== null ? json_encode($valoresMensuales) : null;
 		$estadoLinea = $identidad['pos_id'] ? 'pendiente_uso' : 'pendiente_match';
 		$stmt->bind_param(
@@ -85,6 +90,10 @@ try {
 			$cantidad, $valoresJson, $valorUnico, $identidad['trimestre'], $identidad['anio'], $estadoLinea, $usuarioSesion
 		);
 		if (!$stmt->execute()) return null;
+		if ($identidad['pos_id'] && $stmtCanal) {
+			$stmtCanal->bind_param('ssssssii', $canal, $identidad['pos_id'], $tipo, $sector, $categoria, $marca, $identidad['trimestre'], $identidad['anio']);
+			$stmtCanal->execute();
+		}
 		if ($stmt->affected_rows === 1) return 'nueva';
 		if ($stmt->affected_rows === 2) return 'actualizada';
 		return 'sin_cambios';
@@ -145,7 +154,7 @@ try {
 
 		$clavePos = $clienteExcel.'|'.$cediExcel;
 		if (!array_key_exists($clavePos, $cachePosId)) {
-			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan);
+			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnosticoNoUsado, $usuarioSesion);
 		}
 		$posId = $cachePosId[$clavePos];
 
@@ -214,6 +223,7 @@ try {
 	$stmt->close();
 	if ($stmtCheckGrupo) $stmtCheckGrupo->close();
 	if ($stmtDescartarTabla) $stmtDescartarTabla->close();
+	if ($stmtCanal) $stmtCanal->close();
 
 	$mysqli->commit();
 } catch (Exception $e) {
