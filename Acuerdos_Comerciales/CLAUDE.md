@@ -10400,3 +10400,182 @@ estado firmado/pendiente. Viene de una lista de cambios "pactados" que
 compartió el cliente por correo — el resto de esa lista ya se resolvió en
 esta sesión (ver checklist completo arriba en el chat de esa fecha), esto
 es lo único que queda.
+
+## Sesión 2026-10-04
+
+### Acuerdo Completo — ejemplos reales + bug real en la plantilla Directo
+
+El usuario pidió 2 Excel de ejemplo ("Acuerdo Completo", uno Directo y otro
+Distribuidor) para subir él mismo y probar. Al armarlos con el mismo criterio
+que `getters/repositorio_plantilla.php`, se encontró un bug real: el branch
+Directo generaba el encabezado con `CATEGORIA` (singular), pero
+`repositorio_parsear_acuerdo_completo()` exige literalmente `CATEGORIAS`
+(plural) para reconocer el formato Directo (`xlsx_encontrar_encabezado(['CEDI',
+'CLIENTE', 'CATEGORIAS'])`) — la plantilla real que descarga el botón nunca
+hubiera funcionado para Directo. Corregido el `$identidad` del branch Directo
+a `CATEGORIAS`. **Probado de punta a punta**: los 2 Excel de ejemplo
+(`EJEMPLO_AcuerdoCompleto_Directo.xlsx` con cliente real ACOSTA SANTAMARIA
+EDGAR PATRICIO/Javier Maldonado, `EJEMPLO_AcuerdoCompleto_Distribuidor.xlsx`
+con cliente real INTYS MARKET/PRODISPRO CIA LTDA) se corrieron contra el
+parser real (`php.exe` con extensiones `zip`+`mbstring` cargadas a mano, CLI
+local) — las 4 líneas (2 por archivo: una completa con los 4 bloques, una
+solo Meta de Compras) parsean exacto como se esperaba.
+
+### Acuerdo Completo — bug real: resubir sin Ruma/Cabecera/Percha no borraba la tabla vieja
+
+Reportado por el usuario con un caso real: subió un acuerdo con Ruma, después
+volvió a subir el MISMO acuerdo sin Ruma, y la fila de Ruma vieja seguía en
+la base. Causa real: `getters/acuerdo_completo_guardar.php` arma
+`$lineasAGuardar` solo con las tablas que SÍ vienen en el archivo (Meta
+siempre; Cabecera/Ruma/Percha solo si tienen datos) — nunca hacía nada con
+una tabla que antes tenía datos y ahora el Excel la manda vacía, así que
+quedaba huérfana para siempre.
+
+**Corregido**: nuevo `$stmtDescartarTabla` (UPDATE a `estado='descartada'`,
+borrado lógico de siempre) que corre para cada tipo opcional (`cabecera`/
+`ruma`/`percha`) ausente en la fila actual, **solo si el cliente tiene
+`pos_id` resuelto** (sin eso no hay forma confiable de ubicar la fila vieja)
+**y nunca si esa tabla ya está `usada`** (protegida, igual que el resto del
+flujo). Nuevo contador `descartadas` en la respuesta y en el mensaje final
+("N tabla(s) se quitaron por ya no venir en el archivo"). `php -l` limpio.
+Alcance confirmado con el usuario: **este bug y su fix son exclusivos de
+Acuerdo Completo** — Cuotas/Cumplimiento/Rebate/Participación son tablas
+planas sin bloques opcionales por línea, no tienen este problema.
+
+### Registrar: tabla vacía de Acuerdo Completo quedaba editable (bug real)
+
+Mismo reporte del usuario, segunda mitad: con el fix de arriba ya aplicado,
+notó que una tabla (Cabecera/Ruma/Percha) que el Excel mandó **completamente
+vacía** (nunca tuvo datos, no es que se le hayan quitado) se cargaba en
+Registrar como una tabla normal abierta — 1 fila en blanco, "Agregar Fila"
+habilitado, campos editables — cuando no debería dejar tipear ni agregar
+nada ahí, a diferencia de Cuotas Trimestrales (donde esas mismas tablas
+vacías sí quedan abiertas a propósito, porque ese Excel nunca trae
+Visibilidad). Causa: `bloquearFilasPrecargadas(body, lineas)`
+(`assets/js/registrar.js`) se salía sin hacer nada si `lineas.length === 0`.
+
+**Corregido**: nueva `bloquearTablaSinDatos(body, idBotonAgregar)` —
+deshabilita TODOS los inputs/selects/botones (incluido "Eliminar Fila") de
+la única fila en blanco que queda, más el botón "Agregar Fila", con el
+mismo mecanismo de `dataset.bloqueado='1'` + `updateRumaLegend()` para Ruma
+(su valor vive en la leyenda, no en la fila). Aplicado en los 2 lugares
+donde Acuerdo Completo carga sus 4 tablas: `aplicarAcuerdoCompleto()`
+(precarga nueva) y `aplicarBorrador()` (restaurar un Borrador ya guardado,
+caso `de_acuerdo_completo`) — en ambos, cada tabla ahora decide individual
+entre `bloquearFilasPrecargadas()` (si trae líneas) o
+`bloquearTablaSinDatos()` (si no trae ninguna), en vez de llamar siempre a
+la primera. `node --check` limpio. **Todavía sin probar en navegador real**
+— falta confirmar con una Acta real que tenga, por ejemplo, Cabecera con
+datos pero Ruma/Percha vacías, que esas 2 quedan bloqueadas mientras
+Cabecera sigue editable normal.
+
+### Cuotas: aviso "El asesor real es..." ya no salta cuando USUARIO ya decidió
+
+El usuario pidió explícito que ese aviso de la confirmación al guardar
+(`filasConProblemaDeAsignacion()` en `assets/js/repositorios.js`) no
+aparezca cuando la columna USUARIO del Excel ya resolvió la asignación sola
+— comparar el CEDI tipeado contra el resultado no tiene sentido en ese
+caso, porque USUARIO manda sobre CEDI siempre (ver
+`resolverNombreAsignadoCuota()`, orden de prioridad: USUARIO exacto > CEDI >
+maestro). Corregido con `usuarioExcelVacio` como condición extra del
+`asesorNoCoincide`. `node --check` limpio.
+
+### Acta PDF Distribuidor: firma "Asesor Comercial (distribuidor)" → "Asesor/Supervisor"
+
+Pedido explícito de un correo del cliente ("capacitación al equipo de canal
+distribuidor") — cambio **solo** en el formato PDF de Distribuidor (Directo
+no se tocó), la etiqueta de la firma derecha. 2 ocurrencias en
+`includes/acta_pdf.php` (el layout de 2 firmas se repite igual con/sin
+visibilidad) + el comentario que las documentaba. `php -l` limpio.
+
+### Vencimiento de firma: 20 días HÁBILES, no calendario
+
+Mismo correo del cliente, 2do punto: "verificar que una vez generada el
+acta la duración sea dentro de los 20 días pero laborables" — el conteo de
+vencimiento (hasta ahora, `fecha_generacion + 20 días` calendario, sin
+distinguir fin de semana) debía dejar de contar sábado y domingo.
+
+**Simplificación real**: como 20 es múltiplo de 5, 20 días hábiles son
+siempre exactamente 4 semanas completas — la fórmula se reduce a **+28 días
+calendario si `fecha_generacion` cayó en día de semana, +30 si cayó sábado/
+domingo** (caso raro, cubierto igual). Nueva `sqlFechaLimiteFirma($col)`
+(fragmento SQL reusable, `includes/functions.php`) y su equivalente PHP
+`fechaLimiteFirmaPhp($fechaGeneracion)` — centralizadas para no repetir la
+fórmula a mano en los 5 lugares que la necesitaban:
+`barrer_actas_vencidas()`, `listar_alertas_firma_propias()` (campanita),
+`resumen_seguimiento_equipo()` y `listar_actas_equipo_usuario()`
+(Seguimiento de Equipo), y `renderFilaHistorial()` (badge de Historial, el
+único en PHP puro sin SQL). Verificado con fechas reales (lunes/martes/
+viernes → siempre +28 días, cae en el mismo día de la semana 4 semanas
+después). `php -l` limpio.
+
+### "Consolidado por Categoría" — diseñado con Impeccable, construido
+
+Pedido del cliente por correo (3er punto, "pestaña de consolidado por
+categoría": Categoría, Cuota asignada, Resultado alcanzado, % cumplimiento,
+Estado Gana/No gana). Se instaló/actualizó la skill `impeccable`
+(`npx impeccable install`, v4.5.0) y se diseñó primero un mockup (canvas
+Design, artboard único reusando al 100% los tokens/clases reales del
+proyecto — `.ac-hist-stat`, `.ac-repo-tabs`/indicador deslizante, donut de
+cumplimiento, badges GANA/NO GANA) antes de tocar código — mismo patrón ya
+usado varias veces en este proyecto para features nuevas (Seguimiento de
+Equipo, Repositorios). El usuario aprobó el mockup y pidió "constrúyelo" +
+"métele el desglose también" (ver un clic por categoría con el detalle por
+cliente).
+
+**Implementado como 2da pestaña dentro de Cumplimiento de Cuota** (no un
+módulo nuevo — decisión ya tomada antes de diseñar, ver conversación
+previa: misma fuente de datos, mismos filtros, no amerita un módulo
+aparte):
+- `includes/functions.php`, `resumen_consolidado_categoria($mysqli,
+  $trimestre, $anio, $canal)` — mismas filas/joins/filtro de canal que
+  `listar_cumplimiento_cuota()`, agrupadas en PHP por `sector` en vez de
+  por asesor/cliente. Por categoría: `cuota_total`/`venta_total` sumados de
+  todos los clientes de ese Sector, `cumplimiento_pct = (suma venta / suma
+  cuota) × 100` (0 si la cuota suma 0), `gana` si ese % ≥ 100 — mismo
+  umbral que ya usa cada fila individual. Cada categoría trae además su
+  `detalle` (array de filas por cliente, para el desglose).
+- `getters/cumplimiento_consolidado_categoria.php` (nuevo) — JSON crudo,
+  mismo patrón que `cumplimiento_listar.php`. El KPI "Cumplimiento
+  consolidado" es un **promedio ponderado** (`suma venta_total de TODAS las
+  categorías / suma cuota_total de TODAS` × 100), no el promedio simple de
+  los % de cada categoría — una categoría grande pesa más que una chica.
+- `components/cumplimiento/cumplimiento.php` — 2 pestañas
+  (`.ac-repo-tabs`, reusado tal cual, mismo indicador deslizante que ya
+  usa Repositorios) "Por Cliente"/"Por Categoría", cada una con su propio
+  panel (`#cumpl-panel-cliente`/`#cumpl-panel-categoria`) y sus propios KPI
+  — el panel nuevo con 4 tiles (Categorías evaluadas/Ganan/No ganan/
+  Cumplimiento consolidado) y una tabla con 1 fila por Sector.
+- `assets/js/cumplimiento.js` — `activarTabCumpl()` +
+  `posicionarIndicadorTab()` (calcado de `repositorios.js`),
+  `cargarConsolidadoCategoria()`/`renderConsolidadoCategoria()`. Los
+  filtros compartidos (Vista/Período/Año) y "Actualizar"/"Subir Excel"
+  ahora llaman a `recargarActivo()` (recarga la pestaña que esté activa en
+  ese momento) en vez de siempre `cargarLista()`. **Desglose por cliente**:
+  cada fila de categoría es un acordeón (mismo mecanismo `.hidden` +
+  chevron que ya usa el resto del módulo) — al abrirla muestra los clientes
+  individuales con su propia cuota/venta/%/estado.
+- `assets/css/style.css` — `.ac-cumpl-cat-col-header`/`.ac-cumpl-cat-fila`/
+  `.ac-cumpl-cat-detalle*` (mismo lenguaje grid ya usado por
+  `.ac-cumpl-col-header`/`.ac-cumpl-fila-cat`), con su propio tratamiento
+  mobile (header oculto, fila a tarjeta, mismo criterio ya aplicado a la
+  pestaña "Por Cliente").
+
+**2 bugs de layout encontrados por el usuario en la primera revisión visual,
+corregidos**:
+1. Los 4 KPI tiles salían en 2 filas (2+2) en vez de 1 sola — `.ac-hist-stats`
+   trae `grid-template-columns: repeat(3, 1fr)` fijo (pensado para los 3
+   tiles de siempre). Agregado `#cumpl-cat-stats { grid-template-columns:
+   repeat(4, 1fr); }` (y su propio override a `repeat(2, ...)` en el
+   `@media(max-width:700px)` ya existente de Historial/Cumplimiento, 2x2 en
+   mobile).
+2. En el desglose por cliente, el CEDI/asesor quedaba pegado al nombre del
+   cliente en el mismo renglón (ej. "ACOSTA SANTAMARIA EDGAR PATRICIO DIEGO
+   CONSTANTE" corrido). `detalleFilaCategoria()` usaba un `<span
+   class="ac-field-hint">` inline — cambiado a `<span class="ac-cumpl-cat-sub">`
+   (ya `display:block`, mismo estilo que el subtítulo "N cliente(s)" de la
+   fila de categoría).
+
+`php -l`/`node --check` limpios en los 4 archivos, CSS balanceado. Todavía
+sin probar en navegador real con datos reales — falta confirmar que la
+pestaña, el acordeón y los 2 fixes de layout se ven bien en producción.
