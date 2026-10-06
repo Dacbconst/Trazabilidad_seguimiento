@@ -10782,3 +10782,9 @@ tabla con `min-width:900px` propio, y `.repo-pend-candidatos` pasó a
 `flex-wrap:wrap` para que los botones de candidato se acomoden en varias líneas en
 vez de forzar el ancho de la celda. `php -l`/`node --check` limpios, CSS
 balanceado. Sin probar visualmente en navegador real.
+
+### 2026-10-06 — columnas de `repositorio_clientes_propiosac` renombradas
+
+Pedido del usuario: el sufijo `_excel` no tenía sentido en un maestro de clientes y `cliente_comparable` solo se escribía, nunca se leía (el match se calcula en PHP). Ahora: `cliente`, `cedi`, `distribuidor`; `cliente_comparable` eliminada. SQL (lo corre el usuario, junto con el deploy del código):
+`ALTER TABLE repositorio_clientes_propiosac RENAME COLUMN cliente_excel TO cliente, RENAME COLUMN cedi_excel TO cedi, RENAME COLUMN distribuidor_excel TO distribuidor, DROP COLUMN cliente_comparable;`
+Código ajustado (9 consultas): `includes/functions.php` (maestroClientesEnMemoria, crearClientePropio, candidatos de Pendientes de Asignar ×2), `getters/acuerdo_distribuidores.php` (×3), `getters/guardar_acuerdo.php` (×1). Los alias (`pos_name`, `cedi`, `tipo_distribuidor`) no cambian, así que el JS no se toca. Los scripts viejos de `datos/sql/` mantienen los nombres anteriores (históricos, no volver a correrlos).
