@@ -3,16 +3,17 @@
 
 $canalOrigenSql = sqlCanalOrigenAcuerdo('a');
 $stmtD = $mysqli->prepare(
-	"SELECT $usuarioOrigenSql AS ejecutivo, d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales,
+	"SELECT $usuarioOrigenSql AS ejecutivo, d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, pc.distribuidor AS distribuidor_propio, pc.cedi AS ciudad_propio, pc.cliente AS cliente_propio, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales,
 	        c.codigo AS codigo_cuota, c.ruc AS ruc_cuota
 	 FROM repositorio_acuerdos a
-	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 LEFT JOIN repositorio_cuota_cliente c ON c.pos_id = a.pos_id AND c.sector = l.sector AND c.trimestre = ? AND c.anio = a.anio
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.acta_firmada_azure_path IS NOT NULL
-	   AND d.pos_name LIKE ?
+	   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
 	   AND $canalOrigenSql = 'DISTRIBUIDOR'
@@ -21,18 +22,19 @@ $stmtD = $mysqli->prepare(
 $tieneCodigoRuc = (bool) $stmtD;
 if ($stmtD) {
 	// Sin filtro de creado_por: exporta las Actas de todos los asesores del canal.
-	$stmtD->bind_param('isiiiii', $trimestreActivo, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmtD->bind_param('issiiiii', $trimestreActivo, $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 } else {
 	// Fallback si `codigo`/`ruc` todavía no existen en repositorio_cuota_cliente (ALTER pendiente): mismo comportamiento de siempre, columnas vacías.
 	$stmtD = $mysqli->prepare(
-		"SELECT $usuarioOrigenSql AS ejecutivo, d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
+		"SELECT $usuarioOrigenSql AS ejecutivo, d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, pc.distribuidor AS distribuidor_propio, pc.cedi AS ciudad_propio, pc.cliente AS cliente_propio, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 		 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 		 WHERE a.estado NOT IN ('borrador', 'anulado')
 		   AND a.acta_firmada_azure_path IS NOT NULL
-		   AND d.pos_name LIKE ?
+		   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
 		   AND $canalOrigenSql = 'DISTRIBUIDOR'
@@ -43,10 +45,10 @@ if ($stmtD) {
 		echo 'Error preparando la consulta.';
 		exit;
 	}
-	$stmtD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmtD->bind_param('ssiiiii', $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 }
 $stmtD->execute();
-$filasD = $stmtD->get_result()->fetch_all(MYSQLI_ASSOC);
+$filasD = fusionarClienteMaestroPropio($stmtD->get_result()->fetch_all(MYSQLI_ASSOC));
 $stmtD->close();
 
 $mesesLargos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -254,25 +256,26 @@ if ($ultimaFilaD2 >= $primeraFilaD2) {
 
 // ==================== Hoja "VISIBILIDAD (2)" ==================== cabecera->CABECERA, ruma->ISLA, percha->PERCHA, un renglón por cliente. PAGO = CANTIDAD x 6 (fórmula real, no suma de la Acta como en Directa).
 $stmtVisD = $mysqli->prepare(
-	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, l.tipo, l.marca,
+	"SELECT d.tipo_distribuidor AS distribuidor, d.cedi AS ciudad, d.pos_name AS cliente, pc.distribuidor AS distribuidor_propio, pc.cedi AS ciudad_propio, pc.cliente AS cliente_propio, l.tipo, l.marca,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
 	 FROM repositorio_acuerdos a
-	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.acta_firmada_azure_path IS NOT NULL
-	   AND d.pos_name LIKE ?
+	   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
-	   AND d.canal = 'DISTRIBUIDOR'
+	   AND (d.canal = 'DISTRIBUIDOR' OR (d.pos_id IS NULL AND pc.canal = 'distribuidor'))
 	 GROUP BY a.id, l.id"
 );
 $filasVisD = [];
 if ($stmtVisD) {
 	// Sin filtro de creado_por acá tampoco.
-	$stmtVisD->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmtVisD->bind_param('ssiiiii', $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVisD->execute();
-	$filasVisD = $stmtVisD->get_result()->fetch_all(MYSQLI_ASSOC);
+	$filasVisD = fusionarClienteMaestroPropio($stmtVisD->get_result()->fetch_all(MYSQLI_ASSOC));
 	$stmtVisD->close();
 }
 

@@ -1419,6 +1419,19 @@ function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 
 // $usuarioId filtra por creado_por real. $trimestre/$anio: 0="Todos". $filtroFirma: 'todos'|'firmadas'|'pendientes'.
 // Canal real de un Acuerdo: lee directo la columna `canal` de repositorio_acuerdos, grabada una sola vez al crearlo (ver guardar_acuerdo.php) — nunca se vuelve a comparar contra el maestro ni ninguna otra tabla acá (pedido explícito: la única validación contra el maestro vive en Repositorios, al subir el Excel). Reusado por Historial y por los 2 export de Excel.
+// Actas de clientes propios (PDVAC) no están en el maestro de Alicorp: las consultas traen ambos lados por separado (sin COALESCE en SQL, evita choques de collation) y acá se completa lo que falte.
+function fusionarClienteMaestroPropio(array $filas) {
+	foreach ($filas as &$f) {
+		foreach (['cliente', 'canal', 'distribuidor', 'ciudad'] as $campo) {
+			if (!array_key_exists($campo.'_propio', $f)) continue;
+			if (($f[$campo] ?? null) === null) $f[$campo] = $f[$campo.'_propio'];
+			unset($f[$campo.'_propio']);
+		}
+	}
+	unset($f);
+	return $filas;
+}
+
 function sqlCanalOrigenAcuerdo($aliasAcuerdo = 'a') {
 	return "UPPER($aliasAcuerdo.canal)";
 }
@@ -1554,16 +1567,17 @@ function obtener_stats_historial($mysqli, $busqueda, $trimestre, $anio, $usuario
 		        COUNT(DISTINCT CASE WHEN a.acta_firmada_azure_path IS NOT NULL THEN a.id END) AS firmadas,
 		        MIN(CASE WHEN a.acta_firmada_azure_path IS NULL THEN a.fecha_generacion END) AS pendiente_mas_antigua
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 		 WHERE a.estado NOT IN ('borrador', 'anulado', 'vencido')
 		   AND (? = 1 OR a.creado_por = ?)
-		   AND d.pos_name LIKE ?
+		   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
 		   $condicionCanal"
 	);
 	if (!$stmt) return $vacio; // acta_firmada_azure_path todavía no existe, ver CLAUDE.md (migración a Azure Blob Storage).
-	$stmt->bind_param('iisiiiii', $verTodos, $usuarioId, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmt->bind_param('iissiiiii', $verTodos, $usuarioId, $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmt->execute();
 	$fila = $stmt->get_result()->fetch_assoc();
 	$stmt->close();

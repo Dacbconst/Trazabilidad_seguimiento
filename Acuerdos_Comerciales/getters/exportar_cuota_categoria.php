@@ -49,16 +49,17 @@ if (($_GET['verificar'] ?? '') === '1') {
 	$stmtV = $mysqli->prepare(
 		"SELECT COUNT(DISTINCT a.id) AS total
 		 FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 		 WHERE a.estado NOT IN ('borrador', 'anulado')
 		   AND a.acta_firmada_azure_path IS NOT NULL
-		   AND d.pos_name LIKE ?
+		   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 		   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 		   AND (? = 0 OR a.anio = ?)
 		   AND $condicionCanalVerificar"
 	);
 	if ($stmtV) {
-		$stmtV->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+		$stmtV->bind_param('ssiiiii', $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 		$stmtV->execute();
 		$filaV = $stmtV->get_result()->fetch_assoc();
 		$stmtV->close();
@@ -85,14 +86,15 @@ if ($canalExport === 'distribuidor') {
 // GROUP BY a.id, l.id colapsa duplicados de pos_id sin perder líneas reales. Sin filtro de creado_por: exporta Actas de todos los asesores del canal (u.usuario identifica cada línea).
 $canalOrigenSql = sqlCanalOrigenAcuerdo('a');
 $stmt = $mysqli->prepare(
-	"SELECT $usuarioOrigenSql AS ejecutivo, d.pos_name AS cliente, d.canal, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
+	"SELECT $usuarioOrigenSql AS ejecutivo, d.pos_name AS cliente, d.canal, pc.cliente AS cliente_propio, UPPER(pc.canal) AS canal_propio, l.sector, l.categoria, l.marca, l.rebate_pct, l.valores_mensuales
 	 FROM repositorio_acuerdos a
-	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo = 'meta_compra'
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.acta_firmada_azure_path IS NOT NULL
-	   AND d.pos_name LIKE ?
+	   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
 	   AND $canalOrigenSql = 'DIRECTO'
@@ -103,9 +105,9 @@ if (!$stmt) {
 	echo 'Error preparando la consulta.';
 	exit;
 }
-$stmt->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+$stmt->bind_param('ssiiiii', $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 $stmt->execute();
-$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$filas = fusionarClienteMaestroPropio($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
 $stmt->close();
 
 $mesesLargos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -348,15 +350,16 @@ if ($ultimaFilaDatos >= $primeraFilaDatos) {
 
 // ==================== Hoja "VISIBILIDAD" ==================== cabecera->CABECERA, ruma->ISLA, percha->PERCHA; cuenta si el TOTAL de la línea es > 0. "MARCA" muestra Categoría (Percha usa Marca).
 $stmtVis = $mysqli->prepare(
-	"SELECT $usuarioOrigenSql AS ejecutivo, d.pos_name AS cliente, d.canal, l.tipo, l.marca, l.categoria,
+	"SELECT $usuarioOrigenSql AS ejecutivo, d.pos_name AS cliente, d.canal, pc.cliente AS cliente_propio, UPPER(pc.canal) AS canal_propio, l.tipo, l.marca, l.categoria,
 	        l.valores_mensuales, l.valor_mensual_unico, a.mes_inicio, a.mes_fin
 	 FROM repositorio_acuerdos a
-	 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+	 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 	 JOIN repositorio_acuerdo_lineas l ON l.acuerdo_id = a.id AND l.tipo IN ('cabecera', 'ruma', 'percha')
 	 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
 	 WHERE a.estado NOT IN ('borrador', 'anulado')
 	   AND a.acta_firmada_azure_path IS NOT NULL
-	   AND d.pos_name LIKE ?
+	   AND (d.pos_name LIKE ? OR (d.pos_id IS NULL AND pc.cliente LIKE ?))
 	   AND (? = 0 OR (a.mes_inicio = ? AND a.mes_fin = ?))
 	   AND (? = 0 OR a.anio = ?)
 	   AND $canalOrigenSql = 'DIRECTO'
@@ -365,9 +368,9 @@ $stmtVis = $mysqli->prepare(
 $filasVis = [];
 if ($stmtVis) {
 	// Sin filtro de creado_por acá tampoco (ver nota en la 1ra query del archivo).
-	$stmtVis->bind_param('siiiii', $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
+	$stmtVis->bind_param('ssiiiii', $like, $like, $trimestreActivo, $mesInicioFiltro, $mesFinFiltro, $anio, $anio);
 	$stmtVis->execute();
-	$filasVis = $stmtVis->get_result()->fetch_all(MYSQLI_ASSOC);
+	$filasVis = fusionarClienteMaestroPropio($stmtVis->get_result()->fetch_all(MYSQLI_ASSOC));
 	$stmtVis->close();
 }
 
