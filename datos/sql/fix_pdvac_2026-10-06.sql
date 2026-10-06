@@ -26,8 +26,9 @@ ALTER TABLE repositorio_clientes_propiosac ADD COLUMN pos_id_alicorp VARCHAR(50)
 
 START TRANSACTION;
 
--- 2.1 Quitar el CHASI duplicado que creó ayer el Paso 2 (se queda el registro más viejo, PDVAC0006).
-DELETE p FROM repositorio_clientes_propiosac p JOIN repositorio_clientes_propiosac viejo ON viejo.cliente_excel = p.cliente_excel AND viejo.cedi_excel <=> p.cedi_excel AND viejo.canal = p.canal AND viejo.id < p.id WHERE p.cliente_excel = 'CHASI TINE JOSE IGNACIO/JOSEDEL S.A';
+-- 2.1 El Paso 3 viejo dejó las filas 9881-9884 de CHASI con PDVAC0134, duplicando las 10429-10432 (PDVAC0006, mismos montos): se descartan y se borra el CHASI repetido (id 134).
+UPDATE repositorio_cuota_cliente SET estado = 'descartada', pos_id = NULL WHERE id IN (9881, 9882, 9883, 9884) AND pos_id = 'PDVAC0134';
+DELETE FROM repositorio_clientes_propiosac WHERE id = 134 AND pos_id = 'PDVAC0134';
 
 -- 2.2 Clientes de Cuotas con código Alicorp que todavía no estén en la base propia (idempotente, por si el Paso 1 de ayer no llegó a correr).
 INSERT IGNORE INTO repositorio_clientes_propiosac (pos_id, cliente_excel, cliente_comparable, cedi_excel, distribuidor_excel, canal, creado_por, created_at)
@@ -51,14 +52,6 @@ UPDATE repositorio_cuota_cliente c JOIN repositorio_clientes_propiosac p ON p.po
 UPDATE repositorio_acuerdo_completo_linea c JOIN repositorio_clientes_propiosac p ON p.pos_id_alicorp = c.pos_id SET c.pos_id = p.pos_id;
 UPDATE repositorio_cumplimiento_cuota c JOIN repositorio_clientes_propiosac p ON p.pos_id_alicorp = c.pos_id SET c.pos_id = p.pos_id;
 
--- 2.6 CHASI: las pendiente_match que ya existen con PDVAC0006 (misma clave) se descartan — esto era lo que daba el error 1062.
-UPDATE repositorio_cuota_cliente c JOIN repositorio_cuota_cliente r ON r.pos_id = 'PDVAC0006' AND r.sector = c.sector AND r.subcategoria <=> c.subcategoria AND r.marca <=> c.marca AND r.trimestre = c.trimestre AND r.anio = c.anio
-SET c.estado = 'descartada'
-WHERE c.cliente_excel = 'CHASI TINE JOSE IGNACIO/JOSEDEL S.A' AND c.estado = 'pendiente_match';
-
--- 2.7 CHASI: las pendiente_match que quedan (sin choque) se asignan a PDVAC0006.
-UPDATE repositorio_cuota_cliente SET pos_id = 'PDVAC0006', estado = 'pendiente_uso' WHERE cliente_excel = 'CHASI TINE JOSE IGNACIO/JOSEDEL S.A' AND estado = 'pendiente_match';
-
 COMMIT;
 
 -- ============================================================
@@ -68,4 +61,4 @@ COMMIT;
 SELECT COUNT(*) AS propios_sin_pdvac FROM repositorio_clientes_propiosac WHERE pos_id NOT LIKE 'PDVAC%';
 SELECT COUNT(*) AS cuotas_con_codigo_alicorp FROM repositorio_cuota_cliente WHERE pos_id IS NOT NULL AND pos_id <> '' AND pos_id NOT LIKE 'PDVAC%';
 SELECT COUNT(*) AS acuerdo_completo_con_codigo_alicorp FROM repositorio_acuerdo_completo_linea WHERE pos_id IS NOT NULL AND pos_id <> '' AND pos_id NOT LIKE 'PDVAC%';
-SELECT COUNT(*) AS chasi_pendientes FROM repositorio_cuota_cliente WHERE cliente_excel = 'CHASI TINE JOSE IGNACIO/JOSEDEL S.A' AND estado = 'pendiente_match';
+SELECT COUNT(*) AS restos_pdvac0134 FROM repositorio_cuota_cliente WHERE pos_id = 'PDVAC0134';
