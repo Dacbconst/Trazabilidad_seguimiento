@@ -10806,3 +10806,7 @@ Reportado: Historial listaba Actas firmadas (ej. ACOSTA SANTAMARIA EDGAR PATRICI
 ### 2026-10-06 — "¿Quisiste decir?" también entre clientes nuevos del mismo archivo
 
 Pedido del usuario: que la previsualización marque TODOS los casos de una vez, no que salten recién en la siguiente subida. Antes, 2 clientes nuevos parecidos dentro del mismo Excel salían ambos como "nuevo" (ninguno existía todavía) y al guardar el 2do se unía al 1ro sin aviso. Ahora `agruparClienteNuevoEnArchivo()` (usada por los 2 `*_verificar_estado.php`) agrupa cada cliente nuevo con uno anterior del mismo archivo si es igual o parecido (`nombresClienteParecidos()`, mismo criterio que contra la base) y, si es parecido, devuelve el mismo `diagnostico.cliente_similar` → "¿Quisiste decir …?" en la fila y en la confirmación.
+
+### 2026-10-06 — Mensajes de la previsualización: cliente nuevo ≠ sin identificar ≠ sin asesor
+
+Pedido del usuario: que el mensaje diga lo que realmente pasa. Ahora: "Cliente nuevo — Se registra con código PDVAC al guardar" (badge de la fila) y "N clientes nuevos se registran al guardar" (banner); "Sin asesor asignado" (antes "Sin identificar todavía") cuando el cliente sí está identificado o es nuevo pero no se resolvió a qué asesor va; "Cliente no encontrado" / "filas sin identificar" solo para filas sin cliente de verdad. El aviso post-guardado de `cuotas_guardar.php`/`acuerdo_completo_guardar.php` ahora dice que falló el registro del cliente (único caso en que una fila queda en Pendientes de Asignar).
