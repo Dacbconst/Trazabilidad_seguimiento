@@ -1076,7 +1076,7 @@
 			var usuarioExcelVacio = !f || !f.usuario_excel || !f.usuario_excel.trim();
 			var asignadoNorm = normalizarParaComparar(e.asignado_a);
 			var asesorNoCoincide = usuarioExcelVacio && canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
-			var clienteSimilar = !!e.pos_id && e.diagnostico && e.diagnostico.campo === 'cliente_similar';
+			var clienteSimilar = !!(e.pos_id || e.cliente_nuevo) && !!e.diagnostico && e.diagnostico.campo === 'cliente_similar';
 			if (!sinCliente && !sinAsesor && !asesorNoCoincide && !clienteSimilar) return;
 			vistos[clave] = true;
 			var motivos = [];
