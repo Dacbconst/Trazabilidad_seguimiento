@@ -69,7 +69,7 @@ $stmt->execute();
 $existePos = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Cliente propio (el maestro de Alicorp no lo tiene, ver crearClientePropio()): mismo criterio "cedi_excel hace de supervisor" ya usado en resolverPosIdCliente().
+// Cliente propio (el maestro de Alicorp no lo tiene, ver crearClientePropio()): mismo criterio "cedi hace de supervisor" ya usado en resolverPosIdCliente().
 if (!$existePos) {
 	$stmtPropio = $mysqli->prepare(
 		'SELECT pos_id FROM repositorio_clientes_propiosac WHERE pos_id = ? AND canal = \'directo\' AND cedi = ? LIMIT 1'
