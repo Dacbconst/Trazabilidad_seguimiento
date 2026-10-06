@@ -13,7 +13,7 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 $tipo     = $_GET['tipo'] ?? '';
 $busqueda = trim($_GET['q'] ?? '');
 $formato  = in_array($_GET['formato'] ?? '', ['csv', 'xlsx'], true) ? $_GET['formato'] : 'csv';
-if (!in_array($tipo, ['rebate', 'participacion', 'jerarquia'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'jerarquia', 'base'], true)) {
 	http_response_code(400);
 	echo 'Tipo de repositorio inválido.';
 	exit;
@@ -24,21 +24,32 @@ if ($tipo === 'rebate') {
 	$resultado = listar_repositorio_rebate($mysqli, $busqueda, 1, 100000);
 } elseif ($tipo === 'jerarquia') {
 	$resultado = listar_repositorio_jerarquia($mysqli, $busqueda, 1, 100000);
+} elseif ($tipo === 'base') {
+	$resultado = listar_repositorio_base($mysqli, $busqueda, 1, 100000);
+	$formato = 'xlsx'; // Base se descarga solo en Excel (pedido explícito 2026-10-06).
 } else {
 	$resultado = listar_repositorio_participacion($mysqli, $busqueda, 1, 100000);
 }
 
-$nombreBaseTipo = ['rebate' => 'Rebate', 'jerarquia' => 'Jerarquia_Supervisores'][$tipo] ?? 'Participacion_Percha';
+$nombreBaseTipo = ['rebate' => 'Rebate', 'jerarquia' => 'Jerarquia_Supervisores', 'base' => 'Base_Clientes'][$tipo] ?? 'Participacion_Percha';
 $nombreBase = $nombreBaseTipo.'_'.date('Y-m-d');
 
 if ($formato === 'xlsx') {
 	require_once __DIR__.'/../includes/xlsx_writer.php'; // escritor propio, sin librería externa (ver cabecera de ese archivo)
 
 	$wb = new XlsxWriter();
-	$nombreHoja = ['rebate' => 'REBATE', 'jerarquia' => 'JERARQUIA SUPERVISORES'][$tipo] ?? 'PARTICIPACION PERCHA';
+	$nombreHoja = ['rebate' => 'REBATE', 'jerarquia' => 'JERARQUIA SUPERVISORES', 'base' => 'BASE'][$tipo] ?? 'PARTICIPACION PERCHA';
 	$hoja = $wb->agregarHoja($nombreHoja);
 
-	if ($tipo === 'jerarquia') {
+	if ($tipo === 'base') {
+		foreach (['Cliente', 'CEDI'] as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
+		$fila = 2;
+		foreach ($resultado['filas'] as $f) {
+			$wb->celda($hoja, $fila, 1, $f['cliente']);
+			$wb->celda($hoja, $fila, 2, $f['cedi']);
+			$fila++;
+		}
+	} elseif ($tipo === 'jerarquia') {
 		$cols = ['Supervisor Campo', 'Jefe de Agencia'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;

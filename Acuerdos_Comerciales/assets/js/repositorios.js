@@ -88,6 +88,17 @@
 				}
 			]
 		},
+		// Base: nuestra base propia de clientes (repositorio_clientes_propiosac), solo consulta y descarga en Excel, sin carga ni edición.
+		base: {
+			label: 'Base',
+			descripcion: 'Base propia de clientes (códigos PDVAC) que se arma sola con Cuotas Trimestrales y Acuerdo Completo. Solo consulta y descarga.',
+			buscarPlaceholder: 'Buscar por cliente o CEDI...',
+			soloLectura: true,
+			columnas: [
+				{ key: 'cliente', label: 'Cliente' },
+				{ key: 'cedi', label: 'CEDI', render: function (fila) { return escapeHtml(fila.cedi || '—'); } }
+			]
+		},
 		// Acuerdo Completo: mismas columnas que Cuotas + bloques opcionales de Cabecera/Ruma/Percha en la misma fila. Genera Acuerdos nuevos.
 		acuerdo_completo: {
 			label: 'Acuerdo Completo',
@@ -188,6 +199,8 @@
 	var tabCuotas = document.getElementById('repo-tab-cuotas');
 	var tabJerarquia = document.getElementById('repo-tab-jerarquia');
 	var tabAcuerdoCompleto = document.getElementById('repo-tab-acuerdo_completo');
+	var tabBase = document.getElementById('repo-tab-base');
+	var subirAbrirBtn = document.getElementById('repo-subir-abrir');
 	var tabsIndicador = document.getElementById('repo-tabs-indicador');
 	var raizRepo = document.getElementById('ac-repo-lista');
 	var pendientesAbrirBtn = document.getElementById('repo-pendientes-abrir');
@@ -238,8 +251,8 @@
 		cols.forEach(function (c) {
 			html += '<th' + (c.numero ? ' class="ac-text-right"' : '') + '>' + escapeHtml(c.label) + '</th>';
 		});
-		html += '<th class="ac-text-right">Acciones</th></tr>';
-		tablaHead.innerHTML = html;
+		if (!CONFIG[tipoActivo].soloLectura) html += '<th class="ac-text-right">Acciones</th>';
+		tablaHead.innerHTML = html + '</tr>';
 	}
 
 	function celdaValor(col, fila) {
@@ -254,7 +267,7 @@
 		var editable = CONFIG[tipoActivo].editable !== false;
 		var agruparPor = CONFIG[tipoActivo].agruparPor; // ej. 'pos_id' en Cuotas — varias filas seguidas son el mismo cliente
 		if (!filas.length) {
-			tablaBody.innerHTML = '<tr><td colspan="' + (cols.length + 1) + '" class="ac-table-empty">Sin registros.</td></tr>';
+			tablaBody.innerHTML = '<tr><td colspan="' + (cols.length + (CONFIG[tipoActivo].soloLectura ? 0 : 1)) + '" class="ac-table-empty">Sin registros.</td></tr>';
 			return;
 		}
 		// Color pastel por GRUPO (no por fila) cuando hay agruparPor: 3 tonos que rotan, fuera de la familia verde/ámbar de los badges de estado.
@@ -276,8 +289,8 @@
 				? '<button type="button" class="ac-icon-btn ac-icon-btn-success ac-repo-reactivar" title="Reactivar"><span class="material-symbols-outlined">restore</span><span class="ac-btn-text">Reactivar</span></button>'
 				: (editable ? '<button type="button" class="ac-icon-btn ac-repo-editar" title="Editar"><span class="material-symbols-outlined">edit</span><span class="ac-btn-text">Editar</span></button>' : '') +
 				  '<button type="button" class="ac-icon-btn ac-icon-btn-danger ac-repo-eliminar" title="' + etiquetaBorrar + '"><span class="material-symbols-outlined">delete</span><span class="ac-btn-text">' + etiquetaBorrar + '</span></button>';
-			return '<tr data-id="' + fila.id + '"' + (agruparPor ? ' class="' + GRUPO_CLASES[grupoIndice] + '"' : '') + '>' + tds +
-				'<td class="ac-text-right" data-key="acciones"><div class="ac-row-actions">' + accionesHtml + '</div></td></tr>';
+			var accionesTd = CONFIG[tipoActivo].soloLectura ? '' : '<td class="ac-text-right" data-key="acciones"><div class="ac-row-actions">' + accionesHtml + '</div></td>';
+			return '<tr data-id="' + fila.id + '"' + (agruparPor ? ' class="' + GRUPO_CLASES[grupoIndice] + '"' : '') + '>' + tds + accionesTd + '</tr>';
 		}).join('');
 
 		Array.prototype.forEach.call(tablaBody.querySelectorAll('.ac-repo-eliminar'), function (btn) {
@@ -435,7 +448,7 @@
 			.catch(function () {});
 	}
 	function cargarContadoresTabs() {
-		['rebate', 'participacion', 'cuotas', 'jerarquia', 'acuerdo_completo'].forEach(function (tipo) {
+		['rebate', 'participacion', 'jerarquia', 'cuotas', 'acuerdo_completo', 'base'].forEach(function (tipo) {
 			if (tipo !== tipoActivo) cargarContadorTab(tipo);
 		});
 	}
@@ -472,7 +485,8 @@
 		tabCuotas.classList.toggle('active', tipo === 'cuotas');
 		if (tabJerarquia) tabJerarquia.classList.toggle('active', tipo === 'jerarquia');
 		if (tabAcuerdoCompleto) tabAcuerdoCompleto.classList.toggle('active', tipo === 'acuerdo_completo');
-		var tabsPorTipo = { rebate: tabRebate, participacion: tabParticipacion, cuotas: tabCuotas, jerarquia: tabJerarquia, acuerdo_completo: tabAcuerdoCompleto };
+		if (tabBase) tabBase.classList.toggle('active', tipo === 'base');
+		var tabsPorTipo = { rebate: tabRebate, participacion: tabParticipacion, cuotas: tabCuotas, jerarquia: tabJerarquia, acuerdo_completo: tabAcuerdoCompleto, base: tabBase };
 		posicionarIndicadorTab(tabsPorTipo[tipo]);
 		// Tarjeta mobile con jerarquía propia, mismo layout para los 2 tipos agrupados.
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', !!TIPOS_CON_ASIGNACION[tipo]);
@@ -486,7 +500,11 @@
 				Array.prototype.forEach.call(rebateCanalGroup.querySelectorAll('.ac-seg-pill'), function (b) { b.classList.toggle('ac-seg-pill-activo', b.dataset.canal === 'total'); });
 			}
 		}
-		plantillaDescargarLink.classList.toggle('hidden', !!TIPOS_CON_ASIGNACION[tipo]);
+		// Base es solo consulta: sin Subir ni Formato, y Exportar solo en Excel.
+		var soloLectura = !!CONFIG[tipo].soloLectura;
+		if (subirAbrirBtn) subirAbrirBtn.classList.toggle('hidden', soloLectura);
+		exportarCsvLink.classList.toggle('hidden', soloLectura);
+		plantillaDescargarLink.classList.toggle('hidden', !!TIPOS_CON_ASIGNACION[tipo] || soloLectura);
 		if (!TIPOS_CON_ASIGNACION[tipo]) plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
 		// Picker Directo/Distribuidor compartido por Cuotas y Acuerdo Completo, hrefs actualizados según tipo.
 		plantillaCuotasWrap.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo]);
@@ -503,6 +521,7 @@
 	tabCuotas.addEventListener('click', function () { activarTab('cuotas'); });
 	if (tabJerarquia) tabJerarquia.addEventListener('click', function () { activarTab('jerarquia'); });
 	if (tabAcuerdoCompleto) tabAcuerdoCompleto.addEventListener('click', function () { activarTab('acuerdo_completo'); });
+	if (tabBase) tabBase.addEventListener('click', function () { activarTab('base'); });
 
 	// ---------- Búsqueda ----------
 	buscarInput.addEventListener('input', function () {
@@ -811,6 +830,9 @@
 		else if (estado.estado === 'usada') html = '<span class="ac-badge ac-badge-urgente">Ya usada, no se puede modificar</span>';
 		else if (estado.estado === 'sin_cliente') html = '<span class="ac-field-hint">Cliente sin identificar</span>';
 		else html = '<span class="ac-field-hint">—</span>';
+		if (estado.diagnostico && estado.diagnostico.campo === 'cliente_similar') {
+			html += '<br><span class="ac-field-hint">¿Quisiste decir "' + escapeHtml((estado.diagnostico.valores_reales || []).join(' / ')) + '"?</span>';
+		}
 		// Nota de interpretación de Categoría (2026-08-25, pedido explícito: no enterarse recién en el aviso rojo de después de guardar) — mismo dato que ya avisa cuotas_guardar.php, mostrado ACÁ antes.
 		if (estado.sector_interpretado) {
 			html += '<br><span class="ac-field-hint">Se interpreta como Sector "' + escapeHtml(estado.sector_resuelto) + '"</span>';
@@ -1054,7 +1076,8 @@
 			var usuarioExcelVacio = !f || !f.usuario_excel || !f.usuario_excel.trim();
 			var asignadoNorm = normalizarParaComparar(e.asignado_a);
 			var asesorNoCoincide = usuarioExcelVacio && canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
-			if (!sinCliente && !sinAsesor && !asesorNoCoincide) return;
+			var clienteSimilar = !!e.pos_id && e.diagnostico && e.diagnostico.campo === 'cliente_similar';
+			if (!sinCliente && !sinAsesor && !asesorNoCoincide && !clienteSimilar) return;
 			vistos[clave] = true;
 			var motivos = [];
 			if (sinCliente && e.diagnostico) {
@@ -1066,6 +1089,7 @@
 			} else if (sinCliente) {
 				motivos.push({ texto: 'No se pudo identificar este cliente en el maestro' });
 			}
+			if (clienteSimilar) motivos.push({ texto: 'Nombre parecido a un cliente ya registrado. ¿Quisiste decir? Si guardas, se asigna a este cliente', valor: (e.diagnostico.valores_reales || []).join(' / ') });
 			if (sinAsesor) motivos.push({ texto: 'Cliente identificado, pero no se pudo resolver a qué asesor pertenece' });
 			if (asesorNoCoincide) motivos.push({ texto: 'El asesor real de este cliente es', valor: e.asignado_a });
 			problemas.push({ cliente: f ? f.cliente_excel : '', cedi: f ? f.cedi_excel : '', motivos: motivos });

@@ -362,9 +362,11 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 	}));
 
 	if (count($candidatos) === 1) return $candidatos[0]['pos_id'];
+	$porParecido = false;
 	if (count($candidatos) === 0) {
 		// Pedido explícito del usuario (2026-10-06): nunca queda "sin identificar" — si hay algo parecido ya registrado (típico de un typo) se usa ese cliente en vez de duplicarlo.
 		$candidatos = clientesPropiosSimilares($mysqli, $clienteExcel, $canal);
+		$porParecido = (bool) $candidatos;
 		if (!$candidatos) {
 			// Nuestra base propia no tiene este cliente: lo creamos para que el próximo trimestre ya lo reconozca solo.
 			if (!$permitirCrear) { $pendienteCrear = true; return null; }
@@ -381,9 +383,10 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 	}
 	if (!$desempatados) $desempatados = $candidatos;
 
-	if (count($desempatados) === 1) return $desempatados[0]['pos_id'];
 	// Duplicado real (mismo nombre+canal+ciudad): toma el registro más reciente.
 	usort($desempatados, fn($a, $b) => $b['id'] <=> $a['id']);
+	// Unido por parecido, no por nombre exacto: la previsualización lo avisa como "¿Quisiste decir?" antes de guardar.
+	if ($porParecido) $diagnostico = ['campo' => 'cliente_similar', 'valores_reales' => [$desempatados[0]['pos_name']]];
 	return $desempatados[0]['pos_id'];
 }
 
@@ -426,21 +429,42 @@ function sugerirClienteSimilar($mysqli, $clienteExcel, $canal = 'directo') {
 	return array_slice(array_values(array_unique(array_column(clientesPropiosSimilares($mysqli, $clienteExcel, $canal), 'pos_name'))), 0, 5);
 }
 
-// Clientes propios del mismo canal cuyo nombre es prefijo del otro (mínimo 6 letras para no traer basura corta) — base de la sugerencia y del match tolerante de resolverPosIdCliente().
+// Clientes propios del mismo canal con nombre parecido: uno es prefijo del otro (mín. 6 letras) o comparten casi todas las palabras (ver nombresPorPalabrasSimilares()).
 function clientesPropiosSimilares($mysqli, $clienteExcel, $canal = 'directo') {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
 	$minLargo = 6;
 	if (strlen($clienteComparable) < $minLargo) return [];
+	$palabrasExcel = palabrasNombreCliente($clienteExcel);
 	$esDistribuidor = $canal === 'distribuidor';
 	$similares = [];
 	foreach (maestroClientesEnMemoria($mysqli) as $f) {
 		if (empty($f['es_propio'])) continue;
 		if ($esDistribuidor ? $f['canal'] !== 'DISTRIBUIDOR' : $f['canal'] === 'DISTRIBUIDOR') continue;
 		$masCorto = strlen($f['pos_name_comparable']) < strlen($clienteComparable) ? $f['pos_name_comparable'] : $clienteComparable;
-		if (strlen($masCorto) < $minLargo) continue;
-		if (strncmp($f['pos_name_comparable'], $clienteComparable, strlen($masCorto)) === 0) $similares[] = $f;
+		$porPrefijo = strlen($masCorto) >= $minLargo && strncmp($f['pos_name_comparable'], $clienteComparable, strlen($masCorto)) === 0;
+		if ($porPrefijo || nombresPorPalabrasSimilares($palabrasExcel, palabrasNombreCliente($f['pos_name']))) $similares[] = $f;
 	}
 	return $similares;
+}
+
+// Palabras significativas de un nombre (mayúsculas, sin tildes, sin letras sueltas ni conectores/razón social) — "ANCHUNDIA MIRELLA L MIRELLA LUCIA" -> ANCHUNDIA, MIRELLA, LUCIA.
+function palabrasNombreCliente($texto) {
+	$texto = strtr(mb_strtoupper((string) $texto, 'UTF-8'), ['Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N']);
+	$ignorar = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'EL', 'Y', 'SA', 'CIA', 'LTDA', 'SAS'];
+	$palabras = preg_split('/[^A-Z0-9]+/', str_replace('.', '', $texto), -1, PREG_SPLIT_NO_EMPTY);
+	return array_values(array_unique(array_filter($palabras, fn($p) => strlen($p) >= 2 && !in_array($p, $ignorar, true))));
+}
+
+// Parecido por palabras: al menos 2 en común y como mínimo el 75% de las del nombre más corto; una palabra larga con 1 letra de diferencia cuenta igual (typo).
+function nombresPorPalabrasSimilares(array $a, array $b) {
+	if (count($a) < 2 || count($b) < 2) return false;
+	$comunes = 0;
+	foreach ($a as $pa) {
+		foreach ($b as $pb) {
+			if ($pa === $pb || (strlen($pa) >= 5 && strlen($pb) >= 5 && levenshtein($pa, $pb) <= 1)) { $comunes++; break; }
+		}
+	}
+	return $comunes >= 2 && $comunes >= ceil(0.75 * min(count($a), count($b)));
 }
 
 // CEDI/Ciudad real del cliente ya identificado, desambiguado por nombre (mismo criterio que resolverPosIdCliente) — vía el mismo cache en memoria, pos_id solo no es único en el maestro.
@@ -1828,6 +1852,37 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 }
 
 // Jerarquía de Supervisores: mapea el nombre "de campo" del maestro (sin cuenta propia) al supervisor real que recibe sus Actas.
+// Pestaña "Base" de Repositorios: nuestra base propia de clientes, solo consulta (cliente + CEDI), mismo formato de respuesta que el resto de listar_repositorio_*().
+function listar_repositorio_base($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
+	$pagina = max(1, (int) $pagina);
+	$offset = ($pagina - 1) * $porPagina;
+	$like   = '%'.$busqueda.'%';
+
+	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_clientes_propiosac WHERE cliente LIKE ? OR cedi LIKE ?');
+	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmtTotal->bind_param('ss', $like, $like);
+	$stmtTotal->execute();
+	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
+	$stmtTotal->close();
+
+	$totalPaginas = max(1, (int) ceil($total / $porPagina));
+	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
+
+	$stmt = $mysqli->prepare(
+		'SELECT id, cliente, cedi FROM repositorio_clientes_propiosac
+		 WHERE cliente LIKE ? OR cedi LIKE ?
+		 ORDER BY cliente, cedi
+		 LIMIT ? OFFSET ?'
+	);
+	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
+	$stmt->bind_param('ssii', $like, $like, $porPagina, $offset);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+
+	return ['filas' => $filas, 'total' => $total, 'pagina' => $pagina, 'total_paginas' => $totalPaginas];
+}
+
 function listar_repositorio_jerarquia($mysqli, $busqueda = '', $pagina = 1, $porPagina = 10) {
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
