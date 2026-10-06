@@ -836,6 +836,12 @@
 	// histórico global (2026-09-17, reemplaza el modal "Resumen" separado, ver nota en
 	// activarTab()). Cuenta Actas por `pos_id` distinto (no por fila — un cliente con 3
 	// categorías es 1 sola Acta), agrupadas por a quién se le asignaría cada una.
+	// Cliente nuevo (se crea su código PDVAC al guardar) cuenta como identificado: agrupa por cliente_nuevo mientras no tiene pos_id.
+	function claveClientePreview(e) {
+		if (!e) return null;
+		return e.pos_id || (e.cliente_nuevo ? 'nuevo|' + e.cliente_nuevo : null);
+	}
+
 	function renderPreviewResumen() {
 		if (!TIPOS_CON_ASIGNACION[tipoActivo] || !estadosPreview) { previewResumenBanner.classList.add('hidden'); return; }
 		// grupos: clave = nombre real, o 'Sin identificar todavía' (bucket único para lo que
@@ -847,10 +853,11 @@
 		var tieneCuentaPorGrupo = {};
 		var sinIdentificar = 0;
 		estadosPreview.forEach(function (e) {
-			if (!e || !e.pos_id) { sinIdentificar++; return; }
+			var clave = claveClientePreview(e);
+			if (!clave) { sinIdentificar++; return; }
 			var nombre = e.asignado_a || 'Sin identificar todavía';
 			if (!actasPorGrupo[nombre]) actasPorGrupo[nombre] = {};
-			actasPorGrupo[nombre][e.pos_id] = true;
+			actasPorGrupo[nombre][clave] = true;
 			tieneCuentaPorGrupo[nombre] = e.asignado_a ? !!e.tiene_cuenta : false;
 		});
 		var nombres = Object.keys(actasPorGrupo);
@@ -891,7 +898,8 @@
 		var conteoPorPosId = {};
 		if (conEstado && estadosPreview) {
 			estadosPreview.forEach(function (e) {
-				if (e && e.pos_id) conteoPorPosId[e.pos_id] = (conteoPorPosId[e.pos_id] || 0) + 1;
+				var claveConteo = claveClientePreview(e);
+				if (claveConteo) conteoPorPosId[claveConteo] = (conteoPorPosId[claveConteo] || 0) + 1;
 			});
 		}
 		var grupoAnterior = null;
@@ -905,10 +913,11 @@
 			var estadoFila = conEstado && estadosPreview ? estadosPreview[i] : null;
 
 			var claseGrupo = '';
-			if (estadoFila && estadoFila.pos_id) {
-				if (estadoFila.pos_id !== grupoAnterior) {
+			var claveFila = claveClientePreview(estadoFila);
+			if (claveFila) {
+				if (claveFila !== grupoAnterior) {
 					grupoIndice = (grupoIndice + 1) % GRUPO_CLASES_PREVIEW.length;
-					grupoAnterior = estadoFila.pos_id;
+					grupoAnterior = claveFila;
 				}
 				claseGrupo = GRUPO_CLASES_PREVIEW[grupoIndice];
 			}
@@ -917,12 +926,12 @@
 				var asignadoHtml;
 				if (!estadoFila) {
 					asignadoHtml = '<span class="ac-field-hint">…</span>';
-				} else if (!estadoFila.pos_id) {
+				} else if (!claveFila) {
 					asignadoHtml = '<span class="ac-field-hint">—</span>';
 				} else if (!estadoFila.asignado_a) {
 					asignadoHtml = '<span class="ac-field-hint">Sin identificar todavía</span>';
 				} else {
-					var n = conteoPorPosId[estadoFila.pos_id] || 1;
+					var n = conteoPorPosId[claveFila] || 1;
 					// Sin cuenta todavía (2026-09-17, pedido explícito): mismo gris que ya usa
 					// .ac-resumen-nombre-inactivo — no es un error, es un cliente identificado
 					// con un supervisor real conocido que "pronto va a existir" como cuenta.

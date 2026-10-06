@@ -72,9 +72,12 @@ foreach ($filas as $fila) {
 
 	if (!$posId && !empty($cachePendienteCrear[$clavePos])) {
 		// Cliente genuinamente nuevo (ni maestro ni propios, ni nada parecido) — se registra solo al guardar, acá no hace falta alarmar.
+		$asignado = resolverNombreAsignadoCuota($mysqli, null, $cediExcel, $clienteExcel, $usuarioExcel);
+		// cliente_nuevo agrupa las filas de un mismo cliente sin código todavía, para que el resumen no lo cuente como "sin identificar".
 		$estados[] = [
 			'estado' => 'nuevo', 'sector_resuelto' => $sectorResuelto,
 			'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
+			'cliente_nuevo' => $clavePos, 'asignado_a' => $asignado['nombre'], 'tiene_cuenta' => $asignado['tiene_cuenta'],
 		];
 		continue;
 	}
