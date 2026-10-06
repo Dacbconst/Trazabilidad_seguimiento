@@ -363,22 +363,23 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 
 	if (count($candidatos) === 1) return $candidatos[0]['pos_id'];
 	if (count($candidatos) === 0) {
-		// Si hay algo parecido ya registrado (típico de un typo), nunca crear un propio nuevo — que quede "sin identificar" con la misma sugerencia de siempre, para que corrijan el Excel en vez de duplicar al cliente.
-		if (sugerirClienteSimilar($mysqli, $clienteExcel, $canal)) return null;
-		// Ni el maestro de Alicorp ni nuestra base propia tienen este cliente: lo creamos nosotros (pedido explícito, base de Alicorp incompleta) para que el próximo trimestre ya lo reconozca solo.
-		if (!$permitirCrear) { $pendienteCrear = true; return null; }
-		return crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel, $creadoPor);
+		// Pedido explícito del usuario (2026-10-06): nunca queda "sin identificar" — si hay algo parecido ya registrado (típico de un typo) se usa ese cliente en vez de duplicarlo.
+		$candidatos = clientesPropiosSimilares($mysqli, $clienteExcel, $canal);
+		if (!$candidatos) {
+			// Nuestra base propia no tiene este cliente: lo creamos para que el próximo trimestre ya lo reconozca solo.
+			if (!$permitirCrear) { $pendienteCrear = true; return null; }
+			return crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel, $creadoPor);
+		}
 	}
 
 	// Desempate por Ciudad en los 2 canales (el Distribuidor/Empresa varía con el tiempo, la Ciudad no) — $cediExcel ya trae la Ciudad en Distribuidor también.
-	if (!$cediExcel) return null;
-	$cediComparable = repositorio_texto_comparable($cediExcel);
+	$cediComparable = repositorio_texto_comparable((string) $cediExcel);
 	$desempatados = array_values(array_filter($candidatos, fn($f) => $f['supervisor_comparable'] === $cediComparable));
-	if (!$desempatados) {
+	if (!$desempatados && $cediComparable !== '') {
 		// Nombre matchea pero la Ciudad no: se registra igual (nunca bloquea el guardado), el diagnóstico avisa en la alerta de siempre con la Ciudad real para que el analista la corrija en el Excel.
 		$diagnostico = ['campo' => 'supervisor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'supervisor')))];
-		$desempatados = $candidatos;
 	}
+	if (!$desempatados) $desempatados = $candidatos;
 
 	if (count($desempatados) === 1) return $desempatados[0]['pos_id'];
 	// Duplicado real (mismo nombre+canal+ciudad): toma el registro más reciente.
@@ -422,24 +423,24 @@ function usuarioEsperadoDesdeRepoPrincipal($mysqli, $posId, $trimestre, $anio) {
 
 // Sugerencias de "¿quisiste decir?" cuando el cliente no matcheó nada (solo para mostrar, nunca para resolver pos_id solo). Solo contra nuestra base propia (ver resolverPosIdCliente()) — el maestro de Alicorp ya no aplica acá. Prefijo en cualquier dirección, con mínimo de letras para no traer basura corta.
 function sugerirClienteSimilar($mysqli, $clienteExcel, $canal = 'directo') {
+	return array_slice(array_values(array_unique(array_column(clientesPropiosSimilares($mysqli, $clienteExcel, $canal), 'pos_name'))), 0, 5);
+}
+
+// Clientes propios del mismo canal cuyo nombre es prefijo del otro (mínimo 6 letras para no traer basura corta) — base de la sugerencia y del match tolerante de resolverPosIdCliente().
+function clientesPropiosSimilares($mysqli, $clienteExcel, $canal = 'directo') {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
-	if (strlen($clienteComparable) < 6) return [];
-	$esDistribuidor = $canal === 'distribuidor';
 	$minLargo = 6;
-	$vistos = [];
-	$sugerencias = [];
+	if (strlen($clienteComparable) < $minLargo) return [];
+	$esDistribuidor = $canal === 'distribuidor';
+	$similares = [];
 	foreach (maestroClientesEnMemoria($mysqli) as $f) {
 		if (empty($f['es_propio'])) continue;
 		if ($esDistribuidor ? $f['canal'] !== 'DISTRIBUIDOR' : $f['canal'] === 'DISTRIBUIDOR') continue;
 		$masCorto = strlen($f['pos_name_comparable']) < strlen($clienteComparable) ? $f['pos_name_comparable'] : $clienteComparable;
 		if (strlen($masCorto) < $minLargo) continue;
-		$coincide = strncmp($f['pos_name_comparable'], $clienteComparable, strlen($masCorto)) === 0;
-		if (!$coincide || isset($vistos[$f['pos_name']])) continue;
-		$vistos[$f['pos_name']] = true;
-		$sugerencias[] = $f['pos_name'];
-		if (count($sugerencias) >= 5) break;
+		if (strncmp($f['pos_name_comparable'], $clienteComparable, strlen($masCorto)) === 0) $similares[] = $f;
 	}
-	return $sugerencias;
+	return $similares;
 }
 
 // CEDI/Ciudad real del cliente ya identificado, desambiguado por nombre (mismo criterio que resolverPosIdCliente) — vía el mismo cache en memoria, pos_id solo no es único en el maestro.
