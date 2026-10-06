@@ -72,7 +72,7 @@ $stmt->close();
 // Cliente propio (el maestro de Alicorp no lo tiene, ver crearClientePropio()): mismo criterio "cedi_excel hace de supervisor" ya usado en resolverPosIdCliente().
 if (!$existePos) {
 	$stmtPropio = $mysqli->prepare(
-		'SELECT pos_id FROM repositorio_clientes_propiosac WHERE pos_id = ? AND canal = \'directo\' AND cedi_excel = ? LIMIT 1'
+		'SELECT pos_id FROM repositorio_clientes_propiosac WHERE pos_id = ? AND canal = \'directo\' AND cedi = ? LIMIT 1'
 	);
 	if ($stmtPropio) {
 		$stmtPropio->bind_param('ss', $posId, $supervisorSesion);

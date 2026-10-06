@@ -302,7 +302,7 @@ function maestroClientesEnMemoria($mysqli, $forzarRecarga = false) {
 		$filas[] = $fila;
 	}
 	// Clientes que Alicorp todavía no tiene en su maestro (ver resolverPosIdCliente()/crearClientePropio()) — mismo formato de fila para que el resto de funciones de este archivo los trate igual; `es_propio` hace que el match sea EXACTO, nunca por prefijo como el maestro real. Silencioso si la tabla todavía no existe (ALTER/CREATE pendiente).
-	$resPropios = $mysqli->query("SELECT id, pos_id, cliente_excel AS pos_name, UPPER(canal) AS canal, distribuidor_excel AS tipo_distribuidor, cedi_excel AS supervisor, cedi_excel AS cedi FROM repositorio_clientes_propiosac");
+	$resPropios = $mysqli->query("SELECT id, pos_id, cliente AS pos_name, UPPER(canal) AS canal, distribuidor AS tipo_distribuidor, cedi AS supervisor, cedi FROM repositorio_clientes_propiosac");
 	if ($resPropios) {
 		while ($fila = $resPropios->fetch_assoc()) {
 			$fila['pos_name_comparable'] = repositorio_texto_comparable($fila['pos_name']);
@@ -318,16 +318,15 @@ function maestroClientesEnMemoria($mysqli, $forzarRecarga = false) {
 // Crea un pos_id propio (formato PDVAC0001...) para un cliente que no existe en el maestro de Alicorp — pedido explícito del cliente: su base está incompleta y seguirá pasando, así que armamos la nuestra poco a poco. Match de reuso EXACTO por nombre+canal (ver maestroClientesEnMemoria()), nunca por prefijo: un typo nuevo crea otro cliente propio en vez de mezclarse con uno ya creado.
 function crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel = null, $creadoPor = null) {
 	$canalDb = $canal === 'distribuidor' ? 'distribuidor' : 'directo';
-	$clienteComparable = repositorio_texto_comparable($clienteExcel);
 	$cediExcel = $cediExcel !== null ? trim((string) $cediExcel) : null;
 	$distribuidorExcel = $distribuidorExcel !== null ? trim((string) $distribuidorExcel) : null;
 
 	$stmt = $mysqli->prepare(
-		'INSERT INTO repositorio_clientes_propiosac (pos_id, cliente_excel, cliente_comparable, cedi_excel, distribuidor_excel, canal, creado_por)
-		 VALUES (\'\', ?, ?, ?, ?, ?, ?)'
+		'INSERT INTO repositorio_clientes_propiosac (pos_id, cliente, cedi, distribuidor, canal, creado_por)
+		 VALUES (\'\', ?, ?, ?, ?, ?)'
 	);
 	if (!$stmt) return null;
-	$stmt->bind_param('sssssi', $clienteExcel, $clienteComparable, $cediExcel, $distribuidorExcel, $canalDb, $creadoPor);
+	$stmt->bind_param('ssssi', $clienteExcel, $cediExcel, $distribuidorExcel, $canalDb, $creadoPor);
 	if (!$stmt->execute()) { $stmt->close(); return null; }
 	$id = $stmt->insert_id;
 	$stmt->close();
@@ -2048,8 +2047,8 @@ function listar_repositorio_acuerdo_completo_pendientes_match($mysqli) {
 
 	// Solo nuestra base propia (ver resolverPosIdCliente()) — el maestro de Alicorp ya no aplica a este repositorio.
 	$stmtCand = $mysqli->prepare(
-		"SELECT pos_id, cliente_excel AS pos_name, cedi_excel AS cedi, cedi_excel AS supervisor FROM repositorio_clientes_propiosac
-		 WHERE cliente_excel LIKE CONCAT(?, '%') ORDER BY cliente_excel LIMIT 10"
+		"SELECT pos_id, cliente AS pos_name, cedi, cedi AS supervisor FROM repositorio_clientes_propiosac
+		 WHERE cliente LIKE CONCAT(?, '%') ORDER BY cliente LIMIT 10"
 	);
 	$resultado = [];
 	foreach ($ordenGrupos as $clave) {
@@ -2332,8 +2331,8 @@ function listar_repositorio_cuotas_pendientes_match($mysqli) {
 
 	// Solo nuestra base propia (ver resolverPosIdCliente()) — el maestro de Alicorp ya no aplica a este repositorio.
 	$stmtCand = $mysqli->prepare(
-		"SELECT pos_id, cliente_excel AS pos_name, cedi_excel AS cedi, cedi_excel AS supervisor FROM repositorio_clientes_propiosac
-		 WHERE cliente_excel LIKE CONCAT(?, '%') ORDER BY cliente_excel LIMIT 10"
+		"SELECT pos_id, cliente AS pos_name, cedi, cedi AS supervisor FROM repositorio_clientes_propiosac
+		 WHERE cliente LIKE CONCAT(?, '%') ORDER BY cliente LIMIT 10"
 	);
 	$resultado = [];
 	foreach ($ordenGrupos as $clave) {
