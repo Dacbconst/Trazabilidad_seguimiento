@@ -87,7 +87,7 @@ if ($modoAdmin) {
 		}
 	}
 
-	// Clientes propios (el maestro de Alicorp no los tiene, ver crearClientePropio()): mismo criterio de "supervisor" ya usado en resolverPosIdCliente()/maestroClientesEnMemoria() — para Directo, cedi_excel hace de supervisor; para Distribuidor, se listan todos los del canal (el maestro tampoco filtra Distribuidor por supervisor acá).
+	// Clientes propios (el maestro de Alicorp no los tiene, ver crearClientePropio()): mismo criterio de "supervisor" ya usado en resolverPosIdCliente()/maestroClientesEnMemoria() — para Directo, cedi hace de supervisor; para Distribuidor, se listan todos los del canal (el maestro tampoco filtra Distribuidor por supervisor acá).
 	$stmtPropio = $canal === 'distribuidor'
 		? $mysqli->prepare("SELECT pos_id, cliente AS pos_name, cedi, distribuidor AS tipo_distribuidor FROM repositorio_clientes_propiosac WHERE canal = 'distribuidor' ORDER BY cliente")
 		: $mysqli->prepare("SELECT pos_id, cliente AS pos_name, cedi, distribuidor AS tipo_distribuidor FROM repositorio_clientes_propiosac WHERE canal = 'directo' AND cedi = ? ORDER BY cliente");
