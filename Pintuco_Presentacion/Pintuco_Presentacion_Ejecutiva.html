@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyectos y Obras Pintuco - Presentación Ejecutiva</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pintuco: { blue: '#3a56b4', dark: '#1c2a66', mid: '#2a3f8f', soft: '#eef2ff', accent: '#f97316' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root { --ink: #0f172a; --blue-900: #1c2a66; --blue-700: #2a3f8f; --blue-600: #3a56b4; --blue-50: #eef2ff; --orange: #f97316; --on-dark: #c7d2fe; }
+        body { background-color: #030712; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; color: var(--ink); }
+        ::selection { background: #3a56b4; color: #fff; }
+        #presentation-container { width: 96%; max-width: 1400px; aspect-ratio: 16 / 9; background: #ffffff; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; border-radius: 12px; }
+        .slide { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in-out; }
+        .slide.active { opacity: 1; pointer-events: auto; }
+        .nav-zone { position: absolute; top: 0; height: 100%; width: 6%; z-index: 50; cursor: pointer; }
+        .nav-left { left: 0; }
+        .nav-right { right: 0; }
+        .nav-zone:hover { background: rgba(0,0,0,0.04); }
+        #progress-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: var(--orange); transform-origin: left; transform: scaleX(0); transition: transform 0.3s ease; z-index: 60; }
+
+        .dark { background: var(--blue-900); color: #fff; }
+        .muted { color: var(--on-dark); }
+        .light { background: #f3f5fc; }
+        .shot { border-radius: 14px; box-shadow: 0 34px 60px -24px rgba(15,23,42,.5), 0 14px 26px -14px rgba(15,23,42,.3); border: 1px solid rgba(15,23,42,.1); background: #fff; }
+        .phone { border-radius: 24px; box-shadow: 0 34px 56px -22px rgba(0,0,0,.55), 0 12px 22px -12px rgba(0,0,0,.35); }
+        .ic { width: 1.5rem; height: 1.5rem; flex: none; }
+        .ic-badge { width: 3rem; height: 3rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; flex: none; }
+        .logo-pill { background: #fff; border-radius: 12px; padding: .45rem .8rem; display: inline-flex; align-items: center; box-shadow: 0 8px 18px -10px rgba(0,0,0,.35); }
+        .logo-pill img { height: 2.1rem; width: auto; object-fit: contain; }
+
+        /* Un solo momento de movimiento: los bloques de la diapositiva activa suben en cascada */
+        @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        .slide.active .rv { animation: rise .75s cubic-bezier(.16, 1, .3, 1) both; animation-delay: var(--d, 0s); }
+        @media (prefers-reduced-motion: reduce) { .slide.active .rv { animation: none; } }
+
+        .step-line { position: absolute; left: 1.5rem; right: 1.5rem; top: .6rem; height: 2px; background: rgba(199,210,254,.35); }
+        .step-dot { width: 1.3rem; height: 1.3rem; border-radius: 9999px; background: var(--blue-900); border: 2px solid var(--on-dark); position: relative; z-index: 1; }
+        .step-dot.last { background: var(--orange); border-color: var(--orange); }
+    </style>
+</head>
+<body>
+
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-hat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20M4 18v-2a8 8 0 0 1 16 0v2M12 8V5M9 8.5V6h6v2.5"/></symbol>
+            <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v12H3zM8 20h8M12 16v4"/></symbol>
+            <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></symbol>
+            <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v12H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></symbol>
+            <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></symbol>
+            <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></symbol>
+            <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 10h18M7 15h4"/></symbol>
+            <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol>
+            <symbol id="i-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12A9 9 0 0 1 18.5 5.8M18.5 2v4h-4M5.5 22v-4h4"/></symbol>
+            <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"/></symbol>
+        </defs>
+    </svg>
+
+    <div id="presentation-container">
+        <div class="nav-zone nav-left" onclick="prevSlide()" title="Anterior"></div>
+        <div class="nav-zone nav-right" onclick="nextSlide()" title="Siguiente"></div>
+        <div id="progress-bar"></div>
+
+        <!-- SLIDE 1: PORTADA -->
+        <div class="slide active" id="slide-1">
+            <div class="absolute inset-y-0 right-0 w-[54%] light"></div>
+
+            <div class="absolute inset-y-0 left-0 w-[46%] dark flex flex-col justify-between px-14 py-10 z-10">
+                <div class="rv"><span class="logo-pill"><img src="assets/img/pintuco_logo.png" alt="Pintuco"></span></div>
+                <div>
+                    <h1 class="text-7xl font-bold tracking-tight text-white leading-[1.02] mb-5 rv" style="--d:.08s">Proyectos<br>y Obras</h1>
+                    <p class="text-lg leading-relaxed muted max-w-md mb-6 rv" style="--d:.16s">Cada obra, desde el primer contacto en tienda hasta la factura, con promotores, técnicos y analista conectados en un solo lugar.</p>
+                    <div class="flex flex-wrap gap-2 rv" style="--d:.24s">
+                        <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/10 text-white border border-white/20">App móvil y web conectadas en vivo</span>
+                        <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/10 text-white border border-white/20">Promotores y Técnicos</span>
+                    </div>
+                </div>
+                <div class="rv" style="--d:.32s">
+                    <div class="relative flex justify-between mb-2.5">
+                        <div class="step-line"></div>
+                        <div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot last"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] font-semibold text-white -mx-1">
+                        <span>Contacto</span><span>Agenda</span><span>Proforma</span><span>Negociación</span><span>Factura</span>
+                    </div>
+                    <p class="text-xs muted mt-4 leading-relaxed max-w-sm">En campo, promotores y técnicos registran visitas y fotos desde la obra. Cada obra queda visible en su fase y con los días que lleva en ella.</p>
+                </div>
+            </div>
+
+            <img src="assets/img/lucky_logo.png" alt="Grupo Lucky" class="absolute right-14 top-9 h-10 w-auto object-contain z-20">
+            <img src="assets/img/dashboard_principal.png" alt="Panel principal" class="shot absolute z-10 rv" style="left:50%; top:17%; width:64%; --d:.2s">
+            <img src="assets/img/movil_proforma.png" alt="App móvil" class="phone absolute z-20 rv" style="left:48%; bottom:7%; height:54%; width:auto; --d:.34s">
+        </div>
+
+        <!-- SLIDE 2: DESAFIO -->
+        <div class="slide" id="slide-2">
+            <div class="absolute inset-y-0 right-0 w-1/2 bg-white"></div>
+
+            <div class="absolute inset-y-0 left-0 w-1/2 dark px-14 py-12 flex flex-col justify-center z-10">
+                <h2 class="text-5xl font-bold tracking-tight text-white leading-[1.05] mb-10 rv" style="text-wrap:balance">Una obra pasa por muchas manos</h2>
+                <div class="space-y-7">
+                    <div class="flex gap-4 rv" style="--d:.1s">
+                        <div class="ic-badge bg-white/10 text-white"><svg class="ic"><use href="#i-users"/></svg></div>
+                        <div><h3 class="text-lg font-semibold text-white">Tres Roles, una Misma Obra</h3><p class="text-sm muted leading-relaxed mt-1">El promotor capta al cliente en tienda, el técnico visita la obra y la analista valida el presupuesto en oficina.</p></div>
+                    </div>
+                    <div class="flex gap-4 rv" style="--d:.18s">
+                        <div class="ic-badge bg-white/10 text-white"><svg class="ic"><use href="#i-calendar"/></svg></div>
+                        <div><h3 class="text-lg font-semibold text-white">Visitas que se Deben Coordinar</h3><p class="text-sm muted leading-relaxed mt-1">Cada técnico necesita una agenda ordenada, sin citas encimadas y con las visitas vencidas a la vista.</p></div>
+                    </div>
+                    <div class="flex gap-4 rv" style="--d:.26s">
+                        <div class="ic-badge bg-white/10 text-white"><svg class="ic"><use href="#i-camera"/></svg></div>
+                        <div><h3 class="text-lg font-semibold text-white">Evidencia que se Debe Validar</h3><p class="text-sm muted leading-relaxed mt-1">La foto de la proforma y el monto cotizado se revisan antes de pasar a negociación y a factura.</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute inset-y-0 right-0 w-1/2 px-14 py-12 flex flex-col justify-center z-10">
+                <div class="space-y-8">
+                    <div class="flex gap-4 rv" style="--d:.2s">
+                        <div class="ic-badge bg-emerald-50 text-emerald-600"><svg class="ic"><use href="#i-layers"/></svg></div>
+                        <div><h3 class="text-xl font-bold text-gray-900">Una Sola Línea de Tiempo</h3><p class="text-sm text-gray-600 leading-relaxed mt-1">Contacto, visita, proforma, negociación y factura quedan registrados obra por obra.</p></div>
+                    </div>
+                    <div class="flex gap-4 rv" style="--d:.3s">
+                        <div class="ic-badge bg-emerald-50 text-emerald-600"><svg class="ic"><use href="#i-sync"/></svg></div>
+                        <div><h3 class="text-xl font-bold text-gray-900">Móvil y Web Conectados</h3><p class="text-sm text-gray-600 leading-relaxed mt-1">Promotores y técnicos cargan contactos, visitas y fotos en la obra, y la web los ve en el mismo momento.</p></div>
+                    </div>
+                    <div class="flex gap-4 rv" style="--d:.4s">
+                        <div class="ic-badge bg-emerald-50 text-emerald-600"><svg class="ic"><use href="#i-monitor"/></svg></div>
+                        <div><h3 class="text-xl font-bold text-gray-900">Control en Oficina</h3><p class="text-sm text-gray-600 leading-relaxed mt-1">La analista ve el avance, audita las fotos y confirma los montos desde la web.</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 3: APP MOVIL -->
+        <div class="slide dark" id="slide-3">
+            <div class="absolute inset-0 px-14 pt-10 pb-8 flex flex-col">
+                <div class="flex items-end justify-between mb-6 rv">
+                    <div>
+                        <h2 class="text-4xl font-bold tracking-tight text-white leading-tight">En Campo: la App del Promotor</h2>
+                        <p class="text-base muted mt-1.5">Del primer contacto en tienda a la factura, desde el celular y visible en la web al instante.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="logo-pill"><img src="assets/img/pintuco_logo.png" alt="Pintuco"></span>
+                        <span class="logo-pill"><img src="assets/img/lucky_logo.png" alt="Grupo Lucky"></span>
+                    </div>
+                </div>
+                <div class="flex-1 grid grid-cols-4 gap-8 items-start pt-2">
+                    <div class="flex flex-col items-center text-center rv" style="--d:.1s">
+                        <img src="assets/img/movil_contacto.png" alt="Contacto" class="phone h-[390px] w-auto">
+                        <h3 class="text-lg font-bold text-white mt-5">Contacto</h3>
+                        <p class="text-sm muted leading-relaxed mt-1 max-w-[230px]">El promotor registra al cliente de la obra: contacto, empresa, dirección y si requiere visita.</p>
+                    </div>
+                    <div class="flex flex-col items-center text-center rv mt-6" style="--d:.2s">
+                        <img src="assets/img/movil_agenda.png" alt="Agenda" class="phone h-[390px] w-auto">
+                        <h3 class="text-lg font-bold text-white mt-5">Agenda</h3>
+                        <p class="text-sm muted leading-relaxed mt-1 max-w-[230px]">Cada visita con su estado, fecha, técnico asignado y datos del cliente a un toque.</p>
+                    </div>
+                    <div class="flex flex-col items-center text-center rv" style="--d:.3s">
+                        <img src="assets/img/movil_proforma.png" alt="Proforma y factura" class="phone h-[390px] w-auto">
+                        <h3 class="text-lg font-bold text-white mt-5">Proforma y Factura</h3>
+                        <p class="text-sm muted leading-relaxed mt-1 max-w-[230px]">Seguimiento por fase, rondas de proforma y foto de la factura al cerrar la venta.</p>
+                    </div>
+                    <div class="flex flex-col items-center text-center rv mt-6" style="--d:.4s">
+                        <img src="assets/img/movil_detalle.png" alt="Detalle de la visita" class="phone h-[390px] w-auto">
+                        <h3 class="text-lg font-bold text-white mt-5">Detalle de la Visita</h3>
+                        <p class="text-sm muted leading-relaxed mt-1 max-w-[230px]">Foto de evidencia, características de la obra, acompañamiento técnico y precio de la proforma.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 4: PANEL + ESTADO DE FLUJO -->
+        <div class="slide light" id="slide-4">
+            <div class="absolute left-0 top-0 bottom-0 w-[32%] px-14 py-12 flex flex-col justify-center z-10">
+                <h2 class="text-4xl font-bold tracking-tight text-gray-950 leading-[1.08] mb-8 rv" style="text-wrap:balance">Todo el Negocio de Obras en Una Pantalla</h2>
+                <div class="space-y-6">
+                    <div class="flex gap-3.5 rv" style="--d:.12s">
+                        <div class="ic-badge text-white" style="background:#3a56b4"><svg class="ic"><use href="#i-trend"/></svg></div>
+                        <div><h3 class="text-base font-bold text-gray-900">Panel Principal</h3><p class="text-sm text-gray-600 leading-relaxed mt-0.5">Puntos de venta, monto negociado y facturado, visitas vencidas, embudo por fases y ranking de promotores y tiendas.</p></div>
+                    </div>
+                    <div class="flex gap-3.5 rv" style="--d:.22s">
+                        <div class="ic-badge text-white" style="background:#f97316"><svg class="ic"><use href="#i-layers"/></svg></div>
+                        <div><h3 class="text-base font-bold text-gray-900">Estado de Flujo</h3><p class="text-sm text-gray-600 leading-relaxed mt-0.5">Tablero con cada obra en su fase y los días que lleva ahí, para saber qué atender primero.</p></div>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute left-14 bottom-8 z-10 flex items-center gap-3 rv" style="--d:.3s">
+                <span class="logo-pill"><img src="assets/img/pintuco_logo.png" alt="Pintuco"></span>
+                <span class="logo-pill"><img src="assets/img/lucky_logo.png" alt="Grupo Lucky"></span>
+            </div>
+            <img src="assets/img/dashboard_principal.png" alt="Panel principal" class="shot absolute rv" style="left:36%; top:9%; width:72%; --d:.15s">
+            <img src="assets/img/estado_flujo.png" alt="Estado de flujo" class="shot absolute z-10 rv" style="left:33%; bottom:6%; width:48%; --d:.3s">
+        </div>
+
+        <!-- SLIDE 5: AGENDAMIENTOS + AUDITORIA -->
+        <div class="slide" id="slide-5" style="background:#fff">
+            <div class="absolute inset-y-0 left-0 w-[68%] light"></div>
+            <div class="absolute right-0 top-0 bottom-0 w-[32%] dark px-12 py-12 flex flex-col justify-center z-10">
+                <h2 class="text-4xl font-bold tracking-tight text-white leading-[1.08] mb-8 rv" style="text-wrap:balance">De la Visita a la Proforma Validada</h2>
+                <div class="space-y-6">
+                    <div class="flex gap-3.5 rv" style="--d:.12s">
+                        <div class="ic-badge bg-white/10 text-white"><svg class="ic"><use href="#i-calendar"/></svg></div>
+                        <div><h3 class="text-base font-bold text-white">Agendamientos</h3><p class="text-sm muted leading-relaxed mt-0.5">Calendario por técnico con el estado de cada visita y su ubicación en el mapa. Las visitas vencidas se ven de inmediato.</p></div>
+                    </div>
+                    <div class="flex gap-3.5 rv" style="--d:.22s">
+                        <div class="ic-badge bg-white/10 text-white"><svg class="ic"><use href="#i-camera"/></svg></div>
+                        <div><h3 class="text-base font-bold text-white">Auditoría de Proformas</h3><p class="text-sm muted leading-relaxed mt-0.5">La analista revisa la foto, confirma el monto cotizado y, si hace falta, pide una nueva foto al promotor.</p></div>
+                    </div>
+                </div>
+            </div>
+            <img src="assets/img/agendamientos.png" alt="Agendamientos" class="shot absolute rv" style="left:-4%; top:8%; width:66%; --d:.15s">
+            <img src="assets/img/auditoria_proformas.png" alt="Auditoría de proformas" class="shot absolute z-10 rv" style="left:12%; bottom:7%; width:56%; --d:.3s">
+        </div>
+
+        <!-- SLIDE 6: DETALLE DE LA OBRA -->
+        <div class="slide light" id="slide-6">
+            <img src="assets/img/detalle_obra.png" alt="Detalle de la obra" class="shot absolute rv" style="left:-3%; top:21%; width:66%; --d:.1s">
+            <div class="absolute right-0 top-0 bottom-0 w-[34%] px-12 py-12 flex flex-col justify-center z-10">
+                <h2 class="text-4xl font-bold tracking-tight text-gray-950 leading-[1.08] mb-8 rv" style="text-wrap:balance">La Historia Completa de Cada Obra</h2>
+                <div class="space-y-6">
+                    <div class="flex gap-3.5 rv" style="--d:.15s">
+                        <div class="ic-badge text-white" style="background:#3a56b4"><svg class="ic"><use href="#i-layers"/></svg></div>
+                        <div><h3 class="text-base font-bold text-gray-900">Línea de Tiempo por Fase</h3><p class="text-sm text-gray-600 leading-relaxed mt-0.5">Fecha, notas y fotos de cada fase, con los días que la obra lleva en cada una.</p></div>
+                    </div>
+                    <div class="flex gap-3.5 rv" style="--d:.25s">
+                        <div class="ic-badge text-white" style="background:#f97316"><svg class="ic"><use href="#i-doc"/></svg></div>
+                        <div><h3 class="text-base font-bold text-gray-900">Monto Cotizado y Facturado</h3><p class="text-sm text-gray-600 leading-relaxed mt-0.5">La cotización inicial y el valor facturado, lado a lado, junto al historial de proformas.</p></div>
+                    </div>
+                    <div class="flex gap-3.5 rv" style="--d:.35s">
+                        <div class="ic-badge bg-emerald-600 text-white"><svg class="ic"><use href="#i-card"/></svg></div>
+                        <div><h3 class="text-base font-bold text-gray-900">Pago Directo o a Plazos</h3><p class="text-sm text-gray-600 leading-relaxed mt-0.5">Cada factura puede cobrarse de una vez o en cuotas, con su comprobante.</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 7: BENEFICIOS -->
+        <div class="slide" id="slide-7" style="background:#fff">
+            <div class="absolute inset-y-0 left-0 w-[34%] dark px-12 py-12 flex flex-col justify-between z-10">
+                <div class="rv"><span class="logo-pill"><img src="assets/img/pintuco_logo.png" alt="Pintuco"></span></div>
+                <div>
+                    <h2 class="text-5xl font-bold tracking-tight text-white leading-[1.05] mb-4 rv" style="--d:.08s; text-wrap:balance">Cada Obra Bajo Control, de Principio a Fin</h2>
+                    <p class="text-base muted leading-relaxed rv" style="--d:.16s">Promotores, técnicos y analista trabajan sobre la misma información.</p>
+                </div>
+                <div class="rv" style="--d:.24s">
+                    <span class="logo-pill mb-3"><img src="assets/img/lucky_logo.png" alt="Grupo Lucky"></span>
+                    <p class="text-xs muted mt-3">Desarrollado por Grupo Lucky · © Grupo Lucky &amp; Pintuco 2026</p>
+                </div>
+            </div>
+
+            <div class="absolute right-0 top-0 bottom-0 w-[66%] px-14 py-12 grid grid-cols-2 gap-x-12 gap-y-6 content-center z-10">
+                <div class="flex gap-4 rv" style="--d:.1s"><div class="ic-badge bg-blue-50" style="color:#3a56b4"><svg class="ic"><use href="#i-layers"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Cada obra en su fase</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Tablero con los días que lleva cada obra en su fase actual.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.16s"><div class="ic-badge bg-orange-50 text-orange-600"><svg class="ic"><use href="#i-sync"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Móvil y web en vivo</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Lo que se registra en la obra se ve en la web al instante.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.22s"><div class="ic-badge bg-emerald-50 text-emerald-600"><svg class="ic"><use href="#i-calendar"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Visitas ordenadas</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Calendario por técnico, sin citas encimadas.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.28s"><div class="ic-badge bg-blue-50" style="color:#3a56b4"><svg class="ic"><use href="#i-camera"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Fotos validadas</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">La analista revisa la foto y el monto antes de avanzar.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.34s"><div class="ic-badge bg-orange-50 text-orange-600"><svg class="ic"><use href="#i-alert"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Visitas vencidas a la vista</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Se detectan las citas que pasaron sin evidencia.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.4s"><div class="ic-badge bg-emerald-50 text-emerald-600"><svg class="ic"><use href="#i-trend"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Monto facturado al día</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Negociado y facturado por promotor y por tienda.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.46s"><div class="ic-badge bg-blue-50" style="color:#3a56b4"><svg class="ic"><use href="#i-card"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Directo o a plazos</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Seguimiento de cuotas con su comprobante.</p></div></div>
+                <div class="flex gap-4 rv" style="--d:.52s"><div class="ic-badge bg-orange-50 text-orange-600"><svg class="ic"><use href="#i-users"/></svg></div><div><h3 class="text-lg font-bold text-gray-900">Ranking de promotores y tiendas</h3><p class="text-sm text-gray-600 leading-snug mt-0.5">Quién genera más obras y más facturación.</p></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const progressBar = document.getElementById('progress-bar');
+        let currentSlide = 0;
+
+        function updateSlide() {
+            slides.forEach((slide, i) => slide.classList.toggle('active', i === currentSlide));
+            progressBar.style.transform = `scaleX(${(currentSlide + 1) / slides.length})`;
+            window.location.hash = `slide-${currentSlide + 1}`;
+        }
+        function nextSlide() { if (currentSlide < slides.length - 1) { currentSlide++; updateSlide(); } }
+        function prevSlide() { if (currentSlide > 0) { currentSlide--; updateSlide(); } }
+        function checkHash() {
+            const n = parseInt((window.location.hash || '').replace('#slide-', ''), 10);
+            if (n >= 1 && n <= slides.length) currentSlide = n - 1;
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+        window.addEventListener('hashchange', () => { checkHash(); updateSlide(); });
+        checkHash();
+        updateSlide();
+    </script>
+</body>
+</html>

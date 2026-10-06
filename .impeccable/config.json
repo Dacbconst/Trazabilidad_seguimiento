@@ -68,6 +68,24 @@
         ],
         "createdAt": "2026-10-01T23:29:27.856Z",
         "reason": "preexistente desde 7df7cbf (24-09), ancho de modal anima pocas veces por interacción, no loop; costo despreciable"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "Pintuco_Presentacion/Pintuco_Presentacion_Ejecutiva.html"
+        ],
+        "createdAt": "2026-10-06T20:48:42.037Z",
+        "reason": "agente: falso positivo, el relleno viene de clases Tailwind (px-12/px-14, py-10/12) por CDN que el detector estático no resuelve; verificado en capturas reales que el texto tiene margen. No confirmado por el usuario"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "Colgate_Auditoria_Presentacion/Colgate_Auditoria_Presentacion_Ejecutiva.html"
+        ],
+        "createdAt": "2026-10-06T20:58:19.453Z",
+        "reason": "agente: falso positivo, el relleno viene de clases Tailwind (px-12/px-14, py-10/12) por CDN que el detector estático no resuelve; verificado en capturas que el texto tiene margen. No confirmado por el usuario"
       }
     ]
   }

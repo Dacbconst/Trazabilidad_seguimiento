@@ -36,19 +36,19 @@
             color: #111827;
         }
         #presentation-container {
-            width: 100%;
-            max-width: 1280px;
+            width: 96%;
+            max-width: 1380px;
             aspect-ratio: 16 / 9;
             background: #ffffff;
             position: relative;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             overflow: hidden;
-            border-radius: 8px;
+            border-radius: 12px;
         }
         .slide {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            padding: 4rem 5rem;
+            padding: 3rem 4rem;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.4s ease-in-out, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -57,16 +57,12 @@
             flex-direction: column;
         }
         .slide.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
-        .placeholder-image {
-            background-image: repeating-linear-gradient(45deg, #f9fafb, #f9fafb 10px, #f3f4f6 10px, #f3f4f6 20px);
-            border: 1px dashed #d1d5db;
-        }
         .nav-zone {
-            position: absolute; top: 0; height: 100%; width: 15%; z-index: 50; cursor: pointer;
+            position: absolute; top: 0; height: 100%; width: 10%; z-index: 50; cursor: pointer;
         }
         .nav-left { left: 0; }
         .nav-right { right: 0; }
-        .nav-zone:hover { background: rgba(0,0,0,0.02); }
+        .nav-zone:hover { background: rgba(0,0,0,0.015); }
         #progress-bar {
             position: absolute; bottom: 0; left: 0; height: 4px; background: #2563eb; transition: width 0.3s ease; z-index: 60;
         }
@@ -76,127 +72,240 @@
 
     <div id="presentation-container">
         <!-- Círculos de degradado moradito (Grupo Lucky) -->
-        <div class="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-fuchsia-600/20 rounded-full blur-[120px] pointer-events-none"></div>
-        <div class="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none"></div>
+        <div class="absolute -top-[20%] -left-[10%] w-[650px] h-[650px] bg-fuchsia-600/20 rounded-full blur-[130px] pointer-events-none"></div>
+        <div class="absolute -bottom-[20%] -right-[10%] w-[650px] h-[650px] bg-purple-600/20 rounded-full blur-[130px] pointer-events-none"></div>
         
-        <div class="nav-zone nav-left" onclick="prevSlide()"></div>
-        <div class="nav-zone nav-right" onclick="nextSlide()"></div>
-        <div id="progress-bar" style="width: 50%;"></div>
+        <div class="nav-zone nav-left" onclick="prevSlide()" title="Anterior"></div>
+        <div class="nav-zone nav-right" onclick="nextSlide()" title="Siguiente"></div>
+        <div id="progress-bar"></div>
 
         <!-- SLIDE 1: PORTADA -->
         <div class="slide active" id="slide-1">
-            <div class="flex justify-between items-center mb-16 relative z-10">
+            <div class="flex justify-between items-center mb-12 relative z-10">
                 <div class="text-xs font-bold tracking-widest text-purple-600 uppercase">Proyecto 1</div>
-                <img src="assets/img/login-marca-1.png" alt="Grupo Lucky" class="h-10 opacity-90" onerror="this.src='assets/img/login-marca-2.png'">
+                <img src="assets/img/login-marca-1.png" alt="Grupo Lucky" class="h-10 opacity-90" onerror="this.src='lucky_logo.png'">
             </div>
             
             <div class="flex-1 flex flex-col justify-center max-w-4xl relative z-10">
-                <h1 class="text-7xl font-bold tracking-tight text-gray-950 mb-8 leading-tight">EpsonReport</h1>
-                <p class="text-3xl font-light text-gray-600 mb-12 leading-relaxed">
-                    Transformando el trabajo de campo de Epson mediante trazabilidad digital y validación fotográfica en tiempo real.
+                <h1 class="text-7xl font-bold tracking-tight text-gray-950 mb-6 leading-tight">EpsonReport</h1>
+                <p class="text-3xl font-light text-gray-600 mb-10 leading-relaxed">
+                    De las fotos sueltas al reporte oficial: promotores, supervisores y Epson en una sola plataforma, con la presentación lista en un clic.
                 </p>
             </div>
             
             <div class="mt-auto flex gap-3 relative z-10">
                 <span class="px-4 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-full border border-purple-100">Optimizado para celulares</span>
-                <span class="px-4 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded-full border border-green-100">En Uso Actual</span>
+                <span class="px-4 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded-full border border-green-100">Reportes en PowerPoint</span>
             </div>
         </div>
 
         <!-- SLIDE 2: EL PROBLEMA -->
         <div class="slide" id="slide-2">
-            <div class="flex justify-between items-center mb-16 relative z-10">
+            <div class="flex justify-between items-center mb-8 relative z-10">
                 <div class="text-xs font-bold tracking-widest text-purple-600 uppercase">EpsonReport</div>
                 <div class="text-xs font-medium text-gray-400">Contexto y Desafío</div>
             </div>
             
-            <div class="flex-1 flex gap-16 items-center relative z-10">
+            <div class="flex-1 flex gap-12 items-center relative z-10">
                 <div class="w-1/3">
-                    <h2 class="text-3xl font-bold text-gray-950 mb-8">El costo oculto del control manual</h2>
+                    <h2 class="text-3xl font-bold text-gray-950 mb-6">Cómo se reportaba el trabajo de campo antes</h2>
                     <div class="space-y-6 border-l-2 border-purple-100 pl-6">
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-900">Pérdida de Horas-Hombre</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">El seguimiento uno a uno de envíos provocaba embotellamientos a fin de mes.</p>
+                            <h4 class="text-lg font-semibold text-gray-900">Fotos por Chat, sin Orden</h4>
+                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Las fotos del día llegaban sueltas y había que ordenarlas por actividad, fecha y punto de venta antes de armar cada reporte.</p>
                         </div>
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-900">Gestión Lenta de Archivos</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Aunque clasificado en Drive, demandaba días descargar y validar cientos de fotos.</p>
+                            <h4 class="text-lg font-semibold text-gray-900">Un Formato por Cada Reporte</h4>
+                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Activaciones, capacitaciones, POP, ferias y exhibiciones tienen cada una su formato; son entre 12 y 20 reportes cada mes.</p>
                         </div>
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-900">Dependencia de PPTs</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Trabajo puramente manual y no escalable para lograr entregar las evidencias al cliente.</p>
+                            <h4 class="text-lg font-semibold text-gray-900">Presentaciones Armadas a Mano</h4>
+                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Cada entrega a Epson exigía armar el PowerPoint con fotos, cifras y cumplimiento, diapositiva por diapositiva.</p>
                         </div>
                     </div>
                 </div>
-                <div class="w-2/3 h-[500px] placeholder-image rounded-2xl flex flex-col items-center justify-center p-8 shadow-subtle relative overflow-hidden">
-                    <p class="text-gray-400 font-medium text-sm text-center">Reemplazar con Captura del Flujo de Trabajo (Drive / PPT antiguo)</p>
+                <div class="w-2/3 h-[460px] bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-center p-12 shadow-subtle relative overflow-hidden">
+                    <div class="space-y-5 max-w-lg">
+                        <div class="flex items-center gap-4 p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+                            <span class="text-red-500 font-bold text-xl">✕</span>
+                            <div>
+                                <h5 class="font-semibold text-gray-900 text-sm">Cumplimiento Difícil de Comprobar</h5>
+                                <p class="text-xs text-gray-500 mt-0.5">Era complejo verificar que cada actividad programada por el supervisor realmente se hizo.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+                            <span class="text-red-500 font-bold text-xl">✕</span>
+                            <div>
+                                <h5 class="font-semibold text-gray-900 text-sm">Información Dispersa</h5>
+                                <p class="text-xs text-gray-500 mt-0.5">Fotos, estadísticas y programación de actividades vivían en lugares distintos.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+                            <span class="text-purple-600 font-bold text-xl">✓</span>
+                            <div>
+                                <h5 class="font-semibold text-purple-900 text-sm">Con EpsonReport</h5>
+                                <p class="text-xs text-purple-700 mt-0.5">El promotor registra y sube sus fotos desde el celular, el supervisor aprueba y la presentación oficial de Epson se genera sola.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- SLIDE 3: LA SOLUCIÓN -->
+        <!-- SLIDE 3: ACCESO Y SEGURIDAD (FOTO 1: LOGIN) -->
         <div class="slide" id="slide-3">
-            <div class="flex justify-between items-center mb-10 relative z-10">
+            <div class="flex justify-between items-center mb-6 relative z-10">
                 <div class="text-xs font-bold tracking-widest text-purple-600 uppercase">EpsonReport</div>
-                <div class="text-xs font-medium text-gray-400">La Plataforma</div>
+                <div class="text-xs font-medium text-gray-400">Acceso al Sistema</div>
             </div>
             
-            <div class="flex-1 flex gap-16 items-center relative z-10">
-                <div class="w-1/3">
-                    <h2 class="text-3xl font-bold text-gray-950 mb-8">Ecosistema Centralizado</h2>
-                    <div class="space-y-8">
+            <div class="flex-1 flex gap-10 items-center relative z-10">
+                <div class="w-[30%] shrink-0">
+                    <h2 class="text-3xl font-bold text-gray-950 mb-6">Ingreso Seguro para el Equipo</h2>
+                    <div class="space-y-6">
                         <div>
-                            <div class="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wider rounded mb-2">Ingreso Inmediato</div>
-                            <h4 class="text-lg font-semibold text-gray-900">Validación Fotográfica In-Situ</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">El promotor reporta desde la tienda, subiendo evidencia inmediata e inalterable.</p>
+                            <div class="inline-block px-2.5 py-0.5 bg-purple-100 text-purple-700 text-[11px] font-bold uppercase tracking-wider rounded mb-2">Ingreso Protegido</div>
+                            <h4 class="text-base font-semibold text-gray-900">Acceso para Promotores y Supervisores</h4>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-1">Cada promotor y supervisor entra con su propio usuario y ve solo lo que le corresponde.</p>
                         </div>
                         <div>
-                            <div class="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-wider rounded mb-2">Control Directivo</div>
-                            <h4 class="text-lg font-semibold text-gray-900">Monitoreo Operativo Total</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Los supervisores auditan y aprueban trazabilidad al instante, sin depender de descargas ni cruces en Excel.</p>
+                            <div class="inline-block px-2.5 py-0.5 bg-gray-100 text-gray-700 text-[11px] font-bold uppercase tracking-wider rounded mb-2">Control en Tienda</div>
+                            <h4 class="text-base font-semibold text-gray-900">Seguimiento de Actividades</h4>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-1">Cada registro queda con su responsable, su fecha y su punto de venta.</p>
                         </div>
                     </div>
                 </div>
                 
-                <div class="w-2/3 flex justify-center items-center relative group">
+                <div class="w-[70%] flex justify-center items-center relative group">
                     <div class="absolute inset-0 bg-purple-600/5 rounded-2xl blur-xl transform group-hover:scale-105 transition-transform duration-500"></div>
-                    <img src="app_screenshot.png" alt="Dashboard EpsonReport" class="rounded-xl shadow-2xl border border-gray-200/50 max-h-[500px] w-auto object-contain transform group-hover:scale-[1.02] transition-transform duration-500 relative z-10">
+                    <img src="assets/img/presentacion/app_login.png" alt="Login EpsonReport" class="rounded-xl shadow-2xl border border-gray-200/60 w-full max-h-[500px] object-contain transform group-hover:scale-[1.01] transition-transform duration-500 relative z-10">
                 </div>
             </div>
         </div>
 
-        <!-- SLIDE 4: IMPACTO -->
+        <!-- SLIDE 4: LA PLATAFORMA (FOTO 2: FORMULARIO Y ESTADÍSTICAS) -->
         <div class="slide" id="slide-4">
-            <div class="flex justify-between items-center mb-10 relative z-10">
+            <div class="flex justify-between items-center mb-6 relative z-10">
                 <div class="text-xs font-bold tracking-widest text-purple-600 uppercase">EpsonReport</div>
-                <div class="text-xs font-medium text-gray-400">Resultados del Negocio</div>
+                <div class="text-xs font-medium text-gray-400">Uso en Tienda</div>
             </div>
             
-            <div class="flex-1 flex gap-16 items-center relative z-10">
-                <div class="w-1/3">
-                    <h2 class="text-3xl font-bold text-gray-950 mb-8">Resultados de Negocio</h2>
+            <div class="flex-1 flex gap-10 items-center relative z-10">
+                <div class="w-[30%] shrink-0">
+                    <h2 class="text-3xl font-bold text-gray-950 mb-6">Llenado Fácil y Datos en Vivo</h2>
                     <div class="space-y-6">
-                        <div class="border-b border-gray-100 pb-6">
-                            <h4 class="text-lg font-semibold text-gray-900">Recuperación de Horas-Hombre</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Transformamos semanas de recolección manual de evidencias en reportes generados automáticamente.</p>
+                        <div>
+                            <div class="inline-block px-2.5 py-0.5 bg-purple-100 text-purple-700 text-[11px] font-bold uppercase tracking-wider rounded mb-2">Paso a Paso</div>
+                            <h4 class="text-base font-semibold text-gray-900">Carga Rápida desde la Tienda</h4>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-1">El promotor completa 4 pasos claros (Datos de la actividad, Cobertura, Embudo de clientes y Modelos), sube sus fotos y envía.</p>
                         </div>
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-900">Escalabilidad Dinámica</h4>
-                            <p class="text-gray-600 text-sm leading-relaxed mt-1">Adaptación inmediata a nuevos requerimientos del cliente sin incurrir en mayores costos de desarrollo.</p>
+                            <div class="inline-block px-2.5 py-0.5 bg-gray-100 text-gray-700 text-[11px] font-bold uppercase tracking-wider rounded mb-2">Cálculo Automático</div>
+                            <h4 class="text-base font-semibold text-gray-900">Resultados al Instante</h4>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-1">Mientras llena, la pantalla calcula cobertura, interacciones, ventas por modelo e ingresos, sin usar Excel.</p>
                         </div>
                     </div>
                 </div>
                 
-                <div class="w-2/3 h-[500px] placeholder-image rounded-2xl flex flex-col items-center justify-center p-8 shadow-subtle relative overflow-hidden">
-                    <p class="text-gray-400 font-medium text-sm text-center">Reemplazar con Captura de los Reportes Estadísticos</p>
+                <div class="w-[70%] flex justify-center items-center relative group">
+                    <div class="absolute inset-0 bg-purple-600/5 rounded-2xl blur-xl transform group-hover:scale-105 transition-transform duration-500"></div>
+                    <img src="assets/img/presentacion/app_formulario_estadisticas.png" alt="Formulario y Estadísticas EpsonReport" class="rounded-xl shadow-2xl border border-gray-200/60 w-full max-h-[500px] object-contain transform group-hover:scale-[1.01] transition-transform duration-500 relative z-10">
                 </div>
             </div>
+        </div>
+
+        <!-- SLIDE 5: SUPERVISIÓN Y REPORTES (FOTO 3: CALENDARIO) -->
+        <div class="slide" id="slide-5">
+            <div class="flex justify-between items-center mb-6 relative z-10">
+                <div class="text-xs font-bold tracking-widest text-purple-600 uppercase">EpsonReport</div>
+                <div class="text-xs font-medium text-gray-400">Supervisión y Reportes</div>
+            </div>
             
-            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10">
-                <div>EpsonReport · Resumen Ejecutivo</div>
-                <div class="flex items-center gap-2">
-                    <span>Navega con las flechas del teclado o clics</span>
+            <div class="flex-1 flex gap-8 items-center relative z-10">
+                <div class="w-[26%] shrink-0">
+                    <h2 class="text-2xl font-bold text-gray-950 mb-5 leading-snug">Programación, Seguimiento y Descarga de PPT</h2>
+                    <div class="space-y-5">
+                        <div>
+                            <div class="inline-block px-2.5 py-0.5 bg-purple-100 text-purple-700 text-[11px] font-bold uppercase tracking-wider rounded mb-1.5">En Vivo</div>
+                            <h4 class="text-sm font-semibold text-gray-900">Control de Tiendas y Promotores</h4>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">El supervisor programa el calendario de activaciones por punto de venta y promotor, y ve cuántas se cumplieron y cuáles faltan.</p>
+                        </div>
+                        <div>
+                            <div class="inline-block px-2.5 py-0.5 bg-green-100 text-green-700 text-[11px] font-bold uppercase tracking-wider rounded mb-1.5">1 Solo Clic</div>
+                            <h4 class="text-sm font-semibold text-gray-900">Descargar Presentación Lista</h4>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Al cerrar el calendario, el sistema arma la presentación de PowerPoint con el formato oficial de Epson, con fotos y cifras.</p>
+                        </div>
+                    </div>
                 </div>
+                
+                <!-- Imagen de Calendario GRANDE -->
+                <div class="w-[74%] flex justify-center items-center relative group">
+                    <div class="absolute inset-0 bg-purple-600/5 rounded-2xl blur-xl transform group-hover:scale-105 transition-transform duration-500"></div>
+                    <img src="assets/img/presentacion/app_calendario.png" alt="Calendario de Activaciones y Descarga de PPT" class="rounded-xl shadow-2xl border border-gray-200/60 w-full max-h-[500px] object-contain transform group-hover:scale-[1.01] transition-transform duration-500 relative z-10">
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 6: RESULTADOS Y RETORNO DE INVERSIÓN -->
+        <div class="slide" id="slide-6">
+            <div class="flex justify-between items-center mb-6 relative z-10">
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-[11px] font-bold tracking-wider uppercase border border-purple-200">
+                        Resultados y Beneficios
+                    </span>
+                    <span class="text-xs text-gray-400">· Impacto Operativo para Epson y Lucky</span>
+                </div>
+                <div class="text-xs font-semibold text-gray-400">06 / 06</div>
+            </div>
+            
+            <div class="flex-1 flex flex-col justify-center relative z-10">
+                <h2 class="text-4xl font-bold tracking-tight text-gray-950 mb-3">Menos Trabajo para Lucky, Reportes Listos para Epson</h2>
+                <p class="text-gray-600 text-base max-w-4xl mb-7 leading-relaxed">
+                    EpsonReport reúne en un solo lugar el registro, la aprobación y la presentación de cada actividad de campo.
+                </p>
+
+                <!-- 3 Tarjetas Claras (Se eliminó la métrica falsa) -->
+                <div class="grid grid-cols-3 gap-6 mb-7">
+                    <!-- Tarjeta 1 -->
+                    <div class="p-6 rounded-2xl bg-white border border-gray-200 shadow-subtle hover:border-purple-300 transition-colors">
+                        <div class="text-4xl font-extrabold text-purple-700 mb-2">8</div>
+                        <div class="text-sm font-bold text-gray-900 mb-1.5">Tipos de Actividad</div>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            Activaciones, Capacitaciones, Epson Day, Ferias, Exhibiciones, POP y Competencia, cada una con su formato.
+                        </p>
+                    </div>
+
+                    <!-- Tarjeta 2 -->
+                    <div class="p-6 rounded-2xl bg-white border border-gray-200 shadow-subtle hover:border-blue-300 transition-colors">
+                        <div class="text-4xl font-extrabold text-blue-700 mb-2">1 Clic</div>
+                        <div class="text-sm font-bold text-gray-900 mb-1.5">Presentación en PowerPoint</div>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            El archivo oficial se descarga armado con las fotos y los datos del reporte.
+                        </p>
+                    </div>
+
+                    <!-- Tarjeta 3 -->
+                    <div class="p-6 rounded-2xl bg-white border border-gray-200 shadow-subtle hover:border-purple-300 transition-colors">
+                        <div class="text-4xl font-extrabold text-purple-600 mb-2">En Vivo</div>
+                        <div class="text-sm font-bold text-gray-900 mb-1.5">Seguimiento del Equipo</div>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            Supervisores y administradores ven los avances y los registros nuevos sin recargar la página.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Banner inferior con botón de descarga -->
+                <div class="p-4 bg-purple-50/80 border border-purple-200 rounded-xl flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-bold text-purple-950">EpsonReport · Plataforma de Reportes de Campo</div>
+                        <div class="text-xs text-purple-700 mt-0.5">Desarrollado para facilitar el trabajo de Grupo Lucky y Epson Ecuador.</div>
+                    </div>
+                    </div>
+            </div>
+            
+            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10 pt-4">
+                <div>EpsonReport · Conclusiones y Beneficios</div>
+                <div>© PromoLucky & Epson 2026</div>
             </div>
         </div>
 

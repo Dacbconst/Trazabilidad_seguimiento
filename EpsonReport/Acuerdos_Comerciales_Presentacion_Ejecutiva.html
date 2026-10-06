@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acuerdos Comerciales (ADN) - Presentación Ejecutiva</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        alicorp: {
+                            red: '#e11931',
+                            darkRed: '#be1226',
+                            blue: '#1e3a8a',
+                            lightBlue: '#3b82f6',
+                            accent: '#f97316'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'subtle': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'card': '0 10px 25px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02)',
+                        'floating': '0 20px 35px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #030712;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #111827;
+        }
+        #presentation-container {
+            width: 96%;
+            max-width: 1400px;
+            aspect-ratio: 16 / 9;
+            background: #ffffff;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            border-radius: 12px;
+        }
+        .slide {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            padding: 2.5rem 3.5rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease-in-out, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(10px);
+            display: flex;
+            flex-direction: column;
+        }
+        .slide.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        .nav-zone {
+            position: absolute; top: 0; height: 100%; width: 6%; z-index: 50; cursor: pointer;
+        }
+        .nav-left { left: 0; }
+        .nav-right { right: 0; }
+        .nav-zone:hover { background: rgba(0,0,0,0.015); }
+        #progress-bar {
+            position: absolute; bottom: 0; left: 0; height: 4px; background: #e11931; transition: width 0.3s ease; z-index: 60;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="presentation-container">
+        <!-- Círculos de degradado corporativo sutil -->
+        <div class="absolute -top-[20%] -left-[10%] w-[650px] h-[650px] bg-red-600/10 rounded-full blur-[130px] pointer-events-none"></div>
+        <div class="absolute -bottom-[20%] -right-[10%] w-[650px] h-[650px] bg-purple-600/15 rounded-full blur-[130px] pointer-events-none"></div>
+        
+        <div class="nav-zone nav-left" onclick="prevSlide()" title="Anterior"></div>
+        <div class="nav-zone nav-right" onclick="nextSlide()" title="Siguiente"></div>
+        <div id="progress-bar"></div>
+
+        <!-- ======================================================== -->
+        <!-- SLIDE 1: PORTADA                                         -->
+        <!-- ======================================================== -->
+        <div class="slide active" id="slide-1">
+            <div class="flex justify-between items-center mb-10 relative z-10">
+                <!-- Lado Izquierdo: Icono Alicorp y Tag de Proyecto -->
+                <div class="flex items-center gap-3.5">
+                    <img src="assets/img/presentacion/logo_alicorp.png" 
+                         onerror="this.onerror=null; this.src='assets/img/presentacion_acuerdos/logo_alicorp.png'" 
+                         alt="Alicorp" 
+                         class="h-9 w-auto object-contain">
+                    <span class="px-3 py-1 rounded-full bg-red-50 text-alicorp-red text-xs font-bold tracking-wider uppercase border border-red-100">
+                        Proyecto 2 · ADN Alicorp
+                    </span>
+                </div>
+
+                <!-- Lado Derecho: Empresa y Logo Grupo Lucky -->
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-400 font-medium">Jabonería Wilson / Alicorp Ecuador</span>
+                    <div class="w-px h-5 bg-gray-200"></div>
+                    <img src="assets/img/presentacion/lucky_logo.png" 
+                         onerror="this.onerror=null; this.src='assets/img/presentacion_acuerdos/lucky_logo.png'" 
+                         alt="Grupo Lucky" 
+                         class="h-8 w-auto object-contain">
+                </div>
+            </div>
+            
+            <div class="flex-1 flex flex-col justify-center max-w-4xl relative z-10">
+                <h1 class="text-6xl lg:text-7xl font-bold tracking-tight text-gray-950 mb-6 leading-tight">
+                    Acuerdos Comerciales
+                </h1>
+                <p class="text-2xl lg:text-3xl font-light text-gray-600 mb-8 leading-relaxed max-w-3xl">
+                    Control total del Acta de Compromiso: se crea, se firma y se sigue en un solo lugar, con visibilidad para todo el equipo comercial.
+                </p>
+                <div class="flex flex-wrap gap-3">
+                    <span class="px-4 py-2 bg-red-50 text-alicorp-red text-xs font-semibold rounded-full border border-red-100">Canal Directo y Distribuidores</span>
+                    <span class="px-4 py-2 bg-purple-50 text-purple-700 text-xs font-semibold rounded-full border border-purple-100">Seguimiento del Equipo</span>
+                    <span class="px-4 py-2 bg-green-50 text-green-700 text-xs font-semibold rounded-full border border-green-100">Firma Física, Control Digital</span>
+                </div>
+            </div>
+            
+            <div class="mt-auto grid grid-cols-3 gap-8 pt-6 border-t border-gray-100 relative z-10">
+                <div>
+                    <div class="text-3xl font-extrabold text-alicorp-red">Un Solo Lugar</div>
+                    <div class="text-xs text-gray-500 mt-1">Todas las Actas y su estado de firma, por asesor y cliente</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-extrabold text-purple-700">Más Rápido</div>
+                    <div class="text-xs text-gray-500 mt-1">El Acta sale en PDF lista para firmar, sin armar documentos</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-extrabold text-emerald-600">Sin Cruces</div>
+                    <div class="text-xs text-gray-500 mt-1">Quién cumple su meta se calcula al cargar la venta real</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SLIDE 2: EL PROBLEMA (CONTEXTO OPERATIVO REAL)           -->
+        <!-- ======================================================== -->
+        <div class="slide" id="slide-2">
+            <div class="flex justify-between items-center mb-6 relative z-10">
+                <div class="text-xs font-bold tracking-widest text-alicorp-red uppercase">Acuerdos Comerciales</div>
+                <div class="text-xs font-medium text-gray-400">Contexto y Desafío Operativo</div>
+            </div>
+            
+            <div class="flex-1 flex gap-10 items-center relative z-10">
+                <div class="w-1/3">
+                    <h2 class="text-3xl font-bold text-gray-950 mb-5 leading-tight">Así funcionaba el proceso de acuerdos antes</h2>
+                    <div class="space-y-5 border-l-2 border-red-100 pl-5">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Redactar Cada Acuerdo Tomaba Tiempo</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Preparar cada acuerdo comercial consumía bastante tiempo, tanto para Directo como para Distribuidores.</p>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Cuotas y Rebate Llenados en Cada Acta</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">El asesor o el jefe de agencia tenía que llenar las cuotas, el rebate y la participación en cada acuerdo.</p>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Un Excel para Cada Cierre</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Las cuotas del acuerdo estaban en un Excel y la venta real se cargaba desde los cubos para ver el cumplimiento.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-2/3 bg-slate-50 border border-slate-200 rounded-2xl p-8 shadow-subtle relative overflow-hidden">
+                    <div class="space-y-4 max-w-xl">
+                        <div class="flex items-center gap-4 p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+                            <span class="text-red-500 font-bold text-xl">✕</span>
+                            <div>
+                                <h4 class="font-semibold text-gray-900 text-sm">Firmas sin Dónde Guardarse</h4>
+                                <p class="text-xs text-gray-500 mt-0.5">El Acta se compartía por correo o WhatsApp y no había un lugar donde el asesor subiera la versión firmada.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+                            <span class="text-red-500 font-bold text-xl">✕</span>
+                            <div>
+                                <h4 class="font-semibold text-gray-900 text-sm">Seguimiento Pasando Archivos</h4>
+                                <p class="text-xs text-gray-500 mt-0.5">Ventas y cartera se completaban en el Excel y el archivo se pasaba a otra persona para dar seguimiento a la visibilidad.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                            <span class="text-alicorp-red font-bold text-xl">✓</span>
+                            <div>
+                                <h4 class="font-semibold text-red-950 text-sm">Con el Sistema ADN</h4>
+                                <p class="text-xs text-red-800 mt-0.5">Un solo flujo: las cuotas llegan cargadas, el Acta sale lista para firmar y el seguimiento se arma solo.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10 pt-2">
+                <span>Acuerdos Comerciales · Problemática y Diagnóstico</span>
+                <span>Navega con flechas del teclado ← →</span>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SLIDE 3: FOTOS 1 Y 2 (LOGIN + REGISTRAR ACUERDO PDV)     -->
+        <!-- ======================================================== -->
+        <div class="slide" id="slide-3">
+            <div class="flex justify-between items-center mb-5 relative z-10">
+                <div class="text-xs font-bold tracking-widest text-alicorp-red uppercase">Acuerdos Comerciales</div>
+                <div class="text-xs font-medium text-gray-400">Ingreso y Creación de Acuerdos (Fotos 1 y 2)</div>
+            </div>
+            
+            <div class="flex-1 flex gap-8 items-center relative z-10">
+                <!-- Bloque de Comentario a la izquierda (28%) -->
+                <div class="w-[28%] shrink-0">
+                    <h2 class="text-2xl font-bold text-gray-950 mb-5 leading-snug">Ingreso y Registro de Metas</h2>
+                    <div class="space-y-4">
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div class="inline-block px-2 py-0.5 bg-blue-100 text-alicorp-blue text-[11px] font-bold uppercase rounded mb-1.5">Foto 1 · Acceso Seguro</div>
+                            <h3 class="text-sm font-semibold text-gray-900">Panel de Gestión Comercial</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Cada asesor y supervisor entra con su cuenta personal para ver solo sus clientes y tiendas asignadas.</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div class="inline-block px-2 py-0.5 bg-red-100 text-alicorp-red text-[11px] font-bold uppercase rounded mb-1.5">Foto 2 · Registro Guiado</div>
+                            <h3 class="text-sm font-semibold text-gray-900">Metas y Espacios en Tienda</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Selección de cliente, trimestre (Q1 a Q4) y metas de compra por categoría. El % de rebate aparece bloqueado automáticamente para evitar errores.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 2 FOTOS A LA DERECHA (72%) - MÁS GRANDES Y SIN ESPACIO EN BLANCO -->
+                <div class="w-[72%] flex flex-col gap-3 justify-center items-center relative">
+                    <div class="absolute inset-0 bg-red-600/5 rounded-2xl blur-xl pointer-events-none"></div>
+                    <!-- Foto 1: Login -->
+                    <img src="assets/img/presentacion/app_login.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_login.png'" 
+                         alt="Iniciar Sesión" 
+                         class="max-h-[268px] w-auto rounded-xl shadow-xl border border-gray-200/90 object-contain hover:scale-[1.01] transition-transform relative z-10">
+                    <!-- Foto 2: Registrar Acuerdo PDV -->
+                    <img src="assets/img/presentacion/app_registro_acuerdo.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_registro_acuerdo.png'" 
+                         alt="Registrar Acuerdo PDV" 
+                         class="max-h-[275px] w-auto rounded-xl shadow-xl border border-gray-200/90 object-contain hover:scale-[1.01] transition-transform relative z-10">
+                </div>
+            </div>
+            
+            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10 pt-2">
+                <span>Acuerdos Comerciales · Módulo de Ingreso y Creación</span>
+                <span>Diapositiva 3 de 6</span>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SLIDE 4: FOTOS 3 Y 4 (HISTORIAL + SEGUIMIENTO DE EQUIPO) -->
+        <!-- ======================================================== -->
+        <div class="slide" id="slide-4">
+            <div class="flex justify-between items-center mb-5 relative z-10">
+                <div class="text-xs font-bold tracking-widest text-alicorp-red uppercase">Acuerdos Comerciales</div>
+                <div class="text-xs font-medium text-gray-400">Control de Firmas y Equipo (Fotos 3 y 4)</div>
+            </div>
+            
+            <div class="flex-1 flex gap-8 items-center relative z-10">
+                <!-- Bloque de Comentario a la izquierda (28%) -->
+                <div class="w-[28%] shrink-0">
+                    <h2 class="text-2xl font-bold text-gray-950 mb-5 leading-snug">Control de Firmas y Asesores</h2>
+                    <div class="space-y-4">
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div class="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[11px] font-bold uppercase rounded mb-1.5">Foto 3 · Historial Oficial</div>
+                            <h3 class="text-sm font-semibold text-gray-900">Código Único y Subida de Firma</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Cada acuerdo genera su código (#ADN-2026-0001). Muestra claramente si la firma está pendiente o firmada, con botón para subir la foto del documento.</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div class="inline-block px-2 py-0.5 bg-blue-100 text-alicorp-blue text-[11px] font-bold uppercase rounded mb-1.5">Foto 4 · Tablero de Equipo</div>
+                            <h3 class="text-sm font-semibold text-gray-900">Avance por Miembro Comercial</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">El supervisor ve en una sola pantalla cuántas actas ha creado cada asesor, cuántas ya están firmadas y cuántas le faltan por gestionar.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 2 FOTOS A LA DERECHA (72%) - MÁS GRANDES Y SIN ESPACIO EN BLANCO -->
+                <div class="w-[72%] flex flex-col gap-3 justify-center items-center relative">
+                    <div class="absolute inset-0 bg-yellow-600/5 rounded-2xl blur-xl pointer-events-none"></div>
+                    <!-- Foto 3: Historial de Acuerdos -->
+                    <img src="assets/img/presentacion/app_historial_acuerdos.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_historial_acuerdos.png'" 
+                         alt="Historial de Acuerdos" 
+                         class="max-h-[268px] w-auto rounded-xl shadow-xl border border-gray-200/90 object-contain hover:scale-[1.01] transition-transform relative z-10">
+                    <!-- Foto 4: Seguimiento de Equipo -->
+                    <img src="assets/img/presentacion/app_seguimiento_equipo.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_seguimiento_equipo.png'" 
+                         alt="Seguimiento de Equipo" 
+                         class="max-h-[275px] w-auto rounded-xl shadow-xl border border-gray-200/90 object-contain hover:scale-[1.01] transition-transform relative z-10">
+                </div>
+            </div>
+            
+            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10 pt-2">
+                <span>Acuerdos Comerciales · Módulo de Control y Seguimiento</span>
+                <span>Diapositiva 4 de 6</span>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SLIDE 5: FOTOS 5 Y 6 (RESUMEN + CUMPLIMIENTO DE CUOTA)   -->
+        <!-- ======================================================== -->
+        <div class="slide" id="slide-5">
+            <div class="flex justify-between items-center mb-5 relative z-10">
+                <div class="text-xs font-bold tracking-widest text-alicorp-red uppercase">Acuerdos Comerciales</div>
+                <div class="text-xs font-medium text-gray-400">Espacios y Evaluación de Cuotas (Fotos 5 y 6)</div>
+            </div>
+            
+            <div class="flex-1 flex gap-8 items-center relative z-10">
+                <!-- Bloque de Comentario a la izquierda (28%) -->
+                <div class="w-[28%] shrink-0">
+                    <h2 class="text-2xl font-bold text-gray-950 mb-5 leading-snug">Espacios y Quién Gana la Cuota</h2>
+                    <div class="space-y-4">
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div class="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-[11px] font-bold uppercase rounded mb-1.5">Foto 5 · Resumen Negociado</div>
+                            <h3 class="text-sm font-semibold text-gray-900">Control de Espacios en Tienda</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Resumen de cabeceras, rumas y perchas negociadas por asesor, con el valor estimado de ganancia para cada categoría (Crema, Líquidos, etc.).</p>
+                        </div>
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                            <div class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-[11px] font-bold uppercase rounded mb-1.5">Foto 6 · Evaluación de Cuota</div>
+                            <h3 class="text-sm font-semibold text-gray-900">Cálculo Automático: Gana o No Gana</h3>
+                            <p class="text-gray-600 text-xs leading-relaxed mt-0.5">Se sube el archivo de ventas reales del trimestre y el sistema calcula de inmediato: marca con verde <strong>GANA</strong> o con rojo <strong>NO GANA</strong> según el cumplimiento.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 2 FOTOS A LA DERECHA (72%) - MÁS GRANDES Y SIN ESPACIO EN BLANCO -->
+                <div class="w-[72%] flex flex-col gap-3 justify-center items-center relative">
+                    <div class="absolute inset-0 bg-green-600/5 rounded-2xl blur-xl pointer-events-none"></div>
+                    <!-- Foto 5: Resumen de Negociación -->
+                    <img src="assets/img/presentacion/app_resumen_negociacion.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_resumen_negociacion.png'" 
+                         alt="Resumen de Negociación" 
+                         class="max-h-[268px] w-auto rounded-xl shadow-xl border border-gray-200/90 object-contain hover:scale-[1.01] transition-transform relative z-10">
+                    <!-- Foto 6: Cumplimiento de Cuota -->
+                    <img src="assets/img/presentacion/app_cumplimiento_cuota.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_cumplimiento_cuota.png'" 
+                         alt="Cumplimiento de Cuota" 
+                         class="max-h-[275px] w-auto rounded-xl shadow-xl border border-gray-200/90 object-contain hover:scale-[1.01] transition-transform relative z-10">
+                </div>
+            </div>
+            
+            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10 pt-2">
+                <span>Acuerdos Comerciales · Módulo de Liquidación y Ventas Reales</span>
+                <span>Diapositiva 5 de 6</span>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SLIDE 6: FOTO 7 (REPOSITORIOS) + BENEFICIOS PRINCIPALES  -->
+        <!-- ======================================================== -->
+        <div class="slide" id="slide-6">
+            <div class="flex justify-between items-center mb-5 relative z-10">
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 rounded-full bg-red-50 text-alicorp-red text-[11px] font-bold tracking-wider uppercase border border-red-100">
+                        Catálogo Maestro y Beneficios
+                    </span>
+                    <span class="text-xs text-gray-400">· Jabonería Wilson & Alicorp</span>
+                </div>
+                <div class="text-xs font-semibold text-gray-400">06 / 06</div>
+            </div>
+            
+            <div class="flex-1 flex gap-8 items-center relative z-10">
+                <!-- Columna Izquierda: Foto 7 (Repositorios) grande y completa (60%) -->
+                <div class="w-[50%] flex flex-col justify-center items-center relative">
+                    <div class="absolute inset-0 bg-blue-600/5 rounded-2xl blur-xl pointer-events-none"></div>
+                    <img src="assets/img/presentacion/app_repositorios.png" 
+                         onerror="this.src='assets/img/presentacion_acuerdos/app_repositorios.png'" 
+                         alt="Catálogo Maestro y Repositorios" 
+                         class="w-full max-h-[495px] object-contain rounded-xl shadow-2xl border border-gray-200/90 hover:scale-[1.01] transition-transform relative z-10">
+                    <div class="text-[11px] text-gray-500 mt-2 text-center relative z-10">
+                        Porcentajes oficiales de rebate y cuotas trimestrales fijadas por ciudad, canal y marca.
+                    </div>
+                </div>
+
+                <!-- Columna Derecha: Beneficios del Negocio y Botón PPTX (42%) -->
+                <div class="w-[50%] flex flex-col justify-between h-full py-1">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-gray-950 mb-1">Beneficios para el Negocio</h2>
+                        <p class="text-gray-600 text-xs leading-relaxed mb-4">
+                            Cada Acta de Compromiso se registra, se genera en PDF y se le da seguimiento hasta la firma, todo en un solo lugar.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-alicorp-red leading-none">CONTROL</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Firmas siempre a la vista</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">Estado de cada Acta a la vista: firmada, pendiente o vencida, con foto de respaldo.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-blue-700 leading-none">RAPIDEZ</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Actas listas para firmar</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">El Acta sale en PDF directo desde el sistema, sin armar documentos a mano.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-emerald-600 leading-none">EQUIPO</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Seguimiento de cada asesor</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">El supervisor ve cuántas Actas generó cada asesor y cuáles faltan por firmar.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-alicorp-red leading-none">AVISOS</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Nada se queda sin firmar</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">El sistema avisa al asesor antes de que venza el plazo de la firma.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-blue-700 leading-none">AHORRO</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Menos digitación</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">Las cuotas del trimestre llegan cargadas al asesor; solo completa lo que falta.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-emerald-600 leading-none">CUMPLIMIENTO</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Cumplimiento sin cruzar Excel</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">Al cargar la venta real se calcula quién cumple su meta.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-alicorp-red leading-none">LIQUIDACIÓN</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Pagos con respaldo</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">Excel con metas y resultados por cliente, listo para revisar y liquidar.</p>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-white border border-gray-200 shadow-subtle">
+                                <div class="text-[11px] font-extrabold tracking-wider text-blue-700 leading-none">2 CANALES</div>
+                                <div class="text-xs font-bold text-gray-900 mt-1.5">Directo y Distribuidor</div>
+                                <p class="text-[10.5px] text-gray-500 leading-snug mt-0.5">Dólares y cajas en el mismo sistema, cada uno con su Acta y su Excel.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Banner inferior -->
+                    <div class="p-3 bg-red-50/80 border border-red-200 rounded-xl flex items-center justify-between mt-3">
+                        <div>
+                            <div class="text-xs font-bold text-red-950">Jabonería Wilson · Alicorp Ecuador</div>
+                            <div class="text-[10px] text-red-800">Desarrollado por Grupo Lucky</div>
+                        </div>
+                        </div>
+                </div>
+            </div>
+            
+            <div class="mt-auto flex justify-between items-center text-gray-400 text-xs relative z-10 pt-2">
+                <span>Acuerdos Comerciales · Conclusiones y Beneficios</span>
+                <span>© PromoLucky & Alicorp 2026</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const progressBar = document.getElementById('progress-bar');
+        let currentSlide = 0;
+
+        function checkHash() {
+            const h = window.location.hash.toLowerCase();
+            if (h.includes('slide-')) {
+                const n = parseInt(h.replace('#slide-', ''));
+                if (!isNaN(n) && n >= 1 && n <= slides.length) currentSlide = n - 1;
+            } else if (h.startsWith('#')) {
+                const n = parseInt(h.replace('#', ''));
+                if (!isNaN(n) && n >= 1 && n <= slides.length) currentSlide = n - 1;
+            }
+        }
+        checkHash();
+
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                if(index === currentSlide) { slide.classList.add('active'); } 
+                else { slide.classList.remove('active'); }
+            });
+            progressBar.style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
+            window.location.hash = `slide-${currentSlide + 1}`;
+        }
+
+        function nextSlide() { if (currentSlide < slides.length - 1) { currentSlide++; updateSlide(); } }
+        function prevSlide() { if (currentSlide > 0) { currentSlide--; updateSlide(); } }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        window.addEventListener('hashchange', () => {
+            checkHash();
+            slides.forEach((slide, index) => {
+                if(index === currentSlide) { slide.classList.add('active'); } 
+                else { slide.classList.remove('active'); }
+            });
+            progressBar.style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
+        });
+
+        updateSlide();
+    </script>
+</body>
+</html>
