@@ -32,22 +32,28 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 			Participación de Percha
 			<span class="ac-repo-tab-count" id="repo-tab-participacion-count">—</span>
 		</button>
-		<button type="button" class="ac-repo-tab" id="repo-tab-cuotas" data-tipo="cuotas">
-			<span class="material-symbols-outlined">request_quote</span>
-			Cuotas Trimestrales
-			<span class="ac-repo-tab-count" id="repo-tab-cuotas-count">—</span>
-		</button>
 		<!-- Jerarquía de Supervisores (2026-09-24, pedido explícito) — mismas mecánicas que Rebate/Participación (subir/editar/exportar/plantilla), mapea el supervisor "de campo" del maestro de Alicorp al supervisor real que debe validar/recibir sus Actas. Ver supervisorRealDeJerarquia() en functions.php. -->
 		<button type="button" class="ac-repo-tab" id="repo-tab-jerarquia" data-tipo="jerarquia">
 			<span class="material-symbols-outlined">account_tree</span>
 			Jerarquía de Supervisores
 			<span class="ac-repo-tab-count" id="repo-tab-jerarquia-count">—</span>
 		</button>
+		<button type="button" class="ac-repo-tab" id="repo-tab-cuotas" data-tipo="cuotas">
+			<span class="material-symbols-outlined">request_quote</span>
+			Cuotas Trimestrales
+			<span class="ac-repo-tab-count" id="repo-tab-cuotas-count">—</span>
+		</button>
 		<!-- Acuerdo Completo (2026-10-03, pedido explícito): copia funcional de Cuotas Trimestrales (mismas acciones — canal, Pendientes de Asignar, Resumen, Descargar Formato), pero genera Acuerdos NUEVOS sobre su propia tabla (repositorio_acuerdo_completo_linea), sin relación con Cuotas Trimestrales — el Excel acepta, además de la Meta de Compras, Cabecera/Ruma/Percha ya completos en la misma fila. Ver includes/repositorio_import.php. -->
 		<button type="button" class="ac-repo-tab" id="repo-tab-acuerdo_completo" data-tipo="acuerdo_completo">
 			<span class="material-symbols-outlined">fact_check</span>
 			Acuerdo Completo
 			<span class="ac-repo-tab-count" id="repo-tab-acuerdo_completo-count">—</span>
+		</button>
+		<!-- Base (2026-10-06, pedido explícito): solo consulta y descarga de nuestra base propia de clientes (repositorio_clientes_propiosac), sin carga. -->
+		<button type="button" class="ac-repo-tab" id="repo-tab-base" data-tipo="base">
+			<span class="material-symbols-outlined">database</span>
+			Base
+			<span class="ac-repo-tab-count" id="repo-tab-base-count">—</span>
 		</button>
 		<!-- Indicador deslizante (2026-09-18) — posición/ancho calculados en JS,
 		     ver posicionarIndicadorTab() en repositorios.js. -->

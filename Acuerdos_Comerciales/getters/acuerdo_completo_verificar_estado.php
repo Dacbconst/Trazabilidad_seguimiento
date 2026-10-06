@@ -108,6 +108,7 @@ foreach ($filas as $fila) {
 		'estado' => $estado, 'sector_resuelto' => $sectorResuelto,
 		'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
 		'pos_id' => $posId, 'asignado_a' => $asignado['nombre'], 'tiene_cuenta' => $asignado['tiene_cuenta'],
+		'diagnostico' => $cacheDiagnostico[$clavePos] ?? null,
 	];
 }
 if ($stmtExistente) $stmtExistente->close();

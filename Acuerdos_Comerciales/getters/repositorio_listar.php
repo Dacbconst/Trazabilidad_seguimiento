@@ -17,7 +17,7 @@ $pagina   = (int) ($_GET['pg'] ?? 1);
 // Filtro de Canal (2026-09-22, pedido explícito): solo aplica a Rebate, mismo criterio que la pastilla de Canal de Historial.
 $canal    = in_array($_GET['canal'] ?? '', ['directo', 'distribuidor'], true) ? $_GET['canal'] : 'total';
 
-if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia', 'acuerdo_completo'], true)) {
+if (!in_array($tipo, ['rebate', 'participacion', 'cuotas', 'jerarquia', 'acuerdo_completo', 'base'], true)) {
 	http_response_code(400);
 	echo json_encode(['ok' => false, 'message' => 'Tipo de repositorio inválido.']);
 	exit;
@@ -32,6 +32,8 @@ if ($tipo === 'rebate') {
 	$resultado = listar_repositorio_jerarquia($mysqli, $busqueda, $pagina, 50);
 } elseif ($tipo === 'acuerdo_completo') {
 	$resultado = listar_repositorio_acuerdo_completo($mysqli, $busqueda, $pagina, 50);
+} elseif ($tipo === 'base') {
+	$resultado = listar_repositorio_base($mysqli, $busqueda, $pagina, 50);
 } else {
 	$resultado = listar_repositorio_cuotas($mysqli, $busqueda, $pagina, 50);
 }

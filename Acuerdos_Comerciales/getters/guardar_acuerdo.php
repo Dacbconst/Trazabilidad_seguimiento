@@ -132,8 +132,9 @@ if (!$existePos) {
 // Solo un Acta activa por Local+Período: "el primero que llega, gana". Los borradores quedan exentos, se bloquea recién al intentar generar de verdad.
 if ($estado !== 'borrador') {
 	$stmtDup = $mysqli->prepare(
-		"SELECT d.pos_name FROM repositorio_acuerdos a
-		 JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		"SELECT d.pos_name, pc.cliente AS cliente_propio FROM repositorio_acuerdos a
+		 LEFT JOIN repositorio_locales_supervisores_cliente d ON d.pos_id = a.pos_id
+		 LEFT JOIN repositorio_clientes_propiosac pc ON pc.pos_id = a.pos_id
 		 WHERE a.pos_id = ? AND a.anio = ? AND a.mes_inicio = ? AND a.mes_fin = ?
 		   AND a.estado NOT IN ('borrador', 'anulado')
 		   AND a.id <> ?
@@ -145,7 +146,7 @@ if ($estado !== 'borrador') {
 		$filaDup = $stmtDup->get_result()->fetch_assoc();
 		$stmtDup->close();
 		if ($filaDup) {
-			responder(false, $filaDup['pos_name'].' ya tiene un Acta generada para este trimestre.', ['duplicado' => true]);
+			responder(false, ($filaDup['pos_name'] ?? $filaDup['cliente_propio'] ?? 'Este cliente').' ya tiene un Acta generada para este trimestre.', ['duplicado' => true]);
 		}
 	}
 }
