@@ -10741,6 +10741,24 @@ todos los archivos tocados (`includes/functions.php`,
 `assets/js/repositorios.js`). **Todavía sin probar subiendo un archivo real desde
 el navegador** — toda la verificación de hoy fue simulada en modo solo lectura.
 
+### 2026-10-06 — backfill falló (error 1062) + toda la base propia pasa a PDVAC
+
+El usuario corrió el backfill y el Paso 3 dio `Duplicate entry
+'PDVAC0006-BARRA-BARRA-MACHO-4-2026' for key idx_pos_sector_periodo`: CHASI ya
+estaba registrado como `PDVAC0006` con filas resueltas en Cuotas, el Paso 2 lo
+volvió a insertar y el Paso 3 intentó poner `PDVAC0006` a filas `pendiente_match`
+que repetían la misma clave (pos_id, sector, subcategoria, marca, trimestre, anio).
+
+Además el usuario pidió que **todos** los clientes de `repositorio_clientes_propiosac`
+usen el formato `PDVAC0000` (no conservar EPV/EPVD). Script nuevo
+`datos/sql/fix_pdvac_2026-10-06.sql` (lo corre el usuario, Claude no): agrega
+`pos_id_alicorp` (guarda el código Alicorp original), borra el CHASI duplicado,
+completa el backfill (Cuotas + Acuerdo Completo), renombra a `PDVAC`+id y propaga
+el código nuevo a `repositorio_cuota_cliente`, `repositorio_acuerdo_completo_linea`
+y `repositorio_cumplimiento_cuota`; descarta las pendientes de CHASI que chocaban.
+Los acuerdos ya registrados (`repositorio_acuerdos`) conservan su código Alicorp.
+Sin acceso a la base desde la sesión cloud — no verificado contra datos reales.
+
 ### "Pendientes de Asignar" reactivado + modal que se desbordaba
 
 Se había ocultado el 2026-08-26 ("lo pidió rápido sin invertir tiempo en removerlo

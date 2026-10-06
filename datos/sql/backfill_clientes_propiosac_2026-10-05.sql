@@ -1,3 +1,4 @@
+-- REEMPLAZADO por fix_pdvac_2026-10-06.sql (el Paso 3 de este archivo da error 1062 y los clientes deben quedar con código PDVAC) — no volver a correr.
 -- Backfill de repositorio_clientes_propiosac a partir de lo que ya hay en Cuotas Trimestrales.
 -- Correr en HeidiSQL, en orden. Claude no ejecuta nada de esto (regla de solo lectura del repo).
 
