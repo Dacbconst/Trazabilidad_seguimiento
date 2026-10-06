@@ -39,12 +39,8 @@ if ($accion === 'descartar') {
 	responder((bool) $ok, $ok ? "$afectadas línea(s) descartada(s)." : 'No se pudo guardar.');
 }
 
-$stmt = $mysqli->prepare('SELECT 1 FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1');
-$stmt->bind_param('s', $posId);
-$stmt->execute();
-$existe = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-if (!$existe) responder(false, 'Ese pos_id no existe en el maestro de clientes.');
+// Se valida que el pos_id exista de verdad, en el maestro de Alicorp O en nuestra base propia (ver posIdValido()).
+if (!posIdValido($mysqli, $posId)) responder(false, 'Ese pos_id no existe en el maestro de clientes.');
 
 $stmt = $mysqli->prepare(
 	"UPDATE repositorio_acuerdo_completo_linea SET pos_id = ?, estado = 'pendiente_uso', actualizado_por = ? WHERE id IN ($marcadores) AND estado = 'pendiente_match'"

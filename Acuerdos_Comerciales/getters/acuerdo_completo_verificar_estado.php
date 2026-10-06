@@ -31,6 +31,7 @@ if (!$filas || $trimestre < 1 || $trimestre > 4 || $anio <= 0) {
 $cacheSector = [];
 $cachePosId  = [];
 $cacheDiagnostico = [];
+$cachePendienteCrear = [];
 $stmtExistente = $mysqli->prepare(
 	"SELECT estado FROM repositorio_acuerdo_completo_linea
 	 WHERE pos_id = ? AND tipo = 'meta_compra' AND sector = ? AND categoria = ? AND marca = ? AND trimestre = ? AND anio = ? LIMIT 1"
@@ -61,10 +62,22 @@ foreach ($filas as $fila) {
 	if (!array_key_exists($clavePos, $cachePosId)) {
 		$plan = repositorio_normalizar_texto($fila['plan'] ?? '');
 		$diagnostico = null;
-		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnostico, $usuarioSesion);
+		$pendienteCrear = false;
+		// La previsualización nunca escribe: permitirCrear=false, nunca crea un cliente propio solo por mostrar el preview.
+		$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnostico, $usuarioSesion, false, $pendienteCrear);
 		$cacheDiagnostico[$clavePos] = $diagnostico;
+		$cachePendienteCrear[$clavePos] = $pendienteCrear;
 	}
 	$posId = $cachePosId[$clavePos];
+
+	if (!$posId && !empty($cachePendienteCrear[$clavePos])) {
+		// Cliente genuinamente nuevo (ni maestro ni propios, ni nada parecido) — se registra solo al guardar, acá no hace falta alarmar.
+		$estados[] = [
+			'estado' => 'nuevo', 'sector_resuelto' => $sectorResuelto,
+			'sector_interpretado' => $sectorInterpretado, 'sector_sin_resolver' => $sectorSinResolver,
+		];
+		continue;
+	}
 
 	if (!$posId) {
 		$sugerencias = ($cacheDiagnostico[$clavePos] ?? null) === null ? sugerirClienteSimilar($mysqli, $clienteExcel, $canal) : [];

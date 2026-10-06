@@ -340,42 +340,49 @@ function crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distrib
 	return $posId;
 }
 
-// $diagnostico (por referencia, opcional): si el cliente existe pero el Distribuidor/CEDI tipeado no matchea ninguno, queda el texto real registrado en el maestro.
-function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null, &$diagnostico = null, $creadoPor = null) {
+// Usado por "Pendientes de Asignar" de Cuotas/Acuerdo Completo — solo nuestra base propia, el maestro de Alicorp ya no aplica a esos 2 repos.
+function posIdValido($mysqli, $posId) {
+	$stmt = $mysqli->prepare('SELECT 1 FROM repositorio_clientes_propiosac WHERE pos_id = ? LIMIT 1');
+	if (!$stmt) return false;
+	$stmt->bind_param('s', $posId);
+	$stmt->execute();
+	$existe = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return (bool) $existe;
+}
+
+// $diagnostico (por referencia, opcional): si el cliente existe pero el Distribuidor/CEDI tipeado no matchea ninguno, queda el texto real registrado en nuestra base propia.
+// $permitirCrear=false (previsualización): nunca escribe, aunque el cliente sería nuevo — $pendienteCrear (por referencia) queda true para que el caller lo muestre como "nuevo" sin alarmar.
+// Pedido explícito del usuario (2026-10-05): Cuotas Trimestrales y Acuerdo Completo YA NO validan contra el maestro de Alicorp (desactualizado) — solo contra nuestra base propia (repositorio_clientes_propiosac), match EXACTO siempre. El maestro real sigue intacto para Registrar (acuerdo manual), que no pasa por esta función.
+function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'directo', $distribuidorExcel = null, &$diagnostico = null, $creadoPor = null, $permitirCrear = true, &$pendienteCrear = null) {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
 	$esDistribuidor = $canal === 'distribuidor';
 	$candidatos = array_values(array_filter(maestroClientesEnMemoria($mysqli), function ($f) use ($clienteComparable, $esDistribuidor) {
-		// Fila propia (ver crearClientePropio()): match EXACTO, nunca por prefijo como el maestro real de Alicorp.
-		$coincideNombre = !empty($f['es_propio'])
-			? $f['pos_name_comparable'] === $clienteComparable
-			: strncmp($f['pos_name_comparable'], $clienteComparable, strlen($clienteComparable)) === 0;
-		if (!$coincideNombre) return false;
+		if (empty($f['es_propio']) || $f['pos_name_comparable'] !== $clienteComparable) return false;
 		return $esDistribuidor ? $f['canal'] === 'DISTRIBUIDOR' : $f['canal'] !== 'DISTRIBUIDOR';
 	}));
 
 	if (count($candidatos) === 1) return $candidatos[0]['pos_id'];
-	// Ni el maestro de Alicorp ni nuestra base propia tienen este cliente: lo creamos nosotros (pedido explícito, base de Alicorp incompleta) para que el próximo trimestre ya lo reconozca solo.
-	if (count($candidatos) === 0) return crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel, $creadoPor);
+	if (count($candidatos) === 0) {
+		// Si hay algo parecido ya registrado (típico de un typo), nunca crear un propio nuevo — que quede "sin identificar" con la misma sugerencia de siempre, para que corrijan el Excel en vez de duplicar al cliente.
+		if (sugerirClienteSimilar($mysqli, $clienteExcel, $canal)) return null;
+		// Ni el maestro de Alicorp ni nuestra base propia tienen este cliente: lo creamos nosotros (pedido explícito, base de Alicorp incompleta) para que el próximo trimestre ya lo reconozca solo.
+		if (!$permitirCrear) { $pendienteCrear = true; return null; }
+		return crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distribuidorExcel, $creadoPor);
+	}
 
-	if ($esDistribuidor) {
-		if (!$distribuidorExcel) return null;
-		$distribuidorComparable = repositorio_texto_comparable($distribuidorExcel);
-		$desempatados = array_values(array_filter($candidatos, fn($f) => $f['tipo_distribuidor_comparable'] === $distribuidorComparable));
-		if (!$desempatados) {
-			// Distribuidor no coincide pero el cliente sí matcheó por nombre+canal: se registra igual, sin inventar pos_id (pedido explícito).
-			$diagnostico = ['campo' => 'distribuidor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'tipo_distribuidor')))];
-			$desempatados = $candidatos;
-		}
-	} else {
-		if (!$cediExcel) return null;
-		$cediComparable = repositorio_texto_comparable($cediExcel);
-		$desempatados = array_values(array_filter($candidatos, fn($f) => $f['supervisor_comparable'] === $cediComparable));
-		if (!$desempatados) $diagnostico = ['campo' => 'supervisor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'supervisor')))];
+	// Desempate por Ciudad en los 2 canales (el Distribuidor/Empresa varía con el tiempo, la Ciudad no) — $cediExcel ya trae la Ciudad en Distribuidor también.
+	if (!$cediExcel) return null;
+	$cediComparable = repositorio_texto_comparable($cediExcel);
+	$desempatados = array_values(array_filter($candidatos, fn($f) => $f['supervisor_comparable'] === $cediComparable));
+	if (!$desempatados) {
+		// Nombre matchea pero la Ciudad no: se registra igual (nunca bloquea el guardado), el diagnóstico avisa en la alerta de siempre con la Ciudad real para que el analista la corrija en el Excel.
+		$diagnostico = ['campo' => 'supervisor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'supervisor')))];
+		$desempatados = $candidatos;
 	}
 
 	if (count($desempatados) === 1) return $desempatados[0]['pos_id'];
-	if (count($desempatados) === 0) return null;
-	// Duplicado real del maestro (mismo nombre+canal+distribuidor/supervisor): toma el registro más reciente.
+	// Duplicado real (mismo nombre+canal+ciudad): toma el registro más reciente.
 	usort($desempatados, fn($a, $b) => $b['id'] <=> $a['id']);
 	return $desempatados[0]['pos_id'];
 }
@@ -414,7 +421,7 @@ function usuarioEsperadoDesdeRepoPrincipal($mysqli, $posId, $trimestre, $anio) {
 	return null;
 }
 
-// Sugerencias de "¿quisiste decir?" cuando el cliente no matcheó nada (solo para mostrar, nunca para resolver pos_id solo). Prefijo en cualquier dirección, con mínimo de letras para no traer basura corta del maestro (ej. una fila real con pos_name="CH").
+// Sugerencias de "¿quisiste decir?" cuando el cliente no matcheó nada (solo para mostrar, nunca para resolver pos_id solo). Solo contra nuestra base propia (ver resolverPosIdCliente()) — el maestro de Alicorp ya no aplica acá. Prefijo en cualquier dirección, con mínimo de letras para no traer basura corta.
 function sugerirClienteSimilar($mysqli, $clienteExcel, $canal = 'directo') {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
 	if (strlen($clienteComparable) < 6) return [];
@@ -423,6 +430,7 @@ function sugerirClienteSimilar($mysqli, $clienteExcel, $canal = 'directo') {
 	$vistos = [];
 	$sugerencias = [];
 	foreach (maestroClientesEnMemoria($mysqli) as $f) {
+		if (empty($f['es_propio'])) continue;
 		if ($esDistribuidor ? $f['canal'] !== 'DISTRIBUIDOR' : $f['canal'] === 'DISTRIBUIDOR') continue;
 		$masCorto = strlen($f['pos_name_comparable']) < strlen($clienteComparable) ? $f['pos_name_comparable'] : $clienteComparable;
 		if (strlen($masCorto) < $minLargo) continue;
@@ -2038,9 +2046,10 @@ function listar_repositorio_acuerdo_completo_pendientes_match($mysqli) {
 		$grupos[$clave]['monto_total'] += is_array($valores) ? array_sum($valores) : 0;
 	}
 
+	// Solo nuestra base propia (ver resolverPosIdCliente()) — el maestro de Alicorp ya no aplica a este repositorio.
 	$stmtCand = $mysqli->prepare(
-		"SELECT pos_id, pos_name, cedi, supervisor FROM repositorio_locales_supervisores_cliente
-		 WHERE pos_name LIKE CONCAT(?, '%') ORDER BY pos_name LIMIT 10"
+		"SELECT pos_id, cliente_excel AS pos_name, cedi_excel AS cedi, cedi_excel AS supervisor FROM repositorio_clientes_propiosac
+		 WHERE cliente_excel LIKE CONCAT(?, '%') ORDER BY cliente_excel LIMIT 10"
 	);
 	$resultado = [];
 	foreach ($ordenGrupos as $clave) {
@@ -2321,9 +2330,10 @@ function listar_repositorio_cuotas_pendientes_match($mysqli) {
 		$grupos[$clave]['monto_total'] += is_array($valores) ? array_sum($valores) : 0;
 	}
 
+	// Solo nuestra base propia (ver resolverPosIdCliente()) — el maestro de Alicorp ya no aplica a este repositorio.
 	$stmtCand = $mysqli->prepare(
-		"SELECT pos_id, pos_name, cedi, supervisor FROM repositorio_locales_supervisores_cliente
-		 WHERE pos_name LIKE CONCAT(?, '%') ORDER BY pos_name LIMIT 10"
+		"SELECT pos_id, cliente_excel AS pos_name, cedi_excel AS cedi, cedi_excel AS supervisor FROM repositorio_clientes_propiosac
+		 WHERE cliente_excel LIKE CONCAT(?, '%') ORDER BY cliente_excel LIMIT 10"
 	);
 	$resultado = [];
 	foreach ($ordenGrupos as $clave) {

@@ -306,7 +306,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
      .ac-borradores-modal (lista simple, no necesita el ancho de la
      previsualización de Excel). -->
 <div class="ac-modal-overlay" id="repo-pendientes-modal-overlay">
-	<div class="ac-modal ac-borradores-modal">
+	<div class="ac-modal ac-borradores-modal ac-repo-pendientes-modal">
 		<div class="ac-modal-header">
 			<h3>Pendientes de Asignar</h3>
 			<button type="button" class="ac-modal-close" id="repo-pendientes-modal-close" aria-label="Cerrar">

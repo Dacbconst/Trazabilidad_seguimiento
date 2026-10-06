@@ -476,7 +476,7 @@
 		posicionarIndicadorTab(tabsPorTipo[tipo]);
 		// Tarjeta mobile con jerarquía propia, mismo layout para los 2 tipos agrupados.
 		if (raizRepo) raizRepo.classList.toggle('ac-repo-tipo-cuotas', !!TIPOS_CON_ASIGNACION[tipo]);
-		pendientesAbrirBtn.classList.add('hidden');
+		pendientesAbrirBtn.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo]);
 		resumenAbrirBtn.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo]);
 		exportarWrap.classList.toggle('hidden', !!TIPOS_CON_ASIGNACION[tipo]);
 		if (rebateCanalGroup) {
@@ -1049,7 +1049,8 @@
 			vistos[clave] = true;
 			var motivos = [];
 			if (sinCliente && e.diagnostico) {
-				var campoEtiqueta = e.diagnostico.campo === 'distribuidor' ? 'Distribuidor' : 'Supervisor/CEDI';
+				// Mismo campo (Ciudad) para los 2 canales ahora — el texto cambia solo para que se lea natural según lo que trae el Excel de cada uno.
+				var campoEtiqueta = canalCuotasPreview === 'distribuidor' ? 'Ciudad' : 'Supervisor/CEDI';
 				motivos.push({ texto: 'Cliente encontrado, pero el ' + campoEtiqueta + ' en el maestro es', valor: (e.diagnostico.valores_reales || []).join(' / ') });
 			} else if (sinCliente && (e.sugerencias || []).length) {
 				motivos.push({ texto: 'No se pudo identificar este cliente. ¿Quisiste decir?', valor: e.sugerencias.join(' / ') });

@@ -10579,3 +10579,188 @@ corregidos**:
 `php -l`/`node --check` limpios en los 4 archivos, CSS balanceado. Todavía
 sin probar en navegador real con datos reales — falta confirmar que la
 pestaña, el acordeón y los 2 fixes de layout se ven bien en producción.
+
+## Sesión 2026-10-05 — Cuotas Trimestrales y Acuerdo Completo dejan de validar contra el maestro de Alicorp
+
+Pedido explícito del cliente: el maestro de Alicorp (`repositorio_locales_supervisores_cliente`)
+está desactualizado y genera demasiados "sin identificar" reales. Decisión: **para
+Cuotas Trimestrales y Acuerdo Completo, dejar de validar/matchear contra ese maestro
+por completo** — armar y usar nuestra propia base de clientes, que se auto-completa
+sola a medida que llegan Excel nuevos. **Registrar (Acuerdo manual) no se tocó** —
+sigue validando 100% contra el maestro real, como siempre.
+
+### Tabla `repositorio_clientes_propiosac` — ya existía, construida por otra sesión
+
+Encontrada ya creada en la base real (otra sesión, trabajo en paralelo) antes de
+que esta sesión tocara nada: `id, pos_id (PDVAC0001...), cliente_excel,
+cliente_comparable, cedi_excel, distribuidor_excel, canal, creado_por,
+created_at`. `pos_id` único. Esta sesión no creó la tabla, solo ajustó cómo se
+usa (ver abajo).
+
+### `resolverPosIdCliente()` — ya no mira el maestro para Cuotas/Acuerdo Completo
+
+`includes/functions.php` — la función que usan `cuotas_guardar.php` y
+`acuerdo_completo_guardar.php` (compartida, un solo cambio afecta a los 2 repos)
+ahora filtra `maestroClientesEnMemoria()` exigiendo `es_propio` — el maestro real
+sigue en la misma caché en memoria (la usan otras funciones, como `cediRealDePosId()`/
+`clienteMaestroDePosId()`, que no se tocaron), pero esta función puntual ya no lo
+considera candidato. Mismo criterio aplicado a `sugerirClienteSimilar()` (el
+"¿quisiste decir?") y a los candidatos/validación de "Pendientes de Asignar"
+(`listar_repositorio_cuotas_pendientes_match()`,
+`listar_repositorio_acuerdo_completo_pendientes_match()`, nueva `posIdValido()`)
+— los 3 puntos que antes consultaban el maestro real ahora solo miran
+`repositorio_clientes_propiosac`.
+
+**Nunca crea un duplicado por un typo**: antes de registrar un cliente nuevo
+(`crearClientePropio()`), `resolverPosIdCliente()` primero chequea si hay algo
+parecido ya registrado (reusa `sugerirClienteSimilar()`, ahora también scopeada a
+propios) — si lo hay, no crea nada, la fila cae en "sin identificar" con la misma
+sugerencia de siempre (el usuario pidió explícito: "primera vez que no existe lo
+registrás, segunda vez que ya existe algo parecido, ahí sí lo validás").
+
+### Bug real encontrado: la previsualización ya estaba creando clientes de más
+
+`cuotas_verificar_estado.php`/`acuerdo_completo_verificar_estado.php` (el chequeo
+de ANTES de guardar, solo para mostrar el preview) ya llamaban a
+`resolverPosIdCliente()` con el mismo `$usuarioSesion` que el guardado real — como
+esta función puede crear, cada re-chequeo del preview (se dispara al tipear el Año,
+debounce 400ms) estaba registrando un cliente nuevo en cada vuelta. Esto explica el
+triplicado real que apareció en la tabla de prueba ("MORAN LOPEZ WILMER ALFREDO"
+×3, códigos `PDVAC0001`/`0002`/`0005`) sin que hiciera falta ninguna subida
+duplicada real — alcanzaba con tipear en el campo Año durante la previsualización.
+
+**Corregido**: nuevo parámetro `$permitirCrear` (default `true`) + `&$pendienteCrear`
+(por referencia) en `resolverPosIdCliente()`. Los 2 `*_verificar_estado.php` llaman
+con `$permitirCrear=false` — si el cliente sería nuevo, no escribe nada, solo marca
+`$pendienteCrear=true` y el preview muestra `estado:'nuevo'` (sin alarmar, ya que de
+verdad se va a crear bien al guardar). La creación real queda exclusiva de
+`cuotas_guardar.php`/`acuerdo_completo_guardar.php`, que sí llaman con
+`$permitirCrear=true` (default) al confirmar.
+
+### Desempate por Ciudad en vez de Distribuidor (afecta a los 2 canales)
+
+Cuando 2+ clientes "propios" ya registrados comparten el mismo nombre (mismo
+canal), antes se desempataba por Distribuidor/Empresa (`distribuidor_excel`) en
+canal Distribuidor, por CEDI/Ciudad (`cedi_excel`) en Directo. El usuario hizo
+notar el problema: el Distribuidor **varía** con el tiempo para un mismo PDV real
+(puede cambiar de distribuidora entre trimestres) — usarlo como criterio de
+identidad hacía que, si no coincidía, la fila se registrara igual sin más (con solo
+un aviso), arriesgando mezclar 2 PDV reales distintos bajo el mismo código si
+compartían nombre.
+
+**Corregido**: ahora los 2 canales desempatan por Ciudad (`$cediExcel` — confirmado
+en `repositorio_parsear_cuotas_distribuidor()` que la columna `CIUDAD` del Excel de
+Distribuidor ya llega a este mismo campo, igual que el CEDI de Directo). **Nunca
+bloquea el guardado** — pedido explícito del usuario, mismo criterio que ya tenía
+Distribuidor con el Distribuidor/Empresa: si el nombre matchea pero la Ciudad no, la
+fila se registra igual (toma el candidato más reciente), solo que el aviso de
+confirmación de siempre (`$diagnostico['valores_reales']`,
+`filasConProblemaDeAsignacion()` en `assets/js/repositorios.js`) muestra la Ciudad
+real registrada para que el analista la corrija en el Excel si quiere — pero no hace
+falta corregir nada para que la fila se guarde bien. La etiqueta del aviso ahora dice
+"Ciudad" en canal Distribuidor, "Supervisor/CEDI" en Directo (antes decía
+"Supervisor/CEDI" siempre).
+
+**Primer intento (descartado, no llegó a aplicarse en producción)**: la primera
+versión de este cambio SÍ bloqueaba (devolvía `pos_id=null`, mandaba la fila a
+"Pendientes de Asignar") cuando la Ciudad no coincidía — el usuario lo corrigió en
+la misma sesión: "la corrección que le salta en las alertas no le impedirá guardar
+como lo hace ahora, seguirá lo mismo tal cual". Se revirtió a la versión permisiva
+(de arriba) antes de que nadie llegara a usar la estricta.
+
+### Bug real: resubir un Acuerdo Completo sin Ruma/Cabecera/Percha no borraba la tabla vieja
+
+Reportado por el usuario: subió un acuerdo con datos de Ruma, después volvió a
+subir el MISMO acuerdo sin Ruma, y la fila de Ruma vieja seguía viva en la base.
+`getters/acuerdo_completo_guardar.php` solo hacía INSERT/UPDATE de las tablas que
+SÍ vienen en el archivo — nunca tocaba una tabla que antes tenía datos y ahora el
+Excel la manda vacía.
+
+**Corregido**: nuevo `$stmtDescartarTabla` — por cada tipo opcional
+(`cabecera`/`ruma`/`percha`) ausente en la fila actual, se marca `estado =
+'descartada'` (borrado lógico, nunca físico) **solo si el cliente tiene `pos_id`
+resuelto** y **nunca si esa tabla ya está `usada`** (protegida). Nuevo contador
+`descartadas` en la respuesta y en el mensaje final. Alcance confirmado: exclusivo
+de Acuerdo Completo — los demás repos son tablas planas sin bloques opcionales por
+línea, no tienen este problema.
+
+### Bug real: tabla vacía de Acuerdo Completo quedaba editable en Registrar
+
+Mismo reporte, segunda mitad: una tabla (Cabecera/Ruma/Percha) que el Excel mandó
+completamente vacía (nunca tuvo datos) se cargaba en Registrar como tabla normal
+abierta — 1 fila en blanco, "Agregar Fila" habilitado, campos editables — cuando no
+debería dejar tipear ni agregar nada ahí (a diferencia de Cuotas Trimestrales, donde
+esas mismas tablas vacías sí quedan abiertas a propósito, porque ese Excel nunca
+trae Visibilidad).
+
+**Corregido**: nueva `bloquearTablaSinDatos(body, idBotonAgregar)` en
+`assets/js/registrar.js` — deshabilita todos los inputs/selects/botones de la única
+fila en blanco (incluido "Eliminar Fila") más el botón "Agregar Fila". Aplicado en
+`aplicarAcuerdoCompleto()` (precarga nueva) y `aplicarBorrador()` (restaurar un
+Borrador ya guardado, caso `de_acuerdo_completo`) — cada una de las 3 tablas
+opcionales decide individual entre `bloquearFilasPrecargadas()` (si trae líneas) o
+`bloquearTablaSinDatos()` (si no trae ninguna).
+
+### Backfill pendiente — `datos/sql/backfill_clientes_propiosac_2026-10-05.sql`
+
+**Riesgo activo, no resuelto todavía**: con el cambio de arriba, los clientes que
+YA tenían un `pos_id` real (EPV) resuelto desde antes de hoy quedan desprotegidos —
+la próxima vez que lleguen, el sistema ya no mira el maestro, no los va a encontrar
+en la base propia tampoco, y les va a crear un código `PDVAC` nuevo, partiendo su
+historial en 2. Verificado contra la base real: **118 clientes de Cuotas
+Trimestrales + 4 de Acuerdo Completo (122 en total) siguen sin migrar** —
+`repositorio_clientes_propiosac` solo tiene 6 filas (todas de prueba, más el
+registro puntual de "CHASI TINE JOSE IGNACIO/JOSEDEL S.A" → `PDVAC0006`, el único
+cliente que SÍ se backfilleó).
+
+El archivo `datos/sql/backfill_clientes_propiosac_2026-10-05.sql` tiene el `INSERT
+IGNORE ... SELECT` completo (preserva el mismo `pos_id` real que cada cliente ya
+tenía, deduce canal por si trae Distribuidor lleno — sin comparar contra el
+maestro, pedido explícito del usuario) — **Claude no lo puede correr** (regla de
+solo lectura, `INSERT` nunca tiene excepción, ni siquiera pidiéndolo explícito en
+el momento — confirmado con el usuario en esta misma sesión). **Pendiente que el
+usuario lo corra él mismo en HeidiSQL antes de la próxima subida real** de Cuotas
+o Acuerdo Completo, para no perder continuidad de esos 122 clientes.
+
+**Limpieza pendiente, también sin correr**: las 3 filas de prueba duplicadas
+("MORAN LOPEZ WILMER ALFREDO" ×3, `PDVAC0001`/`0002`/`0005`) y la de prueba
+("CLIENTE DE PRUEBA CLAUDE XYZ", `PDVAC0004`) siguen en la tabla real — `DELETE
+FROM repositorio_clientes_propiosac WHERE pos_id IN ('PDVAC0001','PDVAC0002','PDVAC0004')`,
+pendiente de que el usuario lo corra (tampoco es algo que Claude pueda ejecutar).
+
+**Probado hoy, solo lectura, contra la base real y contra un archivo real
+completo** (`datos/CUOTAS DISTRIBUIDORES Q4 PLATAFORMA CONVENIOS (3).xlsx`, 576
+filas, 144 clientes distintos, canal Distribuidor real): simulando la carga
+completa con todos los cambios de esta sesión ya aplicados — 0 avisos del parser,
+0 "sin identificar", 0 líneas repetidas dentro del archivo, 0 casos de "mismo
+nombre con Ciudad distinta". 143 clientes se crearían nuevos, 1 ya existe
+(`CHASI TINE.../JOSEDEL S.A` → `PDVAC0006`). `php -l`/`node --check` limpios en
+todos los archivos tocados (`includes/functions.php`,
+`getters/cuotas_verificar_estado.php`, `getters/acuerdo_completo_verificar_estado.php`,
+`getters/acuerdo_completo_guardar.php`, `assets/js/registrar.js`,
+`assets/js/repositorios.js`). **Todavía sin probar subiendo un archivo real desde
+el navegador** — toda la verificación de hoy fue simulada en modo solo lectura.
+
+### "Pendientes de Asignar" reactivado + modal que se desbordaba
+
+Se había ocultado el 2026-08-26 ("lo pidió rápido sin invertir tiempo en removerlo
+del todo"), mecanismo intacto desde entonces. Con los cambios de hoy esta cola
+debería verse mucho menos seguido (la mayoría de los casos sin match ahora se
+resuelven solos o quedan bien explicados en el aviso de confirmación antes de
+guardar) — igual se reactivó porque sigue haciendo falta para el resto de casos
+(ej. fila sin Ciudad en absoluto). `assets/js/repositorios.js`: la línea que
+forzaba `pendientesAbrirBtn.classList.add('hidden')` siempre volvió a
+`classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo])`, mismo criterio que ya
+usa el botón "Resumen" — visible en Cuotas y Acuerdo Completo, oculto en
+Rebate/Participación/Jerarquía.
+
+**Bug real de layout encontrado por el usuario**: el modal reusaba
+`.ac-borradores-modal` (820px, pensado para una lista simple) pero su tabla tiene
+6 columnas y la última ("Asignar cliente") trae varios botones de candidato +
+input manual + 2 botones más — se desbordaba. Corregido con una clase nueva
+`.ac-repo-pendientes-modal` (en el HTML, sumada a `.ac-borradores-modal`, no la
+reemplaza — Mis Borradores de Historial sigue angosta) con `max-width:1100px`, la
+tabla con `min-width:900px` propio, y `.repo-pend-candidatos` pasó a
+`flex-wrap:wrap` para que los botones de candidato se acomoden en varias líneas en
+vez de forzar el ancho de la celda. `php -l`/`node --check` limpios, CSS
+balanceado. Sin probar visualmente en navegador real.

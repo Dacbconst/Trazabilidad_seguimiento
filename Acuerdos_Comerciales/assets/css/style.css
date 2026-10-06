@@ -2010,6 +2010,11 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 @media (max-width: 520px) {
 	.ac-repo-subir-modal.ac-repo-subir-modal-ancho { min-width: 0; width: 95vw; }
 }
+
+/* Pendientes de Asignar: la columna "Asignar cliente" (candidatos + input manual) no entraba en los 820px de .ac-borradores-modal. */
+.ac-repo-pendientes-modal { max-width: 1100px; width: 95vw; }
+.ac-repo-pendientes-modal .ac-table { min-width: 900px; }
+.repo-pend-candidatos { display: flex; flex-wrap: wrap; gap: 4px; }
 .ac-dropzone {
 	border: 1.5px dashed var(--color-outline-variant); border-radius: var(--radius-lg);
 	background: var(--color-surface-container-low);

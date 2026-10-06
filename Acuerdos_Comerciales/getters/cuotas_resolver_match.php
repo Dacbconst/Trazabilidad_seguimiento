@@ -46,13 +46,8 @@ if ($accion === 'descartar') {
 	responder((bool) $ok, $ok ? "$afectadas categoría(s) descartada(s)." : 'No se pudo guardar.');
 }
 
-// Se valida que el pos_id exista de verdad en el maestro antes de asignarlo.
-$stmt = $mysqli->prepare('SELECT 1 FROM repositorio_locales_supervisores_cliente WHERE pos_id = ? LIMIT 1');
-$stmt->bind_param('s', $posId);
-$stmt->execute();
-$existe = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-if (!$existe) {
+// Se valida que el pos_id exista de verdad, en el maestro de Alicorp O en nuestra base propia (ver posIdValido()).
+if (!posIdValido($mysqli, $posId)) {
 	responder(false, 'Ese pos_id no existe en el maestro de clientes.');
 }
 
