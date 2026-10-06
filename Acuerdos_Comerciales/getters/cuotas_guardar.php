@@ -198,7 +198,7 @@ try {
 		$clavesVistas[$claveRepetido] = $indice;
 
 		if (!$posId) {
-			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo identificar el cliente. Queda en Pendientes de Asignar.'];
+			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo registrar el cliente (error al guardar en la base). Queda en Pendientes de Asignar.'];
 		}
 
 		$valoresJson = json_encode([

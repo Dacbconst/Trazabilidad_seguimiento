@@ -824,11 +824,12 @@
 	function badgeEstadoPreview(estado) {
 		if (!estado) return '<span class="ac-field-hint">…</span>';
 		var html;
-		if (estado.estado === 'nuevo') html = '<span class="ac-badge ac-badge-ok">Nuevo</span>';
+		if (estado.estado === 'nuevo' && estado.cliente_nuevo) html = '<span class="ac-badge ac-badge-ok">Cliente nuevo</span><br><span class="ac-field-hint">Se registra con código PDVAC al guardar</span>';
+		else if (estado.estado === 'nuevo') html = '<span class="ac-badge ac-badge-ok">Nuevo</span>';
 		// "Se actualiza" (no "Actualiza" a secas) — 2026-08-30, bug real reportado: "Actualiza" solo, sin sujeto, se leía como una orden para el usuario ("[vos] actualizá esto"), no como una descripción de lo que va a pasar con esa fila al guardar.
 		else if (estado.estado === 'actualiza') html = '<span class="ac-badge ac-badge-revisar">Se actualiza</span>';
 		else if (estado.estado === 'usada') html = '<span class="ac-badge ac-badge-urgente">Ya usada, no se puede modificar</span>';
-		else if (estado.estado === 'sin_cliente') html = '<span class="ac-field-hint">Cliente sin identificar</span>';
+		else if (estado.estado === 'sin_cliente') html = '<span class="ac-badge ac-badge-revisar">Cliente no encontrado</span>';
 		else html = '<span class="ac-field-hint">—</span>';
 		if (estado.diagnostico && estado.diagnostico.campo === 'cliente_similar') {
 			html += '<br><span class="ac-field-hint">¿Quisiste decir "' + escapeHtml((estado.diagnostico.valores_reales || []).join(' / ')) + '"?</span>';
@@ -864,6 +865,9 @@
 		return e.pos_id || (e.cliente_nuevo ? 'nuevo|' + e.cliente_nuevo : null);
 	}
 
+	// Cliente identificado (o nuevo) pero sin asesor resuelto: no es lo mismo que una fila sin identificar.
+	var SIN_ASESOR = 'Sin asesor asignado';
+
 	function renderPreviewResumen() {
 		if (!TIPOS_CON_ASIGNACION[tipoActivo] || !estadosPreview) { previewResumenBanner.classList.add('hidden'); return; }
 		// grupos: clave = nombre real, o 'Sin identificar todavía' (bucket único para lo que
@@ -874,10 +878,12 @@
 		var actasPorGrupo = {}; // nombre -> { pos_id: true, ... }
 		var tieneCuentaPorGrupo = {};
 		var sinIdentificar = 0;
+		var clientesNuevos = {};
 		estadosPreview.forEach(function (e) {
 			var clave = claveClientePreview(e);
 			if (!clave) { sinIdentificar++; return; }
-			var nombre = e.asignado_a || 'Sin identificar todavía';
+			if (!e.pos_id) clientesNuevos[clave] = true;
+			var nombre = e.asignado_a || SIN_ASESOR;
 			if (!actasPorGrupo[nombre]) actasPorGrupo[nombre] = {};
 			actasPorGrupo[nombre][clave] = true;
 			tieneCuentaPorGrupo[nombre] = e.asignado_a ? !!e.tiene_cuenta : false;
@@ -892,12 +898,14 @@
 		var textoActas = nActas + (nActas === 1 ? ' Acta' : ' Actas');
 		var textoUsuarios = nombres.length + (nombres.length === 1 ? ' usuario' : ' usuarios');
 		var textoSinId = sinIdentificar ? ' — ' + sinIdentificar + (sinIdentificar === 1 ? ' fila sin identificar todavía' : ' filas sin identificar todavía') : '';
+		var nNuevos = Object.keys(clientesNuevos).length;
+		var textoNuevos = nNuevos ? ' — ' + nNuevos + (nNuevos === 1 ? ' cliente nuevo se registra' : ' clientes nuevos se registran') + ' al guardar' : '';
 		previewResumenTitulo.textContent = nActas
-			? ('Este archivo va a generar ' + textoActas + ' para ' + textoUsuarios + textoSinId + '.')
+			? ('Este archivo va a generar ' + textoActas + ' para ' + textoUsuarios + textoNuevos + textoSinId + '.')
 			: ('Ninguna fila se pudo identificar todavía' + textoSinId.replace(' — ', ' (') + (sinIdentificar ? ')' : '') + '.');
 		previewResumenChips.innerHTML = nombres.map(function (n) {
 			var nActasGrupo = Object.keys(actasPorGrupo[n]).length;
-			var esSinIdentificar = n === 'Sin identificar todavía';
+			var esSinIdentificar = n === SIN_ASESOR;
 			var claseBadge = esSinIdentificar ? 'ac-badge-revisar' : (tieneCuentaPorGrupo[n] ? 'ac-badge-ok' : 'ac-badge-neutro');
 			var sufijo = (!esSinIdentificar && !tieneCuentaPorGrupo[n]) ? ' (sin cuenta todavía)' : '';
 			return '<span class="ac-badge ' + claseBadge + '">' +
@@ -951,7 +959,7 @@
 				} else if (!claveFila) {
 					asignadoHtml = '<span class="ac-field-hint">—</span>';
 				} else if (!estadoFila.asignado_a) {
-					asignadoHtml = '<span class="ac-field-hint">Sin identificar todavía</span>';
+					asignadoHtml = '<span class="ac-field-hint">' + SIN_ASESOR + '</span>';
 				} else {
 					var n = conteoPorPosId[claveFila] || 1;
 					// Sin cuenta todavía (2026-09-17, pedido explícito): mismo gris que ya usa
@@ -1070,13 +1078,13 @@
 			var clave = f ? (f.cliente_excel + '|' + f.cedi_excel) : i;
 			if (vistos[clave]) return;
 			var sinCliente = e.estado === 'sin_cliente';
-			var sinAsesor = !!e.pos_id && !e.asignado_a;
+			var sinAsesor = !!(e.pos_id || e.cliente_nuevo) && !e.asignado_a;
 			var cediExcelNorm = normalizarParaComparar(f ? f.cedi_excel : '');
 			// Solo Directo, y solo si no vino USUARIO (esa columna ya decide sola, sin comparar contra CEDI).
 			var usuarioExcelVacio = !f || !f.usuario_excel || !f.usuario_excel.trim();
 			var asignadoNorm = normalizarParaComparar(e.asignado_a);
 			var asesorNoCoincide = usuarioExcelVacio && canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
-			var clienteSimilar = !!e.pos_id && e.diagnostico && e.diagnostico.campo === 'cliente_similar';
+			var clienteSimilar = !!(e.pos_id || e.cliente_nuevo) && !!e.diagnostico && e.diagnostico.campo === 'cliente_similar';
 			if (!sinCliente && !sinAsesor && !asesorNoCoincide && !clienteSimilar) return;
 			vistos[clave] = true;
 			var motivos = [];
@@ -1087,10 +1095,10 @@
 			} else if (sinCliente && (e.sugerencias || []).length) {
 				motivos.push({ texto: 'No se pudo identificar este cliente. ¿Quisiste decir?', valor: e.sugerencias.join(' / ') });
 			} else if (sinCliente) {
-				motivos.push({ texto: 'No se pudo identificar este cliente en el maestro' });
+				motivos.push({ texto: 'No se encontró este cliente en la base' });
 			}
 			if (clienteSimilar) motivos.push({ texto: 'Nombre parecido a un cliente ya registrado. ¿Quisiste decir? Si guardas, se asigna a este cliente', valor: (e.diagnostico.valores_reales || []).join(' / ') });
-			if (sinAsesor) motivos.push({ texto: 'Cliente identificado, pero no se pudo resolver a qué asesor pertenece' });
+			if (sinAsesor) motivos.push({ texto: (e.pos_id ? 'Cliente identificado' : 'Cliente nuevo') + ', pero no se pudo resolver a qué asesor pertenece' });
 			if (asesorNoCoincide) motivos.push({ texto: 'El asesor real de este cliente es', valor: e.asignado_a });
 			problemas.push({ cliente: f ? f.cliente_excel : '', cedi: f ? f.cedi_excel : '', motivos: motivos });
 		});

@@ -432,19 +432,35 @@ function sugerirClienteSimilar($mysqli, $clienteExcel, $canal = 'directo') {
 // Clientes propios del mismo canal con nombre parecido: uno es prefijo del otro (mín. 6 letras) o comparten casi todas las palabras (ver nombresPorPalabrasSimilares()).
 function clientesPropiosSimilares($mysqli, $clienteExcel, $canal = 'directo') {
 	$clienteComparable = repositorio_texto_comparable($clienteExcel);
-	$minLargo = 6;
-	if (strlen($clienteComparable) < $minLargo) return [];
+	if (strlen($clienteComparable) < 6) return [];
 	$palabrasExcel = palabrasNombreCliente($clienteExcel);
 	$esDistribuidor = $canal === 'distribuidor';
 	$similares = [];
 	foreach (maestroClientesEnMemoria($mysqli) as $f) {
 		if (empty($f['es_propio'])) continue;
 		if ($esDistribuidor ? $f['canal'] !== 'DISTRIBUIDOR' : $f['canal'] === 'DISTRIBUIDOR') continue;
-		$masCorto = strlen($f['pos_name_comparable']) < strlen($clienteComparable) ? $f['pos_name_comparable'] : $clienteComparable;
-		$porPrefijo = strlen($masCorto) >= $minLargo && strncmp($f['pos_name_comparable'], $clienteComparable, strlen($masCorto)) === 0;
-		if ($porPrefijo || nombresPorPalabrasSimilares($palabrasExcel, palabrasNombreCliente($f['pos_name']))) $similares[] = $f;
+		if (nombresClienteParecidos($clienteComparable, $palabrasExcel, $f['pos_name_comparable'], palabrasNombreCliente($f['pos_name']))) $similares[] = $f;
 	}
 	return $similares;
+}
+
+// Mismo criterio de parecido para 2 nombres cualquiera: prefijo (mín. 6 letras) o por palabras.
+function nombresClienteParecidos($comparableA, array $palabrasA, $comparableB, array $palabrasB) {
+	$masCorto = strlen($comparableA) < strlen($comparableB) ? $comparableA : $comparableB;
+	if (strlen($masCorto) >= 6 && strncmp($comparableA, $comparableB, strlen($masCorto)) === 0) return true;
+	return nombresPorPalabrasSimilares($palabrasA, $palabrasB);
+}
+
+// Previsualización: un cliente nuevo parecido a otro nuevo del MISMO archivo se agrupa con él y se avisa ya, no recién en la próxima subida (al guardar, el 2do se une al 1ro).
+function agruparClienteNuevoEnArchivo(array &$nuevosEnArchivo, $clienteExcel, $clavePos) {
+	$comparable = repositorio_texto_comparable($clienteExcel);
+	$palabras = palabrasNombreCliente($clienteExcel);
+	foreach ($nuevosEnArchivo as $n) {
+		if ($n['comparable'] === $comparable) return ['clave' => $n['clave'], 'similar' => null];
+		if (nombresClienteParecidos($comparable, $palabras, $n['comparable'], $n['palabras'])) return ['clave' => $n['clave'], 'similar' => $n['nombre']];
+	}
+	$nuevosEnArchivo[] = ['clave' => $clavePos, 'nombre' => $clienteExcel, 'comparable' => $comparable, 'palabras' => $palabras];
+	return ['clave' => $clavePos, 'similar' => null];
 }
 
 // Palabras significativas de un nombre (mayúsculas, sin tildes, sin letras sueltas ni conectores/razón social) — "ANCHUNDIA MIRELLA L MIRELLA LUCIA" -> ANCHUNDIA, MIRELLA, LUCIA.
