@@ -1,5 +1,5 @@
 <?php
-// Paso 2: UPSERT fila por fila, resuelve pos_id (resolverPosIdCliente()); sin match único queda 'pendiente_match' para resolver a mano.
+// Paso 2: UPSERT fila por fila, resuelve pos_id (resolverPosIdCliente()); solo queda 'pendiente_match' si falla la creación del cliente propio (error de base).
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/repositorio_import.php';
 require_once __DIR__.'/../db_connect.php';
