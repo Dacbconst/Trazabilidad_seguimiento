@@ -414,6 +414,11 @@ foreach ($filasVis as $f) {
 }
 ksort($porClienteVis);
 
+// Por si la hoja no se crea abajo (sin datos de Visibilidad): RESUMEN DE PAGOS ya tolera este par en 0/0 (cae a su rama "sin Visibilidad").
+$primeraFilaVis = 1; $ultimaFilaVis = 0;
+
+// Si ningún Acta exportada tiene datos reales de Visibilidad (trimestre "sin visibilidad" puro), no se crea la hoja — queda vacía y de más.
+if ($porClienteVis) {
 // Espacio final a propósito: liquidacion_import.php busca la hoja por ese nombre exacto al reimportar.
 $s3 = $wb->agregarHoja('VISIBILIDAD ');
 
@@ -513,6 +518,7 @@ if ($ultimaFilaVis >= $primeraFilaVis) {
 		$wb->celda($s3, $filaTotalVis, $col, '', true);
 	}
 }
+} // fin if ($porClienteVis)
 
 // ==================== Hoja "RESUMEN DE PAGOS" ==================== Un renglón por cliente, sin los subtotales intercalados del archivo real, con fórmulas reales (mismo patrón que "CUOTA TOTAL").
 $sResumen = $wb->agregarHoja('RESUMEN DE PAGOS');

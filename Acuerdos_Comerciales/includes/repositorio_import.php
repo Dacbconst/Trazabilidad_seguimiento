@@ -85,6 +85,11 @@ function repositorio_parsear_rebate($rutaArchivo) {
 }
 
 // Excel de Cuotas trimestrales por cliente: CEDI, CLIENTE, PLAN, CATEGORIAS (=nuestro `sector`), CONCAT (ignorado), 3 meses con montos independientes. Devuelve mes1/mes2/mes3 (posición en el trimestre); el pos_id se resuelve después en cuotas_guardar.php, este parser no recibe $mysqli. Soporta 2 layouts reales, igual que repositorio_parsear_cumplimiento_cuota(): Directo (CEDI/CLIENTE/CATEGORIAS) y Distribuidor (DISTRIBUIDOR/CIUDAD/NOMBRE/CATEGORIA, mismas columnas que ya lee repositorio_parsear_cumplimiento_cuota_distribuidor() para el Excel real de Liquidación/Cumplimiento de Distribuidor — reusado acá porque JW no tiene un archivo aparte de "cuotas futuras" para ese canal, el usuario confirmó reusar el mismo formato). A diferencia de Cumplimiento (2 hojas con NOMBRE fijo dentro del mismo workbook), acá es 1 sola hoja — la diferenciación es por qué columnas trae esa hoja, no por nombre de pestaña.
+// RUMA/CANTIDAD son columnas exclusivas de Acuerdo Completo (nunca existen en Cuotas Trimestrales): huella para avisar si subieron el formato equivocado en el módulo equivocado.
+function repositorio_archivo_parece_acuerdo_completo($mapa) {
+	return xlsx_col($mapa, 'RUMA') !== null || xlsx_col($mapa, 'CANTIDAD') !== null || xlsx_col($mapa, 'CANT') !== null;
+}
+
 function repositorio_parsear_cuotas($rutaArchivo) {
 	$nombreHoja = xlsx_primera_hoja($rutaArchivo);
 	if ($nombreHoja === null) return ['error' => 'No se pudo abrir el archivo (¿es un .xlsx real?).'];
@@ -92,10 +97,20 @@ function repositorio_parsear_cuotas($rutaArchivo) {
 	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
 
 	$encDirecto = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS']);
-	if ($encDirecto) return repositorio_parsear_cuotas_directo($filas, $encDirecto);
+	if ($encDirecto) {
+		if (repositorio_archivo_parece_acuerdo_completo($encDirecto['mapa'])) {
+			return ['error' => 'Este archivo parece ser el formato de Acuerdo Completo (trae columnas de RUMA/CANTIDAD), no el de Cuotas Trimestrales. Sube el archivo correcto en este módulo.', 'tipo' => 'formato_modulo_equivocado', 'formato_detectado' => 'Acuerdo Completo', 'formato_esperado' => 'Cuotas Trimestrales'];
+		}
+		return repositorio_parsear_cuotas_directo($filas, $encDirecto);
+	}
 
 	$encDistribuidor = xlsx_encontrar_encabezado($filas, ['CIUDAD', 'NOMBRE', 'CATEGORIA']);
-	if ($encDistribuidor) return repositorio_parsear_cuotas_distribuidor($filas, $encDistribuidor);
+	if ($encDistribuidor) {
+		if (repositorio_archivo_parece_acuerdo_completo($encDistribuidor['mapa'])) {
+			return ['error' => 'Este archivo parece ser el formato de Acuerdo Completo (trae columnas de RUMA/CANTIDAD), no el de Cuotas Trimestrales. Sube el archivo correcto en este módulo.', 'tipo' => 'formato_modulo_equivocado', 'formato_detectado' => 'Acuerdo Completo', 'formato_esperado' => 'Cuotas Trimestrales'];
+		}
+		return repositorio_parsear_cuotas_distribuidor($filas, $encDistribuidor);
+	}
 
 	return ['error' => 'No se encontraron las columnas esperadas: CEDI, CLIENTE y CATEGORIAS (canal Directo), o DISTRIBUIDOR, CIUDAD, NOMBRE y CATEGORIA (canal Distribuidor).'];
 }
@@ -240,10 +255,20 @@ function repositorio_parsear_acuerdo_completo($rutaArchivo) {
 	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
 
 	$encDirecto = xlsx_encontrar_encabezado($filas, ['CEDI', 'CLIENTE', 'CATEGORIAS']);
-	if ($encDirecto) return repositorio_parsear_acuerdo_completo_directo($filas, $encDirecto);
+	if ($encDirecto) {
+		if (!repositorio_archivo_parece_acuerdo_completo($encDirecto['mapa'])) {
+			return ['error' => 'Este archivo parece ser el formato de Cuotas Trimestrales (no trae columnas de RUMA/CANTIDAD), no el de Acuerdo Completo. Sube el archivo correcto en este módulo.', 'tipo' => 'formato_modulo_equivocado', 'formato_detectado' => 'Cuotas Trimestrales', 'formato_esperado' => 'Acuerdo Completo'];
+		}
+		return repositorio_parsear_acuerdo_completo_directo($filas, $encDirecto);
+	}
 
 	$encDistribuidor = xlsx_encontrar_encabezado($filas, ['CIUDAD', 'NOMBRE', 'CATEGORIA']);
-	if ($encDistribuidor) return repositorio_parsear_acuerdo_completo_distribuidor($filas, $encDistribuidor);
+	if ($encDistribuidor) {
+		if (!repositorio_archivo_parece_acuerdo_completo($encDistribuidor['mapa'])) {
+			return ['error' => 'Este archivo parece ser el formato de Cuotas Trimestrales (no trae columnas de RUMA/CANTIDAD), no el de Acuerdo Completo. Sube el archivo correcto en este módulo.', 'tipo' => 'formato_modulo_equivocado', 'formato_detectado' => 'Cuotas Trimestrales', 'formato_esperado' => 'Acuerdo Completo'];
+		}
+		return repositorio_parsear_acuerdo_completo_distribuidor($filas, $encDistribuidor);
+	}
 
 	return ['error' => 'No se encontraron las columnas esperadas: CEDI, CLIENTE y CATEGORIAS (canal Directo), o DISTRIBUIDOR, CIUDAD, NOMBRE y CATEGORIA (canal Distribuidor).'];
 }

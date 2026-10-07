@@ -13,20 +13,23 @@ if (!login_check() || !rolPermitido(['desarrollador', 'superdesarrollador'])) {
 
 $acuerdoId = (int) ($_POST['id'] ?? 0);
 $usuarioSesion = $_SESSION['user_id'] ?? null;
+$rolSesion = $_SESSION['rol'] ?? null;
 
 if ($acuerdoId <= 0) {
 	echo json_encode(['ok' => false, 'message' => 'Acuerdo inválido.']);
 	exit;
 }
 
-// Mismo criterio de propiedad que Historial/Mis Borradores/generar_acta_pdf.php: nadie puede anular un acuerdo ajeno adivinando el id.
+// Dueño del acuerdo, salvo superdesarrollador (ve/administra todo, igual que en Historial).
 $stmt = $mysqli->prepare('SELECT creado_por FROM repositorio_acuerdos WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();
 $fila = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if (!$fila || (int) $fila['creado_por'] !== (int) $usuarioSesion) {
+$esDueno = $fila && (int) $fila['creado_por'] === (int) $usuarioSesion;
+$esAdmin = $rolSesion === 'superdesarrollador';
+if (!$fila || (!$esDueno && !$esAdmin)) {
 	echo json_encode(['ok' => false, 'message' => 'Acuerdo no encontrado.']);
 	exit;
 }

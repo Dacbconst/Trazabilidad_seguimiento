@@ -312,6 +312,8 @@ foreach ($filasVisD as $f) {
 }
 ksort($porClienteVisD);
 
+// Si ningún Acta exportada tiene datos reales de Visibilidad (trimestre "sin visibilidad" puro), no se crea la hoja.
+if ($porClienteVisD) {
 $sVisD = $wbD->agregarHoja('VISIBILIDAD (2)');
 
 // Columnas: 1 DISTRIBUIDOR, 2 CIUDAD, 3 NOMBRE, 4-7 CANTIDAD, 8-11 PAGO, 12-14 VALIDACIÓN, 15-18 PAGO CAJAS = validado, 19 OBSERVACIONES.
@@ -404,6 +406,7 @@ if ($ultimaFilaVisD >= $primeraFilaVisD) {
 		$wbD->formula($sVisD, $filaTotalVisD, $col, 'SUM('.$rangoTotalVisD.')', true);
 	}
 }
+} // fin if ($porClienteVisD)
 
 // ==================== Hoja "RESUMEN DE PAGOS" — OCULTA (2026-09-15) ====================
 // Pedido explícito del usuario, tras comparar celda por celda contra el archivo real de

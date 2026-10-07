@@ -43,7 +43,11 @@ if (strtolower(pathinfo($nombreArchivo, PATHINFO_EXTENSION)) !== 'xlsx') {
 
 $resultado = repositorio_parsear_acuerdo_completo($rutaTmp);
 if (isset($resultado['error'])) {
-	responder(false, $resultado['error']);
+	responder(false, $resultado['error'], [
+		'tipo' => $resultado['tipo'] ?? null,
+		'formato_detectado' => $resultado['formato_detectado'] ?? null,
+		'formato_esperado' => $resultado['formato_esperado'] ?? null,
+	]);
 }
 
 responder(true, 'Archivo leído correctamente.', [

@@ -22,6 +22,8 @@
 	var documentoNo = null;
 	// Evita el doble click en "Generar PDF"/"Guardar Borrador": mientras hay un guardado en vuelo, cualquier click nuevo se ignora.
 	var guardandoAcuerdo = false;
+	// Última vez que se guardó con éxito, para que el autoguardado nunca pise un 'generado' con un 'borrador' viejo.
+	var ultimoEstadoGuardado = null;
 	// Si el formulario vino de una Acta precargada, se manda junto con el guardado para marcar esas filas como 'usada'.
 	var origenPrecarga = null;
 
@@ -37,9 +39,9 @@
 		e.returnValue = '';
 	});
 
-	// Autoguardado: cada 20 min, si hay cambios sin guardar y ya hay cliente+período elegidos, guarda como borrador.
+	// Autoguardado: cada 20 min, si hay cambios sin guardar. Nunca si ya se generó: no debe revivir un 'borrador' sobre un Acta ya generada.
 	setInterval(function () {
-		if (!formSucio || guardandoAcuerdo) return;
+		if (!formSucio || guardandoAcuerdo || ultimoEstadoGuardado === 'generado') return;
 		if (!distribuidorSelect.value || selectedStart === null || selectedEnd === null) return;
 		guardarAcuerdo('borrador', function () { mostrarToast('Borrador guardado automáticamente.', 'info'); }, null);
 	}, 20 * 60 * 1000);
@@ -1023,6 +1025,7 @@
 				acuerdoId = data.acuerdo_id;
 				documentoNo = data.documento_no;
 				formSucio = false;
+				ultimoEstadoGuardado = estado;
 				// Solo limpiar `origenPrecarga` cuando el guardado es el final ('generado'), nunca en un "Guardar Borrador" intermedio.
 				if (estado === 'generado') origenPrecarga = null;
 				// Con onOk, el llamador muestra su propio mensaje de éxito; mostrar acá también el genérico duplicaba la alerta.

@@ -103,6 +103,8 @@ try {
 	// Cache por subida: resolverSectorReal()/resolverPosIdCliente() escanean tablas sin índice útil, evita repetir la misma búsqueda por fila.
 	$cacheSector = [];
 	$cachePosId  = [];
+	$cacheAcuerdoActivo = []; // posId -> aviso cruzado ya calculado, una sola vez por cliente aunque tenga varias categorías.
+	$cachePendienteOtroRepo = []; // posId -> ya subido en Acuerdo Completo (sin Acta generada todavía), también una sola vez por cliente.
 
 	// Canal: siempre el que se eligió/detectó al subir el archivo (nunca inferido del contenido de otra columna, pedido explícito) — UPDATE aparte, silencioso si el ALTER de esta columna todavía no corrió.
 	$stmtCanal = $mysqli->prepare(
@@ -169,6 +171,32 @@ try {
 		}
 		$posId = $cachePosId[$clavePos];
 		$estado = $posId ? 'pendiente_uso' : 'pendiente_match';
+
+		// Aviso cruzado (nunca bloquea): avisa UNA vez por cliente si Acuerdo Completo ya generó un Acta real en este mismo período.
+		if ($posId && !array_key_exists($posId, $cacheAcuerdoActivo)) {
+			$cacheAcuerdoActivo[$posId] = acuerdoActivoEnPeriodo($mysqli, $posId, $trimestre, $anio);
+		}
+		if ($posId && !empty($cacheAcuerdoActivo[$posId])) {
+			$ya = $cacheAcuerdoActivo[$posId];
+			$avisos[] = [
+				'indice' => $indice, 'fila' => $etiqueta,
+				'motivo' => 'Este cliente ya tiene un Acta generada para este período (documento #'.$ya['documento_no'].', por '.($ya['usuario'] ?: '—').'). Igual se guardó en Cuotas.',
+				'tipo' => 'ya_generada_otro_repo',
+			];
+		} else {
+			if ($posId && !array_key_exists($posId, $cachePendienteOtroRepo)) {
+				$cachePendienteOtroRepo[$posId] = clientePendienteEnOtroRepo($mysqli, $posId, $trimestre, $anio, 'cuotas');
+			}
+			if ($posId && !empty($cachePendienteOtroRepo[$posId])) {
+				// Bloquea (pedido explícito, 2026-10-07): evita el mismo cliente duplicado en los 2 repositorios, origen real de la doble notificación en la campanita.
+				$errores[] = [
+					'indice' => $indice, 'fila' => $etiqueta,
+					'motivo' => 'Este cliente ya está subido en Acuerdo Completo para este mismo período. No se guardó acá para evitar el duplicado — revisa cuál de los 2 repositorios es el correcto.',
+					'tipo' => 'pendiente_otro_repo',
+				];
+				continue;
+			}
+		}
 
 		// Protege una fila ya 'usada' (generó una Acta real): chequeo aparte del UPSERT para poder avisar con el Acta real (documento_no/usuario/fecha).
 		if ($posId) {

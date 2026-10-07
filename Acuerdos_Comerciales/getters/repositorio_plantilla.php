@@ -58,8 +58,8 @@ if ($tipo === 'rebate') {
 	$hoja = $wb->agregarHoja('ACUERDO COMPLETO');
 	if ($canal === 'directo') {
 		$identidad = ['USUARIO', 'CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA'];
-		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'NOMBRE DEL ASESOR', 'CLIENTE EJEMPLO', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
-		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'NOMBRE DEL ASESOR', 'CLIENTE EJEMPLO', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
+		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'CIUDAD', 'CLIENTE EJEMPLO', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
+		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'CIUDAD', 'CLIENTE EJEMPLO', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
 		$nombreBase = 'Formato_AcuerdoCompleto_Directo';
 	} else {
 		$identidad = ['USUARIO', 'DISTRIBUIDOR', 'CIUDAD', 'NOMBRE', 'CODIGO', 'RUC', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA'];
@@ -88,12 +88,14 @@ if ($tipo === 'rebate') {
 	$wb->combinarCeldas($hoja, XlsxWriter::colLetra($colCab).'1:'.XlsxWriter::colLetra($colCab + 2).'1');
 	$wb->combinarCeldas($hoja, XlsxWriter::colLetra($colCant).'1:'.XlsxWriter::colLetra($colPercha + 2).'1');
 
+	// Distribuidor mide en Cajas, no en Dólares (mismo criterio que el Excel de Historial): sin signo "$" en ese canal.
 	foreach ([3 => $fila1, 4 => $fila2] as $filaNum => $valores) {
 		foreach ($valores as $i => $v) {
 			$col = $i + 1;
 			if ($v === '') { $wb->celda($hoja, $filaNum, $col, ''); continue; }
 			$esMoneda = in_array($col, $colesMoneda, true);
-			$wb->celda($hoja, $filaNum, $col, $v, false, $esMoneda ? 'money' : null);
+			$formato = $esMoneda ? ($canal === 'distribuidor' ? 'numero' : 'money') : null;
+			$wb->celda($hoja, $filaNum, $col, $v, false, $formato);
 		}
 	}
 } else {
@@ -110,11 +112,11 @@ if ($tipo === 'rebate') {
 	}
 	if ($canal === 'directo') {
 		$hoja = $wb->agregarHoja('CUOTAS');
-		// USUARIO (2026-09-28, pedido explícito): primera columna, el usuario exacto tal como está en Gestión de Usuarios — el Excel manda directo, sin adivinar por CEDI. CEDI = nombre real del asesor (queda como respaldo si USUARIO viene vacío o mal tipeado).
+		// USUARIO (2026-09-28, pedido explícito): primera columna, el usuario exacto tal como está en Gestión de Usuarios — el Excel manda directo, sin adivinar por CEDI. CEDI = Ciudad (corregido 2026-10-07: el ejemplo decía por error "NOMBRE DEL ASESOR", confundía a quien llenaba el Excel).
 		$cols = ['USUARIO', 'CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA', 'ENERO', 'FEBRERO', 'MARZO'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$wb->celda($hoja, 2, 1, 'NOMBRE DE USUARIO EXACTO');
-		$wb->celda($hoja, 2, 2, 'NOMBRE DEL ASESOR');
+		$wb->celda($hoja, 2, 2, 'CIUDAD');
 		$wb->celda($hoja, 2, 3, 'CLIENTE EJEMPLO');
 		$wb->celda($hoja, 2, 4, '');
 		$wb->celda($hoja, 2, 5, 'CREMA');

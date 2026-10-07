@@ -751,6 +751,17 @@
 				mostrarMensaje('Respuesta inválida del servidor al leer el archivo.', false);
 				return;
 			}
+			if (!data.ok && data.tipo === 'formato_modulo_equivocado') {
+				Swal.fire({
+					icon: 'warning',
+					title: 'Este no es el formato esperado',
+					html: 'Este archivo parece ser de <strong>' + data.formato_detectado + '</strong>, pero este módulo espera el formato de <strong>' + data.formato_esperado + '</strong>.<br><br>Sube el archivo correcto, o ve al módulo de ' + data.formato_detectado + ' si es ahí donde va.',
+					confirmButtonText: 'Entendido',
+					confirmButtonColor: '#00288e'
+				});
+				archivoInput.value = '';
+				return;
+			}
 			if (!data.ok) { mostrarMensaje(data.message, false); return; }
 			// El archivo elegido no coincide con lo que la persona dijo que iba a subir; el canal real lo sigue detectando el Excel.
 			if (TIPOS_CON_ASIGNACION[tipoActivo] && canalCuotasElegido && data.canal_detectado && data.canal_detectado !== canalCuotasElegido) {
@@ -1448,14 +1459,48 @@
 	}
 
 	// Detalle real de las Actas de un asesor (2026-09-21, pedido explícito: el admin quiere ver CUÁLES Actas está cargando, no solo cuántas, sin entrar a la cuenta de cada asesor) — fila clickeable que despliega una tabla chica con cliente/período/categorías/actualizado, dato que ya viene en u.actas desde resumen_cuotas().
+	// Acciones: solo "En borrador" trae acuerdo_id, mismo eliminado lógico que Historial (eliminar_acuerdo.php).
 	function filaResumenDetalleActas(actas) {
 		if (!actas || !actas.length) return '';
-		return '<table class="ac-resumen-detalle-tabla"><thead><tr><th>Cliente</th><th>Período</th><th>Categorías</th><th>Actualizado</th></tr></thead><tbody>' +
+		return '<table class="ac-resumen-detalle-tabla"><thead><tr><th>Cliente</th><th>Período</th><th>Categorías</th><th>Actualizado</th><th></th></tr></thead><tbody>' +
 			actas.map(function (a) {
-				return '<tr><td>' + escapeHtml(a.cliente) + '</td><td>' + TRIMESTRE_LABEL[a.trimestre] + ' ' + a.anio + '</td><td>' + a.categorias + '</td><td>' + formatoFechaHora(a.actualizado_en) + '</td></tr>';
+				var accion = a.acuerdo_id
+					? '<button type="button" class="ac-icon-btn ac-icon-btn-danger repo-borrador-btn-eliminar" data-id="' + a.acuerdo_id + '" data-doc="' + escapeHtml(a.documento_no || '') + '" title="Eliminar borrador"><span class="material-symbols-outlined">delete</span></button>'
+					: '';
+				return '<tr><td>' + escapeHtml(a.cliente) + '</td><td>' + TRIMESTRE_LABEL[a.trimestre] + ' ' + a.anio + '</td><td>' + a.categorias + '</td><td>' + formatoFechaHora(a.actualizado_en) + '</td><td class="ac-text-right">' + accion + '</td></tr>';
 			}).join('') +
 			'</tbody></table>';
 	}
+
+	resumenChart.addEventListener('click', function (e) {
+		var btnEliminar = e.target.closest('.repo-borrador-btn-eliminar');
+		if (!btnEliminar) return;
+		e.stopPropagation(); // no togglear/cerrar el detalle de la fila al clickear el botón
+		var id = btnEliminar.dataset.id;
+		var doc = btnEliminar.dataset.doc || id;
+		Swal.fire({
+			icon: 'warning',
+			title: '¿Eliminar este borrador?',
+			text: 'Se eliminará el Acta #' + doc + ' y su cliente precargado vuelve a quedar disponible para subir de nuevo. Esta acción no se puede deshacer desde acá.',
+			showCancelButton: true,
+			confirmButtonText: 'Sí, eliminar',
+			cancelButtonText: 'Cancelar',
+			confirmButtonColor: '#ba1a1a'
+		}).then(function (resultado) {
+			if (!resultado.isConfirmed) return;
+			fetch('getters/eliminar_acuerdo.php', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ id: id })
+			})
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					mostrarMensaje(data.message, data.ok);
+					if (data.ok) abrirResumen();
+				})
+				.catch(function () { mostrarMensaje('Error de conexión.', false); });
+		});
+	});
 
 	function filaResumenUsuario(u, conCuenta, idx) {
 		var avatarClase = conCuenta ? 'ac-resumen-avatar-activo' : 'ac-resumen-avatar-inactivo';

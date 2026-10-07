@@ -21,6 +21,8 @@ function iniciar_sesion() {
 			'secure'   => SECURE,
 			'samesite' => 'Lax',
 		]);
+		// Cookie propia: EpsonReport vive en el mismo dominio y compartían PHPSESSID, pisándose sesion_token y rol.
+		session_name('ADNSESS');
 		session_start();
 	}
 }
@@ -1099,7 +1101,7 @@ function resumen_cuotas($mysqli) {
 	// Borradores: mismo concepto que "usadas" pero el Acta vinculada no se terminó de generar. Agrupado por a.creado_por directo (ya es el usuario real, sin inferir por CEDI/supervisor).
 	$gruposBorradorMapa = [];
 	$rBorrador = $mysqli->query(
-		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.updated_at, u.usuario
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.updated_at, u.usuario, a.id AS acuerdo_id, a.documento_no
 		 FROM repositorio_cuota_cliente c
 		 JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
@@ -1113,6 +1115,7 @@ function resumen_cuotas($mysqli) {
 					'pos_id' => $f['pos_id'], 'cliente' => $f['cliente_excel'], 'trimestre' => (int) $f['trimestre'],
 					'anio' => (int) $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at'],
 					'usuario' => $f['usuario'] ?: 'Sin identificar',
+					'acuerdo_id' => (int) $f['acuerdo_id'], 'documento_no' => $f['documento_no'],
 				];
 			}
 			$gruposBorradorMapa[$clave]['categorias']++;
@@ -1131,6 +1134,7 @@ function resumen_cuotas($mysqli) {
 		$porUsuarioBorradorMapa[$g['usuario']]['actas'][] = [
 			'pos_id' => $g['pos_id'], 'cliente' => $g['cliente'], 'trimestre' => $g['trimestre'],
 			'anio' => $g['anio'], 'categorias' => $g['categorias'], 'actualizado_en' => $g['actualizado_en'],
+			'acuerdo_id' => $g['acuerdo_id'], 'documento_no' => $g['documento_no'],
 		];
 	}
 	$porUsuarioBorrador = array_values($porUsuarioBorradorMapa);
@@ -1385,6 +1389,40 @@ function trimestreABounds($trimestre) {
 	if ($trimestre < 1 || $trimestre > 4) return null;
 	$inicio = ($trimestre - 1) * 3;
 	return [$inicio, $inicio + 2];
+}
+
+// Acta YA generada (no borrador) para este Local+Período, sin importar de qué repositorio salió — aviso cruzado entre Cuotas/Acuerdo Completo, nunca bloquea la subida.
+function acuerdoActivoEnPeriodo($mysqli, $posId, $trimestre, $anio) {
+	$bounds = trimestreABounds($trimestre);
+	if (!$bounds) return null;
+	$stmt = $mysqli->prepare(
+		"SELECT a.documento_no, a.created_at, u.usuario
+		 FROM repositorio_acuerdos a
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 WHERE a.pos_id = ? AND a.anio = ? AND a.mes_inicio = ? AND a.mes_fin = ?
+		   AND a.estado NOT IN ('borrador', 'anulado')
+		 LIMIT 1"
+	);
+	if (!$stmt) return null;
+	$stmt->bind_param('siii', $posId, $anio, $bounds[0], $bounds[1]);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $fila ?: null;
+}
+
+// Mismo Local+Período ya subido en el OTRO repositorio (pendiente o usado, sin importar si ya se generó Acta) — pedido explícito: evitar que el mismo cliente quede 2 veces en "Actas Asignadas" sin que nadie se entere hasta después.
+function clientePendienteEnOtroRepo($mysqli, $posId, $trimestre, $anio, $repoOrigen) {
+	$tablaOtra = $repoOrigen === 'completo' ? 'repositorio_cuota_cliente' : 'repositorio_acuerdo_completo_linea';
+	$stmt = $mysqli->prepare(
+		"SELECT 1 FROM $tablaOtra WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado IN ('pendiente_uso', 'usada') LIMIT 1"
+	);
+	if (!$stmt) return false;
+	$stmt->bind_param('sii', $posId, $trimestre, $anio);
+	$stmt->execute();
+	$existe = (bool) $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return $existe;
 }
 
 // 20 días hábiles = 28 días calendario si fecha_generacion cae en día de semana, 30 si cae sábado/domingo (WEEKDAY: 0=Lun..6=Dom).
@@ -2343,6 +2381,48 @@ function resumen_acuerdo_completo($mysqli) {
 	$r = $mysqli->query("SELECT COUNT(DISTINCT cliente_excel, trimestre, anio) AS n FROM repositorio_acuerdo_completo_linea WHERE estado = 'pendiente_match'");
 	if ($r) $pendientesMatch = (int) $r->fetch_assoc()['n'];
 
+	// Borradores: mismo concepto que resumen_cuotas() — la precarga ya está 'usada' pero el Acta vinculada no se terminó de generar.
+	$gruposBorradorMapa = [];
+	$rBorrador = $mysqli->query(
+		"SELECT c.pos_id, c.cliente_excel, c.trimestre, c.anio, c.updated_at, u.usuario, a.id AS acuerdo_id, a.documento_no
+		 FROM repositorio_acuerdo_completo_linea c
+		 JOIN repositorio_acuerdos a ON a.id = c.acuerdo_id_generado
+		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = a.creado_por
+		 WHERE c.tipo = 'meta_compra' AND c.estado = 'usada' AND a.estado = 'borrador'"
+	);
+	if ($rBorrador) {
+		while ($f = $rBorrador->fetch_assoc()) {
+			$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
+			if (!isset($gruposBorradorMapa[$clave])) {
+				$gruposBorradorMapa[$clave] = [
+					'pos_id' => $f['pos_id'], 'cliente' => $f['cliente_excel'], 'trimestre' => (int) $f['trimestre'],
+					'anio' => (int) $f['anio'], 'categorias' => 0, 'actualizado_en' => $f['updated_at'],
+					'usuario' => $f['usuario'] ?: 'Sin identificar',
+					'acuerdo_id' => (int) $f['acuerdo_id'], 'documento_no' => $f['documento_no'],
+				];
+			}
+			$gruposBorradorMapa[$clave]['categorias']++;
+			if ($f['updated_at'] > $gruposBorradorMapa[$clave]['actualizado_en']) $gruposBorradorMapa[$clave]['actualizado_en'] = $f['updated_at'];
+		}
+	}
+	$gruposBorrador = array_values($gruposBorradorMapa);
+	$borradores = count($gruposBorrador);
+
+	$porUsuarioBorradorMapa = [];
+	foreach ($gruposBorrador as $g) {
+		if (!isset($porUsuarioBorradorMapa[$g['usuario']])) {
+			$porUsuarioBorradorMapa[$g['usuario']] = ['nombre' => $g['usuario'], 'actas_pendientes' => 0, 'tiene_cuenta' => true, 'actas' => []];
+		}
+		$porUsuarioBorradorMapa[$g['usuario']]['actas_pendientes']++;
+		$porUsuarioBorradorMapa[$g['usuario']]['actas'][] = [
+			'pos_id' => $g['pos_id'], 'cliente' => $g['cliente'], 'trimestre' => $g['trimestre'],
+			'anio' => $g['anio'], 'categorias' => $g['categorias'], 'actualizado_en' => $g['actualizado_en'],
+			'acuerdo_id' => $g['acuerdo_id'], 'documento_no' => $g['documento_no'],
+		];
+	}
+	$porUsuarioBorrador = array_values($porUsuarioBorradorMapa);
+	usort($porUsuarioBorrador, function ($a, $b) { return $b['actas_pendientes'] <=> $a['actas_pendientes']; });
+
 	$porUsuarioMapa = [];
 	foreach ($grupos as $g) {
 		$asignado = resolverNombreAsignadoCuota($mysqli, $g['pos_id'], $g['cedi_excel'], $g['cliente_excel'], $g['usuario_excel']);
@@ -2379,8 +2459,8 @@ function resumen_acuerdo_completo($mysqli) {
 	}
 
 	return [
-		'pendientes' => $pendientes, 'usadas' => $usadas, 'pendientes_match' => $pendientesMatch, 'borradores' => 0,
-		'por_usuario' => $porUsuario, 'chocan' => $chocan,
+		'pendientes' => $pendientes, 'usadas' => $usadas, 'pendientes_match' => $pendientesMatch, 'borradores' => $borradores,
+		'por_usuario' => $porUsuario, 'por_usuario_borrador' => $porUsuarioBorrador, 'chocan' => $chocan,
 	];
 }
 

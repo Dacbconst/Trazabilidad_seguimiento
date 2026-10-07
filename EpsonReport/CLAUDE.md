@@ -415,14 +415,20 @@ El sistema implementa dos roles principales definidos en sesión (`$_SESSION['ro
 - La confirmación (`calendario.js`, `accionTarjeta()` ahora acepta una función que arma el cuadro al hacer clic) dice en una sola línea "X de Y filas cumplidas, faltan N" (leído del DOM en vivo) y qué entra en el reporte (solo las cumplidas; si son 0, que no se generará). Icono de advertencia, "Seguir esperando" es el botón con foco por defecto y el de confirmar es naranja ("Sí, cerrar incompleto").
 - **Regla de textos para el usuario (pedida por el cliente, 02-10)**: los mensajes y avisos van cortos y directos. Nunca mencionar "Auditoría" en lo que ve un supervisor o promotor: no saben que existe (solo la ve el admin). El aviso de reactivar quedó en "Volverá a aceptar registros con un plazo nuevo desde hoy."
 
+## POP: columnas por canal al cargar el mes (2026-10-07, SIN PROBAR; faltan las 2 columnas en la base)
+- Diseño pedido: Material, Campaña, Bodega, una columna por cada canal que se agrega con "Agregar canal" (Canales, Retail...) y Disponible siempre al final = Bodega menos lo repartido entre canales (1000 - 200 - 100 = 700). El modal avisa si lo repartido supera la bodega y el servidor también lo rechaza.
+- Decisión: por ahora solo Canales y Retail (no hay casos con más), así que viven como dos columnas `canales` y `retail` de `insert_reporte_pop_fila` (`EP_POP_CANALES`); "Agregar canal" ofrece solo esos dos. Si aparece otro canal habría que ampliar el esquema. Mientras las columnas no existan (ALTER a mano), `ep_pop_tiene_canales()` es falso y el mes funciona sin canales (guardar con canales devuelve un aviso). Archivos: `includes/pop_datos.php`, `components/calendario/pop.php`, `assets/js/calendario-pop.js`, `assets/css/calendario-pop.css`.
+- La tabla del mes muestra lo ASIGNADO por canal; lo colocado por promotores sigue alimentando el avance y el PPT. Pendiente del cliente: ciudad y Tipo (ver grabación del 06-10).
+- Los materiales los escribe el gestor a mano (no existe catálogo en la base); la lista de la grabación del 06-10 es Dangler, Tendcard, Hablador, Afiche, Cuadríptico, Glorificador y Banderines.
+
 ## PPT: portada única con logo, línea y título (2026-10-02, SIN ABRIR en PowerPoint)
 - Pedido del cliente: ya no va la diapositiva de rombos ("EVENTO SIGLO XXI / AGOSTO 2026"); el formato nuevo es el logo Epson centrado con su línea turquesa y el título debajo.
 - Plantillas cambiadas: activaciones, capacitaciones, colocacion-pop, epson-day, evento-ferias, exhibiciones, informe-fotografico. La diapositiva 2 ahora tiene fondo blanco, el mismo gráfico del logo (`image2.svg`) y el título centrado debajo; se quitó el fondo `image3.jpeg`. Copias originales en el scratchpad de la sesión (`ppt_backup`).
 - `includes/ppt_motor.php`: con `unica` (por defecto) se omite la diapositiva 1 (solo logo) en presentación, relaciones, tipos y secciones, así no quedan dos portadas seguidas. Competencia lleva `portada_doble => true` y conserva sus dos diapositivas (su diseño es otro).
 - Verificado: los 8 tipos generan con estructura válida (relaciones, XML y diapositivas); falta abrir uno en PowerPoint para ver el resultado.
 
-## Supervisores no envían registros (2026-10-02)
-- `guardar_registro.php` y `subir_foto.php` responden 403 a un supervisor; antes pasaba y el registro quedaba sin supervisor (solo lo veía el admin).
+## Prueba de aislamiento de supervisores (2026-10-02)
+- El bloqueo de 403 a supervisores en `guardar_registro.php`/`subir_foto.php` ya se retiró (el cliente liberó el envío de cualquier tipo el 03-10); no volver a ponerlo sin avisar.
 - Prueba de aislamiento (solo lectura, 3 supervisores): ningún registro lo ven dos supervisores, nadie aprueba/devuelve registros ajenos, nadie toca ni lista calendarios ajenos, y el calendario solo deja programar su equipo, sus canales y las ciudades del promotor. Todo OK.
 - Hallazgo conocido: RACTATIANAMOROCHO-001 y -003 (Retail) sin supervisor porque Tatiana no tiene supervisor de retail (ver hallazgo de Tatiana).
 

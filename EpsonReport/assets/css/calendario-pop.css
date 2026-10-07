@@ -32,7 +32,7 @@
 
 /* Tabla del mes: bodega la carga el gestor, canales y retail los suman los promotores */
 .ep-pop-tabla { display: flex; flex-direction: column; }
-.ep-pop-tr { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) repeat(4, minmax(0, 1fr)); align-items: center; gap: 10px; padding: 9px 18px; font-size: 13.5px; }
+.ep-pop-tr { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) repeat(calc(var(--ep-pop-n, 0) + 2), minmax(0, 1fr)); align-items: center; gap: 10px; padding: 9px 18px; font-size: 13.5px; }
 .ep-pop-tr + .ep-pop-tr { border-top: 1px solid #F3F1F8; }
 .ep-pop-tr span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .ep-pop-th { padding-top: 11px; padding-bottom: 11px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); background: #FBFAFD; }
@@ -41,19 +41,28 @@
 
 /* Modal de carga */
 .ep-pop-campo { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--color-text); }
-.ep-pop-filas-head, .ep-pop-fila { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 90px 34px; align-items: center; gap: 8px; }
+.ep-pop-herramientas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.ep-pop-canal-menu { position: relative; }
+.ep-pop-canal-lista { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 180px; padding: 6px; border: 1px solid var(--color-border, #E4E0EE); border-radius: 10px; background: #fff; box-shadow: 0 10px 28px rgba(30, 20, 60, 0.16); }
+.ep-pop-canal-lista button { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; text-align: left; font: inherit; font-size: 13.5px; cursor: pointer; }
+.ep-pop-canal-lista button:hover { background: #F4F1FA; }
+.ep-pop-canal-vacio { padding: 8px 10px; font-size: 13px; color: var(--color-text-muted); }
+.ep-pop-scroll { overflow-x: auto; padding-bottom: 4px; }
+.ep-pop-filas-head, .ep-pop-fila { display: grid; grid-template-columns: minmax(150px, 2fr) minmax(110px, 1.4fr) 90px repeat(var(--ep-pop-m, 0), 90px) 90px 34px; align-items: center; gap: 8px; min-width: min-content; }
+.ep-pop-filas-head span { display: flex; align-items: center; gap: 4px; }
+.ep-pop-quitar-canal { border: 0; background: none; padding: 0 2px; font-size: 14px; line-height: 1; color: var(--color-text-muted); cursor: pointer; }
+.ep-pop-quitar-canal:hover { color: #C5221F; }
+.ep-pop-fila-disponible { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ep-pop-fila-disponible.ep-pop-negativo { color: #C5221F; }
 .ep-pop-filas-head { margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); }
 .ep-pop-filas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .ep-pop-fila .ep-input { height: 38px; text-transform: uppercase; }
-.ep-pop-fila .ep-pop-fila-bodega { text-transform: none; }
+.ep-pop-fila .ep-pop-fila-bodega, .ep-pop-fila .ep-pop-fila-canal { text-transform: none; }
 
 @media (max-width: 760px) {
 	.ep-pop-head { flex-direction: column; align-items: stretch; }
 	.ep-pop-mes-head { flex-direction: column; align-items: flex-start; }
 	.ep-pop-tr { grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)); row-gap: 2px; }
 	/* En celular solo caben material, bodega y disponible; campaña y el desglose se ven en el PPT */
-	.ep-pop-tr span:nth-child(2), .ep-pop-tr span:nth-child(4), .ep-pop-tr span:nth-child(5) { display: none; }
-	.ep-pop-filas-head { display: none; }
-	.ep-pop-fila { grid-template-columns: minmax(0, 1fr) 80px 34px; }
-	.ep-pop-fila .ep-pop-fila-campana { grid-column: 1 / -1; }
+	.ep-pop-celda-extra { display: none; }
 }

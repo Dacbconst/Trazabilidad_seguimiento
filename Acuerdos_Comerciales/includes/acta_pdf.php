@@ -470,7 +470,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor/Supervisor</p>
 	</td>
 </tr></table>' : '
-<!-- Directo: 3 firmas (Asesor Comercial / Jefe Comercial / Supervisor Comercial), pedido explícito 2026-09-23. Nombre/línea alineados a la izquierda (pedido explícito 2026-09-24: centrado no dejaba espacio cómodo para escribir el nombre a mano). Las 3 usan la MISMA estructura de 2 líneas (bloque_nombre_firma_html) tengan o no nombre real, para que no se desalineen entre sí. -->
+<!-- Directo: 3 firmas (Jefe de Agencia / Asesor Comercial / Supervisor), pedido explícito 2026-09-23 (etiqueta media corregida de "Jefe Comercial" a "Asesor Comercial" el 2026-10-07). Nombre/línea alineados a la izquierda (pedido explícito 2026-09-24: centrado no dejaba espacio cómodo para escribir el nombre a mano). Las 3 usan la MISMA estructura de 2 líneas (bloque_nombre_firma_html) tengan o no nombre real, para que no se desalineen entre sí. -->
 <table style="border:none;"><tr>
 	<td style="border:none; width:33.33%; text-align:left; padding-right:10px;">
 		<div class="firma-linea-firmar"></div>
@@ -480,7 +480,7 @@ td { padding: '.px(4, $escalaTabla).' '.px(11, $escalaTabla).'; word-wrap: break
 	<td style="border:none; width:33.33%; text-align:left; padding:0 10px;">
 		<div class="firma-linea-firmar"></div>
 		'.bloque_nombre_firma_html('', $fGeneral, $escala).'
-		<p class="label" style="margin-top:'.px(8, $escala).';">Jefe Comercial</p>
+		<p class="label" style="margin-top:'.px(8, $escala).';">Asesor Comercial</p>
 	</td>
 	<td style="border:none; width:33.33%; text-align:left; padding-left:10px;">
 		<div class="firma-linea-firmar"></div>

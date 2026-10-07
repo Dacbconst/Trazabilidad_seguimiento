@@ -73,6 +73,8 @@ try {
 	$cacheSector = [];
 	$cachePosId  = [];
 	$cacheUsada  = []; // pos_id -> datos de la Acta existente, o false si no está usada
+	$cacheAcuerdoActivo = []; // pos_id -> aviso cruzado con Cuotas Trimestrales ya calculado
+	$cachePendienteOtroRepo = []; // pos_id -> ya subido en Cuotas Trimestrales (sin Acta generada todavía), también una sola vez por cliente
 
 	// Canal: siempre el elegido/detectado al subir el archivo (nunca inferido del contenido de otra columna) — UPDATE aparte, silencioso si el ALTER de esta columna todavía no corrió.
 	$stmtCanal = $mysqli->prepare(
@@ -157,6 +159,32 @@ try {
 			$cachePosId[$clavePos] = resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal, $plan, $diagnosticoNoUsado, $usuarioSesion);
 		}
 		$posId = $cachePosId[$clavePos];
+
+		// Aviso cruzado (nunca bloquea): avisa UNA vez por cliente si Cuotas Trimestrales ya generó un Acta real en este mismo período.
+		if ($posId && !array_key_exists($posId, $cacheAcuerdoActivo)) {
+			$cacheAcuerdoActivo[$posId] = acuerdoActivoEnPeriodo($mysqli, $posId, $trimestre, $anio);
+		}
+		if ($posId && !empty($cacheAcuerdoActivo[$posId])) {
+			$ya = $cacheAcuerdoActivo[$posId];
+			$avisos[] = [
+				'indice' => $indice, 'fila' => $etiqueta,
+				'motivo' => 'Este cliente ya tiene un Acta generada para este período (documento #'.$ya['documento_no'].', por '.($ya['usuario'] ?: '—').'). Igual se guardó en Acuerdo Completo.',
+				'tipo' => 'ya_generada_otro_repo',
+			];
+		} else {
+			if ($posId && !array_key_exists($posId, $cachePendienteOtroRepo)) {
+				$cachePendienteOtroRepo[$posId] = clientePendienteEnOtroRepo($mysqli, $posId, $trimestre, $anio, 'completo');
+			}
+			if ($posId && !empty($cachePendienteOtroRepo[$posId])) {
+				// Bloquea (pedido explícito, 2026-10-07): evita el mismo cliente duplicado en los 2 repositorios, origen real de la doble notificación en la campanita.
+				$errores[] = [
+					'indice' => $indice, 'fila' => $etiqueta,
+					'motivo' => 'Este cliente ya está subido en Cuotas Trimestrales para este mismo período. No se guardó acá para evitar el duplicado — revisa cuál de los 2 repositorios es el correcto.',
+					'tipo' => 'pendiente_otro_repo',
+				];
+				continue;
+			}
+		}
 
 		if ($posId) {
 			if (!array_key_exists($posId, $cacheUsada)) {

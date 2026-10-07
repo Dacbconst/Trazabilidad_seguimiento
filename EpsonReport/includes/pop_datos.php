@@ -18,13 +18,45 @@ function ep_pop_abierto(): ?array {
 	return $row;
 }
 
+// Canales que se pueden repartir al cargar el mes; cada uno es una columna de insert_reporte_pop_fila.
+const EP_POP_CANALES = ['CANALES', 'RETAIL'];
+
+// Las columnas canales y retail se agregan aparte (ALTER a mano); mientras no existan, el mes sigue funcionando sin canales.
+function ep_pop_tiene_canales($db): bool {
+	static $tiene = null;
+	if ($tiene === null) {
+		$res = $db->query("SHOW COLUMNS FROM insert_reporte_pop_fila LIKE 'retail'");
+		$tiene = $res && $res->num_rows > 0;
+	}
+	return $tiene;
+}
+
+// Cada fila trae 'asignado': lo repartido por canal al cargar el mes (solo los canales con cantidad).
 function ep_pop_filas(int $popId): array {
 	$db = ep_db();
 	if (!$db) {
 		return [];
 	}
-	$res = $db->query('SELECT id, material, campana, bodega FROM insert_reporte_pop_fila WHERE pop_id = '.$popId.' ORDER BY campana, material');
-	return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+	$extra = ep_pop_tiene_canales($db) ? ', canales AS asig_canales, retail AS asig_retail' : '';
+	$res = $db->query('SELECT id, material, campana, bodega'.$extra.' FROM insert_reporte_pop_fila WHERE pop_id = '.$popId.' ORDER BY campana, material');
+	$filas = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+	foreach ($filas as &$f) {
+		$f['asignado'] = array_filter(['CANALES' => (int) ($f['asig_canales'] ?? 0), 'RETAIL' => (int) ($f['asig_retail'] ?? 0)]);
+		unset($f['asig_canales'], $f['asig_retail']);
+	}
+	unset($f);
+	return $filas;
+}
+
+function ep_pop_canales_del_mes(array $filas): array {
+	return array_values(array_filter(EP_POP_CANALES, function ($c) use ($filas) {
+		foreach ($filas as $f) {
+			if (isset($f['asignado'][$c])) {
+				return true;
+			}
+		}
+		return false;
+	}));
 }
 
 // Materiales que el promotor puede elegir hoy; vacío si no hay mes abierto.
@@ -82,12 +114,13 @@ function ep_pop_listar(): array {
 	$meses = [];
 	foreach ($res ? $res->fetch_all(MYSQLI_ASSOC) : [] as $row) {
 		$row['filas'] = ep_pop_filas((int) $row['id']);
+		$row['canales'] = ep_pop_canales_del_mes($row['filas']);
 		$entregado = ep_pop_entregado($row['mes']);
 		foreach ($row['filas'] as &$f) {
 			$t = $entregado[$f['campana'].'|'.$f['material']] ?? ['canales' => 0, 'retail' => 0];
 			$f['canales'] = $t['canales'];
 			$f['retail'] = $t['retail'];
-			$f['disponible'] = (int) $f['bodega'] - $t['canales'] - $t['retail'];
+			$f['disponible'] = (int) $f['bodega'] - array_sum($f['asignado']);
 		}
 		unset($f);
 		$meses[] = $row;
@@ -162,9 +195,18 @@ function ep_pop_filas_guardar(int $popId, array $filas): bool {
 		return false;
 	}
 	$db->query('DELETE FROM insert_reporte_pop_fila WHERE pop_id = '.$popId);
-	$stmt = $db->prepare('INSERT INTO insert_reporte_pop_fila (pop_id, material, campana, bodega) VALUES (?, ?, ?, ?)');
+	$conCanales = ep_pop_tiene_canales($db);
+	$stmt = $conCanales
+		? $db->prepare('INSERT INTO insert_reporte_pop_fila (pop_id, material, campana, bodega, canales, retail) VALUES (?, ?, ?, ?, ?, ?)')
+		: $db->prepare('INSERT INTO insert_reporte_pop_fila (pop_id, material, campana, bodega) VALUES (?, ?, ?, ?)');
 	foreach ($filas as $f) {
-		$stmt->bind_param('issi', $popId, $f['material'], $f['campana'], $f['bodega']);
+		$canales = (int) ($f['canales']['CANALES'] ?? 0);
+		$retail = (int) ($f['canales']['RETAIL'] ?? 0);
+		if ($conCanales) {
+			$stmt->bind_param('issiii', $popId, $f['material'], $f['campana'], $f['bodega'], $canales, $retail);
+		} else {
+			$stmt->bind_param('issi', $popId, $f['material'], $f['campana'], $f['bodega']);
+		}
 		if (!$stmt->execute()) {
 			error_log('ep_pop_filas_guardar: '.$stmt->error);
 			$stmt->close();
@@ -256,7 +298,21 @@ function ep_pop_filas_desde_post(string $json): array|string {
 			return 'El material «'.$material.'» está dos veces. Déjalo una sola vez con su total.';
 		}
 		$vistos[$material] = true;
-		$limpias[] = ['material' => $material, 'campana' => $campana, 'bodega' => $bodega];
+		$canales = [];
+		foreach (is_array($f['canales'] ?? null) ? $f['canales'] : [] as $canal => $cantidad) {
+			$canal = mb_strtoupper(trim((string) $canal), 'UTF-8');
+			if (!in_array($canal, EP_POP_CANALES, true)) {
+				return 'El canal «'.$canal.'» no existe.';
+			}
+			$canales[$canal] = min(999999, max(0, (int) $cantidad));
+		}
+		if ($canales && !ep_pop_tiene_canales(ep_db())) {
+			return 'Falta crear la tabla de canales de POP en la base. Avisa al administrador.';
+		}
+		if (array_sum($canales) > $bodega) {
+			return 'En «'.$material.'» repartes '.array_sum($canales).' entre canales y en bodega hay '.$bodega.'.';
+		}
+		$limpias[] = ['material' => $material, 'campana' => $campana, 'bodega' => $bodega, 'canales' => $canales];
 	}
 	return $limpias ?: 'Agrega al menos un material con su campaña.';
 }

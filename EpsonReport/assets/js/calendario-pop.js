@@ -39,24 +39,78 @@
 	var editandoId = 0;
 	var abiertos = JSON.parse((document.getElementById('epPopDatos') || {}).textContent || '[]');
 
+	var todosCanales = JSON.parse((document.getElementById('epPopCanales') || {}).textContent || '[]');
+	var canalesActivos = [];
+	var filasHead = document.getElementById('epPopFilasHead');
+	var canalBtn = document.getElementById('epPopCanalBtn');
+	var canalLista = document.getElementById('epPopCanalLista');
+
+	function etiqueta(c) { return c.charAt(0) + c.slice(1).toLowerCase(); }
 	function filaHTML() {
 		return '<div class="ep-pop-fila">'
 			+ '<input type="text" class="ep-input ep-pop-fila-material" maxlength="60" placeholder="Material (ej. Dangler)" autocomplete="off">'
 			+ '<input type="text" class="ep-input ep-pop-fila-campana" maxlength="40" placeholder="Campaña" autocomplete="off">'
 			+ '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-bodega" placeholder="Bodega">'
+			+ canalesActivos.map(function (c) { return '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-canal" data-canal="' + c + '" placeholder="0">'; }).join('')
+			+ '<span class="ep-pop-fila-disponible">0</span>'
 			+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar material"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>'
 			+ '</div>';
 	}
+	// Encabezado y columnas siguen a los canales agregados; Disponible va siempre al final.
+	function pintarEncabezado() {
+		filasHead.innerHTML = '<span>Material</span><span>Campaña</span><span>Bodega</span>'
+			+ canalesActivos.map(function (c) { return '<span>' + etiqueta(c) + '<button type="button" class="ep-pop-quitar-canal" data-canal="' + c + '" aria-label="Quitar canal ' + etiqueta(c) + '" title="Quitar canal">×</button></span>'; }).join('')
+			+ '<span>Disponible</span><span></span>';
+		var n = String(canalesActivos.length);
+		filasHead.style.setProperty('--ep-pop-m', n);
+		filas.querySelectorAll('.ep-pop-fila').forEach(function (f) { f.style.setProperty('--ep-pop-m', n); });
+	}
+	function recalcular(fila) {
+		var bodega = parseInt(fila.querySelector('.ep-pop-fila-bodega').value, 10) || 0;
+		var repartido = 0;
+		fila.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { repartido += parseInt(i.value, 10) || 0; });
+		var disp = fila.querySelector('.ep-pop-fila-disponible');
+		disp.textContent = bodega - repartido;
+		disp.classList.toggle('ep-pop-negativo', bodega - repartido < 0);
+	}
 	function agregarFila() {
 		filas.insertAdjacentHTML('beforeend', filaHTML());
-		return filas.lastElementChild;
+		var fila = filas.lastElementChild;
+		fila.style.setProperty('--ep-pop-m', String(canalesActivos.length));
+		return fila;
+	}
+	// Al sumar un canal se agrega una columna a todas las filas; al quitarlo se pierde lo escrito en ella.
+	function agregarCanal(c) {
+		if (canalesActivos.indexOf(c) !== -1) return;
+		canalesActivos.push(c);
+		filas.querySelectorAll('.ep-pop-fila').forEach(function (f) {
+			var input = document.createElement('input');
+			input.type = 'number'; input.min = '0'; input.inputMode = 'numeric'; input.placeholder = '0';
+			input.className = 'ep-input ep-pop-fila-canal'; input.dataset.canal = c;
+			f.insertBefore(input, f.querySelector('.ep-pop-fila-disponible'));
+		});
+		pintarEncabezado();
+	}
+	function quitarCanal(c) {
+		canalesActivos = canalesActivos.filter(function (x) { return x !== c; });
+		filas.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { if (i.dataset.canal === c) { var f = i.closest('.ep-pop-fila'); i.remove(); recalcular(f); } });
+		pintarEncabezado();
+	}
+	function pintarMenuCanales() {
+		var libres = todosCanales.filter(function (c) { return canalesActivos.indexOf(c) === -1; });
+		canalLista.innerHTML = libres.length
+			? libres.map(function (c) { return '<button type="button" role="menuitem" data-canal="' + c + '">' + etiqueta(c) + '</button>'; }).join('')
+			: '<div class="ep-pop-canal-vacio">Ya agregaste todos los canales</div>';
 	}
 	function leerFilas() {
 		return Array.prototype.slice.call(filas.querySelectorAll('.ep-pop-fila')).map(function (f) {
+			var canales = {};
+			f.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { canales[i.dataset.canal] = parseInt(i.value, 10) || 0; });
 			return {
 				material: f.querySelector('.ep-pop-fila-material').value.trim().toUpperCase(),
 				campana: f.querySelector('.ep-pop-fila-campana').value.trim().toUpperCase(),
-				bodega: parseInt(f.querySelector('.ep-pop-fila-bodega').value, 10) || 0
+				bodega: parseInt(f.querySelector('.ep-pop-fila-bodega').value, 10) || 0,
+				canales: canales
 			};
 		}).filter(function (f) { return f.material && f.campana; });
 	}
@@ -68,19 +122,43 @@
 		inputMes.disabled = !!pop;
 		inputComentarios.value = pop ? pop.comentarios : '';
 		filas.innerHTML = '';
+		canalesActivos = [];
+		if (pop) pop.filas.forEach(function (f) { Object.keys(f.canales || {}).forEach(function (c) { if (canalesActivos.indexOf(c) === -1) canalesActivos.push(c); }); });
+		pintarEncabezado();
 		if (pop && pop.filas.length) {
 			pop.filas.forEach(function (f) {
 				var fila = agregarFila();
 				fila.querySelector('.ep-pop-fila-material').value = f.material;
 				fila.querySelector('.ep-pop-fila-campana').value = f.campana;
 				fila.querySelector('.ep-pop-fila-bodega').value = f.bodega;
+				fila.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { var v = (f.canales || {})[i.dataset.canal]; if (v) i.value = v; });
+				recalcular(fila);
 			});
 		} else {
 			agregarFila();
 		}
 		modal.classList.remove('hidden');
 	}
-	function cerrarModal() { modal.classList.add('hidden'); }
+	function cerrarModal() { modal.classList.add('hidden'); canalLista.classList.add('hidden'); }
+
+	canalBtn.addEventListener('click', function () {
+		pintarMenuCanales();
+		var abierto = canalLista.classList.toggle('hidden') === false;
+		canalBtn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+	});
+	canalLista.addEventListener('click', function (ev) {
+		var b = ev.target.closest('button[data-canal]');
+		if (!b) return;
+		agregarCanal(b.dataset.canal);
+		canalLista.classList.add('hidden');
+	});
+	filasHead.addEventListener('click', function (ev) {
+		var q = ev.target.closest('.ep-pop-quitar-canal');
+		if (q) quitarCanal(q.dataset.canal);
+	});
+	filas.addEventListener('input', function (ev) {
+		if (ev.target.classList.contains('ep-pop-fila-bodega') || ev.target.classList.contains('ep-pop-fila-canal')) recalcular(ev.target.closest('.ep-pop-fila'));
+	});
 
 	var btnNuevo = document.getElementById('epPopNuevo');
 	if (btnNuevo) btnNuevo.addEventListener('click', function () { abrirModal(null); });
@@ -92,13 +170,18 @@
 	filas.addEventListener('click', function (ev) {
 		if (!ev.target.closest('.ep-modelo-quitar')) return;
 		if (filas.querySelectorAll('.ep-pop-fila').length > 1) ev.target.closest('.ep-pop-fila').remove();
-		else filas.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+		else { filas.querySelectorAll('input').forEach(function (i) { i.value = ''; }); recalcular(filas.querySelector('.ep-pop-fila')); }
 	});
 
 	btnGuardar.addEventListener('click', function () {
 		var lista = leerFilas();
 		if (!lista.length) {
 			avisar('warning', 'Falta material', 'Agrega al menos un material con su campaña.');
+			return;
+		}
+		var excedida = lista.filter(function (f) { var t = 0; Object.keys(f.canales).forEach(function (c) { t += f.canales[c]; }); return t > f.bodega; })[0];
+		if (excedida) {
+			avisar('warning', 'Revisa las cantidades', 'En ' + excedida.material + ' repartes más de lo que hay en bodega.');
 			return;
 		}
 		btnGuardar.disabled = true;
