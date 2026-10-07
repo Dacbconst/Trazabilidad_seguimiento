@@ -1,0 +1,165 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+Mira, te quiero enseñar cómo están haciendo los reportes para que lo tropicalicemos de la mejor manera. Sí, eso porque me confundió bastante. Ya, no te preocupes. 
+
+Mira, te puedo mostrar cómo tenemos el reporte. Antes de esto, quien me muestre. ¿Quién se encarga de hacer estos reportes? ¿Solo usted? Solo yo.
+
+¿Y usted puede mandarle a hacer este reporte a cualquiera de los promotores? Sin importar el canal que son. O solo un canal manera. ¿A qué me refiero, ejemplo? ¿Yo puedo asignarle? Bueno, lo que vendrá a ser pedirle que envíe a registro tanto lo que son canales retail como lo que son canales canales.
+
+Ah, ya. Tiene libre de medida entonces lo que son los promotores. Ya.
+
+No todos, solo las de provincia. Solo las de provincia. Sí, porque hay categorías de promotores.
+
+Tienen, digamos que, todos los promotores en retail, solo aderecen retail. Y los promotores que son híbridos son los de provincia, que son Machala, Manta, Santo Domingo y Cuenca. Ellos son los únicos que son híbridos.
+
+Es decir, que trabajan con las dos áreas. Y en el caso del canal existe solo una promotora de Guayaquil. Ah, ya. 
+
+Entonces un reporte de colocación box trabaja con todos los canales. Con todos los canales. Ah, ya. 
+
+No es como que solo colocación box de retail. Sí, debería salirle despegue. Eso te voy a mostrar.
+
+Vamos como que, digamos, a estandarizar la mejor eficiencia. Ya. Ya. 
+
+Vámonos al reporte. Te voy a mostrar el reporte de este mes. Y con eso, de ahí partimos para mejorar.
+
+Para ver que podemos hacer como que. Porque yo lo que voy a hacer es pegar ese archivo sobre ahí. La presentación.
+
+Ese es el usuario de Adorama, ¿verdad? Sí, señor. Es, ya te paso tu conversación. Ahí, pues mismo, pónmela.
+
+Ya. Vamos a... Ya la paso. Y a ver, ¿dónde estamos? Listo.
+
+Gracias, Luis. Reportes fotográficos. Aquí están.
+
+¿Qué mes está corriendo? Es de septiembre, ¿verdad? Aquí está el consolidado. Ya. Hasta ahí.
+
+Esto lo vamos a ver. Yo lo que te iba a decir era que creemos primero el post. Que les acceda.
+
+Que sea así como que una opción. Que salga el post. Coger el post de cada colaborador.
+
+Y te despliega la lista de que aprende el programa nosotros. Que salga esta. Ya te digo.
+
+O sea, ¿lo puedo hacer así? Que el primero... O sea, ¿a qué lo hago? Que lo paso a control 3. Porque Carlos hizo una lista de esto. Mira. Estas serían las que se deben desplegar.
+
+El primer paso debe ser el post. Porque aquí no hace referencia al post. A ver, aquí es referencia a lo recibido por el colaborador.
+
+Luego, aquí hace la referencia al otorgado, a los clientes. Ya. Entonces, ¿cuál es mi sugerencia? De hacer un match entre los dos.
+
+Que es que cojas como principio todo esto de aquí. Digamos. Menos Rolando.
+
+Dangler, Tenkar, Hablador, Afiche, Cuadríptico, Glorificador y Banderilla. Un ejemplo. Hasta ahí.
+
+Y eso sea la primera parte. O sea, el módulo que ellos tengan es que... ¿Qué post vas a usar? ¿Vas a implementar POP? Megaprinter. Ok.
+
+En Megaprinter, ¿cuánto vas a implementar? Les sale a la otra lista de las referencias. Dangler, Afiche, Hablador o Tenkar. Entonces, ¿cuánto? Bueno, esto se llena automáticamente, ¿verdad? Y aquí la cantidad.
+
+Y listo. Y cuando ya terminemos, ¿qué tiene que salir? Es que a mí me va a salir el macro de todos. Yo lo copio y lo pego.
+
+Nada más. ¿Qué se necesita? Dos cosas. La lista de POS, como cualquier ingreso.
+
+Marcaciones, como siempre hemos hecho. Solo que la diferencia es que por cada usuario tiene que segmentarse. ¿Hacemos un correo de eso o cómo lo está? Si gusta, para dejarlo también pactado ahí.
+
+Para que no tomen en cuenta lo que vendrá a ser esta partecita aquí. Y ahí es lo que vendrá a ser la entrega. Sí, me dices para hacerlo.
+
+Ya, entonces, en esta partecita de aquí. Usted dice que usted lo arma. Sí, pero podría salir así.
+
+Como Carlos lo ha hecho. Claro, esa es la parte del diseño. Como que no tan de la preocupación, sino más de la lógica.
+
+Ya. Entonces, yo lo estaba entendiendo mal. Tipo que era como algo parecido a activaciones.
+
+Que usted creaba, ¿qué ejemplo? Usted creaba esta partecita de aquí. Yo le pedía lo que eran los promotores. Que me releven esa información.
+
+No. Básicamente es relevar la cantidad de lo que ellos tienen. Por ejemplo, yo ahí sí debería ser.
+
+Como yo, como usuario master. Le asigno la base de datos. Digamos, ah, ya.
+
+Dangler le estoy dando a Quito mi invento. 100. Así.
+
+Tencar a Quito le estoy dando 100. Entonces, cuando ya se baja. Y eso parte del mismo inventario.
+
+Dice, bueno. Tuviste un total de 100 de tal. Y de aquí están todos los canales que distribuiste.
+
+De esos 100. Ya. Y lo que no, lo que te haga falta.
+
+Automáticamente le entienda que eso está en stock. Ah, ok. Entonces, del lado del promotor.
+
+Ellos tienen que reportar algo. Ellos tienen que reportar. El, la, el POP.
+
+O sea, ¿cuál tipo de POP están poniendo? ¿En qué canal? Listo, eso es todo. Y esto, ¿para qué? Digamos, ¿para qué? Para tener esa información. ¿Usted le estaría avisando que tiene que subirse ese registro? Claro.
+
+¿O también le quiere ser automatizado? Tipo como lo que es el calendario del gobierno. No creo que sea automatizado. Yo lo que quiero es básicamente es, por si acaso.
+
+Aquí está. Ya está todo. Porque tenga en el módulo, como yo como administrador.
+
+Cogí y ya subí la información que me pide el módulo, ¿no? Me va a decir, bueno, tienes todos estos de aquí para crear. Ya creaste el download, el afiche, el ordenador. Y yo puse mil, mil, mil, mil, cien, doscientos, trescientos.
+
+Ok. Plup. Y se asignó según la ciudad.
+
+Que yo la asigné. Porque tiene que estar clarísimo que tiene que estar la ciudad. Guayaquil, Quito, Santo Domingo, Machala, Cuenca, etc.
+
+Las seis que manejamos nosotros. Ya. Y con eso, por eso te mandé el cuadro.
+
+Esta es la asignación que yo hice, por área. Esta es la asignación de retail. Y esta es la asignación de canal.
+
+Si ves. John Tencar, ¿cuánto tengo de asignación? Dos mil, perdón, doscientos cuarenta y cinco. Afiche, cincuenta.
+
+Dangler, cuatrocientos. Y de esos, ¿cuánto fue? Me voy para allá. ¿Cuánto repartí por ciudad? Esto es lo que yo repartí por ciudad.
+
+Pero, yo te puedo poner el bruto y hacer esto como que yo mismo lo hago. Lo ingreso al sistema. Claro.
+
+Y luego, ya con eso, automáticamente, el sistema va a darle la baja según lo que ellos vayan reportando. Ah, ok. Y eso vendría también a ser un reporte que usted descargaría cuando usted quisiese, o digamos, ¿tipo qué? A fin de mes.
+
+A fin de mes, así mismo. Ya. Entonces, si ahorita ya me aclaro un poco más lo que es la duda.
+
+Porque la duda de mí es, ¿cómo yo le pido esta información al promotor? Claro. Que le diga, mira, tienes que reportarme esto en el módulo de actividad, y ya poco a poco lo que va a ser. ¿Esto es módulo de activación o módulo de colocación PAP sería? Colocación PAP.
+
+Ah, ya. En módulo de colocación PAP, ¿qué tienen que hacer? El primer paso es, punto de venta. Siguiente, ¿qué vas a reportar? ¿Qué vas a colocar? Y se le va a dar el reporte que usted haya... Ahí va a desplegar esta lista, ¿no? Todo lo que yo haya ingresado, allá.
+
+Voy a poner Dangler. Allá, listo. Entonces, como ya cogí el punto, ya escogí Dangler, ahora pongo la cantidad.
+
+Diez, listo. Entonces, cuando yo me baje el reporte del colaborador, va a ser plunk, se me va a pegar directamente. Detalle de PAP, no de ser recibido.
+
+Detalle de PAP entregado. Claro. Ya.
+
+Y aquí vendrá mi pregunta. ¿Esto usted va a hacer un reporte mensual? Claro, al momento de que yo le voy a hacer el formulario, como tal, le voy a pedir este reporte, ¿para qué mes va a ser? ¿Es correcto? Sí. Ya, entonces, durante todo ese mes, ellos van a estar reportando.
+
+Entonces, al final del mes, todos esos registros que tenga ese mes, van a... Solo va a estar concuerdos al mes que usted le puso el menú. Así es. Y así pasa cada mes, va haciendo eso.
+
+Así es. Listo, entonces, ya lo tenemos. ¿Deseas que te ayude? ¿Usted me envía un correo, yo envío un correo? ¿Cómo lo hacemos? Yo, hasta ahorita, ya le tengo claro.
+
+¿Esta parte de aquí también yo me la envío? Yo creo que no. Te la envío a Carlos, pero si gusta, te la envío. Sí, por favor.
+
+Estos informes... Ahorita, cuando... Ya ahorita lo recreamos, ya sabría como qué presentarle mañana. Informes fotográficos, aquí está. Informes fotográficos... No, informes fotográficos... Bueno, aquí fue una de las... Directrices.
+
+Aquí está, directrices. Y aquí, no sé si este correo te lo envió Carlos. ¿Cuáles son las directrices y todos los formatos? No, ese me lo enviaron.
+
+Ya. Aquí está, estadísticas de colocación POP. ¿Sí ves? Te lo puedo reenviar.
+
+Sí. Diego... Diego Constante. Diego... Segundo Efe.
+
+Diego Constante. Ese... Lo... Lo que se va... A revisar es... Estadística de colocación de POP. ¿No se le pide alguna foto o algo así al promotor? Sí, claro.
+
+La foto de... Mira, mira. De lo que se está reportando ahí. Así es.
+
+Entonces, el primer... Son dos cosas. La presentación tiene que analizarme por cada colaborador. Detalle, por ejemplo.
+
+Entonces, en la presentación, cuando tú dices, te das click y te descargas. Se desarma en esta de aquí. Más... Las fotos.
+
+Más la inicial mía. Y de ahí vienen las fotos. Ya.
+
+La inicial mía es la que... Tú sabes que es la que yo ingresé al inicio. Que es la que tú me dices, Uy, en este módulo tienes que ingresar todo lo que te llegó. Y cómo tú lo distribuiste por ciudad.
+
+Y de ahí, ya, la distribución por cada colaborador. Las fotos que deben tomarme ellos, ¿qué indicaciones tienen que tener? Así como... Básicamente la misma. Colocar una colocación de... De cada peor pequeño público.
+
+Ah, ok. Una foto por lo menos de cada peor pequeño público. Nada más.
+
+Ya. Podría ponerse delante y después, pero creo que es mucho. Solo con una me basta.
+
+Con una es más que suficiente. Y bueno, aquí tengo yo todas las fotos. Mirá, aquí tiene otro detalle.
+
+Son todos los posts que ha hecho. Y así. ¿Listo? Sí.
+
+Eso sí. Muchas gracias, Diego. Gracias.
+
+Vamos a ver cómo va a ir.
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
