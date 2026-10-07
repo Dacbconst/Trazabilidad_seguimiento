@@ -102,7 +102,7 @@
 		// Acuerdo Completo: mismas columnas que Cuotas + bloques opcionales de Cabecera/Ruma/Percha en la misma fila. Genera Acuerdos nuevos.
 		acuerdo_completo: {
 			label: 'Acuerdo Completo',
-			descripcion: 'Sube el Excel con la Meta de Compras y, si aplica, Cabecera/Ruma/Percha ya completos en la misma fila.',
+			descripcion: 'Sube el Excel con la Meta de Compras y, si aplica, Cabecera/Ruma/Percha ya completos en la misma fila — cada línea bloqueada queda lista para que el asesor dueño del cliente genere el Acuerdo completo desde su lista de Actas Asignadas.',
 			buscarPlaceholder: 'Buscar por CEDI, cliente, plan, categoría, subcategoría o marca...',
 			editable: false,
 			agruparPor: 'pos_id',
