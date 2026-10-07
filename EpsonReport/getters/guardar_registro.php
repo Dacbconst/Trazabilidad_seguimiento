@@ -327,19 +327,38 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 		'interacciones'  => min(ep_entero($valores['interacciones'] ?? 0), $vendedores + $jefeTienda + $asistenteJefe),
 	];
 } elseif ($tipo === 'colocacion-pop') {
-	// Un registro = un punto de venta: campaña y material entregado ahí (nombre libre en mayúsculas + cantidad).
-	$campana = mb_substr(trim(mb_strtoupper((string) ($valores['campana'] ?? ''), 'UTF-8')), 0, 40, 'UTF-8');
+	// Un registro = un punto de venta: el material debe estar cargado en el mes de POP abierto, y de ahí sale su campaña.
+	require_once __DIR__.'/../includes/pop_datos.php';
+	$mesPop = ep_pop_abierto();
+	if (!$mesPop) {
+		http_response_code(422);
+		echo json_encode(['success' => false, 'error' => 'Todavía no hay material POP cargado para este mes. Avísale a tu supervisor.']);
+		exit;
+	}
+	$campanaDe = [];
+	foreach ($mesPop['filas'] as $f) {
+		$campanaDe[$f['material']] = $f['campana'];
+	}
 	$entregas = [];
+	$campana = '';
 	foreach (is_array($valores['pop_entregas'] ?? null) ? $valores['pop_entregas'] : [] as $e) {
 		$material = mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtoupper((string) ($e['material'] ?? ''), 'UTF-8'))), 0, 60, 'UTF-8');
 		$cantidad = min(99999, max(0, (int) ($e['cantidad'] ?? 0)));
-		if ($material !== '' && $cantidad > 0) {
-			$entregas[] = ['material' => $material, 'cantidad' => $cantidad];
+		if ($material === '' || $cantidad <= 0) {
+			continue;
 		}
+		if (!isset($campanaDe[$material])) {
+			http_response_code(422);
+			echo json_encode(['success' => false, 'error' => 'El material «'.$material.'» no está cargado en el mes de POP. Vuelve a elegirlo de la lista.']);
+			exit;
+		}
+		// La campaña va por material: un mes puede tener dos campañas vivas y el registro mezclar materiales de ambas.
+		$entregas[] = ['material' => $material, 'cantidad' => $cantidad, 'campana' => $campanaDe[$material]];
+		$campana = $campana ?: $campanaDe[$material];
 	}
-	if ($campana === '' || !$entregas) {
+	if (!$entregas) {
 		http_response_code(422);
-		echo json_encode(['success' => false, 'error' => 'Escribe la campaña y al menos un material con su cantidad.']);
+		echo json_encode(['success' => false, 'error' => 'Elige al menos un material con su cantidad.']);
 		exit;
 	}
 	$registro['campana'] = $campana;

@@ -13,7 +13,7 @@ function ep_avisos_tiene_visto($db): bool {
 }
 
 function ep_avisos_vacio(): array {
-	return ['calendarios' => [], 'devueltos' => [], 'total' => 0, 'nuevos' => 0, 'urgentes' => 0];
+	return ['calendarios' => [], 'devueltos' => [], 'pop' => null, 'total' => 0, 'nuevos' => 0, 'urgentes' => 0];
 }
 
 // Texto del último día: hoy, mañana o la fecha corta.
@@ -82,10 +82,42 @@ function ep_avisos_promotor(): array {
 	}
 	$stmt->close();
 	$cache['calendarios'] = array_values($grupos);
-	$cache['urgentes'] = count(array_filter($cache['calendarios'], fn($c) => $c['urgente'])) + ($cache['devueltos'] ? 1 : 0);
+	$cache['pop'] = ep_avisos_pop($db, $conVisto, $visto);
+	if ($cache['pop']) {
+		$cache['total']++;
+		$cache['nuevos'] += $cache['pop']['nuevo'] ? 1 : 0;
+	}
+	$cache['urgentes'] = count(array_filter($cache['calendarios'], fn($c) => $c['urgente'])) + ($cache['devueltos'] ? 1 : 0) + (($cache['pop'] && $cache['pop']['urgente']) ? 1 : 0);
 	// Lo urgente primero, luego por último día más cercano.
 	usort($cache['calendarios'], fn($a, $b) => $a['dias'] <=> $b['dias']);
 	return $cache;
+}
+
+// Mes de POP abierto en el que este promotor todavía no reportó nada; el plazo es el fin de mes.
+function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
+	require_once __DIR__.'/pop_datos.php';
+	$mesPop = ep_pop_abierto();
+	if (!$mesPop || empty($mesPop['filas'])) {
+		return null;
+	}
+	$stmt = $db->prepare("SELECT 1 FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'colocacion-pop' AND LEFT(fecha_actividad, 7) = ? AND eliminado_en IS NULL AND estado <> 'Reemplazado' LIMIT 1");
+	$stmt->bind_param('is', $_SESSION['usuario_id'], $mesPop['mes']);
+	$stmt->execute();
+	$yaReporto = $stmt->get_result()->num_rows > 0;
+	$stmt->close();
+	if ($yaReporto) {
+		return null;
+	}
+	$finMes = $mesPop['mes'].'-'.date('t', strtotime($mesPop['mes'].'-01'));
+	$dias = (int) round((strtotime($finMes) - strtotime(date('Y-m-d'))) / 86400);
+	return [
+		'mes' => ep_pop_mes_texto($mesPop['mes']),
+		'materiales' => count($mesPop['filas']),
+		'dias' => $dias,
+		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
+		'urgente' => $dias <= 3,
+		'nuevo' => $conVisto && ($visto === null || $mesPop['created_at'] > $visto),
+	];
 }
 
 // Marca que el promotor ya vio sus avisos hasta este momento.

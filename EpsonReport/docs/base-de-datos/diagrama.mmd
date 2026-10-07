@@ -20,6 +20,9 @@ erDiagram
     repositorio_locales_dtt2 ||..o{ insert_reporte_calendario_fila : "pos_id"
     repositorio_usuarios_reporte |o..o{ insert_reporte_auditoria : "usuario_id (null = sistema)"
     insert_reporte_calendario |o..o{ insert_reporte_auditoria : "entidad_id si entidad = calendario"
+    insert_reporte_pop ||--o{ insert_reporte_pop_fila : "pop_id"
+    insert_reporte_pop |o..o| insert_reporte_mensual : "reporte_mensual_id"
+    insert_reporte_pop_fila }o..o{ insert_reporte_registro : "material en pop_entregas"
 
     insert_reporte_auditoria {
         bigint id PK
@@ -144,6 +147,28 @@ erDiagram
         int creado_por FK
         datetime created_at
         datetime eliminado_en "libera los registros"
+    }
+
+    insert_reporte_pop {
+        int id PK
+        char mes "YYYY-MM"
+        enum estado "activo o cerrado"
+        int reporte_mensual_id FK
+        text comentarios "uno por linea, max 5"
+        int creado_por FK
+        datetime created_at
+        datetime cerrado_en
+        datetime eliminado_en "borrado logico"
+    }
+
+    insert_reporte_pop_fila {
+        int id PK
+        int pop_id FK
+        varchar material "lo que elige el promotor"
+        varchar campana
+        int bodega "lo que llego; canales y retail se calculan de los registros"
+        datetime created_at
+        datetime editado_en
     }
 
     insert_reporte_calendario {

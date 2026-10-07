@@ -60,11 +60,18 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 
 	<header class="ep-cl-head">
 		<div>
-			<h1>Calendario de Activaciones <span class="ep-vivo" id="epClVivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span></h1>
+			<h1>Calendario <span class="ep-vivo" id="epClVivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span></h1>
 			<p id="epClResumen"><?= count($calendarios) ?> <?= count($calendarios) === 1 ? 'calendario' : 'calendarios' ?></p>
 		</div>
 		<button type="button" class="ep-rp-nuevo" id="epCalNuevo"><?= ep_icon('plus', 16) ?> <span>Crear calendario</span></button>
 	</header>
+
+	<div class="ep-cl-tabs" role="tablist" aria-label="Tipo de programación">
+		<button type="button" class="ep-cl-tab activo" role="tab" aria-selected="true" data-tab="act">Activaciones</button>
+		<button type="button" class="ep-cl-tab" role="tab" aria-selected="false" data-tab="pop">Colocación de POP</button>
+	</div>
+
+	<div id="epCalPanelAct">
 
 	<?php if (empty($calendarios)): ?>
 		<?= ep_estado_vacio('calendar', 'Todavía no hay calendarios', 'Crea el primero con "Crear calendario".') ?>
@@ -201,6 +208,12 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 		<div class="ep-cl-sin" id="epClSin" hidden><?= ep_estado_vacio('search', 'Ningún calendario coincide', 'Cambia el período, el canal o la búsqueda, o toca de nuevo el indicador activo.') ?></div>
 	</div>
 	<?php endif; ?>
+
+	</div>
+
+	<div id="epCalPanelPop" class="hidden">
+		<?php require __DIR__.'/pop.php'; ?>
+	</div>
 
 	<!-- Modal "Crear Calendario": un solo guardado (crea y activa a la vez, no hay borrador). -->
 	<div class="ep-modal-ppt hidden" id="epCalModal" role="dialog" aria-modal="true" aria-labelledby="epCalModalTitulo">

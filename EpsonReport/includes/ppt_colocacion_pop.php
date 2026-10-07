@@ -25,8 +25,10 @@ function ep_ppt_pop_agrupar(array $registros): array {
 	foreach ($registros as $reg) {
 		$retail = strtoupper((string) ($reg['canal'] ?? '')) === 'RETAIL';
 		foreach ($reg['pop_entregas'] ?? [] as $e) {
-			$clave = ($reg['campana'] ?? '').'|'.$e['material'];
-			$grupos[$clave] ??= ['campana' => (string) ($reg['campana'] ?? ''), 'material' => $e['material'], 'canales' => 0, 'retail' => 0, 'entregas' => []];
+			// La campaña va en el material; la del registro es el respaldo de los registros anteriores a eso.
+			$campana = (string) ($e['campana'] ?? $reg['campana'] ?? '');
+			$clave = $campana.'|'.$e['material'];
+			$grupos[$clave] ??= ['campana' => $campana, 'material' => $e['material'], 'canales' => 0, 'retail' => 0, 'entregas' => []];
 			$grupos[$clave][$retail ? 'retail' : 'canales'] += (int) $e['cantidad'];
 			$grupos[$clave]['entregas'][] = ['pdv' => ep_ppt_mayus((string) ($reg['punto_venta'] ?? '')), 'ciudad' => ep_ppt_mayus((string) ($reg['ciudad'] ?? '')), 'cantidad' => (int) $e['cantidad']];
 		}

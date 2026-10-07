@@ -233,11 +233,6 @@
 
 			cargarRegistrosCapacitaciones();
 		} else if (n === 4) {
-			// Colocación de POP: tabla de bodega con lo entregado en los registros elegidos.
-			if (window.epRpPop) {
-				var regsPop = Object.keys(seleccionadosCapMap).map(function (k) { return seleccionadosCapMap[k]; });
-				window.epRpPop.mostrar((selTipo && selTipo.value) === 'colocacion-pop', regsPop);
-			}
 			if (pasoAct) pasoAct.classList.add('hidden');
 			if (workspaceAct) workspaceAct.classList.add('hidden');
 			if (workspaceCap) workspaceCap.classList.add('hidden');
@@ -254,7 +249,6 @@
 		quitarCalendario();
 		seleccionadosMap = {};
 		seleccionadosCapMap = {};
-		if (window.epRpPop) window.epRpPop.limpiar();
 		if (inpProg) inpProg.value = '';
 		if (inpTitulo) inpTitulo.value = '';
 		if (inpMes) inpMes.value = '';
@@ -1839,17 +1833,12 @@
 
 		var tipoEnvio = (selTipo && selTipo.value) || 'capacitaciones';
 		var labelEnvio = (selTipo && selTipo.dataset.label) || 'Actividad';
-		if (tipoEnvio === 'colocacion-pop' && window.epRpPop && window.epRpPop.faltantes()) {
-			aviso('warning', 'Falta la bodega', 'Escribe cuántas unidades de cada material llegaron a bodega.');
-			return;
-		}
 		var fd = new FormData();
 		fd.append('tipo', tipoEnvio);
 		fd.append('mes', inpMes ? inpMes.value : '');
 		fd.append('nombre_actividad', (selTipo && selTipo.dataset.label) || '');
 		fd.append('titulo', inpTitulo ? inpTitulo.value.trim() : '');
 		fd.append('registros', JSON.stringify(ids));
-		if (tipoEnvio === 'colocacion-pop' && window.epRpPop) fd.append('pop_bodega', JSON.stringify(window.epRpPop.valores()));
 
 		if (btnGuardarAct) btnGuardarAct.disabled = true;
 		if (window.Swal) Swal.fire({ title: 'Guardando reporte', html: 'Consolidando ' + esc(labelEnvio) + ' seleccionadas...', allowOutsideClick: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });

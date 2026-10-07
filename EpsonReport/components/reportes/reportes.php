@@ -12,7 +12,8 @@ $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $reportes = ep_reportes_listar();
 $actividadesActivas = ep_actividades_activas();
 // Activaciones ya no se arma a mano: su reporte lo genera el Calendario de Activaciones al cerrarse.
-$actividadesManual = array_values(array_filter($actividadesActivas, fn($a) => ($a['plantilla'] ?? '') !== 'activaciones'));
+// Activaciones y Colocación de POP no se arman a mano: salen del Calendario y del mes de POP.
+$actividadesManual = array_values(array_filter($actividadesActivas, fn($a) => !in_array($a['plantilla'] ?? '', ['activaciones', 'colocacion-pop'], true)));
 $subtitulosTipo = [
 	'activaciones'   => 'Cobertura, embudo y modelos',
 	'capacitaciones' => 'Asistentes por cargo en tienda',

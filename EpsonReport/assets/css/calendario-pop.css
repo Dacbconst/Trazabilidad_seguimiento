@@ -1,0 +1,59 @@
+/* Tab de Colocación de POP dentro de Calendario: tabla mensual de material y su saldo. */
+
+/* Pestañas Activaciones / Colocación de POP */
+.ep-cl-tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid #E1DCEA; border-radius: 12px; background: #FFFFFF; align-self: flex-start; }
+.ep-cl-tab { height: 34px; padding: 0 16px; border: none; border-radius: 9px; background: transparent; font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--color-text-muted); transition: background-color .15s ease-out, color .15s ease-out; }
+.ep-cl-tab:hover { color: var(--color-primary-dark); }
+.ep-cl-tab.activo { background: var(--color-primary); color: #FFFFFF; }
+
+.ep-pop-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.ep-pop-head-txt { margin: 0; font-size: 13.5px; color: var(--color-text-muted); }
+
+.ep-pop-mes { margin-bottom: 14px; border: 1px solid #E1DCEA; border-radius: 14px; background: #FFFFFF; overflow: hidden; }
+.ep-pop-mes-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid #EFECF5; }
+.ep-pop-mes-id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ep-pop-mes-id strong { font-family: 'Sora', sans-serif; font-size: 16px; color: var(--color-ink); }
+.ep-pop-mes-meta { font-size: 12.5px; color: var(--color-text-muted); }
+.ep-pop-mes-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ep-pop-avance { margin-right: 6px; font-size: 13px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.ep-pop-avance strong { color: var(--color-primary-dark); }
+
+.ep-pop-badge { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
+.ep-pop-badge-abierto { background: var(--color-primary-soft); color: var(--color-primary-dark); }
+.ep-pop-badge-cerrado { background: #F0F2F6; color: var(--color-text-muted); }
+.ep-pop-badge-aviso { background: #FFF4E5; color: #8A4B00; }
+
+.ep-pop-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: 9px; background: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--color-text); text-decoration: none; transition: border-color .15s ease-out, background-color .15s ease-out; }
+.ep-pop-btn:hover { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.ep-pop-btn-pri { border-color: var(--color-primary); background: var(--color-primary); color: #FFFFFF; }
+.ep-pop-btn-pri:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); }
+.ep-pop-eliminar { color: var(--color-text-muted); }
+.ep-pop-eliminar:hover { border-color: var(--color-danger); background: #FCE8E6; color: var(--color-danger); }
+
+/* Tabla del mes: bodega la carga el gestor, canales y retail los suman los promotores */
+.ep-pop-tabla { display: flex; flex-direction: column; }
+.ep-pop-tr { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) repeat(4, minmax(0, 1fr)); align-items: center; gap: 10px; padding: 9px 18px; font-size: 13.5px; }
+.ep-pop-tr + .ep-pop-tr { border-top: 1px solid #F3F1F8; }
+.ep-pop-tr span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.ep-pop-th { padding-top: 11px; padding-bottom: 11px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); background: #FBFAFD; }
+.ep-pop-campana { color: var(--color-text-muted); }
+.ep-pop-negativo { color: var(--color-danger); font-weight: 700; }
+
+/* Modal de carga */
+.ep-pop-campo { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--color-text); }
+.ep-pop-filas-head, .ep-pop-fila { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 90px 34px; align-items: center; gap: 8px; }
+.ep-pop-filas-head { margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); }
+.ep-pop-filas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.ep-pop-fila .ep-input { height: 38px; text-transform: uppercase; }
+.ep-pop-fila .ep-pop-fila-bodega { text-transform: none; }
+
+@media (max-width: 760px) {
+	.ep-pop-head { flex-direction: column; align-items: stretch; }
+	.ep-pop-mes-head { flex-direction: column; align-items: flex-start; }
+	.ep-pop-tr { grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)); row-gap: 2px; }
+	/* En celular solo caben material, bodega y disponible; campaña y el desglose se ven en el PPT */
+	.ep-pop-tr span:nth-child(2), .ep-pop-tr span:nth-child(4), .ep-pop-tr span:nth-child(5) { display: none; }
+	.ep-pop-filas-head { display: none; }
+	.ep-pop-fila { grid-template-columns: minmax(0, 1fr) 80px 34px; }
+	.ep-pop-fila .ep-pop-fila-campana { grid-column: 1 / -1; }
+}

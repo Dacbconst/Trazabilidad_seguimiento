@@ -1378,30 +1378,88 @@ document.addEventListener('DOMContentLoaded', function () {
 	if (eventoComentarios) eventoComentarios.addEventListener('input', actualizarEstadisticasEvento);
 	actualizarEstadisticasEvento(); // primer cálculo
 
-	// ---------- Colocación de POP ---------- un registro por punto de venta: campaña + material entregado (filas libres); sin panel de estadísticas.
+	// ---------- Colocación de POP ---------- un registro por punto de venta: material del mes abierto + cantidad; sin panel de estadísticas.
 	var popEntregas = document.getElementById('ep-pop-entregas');
 	var popAgregar = document.getElementById('ep-pop-entregas-agregar');
-	if (popEntregas && popAgregar) {
-		var popFilaModelo = popEntregas.querySelector('.ep-pop-entrega-fila').cloneNode(true);
-		popAgregar.addEventListener('click', function () {
-			var fila = popFilaModelo.cloneNode(true);
-			fila.querySelectorAll('input').forEach(function (i) { i.value = ''; });
-			popEntregas.appendChild(fila);
-			fila.querySelector('input').focus();
+	var popCatalogo = window.EP_POP_MATERIALES || [];
+	if (popEntregas) {
+		// La campaña no se escribe: viene con el material que cargó el gestor en el mes de POP.
+		function popFilaHTML() {
+			return '<div class="ep-pop-entrega-fila"><div class="ep-combo">'
+				+ '<button type="button" class="ep-input ep-combo-trigger ep-pop-entrega-material" data-valor="">'
+				+ '<span class="ep-combo-trigger-texto">Elegir material</span>' + epIconMarkup('chevron', 14) + '</button>'
+				+ '<div class="ep-combo-panel hidden"><input type="text" class="ep-input ep-combo-buscador" placeholder="Buscar material..." autocomplete="off">'
+				+ '<div class="ep-combo-opciones"></div></div></div>'
+				+ '<input type="number" min="1" inputmode="numeric" class="ep-input ep-pop-entrega-cantidad" placeholder="Cant.">'
+				+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar material">' + epIconMarkup('trash', 14) + '</button></div>';
+		}
+		function popElegidosEnOtras(comboActual) {
+			var out = [];
+			popEntregas.querySelectorAll('.ep-combo').forEach(function (c) {
+				if (c === comboActual) return;
+				var v = c.querySelector('.ep-combo-trigger').dataset.valor;
+				if (v) out.push(v);
+			});
+			return out;
+		}
+		function popPintarOpciones(combo, texto) {
+			var ya = popElegidosEnOtras(combo);
+			var busca = (texto || '').trim().toUpperCase();
+			var hay = popCatalogo.filter(function (m) { return ya.indexOf(m.material) === -1 && m.material.toUpperCase().indexOf(busca) !== -1; });
+			combo.querySelector('.ep-combo-opciones').innerHTML = hay.length
+				? hay.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m.material + '">' + m.material + '<span class="ep-combo-opcion-nota">' + m.campana + '</span></button>'; }).join('')
+				: '<div class="ep-combo-vacio">Sin resultados</div>';
+		}
+		function popCerrarPaneles() { popEntregas.querySelectorAll('.ep-combo-panel').forEach(function (p) { p.classList.add('hidden'); }); }
+		function popAgregarFila() {
+			popEntregas.insertAdjacentHTML('beforeend', popFilaHTML());
+			return popEntregas.lastElementChild;
+		}
+		popAgregarFila();
+		if (popAgregar) popAgregar.addEventListener('click', function () { popAgregarFila().querySelector('.ep-combo-trigger').focus(); });
+		popEntregas.addEventListener('input', function (ev) {
+			if (ev.target.classList.contains('ep-combo-buscador')) popPintarOpciones(ev.target.closest('.ep-combo'), ev.target.value);
 		});
-		// Siempre queda al menos una fila: la última solo se vacía.
 		popEntregas.addEventListener('click', function (ev) {
+			var trigger = ev.target.closest('.ep-combo-trigger');
+			if (trigger) {
+				var combo = trigger.closest('.ep-combo');
+				var abierto = !combo.querySelector('.ep-combo-panel').classList.contains('hidden');
+				popCerrarPaneles();
+				if (!abierto) {
+					var buscador = combo.querySelector('.ep-combo-buscador');
+					buscador.value = '';
+					popPintarOpciones(combo, '');
+					combo.querySelector('.ep-combo-panel').classList.remove('hidden');
+					buscador.focus();
+				}
+				return;
+			}
+			var opcion = ev.target.closest('.ep-combo-opcion');
+			if (opcion) {
+				var elegido = opcion.closest('.ep-combo').querySelector('.ep-combo-trigger');
+				elegido.dataset.valor = opcion.dataset.valor;
+				elegido.querySelector('.ep-combo-trigger-texto').textContent = opcion.dataset.valor;
+				popCerrarPaneles();
+				return;
+			}
+			// Siempre queda al menos una fila: la última solo se vacía.
 			var quitar = ev.target.closest('.ep-modelo-quitar');
 			if (!quitar) return;
 			var fila = quitar.closest('.ep-pop-entrega-fila');
-			if (popEntregas.querySelectorAll('.ep-pop-entrega-fila').length > 1) fila.remove();
-			else fila.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+			if (popEntregas.querySelectorAll('.ep-pop-entrega-fila').length > 1) {
+				fila.remove();
+			} else {
+				popEntregas.innerHTML = '';
+				popAgregarFila();
+			}
 		});
+		document.addEventListener('click', function (ev) { if (!ev.target.closest('.ep-combo')) popCerrarPaneles(); });
 	}
 	function leerEntregasPop() {
 		if (!popEntregas) return [];
 		return Array.prototype.slice.call(popEntregas.querySelectorAll('.ep-pop-entrega-fila')).map(function (f) {
-			return { material: f.querySelector('.ep-pop-entrega-material').value.trim().toUpperCase(), cantidad: parseInt(f.querySelector('.ep-pop-entrega-cantidad').value, 10) || 0 };
+			return { material: f.querySelector('.ep-pop-entrega-material').dataset.valor, cantidad: parseInt(f.querySelector('.ep-pop-entrega-cantidad').value, 10) || 0 };
 		}).filter(function (e) { return e.material && e.cantidad > 0; });
 	}
 

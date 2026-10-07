@@ -201,6 +201,9 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 .ep-pop-entregas { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
 .ep-pop-entregas .ep-pop-entrega-fila { grid-template-columns: minmax(0, 1fr) 90px 34px; }
 .ep-pop-entrega-material { text-transform: uppercase; }
+.ep-pop-entrega-fila .ep-combo { min-width: 0; }
+/* En POP cada material muestra su campaña a la derecha */
+.ep-combo-opcion-nota { float: right; margin-left: 10px; font-size: 11px; color: var(--color-text-muted); }
 .ep-hist-badge-pendiente { background: #FFF3D6; color: #8A6100; }
 .ep-hist-badge-danger { background: #FBEAE9; color: var(--color-danger); }
 /* Venían de historial.css; van después de las variantes para conservar la cascada de siempre. */

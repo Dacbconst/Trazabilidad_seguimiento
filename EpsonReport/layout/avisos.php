@@ -25,7 +25,17 @@ $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? 
 				<a class="ep-avisos-ir" href="index.php?vista=actividades&amp;corregir=<?= urlencode($d['codigo']) ?>">Corregir y reenviar</a>
 			</article>
 		<?php endforeach; ?>
-		<?php if (!$avisos['calendarios'] && !$avisos['devueltos']): ?>
+		<?php if ($avisos['pop']): ?>
+			<article class="ep-avisos-cal<?= $avisos['pop']['urgente'] ? ' urgente' : '' ?>">
+				<div class="ep-avisos-cal-top">
+					<h3>Colocación de POP · <?= $h($avisos['pop']['mes']) ?></h3>
+					<span class="ep-avisos-etq<?= $avisos['pop']['urgente'] ? ' urgente' : '' ?>"><?= $h($avisos['pop']['ultimo_dia']) ?></span>
+				</div>
+				<p class="ep-avisos-sub">Reporta el material POP que colocaste<?= $avisos['pop']['nuevo'] ? ' · nuevo' : '' ?></p>
+				<a class="ep-avisos-ir" href="index.php?vista=actividades">Reportar colocación</a>
+			</article>
+		<?php endif; ?>
+		<?php if (!$avisos['calendarios'] && !$avisos['devueltos'] && !$avisos['pop']): ?>
 			<div class="ep-avisos-vacio"><?= ep_icon('check', 22) ?><strong>No tienes activaciones pendientes</strong><span>Cuando te programen una, te aparecerá aquí.</span></div>
 		<?php endif; ?>
 		<?php foreach ($avisos['calendarios'] as $c): ?>
@@ -53,4 +63,4 @@ $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? 
 	</footer>
 	<?php endif; ?>
 </section>
-<script type="application/json" id="epAvisosDatos"><?= json_encode(['total' => $avisos['total'], 'nuevos' => $avisos['nuevos'], 'urgentes' => $avisos['urgentes'], 'devueltosNuevos' => (int) ($avisos['devueltos_nuevos'] ?? 0), 'devueltos' => count($avisos['devueltos']), 'urgentesTxt' => array_values(array_merge(array_map(fn($d) => 'Registro devuelto: '.$d['punto'], $avisos['devueltos']), array_map(fn($c) => $c['nombre'].' ('.mb_strtolower($c['ultimo_dia']).')', array_filter($avisos['calendarios'], fn($c) => $c['urgente']))))], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<script type="application/json" id="epAvisosDatos"><?= json_encode(['total' => $avisos['total'], 'nuevos' => $avisos['nuevos'], 'urgentes' => $avisos['urgentes'], 'devueltosNuevos' => (int) ($avisos['devueltos_nuevos'] ?? 0), 'devueltos' => count($avisos['devueltos']), 'urgentesTxt' => array_values(array_merge(array_map(fn($d) => 'Registro devuelto: '.$d['punto'], $avisos['devueltos']), array_map(fn($c) => $c['nombre'].' ('.mb_strtolower($c['ultimo_dia']).')', array_filter($avisos['calendarios'], fn($c) => $c['urgente'])), ($avisos['pop'] && $avisos['pop']['urgente']) ? ['Colocación de POP ('.mb_strtolower($avisos['pop']['ultimo_dia']).')'] : []))], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>

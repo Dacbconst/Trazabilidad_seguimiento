@@ -33,7 +33,6 @@
 			poner('ep-exh-cabeceras', d.exhibiciones.cabeceras); poner('ep-exh-rumas', d.exhibiciones.rumas); poner('ep-exh-muebles', d.exhibiciones.muebles);
 			poner('ep-exh-regular', d.exhibiciones.exh_regular); poner('ep-exh-otras', d.exhibiciones.otras);
 		}
-		if (d.campana) poner('ep-pop-campana', d.campana);
 		if (d.pop_entregas && d.pop_entregas.length) {
 			var cont = document.getElementById('ep-pop-entregas');
 			var agregar = document.getElementById('ep-pop-entregas-agregar');
@@ -41,7 +40,10 @@
 				if (i > 0 && agregar) agregar.click();
 				var fila = cont && cont.querySelectorAll('.ep-pop-entrega-fila')[i];
 				if (!fila) return;
-				fila.querySelector('.ep-pop-entrega-material').value = e.material;
+				// El material es el combo del proyecto: se deja elegido, no se escribe.
+				var trigger = fila.querySelector('.ep-pop-entrega-material');
+				trigger.dataset.valor = e.material;
+				trigger.querySelector('.ep-combo-trigger-texto').textContent = e.material;
 				fila.querySelector('.ep-pop-entrega-cantidad').value = e.cantidad;
 			});
 		}

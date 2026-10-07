@@ -1,46 +1,36 @@
-<!-- Colocación de POP: un registro por punto de venta (elegido arriba). IDs = contrato con assets/js/app.js -->
+<?php
+// Colocación de POP: un registro por punto de venta. El material sale del mes abierto que cargó el gestor, no se escribe libre.
+require_once __DIR__.'/../../../includes/pop_datos.php';
+$popMateriales = ep_pop_materiales();
+?>
+<script>window.EP_POP_MATERIALES = <?= json_encode($popMateriales, JSON_UNESCAPED_UNICODE) ?>;</script>
 <div class="ep-steps">
 
-	<!-- Paso 1: Campaña del material (Mundial, BTS...) -->
+	<!-- Paso 1: Material colocado en este punto de venta -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
 			<div class="ep-step-num">1</div>
 			<div class="ep-step-line"></div>
 		</div>
 		<div class="ep-step-body">
-			<h3 class="ep-step-title">Campaña</h3>
-			<p class="ep-step-hint">Campaña a la que pertenece el material POP que entregaste en este punto de venta.</p>
-			<input type="text" class="ep-input ep-input-mayusculas" id="ep-pop-campana" maxlength="40" placeholder="Ej. BTS" autocomplete="off" style="margin-top:10px;">
-		</div>
-	</div>
-
-	<!-- Paso 2: Material entregado en este punto de venta -->
-	<div class="ep-step">
-		<div class="ep-step-rail">
-			<div class="ep-step-num">2</div>
-			<div class="ep-step-line"></div>
-		</div>
-		<div class="ep-step-body">
-			<h3 class="ep-step-title">Material POP entregado</h3>
-			<p class="ep-step-hint">Un material por fila y cuántas unidades entregaste en este punto de venta.</p>
-			<div class="ep-pop-entregas" id="ep-pop-entregas">
-				<div class="ep-pop-entrega-fila">
-					<input type="text" class="ep-input ep-pop-entrega-material" maxlength="60" placeholder="Material (ej. Vibrin)" autocomplete="off">
-					<input type="number" min="1" class="ep-input ep-pop-entrega-cantidad" placeholder="Cant." inputmode="numeric">
-					<button type="button" class="ep-modelo-quitar" aria-label="Quitar material"><?= ep_icon('trash', 14) ?></button>
-				</div>
-			</div>
-			<button type="button" class="ep-btn-agregar-fila" id="ep-pop-entregas-agregar">
+			<h3 class="ep-step-title">Material POP colocado</h3>
+			<?php if (empty($popMateriales)): ?>
+				<p class="ep-step-hint">Todavía no hay material POP cargado para este mes. Avísale a tu supervisor antes de reportar.</p>
+			<?php else: ?>
+				<p class="ep-step-hint">Elige el material que colocaste y cuántas unidades. Puedes agregar varios.</p>
+			<?php endif; ?>
+			<div class="ep-pop-entregas" id="ep-pop-entregas"></div>
+			<button type="button" class="ep-btn-agregar-fila" id="ep-pop-entregas-agregar"<?= empty($popMateriales) ? ' disabled' : '' ?>>
 				<?= ep_icon('plus', 14) ?>
 				Agregar material
 			</button>
 		</div>
 	</div>
 
-	<!-- Paso 3: Comentarios (sin línea hacia abajo, es el último) -->
+	<!-- Paso 2: Comentarios (sin línea hacia abajo, es el último) -->
 	<div class="ep-step">
 		<div class="ep-step-rail">
-			<div class="ep-step-num">3</div>
+			<div class="ep-step-num">2</div>
 		</div>
 		<div class="ep-step-body">
 			<h3 class="ep-step-title">Comentarios</h3>
