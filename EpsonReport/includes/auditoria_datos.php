@@ -164,3 +164,16 @@ function ep_auditoria_listar(int $limite = EP_AUDITORIA_LIMITE): array {
 	ep_auditoria_afectados($db, $filas);
 	return $filas;
 }
+
+// Fila "Actividad" del detalle: el nombre de la lógica (Activaciones, Capacitaciones, Epson Day...) a partir del tipo guardado; si no se reconoce, el tipo tal cual.
+function ep_auditoria_actividad(string $tipo, string $detalleExtra = ''): array {
+	require_once __DIR__.'/actividades_datos.php';
+	$nombre = '';
+	foreach (ep_logicas() as $l) {
+		if (($l['plantilla'] ?? '') === $tipo) {
+			$nombre = $l['label'];
+		}
+	}
+	$texto = $nombre !== '' ? $nombre : $tipo;
+	return ep_auditoria_dato('Actividad', trim($detalleExtra) !== '' ? $texto.' · '.trim($detalleExtra) : $texto);
+}

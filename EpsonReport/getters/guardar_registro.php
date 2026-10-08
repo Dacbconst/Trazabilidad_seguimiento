@@ -365,7 +365,14 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 		if ($esPromotor && $pedido[$clave] > ($mio[$clave]['disponible'] ?? 0)) {
 			http_response_code(422);
 			$queda = $mio[$clave]['disponible'] ?? 0;
-			echo json_encode(['success' => false, 'error' => $queda > 0 ? 'De «'.$material.'» solo te quedan '.$queda.'.' : 'Tu supervisor no te asignó «'.$material.'».']);
+			if (!isset($mio[$clave])) {
+				$error = 'Tu supervisor no te asignó «'.$material.'». Pídele que te lo marque en su equipo.';
+			} elseif ($queda <= 0) {
+				$error = 'Ya no queda «'.$material.'»: el saldo lo comparten los promotores de tu supervisor y se agotó. Avísale.';
+			} else {
+				$error = 'De «'.$material.'» solo quedan '.$queda.' (el saldo lo compartes con tu equipo).';
+			}
+			echo json_encode(['success' => false, 'error' => $error]);
 			exit;
 		}
 		// La campaña va por material: un mes puede tener dos campañas vivas y el registro mezclar materiales de ambas.

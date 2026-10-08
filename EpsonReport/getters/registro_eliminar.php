@@ -30,7 +30,7 @@ try {
 		require_once __DIR__.'/../includes/auditoria_datos.php';
 		$fecha = $registro['fecha_actividad'] ?? ($registro['fecha_iso'] ?? '');
 		ep_auditar('registro_eliminar', 'registro', (int) $registro['db_id'], 'Eliminó el registro '.$codigo, [
-			ep_auditoria_dato('Actividad', $registro['actividad_label'] ?? ($registro['tipo'] ?? '')),
+			ep_auditoria_actividad((string) ($registro['tipo'] ?? ''), (string) ($registro['tipo_actividad'] ?? '')),
 			ep_auditoria_dato('Promotor', $registro['promotor'] ?? ''),
 			ep_auditoria_dato('Punto de venta', $registro['punto_venta'] ?? ''),
 			ep_auditoria_dato('Fecha de la actividad', $fecha !== '' ? date('d/m/Y', strtotime($fecha)) : '—'),

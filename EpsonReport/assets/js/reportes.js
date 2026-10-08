@@ -173,6 +173,7 @@
 		return Promise.resolve();
 	}
 	function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+// Porcentaje siempre entero (el servidor lo manda con un decimal): 33.3 o '33.3%' pasan a 33.	function pctEnt(v) { return Math.round(parseFloat(v) || 0); }
 	function normalizar(txt) { return (txt || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); }
 
 	// ==================== NAVEGACIÓN DE VISTAS ====================
@@ -828,9 +829,9 @@
 				+ '<span class="ep-act-mini-badge">Slide 1</span>'
 				+ '</div>'
 				+ '<div class="ep-act-mini-kpis-row">'
-				+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">COB</div><div class="ep-act-mini-kpi-val">' + (cob.pct || 0) + '%</div></div>'
-				+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">INT</div><div class="ep-act-mini-kpi-val">' + (emb.tasa_interaccion_pct || 0) + '%</div></div>'
-				+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">VEN</div><div class="ep-act-mini-kpi-val">' + (emb.tasa_conversion_pct || 0) + '%</div></div>'
+				+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">COB</div><div class="ep-act-mini-kpi-val">' + pctEnt(cob.pct) + '%</div></div>'
+				+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">INT</div><div class="ep-act-mini-kpi-val">' + pctEnt(emb.tasa_interaccion_pct) + '%</div></div>'
+				+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">VEN</div><div class="ep-act-mini-kpi-val">' + pctEnt(emb.tasa_conversion_pct) + '%</div></div>'
 				+ '</div>'
 				+ '<div class="ep-act-mini-bottom-row">'
 				+ '<div class="ep-act-mini-bars">'
@@ -1205,9 +1206,9 @@
 					+ '<span class="ep-act-mini-badge" style="background:#E0F2FE;color:#006699;">Slide 1</span>'
 					+ '</div>'
 					+ '<div class="ep-act-mini-kpis-row">'
-					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">COB</div><div class="ep-act-mini-kpi-val">' + (cob.pct || 0) + '%</div></div>'
-					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">INT</div><div class="ep-act-mini-kpi-val">' + (emb.tasa_interaccion_pct || 0) + '%</div></div>'
-					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">VEN</div><div class="ep-act-mini-kpi-val">' + (emb.tasa_conversion_pct || 0) + '%</div></div>'
+					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">COB</div><div class="ep-act-mini-kpi-val">' + pctEnt(cob.pct) + '%</div></div>'
+					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">INT</div><div class="ep-act-mini-kpi-val">' + pctEnt(emb.tasa_interaccion_pct) + '%</div></div>'
+					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">VEN</div><div class="ep-act-mini-kpi-val">' + pctEnt(emb.tasa_conversion_pct) + '%</div></div>'
 					+ '</div>'
 					+ '<div class="ep-act-mini-bottom-row">'
 					+ '<div class="ep-act-mini-bars"><div class="ep-act-mini-bar-item"><span class="ep-act-mini-bar-lbl" title="' + esc(topModel) + '">' + esc(topModel) + '</span><div class="ep-act-mini-bar-track"><div class="ep-act-mini-bar-fill" style="width:85%;background:#006699;"></div></div></div></div>'
@@ -1233,8 +1234,8 @@
 					+ '<span class="ep-act-mini-badge" style="background:#CCFBF1;color:#0D9488;">Slide 1</span>'
 					+ '</div>'
 					+ '<div class="ep-act-mini-kpis-row" style="grid-template-columns:1fr 1fr;">'
-					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">INT</div><div class="ep-act-mini-kpi-val">' + (embF.tasa_interaccion_pct || 0) + '%</div></div>'
-					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">VEN</div><div class="ep-act-mini-kpi-val">' + (embF.tasa_conversion_pct || 0) + '%</div></div>'
+					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">INT</div><div class="ep-act-mini-kpi-val">' + pctEnt(embF.tasa_interaccion_pct) + '%</div></div>'
+					+ '<div class="ep-act-mini-kpi"><div class="ep-act-mini-kpi-tag">VEN</div><div class="ep-act-mini-kpi-val">' + pctEnt(embF.tasa_conversion_pct) + '%</div></div>'
 					+ '</div>'
 					+ '<div class="ep-act-mini-bottom-row">'
 					+ '<div class="ep-act-mini-bars"><div class="ep-act-mini-bar-item"><span class="ep-act-mini-bar-lbl" title="' + esc(topModelF) + '">' + esc(topModelF) + '</span><div class="ep-act-mini-bar-track"><div class="ep-act-mini-bar-fill" style="width:85%;background:#0D9488;"></div></div></div></div>'
@@ -1561,9 +1562,9 @@
 				var menor = modelos.length > 1 ? modelos[modelos.length - 1] : mayor;
 
 				var mayorNom = mayor ? mayor.modelo.toUpperCase() : 'SIN DATOS';
-				var mayorPct = mayor ? (mayor.pct || '0%') : '0%';
+				var mayorPct = pctEnt(mayor && mayor.pct) + '%';
 				var menorNom = menor ? menor.modelo.toUpperCase() : 'SIN DATOS';
-				var menorPct = menor ? (menor.pct || '0%') : '0%';
+				var menorPct = pctEnt(menor && menor.pct) + '%';
 
 				var htmlModelos = '';
 				if (modelosTop5.length > 0) {
@@ -1582,6 +1583,26 @@
 					htmlModelos = '<div style="font-size:8px;color:#94A3B8;padding:6px 0;">Sin modelos registrados</div>';
 				}
 
+				// Ingresos por modelo (cantidad × precio): solo Activaciones y Epson Day traen precio, igual que en la diapositiva.
+				var conPrecio = modelos.filter(function (m) { return (parseFloat(m.precio) || 0) > 0; }).map(function (m) {
+					return { modelo: m.modelo, ingreso: (parseInt(m.cantidad || 0, 10) || 0) * (parseFloat(m.precio) || 0) };
+				}).sort(function (a, b) { return b.ingreso - a.ingreso; }).slice(0, 5);
+				var maxIngreso = conPrecio.length ? Math.max(1, conPrecio[0].ingreso) : 1;
+				var htmlIngresosCard = '';
+				if (conPrecio.length) {
+					htmlIngresosCard = '<div class="ep-slide-detalle-card">'
+						+ '<div class="ep-slide-card-header">INGRESOS POR MODELO</div>'
+						+ '<div class="ep-slide-modelos-list">'
+						+ conPrecio.map(function (m) {
+							return '<div class="ep-slide-mod-item ep-slide-mod-ingreso">'
+								+ '<span class="ep-slide-mod-nom" title="' + esc(m.modelo) + '">' + esc(m.modelo) + '</span>'
+								+ '<div class="ep-slide-mod-track"><div class="ep-slide-mod-bar" style="width:' + Math.round(m.ingreso / maxIngreso * 100) + '%;"></div></div>'
+								+ '<span class="ep-slide-mod-qty">$' + m.ingreso.toFixed(2) + '</span>'
+								+ '</div>';
+						}).join('')
+						+ '</div></div>';
+				}
+
 				var vis = Math.max(1, parseInt(emb.visitaron || 0, 10));
 				var v1 = parseInt(emb.visitaron || 0, 10);
 				var v2 = parseInt(emb.interactuaron || 0, 10);
@@ -1598,7 +1619,7 @@
 				if (!esEvento) {
 					htmlKpis += '<div class="ep-slide-kpi-card">'
 						+ '<div class="ep-slide-kpi-tag">COBERTURA</div>'
-						+ '<div class="ep-slide-kpi-big">' + (cob.pct || 0) + ' %</div>'
+						+ '<div class="ep-slide-kpi-big">' + pctEnt(cob.pct) + ' %</div>'
 						+ '<div class="ep-slide-kpi-lines">'
 						+ '<div>' + (cob.nacional || 0) + ' TIENDAS A NIVEL NACIONAL</div>'
 						+ '<div>' + (cob.coberturadas || 0) + ' TIENDAS COBERTURADAS</div>'
@@ -1607,7 +1628,7 @@
 				}
 				htmlKpis += '<div class="ep-slide-kpi-card"' + (esEvento ? ' style="flex:1;"' : '') + '>'
 					+ '<div class="ep-slide-kpi-tag">INTERACCIONES</div>'
-					+ '<div class="ep-slide-kpi-big">' + (emb.tasa_interaccion_pct || 0) + ' %</div>'
+					+ '<div class="ep-slide-kpi-big">' + pctEnt(emb.tasa_interaccion_pct) + ' %</div>'
 					+ '<div class="ep-slide-kpi-lines">'
 					+ '<div>' + (emb.visitaron || 0) + ' ' + kpiInterLabel + '</div>'
 					+ '<div>' + (emb.interactuaron || 0) + ' CLIENTES ATENDIDOS</div>'
@@ -1615,7 +1636,7 @@
 					+ '</div>'
 					+ '<div class="ep-slide-kpi-card"' + (esEvento ? ' style="flex:1;"' : '') + '>'
 					+ '<div class="ep-slide-kpi-tag">VENTAS</div>'
-					+ '<div class="ep-slide-kpi-big">' + (emb.tasa_conversion_pct || 0) + ' %</div>'
+					+ '<div class="ep-slide-kpi-big">' + pctEnt(emb.tasa_conversion_pct) + ' %</div>'
 					+ '<div class="ep-slide-kpi-lines">'
 					+ '<div>' + (emb.compraron || 0) + ' VENTAS EFECTIVAS</div>'
 					+ '</div>'
@@ -1677,6 +1698,7 @@
 					+ '</div>'
 					+ '</div>'
 
+					+ htmlIngresosCard
 					+ '<div class="ep-slide-comentarios-card">'
 					+ '<div class="ep-slide-card-header">COMENTARIOS</div>'
 					+ '<div class="ep-slide-comentarios-list">'

@@ -1,5 +1,5 @@
 <?php
-// Repositorios (admin y Fabricio): listas de materiales y campañas de POP, independientes entre sí, de las que se elige al cargar el mes.
+// Repositorios (admin y Fabricio): un solo repositorio de POP con dos listas independientes, Material y Campaña, de las que se elige al cargar el mes.
 require_once __DIR__.'/../../includes/functions.php';
 require_once __DIR__.'/../../includes/pop_reparto.php';
 require_once __DIR__.'/../../includes/pop_catalogo.php';
@@ -9,20 +9,18 @@ if (!ep_pop_es_dueno()) {
 	return;
 }
 $catalogo = ep_pop_catalogo();
-$h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 ?>
 <main class="ep-content ep-repo" id="epRepo">
 
 	<header class="ep-repo-head">
 		<div>
 			<h1>Repositorios</h1>
-			<p id="epRepoSubtitulo">Listas de las que se elige al cargar el mes de Colocación de POP.</p>
+			<p>Listas de las que se elige al cargar el mes de Colocación de POP.</p>
 		</div>
 	</header>
 
 	<div class="ep-repo-tabs" role="tablist" aria-label="Repositorios">
-		<button type="button" class="ep-repo-tab activo" role="tab" aria-selected="true" data-tipo="material"><?= ep_icon('tag', 16) ?>Materiales<span class="ep-repo-count" id="epRepoCuentaMaterial"><?= count($catalogo['materiales']) ?></span></button>
-		<button type="button" class="ep-repo-tab" role="tab" aria-selected="false" data-tipo="campana"><?= ep_icon('megaphone', 16) ?>Campañas<span class="ep-repo-count" id="epRepoCuentaCampana"><?= count($catalogo['campanas']) ?></span></button>
+		<button type="button" class="ep-repo-tab activo" role="tab" aria-selected="true"><?= ep_icon('tag', 16) ?>Material y Campaña<span class="ep-repo-count" id="epRepoCuenta"><?= count($catalogo['materiales']) + count($catalogo['campanas']) ?></span></button>
 		<div class="ep-repo-indicador" id="epRepoIndicador"></div>
 	</div>
 
@@ -33,12 +31,20 @@ $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 				<input type="search" id="epRepoBuscar" placeholder="Buscar..." autocomplete="off" aria-label="Buscar en el repositorio">
 			</label>
 			<div class="ep-repo-acciones">
-				<a class="ep-repo-btn" id="epRepoFormato" href="getters/repositorio_plantilla.php?tipo=material"><?= ep_icon('download', 16) ?>Descargar Formato</a>
+				<a class="ep-repo-btn" href="getters/repositorio_plantilla.php"><?= ep_icon('download', 16) ?>Descargar Formato</a>
 				<button type="button" class="ep-repo-btn ep-repo-btn-p" id="epRepoAgregar"><?= ep_icon('upload', 16) ?>Subir Archivo</button>
 			</div>
 		</div>
-		<div class="ep-repo-fila ep-repo-th"><span>Nombre</span><span>En uso</span><span></span></div>
-		<div id="epRepoLista"></div>
+		<div class="ep-repo-columnas">
+			<div class="ep-repo-col">
+				<div class="ep-repo-fila ep-repo-th"><span id="epRepoTituloMaterial">Material</span><span></span></div>
+				<div id="epRepoListaMaterial"></div>
+			</div>
+			<div class="ep-repo-col">
+				<div class="ep-repo-fila ep-repo-th"><span id="epRepoTituloCampana">Campaña</span><span></span></div>
+				<div id="epRepoListaCampana"></div>
+			</div>
+		</div>
 	</section>
 
 </main>
@@ -50,17 +56,26 @@ $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 			<div class="ep-modal-ppt-head-left">
 				<div class="ep-modal-ppt-icon"><?= ep_icon('tag', 20) ?></div>
 				<div>
-					<h2 id="epRepoModalTitulo">Subir materiales</h2>
-					<p>Sube el formato lleno o escribe un nombre por línea.</p>
+					<h2 id="epRepoModalTitulo">Subir Material y Campaña</h2>
+					<p>Sube el formato lleno o agrega uno por uno.</p>
 				</div>
 			</div>
 			<button type="button" class="ep-modal-close-btn" id="epRepoModalCerrar" aria-label="Cerrar"><?= ep_icon('close', 16) ?></button>
 		</div>
 		<div class="ep-modal-ppt-body">
-			<label class="ep-repo-archivo" for="epRepoArchivo"><?= ep_icon('upload', 16) ?><span id="epRepoArchivoTxt">Elegir archivo .xlsx, .csv o .txt</span></label>
+			<label class="ep-repo-archivo" for="epRepoArchivo"><?= ep_icon('upload', 16) ?><span id="epRepoArchivoTxt">Subir archivo .xlsx, .csv o .txt</span></label>
 			<input type="file" id="epRepoArchivo" accept=".xlsx,.csv,.txt" hidden>
-			<textarea rows="8" class="ep-input" id="epRepoTexto" placeholder="Un nombre por línea..." aria-label="Nombres a agregar"></textarea>
-			<small class="ep-repo-nota">El archivo solo llena esta lista para que la revises; se guarda al pulsar Agregar. Todo va en mayúsculas y los repetidos se ignoran.</small>
+			<div class="ep-repo-o"><span>o agrega uno</span></div>
+			<form class="ep-repo-uno" id="epRepoUno" autocomplete="off">
+				<input type="text" class="ep-input" id="epRepoUnoMaterial" maxlength="60" placeholder="Material" aria-label="Material">
+				<input type="text" class="ep-input" id="epRepoUnoCampana" maxlength="40" placeholder="Campaña" aria-label="Campaña">
+				<button type="submit" class="ep-repo-btn ep-repo-uno-btn" aria-label="Añadir a la lista"><?= ep_icon('plus', 16) ?></button>
+			</form>
+			<div class="ep-repo-prev hidden" id="epRepoPrev">
+				<div class="ep-repo-prev-head"><span id="epRepoPrevResumen"></span><button type="button" class="ep-repo-limpiar" id="epRepoLimpiar">Limpiar</button></div>
+				<div class="ep-repo-prev-tabla" id="epRepoPrevTabla"></div>
+			</div>
+			<small class="ep-repo-nota">Revisa la lista antes de guardar: solo se guarda al pulsar Agregar. Todo va en mayúsculas y los repetidos se ignoran.</small>
 		</div>
 		<div class="ep-modal-ppt-foot ep-rp-foot">
 			<div class="ep-rp-foot-actions" style="margin-left:auto;">

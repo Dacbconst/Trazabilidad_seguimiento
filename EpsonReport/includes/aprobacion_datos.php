@@ -162,7 +162,7 @@ function ep_aprobar_registro(string $codigo): array {
 			error_log('ep_aprobar_registro (calendario): '.$e->getMessage());
 		}
 	}
-	ep_auditar('registro_aprobar', 'registro', (int) $r['id'], 'Aprobó el registro '.$r['codigo'], [ep_auditoria_dato('Punto de venta', $r['punto_venta'])]);
+	ep_auditar('registro_aprobar', 'registro', (int) $r['id'], 'Aprobó el registro '.$r['codigo'], [ep_auditoria_actividad((string) $r['tipo']), ep_auditoria_dato('Punto de venta', $r['punto_venta'])]);
 	return ['ok' => true, 'message' => 'Registro aprobado.'];
 }
 
@@ -185,7 +185,7 @@ function ep_devolver_registro(string $codigo, string $motivo): array {
 	$stmt->bind_param('sii', $motivo, $yo, $r['id']);
 	$stmt->execute();
 	$stmt->close();
-	ep_auditar('registro_devolver', 'registro', (int) $r['id'], 'Devolvió el registro '.$r['codigo'].' al promotor', [ep_auditoria_dato('Punto de venta', $r['punto_venta']), ep_auditoria_dato('Motivo', $motivo)]);
+	ep_auditar('registro_devolver', 'registro', (int) $r['id'], 'Devolvió el registro '.$r['codigo'].' al promotor', [ep_auditoria_actividad((string) $r['tipo']), ep_auditoria_dato('Punto de venta', $r['punto_venta']), ep_auditoria_dato('Motivo', $motivo)]);
 	return ['ok' => true, 'message' => 'Registro devuelto al promotor.'];
 }
 

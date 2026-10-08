@@ -21,6 +21,11 @@ if (!in_array($canal, ep_calendario_canales(), true)) {
 }
 $plazoDias = max(1, min(30, (int) ($_POST['plazo_dias'] ?? 5)));
 $filasJson = json_decode($_POST['filas'] ?? '[]', true);
+$mes = (string) ($_POST['mes'] ?? '');
+if (!preg_match('/^\d{4}-\d{2}$/', $mes)) {
+	echo json_encode(['ok' => false, 'message' => 'Elige el mes del calendario.']);
+	exit;
+}
 
 if (!is_array($filasJson) || empty($filasJson)) {
 	echo json_encode(['ok' => false, 'message' => 'Agrega al menos una fila.']);
@@ -35,8 +40,8 @@ foreach ($filasJson as $f) {
 	$promotorId = (int) ($f['promotor_id'] ?? 0);
 	// No se confía en el navegador: cada fila se revalida contra la base.
 	$real = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? ep_calendario_fila_validar($canal, $promotorId, $posId) : null;
-	if (!$real) {
-		echo json_encode(['ok' => false, 'message' => 'Una de las filas tiene un punto de venta, promotor o fecha inválidos.']);
+	if (!$real || substr($fecha, 0, 7) !== $mes) {
+		echo json_encode(['ok' => false, 'message' => 'Una de las filas tiene un punto de venta, promotor o fecha inválidos (todas deben ser del mes elegido).']);
 		exit;
 	}
 	// Un promotor no puede tener el mismo punto el mismo día en otro calendario activo ni dos veces en este.

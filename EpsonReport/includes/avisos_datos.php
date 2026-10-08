@@ -1,5 +1,5 @@
 <?php
-// Avisos del promotor: activaciones que le programaron en calendarios activos y aún no cumplió; se calculan al abrir, no se guardan.
+// Avisos del promotor (activaciones programadas, devueltos, POP asignado) y del supervisor (POP por repartir); se calculan al abrir, no se guardan.
 require_once __DIR__.'/db.php';
 
 // Columna donde se guarda hasta cuándo vio sus avisos; mientras no exista, no hay "nuevos" y todo lo demás funciona igual.
@@ -13,7 +13,7 @@ function ep_avisos_tiene_visto($db): bool {
 }
 
 function ep_avisos_vacio(): array {
-	return ['calendarios' => [], 'devueltos' => [], 'pop' => null, 'total' => 0, 'nuevos' => 0, 'urgentes' => 0];
+	return ['calendarios' => [], 'devueltos' => [], 'pop' => null, 'pop_reparto' => null, 'total' => 0, 'nuevos' => 0, 'urgentes' => 0];
 }
 
 // Texto del último día: hoy, mañana o la fecha corta.
@@ -26,14 +26,14 @@ function ep_avisos_ultimo_dia(int $dias, string $fecha): string {
 	return $dias === 1 ? 'Último día: mañana' : 'Último día: '.$corta;
 }
 
-// Una entrada por calendario activo con las filas sin registro del usuario (enviada o devuelta ya no cuenta aquí); el admin no recibe avisos.
+// Promotor: una entrada por calendario activo con las filas sin registro (enviada o devuelta ya no cuenta aquí). Supervisor: solo el POP por repartir. El admin no recibe avisos.
 function ep_avisos_promotor(): array {
 	static $cache = null;
 	if ($cache !== null) {
 		return $cache;
 	}
 	$cache = ep_avisos_vacio();
-	if (in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true) || empty($_SESSION['usuario_id'])) {
+	if (($_SESSION['rol'] ?? '') === 'admin' || empty($_SESSION['usuario_id'])) {
 		return $cache;
 	}
 	$db = ep_db();
@@ -48,6 +48,15 @@ function ep_avisos_promotor(): array {
 		$stmt->execute();
 		$visto = $stmt->get_result()->fetch_assoc()['avisos_visto_en'] ?? null;
 		$stmt->close();
+	}
+	if (($_SESSION['rol'] ?? '') === 'supervisor') {
+		$cache['pop_reparto'] = ep_avisos_pop_reparto($conVisto, $visto);
+		if ($cache['pop_reparto']) {
+			$cache['total']++;
+			$cache['nuevos'] += $cache['pop_reparto']['nuevo'] ? 1 : 0;
+			$cache['urgentes'] += $cache['pop_reparto']['urgente'] ? 1 : 0;
+		}
+		return $cache;
 	}
 	// Registros que el supervisor devolvió: cuentan como aviso y como nuevos hasta que abra la campana.
 	require_once __DIR__.'/aprobacion_datos.php';
@@ -115,6 +124,28 @@ function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 	return [
 		'mes' => ep_pop_mes_texto($mesPop['mes']),
 		'materiales' => count($misMateriales),
+		'dias' => $dias,
+		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
+		'urgente' => $dias <= 3,
+		'nuevo' => $conVisto && ($visto === null || $mesPop['created_at'] > $visto),
+	];
+}
+
+// Mes de POP abierto en el que a este supervisor le asignaron material y aún no eligió a los promotores que lo reportan; el plazo es el fin de mes.
+function ep_avisos_pop_reparto(bool $conVisto, ?string $visto): ?array {
+	require_once __DIR__.'/pop_datos.php';
+	$mesPop = ep_pop_abierto();
+	$yo = (int) $_SESSION['usuario_id'];
+	$parte = $mesPop ? ep_pop_parte_supervisor($mesPop, $yo) : [];
+	$yaEligio = $mesPop && ep_pop_equipo_de((int) $mesPop['id'], $yo);
+	if (!$parte || $yaEligio) {
+		return null;
+	}
+	$finMes = $mesPop['mes'].'-'.date('t', strtotime($mesPop['mes'].'-01'));
+	$dias = (int) round((strtotime($finMes) - strtotime(date('Y-m-d'))) / 86400);
+	return [
+		'mes' => ep_pop_mes_texto($mesPop['mes']),
+		'materiales' => count($parte),
 		'dias' => $dias,
 		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
 		'urgente' => $dias <= 3,

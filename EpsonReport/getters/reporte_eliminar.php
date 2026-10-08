@@ -18,6 +18,7 @@ $ok = ep_reporte_eliminar($id);
 if ($ok && $reporte) {
 	require_once __DIR__.'/../includes/auditoria_datos.php';
 	ep_auditar('reporte_eliminar', 'reporte', $id, 'Eliminó el reporte «'.(trim((string) $reporte['titulo']) ?: $reporte['tipo']).'»', [
+		ep_auditoria_actividad((string) $reporte['tipo']),
 		ep_auditoria_dato('Mes', $reporte['mes']),
 		ep_auditoria_dato('Registros liberados', $reporte['total_registros']),
 	]);

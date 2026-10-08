@@ -1,5 +1,5 @@
 <?php
-// Lee un .xlsx/.csv/.txt y devuelve sus nombres para revisarlos antes de agregar; no guarda nada (POST tipo + archivo). Solo Fabricio o el admin.
+// Lee un .xlsx/.csv/.txt (columna A = Material, B = Campaña) y devuelve los nombres para revisarlos antes de agregar; no guarda nada (POST archivo). Solo Fabricio o el admin.
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
@@ -23,21 +23,23 @@ if (!ep_pop_es_dueno()) {
 
 // En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
 try {
-	$tipo = (string) ($_POST['tipo'] ?? '');
 	$archivo = $_FILES['archivo'] ?? null;
-	if (!isset(EP_POP_CATALOGO_LARGO[$tipo]) || !$archivo || $archivo['error'] !== UPLOAD_ERR_OK || $archivo['size'] > 2 * 1024 * 1024) {
+	if (!$archivo || $archivo['error'] !== UPLOAD_ERR_OK || $archivo['size'] > 2 * 1024 * 1024) {
 		echo json_encode(['ok' => false, 'message' => 'Elige un archivo de hasta 2 MB.']);
 		exit;
 	}
 	$extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-	$valores = ep_xlsx_primera_columna($archivo['tmp_name'], $extension);
-	// La primera fila suele ser el encabezado de la plantilla.
-	if ($valores && in_array(mb_strtoupper($valores[0], 'UTF-8'), ['MATERIAL', 'CAMPAÑA', 'CAMPANA', 'NOMBRE'], true)) {
-		array_shift($valores);
+	[$materiales, $campanas] = ep_xlsx_dos_columnas($archivo['tmp_name'], $extension);
+	// La primera fila suele ser el encabezado del formato.
+	if ($materiales && mb_strtoupper($materiales[0], 'UTF-8') === 'MATERIAL') {
+		array_shift($materiales);
+	}
+	if ($campanas && in_array(mb_strtoupper($campanas[0], 'UTF-8'), ['CAMPAÑA', 'CAMPANA'], true)) {
+		array_shift($campanas);
 	}
 } catch (Throwable $e) {
 	error_log('repositorio_leer_archivo: '.$e->getMessage());
 	echo json_encode(['ok' => false, 'message' => $e instanceof RuntimeException ? $e->getMessage() : 'No se pudo leer el archivo.']);
 	exit;
 }
-echo json_encode(['ok' => true, 'nombres' => $valores], JSON_UNESCAPED_UNICODE);
+echo json_encode(['ok' => true, 'materiales' => $materiales, 'campanas' => $campanas], JSON_UNESCAPED_UNICODE);

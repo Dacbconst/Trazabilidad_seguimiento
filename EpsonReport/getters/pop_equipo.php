@@ -1,13 +1,15 @@
 <?php
-// Un supervisor reparte entre sus promotores el POP que le tocó este mes (POST filas = [{fila_id, reparto: {promotor_id: cantidad}}]).
+// Un supervisor marca qué promotor de su equipo reporta qué material del mes (POST id = mes, asignaciones = {promotor_id: [fila_id, ...]}). Sin cantidades.
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
+// La acción deja desactualizada una caché de sesión (ver ep_cache_sesion).
+unset($_SESSION['ep_cache']['avisos'], $_SESSION['ep_cache']['act_visibles']);
 header('Content-Type: application/json; charset=utf-8');
 
 if (($_SESSION['rol'] ?? '') !== 'supervisor') {
 	http_response_code(403);
-	echo json_encode(['ok' => false, 'message' => 'Solo un supervisor reparte el POP a su equipo.']);
+	echo json_encode(['ok' => false, 'message' => 'Solo un supervisor elige a los promotores de su equipo.']);
 	exit;
 }
 
@@ -21,7 +23,8 @@ try {
 		exit;
 	}
 	$yo = (int) $_SESSION['usuario_id'];
-	$resultado = ep_pop_repartir($pop, $yo, json_decode((string) ($_POST['filas'] ?? '[]'), true) ?: []);
+	$asignaciones = json_decode((string) ($_POST['asignaciones'] ?? '{}'), true);
+	$resultado = ep_pop_equipo_guardar($pop, $yo, is_array($asignaciones) ? $asignaciones : []);
 	if ($resultado !== true) {
 		echo json_encode(['ok' => false, 'message' => $resultado]);
 		exit;
@@ -30,14 +33,12 @@ try {
 	$nombres = array_column(ep_pop_equipo($yo), 'nombre', 'id');
 	$materiales = array_column($pop['filas'], 'material', 'id');
 	$detalle = [];
-	foreach (ep_pop_asignaciones((int) $pop['id'], 2, $yo) as $filaId => $porPromotor) {
-		foreach ($porPromotor as $promotorId => $cantidad) {
-			$detalle[] = ep_auditoria_dato(($materiales[$filaId] ?? 'Material').' → '.($nombres[$promotorId] ?? 'Promotor'), $cantidad);
-		}
+	foreach (ep_pop_equipo_de((int) $pop['id'], $yo) as $promotorId => $filas) {
+		$detalle[] = ep_auditoria_dato($nombres[$promotorId] ?? 'Promotor #'.$promotorId, implode(', ', array_map(fn($f) => $materiales[$f] ?? '#'.$f, $filas)));
 	}
-	ep_auditar('pop_repartir', 'pop', (int) $pop['id'], 'Repartió el POP de '.ep_pop_mes_texto($pop['mes']).' a su equipo', $detalle);
+	ep_auditar('pop_equipo', 'pop', (int) $pop['id'], 'Marcó su equipo para el POP de '.ep_pop_mes_texto($pop['mes']), $detalle);
 } catch (Throwable $e) {
-	error_log('pop_repartir: '.$e->getMessage());
+	error_log('pop_equipo: '.$e->getMessage());
 	echo json_encode(['ok' => false, 'message' => 'Error del servidor: '.$e->getMessage()]);
 	exit;
 }

@@ -1,11 +1,20 @@
 <?php
-// Lee la primera columna de la primera hoja de un .xlsx con ZipArchive, sin librerías externas; también acepta .csv y .txt.
+// Lee las columnas A y B de la primera hoja de un .xlsx con ZipArchive, sin librerías externas; también acepta .csv y .txt.
 
-// Devuelve los textos de la columna A, sin vacíos. Lanza RuntimeException si el archivo no se puede leer.
-function ep_xlsx_primera_columna(string $ruta, string $extension): array {
+// Devuelve [textos de A, textos de B], sin vacíos. Lanza RuntimeException si el archivo no se puede leer.
+function ep_xlsx_dos_columnas(string $ruta, string $extension): array {
+	$columnas = ['A' => [], 'B' => []];
 	if (in_array($extension, ['csv', 'txt'], true)) {
-		$lineas = preg_split('/\R/u', (string) file_get_contents($ruta));
-		return array_values(array_filter(array_map(fn($l) => trim(explode(';', str_replace(',', ';', $l))[0], " \t\"'"), $lineas), fn($t) => $t !== ''));
+		foreach (preg_split('/\R/u', (string) file_get_contents($ruta)) as $linea) {
+			$partes = explode(';', str_replace(',', ';', $linea));
+			foreach (['A', 'B'] as $i => $letra) {
+				$texto = trim($partes[$i] ?? '', " \t\"'");
+				if ($texto !== '') {
+					$columnas[$letra][] = $texto;
+				}
+			}
+		}
+		return array_values($columnas);
 	}
 	$zip = new ZipArchive();
 	if ($zip->open($ruta) !== true) {
@@ -27,18 +36,17 @@ function ep_xlsx_primera_columna(string $ruta, string $extension): array {
 	if ($xmlHoja === false) {
 		throw new RuntimeException('El archivo no tiene una hoja legible.');
 	}
-	$valores = [];
 	foreach (simplexml_load_string($xmlHoja)->sheetData->row ?? [] as $fila) {
 		foreach ($fila->c as $c) {
-			if (!preg_match('/^A\d+$/', (string) $c['r'])) {
+			if (!preg_match('/^([AB])\d+$/', (string) $c['r'], $m)) {
 				continue;
 			}
 			$tipo = (string) $c['t'];
-			$texto = $tipo === 's' ? ($compartidos[(int) $c->v] ?? '') : ($tipo === 'inlineStr' ? (string) $c->is->t : (string) $c->v);
-			if (trim($texto) !== '') {
-				$valores[] = trim($texto);
+			$texto = trim($tipo === 's' ? ($compartidos[(int) $c->v] ?? '') : ($tipo === 'inlineStr' ? (string) $c->is->t : (string) $c->v));
+			if ($texto !== '') {
+				$columnas[$m[1]][] = $texto;
 			}
 		}
 	}
-	return $valores;
+	return array_values($columnas);
 }

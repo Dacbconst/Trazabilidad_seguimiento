@@ -558,8 +558,9 @@ function ep_calendario_detalle_cierre(int $calendarioId): array {
 	$db = ep_db();
 	$detalle = [ep_auditoria_dato('Cumplidas', $cumplidas.' de '.count($filas))];
 	// El último registro que cumplió una fila: dice quién lo completó.
-	$res = $db ? $db->query('SELECT r.codigo, f.promotor_nombre, f.punto_venta FROM insert_reporte_calendario_fila f JOIN insert_reporte_registro r ON r.id = f.registro_id WHERE f.calendario_id = '.$calendarioId." AND f.estado = 'cumplido' ORDER BY f.cumplido_en DESC, f.id DESC LIMIT 1") : null;
+	$res = $db ? $db->query('SELECT r.codigo, r.tipo, r.tipo_actividad, f.promotor_nombre, f.punto_venta FROM insert_reporte_calendario_fila f JOIN insert_reporte_registro r ON r.id = f.registro_id WHERE f.calendario_id = '.$calendarioId." AND f.estado = 'cumplido' ORDER BY f.cumplido_en DESC, f.id DESC LIMIT 1") : null;
 	if ($res && ($u = $res->fetch_assoc())) {
+		$detalle[] = ep_auditoria_actividad((string) $u['tipo'], (string) $u['tipo_actividad']);
 		$detalle[] = ep_auditoria_dato('Último registro', $u['codigo'].' · '.$u['promotor_nombre'].' · '.$u['punto_venta']);
 	}
 	$titulo = '';

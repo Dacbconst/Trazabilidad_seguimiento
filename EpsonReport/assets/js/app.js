@@ -126,18 +126,19 @@ document.addEventListener('DOMContentLoaded', function () {
 		epMobileTabs.addEventListener('click', function (ev) {
 			var btn = ev.target.closest('.ep-mobile-tab');
 			if (!btn) return;
+			if (btn.dataset.tab === 'fotos' && epActividadLayout.getAttribute('data-mobile-tab') === 'formulario') { avisarDatosFaltantes(function () { activarTabMovil('fotos'); }); return; }
 			activarTabMovil(btn.dataset.tab);
 		});
 		// Delegación para botones de apertura del asistente fotográfico
 		document.addEventListener('click', function (ev) {
 			var btn = ev.target.closest('.ep-btn-desktop-start-wizard, #epBtnDesktopStartWizard, .ep-btn-reabrir-wizard, .ep-btn-reabrir-wizard-desktop');
-			if (btn) {
-				abrirWizardFotos();
-			}
+			if (!btn) return;
+			if (btn.matches('.ep-btn-desktop-start-wizard, #epBtnDesktopStartWizard')) { avisarDatosFaltantes(abrirWizardFotos); return; }
+			abrirWizardFotos();
 		});
 		var btnIrAFotos = document.getElementById('epBtnIrAFotos');
 		if (btnIrAFotos) {
-			btnIrAFotos.addEventListener('click', function () { activarTabMovil('fotos'); });
+			btnIrAFotos.addEventListener('click', function () { avisarDatosFaltantes(function () { activarTabMovil('fotos'); }); });
 		}
 		var btnVolverAFotos = document.getElementById('epBtnVolverAFotos');
 		if (btnVolverAFotos) {
@@ -1407,7 +1408,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			var busca = (texto || '').trim().toUpperCase();
 			var hay = popCatalogo.filter(function (m) { return ya.indexOf(m.material) === -1 && m.material.toUpperCase().indexOf(busca) !== -1; });
 			combo.querySelector('.ep-combo-opciones').innerHTML = hay.length
-				? hay.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m.material + '">' + m.material + '<span class="ep-combo-opcion-nota">' + m.campana + (m.disponible != null ? ' · quedan ' + m.disponible : '') + '</span></button>'; }).join('')
+				? hay.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + escapeHtml(m.material) + '">' + escapeHtml(m.material) + '<span class="ep-combo-opcion-nota">' + escapeHtml(m.campana) + (m.disponible != null ? ' · quedan ' + m.disponible : '') + '</span></button>'; }).join('')
 				: '<div class="ep-combo-vacio">Sin resultados</div>';
 		}
 		function popCerrarPaneles() { popEntregas.querySelectorAll('.ep-combo-panel').forEach(function (p) { p.classList.add('hidden'); }); }
@@ -1659,8 +1660,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		Swal.mixin({ toast: true, position: 'top', showConfirmButton: false, timer: 3500, timerProgressBar: true }).fire({ icon: icono, title: titulo });
 	}
 
-	// Validador del envío: todos los campos visibles del formulario y todas las fotos son obligatorios; solo comentarios es opcional.
-	function validarRegistroActivo() {
+	// Campos obligatorios del formulario visible que siguen vacíos (punto de venta, datos, combos y al menos un modelo); los comentarios no cuentan.
+	function camposFormularioVacios() {
 		var panel = document.querySelector('.ep-formulario-actividad:not(.hidden)');
 		var camposVacios = [];
 		var pdvInput = document.getElementById('ep-pdv-trigger');
@@ -1675,7 +1676,46 @@ document.addEventListener('DOMContentLoaded', function () {
 			panel.querySelectorAll('.ep-combo-trigger').forEach(function (el) {
 				if (el.offsetParent !== null && !el.dataset.valor) camposVacios.push(el);
 			});
+			// Sin ninguna fila de modelos (se quitaron todas) también falta el dato: se marca el botón de agregar.
+			panel.querySelectorAll('[id$="modelo-filas"]').forEach(function (filas) {
+				var agregar = document.getElementById(filas.id.replace('filas', 'agregar'));
+				if (filas.offsetParent !== null && !filas.children.length && agregar) camposVacios.push(agregar);
+			});
 		}
+		return camposVacios;
+	}
+
+	// Asterisco rojo en la etiqueta de cada campo obligatorio del formulario (todos menos comentarios).
+	function marcarCamposObligatorios() {
+		var marcar = function (label) { if (label) label.classList.add('ep-requerido'); };
+		document.querySelectorAll('.ep-formulario-actividad input:not([type="hidden"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]), .ep-formulario-actividad select, .ep-formulario-actividad textarea').forEach(function (el) {
+			if (!el.id || /comentario/i.test(el.id) || el.readOnly) return;
+			marcar(document.querySelector('label[for="' + el.id + '"]'));
+		});
+		marcar(document.getElementById('ep-pdv-etiqueta'));
+	}
+	marcarCamposObligatorios();
+
+	// Antes de pasar a las fotos avisa si faltan datos del formulario; permite completar o seguir igual.
+	function avisarDatosFaltantes(continuar) {
+		var faltan = camposFormularioVacios();
+		if (!faltan.length || !window.Swal) { continuar(); return; }
+		faltan.forEach(function (el) { el.classList.add('ep-campo-error'); });
+		var n = faltan.length;
+		epAviso('warning', 'Faltan datos del formulario', '<b>' + n + '</b> campo' + (n === 1 ? '' : 's') + ' obligatorio' + (n === 1 ? '' : 's') + ' (<span style="color:#C5221F;font-weight:700;">*</span>) sin llenar. Son necesarios para enviar el registro.', 'Completar datos', { showCancelButton: true, cancelButtonText: 'Continuar a fotos', reverseButtons: true }).then(function (r) {
+			if (r.isConfirmed) {
+				activarTabMovil('formulario');
+				faltan[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+				if (faltan[0].focus) faltan[0].focus({ preventScroll: true });
+			} else if (r.dismiss === Swal.DismissReason.cancel) {
+				continuar();
+			}
+		});
+	}
+
+	// Validador del envío: todos los campos visibles del formulario y todas las fotos son obligatorios; solo comentarios es opcional.
+	function validarRegistroActivo() {
+		var camposVacios = camposFormularioVacios();
 		var bloqueFotos = document.querySelector('.ep-evidencia-actividad:not(.hidden)');
 		var fotosFaltan = [];
 		var descFaltan = [];

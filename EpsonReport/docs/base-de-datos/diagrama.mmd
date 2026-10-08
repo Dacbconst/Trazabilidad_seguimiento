@@ -24,6 +24,7 @@ erDiagram
     insert_reporte_pop |o..o| insert_reporte_mensual : "reporte_mensual_id"
     insert_reporte_pop_fila }o..o{ insert_reporte_registro : "material en pop_entregas"
     insert_reporte_pop_fila ||--o{ insert_reporte_pop_asignacion : "pop_fila_id"
+    insert_reporte_pop_fila ||--o{ insert_reporte_pop_equipo : "pop_fila_id"
     repositorio_usuarios_reporte ||--o{ insert_reporte_pop_asignacion : "usuario_id recibe, asignado_por reparte"
 
     insert_reporte_auditoria {
@@ -180,6 +181,14 @@ erDiagram
         int creado_por FK
         datetime created_at
         datetime eliminado_en "borrado logico"
+    }
+
+    insert_reporte_pop_equipo {
+        int id PK
+        int pop_fila_id FK "material del mes asignado al promotor"
+        int supervisor_id FK "quien lo asigno"
+        int usuario_id FK "promotor; unico por material"
+        datetime created_at
     }
 
     insert_reporte_pop_asignacion {

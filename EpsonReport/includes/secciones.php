@@ -29,6 +29,11 @@ function ep_secciones(): array {
 			'icon'  => 'calendar',
 			'solo_gestor' => true,
 		],
+		'pop' => [
+			'label' => 'Colocación de POP',
+			'icon'  => 'tag',
+			'solo_gestor' => true,
+		],
 		'repositorios' => [
 			'label' => 'Repositorios',
 			'icon'  => 'list',

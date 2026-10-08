@@ -1,5 +1,5 @@
 <?php
-// Agrega materiales y campañas al repositorio de POP (POST materiales y campanas, uno por línea cada uno). Solo Fabricio o el admin.
+// Cambia el nombre de un material o campaña del repositorio de POP (POST id, nombre). Solo Fabricio o el admin.
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
@@ -22,21 +22,19 @@ if (!ep_pop_es_dueno()) {
 
 // En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
 try {
-	$usuarioId = (int) $_SESSION['usuario_id'];
-	$materiales = ep_pop_catalogo_agregar('material', preg_split('/\R/u', (string) ($_POST['materiales'] ?? '')), $usuarioId);
-	$campanas = ep_pop_catalogo_agregar('campana', preg_split('/\R/u', (string) ($_POST['campanas'] ?? '')), $usuarioId);
-	$nuevos = $materiales + $campanas;
-	if ($nuevos > 0) {
+	$id = (int) ($_POST['id'] ?? 0);
+	$nombre = (string) ($_POST['nombre'] ?? '');
+	$error = ep_pop_catalogo_renombrar($id, $nombre);
+	if ($error === null) {
 		require_once __DIR__.'/../includes/auditoria_datos.php';
-		ep_auditar('repositorio_agregar', 'repositorio', 0, 'Agregó '.$nuevos.' nombres al repositorio de POP', [
-			ep_auditoria_dato('Materiales', $materiales),
-			ep_auditoria_dato('Campañas', $campanas),
+		ep_auditar('repositorio_editar', 'repositorio', $id, 'Renombró un nombre del repositorio de POP', [
+			ep_auditoria_dato('Nuevo nombre', $nombre),
 		]);
 	}
 } catch (Throwable $e) {
-	error_log('repositorio_agregar: '.$e->getMessage());
+	error_log('repositorio_editar: '.$e->getMessage());
 	echo json_encode(['ok' => false, 'message' => 'Error del servidor: '.$e->getMessage()]);
 	exit;
 }
 $catalogo = ep_pop_catalogo();
-echo json_encode(['ok' => true, 'agregados' => $nuevos, 'material' => $catalogo['materiales'], 'campana' => $catalogo['campanas']], JSON_UNESCAPED_UNICODE);
+echo json_encode($error === null ? ['ok' => true, 'material' => $catalogo['materiales'], 'campana' => $catalogo['campanas']] : ['ok' => false, 'message' => $error], JSON_UNESCAPED_UNICODE);

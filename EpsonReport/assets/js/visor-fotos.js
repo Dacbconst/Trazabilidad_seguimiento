@@ -64,10 +64,13 @@
 	document.addEventListener('change', function (ev) {
 		if (visor.classList.contains('hidden') || !ev.target.classList.contains('ep-foto-input')) return;
 		var slot = ev.target.closest('.ep-foto-slot');
-		lista = conFoto();
-		pos = lista.indexOf(slot);
-		if (pos < 0) { cerrar(); return; }
-		mostrar();
+		// Se espera a que app.js cambie la miniatura de la casilla; si no, el visor releería la foto anterior.
+		setTimeout(function () {
+			lista = conFoto();
+			pos = lista.indexOf(slot);
+			if (pos < 0) { cerrar(); return; }
+			mostrar();
+		}, 0);
 	});
 
 	document.getElementById('epVisorQuitar').addEventListener('click', function () {

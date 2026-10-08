@@ -68,13 +68,6 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 		<button type="button" class="ep-rp-nuevo" id="epCalNuevo"><?= ep_icon('plus', 16) ?> <span>Crear calendario</span></button>
 	</header>
 
-	<div class="ep-cl-tabs" role="tablist" aria-label="Tipo de programación">
-		<button type="button" class="ep-cl-tab activo" role="tab" aria-selected="true" data-tab="act">Activaciones</button>
-		<button type="button" class="ep-cl-tab" role="tab" aria-selected="false" data-tab="pop">Colocación de POP</button>
-	</div>
-
-	<div id="epCalPanelAct">
-
 	<?php if (empty($calendarios)): ?>
 		<?= ep_estado_vacio('calendar', 'Todavía no hay calendarios', 'Crea el primero con "Crear calendario".') ?>
 	<?php else: ?>
@@ -216,12 +209,6 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 	</div>
 	<?php endif; ?>
 
-	</div>
-
-	<div id="epCalPanelPop" class="hidden">
-		<?php require __DIR__.'/pop.php'; ?>
-	</div>
-
 	<!-- Modal "Crear Calendario": un solo guardado (crea y activa a la vez, no hay borrador). -->
 	<div class="ep-modal-ppt hidden" id="epCalModal" role="dialog" aria-modal="true" aria-labelledby="epCalModalTitulo">
 		<div class="ep-modal-ppt-backdrop" id="epCalModalFondo"></div>
@@ -259,6 +246,10 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 					<textarea class="ep-input" id="epCal-comentarios" rows="2"></textarea>
 				</div>
 
+				<div class="ep-cal-form-fila">
+					<label class="ep-cal-campo ep-cal-campo-mes"><span>Mes del calendario <b class="ep-cal-req">*</b></span><input type="month" class="ep-input" id="epCalMes"></label>
+					<p class="ep-cal-mes-ayuda">Todas las filas deben ser de este mes. Elígelo antes de escoger las fechas.</p>
+				</div>
 				<div class="ep-cal-filas-editor">
 					<div class="ep-cal-filas-editor-head">
 						<strong>Filas del calendario</strong>

@@ -60,6 +60,7 @@
 	var rangoAuto = document.getElementById('epCalRangoAuto');
 	var inpNombre = document.getElementById('epCalNombre');
 	var inpPlazo = document.getElementById('epCalPlazo');
+	var inpMes = document.getElementById('epCalMes');
 	var titulo = document.getElementById('epCalModalTitulo');
 	var aviso = document.getElementById('epCalAvisoEdicion');
 	// Textarea oculto que comentarios.js convierte en lista numerada; guarda un comentario por línea.
@@ -284,10 +285,42 @@
 		refrescarCiudades();
 	}
 
+
+	// El calendario es de un solo mes: las fechas quedan limitadas a él y sin mes elegido no se puede escoger ninguna.
+	function aplicarMes() {
+		if (modo === 'editar') return;
+		var mes = inpMes.value;
+		var limpiadas = false;
+		filasEditor.querySelectorAll('.ep-cal-fecha-input').forEach(function (i) {
+			i.classList.toggle('ep-cal-fecha-sin-mes', !mes);
+			if (!mes) {
+				if (i.value) limpiadas = true;
+				i.value = '';
+				i.removeAttribute('min');
+				i.removeAttribute('max');
+				return;
+			}
+			var p = mes.split('-');
+			i.min = mes + '-01';
+			i.max = mes + '-' + String(new Date(+p[0], +p[1], 0).getDate()).padStart(2, '0');
+			if (i.value && (i.value < i.min || i.value > i.max)) { i.value = ''; limpiadas = true; }
+		});
+		if (limpiadas) avisar('info', 'Fechas limpiadas', 'Las fechas que no eran del mes elegido se borraron.');
+		recalcularRango();
+	}
+	inpMes.addEventListener('change', aplicarMes);
+	function pedirMes(e) {
+		if (modo === 'editar' || inpMes.value || !e.target.classList.contains('ep-cal-fecha-input')) return;
+		e.preventDefault();
+		if (e.type === 'keydown' && e.key === 'Tab') return;
+		avisar('warning', 'Elige primero el mes', 'Selecciona el mes del calendario antes de escoger las fechas.');
+	}
+	['mousedown', 'keydown'].forEach(function (ev) { filasEditor.addEventListener(ev, pedirMes, true); });
 	function nuevaFila() {
 		var fila = plantillaFila.cloneNode(true);
 		filasEditor.appendChild(fila);
 		iniciarFila(fila);
+		aplicarMes();
 		return fila;
 	}
 
@@ -330,6 +363,8 @@
 			inpNombre.value = '';
 			inpPlazo.disabled = false;
 			inpPlazo.value = 5;
+			inpMes.disabled = false;
+			inpMes.value = '';
 			fijarComentarios('');
 			canalSelect.value = canalInicial;
 			comboCanal.bloquear(opcionesCanal.length === 1);
@@ -355,6 +390,8 @@
 		inpNombre.disabled = true;
 		inpPlazo.value = cal.plazo_dias;
 		inpPlazo.disabled = true;
+		inpMes.value = cal.filas.length ? String(cal.filas[0].fecha).substring(0, 7) : '';
+		inpMes.disabled = true;
 		fijarComentarios(cal.comentarios || '');
 		comentariosOriginales = inpComentarios.value;
 		canalSelect.value = cal.canal;
@@ -399,12 +436,13 @@
 	}
 
 	function guardarNuevo() {
+		if (!inpMes.value) { inpMes.focus(); avisar('warning', 'Elige el mes', 'Selecciona el mes del calendario; todas las filas deben ser de ese mes.'); return; }
 		var valido = true;
 		var filas = [];
 		filasEditor.querySelectorAll('.ep-cal-fila-editor').forEach(function (fila) {
 			var fecha = fila.querySelector('.ep-cal-fecha-input').value;
 			var c = combosDe(fila);
-			if (!fecha) valido = false;
+			if (!fecha || fecha.substring(0, 7) !== inpMes.value) valido = false;
 			if (!c.ciudad.validar()) valido = false;
 			if (!c.promotor.validar()) valido = false;
 			if (!c.pdv.validar()) valido = false;
@@ -425,6 +463,7 @@
 				nombre: inpNombre.value.trim(),
 				canal: canalSelect.value,
 				plazo_dias: inpPlazo.value,
+				mes: inpMes.value,
 				comentarios: inpComentarios.value,
 				filas: JSON.stringify(filas),
 			}).then(function (r) {

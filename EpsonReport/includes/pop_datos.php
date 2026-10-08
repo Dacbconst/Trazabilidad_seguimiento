@@ -4,6 +4,7 @@ require_once __DIR__.'/db.php';
 require_once __DIR__.'/functions.php';
 require_once __DIR__.'/reportes_datos.php';
 require_once __DIR__.'/pop_reparto.php';
+require_once __DIR__.'/pop_equipo.php';
 require_once __DIR__.'/pop_catalogo.php';
 
 // Mes abierto que manda hoy: de él sale la lista de materiales que ve el promotor.

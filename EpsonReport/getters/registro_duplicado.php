@@ -22,6 +22,7 @@ if ($codigo) {
 	require_once __DIR__.'/../includes/auditoria_datos.php';
 	$fecha = (string) ($_GET['fecha_actividad'] ?? '');
 	ep_auditar('registro_duplicado', 'registro', null, 'Intentó enviar de nuevo una Activación del '.date('d/m/Y', strtotime($fecha)).' que ya tenía enviada', [
+		ep_auditoria_actividad('activaciones'),
 		ep_auditoria_dato('Registro existente', $codigo),
 		ep_auditoria_dato('Día de la actividad', date('d/m/Y', strtotime($fecha))),
 	]);

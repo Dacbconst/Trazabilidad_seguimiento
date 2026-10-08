@@ -215,3 +215,8 @@
 		justify-self: end;
 	}
 }
+
+.ep-cal-campo-mes { width: 200px; }
+.ep-cal-req { color: #C5221F; }
+.ep-cal-mes-ayuda { margin: 0; align-self: flex-end; font-size: 12px; color: var(--color-text-muted); }
+.ep-cal-fecha-sin-mes { opacity: 0.55; cursor: not-allowed; }

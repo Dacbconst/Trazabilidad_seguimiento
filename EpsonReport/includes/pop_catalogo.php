@@ -10,7 +10,7 @@ function ep_pop_catalogo_normalizar(string $tipo, string $texto): string {
 	return mb_substr($limpio, 0, EP_POP_CATALOGO_LARGO[$tipo] ?? 40, 'UTF-8');
 }
 
-// Cada ítem trae en cuántos meses (no eliminados) ya se usó, para saber si quitarlo afecta algo.
+// Lista activa de cada repositorio, ordenada por nombre.
 function ep_pop_catalogo(): array {
 	$db = ep_db();
 	$catalogo = ['materiales' => [], 'campanas' => []];
@@ -18,11 +18,13 @@ function ep_pop_catalogo(): array {
 		return $catalogo;
 	}
 	foreach (['material' => 'materiales', 'campana' => 'campanas'] as $tipo => $clave) {
-		$sql = "SELECT c.id, c.nombre, (SELECT COUNT(DISTINCT f.pop_id) FROM insert_reporte_pop_fila f JOIN insert_reporte_pop p ON p.id = f.pop_id WHERE p.eliminado_en IS NULL AND f.$tipo = c.nombre) AS uso
-			FROM insert_reporte_pop_catalogo c WHERE c.tipo = '$tipo' AND c.eliminado_en IS NULL ORDER BY c.nombre";
+		$sql = "SELECT id, nombre FROM insert_reporte_pop_catalogo WHERE tipo = '$tipo' AND eliminado_en IS NULL ORDER BY nombre";
 		$res = $db->query($sql);
+		if (!$res) {
+			error_log('ep_pop_catalogo: '.$db->error);
+		}
 		foreach ($res ? $res->fetch_all(MYSQLI_ASSOC) : [] as $r) {
-			$catalogo[$clave][] = ['id' => (int) $r['id'], 'nombre' => $r['nombre'], 'uso' => (int) $r['uso']];
+			$catalogo[$clave][] = ['id' => (int) $r['id'], 'nombre' => $r['nombre']];
 		}
 	}
 	return $catalogo;
@@ -35,9 +37,17 @@ function ep_pop_catalogo_agregar(string $tipo, array $nombres, int $usuarioId): 
 		return 0;
 	}
 	$nuevos = 0;
-	$busca = $db->prepare('SELECT id, eliminado_en FROM insert_reporte_pop_catalogo WHERE tipo = ? AND nombre = ?');
-	$alta = $db->prepare('INSERT INTO insert_reporte_pop_catalogo (tipo, nombre, creado_por) VALUES (?, ?, ?)');
-	$revive = $db->prepare('UPDATE insert_reporte_pop_catalogo SET eliminado_en = NULL WHERE id = ?');
+	// Si la tabla o una columna no existe, prepare() devuelve false: se avisa con el motivo real de la base.
+	$preparar = function (string $sql) use ($db) {
+		$stmt = $db->prepare($sql);
+		if (!$stmt) {
+			throw new RuntimeException('Repositorio de POP: '.$db->error);
+		}
+		return $stmt;
+	};
+	$busca = $preparar('SELECT id, eliminado_en FROM insert_reporte_pop_catalogo WHERE tipo = ? AND nombre = ?');
+	$alta = $preparar('INSERT INTO insert_reporte_pop_catalogo (tipo, nombre, creado_por) VALUES (?, ?, ?)');
+	$revive = $preparar('UPDATE insert_reporte_pop_catalogo SET eliminado_en = NULL WHERE id = ?');
 	foreach (array_unique(array_filter(array_map(fn($n) => ep_pop_catalogo_normalizar($tipo, (string) $n), $nombres))) as $nombre) {
 		$busca->bind_param('ss', $tipo, $nombre);
 		$busca->execute();
@@ -51,6 +61,37 @@ function ep_pop_catalogo_agregar(string $tipo, array $nombres, int $usuarioId): 
 		}
 	}
 	return $nuevos;
+}
+
+// Cambia el nombre de un ítem; devuelve el error o null. Los meses ya cargados conservan el nombre anterior.
+function ep_pop_catalogo_renombrar(int $id, string $nombre): ?string {
+	$db = ep_db();
+	if (!$db) {
+		return 'No hay conexión con la base.';
+	}
+	$stmt = $db->prepare('SELECT tipo, nombre FROM insert_reporte_pop_catalogo WHERE id = ? AND eliminado_en IS NULL');
+	$stmt->bind_param('i', $id);
+	$stmt->execute();
+	$actual = $stmt->get_result()->fetch_assoc();
+	if (!$actual) {
+		return 'Ese nombre no existe o ya fue quitado.';
+	}
+	$nuevo = ep_pop_catalogo_normalizar($actual['tipo'], $nombre);
+	if ($nuevo === '') {
+		return 'Escribe el nombre.';
+	}
+	if ($nuevo === $actual['nombre']) {
+		return null;
+	}
+	$dup = $db->prepare('SELECT id FROM insert_reporte_pop_catalogo WHERE tipo = ? AND nombre = ? AND id <> ?');
+	$dup->bind_param('ssi', $actual['tipo'], $nuevo, $id);
+	$dup->execute();
+	if ($dup->get_result()->fetch_assoc()) {
+		return '«'.$nuevo.'» ya existe en la lista.';
+	}
+	$cambio = $db->prepare('UPDATE insert_reporte_pop_catalogo SET nombre = ? WHERE id = ?');
+	$cambio->bind_param('si', $nuevo, $id);
+	return $cambio->execute() ? null : 'No se pudo guardar el cambio.';
 }
 
 // Borrado lógico: los meses ya cargados guardan el texto, así que no se rompen.

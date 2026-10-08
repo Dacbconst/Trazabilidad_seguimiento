@@ -48,7 +48,10 @@
 			});
 		}
 		var coment = document.querySelector('.ep-formulario-actividad:not(.hidden) textarea[id$="-comentarios"]');
-		if (d.comentarios && d.comentarios.length && coment) poner(coment.id, d.comentarios.join('\n'));
+		if (d.comentarios && d.comentarios.length && coment) {
+			// La lista visible de comentarios se rehace con su propia función; poner solo el valor la dejaba vacía.
+			if (coment.epFijarComentarios) coment.epFijarComentarios(d.comentarios.join('\n')); else poner(coment.id, d.comentarios.join('\n'));
+		}
 		rellenarFotos(d.fotos || [], d.descripciones || {});
 	}
 

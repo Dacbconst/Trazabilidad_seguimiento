@@ -22,7 +22,7 @@ $secciones = ep_secciones();
 require_once __DIR__.'/includes/avisos_datos.php';
 // Los avisos del promotor son ~9 consultas: se guardan 20 s en la sesión (enviar un registro o abrir el panel los renueva).
 $avisos = ep_cache_sesion('avisos', 20, fn() => ep_avisos_promotor());
-$conAvisos = !ep_es_gestor();
+$conAvisos = !ep_es_admin();
 $actividadesNav = ep_actividades_visibles();
 $vista = $_GET['vista'] ?? 'actividades';
 if ($vista === 'registros') {
@@ -33,14 +33,15 @@ if (!isset($secciones[$vista])) {
 }
 
 // Cada módulo carga solo sus hojas y scripts (en el orden de siempre); uno que no esté en la lista carga todo, así uno nuevo nunca queda sin estilos.
-$hojasTodas = ['base', 'avisos', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'historial-excel', 'reportes', 'calendario', 'auditoria', 'usuarios', 'repositorios'];
-$scriptsTodos = ['sesion-watch', 'avisos', 'en-vivo', 'filtros', 'reportes-lista', 'reportes', 'historial', 'historial-excel', 'calendario', 'auditoria', 'usuarios', 'repositorios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir'];
+$hojasTodas = ['base', 'avisos', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'historial-excel', 'reportes', 'calendario', 'pop', 'auditoria', 'usuarios', 'repositorios'];
+$scriptsTodos = ['sesion-watch', 'avisos', 'en-vivo', 'filtros', 'reportes-lista', 'reportes', 'historial', 'historial-excel', 'calendario', 'pop', 'auditoria', 'usuarios', 'repositorios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir'];
 $porVista = [
 	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir']],
 	'historial' => [['actividades', 'ppt-export', 'filtros', 'historial', 'historial-excel'], ['en-vivo', 'filtros', 'historial', 'historial-excel', 'app']],
 	'aprobaciones' => [['actividades', 'ppt-export', 'filtros', 'historial'], ['en-vivo', 'filtros', 'historial', 'app']],
 	'reportes' => [['ppt-export', 'filtros', 'reportes'], ['en-vivo', 'filtros', 'reportes-lista', 'reportes']],
 	'calendario' => [['actividades', 'ppt-export', 'comentarios', 'reportes', 'calendario'], ['en-vivo', 'calendario', 'comentarios']],
+	'pop' => [['actividades', 'ppt-export', 'reportes', 'pop'], ['en-vivo', 'pop']],
 	'auditoria' => [['auditoria'], ['en-vivo', 'auditoria']],
 	'usuarios' => [['usuarios'], ['usuarios']],
 	'repositorios' => [['actividades', 'ppt-export', 'reportes', 'repositorios'], ['repositorios']],
@@ -81,9 +82,6 @@ $scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watc
 			<span class="ep-avisos-badge<?= $avisos['urgentes'] ? ' urgente' : '' ?>" data-n="<?= (int) $avisos['total'] ?>"><?= (int) $avisos['total'] ?></span>
 		</button>
 		<?php endif; ?>
-		<div class="ep-mobile-header-user" title="<?= htmlspecialchars($_SESSION['usuario'] ?? '') ?>">
-			<?= strtoupper(substr($_SESSION['usuario'] ?? 'U', 0, 1)) ?>
-		</div>
 	</header>
 
 	<div class="ep-shell">

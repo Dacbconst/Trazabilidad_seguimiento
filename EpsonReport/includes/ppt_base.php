@@ -417,18 +417,28 @@ function ep_ppt_foto(DOMDocument $dom, DOMXPath $xp, string $nombre, string $rId
 	$forma->parentNode->replaceChild($nuevo, $forma);
 }
 
-// Descarga en paralelo las fotos (URL pública de Azure). Devuelve url => [bytes, ancho, alto] solo de las que respondieron bien.
+// Descarga las fotos (URL pública de Azure). Devuelve url => [bytes, ancho, alto, extensión] de las que respondieron bien; las que fallan se reintentan una vez más.
 function ep_ppt_descargar_fotos(array $urls): array {
-	$urls = array_values(array_unique(array_filter($urls)));
+	$pendientes = array_values(array_unique(array_filter($urls)));
 	$resultado = [];
-	if (empty($urls)) {
-		return $resultado;
+	for ($intento = 1; $intento <= 3 && $pendientes; $intento++) {
+		$resultado += ep_ppt_descargar_lote($pendientes);
+		$pendientes = array_values(array_diff($pendientes, array_keys($resultado)));
 	}
+	foreach ($pendientes as $u) {
+		error_log('ppt: no se pudo descargar la foto '.$u);
+	}
+	return $resultado;
+}
+
+// Un pase de descarga en paralelo; devuelve solo las fotos que llegaron completas y en un formato que PowerPoint admite.
+function ep_ppt_descargar_lote(array $urls): array {
+	$resultado = [];
 	$multi = curl_multi_init();
 	$manijas = [];
 	foreach ($urls as $u) {
 		$ch = curl_init($u);
-		curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_FOLLOWLOCATION => true]);
+		curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 45, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_FOLLOWLOCATION => true]);
 		curl_multi_add_handle($multi, $ch);
 		$manijas[$u] = $ch;
 	}
@@ -441,6 +451,9 @@ function ep_ppt_descargar_fotos(array $urls): array {
 	foreach ($manijas as $u => $ch) {
 		$bytes = curl_multi_getcontent($ch);
 		$codigo = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		if ($codigo !== 200) {
+			error_log('ppt: foto HTTP '.$codigo.' '.curl_error($ch).' '.$u);
+		}
 		curl_multi_remove_handle($multi, $ch);
 		curl_close($ch);
 		if ($codigo === 200 && $bytes !== '' && ($dim = @getimagesizefromstring($bytes))) {

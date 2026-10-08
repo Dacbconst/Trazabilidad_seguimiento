@@ -80,11 +80,7 @@
 .ep-mobile-header-brand { font-family: 'Sora', sans-serif; color: var(--color-primary); letter-spacing: 0.04em; }
 .ep-mobile-header-sep { color: #D5C8ED; }
 .ep-mobile-header-vista { color: #2E1A50; }
-.ep-mobile-header-user {
-	width: 34px; height: 34px; border-radius: 999px; background: #F4F0FA; border: 1px solid #E0D6F1;
-	color: var(--color-primary); font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700;
-	display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
+.ep-requerido::after { content: ' *'; color: #C5221F; font-weight: 700; }
 .ep-mobile-menu-btn {
 	display: none;
 	width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid #E2D8F2;

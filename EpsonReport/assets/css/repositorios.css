@@ -6,7 +6,7 @@
 .ep-repo-head p { margin: 4px 0 0; font-size: 13px; color: var(--color-text-muted); }
 
 .ep-repo-tabs { position: relative; display: flex; gap: 4px; border-bottom: 1px solid var(--color-border); overflow-x: auto; }
-.ep-repo-indicador { position: absolute; bottom: -1px; left: 0; width: 0; height: 3px; border-radius: 2px 2px 0 0; background: var(--color-primary); transition: left .25s cubic-bezier(.4, 0, .2, 1), width .25s cubic-bezier(.4, 0, .2, 1); }
+.ep-repo-indicador { position: absolute; bottom: -1px; left: 0; width: 1px; height: 3px; border-radius: 2px 2px 0 0; background: var(--color-primary); transform-origin: left center; transition: transform .25s cubic-bezier(.4, 0, .2, 1); }
 .ep-repo-tab { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-bottom: -1px; padding: 10px 18px; border: none; background: none; font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--color-text-muted); cursor: pointer; transition: color .15s ease-out; }
 .ep-repo-tab:hover { color: var(--color-primary-dark); }
 .ep-repo-tab.activo { color: var(--color-primary); }
@@ -25,12 +25,13 @@
 .ep-repo-btn-p { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
 .ep-repo-btn-p:hover { background: var(--color-primary-dark); }
 
-.ep-repo-fila { display: grid; grid-template-columns: minmax(0, 1fr) 120px 40px; gap: 16px; align-items: center; padding: 11px 18px; border-top: 1px solid #EFEBF5; font-size: 14px; }
+.ep-repo-fila { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 12px; align-items: center; padding: 11px 18px; border-top: 1px solid #EFEBF5; font-size: 14px; }
 .ep-repo-th { border-top: none; padding-top: 10px; padding-bottom: 10px; background: var(--color-surface-muted); font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
 .ep-repo-fila:not(.ep-repo-th):hover { background: #FBFAFD; }
 .ep-repo-nombre { font-weight: 600; color: var(--color-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ep-repo-uso { font-size: 13px; color: var(--color-text-muted); }
-.ep-repo-quitar { width: 34px; height: 34px; display: grid; place-items: center; border: none; border-radius: 8px; background: none; color: var(--color-text-muted); cursor: pointer; }
+.ep-repo-acciones-fila { display: flex; justify-content: flex-end; gap: 2px; }
+.ep-repo-accion { width: 34px; height: 34px; display: grid; place-items: center; border: none; border-radius: 8px; background: none; color: var(--color-text-muted); cursor: pointer; }
+.ep-repo-editar:hover { background: var(--color-primary-soft); color: var(--color-primary-dark); }
 .ep-repo-quitar:hover { background: #FCE8E6; color: var(--color-danger); }
 .ep-repo-vacio { padding: 40px 18px; text-align: center; font-size: 14px; color: var(--color-text-muted); }
 
@@ -43,7 +44,36 @@
 
 @media (max-width: 760px) {
 	.ep-content.ep-repo { padding: 20px 16px 40px; }
-	.ep-repo-fila { grid-template-columns: minmax(0, 1fr) 90px 40px; gap: 8px; padding-left: 14px; padding-right: 14px; }
+	.ep-repo-fila { grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; padding-left: 14px; padding-right: 14px; }
 	.ep-repo-acciones { margin-left: 0; width: 100%; }
 	.ep-repo-acciones .ep-repo-btn { flex: 1; }
+}
+
+/* Dos listas independientes lado a lado */
+.ep-repo-columnas { display: grid; grid-template-columns: 1fr 1fr; }
+.ep-repo-col + .ep-repo-col { border-left: 1px solid #EFEBF5; }
+.ep-repo-dialog { width: min(640px, calc(100vw - 32px)); }
+
+/* Modal: archivo, campo de a uno y vista previa que no se edita */
+.ep-repo-o { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--color-text-muted); }
+.ep-repo-o::before, .ep-repo-o::after { content: ''; flex: 1; height: 1px; background: #EFEBF5; }
+.ep-repo-uno { display: grid; grid-template-columns: 1fr 1fr 44px; gap: 8px; }
+.ep-repo-uno .ep-input { height: 42px; text-transform: uppercase; }
+.ep-repo-uno-btn { width: 44px; padding: 0; }
+.ep-repo-prev { border: 1px solid #EFEBF5; border-radius: 12px; overflow: hidden; }
+.ep-repo-prev-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; background: var(--color-surface-muted); font-size: 12.5px; font-weight: 600; color: var(--color-text-muted); }
+.ep-repo-limpiar { border: none; background: none; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--color-primary); cursor: pointer; }
+.ep-repo-limpiar:hover { text-decoration: underline; }
+.ep-repo-prev-tabla { max-height: 220px; overflow-y: auto; }
+.ep-repo-prev-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 8px 14px; border-top: 1px solid #F3F1F8; font-size: 13.5px; }
+.ep-repo-prev-th { position: sticky; top: 0; border-top: none; background: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); }
+.ep-repo-prev-ya { color: var(--color-text-muted); }
+.ep-repo-prev-ya small { margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: #F0F0F2; font-size: 11px; font-weight: 600; }
+.ep-btn-ppt-cta[disabled] { opacity: .5; cursor: not-allowed; }
+@media (max-width: 760px) {
+	.ep-repo-columnas { grid-template-columns: 1fr; }
+	.ep-repo-col + .ep-repo-col { border-left: none; border-top: 8px solid var(--color-surface-muted); }
+	.ep-repo-uno { grid-template-columns: 1fr 44px; }
+	.ep-repo-uno #epRepoUnoCampana { grid-column: 1; }
+	.ep-repo-uno-btn { grid-column: 2; grid-row: 1 / span 2; height: auto; }
 }

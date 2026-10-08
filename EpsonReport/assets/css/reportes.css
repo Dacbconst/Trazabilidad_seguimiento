@@ -923,3 +923,5 @@
 /* Registro y previsualizacion: cada lado ocupa exactamente la mitad, el texto largo no ensancha su celda */
 .ep-act-reg-card, .ep-act-prev-card { min-width: 0; }
 .ep-act-reg-card > div { min-width: 0; overflow-wrap: anywhere; }
+
+.ep-slide-mod-ingreso { grid-template-columns: 55px 1fr 38px; }
