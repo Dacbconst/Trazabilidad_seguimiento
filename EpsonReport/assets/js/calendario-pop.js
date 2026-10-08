@@ -56,21 +56,30 @@
 		var columnas = function () { return 'minmax(150px, 2fr) minmax(110px, 1.4fr) 92px ' + elegidos.map(function () { return '104px '; }).join('') + '96px 34px'; };
 		var supBtn = document.getElementById('epPopSupBtn');
 		var supLista = document.getElementById('epPopSupLista');
+		var catalogo = leerJson('epPopCatalogo', { materiales: [], campanas: [] }) || { materiales: [], campanas: [] };
+		var opciones = function (lista, vacio) {
+			return '<option value="">' + vacio + '</option>' + lista.map(function (n) { return '<option value="' + escapar(n) + '">' + escapar(n) + '</option>'; }).join('');
+		};
+		// Un valor que ya no está en el repositorio (quitado después de cargar el mes) se conserva para poder corregir el mes.
+		var fijarSelect = function (sel, valor) {
+			if (valor && !Array.prototype.some.call(sel.options, function (o) { return o.value === valor; })) sel.insertAdjacentHTML('beforeend', '<option value="' + escapar(valor) + '">' + escapar(valor) + '</option>');
+			sel.value = valor;
+		};
 		var filaHTML = function () {
 			return '<div class="ep-pop-fila" data-id="0">'
-				+ '<input type="text" class="ep-input ep-pop-fila-material" maxlength="60" placeholder="Material (ej. Dangler)" autocomplete="off">'
-				+ '<input type="text" class="ep-input ep-pop-fila-campana" maxlength="40" placeholder="Campaña" autocomplete="off">'
+				+ '<select class="ep-input ep-pop-fila-material" aria-label="Material">' + opciones(catalogo.materiales, 'Elige el material') + '</select>'
+				+ '<select class="ep-input ep-pop-fila-campana" aria-label="Campaña">' + opciones(catalogo.campanas, 'Elige la campaña') + '</select>'
 				+ '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-bodega" placeholder="Bodega">'
 				+ activos().map(function (sup) { return '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-sup" data-sup="' + sup.id + '" placeholder="0">'; }).join('')
 				+ '<span class="ep-pop-fila-disponible">0</span>'
 				+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar material"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>'
 				+ '</div>';
 		};
-		// Una columna por supervisor activo; "Sin repartir" va siempre al final.
+		// Una columna por supervisor activo; "Disponible" va siempre al final.
 		var pintarEncabezado = function () {
 			filasHead.innerHTML = '<span>Material</span><span>Campaña</span><span>Bodega</span>'
 				+ activos().map(function (sup) { return '<span title="' + escapar(sup.nombre) + '">' + escapar(sup.nombre) + '<button type="button" class="ep-pop-quitar-sup" data-sup="' + sup.id + '" aria-label="Quitar a ' + escapar(sup.nombre) + '" title="Quitar supervisor">×</button></span>'; }).join('')
-				+ '<span>Sin repartir</span><span></span>';
+				+ '<span>Disponible</span><span></span>';
 			filasHead.style.setProperty('--ep-pop-cols', columnas());
 			filas.querySelectorAll('.ep-pop-fila').forEach(function (f) { f.style.setProperty('--ep-pop-cols', columnas()); });
 		};
@@ -142,8 +151,8 @@
 				pop.filas.forEach(function (f) {
 					var fila = agregarFila();
 					fila.dataset.id = f.id;
-					fila.querySelector('.ep-pop-fila-material').value = f.material;
-					fila.querySelector('.ep-pop-fila-campana').value = f.campana;
+					fijarSelect(fila.querySelector('.ep-pop-fila-material'), f.material);
+					fijarSelect(fila.querySelector('.ep-pop-fila-campana'), f.campana);
 					fila.querySelector('.ep-pop-fila-bodega').value = f.bodega;
 					fila.querySelectorAll('.ep-pop-fila-sup').forEach(function (i) { var v = (f.reparto || {})[i.dataset.sup]; if (v) i.value = v; });
 					recalcular(fila);
@@ -173,8 +182,11 @@
 			if (ev.target.classList.contains('ep-pop-fila-bodega') || ev.target.classList.contains('ep-pop-fila-sup')) recalcular(ev.target.closest('.ep-pop-fila'));
 		});
 		var btnNuevo = document.getElementById('epPopNuevo');
-		if (btnNuevo) btnNuevo.addEventListener('click', function () { abrirModal(null); });
-		document.getElementById('epPopAgregar').addEventListener('click', function () { agregarFila().querySelector('input').focus(); });
+		if (btnNuevo) btnNuevo.addEventListener('click', function () {
+			if (btnNuevo.dataset.sinCatalogo) { avisar('info', 'Primero llena los repositorios', 'Para cargar un mes hacen falta materiales y campañas. Súbelos en Repositorios.'); return; }
+			abrirModal(null);
+		});
+		document.getElementById('epPopAgregar').addEventListener('click', function () { agregarFila().querySelector('select').focus(); });
 		document.getElementById('epPopCancelar').addEventListener('click', cerrarModal);
 		document.getElementById('epPopModalCerrar').addEventListener('click', cerrarModal);
 		document.getElementById('epPopModalFondo').addEventListener('click', cerrarModal);
@@ -182,7 +194,7 @@
 		filas.addEventListener('click', function (ev) {
 			if (!ev.target.closest('.ep-modelo-quitar')) return;
 			if (filas.querySelectorAll('.ep-pop-fila').length > 1) ev.target.closest('.ep-pop-fila').remove();
-			else { filas.querySelectorAll('input').forEach(function (i) { i.value = ''; }); recalcular(filas.querySelector('.ep-pop-fila')); }
+			else { filas.querySelectorAll('input, select').forEach(function (i) { i.value = ''; }); recalcular(filas.querySelector('.ep-pop-fila')); }
 		});
 
 		btnGuardar.addEventListener('click', function () {

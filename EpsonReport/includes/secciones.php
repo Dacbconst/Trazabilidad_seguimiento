@@ -2,6 +2,8 @@
 // Secciones del rail lateral, todas visibles por ahora (sin roles, pendiente definir).
 // Actividades y Gestión de Actividades son UN SOLO módulo — lo que cambia es qué ve
 // cada rol adentro (ep_rol_actual() decide si aparece "+ Nueva actividad"), no la sección.
+require_once __DIR__.'/pop_reparto.php';
+
 function ep_secciones(): array {
 	$todas = [
 		'actividades' => [
@@ -27,6 +29,11 @@ function ep_secciones(): array {
 			'icon'  => 'calendar',
 			'solo_gestor' => true,
 		],
+		'repositorios' => [
+			'label' => 'Repositorios',
+			'icon'  => 'list',
+			'solo_dueno_pop' => true,
+		],
 		'usuarios' => [
 			'label' => 'Usuarios',
 			'icon'  => 'users',
@@ -39,5 +46,5 @@ function ep_secciones(): array {
 		],
 	];
 	// Las secciones marcadas solo_admin no existen para el rol usuario (tampoco se puede entrar por la URL).
-	return array_filter($todas, fn($s) => (empty($s['solo_admin']) || ep_es_admin()) && (empty($s['solo_gestor']) || ep_es_gestor()));
+	return array_filter($todas, fn($s) => (empty($s['solo_admin']) || ep_es_admin()) && (empty($s['solo_gestor']) || ep_es_gestor()) && (empty($s['solo_dueno_pop']) || ep_pop_es_dueno()));
 }

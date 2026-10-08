@@ -1,0 +1,49 @@
+/* Repositorios de POP: pestañas horizontales con indicador deslizante, barra de filtros y lista. */
+.ep-content.ep-repo { display: flex; flex-direction: column; gap: 18px; padding: 32px 36px 48px; }
+.ep-content.ep-repo > * { flex-shrink: 0; }
+.ep-repo-head, .ep-repo-tabs, .ep-repo-card { max-width: 1120px; width: 100%; margin-left: auto; margin-right: auto; }
+.ep-repo-head h1 { font-size: 26px; font-weight: 700; color: var(--color-primary-dark); }
+.ep-repo-head p { margin: 4px 0 0; font-size: 13px; color: var(--color-text-muted); }
+
+.ep-repo-tabs { position: relative; display: flex; gap: 4px; border-bottom: 1px solid var(--color-border); overflow-x: auto; }
+.ep-repo-indicador { position: absolute; bottom: -1px; left: 0; width: 0; height: 3px; border-radius: 2px 2px 0 0; background: var(--color-primary); transition: left .25s cubic-bezier(.4, 0, .2, 1), width .25s cubic-bezier(.4, 0, .2, 1); }
+.ep-repo-tab { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-bottom: -1px; padding: 10px 18px; border: none; background: none; font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--color-text-muted); cursor: pointer; transition: color .15s ease-out; }
+.ep-repo-tab:hover { color: var(--color-primary-dark); }
+.ep-repo-tab.activo { color: var(--color-primary); }
+.ep-repo-count { padding: 2px 9px; border-radius: 999px; background: #EEF0F4; font-size: 11px; font-weight: 700; color: #475066; }
+.ep-repo-tab.activo .ep-repo-count { background: var(--color-primary-soft); color: var(--color-primary-dark); }
+
+.ep-repo-card { background: var(--color-surface); border: 1px solid #E6E1EF; border-radius: 16px; overflow: hidden; }
+.ep-repo-filtros { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid #EFEBF5; }
+.ep-repo-buscar { flex: 1 1 260px; position: relative; display: block; }
+.ep-repo-buscar svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted); }
+.ep-repo-buscar input { width: 100%; height: 40px; padding: 0 12px 0 38px; border: 1px solid var(--color-border); border-radius: 10px; background: #fff; font: inherit; font-size: 14px; }
+.ep-repo-acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.ep-repo-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.ep-repo-btn:hover { background: var(--color-surface-muted); }
+.ep-repo-btn:active { transform: scale(.98); }
+.ep-repo-btn-p { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.ep-repo-btn-p:hover { background: var(--color-primary-dark); }
+
+.ep-repo-fila { display: grid; grid-template-columns: minmax(0, 1fr) 120px 40px; gap: 16px; align-items: center; padding: 11px 18px; border-top: 1px solid #EFEBF5; font-size: 14px; }
+.ep-repo-th { border-top: none; padding-top: 10px; padding-bottom: 10px; background: var(--color-surface-muted); font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
+.ep-repo-fila:not(.ep-repo-th):hover { background: #FBFAFD; }
+.ep-repo-nombre { font-weight: 600; color: var(--color-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-repo-uso { font-size: 13px; color: var(--color-text-muted); }
+.ep-repo-quitar { width: 34px; height: 34px; display: grid; place-items: center; border: none; border-radius: 8px; background: none; color: var(--color-text-muted); cursor: pointer; }
+.ep-repo-quitar:hover { background: #FCE8E6; color: var(--color-danger); }
+.ep-repo-vacio { padding: 40px 18px; text-align: center; font-size: 14px; color: var(--color-text-muted); }
+
+.ep-repo-dialog { width: min(520px, calc(100vw - 32px)); max-width: none; border-radius: 20px; }
+.ep-repo-dialog .ep-modal-ppt-body { display: flex; flex-direction: column; gap: 12px; padding: 18px 24px 20px; }
+.ep-repo-dialog .ep-modal-ppt-body > * { flex-shrink: 0; }
+.ep-repo-archivo { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1.5px dashed var(--color-border); border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--color-primary-dark); cursor: pointer; transition: background .15s, border-color .15s; }
+.ep-repo-archivo:hover { background: var(--color-primary-soft); border-color: var(--color-primary); }
+.ep-repo-nota { font-size: 12.5px; color: var(--color-text-muted); }
+
+@media (max-width: 760px) {
+	.ep-content.ep-repo { padding: 20px 16px 40px; }
+	.ep-repo-fila { grid-template-columns: minmax(0, 1fr) 90px 40px; gap: 8px; padding-left: 14px; padding-right: 14px; }
+	.ep-repo-acciones { margin-left: 0; width: 100%; }
+	.ep-repo-acciones .ep-repo-btn { flex: 1; }
+}

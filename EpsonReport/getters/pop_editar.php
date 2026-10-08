@@ -36,6 +36,11 @@ try {
 		echo json_encode(['ok' => false, 'message' => $filas]);
 		exit;
 	}
+	$sinCatalogo = ep_pop_catalogo_validar($filas, $pop['filas']);
+	if ($sinCatalogo !== null) {
+		echo json_encode(['ok' => false, 'message' => $sinCatalogo]);
+		exit;
+	}
 	// Un material que los promotores ya reportaron no se puede quitar: su registro quedaría sin bodega en el PPT.
 	$quedan = array_column($filas, 'material');
 	foreach (ep_pop_entregado($pop['mes']) as $clave => $t) {

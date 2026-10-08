@@ -8,6 +8,8 @@ $esDueno = ep_pop_es_dueno();
 $esSup = ep_es_supervisor();
 $yo = (int) ($_SESSION['usuario_id'] ?? 0);
 $supervisores = $esDueno ? ep_pop_supervisores() : [];
+$catalogo = $esDueno ? ep_pop_catalogo() : ['materiales' => [], 'campanas' => []];
+$sinCatalogo = $esDueno && (!$catalogo['materiales'] || !$catalogo['campanas']);
 $partes = [];
 foreach ($meses as $m) {
 	$partes[(int) $m['id']] = $esSup ? ep_pop_parte_supervisor((int) $m['id'], $yo) : [];
@@ -18,7 +20,7 @@ foreach ($meses as $m) {
 <div class="ep-pop-head">
 	<p class="ep-pop-head-txt"><?= $esDueno ? 'Carga el material que llegó a bodega y repártelo entre los supervisores. Cada uno lo reparte a su equipo y los promotores solo reportan lo que les asignaron.' : 'Aquí ves el POP que te tocó. Repártelo entre tus promotores: no puedes pasar de lo que recibiste.' ?></p>
 	<?php if ($esDueno): ?>
-		<button type="button" class="ep-rp-nuevo" id="epPopNuevo"<?= $hayAbierto ? ' disabled title="Ya hay un mes abierto; ciérralo antes de abrir otro."' : '' ?>><?= ep_icon('plus', 16) ?> <span>Cargar mes</span></button>
+		<button type="button" class="ep-rp-nuevo" id="epPopNuevo"<?= $hayAbierto ? ' disabled title="Ya hay un mes abierto; ciérralo antes de abrir otro."' : '' ?><?= $sinCatalogo ? ' data-sin-catalogo="1"' : '' ?>><?= ep_icon('plus', 16) ?> <span>Cargar mes</span></button>
 	<?php endif; ?>
 </div>
 
@@ -66,7 +68,7 @@ foreach ($meses as $m) {
 						<span role="columnheader" class="ep-pop-celda-extra">Campaña</span>
 						<span role="columnheader">Bodega</span>
 						<?php foreach ($supervisores as $sup): ?><span role="columnheader" class="ep-pop-celda-extra"><?= $h($sup['nombre']) ?></span><?php endforeach; ?>
-						<span role="columnheader">Sin repartir</span>
+						<span role="columnheader">Disponible</span>
 						<span role="columnheader" class="ep-pop-celda-extra">Colocado</span>
 						<span role="columnheader">Disponible</span>
 					</div>
@@ -160,6 +162,7 @@ foreach ($meses as $m) {
 		</div>
 	</div>
 </div>
+<script type="application/json" id="epPopCatalogo"><?= json_encode(['materiales' => array_column($catalogo['materiales'], 'nombre'), 'campanas' => array_column($catalogo['campanas'], 'nombre')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
 <script type="application/json" id="epPopSupervisores"><?= json_encode($supervisores, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
 <script type="application/json" id="epPopDatos">
 	<?= json_encode(array_values(array_map(fn($m) => ['id' => (int) $m['id'], 'mes' => $m['mes'], 'comentarios' => (string) ($m['comentarios'] ?? ''), 'filas' => array_map(fn($f) => ['id' => (int) $f['id'], 'material' => $f['material'], 'campana' => $f['campana'], 'bodega' => (int) $f['bodega'], 'reparto' => (object) $f['asignado']], $m['filas'])], array_filter($meses, fn($m) => $m['estado'] === 'activo'))), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>

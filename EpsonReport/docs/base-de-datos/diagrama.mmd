@@ -173,6 +173,15 @@ erDiagram
         datetime editado_en
     }
 
+    insert_reporte_pop_catalogo {
+        int id PK
+        enum tipo "material o campana; dos listas independientes"
+        varchar nombre "en mayusculas; unico por tipo"
+        int creado_por FK
+        datetime created_at
+        datetime eliminado_en "borrado logico"
+    }
+
     insert_reporte_pop_asignacion {
         int id PK
         int pop_fila_id FK "material del mes"

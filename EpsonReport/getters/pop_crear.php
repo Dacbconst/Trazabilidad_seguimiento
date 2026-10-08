@@ -36,6 +36,11 @@ try {
 		echo json_encode(['ok' => false, 'message' => $filas]);
 		exit;
 	}
+	$sinCatalogo = ep_pop_catalogo_validar($filas);
+	if ($sinCatalogo !== null) {
+		echo json_encode(['ok' => false, 'message' => $sinCatalogo]);
+		exit;
+	}
 	$comentarios = ep_pop_limpiar_comentarios((string) ($_POST['comentarios'] ?? ''));
 	$id = ep_pop_crear($mes, $comentarios, $filas, (int) $_SESSION['usuario_id']);
 	if ($id) {
