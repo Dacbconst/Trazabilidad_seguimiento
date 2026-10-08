@@ -521,6 +521,26 @@
 		inputValidator: function (v) { return !v || v.trim().length < 8 ? 'Escribe el motivo (mínimo 8 caracteres).' : null; },
 		showCancelButton: true, confirmButtonText: 'Sí, reactivar', cancelButtonText: 'Cancelar',
 	}, 'getters/calendario_reactivar.php', 'No se pudo reactivar');
+	// Revisar los comentarios de un calendario cerrado y dejarlo listo para descargar; después ya no se editan.
+	document.querySelectorAll('.ep-cal-finalizar').forEach(function (btn) {
+		btn.addEventListener('click', function () {
+			if (!window.Swal) return;
+			Swal.fire({
+				icon: 'info', title: 'Revisa los comentarios',
+				text: 'Al finalizar no se podrán cambiar.',
+				input: 'textarea', inputValue: btn.dataset.comentarios || '',
+				inputPlaceholder: 'Un comentario por línea (máx. 5)', inputAttributes: { rows: 5, maxlength: 1000 },
+				showCancelButton: true, reverseButtons: true,
+				confirmButtonText: 'Finalizar', cancelButtonText: 'Seguir editando',
+			}).then(function (res) {
+				if (!res.isConfirmed) return;
+				post('getters/calendario_finalizar.php', { id: btn.dataset.id, comentarios: res.value || '' }).then(function (r) {
+					if (!r.ok) { avisar('error', 'No se pudo finalizar', r.message); return; }
+					location.reload();
+				}).catch(errorServidor('No se pudo finalizar'));
+			});
+		});
+	});
 	accionTarjeta('.ep-cal-eliminar', {
 		icon: 'warning', title: '¿Eliminar este calendario?',
 		text: 'Deja de aparecer en la lista y ya no cruza registros nuevos. Si ya generó un reporte mensual, ese reporte se conserva.',

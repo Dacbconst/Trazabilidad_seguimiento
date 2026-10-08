@@ -30,6 +30,10 @@ $reporte = ep_reporte_obtener((int) ($_GET['id'] ?? 0));
 if (!$reporte) {
 	ep_rep_error('No se encontró el reporte.', 404);
 }
+require_once __DIR__.'/../includes/calendario_datos.php';
+if (ep_reporte_pendiente_revision((int) $reporte['id'])) {
+	ep_rep_error('Revisa los comentarios del calendario y finalízalo antes de descargar.', 409);
+}
 $generador = ep_ppt_generador($reporte['tipo']);
 if (!$generador) {
 	ep_rep_error('Este formato de presentación todavía no está disponible.');

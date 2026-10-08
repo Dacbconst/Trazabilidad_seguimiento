@@ -143,8 +143,9 @@ function ep_actividades_activas(): array {
 }
 
 // El admin ve todas (con su interruptor); el promotor solo las activas.
+// Se guarda 30 s en la sesión: el menú y la pantalla de Actividades la piden en cada página.
 function ep_actividades_visibles(): array {
-	return ep_rol_actual() === 'admin' ? ep_actividades() : ep_actividades_activas();
+	return ep_cache_sesion('act_visibles', 30, fn() => ep_rol_actual() === 'admin' ? ep_actividades() : ep_actividades_activas());
 }
 
 // Crea un botón que copia la lógica de otro. Devuelve el mensaje de error, o null si se guardó.

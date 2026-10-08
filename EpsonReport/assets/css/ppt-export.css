@@ -209,3 +209,12 @@
 	cursor: not-allowed;
 	transform: none;
 }
+
+/* Encabezado de los modales: icono y título en fila, botón de cierre limpio */
+.ep-modal-ppt-head-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ep-modal-ppt-head-left h2 { margin: 0; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 700; line-height: 1.25; color: var(--color-ink); }
+.ep-modal-ppt-head-left p { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: var(--color-text-muted); }
+.ep-modal-close-btn { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--color-text-muted); cursor: pointer; transition: background-color .15s ease-out, color .15s ease-out; }
+.ep-modal-close-btn:hover { background: var(--color-primary-soft); color: var(--color-primary-dark); }
+.ep-modal-close-btn:active { transform: scale(0.94); }
+.ep-modal-close-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

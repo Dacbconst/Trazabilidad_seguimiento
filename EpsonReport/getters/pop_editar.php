@@ -1,5 +1,5 @@
 <?php
-// Corrige el material del mes de POP mientras siga abierto (solo admin/supervisor, y solo el suyo).
+// Corrige el material y el reparto del mes de POP mientras siga abierto (solo Fabricio o el admin).
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
@@ -12,6 +12,12 @@ if (!in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true)) {
 }
 
 require_once __DIR__.'/../includes/pop_datos.php';
+
+if (!ep_pop_es_dueno()) {
+	http_response_code(403);
+	echo json_encode(['ok' => false, 'message' => 'Solo Fabricio o un administrador manejan el material POP.']);
+	exit;
+}
 
 // En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
 try {
@@ -39,8 +45,13 @@ try {
 			exit;
 		}
 	}
+	$conflicto = ep_pop_reparto_conflicto($id, $filas);
+	if ($conflicto !== null) {
+		echo json_encode(['ok' => false, 'message' => $conflicto]);
+		exit;
+	}
 	$comentarios = ep_pop_limpiar_comentarios((string) ($_POST['comentarios'] ?? ''));
-	$ok = ep_pop_editar($id, $filas, $comentarios);
+	$ok = ep_pop_editar($id, $filas, $comentarios, (int) $_SESSION['usuario_id']);
 	if ($ok) {
 		require_once __DIR__.'/../includes/auditoria_datos.php';
 		ep_auditar('pop_editar', 'pop', $id, 'Corrigió el material POP de '.ep_pop_mes_texto($pop['mes']), [

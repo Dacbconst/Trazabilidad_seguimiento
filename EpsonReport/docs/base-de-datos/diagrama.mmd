@@ -23,6 +23,8 @@ erDiagram
     insert_reporte_pop ||--o{ insert_reporte_pop_fila : "pop_id"
     insert_reporte_pop |o..o| insert_reporte_mensual : "reporte_mensual_id"
     insert_reporte_pop_fila }o..o{ insert_reporte_registro : "material en pop_entregas"
+    insert_reporte_pop_fila ||--o{ insert_reporte_pop_asignacion : "pop_fila_id"
+    repositorio_usuarios_reporte ||--o{ insert_reporte_pop_asignacion : "usuario_id recibe, asignado_por reparte"
 
     insert_reporte_auditoria {
         bigint id PK
@@ -166,7 +168,18 @@ erDiagram
         int pop_id FK
         varchar material "lo que elige el promotor"
         varchar campana
-        int bodega "lo que llego; canales y retail se calculan de los registros"
+        int bodega "lo que llego; lo colocado se calcula de los registros"
+        datetime created_at
+        datetime editado_en
+    }
+
+    insert_reporte_pop_asignacion {
+        int id PK
+        int pop_fila_id FK "material del mes"
+        int usuario_id FK "quien recibe"
+        int asignado_por FK "quien reparte"
+        tinyint nivel "1 supervisor, 2 promotor"
+        int cantidad
         datetime created_at
         datetime editado_en
     }
@@ -177,6 +190,7 @@ erDiagram
         varchar canal "de repositorio_locales_dtt2"
         tinyint plazo_dias
         text comentarios "uno por linea, max 5"
+        datetime comentarios_revisados_en "NULL = cerro y espera revision de comentarios"
         date desde
         date hasta
         enum estado "activo o cerrado"

@@ -1,4 +1,5 @@
 <nav class="ep-sidebar" id="epSidebar" title="Clic en zona vacía: mostrar/ocultar menú">
+	<script>try { if (localStorage.getItem('ep_sidebar_colapsado') === '1') document.getElementById('epSidebar').classList.add('collapsed'); } catch (e) {}</script>
 	<button type="button" class="ep-sidebar-close-btn" id="epSidebarCloseBtn" aria-label="Cerrar menú">
 		<?= ep_icon('close', 18) ?>
 	</button>
@@ -17,7 +18,7 @@
 					<a href="index.php?vista=<?= urlencode($id) ?>" title="<?= htmlspecialchars($s['label']) ?>"<?= $id === 'actividades' ? ' data-abre-submenu="epSidebarSubActividades"' : '' ?>>
 						<?= ep_icon($s['icon']) ?>
 						<span class="ep-nav-label"><?= htmlspecialchars($s['label']) ?></span>
-						<?php if ($id === 'aprobaciones'): require_once __DIR__.'/../includes/aprobacion_datos.php'; $pendAprob = ep_aprobaciones_contar()['Pendiente']; ?>
+						<?php if ($id === 'aprobaciones'): require_once __DIR__.'/../includes/aprobacion_datos.php'; $pendAprob = ep_cache_sesion('aprob_pend', 15, fn() => ep_aprobaciones_contar()['Pendiente']); ?>
 							<span class="ep-avisos-badge" data-n="<?= (int) $pendAprob ?>"><?= (int) $pendAprob ?></span>
 						<?php endif; ?>
 					</a>

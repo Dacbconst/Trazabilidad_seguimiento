@@ -329,4 +329,19 @@
 	});
 
 	pintarLista();
+
+	// Ciudad y canal vienen del rutero (consulta lenta): si la caché del servidor venció, se piden aparte y se completa la lista.
+	if (root.dataset.ruteroPendiente) {
+		fetch('getters/usuarios_rutero.php', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (r) {
+			if (!r || !r.ok) return;
+			usuarios.forEach(function (u) {
+				var d = r.rutero[u.usuario];
+				if (u.canal === 'Cargando…') u.canal = d ? d.canal : 'Sin rutero';
+				if (d && !u.ciudad) u.ciudad = d.ciudad;
+			});
+			pintarLista();
+		}).catch(function () {
+			usuarios.forEach(function (u) { if (u.canal === 'Cargando…') u.canal = 'Sin rutero'; });
+		});
+	}
 })();

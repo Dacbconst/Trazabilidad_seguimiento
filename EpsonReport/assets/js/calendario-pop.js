@@ -1,4 +1,4 @@
-// Tab de Colocación de POP: pestañas, carga de la tabla del mes y sus acciones (editar, cerrar, eliminar).
+// Tab de Colocación de POP: pestañas, carga del mes (Fabricio), reparto del supervisor a su equipo y acciones de cada mes.
 (function () {
 	var panelAct = document.getElementById('epCalPanelAct');
 	var panelPop = document.getElementById('epCalPanelPop');
@@ -12,6 +12,13 @@
 	}
 	function avisar(icono, titulo, texto) {
 		if (window.Swal) Swal.fire({ icon: icono, title: titulo, text: texto || '' });
+	}
+	function escapar(t) {
+		return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+	}
+	function leerJson(id, defecto) {
+		var el = document.getElementById(id);
+		return el ? JSON.parse(el.textContent || 'null') : defecto;
 	}
 
 	// ---------- Pestañas ----------
@@ -29,174 +36,255 @@
 		});
 	});
 
-	// ---------- Modal de carga ----------
+	// ---------- Modal de carga (Fabricio): material, bodega y reparto a cada supervisor ----------
 	var modal = document.getElementById('epPopModal');
-	var filas = document.getElementById('epPopFilas');
-	var inputMes = document.getElementById('epPopMes');
-	var inputComentarios = document.getElementById('epPopComentarios');
-	var btnGuardar = document.getElementById('epPopGuardar');
-	var titulo = document.getElementById('epPopModalTitulo');
+	var abiertos = leerJson('epPopDatos', []) || [];
+	var supervisores = leerJson('epPopSupervisores', []) || [];
+	var elegidos = [];
 	var editandoId = 0;
-	var abiertos = JSON.parse((document.getElementById('epPopDatos') || {}).textContent || '[]');
 
-	var todosCanales = JSON.parse((document.getElementById('epPopCanales') || {}).textContent || '[]');
-	var canalesActivos = [];
-	var filasHead = document.getElementById('epPopFilasHead');
-	var canalBtn = document.getElementById('epPopCanalBtn');
-	var canalLista = document.getElementById('epPopCanalLista');
+	if (modal) {
+		var filas = document.getElementById('epPopFilas');
+		var filasHead = document.getElementById('epPopFilasHead');
+		var inputMes = document.getElementById('epPopMes');
+		var inputComentarios = document.getElementById('epPopComentarios');
+		var btnGuardar = document.getElementById('epPopGuardar');
+		var titulo = document.getElementById('epPopModalTitulo');
 
-	function etiqueta(c) { return c.charAt(0) + c.slice(1).toLowerCase(); }
-	function filaHTML() {
-		return '<div class="ep-pop-fila">'
-			+ '<input type="text" class="ep-input ep-pop-fila-material" maxlength="60" placeholder="Material (ej. Dangler)" autocomplete="off">'
-			+ '<input type="text" class="ep-input ep-pop-fila-campana" maxlength="40" placeholder="Campaña" autocomplete="off">'
-			+ '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-bodega" placeholder="Bodega">'
-			+ canalesActivos.map(function (c) { return '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-canal" data-canal="' + c + '" placeholder="0">'; }).join('')
-			+ '<span class="ep-pop-fila-disponible">0</span>'
-			+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar material"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>'
-			+ '</div>';
-	}
-	// Encabezado y columnas siguen a los canales agregados; Disponible va siempre al final.
-	function pintarEncabezado() {
-		filasHead.innerHTML = '<span>Material</span><span>Campaña</span><span>Bodega</span>'
-			+ canalesActivos.map(function (c) { return '<span>' + etiqueta(c) + '<button type="button" class="ep-pop-quitar-canal" data-canal="' + c + '" aria-label="Quitar canal ' + etiqueta(c) + '" title="Quitar canal">×</button></span>'; }).join('')
-			+ '<span>Disponible</span><span></span>';
-		var n = String(canalesActivos.length);
-		filasHead.style.setProperty('--ep-pop-m', n);
-		filas.querySelectorAll('.ep-pop-fila').forEach(function (f) { f.style.setProperty('--ep-pop-m', n); });
-	}
-	function recalcular(fila) {
-		var bodega = parseInt(fila.querySelector('.ep-pop-fila-bodega').value, 10) || 0;
-		var repartido = 0;
-		fila.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { repartido += parseInt(i.value, 10) || 0; });
-		var disp = fila.querySelector('.ep-pop-fila-disponible');
-		disp.textContent = bodega - repartido;
-		disp.classList.toggle('ep-pop-negativo', bodega - repartido < 0);
-	}
-	function agregarFila() {
-		filas.insertAdjacentHTML('beforeend', filaHTML());
-		var fila = filas.lastElementChild;
-		fila.style.setProperty('--ep-pop-m', String(canalesActivos.length));
-		return fila;
-	}
-	// Al sumar un canal se agrega una columna a todas las filas; al quitarlo se pierde lo escrito en ella.
-	function agregarCanal(c) {
-		if (canalesActivos.indexOf(c) !== -1) return;
-		canalesActivos.push(c);
-		filas.querySelectorAll('.ep-pop-fila').forEach(function (f) {
-			var input = document.createElement('input');
-			input.type = 'number'; input.min = '0'; input.inputMode = 'numeric'; input.placeholder = '0';
-			input.className = 'ep-input ep-pop-fila-canal'; input.dataset.canal = c;
-			f.insertBefore(input, f.querySelector('.ep-pop-fila-disponible'));
-		});
-		pintarEncabezado();
-	}
-	function quitarCanal(c) {
-		canalesActivos = canalesActivos.filter(function (x) { return x !== c; });
-		filas.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { if (i.dataset.canal === c) { var f = i.closest('.ep-pop-fila'); i.remove(); recalcular(f); } });
-		pintarEncabezado();
-	}
-	function pintarMenuCanales() {
-		var libres = todosCanales.filter(function (c) { return canalesActivos.indexOf(c) === -1; });
-		canalLista.innerHTML = libres.length
-			? libres.map(function (c) { return '<button type="button" role="menuitem" data-canal="' + c + '">' + etiqueta(c) + '</button>'; }).join('')
-			: '<div class="ep-pop-canal-vacio">Ya agregaste todos los canales</div>';
-	}
-	function leerFilas() {
-		return Array.prototype.slice.call(filas.querySelectorAll('.ep-pop-fila')).map(function (f) {
-			var canales = {};
-			f.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { canales[i.dataset.canal] = parseInt(i.value, 10) || 0; });
-			return {
-				material: f.querySelector('.ep-pop-fila-material').value.trim().toUpperCase(),
-				campana: f.querySelector('.ep-pop-fila-campana').value.trim().toUpperCase(),
-				bodega: parseInt(f.querySelector('.ep-pop-fila-bodega').value, 10) || 0,
-				canales: canales
-			};
-		}).filter(function (f) { return f.material && f.campana; });
-	}
-	function abrirModal(pop) {
-		editandoId = pop ? pop.id : 0;
-		titulo.textContent = pop ? 'Corregir mes de POP' : 'Cargar mes de POP';
-		btnGuardar.textContent = pop ? 'Guardar cambios' : 'Cargar mes';
-		inputMes.value = pop ? pop.mes : new Date().toISOString().slice(0, 7);
-		inputMes.disabled = !!pop;
-		inputComentarios.value = pop ? pop.comentarios : '';
-		filas.innerHTML = '';
-		canalesActivos = [];
-		if (pop) pop.filas.forEach(function (f) { Object.keys(f.canales || {}).forEach(function (c) { if (canalesActivos.indexOf(c) === -1) canalesActivos.push(c); }); });
-		pintarEncabezado();
-		if (pop && pop.filas.length) {
-			pop.filas.forEach(function (f) {
-				var fila = agregarFila();
-				fila.querySelector('.ep-pop-fila-material').value = f.material;
-				fila.querySelector('.ep-pop-fila-campana').value = f.campana;
-				fila.querySelector('.ep-pop-fila-bodega').value = f.bodega;
-				fila.querySelectorAll('.ep-pop-fila-canal').forEach(function (i) { var v = (f.canales || {})[i.dataset.canal]; if (v) i.value = v; });
-				recalcular(fila);
+		var activos = function () { return supervisores.filter(function (sup) { return elegidos.indexOf(sup.id) !== -1; }); };
+		// Columnas de la tabla según los supervisores elegidos (un repeat(0, ...) en CSS invalida toda la regla).
+		var columnas = function () { return 'minmax(150px, 2fr) minmax(110px, 1.4fr) 92px ' + elegidos.map(function () { return '104px '; }).join('') + '96px 34px'; };
+		var supBtn = document.getElementById('epPopSupBtn');
+		var supLista = document.getElementById('epPopSupLista');
+		var filaHTML = function () {
+			return '<div class="ep-pop-fila" data-id="0">'
+				+ '<input type="text" class="ep-input ep-pop-fila-material" maxlength="60" placeholder="Material (ej. Dangler)" autocomplete="off">'
+				+ '<input type="text" class="ep-input ep-pop-fila-campana" maxlength="40" placeholder="Campaña" autocomplete="off">'
+				+ '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-bodega" placeholder="Bodega">'
+				+ activos().map(function (sup) { return '<input type="number" min="0" inputmode="numeric" class="ep-input ep-pop-fila-sup" data-sup="' + sup.id + '" placeholder="0">'; }).join('')
+				+ '<span class="ep-pop-fila-disponible">0</span>'
+				+ '<button type="button" class="ep-modelo-quitar" aria-label="Quitar material"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>'
+				+ '</div>';
+		};
+		// Una columna por supervisor activo; "Sin repartir" va siempre al final.
+		var pintarEncabezado = function () {
+			filasHead.innerHTML = '<span>Material</span><span>Campaña</span><span>Bodega</span>'
+				+ activos().map(function (sup) { return '<span title="' + escapar(sup.nombre) + '">' + escapar(sup.nombre) + '<button type="button" class="ep-pop-quitar-sup" data-sup="' + sup.id + '" aria-label="Quitar a ' + escapar(sup.nombre) + '" title="Quitar supervisor">×</button></span>'; }).join('')
+				+ '<span>Sin repartir</span><span></span>';
+			filasHead.style.setProperty('--ep-pop-cols', columnas());
+			filas.querySelectorAll('.ep-pop-fila').forEach(function (f) { f.style.setProperty('--ep-pop-cols', columnas()); });
+		};
+		var recalcular = function (fila) {
+			var bodega = parseInt(fila.querySelector('.ep-pop-fila-bodega').value, 10) || 0;
+			var repartido = 0;
+			fila.querySelectorAll('.ep-pop-fila-sup').forEach(function (i) { repartido += parseInt(i.value, 10) || 0; });
+			var disp = fila.querySelector('.ep-pop-fila-disponible');
+			disp.textContent = bodega - repartido;
+			disp.classList.toggle('ep-pop-negativo', bodega - repartido < 0);
+		};
+		var agregarFila = function () {
+			filas.insertAdjacentHTML('beforeend', filaHTML());
+			var fila = filas.lastElementChild;
+			fila.style.setProperty('--ep-pop-cols', columnas());
+			return fila;
+		};
+		// Al sumar un supervisor se agrega su columna a todas las filas; al quitarlo se pierde lo escrito en ella.
+		var agregarSup = function (id) {
+			if (elegidos.indexOf(id) !== -1) return;
+			elegidos.push(id);
+			filas.querySelectorAll('.ep-pop-fila').forEach(function (f) {
+				var input = document.createElement('input');
+				input.type = 'number'; input.min = '0'; input.inputMode = 'numeric'; input.placeholder = '0';
+				input.className = 'ep-input ep-pop-fila-sup'; input.dataset.sup = id;
+				f.insertBefore(input, f.querySelector('.ep-pop-fila-disponible'));
 			});
-		} else {
-			agregarFila();
-		}
-		modal.classList.remove('hidden');
-	}
-	function cerrarModal() { modal.classList.add('hidden'); canalLista.classList.add('hidden'); }
+			pintarEncabezado();
+		};
+		var quitarSup = function (id) {
+			elegidos = elegidos.filter(function (x) { return x !== id; });
+			filas.querySelectorAll('.ep-pop-fila-sup').forEach(function (i) {
+				if (parseInt(i.dataset.sup, 10) === id) { var f = i.closest('.ep-pop-fila'); i.remove(); recalcular(f); }
+			});
+			pintarEncabezado();
+		};
+		var pintarMenuSup = function () {
+			var libres = supervisores.filter(function (sup) { return elegidos.indexOf(sup.id) === -1; });
+			supLista.innerHTML = libres.length
+				? libres.map(function (sup) { return '<button type="button" role="menuitem" data-sup="' + sup.id + '">' + escapar(sup.nombre) + '</button>'; }).join('')
+				: '<div class="ep-pop-sup-vacio">Ya agregaste a todos los supervisores</div>';
+		};
+		var leerFilas = function () {
+			return Array.prototype.slice.call(filas.querySelectorAll('.ep-pop-fila')).map(function (f) {
+				var reparto = {};
+				f.querySelectorAll('.ep-pop-fila-sup').forEach(function (i) { reparto[i.dataset.sup] = parseInt(i.value, 10) || 0; });
+				return {
+					id: parseInt(f.dataset.id, 10) || 0,
+					material: f.querySelector('.ep-pop-fila-material').value.trim().toUpperCase(),
+					campana: f.querySelector('.ep-pop-fila-campana').value.trim().toUpperCase(),
+					bodega: parseInt(f.querySelector('.ep-pop-fila-bodega').value, 10) || 0,
+					reparto: reparto
+				};
+			}).filter(function (f) { return f.material && f.campana; });
+		};
+		var abrirModal = function (pop) {
+			editandoId = pop ? pop.id : 0;
+			titulo.textContent = pop ? 'Corregir mes de POP' : 'Cargar mes de POP';
+			btnGuardar.textContent = pop ? 'Guardar cambios' : 'Cargar mes';
+			inputMes.value = pop ? pop.mes : new Date().toISOString().slice(0, 7);
+			inputMes.disabled = !!pop;
+			inputComentarios.value = pop ? pop.comentarios : '';
+			filas.innerHTML = '';
+			elegidos = [];
+			supLista.classList.add('hidden');
+			if (pop) pop.filas.forEach(function (f) { Object.keys(f.reparto || {}).forEach(function (id) { if ((f.reparto[id] || 0) > 0 && elegidos.indexOf(parseInt(id, 10)) === -1) elegidos.push(parseInt(id, 10)); }); });
+			pintarEncabezado();
+			if (pop && pop.filas.length) {
+				pop.filas.forEach(function (f) {
+					var fila = agregarFila();
+					fila.dataset.id = f.id;
+					fila.querySelector('.ep-pop-fila-material').value = f.material;
+					fila.querySelector('.ep-pop-fila-campana').value = f.campana;
+					fila.querySelector('.ep-pop-fila-bodega').value = f.bodega;
+					fila.querySelectorAll('.ep-pop-fila-sup').forEach(function (i) { var v = (f.reparto || {})[i.dataset.sup]; if (v) i.value = v; });
+					recalcular(fila);
+				});
+			} else {
+				agregarFila();
+			}
+			modal.classList.remove('hidden');
+		};
+		var cerrarModal = function () { modal.classList.add('hidden'); supLista.classList.add('hidden'); };
 
-	canalBtn.addEventListener('click', function () {
-		pintarMenuCanales();
-		var abierto = canalLista.classList.toggle('hidden') === false;
-		canalBtn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-	});
-	canalLista.addEventListener('click', function (ev) {
-		var b = ev.target.closest('button[data-canal]');
-		if (!b) return;
-		agregarCanal(b.dataset.canal);
-		canalLista.classList.add('hidden');
-	});
-	filasHead.addEventListener('click', function (ev) {
-		var q = ev.target.closest('.ep-pop-quitar-canal');
-		if (q) quitarCanal(q.dataset.canal);
-	});
-	filas.addEventListener('input', function (ev) {
-		if (ev.target.classList.contains('ep-pop-fila-bodega') || ev.target.classList.contains('ep-pop-fila-canal')) recalcular(ev.target.closest('.ep-pop-fila'));
-	});
-
-	var btnNuevo = document.getElementById('epPopNuevo');
-	if (btnNuevo) btnNuevo.addEventListener('click', function () { abrirModal(null); });
-	document.getElementById('epPopAgregar').addEventListener('click', function () { agregarFila().querySelector('input').focus(); });
-	document.getElementById('epPopCancelar').addEventListener('click', cerrarModal);
-	document.getElementById('epPopModalCerrar').addEventListener('click', cerrarModal);
-	document.getElementById('epPopModalFondo').addEventListener('click', cerrarModal);
-	// Siempre queda al menos una fila: la última solo se vacía.
-	filas.addEventListener('click', function (ev) {
-		if (!ev.target.closest('.ep-modelo-quitar')) return;
-		if (filas.querySelectorAll('.ep-pop-fila').length > 1) ev.target.closest('.ep-pop-fila').remove();
-		else { filas.querySelectorAll('input').forEach(function (i) { i.value = ''; }); recalcular(filas.querySelector('.ep-pop-fila')); }
-	});
-
-	btnGuardar.addEventListener('click', function () {
-		var lista = leerFilas();
-		if (!lista.length) {
-			avisar('warning', 'Falta material', 'Agrega al menos un material con su campaña.');
-			return;
-		}
-		var excedida = lista.filter(function (f) { var t = 0; Object.keys(f.canales).forEach(function (c) { t += f.canales[c]; }); return t > f.bodega; })[0];
-		if (excedida) {
-			avisar('warning', 'Revisa las cantidades', 'En ' + excedida.material + ' repartes más de lo que hay en bodega.');
-			return;
-		}
-		btnGuardar.disabled = true;
-		var url = editandoId ? 'getters/pop_editar.php' : 'getters/pop_crear.php';
-		var datos = { filas: JSON.stringify(lista), comentarios: inputComentarios.value };
-		if (editandoId) datos.id = editandoId; else datos.mes = inputMes.value;
-		post(url, datos).then(function (r) {
-			btnGuardar.disabled = false;
-			if (r && r.ok) location.reload();
-			else avisar('error', 'No se pudo guardar', (r && r.message) || 'Intenta de nuevo.');
-		}).catch(function () {
-			btnGuardar.disabled = false;
-			avisar('error', 'No se pudo guardar', 'El servidor no respondió correctamente.');
+		supBtn.addEventListener('click', function () {
+			pintarMenuSup();
+			supBtn.setAttribute('aria-expanded', supLista.classList.toggle('hidden') ? 'false' : 'true');
 		});
-	});
+		supLista.addEventListener('click', function (ev) {
+			var b = ev.target.closest('button[data-sup]');
+			if (!b) return;
+			agregarSup(parseInt(b.dataset.sup, 10));
+			supLista.classList.add('hidden');
+		});
+		filasHead.addEventListener('click', function (ev) {
+			var q = ev.target.closest('.ep-pop-quitar-sup');
+			if (q) quitarSup(parseInt(q.dataset.sup, 10));
+		});
+		filas.addEventListener('input', function (ev) {
+			if (ev.target.classList.contains('ep-pop-fila-bodega') || ev.target.classList.contains('ep-pop-fila-sup')) recalcular(ev.target.closest('.ep-pop-fila'));
+		});
+		var btnNuevo = document.getElementById('epPopNuevo');
+		if (btnNuevo) btnNuevo.addEventListener('click', function () { abrirModal(null); });
+		document.getElementById('epPopAgregar').addEventListener('click', function () { agregarFila().querySelector('input').focus(); });
+		document.getElementById('epPopCancelar').addEventListener('click', cerrarModal);
+		document.getElementById('epPopModalCerrar').addEventListener('click', cerrarModal);
+		document.getElementById('epPopModalFondo').addEventListener('click', cerrarModal);
+		// Siempre queda al menos una fila: la última solo se vacía.
+		filas.addEventListener('click', function (ev) {
+			if (!ev.target.closest('.ep-modelo-quitar')) return;
+			if (filas.querySelectorAll('.ep-pop-fila').length > 1) ev.target.closest('.ep-pop-fila').remove();
+			else { filas.querySelectorAll('input').forEach(function (i) { i.value = ''; }); recalcular(filas.querySelector('.ep-pop-fila')); }
+		});
+
+		btnGuardar.addEventListener('click', function () {
+			var lista = leerFilas();
+			if (!lista.length) {
+				avisar('warning', 'Falta material', 'Agrega al menos un material con su campaña.');
+				return;
+			}
+			var excedida = lista.filter(function (f) { var t = 0; Object.keys(f.reparto).forEach(function (c) { t += f.reparto[c]; }); return t > f.bodega; })[0];
+			if (excedida) {
+				avisar('warning', 'Revisa las cantidades', 'En ' + excedida.material + ' repartes más de lo que hay en bodega.');
+				return;
+			}
+			btnGuardar.disabled = true;
+			var url = editandoId ? 'getters/pop_editar.php' : 'getters/pop_crear.php';
+			var datos = { filas: JSON.stringify(lista), comentarios: inputComentarios.value };
+			if (editandoId) datos.id = editandoId; else datos.mes = inputMes.value;
+			post(url, datos).then(function (r) {
+				btnGuardar.disabled = false;
+				if (r && r.ok) location.reload();
+				else avisar('error', 'No se pudo guardar', (r && r.message) || 'Intenta de nuevo.');
+			}).catch(function () {
+				btnGuardar.disabled = false;
+				avisar('error', 'No se pudo guardar', 'El servidor no respondió correctamente.');
+			});
+		});
+	}
+
+	// ---------- Reparto del supervisor a sus promotores ----------
+	var repModal = document.getElementById('epPopRepModal');
+	var miReparto = leerJson('epPopMiReparto', null);
+	if (repModal && miReparto) {
+		var repTabla = document.getElementById('epPopRepTabla');
+		var repGuardar = document.getElementById('epPopRepGuardar');
+
+		var recalcularSaldos = function () {
+			miReparto.materiales.forEach(function (m, i) {
+				var total = 0;
+				repTabla.querySelectorAll('.ep-pop-rep-in[data-col="' + i + '"]').forEach(function (inp) { total += parseInt(inp.value, 10) || 0; });
+				var saldo = m.recibido - total;
+				var el = repTabla.querySelector('.ep-pop-rep-saldo[data-col="' + i + '"]');
+				el.textContent = saldo + ' de ' + m.recibido;
+				el.classList.toggle('ep-pop-negativo', saldo < 0);
+			});
+		};
+		// Filas = promotores del equipo, columnas = materiales; abajo, lo que queda por repartir de lo recibido.
+		var pintarReparto = function () {
+			var cols = miReparto.materiales;
+			var rejilla = 'grid-template-columns: minmax(170px, 1.6fr) repeat(' + cols.length + ', minmax(96px, 1fr));';
+			var html = '<div class="ep-pop-rep-fila ep-pop-rep-th" style="' + rejilla + '"><span>Promotor</span>'
+				+ cols.map(function (m) { return '<span>' + escapar(m.material) + '<small>' + escapar(m.campana) + '</small></span>'; }).join('') + '</div>';
+			miReparto.equipo.forEach(function (p) {
+				html += '<div class="ep-pop-rep-fila" style="' + rejilla + '"><span class="ep-pop-rep-nombre">' + escapar(p.nombre) + '</span>'
+					+ cols.map(function (m, i) {
+						var v = (m.reparto || {})[p.id] || '';
+						var min = (p.reportado || {})[m.fila_id] || 0;
+						return '<input type="number" min="' + min + '" inputmode="numeric" class="ep-input ep-pop-rep-in" data-promotor="' + p.id + '" data-col="' + i + '" placeholder="0" value="' + v + '"' + (min ? ' title="Ya reportó ' + min + '"' : '') + '>';
+					}).join('') + '</div>';
+			});
+			html += '<div class="ep-pop-rep-fila ep-pop-rep-pie" style="' + rejilla + '"><span>Por repartir</span>'
+				+ cols.map(function (m, i) { return '<span class="ep-pop-rep-saldo" data-col="' + i + '"></span>'; }).join('') + '</div>';
+			repTabla.innerHTML = html;
+			recalcularSaldos();
+		};
+		var cerrarRep = function () { repModal.classList.add('hidden'); };
+
+		repTabla.addEventListener('input', function (ev) { if (ev.target.classList.contains('ep-pop-rep-in')) recalcularSaldos(); });
+		['epPopRepCerrar', 'epPopRepCancelar', 'epPopRepFondo'].forEach(function (id) { document.getElementById(id).addEventListener('click', cerrarRep); });
+		document.addEventListener('click', function (ev) {
+			if (!ev.target.closest('.ep-pop-repartir')) return;
+			pintarReparto();
+			repModal.classList.remove('hidden');
+		});
+		repGuardar.addEventListener('click', function () {
+			var envio = miReparto.materiales.map(function (m, i) {
+				var reparto = {};
+				repTabla.querySelectorAll('.ep-pop-rep-in[data-col="' + i + '"]').forEach(function (inp) {
+					var v = parseInt(inp.value, 10) || 0;
+					if (v > 0) reparto[inp.dataset.promotor] = v;
+				});
+				return { fila_id: m.fila_id, reparto: reparto };
+			});
+			var pasado = miReparto.materiales.filter(function (m, i) {
+				var t = 0;
+				Object.keys(envio[i].reparto).forEach(function (k) { t += envio[i].reparto[k]; });
+				return t > m.recibido;
+			})[0];
+			if (pasado) {
+				avisar('warning', 'Revisa las cantidades', 'En ' + pasado.material + ' repartes más de lo que recibiste.');
+				return;
+			}
+			repGuardar.disabled = true;
+			post('getters/pop_repartir.php', { id: miReparto.id, filas: JSON.stringify(envio) }).then(function (r) {
+				repGuardar.disabled = false;
+				if (r && r.ok) location.reload();
+				else avisar('error', 'No se pudo guardar', (r && r.message) || 'Intenta de nuevo.');
+			}).catch(function () {
+				repGuardar.disabled = false;
+				avisar('error', 'No se pudo guardar', 'El servidor no respondió correctamente.');
+			});
+		});
+	}
 
 	// ---------- Acciones de cada mes ----------
 	function idDe(ev) {
@@ -207,7 +295,7 @@
 		if (ev.target.closest('.ep-pop-editar')) {
 			var id = idDe(ev);
 			var pop = abiertos.filter(function (p) { return p.id === id; })[0];
-			if (pop) abrirModal(pop);
+			if (pop && modal) abrirModal(pop);
 			return;
 		}
 		if (ev.target.closest('.ep-pop-cerrar')) {

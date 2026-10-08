@@ -20,7 +20,8 @@ require_once __DIR__.'/includes/actividades_datos.php';
 
 $secciones = ep_secciones();
 require_once __DIR__.'/includes/avisos_datos.php';
-$avisos = ep_avisos_promotor();
+// Los avisos del promotor son ~9 consultas: se guardan 20 s en la sesión (enviar un registro o abrir el panel los renueva).
+$avisos = ep_cache_sesion('avisos', 20, fn() => ep_avisos_promotor());
 $conAvisos = !ep_es_gestor();
 $actividadesNav = ep_actividades_visibles();
 $vista = $_GET['vista'] ?? 'actividades';

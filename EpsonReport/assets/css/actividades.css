@@ -212,20 +212,36 @@ textarea.ep-input { height: auto; min-height: 70px; padding: 10px 14px; resize: 
 
 /* ---------- Panel "Así se ve el reporte final": mismas cards que arma el Excel ---------- */
 .ep-stats-panel { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
-.ep-stats-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+/* Siempre tres tarjetas en una fila: si el panel se angosta, se compactan según su ancho en vez de saltar de línea o recortar texto */
+.ep-stats-panel { container-type: inline-size; }
+.ep-stats-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .ep-stats-row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; align-items: stretch; }
 .ep-stats-col { display: flex; flex-direction: column; gap: 14px; }
 
 .ep-stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
 .ep-stat-card-header {
 	background: var(--color-primary); color: #FFFFFF; display: flex; align-items: center; gap: 6px;
-	padding: 8px 12px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+	padding: 8px 12px; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ep-stat-card-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.ep-stat-card-pct { font-size: 32px; font-weight: 700; color: var(--color-ink); }
+.ep-stat-card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.ep-stat-card-pct { font-size: clamp(26px, 2.4vw, 32px); font-weight: 700; color: var(--color-ink); }
 .ep-stat-card-detalle { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--color-border); padding-top: 8px; }
-.ep-stat-card-fila { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; }
-.ep-stat-card-fila strong { color: var(--color-text); font-size: 14px; text-transform: none; }
+.ep-stat-card-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11.5px; color: var(--color-text-muted); text-transform: uppercase; }
+.ep-stat-card-fila span { min-width: 0; overflow-wrap: anywhere; }
+.ep-stat-card-fila strong { flex-shrink: 0; color: var(--color-text); font-size: 14px; text-transform: none; }
+@container (max-width: 560px) {
+	.ep-stats-row-3 { gap: 8px; }
+	.ep-stats-row-3 .ep-stat-card-header { padding: 7px 8px; gap: 5px; font-size: 11.5px; letter-spacing: 0; }
+	.ep-stats-row-3 .ep-stat-card-body { padding: 10px; gap: 8px; }
+	.ep-stats-row-3 .ep-stat-card-pct { font-size: 26px; }
+	.ep-stats-row-3 .ep-stat-card-fila { gap: 6px; font-size: 10.5px; }
+	.ep-stats-row-3 .ep-stat-card-fila strong { font-size: 13px; }
+}
+@container (max-width: 430px) {
+	.ep-stats-row-3 .ep-stat-card-header svg { display: none; }
+	.ep-stats-row-3 .ep-stat-card-pct { font-size: 22px; }
+	.ep-stats-row-3 .ep-stat-card-fila { flex-direction: column; align-items: flex-start; gap: 0; }
+}
 
 .ep-stat-card-plano {
 	background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px;

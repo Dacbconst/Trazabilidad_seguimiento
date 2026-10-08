@@ -16,7 +16,7 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 <aside class="ep-side">
 	<div>
 		<div class="ep-eyebrow">Tipo de gestión</div>
-		<h2 style="font-size:18px;margin-top:4px;">Actividades</h2>
+		<h2>Actividades</h2>
 	</div>
 
 	<div class="ep-search-wrap">
@@ -24,7 +24,7 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 		<input class="ep-input" type="text" id="ep-buscar-actividad" placeholder="Buscar actividad">
 	</div>
 
-	<div id="ep-lista-actividades" style="display:flex;flex-direction:column;gap:8px;">
+	<div id="ep-lista-actividades" class="ep-side-lista">
 		<?php foreach ($actividades as $i => $a): ?>
 			<button type="button" class="ep-activity-item<?= $i === 0 ? ' selected' : '' ?>" data-plantilla="<?= htmlspecialchars((string) ($a['plantilla'] ?? '')) ?>" data-id="<?= (int) $a['id'] ?>" data-render-id="<?= (int) ($a['render_id'] ?? $a['id']) ?>" data-actividad="<?= htmlspecialchars($a['label']) ?>" data-nombre="<?= htmlspecialchars($a['label']) ?>">
 				<span class="ep-activity-icon"><?= ep_icon('grid', 14) ?></span>

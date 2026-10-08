@@ -2,6 +2,8 @@
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
+// La acción deja desactualizada una caché de sesión (ver ep_cache_sesion).
+unset($_SESSION['ep_cache']['avisos']);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -336,11 +338,17 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 		exit;
 	}
 	$campanaDe = [];
+	$filaDe = [];
 	foreach ($mesPop['filas'] as $f) {
 		$campanaDe[$f['material']] = $f['campana'];
+		$filaDe[$f['material']] = (int) $f['id'];
 	}
 	$entregas = [];
 	$campana = '';
+	// El promotor solo reporta lo que su supervisor le asignó y no más de lo que le queda.
+	$esPromotor = ($_SESSION['rol'] ?? '') === 'usuario';
+	$mio = $esPromotor ? ep_pop_mi_material((int) $_SESSION['usuario_id'], $mesPop) : [];
+	$pedido = [];
 	foreach (is_array($valores['pop_entregas'] ?? null) ? $valores['pop_entregas'] : [] as $e) {
 		$material = mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtoupper((string) ($e['material'] ?? ''), 'UTF-8'))), 0, 60, 'UTF-8');
 		$cantidad = min(99999, max(0, (int) ($e['cantidad'] ?? 0)));
@@ -352,8 +360,16 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 			echo json_encode(['success' => false, 'error' => 'El material «'.$material.'» no está cargado en el mes de POP. Vuelve a elegirlo de la lista.']);
 			exit;
 		}
+		$clave = $filaDe[$material];
+		$pedido[$clave] = ($pedido[$clave] ?? 0) + $cantidad;
+		if ($esPromotor && $pedido[$clave] > ($mio[$clave]['disponible'] ?? 0)) {
+			http_response_code(422);
+			$queda = $mio[$clave]['disponible'] ?? 0;
+			echo json_encode(['success' => false, 'error' => $queda > 0 ? 'De «'.$material.'» solo te quedan '.$queda.'.' : 'Tu supervisor no te asignó «'.$material.'».']);
+			exit;
+		}
 		// La campaña va por material: un mes puede tener dos campañas vivas y el registro mezclar materiales de ambas.
-		$entregas[] = ['material' => $material, 'cantidad' => $cantidad, 'campana' => $campanaDe[$material]];
+		$entregas[] = ['material' => $material, 'cantidad' => $cantidad, 'campana' => $campanaDe[$material], 'fila_id' => $filaDe[$material]];
 		$campana = $campana ?: $campanaDe[$material];
 	}
 	if (!$entregas) {

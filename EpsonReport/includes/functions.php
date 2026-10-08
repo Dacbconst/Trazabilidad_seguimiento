@@ -75,8 +75,46 @@ function ep_es_gestor(): bool {
 const EP_MINUTOS_INACTIVIDAD = 21;
 const EP_SEGUNDOS_SESION_VIVA = 180;
 
+// Caché corta por sesión para lo que se repite en cada página y casi no cambia (foto, contadores, avisos): ahorra consultas en cada clic.
+function ep_cache_sesion(string $clave, int $segundos, callable $calcular) {
+	$guardado = $_SESSION['ep_cache'][$clave] ?? null;
+	if ($guardado && (time() - $guardado[0]) < $segundos) {
+		return $guardado[1];
+	}
+	$valor = $calcular();
+	if (session_status() === PHP_SESSION_ACTIVE) {
+		$_SESSION['ep_cache'][$clave] = [time(), $valor];
+	}
+	return $valor;
+}
+
+// Borra entradas de la caché cuando la acción del usuario las deja desactualizadas.
+function ep_cache_sesion_olvidar(string ...$claves): void {
+	foreach ($claves as $clave) {
+		unset($_SESSION['ep_cache'][$clave]);
+	}
+}
+
+// Reabre la sesión solo el instante de escribir (sin consultas dentro) y la vuelve a cerrar; sirve a los chequeos que soltaron el bloqueo.
+function ep_sesion_escribir(callable $cambios): void {
+	if (session_status() === PHP_SESSION_ACTIVE) {
+		$cambios();
+		return;
+	}
+	$id = session_id();
+	if ($id === '') {
+		return;
+	}
+	@ini_set('session.use_cookies', '0');
+	@session_cache_limiter('');
+	session_id($id);
+	session_start();
+	$cambios();
+	session_write_close();
+}
+
 // $interaccion=false para el ping automático (solo latido, no cuenta como actividad del usuario); el motivo del cierre queda en $GLOBALS['ep_motivo_cierre'].
-function ep_login_check(bool $interaccion = true): bool {
+function ep_login_check(bool $interaccion = true, bool $soltarSesion = false): bool {
 	static $resultado = null;
 	if ($resultado !== null) {
 		return $resultado;
@@ -85,6 +123,17 @@ function ep_login_check(bool $interaccion = true): bool {
 		return $resultado = false;
 	}
 	require_once __DIR__.'/db.php';
+	// En los chequeos que se repiten cada segundo se suelta el bloqueo de la sesión antes de consultar la base, para no frenar la navegación.
+	$persistir = function (callable $cambios) use ($soltarSesion) {
+		if ($soltarSesion) {
+			ep_sesion_escribir($cambios);
+		} else {
+			$cambios();
+		}
+	};
+	if ($soltarSesion) {
+		session_write_close();
+	}
 	$db = ep_db();
 	if (!$db) {
 		return $resultado = true; // base caída: no expulsar a nadie por un fallo de infraestructura
@@ -96,7 +145,7 @@ function ep_login_check(bool $interaccion = true): bool {
 	$stmt->close();
 	if (!$fila || $fila['status'] !== 'activo' || !hash_equals((string) $fila['sesion_token'], (string) $_SESSION['sesion_token'])) {
 		$GLOBALS['ep_motivo_cierre'] = 'otro_dispositivo';
-		$_SESSION = [];
+		$persistir(function () { $_SESSION = []; });
 		return $resultado = false;
 	}
 	$ultimaInteraccion = (int) ($_SESSION['ult_interaccion'] ?? time());
@@ -107,22 +156,26 @@ function ep_login_check(bool $interaccion = true): bool {
 		$up->execute();
 		$up->close();
 		$GLOBALS['ep_motivo_cierre'] = 'inactividad';
-		$_SESSION = [];
+		$persistir(function () { $_SESSION = []; });
 		return $resultado = false;
 	}
-	if ($interaccion) {
-		$_SESSION['ult_interaccion'] = time();
-	} elseif (!isset($_SESSION['ult_interaccion'])) {
-		$_SESSION['ult_interaccion'] = time();
-	}
+	$ahora = time();
+	$latido = ($ahora - (int) ($_SESSION['ult_actividad'] ?? 0)) >= 10;
 	// Latido en la base (máx. cada 10s por sesión).
-	if (time() - (int) ($_SESSION['ult_actividad'] ?? 0) >= 10) {
+	if ($latido) {
 		$up = $db->prepare('UPDATE repositorio_usuarios_reporte SET ultima_actividad = NOW() WHERE id = ?');
 		$up->bind_param('i', $_SESSION['usuario_id']);
 		$up->execute();
 		$up->close();
-		$_SESSION['ult_actividad'] = time();
 	}
+	$persistir(function () use ($interaccion, $latido, $ahora) {
+		if ($interaccion || !isset($_SESSION['ult_interaccion'])) {
+			$_SESSION['ult_interaccion'] = $ahora;
+		}
+		if ($latido) {
+			$_SESSION['ult_actividad'] = $ahora;
+		}
+	});
 	return $resultado = true;
 }
 

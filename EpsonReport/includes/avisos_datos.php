@@ -97,7 +97,9 @@ function ep_avisos_promotor(): array {
 function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 	require_once __DIR__.'/pop_datos.php';
 	$mesPop = ep_pop_abierto();
-	if (!$mesPop || empty($mesPop['filas'])) {
+	// Solo avisa si su supervisor ya le asignó material de este mes.
+	$misMateriales = $mesPop ? ep_pop_mi_material((int) $_SESSION['usuario_id'], $mesPop) : [];
+	if (!$misMateriales) {
 		return null;
 	}
 	$stmt = $db->prepare("SELECT 1 FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'colocacion-pop' AND LEFT(fecha_actividad, 7) = ? AND eliminado_en IS NULL AND estado <> 'Reemplazado' LIMIT 1");
@@ -112,7 +114,7 @@ function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 	$dias = (int) round((strtotime($finMes) - strtotime(date('Y-m-d'))) / 86400);
 	return [
 		'mes' => ep_pop_mes_texto($mesPop['mes']),
-		'materiales' => count($mesPop['filas']),
+		'materiales' => count($misMateriales),
 		'dias' => $dias,
 		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
 		'urgente' => $dias <= 3,

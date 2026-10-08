@@ -1407,7 +1407,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			var busca = (texto || '').trim().toUpperCase();
 			var hay = popCatalogo.filter(function (m) { return ya.indexOf(m.material) === -1 && m.material.toUpperCase().indexOf(busca) !== -1; });
 			combo.querySelector('.ep-combo-opciones').innerHTML = hay.length
-				? hay.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m.material + '">' + m.material + '<span class="ep-combo-opcion-nota">' + m.campana + '</span></button>'; }).join('')
+				? hay.map(function (m) { return '<button type="button" class="ep-combo-opcion" data-valor="' + m.material + '">' + m.material + '<span class="ep-combo-opcion-nota">' + m.campana + (m.disponible != null ? ' · quedan ' + m.disponible : '') + '</span></button>'; }).join('')
 				: '<div class="ep-combo-vacio">Sin resultados</div>';
 		}
 		function popCerrarPaneles() { popEntregas.querySelectorAll('.ep-combo-panel').forEach(function (p) { p.classList.add('hidden'); }); }
@@ -1440,6 +1440,10 @@ document.addEventListener('DOMContentLoaded', function () {
 				var elegido = opcion.closest('.ep-combo').querySelector('.ep-combo-trigger');
 				elegido.dataset.valor = opcion.dataset.valor;
 				elegido.querySelector('.ep-combo-trigger-texto').textContent = opcion.dataset.valor;
+				// El promotor no puede pasar de lo que su supervisor le asignó y aún no reportó.
+				var elegidoMat = popCatalogo.filter(function (m) { return m.material === opcion.dataset.valor; })[0];
+				var cant = opcion.closest('.ep-pop-entrega-fila').querySelector('.ep-pop-entrega-cantidad');
+				if (elegidoMat && elegidoMat.disponible != null) { cant.max = elegidoMat.disponible; cant.placeholder = 'Máx. ' + elegidoMat.disponible; if (parseInt(cant.value, 10) > elegidoMat.disponible) cant.value = elegidoMat.disponible; }
 				popCerrarPaneles();
 				return;
 			}
@@ -1453,6 +1457,10 @@ document.addEventListener('DOMContentLoaded', function () {
 				popEntregas.innerHTML = '';
 				popAgregarFila();
 			}
+		});
+		popEntregas.addEventListener('input', function (ev) {
+			var c = ev.target;
+			if (c.classList.contains('ep-pop-entrega-cantidad') && c.max && parseInt(c.value, 10) > parseInt(c.max, 10)) c.value = c.max;
 		});
 		document.addEventListener('click', function (ev) { if (!ev.target.closest('.ep-combo')) popCerrarPaneles(); });
 	}

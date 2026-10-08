@@ -7,7 +7,7 @@ require_once __DIR__.'/../includes/functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-if (!ep_login_check()) {
+if (!ep_login_check(true, true)) {
 	http_response_code(401);
 	echo '{}';
 	exit;

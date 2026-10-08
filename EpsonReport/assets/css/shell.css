@@ -588,3 +588,48 @@ body { overflow-x: hidden; }
 .ep-rol-etiqueta-admin i { background: #F5C26B; box-shadow: 0 0 0 3px rgba(245, 194, 107, 0.22); }
 .ep-rol-etiqueta-supervisor { background: rgba(125, 180, 255, 0.14); border-color: rgba(125, 180, 255, 0.4); }
 .ep-rol-etiqueta-supervisor i { background: #7DB4FF; box-shadow: 0 0 0 3px rgba(125, 180, 255, 0.22); }
+
+/* Menú lateral sin barra de scroll: en pantallas bajas se compacta para que quepa; si aun así no cabe, se desliza sin barra visible */
+.ep-sidebar-menu-principal { scrollbar-width: none; }
+.ep-sidebar-menu-principal::-webkit-scrollbar { display: none; }
+@media (max-height: 960px) {
+	.ep-sidebar:not(.collapsed) .ep-sidebar-user { gap: 8px; padding: 4px 8px 12px; margin-bottom: 6px; }
+	.ep-sidebar:not(.collapsed) .ep-sidebar-avatar { width: 60px; height: 60px; }
+	.ep-sidebar-nav { gap: 2px; }
+	.ep-sidebar-nav a { padding: 8px 12px; }
+	.ep-sidebar-footer { padding-top: 10px; }
+	.ep-sidebar-logout { padding: 8px 14px; }
+	.ep-sidebar-copy { margin-top: 6px; }
+}
+@media (max-height: 800px) {
+	.ep-sidebar:not(.collapsed) .ep-sidebar-avatar { width: 50px; height: 50px; }
+	.ep-sidebar-nav a { padding: 6px 12px; }
+}
+
+/* Cambio de módulo sin parpadeo: el menú se queda fijo y solo el contenido hace un cruce corto (Chrome y Edge; el resto navega como siempre) */
+@view-transition { navigation: auto; }
+.ep-sidebar { view-transition-name: ep-sidebar; }
+.ep-mobile-header { view-transition-name: ep-mobile-header; }
+::view-transition-group(ep-sidebar), ::view-transition-group(ep-mobile-header) { animation-duration: 0s; }
+::view-transition-old(root) { animation: epCruceSale .12s ease-out both; }
+::view-transition-new(root) { animation: epCruceEntra .18s ease-out both; }
+@keyframes epCruceSale { to { opacity: 0; } }
+@keyframes epCruceEntra { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
+/* Panel de actividades a la escala del menú principal: la lista desliza sola y "Nueva actividad" queda siempre visible */
+.ep-side { width: 256px; padding: 16px 14px; gap: 12px; overflow: hidden; }
+.ep-side h2 { margin: 2px 0 0; font-size: 16px; }
+.ep-side .ep-search-wrap svg { top: 10px; }
+.ep-side .ep-search-wrap input { height: 36px; font-size: 13px; }
+.ep-side-lista { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.ep-side-lista:hover { scrollbar-color: rgba(81, 52, 135, 0.28) transparent; }
+.ep-side-lista::-webkit-scrollbar { width: 6px; }
+.ep-side-lista::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; }
+.ep-side-lista:hover::-webkit-scrollbar-thumb { background: rgba(81, 52, 135, 0.28); }
+.ep-side .ep-activity-item { padding: 6px 10px; gap: 10px; }
+.ep-side .ep-activity-icon { width: 26px; height: 26px; border-radius: 7px; }
+.ep-side .ep-activity-label { font-size: 13px; }
+.ep-side .ep-add-activity-btn { flex-shrink: 0; height: 38px; margin-top: 0; }

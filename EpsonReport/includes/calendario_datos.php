@@ -470,9 +470,54 @@ function ep_calendario_reactivar(int $calendarioId, int $usuarioId): bool {
 	}
 	$ahora = date('Y-m-d H:i:s');
 	$venceEn = date('Y-m-d H:i:s', strtotime($ahora.' + '.$cal['plazo_dias'].' days'));
-	$stmt = $db->prepare("UPDATE insert_reporte_calendario SET estado = 'activo', cerrado_en = NULL, vence_en = ?, reactivado_por = ?, reactivado_en = ? WHERE id = ?");
+	$stmt = $db->prepare("UPDATE insert_reporte_calendario SET estado = 'activo', cerrado_en = NULL, comentarios_revisados_en = NULL, vence_en = ?, reactivado_por = ?, reactivado_en = ? WHERE id = ?");
 	$stmt->bind_param('sisi', $venceEn, $usuarioId, $ahora, $calendarioId);
 	return $stmt->execute();
+}
+
+// Un calendario cerrado con reporte espera que alguien revise sus comentarios; hasta entonces el PPT no se descarga.
+function ep_calendario_por_revisar(array $cal): bool {
+	return ($cal['estado'] ?? '') === 'cerrado' && !empty($cal['reporte_mensual_id']) && empty($cal['comentarios_revisados_en']);
+}
+
+// ¿Este reporte mensual viene de un calendario que aún espera la revisión de sus comentarios?
+function ep_reporte_pendiente_revision(int $reporteId): bool {
+	$db = ep_db();
+	if (!$db || $reporteId <= 0) {
+		return false;
+	}
+	$stmt = $db->prepare("SELECT 1 FROM insert_reporte_calendario WHERE reporte_mensual_id = ? AND estado = 'cerrado' AND comentarios_revisados_en IS NULL AND eliminado_en IS NULL LIMIT 1");
+	$stmt->bind_param('i', $reporteId);
+	$stmt->execute();
+	$pendiente = $stmt->get_result()->num_rows > 0;
+	$stmt->close();
+	return $pendiente;
+}
+
+// Fija los comentarios del calendario y de su reporte, y lo deja listo para descargar; false si no estaba esperando revisión.
+function ep_calendario_finalizar(int $calendarioId, ?string $comentarios): bool {
+	$db = ep_db();
+	if (!$db) {
+		return false;
+	}
+	$cal = ep_calendario_obtener($calendarioId);
+	if (!$cal || !ep_calendario_por_revisar($cal)) {
+		return false;
+	}
+	$db->begin_transaction();
+	$stmt = $db->prepare("UPDATE insert_reporte_calendario SET comentarios = ?, comentarios_revisados_en = NOW() WHERE id = ? AND comentarios_revisados_en IS NULL");
+	$stmt->bind_param('si', $comentarios, $calendarioId);
+	$ok = $stmt->execute() && $stmt->affected_rows === 1;
+	$stmt->close();
+	if ($ok) {
+		$reporteId = (int) $cal['reporte_mensual_id'];
+		$stmt = $db->prepare('UPDATE insert_reporte_mensual SET comentarios = ? WHERE id = ?');
+		$stmt->bind_param('si', $comentarios, $reporteId);
+		$ok = $stmt->execute();
+		$stmt->close();
+	}
+	$ok ? $db->commit() : $db->rollback();
+	return $ok;
 }
 
 // Cabecera de un calendario no eliminado (para editar o eliminar); null si no existe.
@@ -481,7 +526,7 @@ function ep_calendario_obtener(int $calendarioId): ?array {
 	if (!$db) {
 		return null;
 	}
-	$stmt = $db->prepare('SELECT id, nombre, canal, estado, comentarios, vence_en, cerrado_en, reporte_mensual_id FROM insert_reporte_calendario WHERE id = ? AND eliminado_en IS NULL');
+	$stmt = $db->prepare('SELECT id, nombre, canal, estado, comentarios, comentarios_revisados_en, vence_en, cerrado_en, reporte_mensual_id FROM insert_reporte_calendario WHERE id = ? AND eliminado_en IS NULL');
 	$stmt->bind_param('i', $calendarioId);
 	$stmt->execute();
 	return $stmt->get_result()->fetch_assoc() ?: null;

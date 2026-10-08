@@ -1,5 +1,5 @@
 <?php
-// Colocación de POP: un registro por punto de venta. El material sale del mes abierto que cargó el gestor, no se escribe libre.
+// Colocación de POP: un registro por punto de venta. El material sale de lo que tu supervisor te asignó del mes abierto, no se escribe libre.
 require_once __DIR__.'/../../../includes/pop_datos.php';
 $popMateriales = ep_pop_materiales();
 ?>
@@ -15,9 +15,9 @@ $popMateriales = ep_pop_materiales();
 		<div class="ep-step-body">
 			<h3 class="ep-step-title">Material POP colocado</h3>
 			<?php if (empty($popMateriales)): ?>
-				<p class="ep-step-hint">Todavía no hay material POP cargado para este mes. Avísale a tu supervisor antes de reportar.</p>
+				<p class="ep-step-hint">Tu supervisor todavía no te asignó material POP para este mes. Avísale antes de reportar.</p>
 			<?php else: ?>
-				<p class="ep-step-hint">Elige el material que colocaste y cuántas unidades. Puedes agregar varios.</p>
+				<p class="ep-step-hint">Elige el material que colocaste y cuántas unidades; no puedes pasar de lo que tu supervisor te asignó. Puedes agregar varios.</p>
 			<?php endif; ?>
 			<div class="ep-pop-entregas" id="ep-pop-entregas"></div>
 			<button type="button" class="ep-btn-agregar-fila" id="ep-pop-entregas-agregar"<?= empty($popMateriales) ? ' disabled' : '' ?>>

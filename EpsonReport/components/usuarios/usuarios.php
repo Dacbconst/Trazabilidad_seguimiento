@@ -11,7 +11,7 @@ $usuarios = ep_usuarios_listar();
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $clave = EP_CLAVE_MINIMA;
 ?>
-<main class="ep-content ep-us" id="epUs" data-clave-minima="<?= $clave ?>">
+<main class="ep-content ep-us" id="epUs" data-clave-minima="<?= $clave ?>"<?= ep_usuarios_rutero_vigente() ? '' : ' data-rutero-pendiente="1"' ?>>
 
 	<header class="ep-us-head">
 		<div>

@@ -37,6 +37,8 @@ require_once __DIR__.'/includes/functions.php';
 </head>
 <body class="ep-login-body">
 	<div class="ep-login-wrap">
+		<div class="ep-login-blob ep-login-blob-1"></div>
+		<div class="ep-login-blob ep-login-blob-2"></div>
 		<div class="ep-login-saludo" id="epLoginSaludo" aria-hidden="true">
 			<span class="ep-login-saludo-momento" id="epLoginSaludoMomento"></span>
 			<strong class="ep-login-saludo-nombre" id="epLoginSaludoNombre"></strong>

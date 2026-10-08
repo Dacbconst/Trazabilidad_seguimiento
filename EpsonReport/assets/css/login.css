@@ -29,6 +29,11 @@ body.ep-login-body {
 }
 
 
+/* Manchas decorativas, solo en celular */
+.ep-login-blob {
+	display: none;
+}
+
 .ep-login-side {
 	width: 44%;
 	min-width: 380px;
@@ -212,6 +217,20 @@ body.ep-login-body {
 		min-height: 100vh;
 		min-height: 100dvh;
 	}
+	.ep-login-blob {
+		display: block;
+		position: absolute; z-index: 0; pointer-events: none; filter: blur(50px);
+		background: var(--color-primary);
+	}
+	.ep-login-blob-1 { width: 220px; height: 220px; top: -60px; right: -70px; opacity: 0.16; border-radius: 58% 42% 63% 37% / 41% 55% 45% 59%; }
+	.ep-login-blob-2 { width: 260px; height: 260px; bottom: 140px; left: -90px; opacity: 0.10; border-radius: 46% 54% 38% 62% / 55% 42% 58% 45%; }
+	.ep-login-wrap::before, .ep-login-wrap::after {
+		content: ''; position: absolute; width: 110px; height: 110px; z-index: 2; pointer-events: none;
+		background: repeating-linear-gradient(45deg, var(--color-primary) 0 3px, transparent 3px 10px);
+		opacity: 0.55;
+	}
+	.ep-login-wrap::before { top: -28px; left: -28px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+	.ep-login-wrap::after { bottom: -28px; right: -28px; clip-path: polygon(100% 100%, 0 100%, 100% 0); }
 	.ep-login-side {
 		display: none !important;
 	}
@@ -229,12 +248,17 @@ body.ep-login-body {
 		padding: 16px 0;
 		width: 100%;
 	}
+	/* Círculos de fondo como degradados: un pseudo-elemento fuera del cuadro agrandaba el scroll */
+	.ep-login-form {
+		background:
+			radial-gradient(circle 65px at calc(100% - 25px) 15px, rgba(98, 66, 165, 0.08) 64px, transparent 65px),
+			radial-gradient(circle 45px at 25px calc(100% - 15px), rgba(154, 122, 211, 0.08) 44px, transparent 45px);
+	}
 	.ep-login-form-inner {
 		position: relative; z-index: 1;
 		background: var(--color-surface);
-		border-radius: 20px;
-		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-		border: 1px solid #EBE5F4;
+		border-radius: 22px;
+		box-shadow: 0 10px 30px rgba(17,17,17,0.08);
 		padding: 24px 20px 28px;
 		width: 100%;
 		max-width: 360px;

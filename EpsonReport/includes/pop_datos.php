@@ -1,8 +1,9 @@
 <?php
-// Mes de Colocación de POP: el gestor carga lo que llegó a bodega y los promotores lo van dando de baja al reportar.
+// Mes de Colocación de POP: Fabricio carga lo que llegó a bodega, se reparte en cadena y los promotores lo dan de baja al reportar.
 require_once __DIR__.'/db.php';
 require_once __DIR__.'/functions.php';
 require_once __DIR__.'/reportes_datos.php';
+require_once __DIR__.'/pop_reparto.php';
 
 // Mes abierto que manda hoy: de él sale la lista de materiales que ve el promotor.
 function ep_pop_abierto(): ?array {
@@ -18,61 +19,39 @@ function ep_pop_abierto(): ?array {
 	return $row;
 }
 
-// Canales que se pueden repartir al cargar el mes; cada uno es una columna de insert_reporte_pop_fila.
-const EP_POP_CANALES = ['CANALES', 'RETAIL'];
-
-// Las columnas canales y retail se agregan aparte (ALTER a mano); mientras no existan, el mes sigue funcionando sin canales.
-function ep_pop_tiene_canales($db): bool {
-	static $tiene = null;
-	if ($tiene === null) {
-		$res = $db->query("SHOW COLUMNS FROM insert_reporte_pop_fila LIKE 'retail'");
-		$tiene = $res && $res->num_rows > 0;
-	}
-	return $tiene;
-}
-
-// Cada fila trae 'asignado': lo repartido por canal al cargar el mes (solo los canales con cantidad).
+// Cada fila trae 'asignado': lo repartido a cada supervisor al cargar el mes ([usuario_id => cantidad]).
 function ep_pop_filas(int $popId): array {
 	$db = ep_db();
 	if (!$db) {
 		return [];
 	}
-	$extra = ep_pop_tiene_canales($db) ? ', canales AS asig_canales, retail AS asig_retail' : '';
-	$res = $db->query('SELECT id, material, campana, bodega'.$extra.' FROM insert_reporte_pop_fila WHERE pop_id = '.$popId.' ORDER BY campana, material');
+	$res = $db->query('SELECT id, material, campana, bodega FROM insert_reporte_pop_fila WHERE pop_id = '.$popId.' ORDER BY campana, material');
 	$filas = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+	$reparto = ep_pop_asignaciones($popId, 1);
 	foreach ($filas as &$f) {
-		$f['asignado'] = array_filter(['CANALES' => (int) ($f['asig_canales'] ?? 0), 'RETAIL' => (int) ($f['asig_retail'] ?? 0)]);
-		unset($f['asig_canales'], $f['asig_retail']);
+		$f['asignado'] = $reparto[(int) $f['id']] ?? [];
 	}
 	unset($f);
 	return $filas;
 }
 
-function ep_pop_canales_del_mes(array $filas): array {
-	return array_values(array_filter(EP_POP_CANALES, function ($c) use ($filas) {
-		foreach ($filas as $f) {
-			if (isset($f['asignado'][$c])) {
-				return true;
-			}
-		}
-		return false;
-	}));
-}
-
-// Materiales que el promotor puede elegir hoy; vacío si no hay mes abierto.
+// Materiales que el usuario puede elegir hoy; el promotor solo los que su supervisor le asignó, con lo que le queda.
 function ep_pop_materiales(): array {
 	$mes = ep_pop_abierto();
-	return $mes ? array_map(fn($f) => ['material' => $f['material'], 'campana' => $f['campana']], $mes['filas']) : [];
-}
-
-// Campaña que le corresponde a un material del mes abierto; null si ese material no está cargado.
-function ep_pop_campana_de(string $material): ?string {
-	foreach (ep_pop_materiales() as $m) {
-		if ($m['material'] === $material) {
-			return $m['campana'];
+	if (!$mes) {
+		return [];
+	}
+	if (($_SESSION['rol'] ?? '') !== 'usuario') {
+		return array_map(fn($f) => ['material' => $f['material'], 'campana' => $f['campana'], 'disponible' => null], $mes['filas']);
+	}
+	$lista = [];
+	$filas = array_column($mes['filas'], null, 'id');
+	foreach (ep_pop_mi_material((int) $_SESSION['usuario_id'], $mes) as $filaId => $m) {
+		if ($m['disponible'] > 0 && isset($filas[$filaId])) {
+			$lista[] = ['material' => $filas[$filaId]['material'], 'campana' => $filas[$filaId]['campana'], 'disponible' => $m['disponible']];
 		}
 	}
-	return null;
+	return $lista;
 }
 
 // Lo entregado por los promotores, por mes y campaña + material; el canal del punto decide si suma a Retail o a Canales.
@@ -103,24 +82,26 @@ function ep_pop_entregado(string $mes): array {
 	return ep_pop_entregado_todos()[$mes] ?? [];
 }
 
-// Meses de POP con sus filas y lo entregado hasta ahora; un supervisor solo ve los suyos.
+// Meses de POP con sus filas y lo entregado hasta ahora; Fabricio y el admin ven todos, un supervisor solo los que le repartieron.
 function ep_pop_listar(): array {
 	$db = ep_db();
 	if (!$db) {
 		return [];
 	}
-	$where = 'WHERE p.eliminado_en IS NULL'.(ep_es_supervisor() ? ' AND p.creado_por = '.(int) $_SESSION['usuario_id'] : '');
-	$res = $db->query("SELECT p.*, u.nombre AS creador FROM insert_reporte_pop p LEFT JOIN repositorio_usuarios_reporte u ON u.id = p.creado_por $where ORDER BY p.mes DESC, p.id DESC");
+	$res = $db->query("SELECT p.*, u.nombre AS creador FROM insert_reporte_pop p LEFT JOIN repositorio_usuarios_reporte u ON u.id = p.creado_por WHERE p.eliminado_en IS NULL ORDER BY p.mes DESC, p.id DESC");
+	$yo = (int) ($_SESSION['usuario_id'] ?? 0);
 	$meses = [];
 	foreach ($res ? $res->fetch_all(MYSQLI_ASSOC) : [] as $row) {
 		$row['filas'] = ep_pop_filas((int) $row['id']);
-		$row['canales'] = ep_pop_canales_del_mes($row['filas']);
+		if (!ep_pop_es_dueno() && !array_filter($row['filas'], fn($f) => !empty($f['asignado'][$yo]))) {
+			continue;
+		}
 		$entregado = ep_pop_entregado($row['mes']);
 		foreach ($row['filas'] as &$f) {
 			$t = $entregado[$f['campana'].'|'.$f['material']] ?? ['canales' => 0, 'retail' => 0];
-			$f['canales'] = $t['canales'];
-			$f['retail'] = $t['retail'];
-			$f['disponible'] = (int) $f['bodega'] - array_sum($f['asignado']);
+			$f['colocado'] = $t['canales'] + $t['retail'];
+			$f['sin_repartir'] = (int) $f['bodega'] - array_sum($f['asignado']);
+			$f['disponible'] = (int) $f['bodega'] - $f['colocado'];
 		}
 		unset($f);
 		$meses[] = $row;
@@ -143,13 +124,9 @@ function ep_pop_obtener(int $popId): ?array {
 	return $row;
 }
 
-// Un supervisor solo toca los meses que él creó; el admin cualquiera.
+// Cargar, corregir, cerrar o eliminar el mes es de Fabricio o del admin.
 function ep_pop_permitido(int $popId): bool {
-	$pop = ep_pop_obtener($popId);
-	if (!$pop) {
-		return false;
-	}
-	return ep_es_admin() || (int) $pop['creado_por'] === (int) ($_SESSION['usuario_id'] ?? 0);
+	return ep_pop_es_dueno() && ep_pop_obtener($popId) !== null;
 }
 
 // Solo un mes de POP abierto a la vez: dos tablas vivas dejarían al promotor con materiales de dos inventarios.
@@ -180,7 +157,7 @@ function ep_pop_crear(string $mes, ?string $comentarios, array $filas, int $crea
 	}
 	$popId = (int) $db->insert_id;
 	$stmt->close();
-	if (!ep_pop_filas_guardar($popId, $filas)) {
+	if (!ep_pop_filas_guardar($popId, $filas, $creadoPor)) {
 		$db->rollback();
 		return null;
 	}
@@ -188,36 +165,46 @@ function ep_pop_crear(string $mes, ?string $comentarios, array $filas, int $crea
 	return $popId;
 }
 
-// Reemplaza las filas del mes; se usa al crear y al editar (el mes abierto se puede corregir).
-function ep_pop_filas_guardar(int $popId, array $filas): bool {
+// Guarda las filas del mes y su reparto a supervisores; las que ya existían se actualizan (conservan su id) y las que faltan se quitan.
+function ep_pop_filas_guardar(int $popId, array $filas, int $porId): bool {
 	$db = ep_db();
 	if (!$db) {
 		return false;
 	}
-	$db->query('DELETE FROM insert_reporte_pop_fila WHERE pop_id = '.$popId);
-	$conCanales = ep_pop_tiene_canales($db);
-	$stmt = $conCanales
-		? $db->prepare('INSERT INTO insert_reporte_pop_fila (pop_id, material, campana, bodega, canales, retail) VALUES (?, ?, ?, ?, ?, ?)')
-		: $db->prepare('INSERT INTO insert_reporte_pop_fila (pop_id, material, campana, bodega) VALUES (?, ?, ?, ?)');
+	$existentes = array_map('intval', array_column($db->query('SELECT id FROM insert_reporte_pop_fila WHERE pop_id = '.$popId)->fetch_all(MYSQLI_ASSOC), 'id'));
+	$alta = $db->prepare('INSERT INTO insert_reporte_pop_fila (pop_id, material, campana, bodega) VALUES (?, ?, ?, ?)');
+	$cambio = $db->prepare('UPDATE insert_reporte_pop_fila SET material = ?, campana = ?, bodega = ?, editado_en = NOW() WHERE id = ? AND pop_id = ?');
+	$conservar = [];
+	$reparto = [];
 	foreach ($filas as $f) {
-		$canales = (int) ($f['canales']['CANALES'] ?? 0);
-		$retail = (int) ($f['canales']['RETAIL'] ?? 0);
-		if ($conCanales) {
-			$stmt->bind_param('issiii', $popId, $f['material'], $f['campana'], $f['bodega'], $canales, $retail);
+		$id = (int) ($f['id'] ?? 0);
+		if ($id && in_array($id, $existentes, true)) {
+			$cambio->bind_param('ssiii', $f['material'], $f['campana'], $f['bodega'], $id, $popId);
+			$ok = $cambio->execute();
 		} else {
-			$stmt->bind_param('issi', $popId, $f['material'], $f['campana'], $f['bodega']);
+			$alta->bind_param('issi', $popId, $f['material'], $f['campana'], $f['bodega']);
+			$ok = $alta->execute();
+			$id = (int) $db->insert_id;
 		}
-		if (!$stmt->execute()) {
-			error_log('ep_pop_filas_guardar: '.$stmt->error);
-			$stmt->close();
+		if (!$ok) {
+			error_log('ep_pop_filas_guardar: '.$db->error);
 			return false;
 		}
+		$conservar[] = $id;
+		$reparto[$id] = $f['reparto'];
 	}
-	$stmt->close();
-	return true;
+	$alta->close();
+	$cambio->close();
+	$quitar = array_diff($existentes, $conservar);
+	if ($quitar) {
+		$lista = implode(',', $quitar);
+		$db->query('DELETE FROM insert_reporte_pop_asignacion WHERE pop_fila_id IN ('.$lista.')');
+		$db->query('DELETE FROM insert_reporte_pop_fila WHERE id IN ('.$lista.') AND pop_id = '.$popId);
+	}
+	return ep_pop_reparto_guardar($reparto, $porId);
 }
 
-function ep_pop_editar(int $popId, array $filas, ?string $comentarios): bool {
+function ep_pop_editar(int $popId, array $filas, ?string $comentarios, int $porId): bool {
 	$db = ep_db();
 	if (!$db || empty($filas)) {
 		return false;
@@ -225,7 +212,7 @@ function ep_pop_editar(int $popId, array $filas, ?string $comentarios): bool {
 	$db->begin_transaction();
 	$stmt = $db->prepare('UPDATE insert_reporte_pop SET comentarios = ? WHERE id = ?');
 	$stmt->bind_param('si', $comentarios, $popId);
-	if (!$stmt->execute() || !ep_pop_filas_guardar($popId, $filas)) {
+	if (!$stmt->execute() || !ep_pop_filas_guardar($popId, $filas, $porId)) {
 		$db->rollback();
 		return false;
 	}
@@ -286,6 +273,7 @@ function ep_pop_cerrar(int $popId, int $usuarioId): ?int {
 function ep_pop_filas_desde_post(string $json): array|string {
 	$limpias = [];
 	$vistos = [];
+	$supervisores = array_column(ep_pop_supervisores(), 'nombre', 'id');
 	foreach (json_decode($json, true) ?: [] as $f) {
 		$material = mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtoupper((string) ($f['material'] ?? ''), 'UTF-8'))), 0, 60, 'UTF-8');
 		$campana = mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtoupper((string) ($f['campana'] ?? ''), 'UTF-8'))), 0, 40, 'UTF-8');
@@ -298,21 +286,17 @@ function ep_pop_filas_desde_post(string $json): array|string {
 			return 'El material «'.$material.'» está dos veces. Déjalo una sola vez con su total.';
 		}
 		$vistos[$material] = true;
-		$canales = [];
-		foreach (is_array($f['canales'] ?? null) ? $f['canales'] : [] as $canal => $cantidad) {
-			$canal = mb_strtoupper(trim((string) $canal), 'UTF-8');
-			if (!in_array($canal, EP_POP_CANALES, true)) {
-				return 'El canal «'.$canal.'» no existe.';
+		$reparto = [];
+		foreach (is_array($f['reparto'] ?? null) ? $f['reparto'] : [] as $supId => $cantidad) {
+			if (!isset($supervisores[(int) $supId])) {
+				return 'Ese supervisor no existe o no está activo.';
 			}
-			$canales[$canal] = min(999999, max(0, (int) $cantidad));
+			$reparto[(int) $supId] = min(999999, max(0, (int) $cantidad));
 		}
-		if ($canales && !ep_pop_tiene_canales(ep_db())) {
-			return 'Falta crear la tabla de canales de POP en la base. Avisa al administrador.';
+		if (array_sum($reparto) > $bodega) {
+			return 'En «'.$material.'» repartes '.array_sum($reparto).' entre supervisores y en bodega hay '.$bodega.'.';
 		}
-		if (array_sum($canales) > $bodega) {
-			return 'En «'.$material.'» repartes '.array_sum($canales).' entre canales y en bodega hay '.$bodega.'.';
-		}
-		$limpias[] = ['material' => $material, 'campana' => $campana, 'bodega' => $bodega, 'canales' => $canales];
+		$limpias[] = ['id' => (int) ($f['id'] ?? 0), 'material' => $material, 'campana' => $campana, 'bodega' => $bodega, 'reparto' => $reparto];
 	}
 	return $limpias ?: 'Agrega al menos un material con su campaña.';
 }

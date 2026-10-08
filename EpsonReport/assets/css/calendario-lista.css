@@ -98,6 +98,9 @@
 .ep-cl-estado-completo { background: #E7F5EC; color: var(--color-success); }
 .ep-cl-estado-incompleto { background: #FFF4E5; color: #8A4B00; }
 .ep-cl-estado-sin-reporte { background: #FFF4E5; color: #8A4B00; }
+.ep-cl-estado-revisar { background: #FFF4E5; color: #8A4B00; }
+.ep-cl-pill-revisar { margin-top: 6px; height: 28px; padding: 0 12px; border: 1px solid #F0D3A8; border-radius: 999px; background: #FFF4E5; font-family: inherit; font-size: 12.5px; font-weight: 700; color: #8A4B00; cursor: pointer; transition: background-color .15s ease-out, border-color .15s ease-out; }
+.ep-cl-pill-revisar:hover, .ep-cl-pill-revisar[aria-pressed="true"] { background: #FFE6C2; border-color: #E2B877; }
 
 /* Acciones: la principal va rellena; las secundarias son íconos que se abren con su nombre al pasar el mouse o con el teclado */
 .ep-cl-acciones { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }

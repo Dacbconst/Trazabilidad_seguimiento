@@ -30,34 +30,58 @@
 .ep-pop-eliminar { color: var(--color-text-muted); }
 .ep-pop-eliminar:hover { border-color: var(--color-danger); background: #FCE8E6; color: var(--color-danger); }
 
-/* Tabla del mes: bodega la carga el gestor, canales y retail los suman los promotores */
+/* Tabla del mes: bodega, lo repartido a cada supervisor, lo que queda sin repartir y lo colocado */
 .ep-pop-tabla { display: flex; flex-direction: column; }
-.ep-pop-tr { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) repeat(calc(var(--ep-pop-n, 0) + 2), minmax(0, 1fr)); align-items: center; gap: 10px; padding: 9px 18px; font-size: 13.5px; }
+.ep-pop-tr { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) repeat(calc(var(--ep-pop-n, 0) + 4), minmax(0, 1fr)); align-items: center; gap: 10px; padding: 9px 18px; font-size: 13.5px; }
 .ep-pop-tr + .ep-pop-tr { border-top: 1px solid #F3F1F8; }
 .ep-pop-tr span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .ep-pop-th { padding-top: 11px; padding-bottom: 11px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); background: #FBFAFD; }
 .ep-pop-campana { color: var(--color-text-muted); }
 .ep-pop-negativo { color: var(--color-danger); font-weight: 700; }
+.ep-pop-pendiente { color: #8A4B00; font-weight: 700; }
 
-/* Modal de carga */
+/* Modal de carga: ancho para varias columnas, el cuerpo no encoge sus bloques y la tabla desliza solo a los lados */
+.ep-pop-dialog { width: min(1040px, calc(100vw - 32px)); max-width: none; }
+.ep-pop-dialog .ep-modal-ppt-body { padding: 18px 24px 20px; gap: 14px; }
+.ep-pop-dialog .ep-modal-ppt-body > * { flex-shrink: 0; }
+.ep-pop-dialog .ep-modal-ppt-head { padding: 16px 24px; background: var(--color-surface); border-bottom: 1px solid #E6E3EE; }
+.ep-pop-dialog .ep-modal-ppt-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--color-primary-soft); }
+.ep-pop-dialog .ep-modal-ppt-foot { padding: 14px 24px; border-top: 1px solid #E6E3EE; }
+.ep-pop-dialog { border-radius: 20px; box-shadow: 0 24px 60px rgba(30, 20, 60, 0.18); }
+.ep-pop-sup-menu { position: relative; }
+.ep-pop-sup-lista { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 220px; padding: 6px; border: 1px solid #E1DCEA; border-radius: 12px; background: #FFFFFF; box-shadow: 0 12px 30px rgba(30, 20, 60, 0.16); }
+.ep-pop-sup-lista button { display: block; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: none; text-align: left; font: inherit; font-size: 13.5px; color: var(--color-text); cursor: pointer; }
+.ep-pop-sup-lista button:hover { background: var(--color-primary-soft); }
+.ep-pop-sup-vacio { padding: 9px 12px; font-size: 13px; color: var(--color-text-muted); }
+.ep-pop-quitar-sup { border: 0; background: none; padding: 0 2px; font-size: 15px; line-height: 1; color: var(--color-text-muted); cursor: pointer; }
+.ep-pop-quitar-sup:hover { color: var(--color-danger); }
+.ep-pop-scroll { border: 1px solid #EFECF5; border-radius: 12px; padding: 12px 14px; background: #FBFAFD; }
 .ep-pop-campo { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--color-text); }
 .ep-pop-herramientas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-.ep-pop-canal-menu { position: relative; }
-.ep-pop-canal-lista { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 180px; padding: 6px; border: 1px solid var(--color-border, #E4E0EE); border-radius: 10px; background: #fff; box-shadow: 0 10px 28px rgba(30, 20, 60, 0.16); }
-.ep-pop-canal-lista button { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; text-align: left; font: inherit; font-size: 13.5px; cursor: pointer; }
-.ep-pop-canal-lista button:hover { background: #F4F1FA; }
-.ep-pop-canal-vacio { padding: 8px 10px; font-size: 13px; color: var(--color-text-muted); }
 .ep-pop-scroll { overflow-x: auto; padding-bottom: 4px; }
-.ep-pop-filas-head, .ep-pop-fila { display: grid; grid-template-columns: minmax(150px, 2fr) minmax(110px, 1.4fr) 90px repeat(var(--ep-pop-m, 0), 90px) 90px 34px; align-items: center; gap: 8px; min-width: min-content; }
-.ep-pop-filas-head span { display: flex; align-items: center; gap: 4px; }
-.ep-pop-quitar-canal { border: 0; background: none; padding: 0 2px; font-size: 14px; line-height: 1; color: var(--color-text-muted); cursor: pointer; }
-.ep-pop-quitar-canal:hover { color: #C5221F; }
+.ep-pop-filas-head, .ep-pop-fila { display: grid; grid-template-columns: var(--ep-pop-cols, minmax(150px, 2fr) minmax(110px, 1.4fr) 92px 96px 34px); align-items: center; gap: 8px; min-width: min-content; }
+.ep-pop-filas-head span { display: flex; align-items: flex-end; gap: 4px; line-height: 1.25; }
+.ep-pop-filas-head span:nth-last-child(2) { justify-content: flex-end; }
 .ep-pop-fila-disponible { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ep-pop-fila-disponible.ep-pop-negativo { color: #C5221F; }
 .ep-pop-filas-head { margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); }
 .ep-pop-filas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .ep-pop-fila .ep-input { height: 38px; text-transform: uppercase; }
-.ep-pop-fila .ep-pop-fila-bodega, .ep-pop-fila .ep-pop-fila-canal { text-transform: none; }
+.ep-pop-fila .ep-pop-fila-bodega, .ep-pop-fila .ep-pop-fila-sup { text-transform: none; }
+
+/* Parte del supervisor y su reparto a los promotores */
+.ep-pop-parte { border-top: 1px solid #EFECF5; }
+.ep-pop-parte-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 4px; }
+.ep-pop-parte-head strong { font-family: 'Sora', sans-serif; font-size: 14px; color: var(--color-ink); }
+.ep-pop-rep { display: flex; flex-direction: column; gap: 8px; min-width: min-content; }
+.ep-pop-rep-fila { display: grid; align-items: center; gap: 8px; }
+.ep-pop-rep-th { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--color-text-muted); }
+.ep-pop-rep-th small { display: block; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.ep-pop-rep-nombre { font-size: 13.5px; }
+.ep-pop-rep-in { height: 38px; text-align: right; }
+.ep-pop-rep-pie { padding-top: 6px; border-top: 1px solid #EFECF5; font-size: 12.5px; font-weight: 700; color: var(--color-text-muted); }
+.ep-pop-rep-saldo { text-align: right; font-variant-numeric: tabular-nums; }
+.ep-pop-rep-saldo.ep-pop-negativo { color: var(--color-danger); }
 
 @media (max-width: 760px) {
 	.ep-pop-head { flex-direction: column; align-items: stretch; }

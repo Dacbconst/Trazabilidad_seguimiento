@@ -3,6 +3,8 @@
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
+// La acción deja desactualizada una caché de sesión (ver ep_cache_sesion).
+unset($_SESSION['ep_cache']['foto_perfil']);
 header('Content-Type: application/json; charset=utf-8');
 
 function ep_usuario_foto_responder(bool $ok, array $datos = [], int $codigo = 200): void {

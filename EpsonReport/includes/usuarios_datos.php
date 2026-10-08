@@ -39,14 +39,24 @@ function ep_usuario_foto_url(?string $ruta): string {
 	return ep_azure_url(EP_AZURE_PREFIX.$ruta);
 }
 
-// Ciudad y canal de cada usuario según su rutero activo (solo informativo, tablas de Xplora en solo lectura); caché 5 min porque recorre todo el rutero.
-function ep_usuarios_rutero($db): array {
-	$cacheFile = __DIR__.'/../data/cache/usuarios_rutero.json';
-	if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 300) {
+const EP_USUARIOS_RUTERO_CACHE = __DIR__.'/../data/cache/usuarios_rutero.json';
+
+// La caché del rutero sigue vigente 5 min; pasado ese tiempo la lista igual la usa y el navegador pide el refresco aparte.
+function ep_usuarios_rutero_vigente(): bool {
+	return is_file(EP_USUARIOS_RUTERO_CACHE) && (time() - filemtime(EP_USUARIOS_RUTERO_CACHE)) < 300;
+}
+
+// Ciudad y canal de cada usuario según su rutero activo (solo informativo, tablas de Xplora en solo lectura); recorre todo el rutero (~2 s), por eso hay caché.
+function ep_usuarios_rutero($db, bool $soloCache = false): array {
+	$cacheFile = EP_USUARIOS_RUTERO_CACHE;
+	if (is_file($cacheFile) && ($soloCache || ep_usuarios_rutero_vigente())) {
 		$cacheado = json_decode(file_get_contents($cacheFile), true);
 		if (is_array($cacheado)) {
 			return $cacheado;
 		}
+	}
+	if ($soloCache) {
+		return [];
 	}
 	$stmt = $db->prepare("SELECT usu.user AS usuario, d.city, d.channel, COUNT(DISTINCT d.pos_id) AS n FROM rutero_pdv rp JOIN repositorio_usuarios usu ON usu.id = rp.id_usuario JOIN repositorio_locales_dtt2 d ON d.id = rp.id_pdv AND d.activar = 'SI' WHERE rp.status = 1 AND rp.habilitado = 1 AND d.channel IN ('RETAIL', 'CANALES') GROUP BY usu.user, d.city, d.channel");
 	if (!$stmt) {
@@ -92,7 +102,9 @@ function ep_usuarios_listar(): array {
 		error_log('ep_usuarios_listar: '.$db->error);
 		return [];
 	}
-	$rutero = ep_usuarios_rutero($db);
+	// La consulta pesada no frena la pantalla: se usa lo que haya en caché y el navegador pide el refresco aparte si hace falta.
+	$rutero = ep_usuarios_rutero($db, true);
+	$pendiente = !ep_usuarios_rutero_vigente();
 	$lista = [];
 	foreach ($res as $f) {
 		$esAdmin = $f['rol'] !== 'promotor';
@@ -107,7 +119,7 @@ function ep_usuarios_listar(): array {
 			'activo' => $f['status'] === 'activo',
 			'foto' => ep_usuario_foto_url($f['foto']),
 			'ciudad' => $datos['ciudad'] ?? '',
-			'canal' => $esAdmin ? 'No aplica' : ($datos['canal'] ?? 'Sin rutero'),
+			'canal' => $esAdmin ? 'No aplica' : ($datos['canal'] ?? ($pendiente ? 'Cargando…' : 'Sin rutero')),
 			'propio' => (int) $f['id'] === (int) ($_SESSION['usuario_id'] ?? 0),
 			'categorias' => (string) $f['categorias'],
 			'sup_canales' => (int) $f['supervisor_canales_id'],
@@ -339,16 +351,19 @@ function ep_usuario_foto_actual(): string {
 	if ($url !== null) {
 		return $url;
 	}
-	$url = '';
-	$db = ep_db();
-	$id = (int) ($_SESSION['usuario_id'] ?? 0);
-	if ($db && $id && ep_usuarios_tiene_foto($db)) {
+	// La foto del menú casi no cambia: se guarda 5 min en la sesión (y se olvida al subir otra).
+	$url = ep_cache_sesion('foto_perfil', 300, function () {
+		$db = ep_db();
+		$id = (int) ($_SESSION['usuario_id'] ?? 0);
+		if (!$db || !$id || !ep_usuarios_tiene_foto($db)) {
+			return '';
+		}
 		$stmt = $db->prepare('SELECT foto FROM repositorio_usuarios_reporte WHERE id = ? LIMIT 1');
 		$stmt->bind_param('i', $id);
 		$stmt->execute();
 		$fila = $stmt->get_result()->fetch_assoc();
 		$stmt->close();
-		$url = ep_usuario_foto_url($fila['foto'] ?? null);
-	}
+		return ep_usuario_foto_url($fila['foto'] ?? null);
+	});
 	return $url;
 }

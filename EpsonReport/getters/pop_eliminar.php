@@ -1,5 +1,5 @@
 <?php
-// Quita un mes de POP de la lista (borrado lógico, POST id). Solo admin/supervisor, y solo el suyo.
+// Quita un mes de POP de la lista (borrado lógico, POST id). Solo Fabricio o el admin.
 require_once __DIR__.'/../config.php';
 session_set_cookie_params(EP_COOKIE_VIDA, '/', '', SECURE, true);
 session_start();
@@ -12,6 +12,12 @@ if (!in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor'], true)) {
 }
 
 require_once __DIR__.'/../includes/pop_datos.php';
+
+if (!ep_pop_es_dueno()) {
+	http_response_code(403);
+	echo json_encode(['ok' => false, 'message' => 'Solo Fabricio o un administrador manejan el material POP.']);
+	exit;
+}
 
 // En este servidor (nginx + PHP 8.2) un error fatal sale como "404"; se atrapa para devolver el motivo real.
 try {

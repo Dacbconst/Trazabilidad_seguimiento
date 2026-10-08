@@ -5,7 +5,7 @@
 
 	var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 	var MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-	var estado = { kpi: null, canal: '', q: '', desde: '', hasta: '' };
+	var estado = { kpi: null, canal: '', q: '', desde: '', hasta: '', revisar: false };
 
 	function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 	function corta(s) { var p = s.split('-'); return (+p[2]) + ' ' + MESES[+p[1] - 1]; }
@@ -14,6 +14,7 @@
 		var cal = {
 			el: el,
 			estado: el.dataset.estado,
+			revisar: el.dataset.revisar === '1',
 			canal: el.dataset.canal,
 			nombre: el.dataset.nombre,
 			total: +el.dataset.total,
@@ -88,7 +89,7 @@
 			var conBusqueda = porNombre ? enRango : enRango.filter(function (f) { return f.busca.indexOf(q) !== -1; });
 			if (!porNombre && conBusqueda.length === 0) pasa = false;
 			if (pasa) cuentas[cal.estado]++;
-			var ver = pasa && (!estado.kpi || cal.estado === estado.kpi);
+			var ver = pasa && (!estado.kpi || cal.estado === estado.kpi) && (!estado.revisar || cal.revisar);
 			cal.el.hidden = !ver;
 			if (!ver) return;
 			visibles++;
@@ -109,6 +110,15 @@
 		sin.hidden = visibles > 0;
 	}
 
+	// La pastilla "N por revisar" del encabezado deja solo los calendarios que esperan revisión de comentarios.
+	var pastillaRevisar = document.getElementById('epClRevisar');
+	if (pastillaRevisar) {
+		pastillaRevisar.addEventListener('click', function () {
+			estado.revisar = !estado.revisar;
+			pastillaRevisar.setAttribute('aria-pressed', estado.revisar ? 'true' : 'false');
+			aplicar();
+		});
+	}
 	kpis.forEach(function (k) {
 		k.addEventListener('click', function () {
 			estado.kpi = estado.kpi === k.dataset.kpi ? null : k.dataset.kpi;

@@ -62,6 +62,8 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 		<div>
 			<h1>Calendario <span class="ep-vivo" id="epClVivo" title="Se actualiza sola cada pocos segundos"><i></i><span>En vivo</span></span></h1>
 			<p id="epClResumen"><?= count($calendarios) ?> <?= count($calendarios) === 1 ? 'calendario' : 'calendarios' ?></p>
+			<?php $pendientesRevision = count(array_filter($calendarios, 'ep_calendario_por_revisar')); ?>
+			<?php if ($pendientesRevision > 0): ?><button type="button" class="ep-cl-pill-revisar" id="epClRevisar" aria-pressed="false"><?= $pendientesRevision ?> por revisar</button><?php endif; ?>
 		</div>
 		<button type="button" class="ep-rp-nuevo" id="epCalNuevo"><?= ep_icon('plus', 16) ?> <span>Crear calendario</span></button>
 	</header>
@@ -136,28 +138,33 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 			$reporteUrl = !empty($c['reporte_mensual_id']) ? 'getters/reporte_descargar.php?id='.(int) $c['reporte_mensual_id'] : '';
 			// Completó todas sus filas pero no tiene reporte: sus registros quedaron atrapados en otro reporte mensual activo. No es un cierre normal, se avisa aparte.
 			$sinReporte = $vista === 'completo' && !$reporteUrl;
+			// Cerró con reporte y sus comentarios aún no se revisaron: se finaliza antes de descargar el PPT.
+			$porRevisar = ep_calendario_por_revisar($c);
 			$id = (int) $c['id'];
 			if ($vista === 'activo') {
 				$estadoTxt = $dias === null ? 'Activo' : ($dias > 0 ? 'Cierra en '.$dias.' '.($dias === 1 ? 'día' : 'días') : 'Cierra hoy');
 				$sub = $filasTxt($total).' · plazo '.(int) $c['plazo_dias'].' días';
 			} else {
-				$estadoTxt = $vista === 'completo' ? ($sinReporte ? 'Cerrado sin reporte' : 'Cerrado completo') : 'Cerrado incompleto';
+				$estadoTxt = $porRevisar ? 'Por revisar' : ($vista === 'completo' ? ($sinReporte ? 'Cerrado sin reporte' : 'Cerrado completo') : 'Cerrado incompleto');
 				$sub = $filasTxt($total).' · cerró el '.$fechaCorta(substr((string) ($c['cerrado_en'] ?: $c['hasta']), 0, 10));
 			}
 			$urgente = $vista === 'activo' && $dias !== null && $dias <= 3;
 		?>
-		<article class="ep-cl-cal" data-id="<?= $id ?>" data-estado="<?= $vista ?>" data-canal="<?= $h($c['canal']) ?>" data-total="<?= $total ?>" data-nombre="<?= $h(mb_strtolower($nombre, 'UTF-8')) ?>">
+		<article class="ep-cl-cal" data-id="<?= $id ?>" data-estado="<?= $vista ?>"<?= $porRevisar ? ' data-revisar="1"' : '' ?> data-canal="<?= $h($c['canal']) ?>" data-total="<?= $total ?>" data-nombre="<?= $h(mb_strtolower($nombre, 'UTF-8')) ?>">
 			<div class="ep-cl-fila" role="row">
 				<button type="button" class="ep-cl-toggle" aria-expanded="false" aria-label="Ver filas de <?= $h($nombre) ?>"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
 				<div class="ep-cl-nombre"><strong title="<?= $h($nombre) ?>"><?= $h($nombre) ?></strong><span><?= $h($sub) ?></span></div>
 				<span class="ep-cl-tag ep-cl-tag-canal"><?= $h($canalTxt($c['canal'])) ?></span>
 				<span class="ep-cl-fechas"><?= $h($rango($c['desde'], $c['hasta'])) ?></span>
 				<div class="ep-cl-avance"><span class="ep-cl-barra-av"><span style="transform: scaleX(<?= $total > 0 ? round($cumplidas / $total, 4) : 0 ?>)"></span></span><span class="ep-cl-av-txt"><?= $cumplidas ?> de <?= $total ?><?= $vista === 'incompleto' ? ' · <em>faltaron '.($total - $cumplidas).'</em>' : '' ?></span></div>
-				<span class="ep-cl-tag ep-cl-estado ep-cl-estado-<?= $vista ?><?= $sinReporte ? ' ep-cl-estado-sin-reporte' : '' ?><?= $urgente ? ' ep-cl-urgente' : '' ?>" title="<?= $sinReporte ? 'No se pudo generar el reporte: sus registros ya estaban en otro reporte mensual activo' : '' ?>"><?= $h($estadoTxt) ?></span>
+				<span class="ep-cl-tag ep-cl-estado ep-cl-estado-<?= $vista ?><?= $sinReporte ? ' ep-cl-estado-sin-reporte' : '' ?><?= $porRevisar ? ' ep-cl-estado-revisar' : '' ?><?= $urgente ? ' ep-cl-urgente' : '' ?>" title="<?= $sinReporte ? 'No se pudo generar el reporte: sus registros ya estaban en otro reporte mensual activo' : ($porRevisar ? 'Revisa los comentarios para poder descargar el PPT' : '') ?>"><?= $h($estadoTxt) ?></span>
 				<div class="ep-cl-acciones">
 					<?php if ($vista === 'activo'): ?>
 						<button type="button" class="ep-cl-pri ep-cl-pri-suave ep-cal-generar-ahora" data-id="<?= $id ?>"><?= ep_icon('presentation', 15) ?> Cerrar y generar</button>
 						<button type="button" class="ep-cl-accion ep-cal-editar" data-id="<?= $id ?>" aria-label="Editar <?= $h($nombre) ?>"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Editar', 'Editar') ?></button>
+					<?php elseif ($porRevisar): ?>
+						<button type="button" class="ep-cl-pri ep-cal-finalizar" data-id="<?= $id ?>" data-comentarios="<?= $h($c['comentarios'] ?? '') ?>"><?= ep_icon('pencil', 15) ?> Revisar y finalizar</button>
+						<button type="button" class="ep-cl-accion" disabled aria-label="Editar: solo en calendarios activos"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Solo en activos', 'Editar') ?></button>
 					<?php elseif ($vista === 'incompleto' || $sinReporte): ?>
 						<button type="button" class="ep-cl-pri ep-cal-reactivar" data-id="<?= $id ?>"><?= $iconoReactivar ?> Reactivar</button>
 						<button type="button" class="ep-cl-accion" disabled aria-label="Editar: solo en calendarios activos"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Solo en activos', 'Editar') ?></button>
@@ -165,7 +172,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 						<a class="ep-cl-pri" href="<?= $h($reporteUrl) ?>"><?= ep_icon('download', 15) ?> Descargar PPT</a>
 						<button type="button" class="ep-cl-accion" disabled aria-label="Editar: solo en calendarios activos"><?= ep_icon('pencil', 16) ?><?= $etiqueta('Solo en activos', 'Editar') ?></button>
 					<?php endif; ?>
-					<?php if ($vista === 'incompleto'): ?>
+					<?php if ($vista === 'incompleto' && !$porRevisar): ?>
 						<?php if ($reporteUrl): ?>
 							<a class="ep-cl-accion" href="<?= $h($reporteUrl) ?>" aria-label="Descargar PPT de <?= $h($nombre) ?>"><?= ep_icon('presentation', 16) ?><?= $etiqueta('Descargar PPT', 'PPT') ?></a>
 						<?php else: ?>
@@ -176,7 +183,7 @@ $etiqueta = fn(string $larga, string $corta): string => '<span class="ep-cl-etq"
 						<button type="button" class="ep-cl-accion ep-cl-mas" aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones de <?= $h($nombre) ?>"><?= $iconoMas ?><?= $etiqueta('Más acciones', 'Más') ?></button>
 						<div class="ep-cl-menu" role="menu" hidden>
 							<a role="menuitem" href="getters/calendario_excel.php?id=<?= $id ?>"><?= ep_icon('file', 15) ?> Descargar Excel</a>
-							<?php if ($vista === 'completo' && !$sinReporte): ?>
+							<?php if (($vista === 'completo' && !$sinReporte) || $porRevisar): ?>
 								<button type="button" role="menuitem" class="ep-cal-reactivar" data-id="<?= $id ?>"><?= $iconoReactivar ?> Reactivar</button>
 							<?php endif; ?>
 							<button type="button" role="menuitem" class="ep-cal-eliminar ep-cl-peligro" data-id="<?= $id ?>"><?= ep_icon('trash', 15) ?> Eliminar calendario</button>
