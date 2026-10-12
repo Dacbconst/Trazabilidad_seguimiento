@@ -59,9 +59,12 @@ function ep_registro_armar(array $fila, array $hijos): array {
 	$registro['promotor'] = $fila['nombre'] ?: ucwords(str_replace('.', ' ', (string) $registro['promotor_usuario']));
 	$registro['promotor_foto_url'] = ep_usuario_foto_url($fila['foto'] ?? null);
 
+	// Colocación de POP guarda solo la fecha de la actividad, sin tipo ni horario.
+	if ($fila['fecha_actividad'] !== null) {
+		$registro['fecha_actividad'] = $fila['fecha_actividad'];
+	}
 	if ($fila['tipo_actividad'] !== null) {
 		$registro['tipo_actividad'] = $fila['tipo_actividad'];
-		$registro['fecha_actividad'] = $fila['fecha_actividad'];
 		$registro['hora_inicio'] = substr((string) $fila['hora_inicio'], 0, 5);
 		$registro['hora_fin'] = substr((string) $fila['hora_fin'], 0, 5);
 	}

@@ -31,8 +31,8 @@ $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? 
 					<h3>Colocación de POP · <?= $h($avisos['pop']['mes']) ?></h3>
 					<span class="ep-avisos-etq<?= $avisos['pop']['urgente'] ? ' urgente' : '' ?>"><?= $h($avisos['pop']['ultimo_dia']) ?></span>
 				</div>
-				<p class="ep-avisos-sub">Reporta el material POP que colocaste<?= $avisos['pop']['nuevo'] ? ' · nuevo' : '' ?></p>
-				<a class="ep-avisos-ir" href="index.php?vista=actividades">Reportar colocación</a>
+				<p class="ep-avisos-sub">Tienes habilitado reportar Colocación de POP este mes<?= $avisos['pop']['nuevo'] ? ' · nuevo' : '' ?></p>
+				<a class="ep-avisos-ir" href="index.php?vista=actividades&amp;actividad=colocacion-pop">Reportar colocación</a>
 			</article>
 		<?php endif; ?>
 		<?php if ($avisos['pop_reparto']): ?>
@@ -73,4 +73,4 @@ $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? 
 	</footer>
 	<?php endif; ?>
 </section>
-<script type="application/json" id="epAvisosDatos"><?= json_encode(['total' => $avisos['total'], 'nuevos' => $avisos['nuevos'], 'urgentes' => $avisos['urgentes'], 'devueltosNuevos' => (int) ($avisos['devueltos_nuevos'] ?? 0), 'devueltos' => count($avisos['devueltos']), 'urgentesTxt' => array_values(array_merge(array_map(fn($d) => 'Registro devuelto: '.$d['punto'], $avisos['devueltos']), array_map(fn($c) => $c['nombre'].' ('.mb_strtolower($c['ultimo_dia']).')', array_filter($avisos['calendarios'], fn($c) => $c['urgente'])), ($avisos['pop'] && $avisos['pop']['urgente']) ? ['Colocación de POP ('.mb_strtolower($avisos['pop']['ultimo_dia']).')'] : [], ($avisos['pop_reparto'] && $avisos['pop_reparto']['urgente']) ? ['POP: elige tu equipo ('.mb_strtolower($avisos['pop_reparto']['ultimo_dia']).')'] : []))], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<script type="application/json" id="epAvisosDatos"><?= json_encode(['total' => $avisos['total'], 'nuevos' => $avisos['nuevos'], 'urgentes' => $avisos['urgentes'], 'devueltosNuevos' => (int) ($avisos['devueltos_nuevos'] ?? 0), 'devueltos' => count($avisos['devueltos']), 'popNuevo' => (int) (($avisos['pop']['nuevo'] ?? false) || ($avisos['pop_reparto']['nuevo'] ?? false)), 'popDesde' => (string) ($avisos['pop']['desde'] ?? ''), 'urgentesTxt' => array_values(array_merge(array_map(fn($d) => 'Registro devuelto: '.$d['punto'], $avisos['devueltos']), array_map(fn($c) => $c['nombre'].' ('.mb_strtolower($c['ultimo_dia']).')', array_filter($avisos['calendarios'], fn($c) => $c['urgente'])), ($avisos['pop'] && $avisos['pop']['urgente']) ? ['Colocación de POP ('.mb_strtolower($avisos['pop']['ultimo_dia']).')'] : [], ($avisos['pop_reparto'] && $avisos['pop_reparto']['urgente']) ? ['POP: elige tu equipo ('.mb_strtolower($avisos['pop_reparto']['ultimo_dia']).')'] : []))], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>

@@ -331,6 +331,7 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 } elseif ($tipo === 'colocacion-pop') {
 	// Un registro = un punto de venta: el material debe estar cargado en el mes de POP abierto, y de ahí sale su campaña.
 	require_once __DIR__.'/../includes/pop_datos.php';
+	require_once __DIR__.'/../includes/pop_registro.php';
 	$mesPop = ep_pop_abierto();
 	if (!$mesPop) {
 		http_response_code(422);
@@ -348,6 +349,11 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 	// El promotor solo reporta lo que su supervisor le asignó y no más de lo que le queda.
 	$esPromotor = ($_SESSION['rol'] ?? '') === 'usuario';
 	$mio = $esPromotor ? ep_pop_mi_material((int) $_SESSION['usuario_id'], $mesPop) : [];
+	if ($esPromotor && !$mio) {
+		http_response_code(403);
+		echo json_encode(['success' => false, 'error' => 'Ya no tienes habilitada la Colocación de POP este mes. Recarga la página.']);
+		exit;
+	}
 	$pedido = [];
 	foreach (is_array($valores['pop_entregas'] ?? null) ? $valores['pop_entregas'] : [] as $e) {
 		$material = mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtoupper((string) ($e['material'] ?? ''), 'UTF-8'))), 0, 60, 'UTF-8');
@@ -376,7 +382,7 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 			exit;
 		}
 		// La campaña va por material: un mes puede tener dos campañas vivas y el registro mezclar materiales de ambas.
-		$entregas[] = ['material' => $material, 'cantidad' => $cantidad, 'campana' => $campanaDe[$material], 'fila_id' => $filaDe[$material]];
+		$entregas[] = ['material' => $material, 'cantidad' => $cantidad, 'campana' => $campanaDe[$material], 'fila_id' => $filaDe[$material], 'pos_id' => $punto['pos_id'], 'punto_venta' => $punto['nombre'], 'ciudad' => $punto['ciudad'], 'canal' => $punto['canal']];
 		$campana = $campana ?: $campanaDe[$material];
 	}
 	if (!$entregas) {
@@ -386,6 +392,8 @@ if (in_array($tipo, ['activaciones', 'epson-day', 'evento-ferias'], true)) {
 	}
 	$registro['campana'] = $campana;
 	$registro['pop_entregas'] = $entregas;
+	// La fecha cae en el mes abierto: de ahí cuentan el saldo, el seguimiento y el aviso.
+	$registro['fecha_actividad'] = ep_pop_fecha_registro($mesPop['mes']);
 } elseif ($tipo === 'exhibiciones') {
 	$x = [];
 	foreach (['cabeceras', 'rumas', 'muebles', 'exh_regular', 'otras'] as $clave) {
@@ -481,14 +489,24 @@ if ($comentarioTexto !== '') {
 	$registro['comentarios'] = [];
 }
 
-$ok = ep_guardar_nuevo_registro($registro, (int) $_SESSION['usuario_id']);
+$fusionado = false;
+if ($tipo === 'colocacion-pop') {
+	// Un solo registro de POP por promotor y mes: este punto con sus entregas y fotos se suma al del mes.
+	$punto = ['pos_id' => $registro['pos_id'], 'punto_venta' => $registro['punto_venta'], 'cadena' => $registro['cadena'], 'ciudad' => $registro['ciudad'], 'canal' => $registro['canal'], 'pop_entregas' => $registro['pop_entregas'], 'fotos' => $registro['fotos']];
+	$envio = ep_pop_guardar_envio($registro, $punto, (int) $_SESSION['usuario_id'], $mesPop['mes']);
+	$ok = $envio !== null;
+	$fusionado = $ok && $envio['fusionado'];
+	$id = $ok ? $envio['codigo'] : $id;
+} else {
+	$ok = ep_guardar_nuevo_registro($registro, (int) $_SESSION['usuario_id']);
+}
 
 if ($ok) {
 	echo json_encode([
 		'success'  => true,
 		'id'       => $id,
 		'pendiente' => $conAprobacion,
-		'mensaje'  => 'Registro '.$id.' guardado exitosamente en el sistema.',
+		'mensaje'  => $fusionado ? 'Punto de venta sumado a tu registro '.$id.' de este mes.' : 'Registro '.$id.' guardado exitosamente en el sistema.',
 		'redirect' => 'index.php?vista=historial&nuevo='.urlencode($id),
 	]);
 } else {

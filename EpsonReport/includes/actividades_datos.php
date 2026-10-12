@@ -142,10 +142,25 @@ function ep_actividades_activas(): array {
 	return array_values(array_filter(ep_actividades(), fn($a) => $a['activo']));
 }
 
-// El admin ve todas (con su interruptor); el promotor solo las activas.
-// Se guarda 30 s en la sesión: el menú y la pantalla de Actividades la piden en cada página.
+// El promotor solo ve Colocación de POP si en el mes abierto le marcaron algún material.
+function ep_promotor_tiene_pop(): bool {
+	require_once __DIR__.'/pop_datos.php';
+	require_once __DIR__.'/pop_equipo.php';
+	$mes = ep_pop_abierto();
+	return $mes && ep_pop_mi_material((int) ($_SESSION['usuario_id'] ?? 0), $mes);
+}
+
+// El admin ve todas (con su interruptor); el promotor solo las activas, y POP solo si se la asignaron.
+// La lista base se guarda 30 s en la sesión (el menú y Actividades la piden en cada página); el filtro de POP se revisa siempre para que quitar a un promotor surta efecto al instante.
 function ep_actividades_visibles(): array {
-	return ep_cache_sesion('act_visibles', 30, fn() => ep_rol_actual() === 'admin' ? ep_actividades() : ep_actividades_activas());
+	$lista = ep_cache_sesion('act_visibles', 30, fn() => ep_rol_actual() === 'admin' ? ep_actividades() : ep_actividades_activas());
+	if (($_SESSION['rol'] ?? '') !== 'usuario' || !array_filter($lista, fn($a) => $a['plantilla'] === 'colocacion-pop')) {
+		return $lista;
+	}
+	if (ep_promotor_tiene_pop()) {
+		return $lista;
+	}
+	return array_values(array_filter($lista, fn($a) => $a['plantilla'] !== 'colocacion-pop'));
 }
 
 // Crea un botón que copia la lógica de otro. Devuelve el mensaje de error, o null si se guardó.

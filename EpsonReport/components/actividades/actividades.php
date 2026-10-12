@@ -369,6 +369,16 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 	window.EP_LOGICAS = <?= json_encode(array_map(fn($l) => ['label' => $l['label'], 'plantilla' => $l['plantilla'], 'campos' => $l['campos'], 'fotos' => ep_fotos_requeridas($l['plantilla'])], ep_logicas()), JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <?php endif; ?>
+<?php $abrir = (string) ($_GET['actividad'] ?? ''); ?>
+<?php if (!$corregir && $abrir !== '' && in_array($abrir, array_column($actividades, 'plantilla'), true)): ?>
+<script>
+	// Enlace directo a una actividad (por ejemplo desde Avisos); se espera a "load" para que app.js ya tenga sus manejadores.
+	window.addEventListener('load', function () {
+		var item = document.querySelector('.ep-activity-item[data-plantilla="<?= htmlspecialchars($abrir, ENT_QUOTES) ?>"]');
+		if (item) item.click();
+	});
+</script>
+<?php endif; ?>
 <?php if ($corregir): ?>
 <script>window.EP_CORREGIR = <?= json_encode($corregir, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;</script>
 <?php endif; ?>

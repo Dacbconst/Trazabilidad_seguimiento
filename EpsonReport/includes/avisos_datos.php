@@ -111,12 +111,16 @@ function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 	if (!$misMateriales) {
 		return null;
 	}
+	// "Nuevo" cuenta desde que le marcaron el material (también si se lo quitaron y se lo volvieron a dar), no desde que se cargó el mes.
+	require_once __DIR__.'/pop_equipo.php';
+	$desde = ep_pop_asignado_desde((int) $_SESSION['usuario_id'], (int) $mesPop['id']);
+	$nuevo = $conVisto && $desde !== null && ($visto === null || $desde > $visto);
 	$stmt = $db->prepare("SELECT 1 FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'colocacion-pop' AND LEFT(fecha_actividad, 7) = ? AND eliminado_en IS NULL AND estado <> 'Reemplazado' LIMIT 1");
 	$stmt->bind_param('is', $_SESSION['usuario_id'], $mesPop['mes']);
 	$stmt->execute();
 	$yaReporto = $stmt->get_result()->num_rows > 0;
 	$stmt->close();
-	if ($yaReporto) {
+	if ($yaReporto && !$nuevo) {
 		return null;
 	}
 	$finMes = $mesPop['mes'].'-'.date('t', strtotime($mesPop['mes'].'-01'));
@@ -127,7 +131,8 @@ function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 		'dias' => $dias,
 		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
 		'urgente' => $dias <= 3,
-		'nuevo' => $conVisto && ($visto === null || $mesPop['created_at'] > $visto),
+		'nuevo' => $nuevo,
+		'desde' => (string) $desde,
 	];
 }
 

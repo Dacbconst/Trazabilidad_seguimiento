@@ -82,7 +82,9 @@
 	function esc(t) { return t.replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 	function cartel() {
 		var claveUrg = hoyClave() + '|' + datos.urgentesTxt.join(',');
-		var verNuevos = datos.nuevos > 0 && leer('sessionStorage', 'ep_aviso_nuevos') !== String(datos.nuevos);
+		// La clave incluye cuándo asignaron el POP: volver a asignarlo con la misma cantidad de novedades también avisa.
+		var claveNuevos = datos.nuevos + '|' + (datos.popDesde || '');
+		var verNuevos = datos.nuevos > 0 && leer('sessionStorage', 'ep_aviso_nuevos') !== claveNuevos;
 		var verUrgentes = datos.urgentes > 0 && leer('sessionStorage', 'ep_aviso_urg') !== claveUrg;
 		if (!verNuevos && !verUrgentes) return;
 		if (!window.Swal) return false;
@@ -90,21 +92,23 @@
 		// Los devueltos también cuentan como urgentes: se separan para que el título diga lo que de verdad hay.
 		var devueltosUrg = datos.urgentesTxt.filter(function (t) { return t.indexOf('Registro devuelto') === 0; }).length;
 		var plazos = datos.urgentes - devueltosUrg;
-		var soloDevueltos = datos.nuevos - (datos.devueltosNuevos || 0) <= 0 && plazos <= 0;
-		var lineas = '<p style="margin:0 0 10px">Revisa la campana de <b>Avisos</b> para ver ' + (soloDevueltos ? 'lo que debes corregir.' : 'tus activaciones programadas.') + '</p>';
-		var programadas = datos.nuevos - (datos.devueltosNuevos || 0);
+		var programadas = datos.nuevos - (datos.devueltosNuevos || 0) - (datos.popNuevo || 0);
+		var soloDevueltos = programadas <= 0 && plazos <= 0 && !datos.popNuevo;
+		var soloPop = programadas <= 0 && !datos.devueltosNuevos && datos.popNuevo;
+		var lineas = '<p style="margin:0 0 10px">Revisa la campana de <b>Avisos</b> para ver ' + (soloDevueltos ? 'lo que debes corregir.' : (soloPop ? 'el detalle.' : 'tus pendientes.')) + '</p>';
+		if (verNuevos && datos.popNuevo) lineas += '<p style="margin:0 0 8px">Tienes habilitado reportar <b>Colocación de POP</b> este mes.</p>';
 		if (verNuevos && datos.devueltosNuevos) lineas += '<p style="margin:0 0 8px"><b>' + datos.devueltosNuevos + (datos.devueltosNuevos === 1 ? ' registro devuelto' : ' registros devueltos') + '</b> para que lo corrijas y reenvíes.</p>';
 		if (verNuevos && programadas > 0) lineas += '<p style="margin:0 0 8px">Te programaron <b>' + programadas + (programadas === 1 ? ' activación nueva' : ' activaciones nuevas') + '</b>.</p>';
 		if (verUrgentes) {
 			lineas += '<p style="margin:0 0 6px"><b>Pendiente de tu parte:</b></p><ul style="margin:0;padding-left:18px;text-align:left">' +
 				datos.urgentesTxt.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
 		}
-		if (verNuevos) guardar('sessionStorage', 'ep_aviso_nuevos', String(datos.nuevos));
+		if (verNuevos) guardar('sessionStorage', 'ep_aviso_nuevos', claveNuevos);
 		if (verUrgentes) guardar('sessionStorage', 'ep_aviso_urg', claveUrg);
 		// El cartel no cuenta como visto: la campana sigue sonando hasta que la abra.
 		Swal.fire({
 			icon: verUrgentes ? 'warning' : 'info',
-			title: datos.devueltosNuevos ? (datos.devueltosNuevos === 1 ? 'Te devolvieron un registro' : 'Te devolvieron registros') : (verUrgentes ? (plazos <= 0 ? (devueltosUrg === 1 ? 'Tienes un registro devuelto' : 'Tienes registros devueltos') : (devueltosUrg ? 'Tienes pendientes por atender' : 'Tienes un plazo por vencer')) : 'Tienes notificaciones nuevas'),
+			title: datos.devueltosNuevos ? (datos.devueltosNuevos === 1 ? 'Te devolvieron un registro' : 'Te devolvieron registros') : (verUrgentes ? (plazos <= 0 ? (devueltosUrg === 1 ? 'Tienes un registro devuelto' : 'Tienes registros devueltos') : (devueltosUrg ? 'Tienes pendientes por atender' : 'Tienes un plazo por vencer')) : (soloPop ? 'Colocación de POP habilitada' : 'Tienes notificaciones nuevas')),
 			html: lineas,
 			confirmButtonText: 'Ver avisos',
 			showCancelButton: true,

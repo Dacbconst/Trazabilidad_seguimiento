@@ -70,8 +70,9 @@ function ep_pop_entregado_todos(): array {
 		if (($r['tipo'] ?? '') !== 'colocacion-pop' || $mes === '') {
 			continue;
 		}
-		$esRetail = mb_strtoupper((string) ($r['canal'] ?? ''), 'UTF-8') === 'RETAIL';
 		foreach ($r['pop_entregas'] ?? [] as $e) {
+			// El canal va en cada entrega (un registro puede juntar varios puntos); los registros anteriores usan el del registro.
+			$esRetail = mb_strtoupper((string) ($e['canal'] ?? $r['canal'] ?? ''), 'UTF-8') === 'RETAIL';
 			$clave = ($e['campana'] ?? $r['campana'] ?? '').'|'.$e['material'];
 			$porMes[$mes][$clave] ??= ['canales' => 0, 'retail' => 0];
 			$porMes[$mes][$clave][$esRetail ? 'retail' : 'canales'] += (int) $e['cantidad'];
@@ -103,7 +104,9 @@ function ep_pop_listar(): array {
 			$t = $entregado[$f['campana'].'|'.$f['material']] ?? ['canales' => 0, 'retail' => 0];
 			$f['colocado'] = $t['canales'] + $t['retail'];
 			$f['sin_repartir'] = (int) $f['bodega'] - array_sum($f['asignado']);
-			$f['disponible'] = (int) $f['bodega'] - $f['colocado'];
+			// Lo asignado a supervisores y lo que queda por colocar de eso (no depende de la bodega).
+			$f['asignado_total'] = array_sum($f['asignado']);
+			$f['disponible'] = $f['asignado_total'] - $f['colocado'];
 		}
 		unset($f);
 		$meses[] = $row;
@@ -260,7 +263,9 @@ function ep_pop_cerrar(int $popId, int $usuarioId): ?int {
 	}
 	$desde = $pop['mes'].'-01';
 	$hasta = date('Y-m-t', strtotime($desde));
-	$snapshot = json_encode(['desde' => $desde, 'hasta' => $hasta, 'actividad' => 'Colocación de POP', 'pop_bodega' => $bodega, 'registros' => $copia], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+	// El flujo (supervisor, promotor y punto de venta) también se congela con el cierre.
+	require_once __DIR__.'/pop_flujo.php';
+	$snapshot = json_encode(['desde' => $desde, 'hasta' => $hasta, 'actividad' => 'Colocación de POP', 'pop_bodega' => $bodega, 'pop_flujo' => ep_pop_flujo($pop, $copia), 'registros' => $copia], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 	$titulo = 'Colocación de POP '.ep_pop_mes_texto($pop['mes']);
 	$reporteId = $validos ? ep_reporte_crear('colocacion-pop', $pop['mes'], $titulo, null, null, $pop['comentarios'] ?? null, $validos, $snapshot, $usuarioId) : 0;
 

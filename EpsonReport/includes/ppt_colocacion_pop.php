@@ -20,17 +20,22 @@ function ep_ppt_colocacion_pop_spec(): array {
 }
 
 // Lo entregado en los registros, por campaña + material; el canal del punto de venta decide si suma a Retail o a Canales.
-function ep_ppt_pop_agrupar(array $registros): array {
+function ep_ppt_pop_agrupar(array $registros, array $bodega = []): array {
 	$grupos = [];
+	// Todo lo que se cargó en bodega sale en la tabla, aunque todavía no tenga entregas.
+	foreach (array_keys($bodega) as $clave) {
+		[$campana, $material] = explode('|', (string) $clave, 2) + ['', ''];
+		$grupos[$clave] = ['campana' => $campana, 'material' => $material, 'canales' => 0, 'retail' => 0, 'entregas' => []];
+	}
 	foreach ($registros as $reg) {
-		$retail = strtoupper((string) ($reg['canal'] ?? '')) === 'RETAIL';
 		foreach ($reg['pop_entregas'] ?? [] as $e) {
+			$retail = strtoupper((string) ($e['canal'] ?? $reg['canal'] ?? '')) === 'RETAIL';
 			// La campaña va en el material; la del registro es el respaldo de los registros anteriores a eso.
 			$campana = (string) ($e['campana'] ?? $reg['campana'] ?? '');
 			$clave = $campana.'|'.$e['material'];
 			$grupos[$clave] ??= ['campana' => $campana, 'material' => $e['material'], 'canales' => 0, 'retail' => 0, 'entregas' => []];
 			$grupos[$clave][$retail ? 'retail' : 'canales'] += (int) $e['cantidad'];
-			$grupos[$clave]['entregas'][] = ['pdv' => ep_ppt_mayus((string) ($reg['punto_venta'] ?? '')), 'ciudad' => ep_ppt_mayus((string) ($reg['ciudad'] ?? '')), 'cantidad' => (int) $e['cantidad']];
+			$grupos[$clave]['entregas'][] = ['pdv' => ep_ppt_mayus((string) ($e['punto_venta'] ?? $reg['punto_venta'] ?? '')), 'ciudad' => ep_ppt_mayus((string) ($e['ciudad'] ?? $reg['ciudad'] ?? '')), 'cantidad' => (int) $e['cantidad']];
 		}
 	}
 	ksort($grupos);
@@ -39,11 +44,11 @@ function ep_ppt_pop_agrupar(array $registros): array {
 
 // Diapositivas fijas del reporte: inventario (bodega del admin, canales y retail sumados) y detalle por punto de venta con subtotal por material.
 function ep_ppt_pop_tablas(array &$ctx, array $registros, array $opciones): void {
-	$grupos = ep_ppt_pop_agrupar($registros);
+	$bodega = $opciones['pop_bodega'] ?? [];
+	$grupos = ep_ppt_pop_agrupar($registros, $bodega);
 	if (!$grupos) {
 		return;
 	}
-	$bodega = $opciones['pop_bodega'] ?? [];
 	$recibido = [];
 	foreach ($grupos as $clave => $g) {
 		$b = (int) ($bodega[$clave] ?? 0);
@@ -54,6 +59,9 @@ function ep_ppt_pop_tablas(array &$ctx, array $registros, array $opciones): void
 
 	$detalle = [];
 	foreach ($grupos as $g) {
+		if (!$g['entregas']) {
+			continue;
+		}
 		foreach ($g['entregas'] as $i => $e) {
 			$detalle[] = ['celdas' => [$i === 0 ? $g['material'] : '', $g['campana'], $e['pdv'], $e['ciudad'], $e['cantidad']], 'grupo' => $g['material']];
 		}
@@ -61,6 +69,39 @@ function ep_ppt_pop_tablas(array &$ctx, array $registros, array $opciones): void
 	}
 	$colDetalle = [['', 0.2, 'r'], ['CAMPAÑA', 0.15, 'ctr'], ['PDV', 0.3, 'ctr'], ['CIUDAD', 0.15, 'ctr'], ['CANTIDAD ENTREGADA', 0.2, 'ctr']];
 	ep_ppt_pop_paginas($ctx, 4, 'DETALLE POP RECIBIDO', $colDetalle, $detalle);
+	ep_ppt_pop_flujo($ctx, $opciones['pop_flujo'] ?? []);
+}
+
+// Flujo del mes: lo que recibió cada supervisor y lo que cada promotor colocó en cada punto de venta (solo en reportes que lo congelaron al cerrar).
+function ep_ppt_pop_flujo(array &$ctx, array $flujo): void {
+	if (!$flujo) {
+		return;
+	}
+	$filas = [];
+	$anterior = '';
+	$anteriorSup = '';
+	foreach ($flujo as $f) {
+		$clave = $f['campana'].'|'.$f['material'];
+		$claveSup = $clave.'|'.$f['supervisor'];
+		$sinColocar = $f['promotor'] === '';
+		$filas[] = [
+			'celdas' => [
+				$clave === $anterior ? '' : ep_ppt_mayus($f['material']),
+				$clave === $anterior ? '' : ep_ppt_mayus($f['campana']),
+				$claveSup === $anteriorSup ? '' : ep_ppt_mayus($f['supervisor']),
+				$claveSup === $anteriorSup ? '' : $f['recibido'],
+				$sinColocar ? 'SIN COLOCAR' : ep_ppt_mayus($f['promotor']),
+				ep_ppt_mayus($f['pdv']),
+				ep_ppt_mayus($f['ciudad']),
+				$sinColocar ? '' : $f['cantidad'],
+			],
+			'grupo' => ep_ppt_mayus($f['material']),
+		];
+		$anterior = $clave;
+		$anteriorSup = $claveSup;
+	}
+	$columnas = [['', 0.14, 'r'], ['CAMPAÑA', 0.1, 'ctr'], ['SUPERVISOR', 0.15, 'ctr'], ['RECIBIÓ', 0.07, 'ctr'], ['PROMOTOR', 0.18, 'ctr'], ['PDV', 0.19, 'ctr'], ['CIUDAD', 0.09, 'ctr'], ['COLOCÓ', 0.08, 'ctr']];
+	ep_ppt_pop_paginas($ctx, 4, 'FLUJO DE ENTREGA', $columnas, $filas);
 }
 
 // Reparte las filas en diapositivas clonadas de la plantilla $n: hasta dos bloques por diapositiva, lado a lado.
@@ -85,5 +126,26 @@ function ep_ppt_pop_paginas(array &$ctx, int $n, string $titulo, array $columnas
 
 // Devuelve la ruta de un .pptx temporal con los registros dados. El llamador lo envía y lo borra.
 function ep_ppt_colocacion_pop(array $registros, string $tituloMes, array $opciones = []): string {
-	return ep_ppt_generar(ep_ppt_colocacion_pop_spec(), $registros, $tituloMes, $opciones);
+	return ep_ppt_generar(ep_ppt_colocacion_pop_spec(), ep_ppt_pop_fotos_por_punto($registros), $tituloMes, $opciones);
+}
+
+// Un registro con varios puntos sale como una entrada de fotos por punto (portada del punto como título), conservando sus entregas para las tablas.
+function ep_ppt_pop_fotos_por_punto(array $registros): array {
+	$salida = [];
+	foreach ($registros as $reg) {
+		$puntos = $reg['puntos'] ?? [];
+		if (!$puntos) {
+			$salida[] = $reg;
+			continue;
+		}
+		foreach ($puntos as $i => $p) {
+			$salida[] = array_merge($reg, [
+				'pos_id' => $p['pos_id'] ?? '', 'punto_venta' => $p['punto_venta'] ?? '', 'ciudad' => $p['ciudad'] ?? '', 'canal' => $p['canal'] ?? '',
+				'fotos' => $p['fotos'] ?? [],
+				'pop_entregas' => $i === 0 ? ($reg['pop_entregas'] ?? []) : [],
+				'puntos' => [],
+			]);
+		}
+	}
+	return $salida;
 }

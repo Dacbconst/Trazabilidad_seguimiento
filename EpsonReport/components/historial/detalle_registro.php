@@ -207,12 +207,12 @@ $enModoAprobacion = !empty($modoAprobacion);
 			<div class="ep-stat-card-titulo"><?= ep_icon('tag', 15) ?> Material POP entregado · Campaña <?= $h($r['campana'] ?? '') ?></div>
 			<div class="ep-h2-tabla-wrap">
 				<table class="ep-h2-tabla">
-					<thead><tr><th>Material</th><th>Cantidad</th></tr></thead>
+					<thead><tr><th>Punto de venta</th><th>Material</th><th>Cantidad</th></tr></thead>
 					<tbody>
 					<?php foreach ($r['pop_entregas'] as $p): ?>
-						<tr><td><?= $h($p['material'] ?? '') ?></td><td><?= (int) ($p['cantidad'] ?? 0) ?></td></tr>
+						<tr><td><?= $h($p['punto_venta'] ?? ($r['punto_venta'] ?? '')) ?></td><td><?= $h($p['material'] ?? '') ?></td><td><?= (int) ($p['cantidad'] ?? 0) ?></td></tr>
 					<?php endforeach; ?>
-						<tr><td><strong>Total</strong></td><td><strong><?= array_sum(array_column($r['pop_entregas'], 'cantidad')) ?></strong></td></tr>
+						<tr><td colspan="2"><strong>Total</strong></td><td><strong><?= array_sum(array_column($r['pop_entregas'], 'cantidad')) ?></strong></td></tr>
 					</tbody>
 				</table>
 			</div>

@@ -55,6 +55,20 @@ function ep_pop_equipo_desde(int $popId, int $supervisorId): array {
 	return $mapa;
 }
 
+// Cuándo le marcaron por última vez material de este mes a un promotor (volver a asignarlo da una fecha nueva); null si no tiene.
+function ep_pop_asignado_desde(int $usuarioId, int $popId): ?string {
+	$db = ep_db();
+	$stmt = $db ? $db->prepare('SELECT MAX(e.created_at) AS desde FROM insert_reporte_pop_equipo e JOIN insert_reporte_pop_fila f ON f.id = e.pop_fila_id WHERE e.usuario_id = ? AND f.pop_id = ?') : false;
+	if (!$stmt) {
+		return null;
+	}
+	$stmt->bind_param('ii', $usuarioId, $popId);
+	$stmt->execute();
+	$desde = $stmt->get_result()->fetch_assoc()['desde'] ?? null;
+	$stmt->close();
+	return $desde;
+}
+
 // Registros de POP de un usuario en el mes (pendiente o aprobado; lo devuelto no cuenta), con sus entregas ya enlazadas a la fila del mes.
 function ep_pop_entregas_usuario(int $usuarioId, array $mes): array {
 	$db = ep_db();
@@ -72,7 +86,7 @@ function ep_pop_entregas_usuario(int $usuarioId, array $mes): array {
 			// Los registros nuevos traen fila_id; los anteriores se enlazan por campaña y material.
 			$filaId = (int) ($e['fila_id'] ?? 0) ?: ($filaDe[($e['campana'] ?? '').'|'.($e['material'] ?? '')] ?? 0);
 			if ($filaId) {
-				$entregas[] = ['fila_id' => $filaId, 'material' => (string) ($e['material'] ?? ''), 'cantidad' => (int) ($e['cantidad'] ?? 0), 'punto' => (string) $r['punto_venta'], 'canal' => (string) $r['canal'], 'actualizado' => (string) $r['created_at'], 'hace_min' => max(0, (int) $r['hace_min'])];
+				$entregas[] = ['fila_id' => $filaId, 'material' => (string) ($e['material'] ?? ''), 'cantidad' => (int) ($e['cantidad'] ?? 0), 'punto' => (string) ($e['punto_venta'] ?? $r['punto_venta']), 'canal' => (string) ($e['canal'] ?? $r['canal']), 'actualizado' => (string) $r['created_at'], 'hace_min' => max(0, (int) $r['hace_min'])];
 			}
 		}
 	}

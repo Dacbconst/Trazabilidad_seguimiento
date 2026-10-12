@@ -14,11 +14,11 @@
 	<?php foreach ($meses as $m): ?>
 		<?php
 		$abierto = $m['estado'] === 'activo';
-		$bodega = array_sum(array_column($m['filas'], 'bodega'));
+		$asignado = array_sum(array_column($m['filas'], 'asignado_total'));
 		$colocado = array_sum(array_column($m['filas'], 'colocado'));
 		$sinRepartir = array_sum(array_map(fn($f) => max(0, (int) $f['sin_repartir']), $m['filas']));
 		$sinReporte = !$abierto && !$m['reporte_mensual_id'];
-		$pct = $bodega > 0 ? min(100, (int) round($colocado / $bodega * 100)) : 0;
+		$pct = $asignado > 0 ? min(100, (int) round($colocado / $asignado * 100)) : 0;
 		$n = count($supervisores);
 		?>
 		<details class="ep-as-mes ep-pop-mes ep-cg-mes" data-pop-id="<?= (int) $m['id'] ?>"<?= $abierto ? ' open' : '' ?>>
@@ -32,7 +32,7 @@
 				<?php else: ?>
 					<span class="ep-pop-badge ep-pop-badge-cerrado">Cerrado</span>
 				<?php endif; ?>
-				<span class="ep-as-meta"><span class="ep-as-pb" aria-hidden="true"><i style="width: <?= $pct ?>%"></i></span><span class="ep-pop-avance"><strong><?= (int) $colocado ?></strong> de <?= (int) $bodega ?> colocados</span> · <?= count($m['filas']) ?> <?= count($m['filas']) === 1 ? 'material' : 'materiales' ?></span>
+				<span class="ep-as-meta"><span class="ep-as-pb" aria-hidden="true"><i style="width: <?= $pct ?>%"></i></span><span class="ep-pop-avance"><strong><?= (int) $colocado ?></strong> de <?= (int) $asignado ?> colocados</span> · <?= count($m['filas']) ?> <?= count($m['filas']) === 1 ? 'material' : 'materiales' ?></span>
 				<?php if ($abierto && $sinRepartir > 0): ?><span class="ep-as-aviso"><?= ep_icon('users', 13) ?>Faltan <?= (int) $sinRepartir ?> por repartir</span><?php endif; ?>
 				<?php if ($esDueno): ?>
 					<span class="ep-cg-acc">
@@ -59,18 +59,18 @@
 						<span role="columnheader" class="ep-pop-celda-extra"><?= ep_icon('megaphone', 13) ?>Campaña</span>
 						<span role="columnheader"><?= ep_icon('shelves', 13) ?>Bodega</span>
 						<?php foreach ($supervisores as $sup): ?><span role="columnheader" class="ep-pop-celda-extra"><?= $h($sup['nombre']) ?></span><?php endforeach; ?>
-						<span role="columnheader"><?= ep_icon('layers', 13) ?>Disponible</span>
+						<span role="columnheader"><?= ep_icon('layers', 13) ?>Asignado</span>
 						<span role="columnheader" class="ep-pop-celda-extra"><?= ep_icon('check', 13) ?>Colocado</span>
-						<span role="columnheader"><?= ep_icon('clock', 13) ?>Por colocar</span>
+						<span role="columnheader"><?= ep_icon('clock', 13) ?>Disponible</span>
 					</div>
 					<?php foreach ($m['filas'] as $f): ?>
-						<?php $pf = (int) $f['bodega'] > 0 ? min(100, (int) round($f['colocado'] / $f['bodega'] * 100)) : 0; ?>
+						<?php $pf = (int) $f['asignado_total'] > 0 ? min(100, (int) round($f['colocado'] / $f['asignado_total'] * 100)) : 0; ?>
 						<div class="ep-pop-tr" role="row">
 							<span role="cell" class="ep-cg-mat"><?= $h($f['material']) ?></span>
 							<span role="cell" class="ep-pop-campana ep-pop-celda-extra"><?= $h($f['campana']) ?></span>
 							<span role="cell"><?= (int) $f['bodega'] ?></span>
 							<?php foreach ($supervisores as $sup): ?><span role="cell" class="ep-pop-celda-extra"><?= (int) ($f['asignado'][$sup['id']] ?? 0) ?></span><?php endforeach; ?>
-							<span role="cell" class="<?= $f['sin_repartir'] < 0 ? 'ep-pop-negativo' : ($f['sin_repartir'] > 0 ? 'ep-pop-pendiente' : '') ?>"><?= (int) $f['sin_repartir'] ?></span>
+							<span role="cell" class="<?= $f['sin_repartir'] < 0 ? 'ep-pop-negativo' : ($f['sin_repartir'] > 0 ? 'ep-pop-pendiente' : '') ?>"<?= $f['sin_repartir'] > 0 ? ' title="Faltan '.(int) $f['sin_repartir'].' por repartir"' : '' ?>><?= (int) $f['asignado_total'] ?></span>
 							<span role="cell" class="ep-pop-celda-extra ep-cg-col"><b><?= (int) $f['colocado'] ?></b><span class="ep-cg-mini" aria-hidden="true"><i style="width: <?= $pf ?>%"></i></span></span>
 							<span role="cell"><?= (int) $f['disponible'] ?></span>
 						</div>
