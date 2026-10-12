@@ -265,7 +265,8 @@ function ep_pop_cerrar(int $popId, int $usuarioId): ?int {
 	$hasta = date('Y-m-t', strtotime($desde));
 	// El flujo (supervisor, promotor y punto de venta) también se congela con el cierre.
 	require_once __DIR__.'/pop_flujo.php';
-	$snapshot = json_encode(['desde' => $desde, 'hasta' => $hasta, 'actividad' => 'Colocación de POP', 'pop_bodega' => $bodega, 'pop_flujo' => ep_pop_flujo($pop, $copia), 'registros' => $copia], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+	require_once __DIR__.'/pop_peso.php';
+	$snapshot = json_encode(['desde' => $desde, 'hasta' => $hasta, 'actividad' => 'Colocación de POP', 'pop_bodega' => $bodega, 'pop_flujo' => ep_pop_flujo($pop, $copia), 'pop_peso' => ep_pop_peso($copia), 'registros' => $copia], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 	$titulo = 'Colocación de POP '.ep_pop_mes_texto($pop['mes']);
 	$reporteId = $validos ? ep_reporte_crear('colocacion-pop', $pop['mes'], $titulo, null, null, $pop['comentarios'] ?? null, $validos, $snapshot, $usuarioId) : 0;
 

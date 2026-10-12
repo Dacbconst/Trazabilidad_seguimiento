@@ -54,7 +54,7 @@ $registros = ep_ppt_ordenar_registros($registros, $reporte['tipo']);
 @ini_set('memory_limit', '768M');
 $meses = ep_ppt_meses();
 $titulo = $meses[(int) substr($reporte['mes'], 5, 2)].' '.substr($reporte['mes'], 0, 4);
-$opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? ''), 'pop_bodega' => $reporte['snapshot']['pop_bodega'] ?? [], 'pop_flujo' => $reporte['snapshot']['pop_flujo'] ?? []];
+$opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? ''), 'pop_bodega' => $reporte['snapshot']['pop_bodega'] ?? [], 'pop_flujo' => $reporte['snapshot']['pop_flujo'] ?? [], 'pop_peso' => $reporte['snapshot']['pop_peso'] ?? []];
 // Tabla del calendario: la congelada en la copia o, en reportes viejos, la del calendario.
 if ($reporte['tipo'] === 'activaciones') {
 	require_once __DIR__.'/../includes/calendario_datos.php';

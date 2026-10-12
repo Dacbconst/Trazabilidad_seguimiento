@@ -70,6 +70,23 @@ function ep_ppt_pop_tablas(array &$ctx, array $registros, array $opciones): void
 	$colDetalle = [['', 0.2, 'r'], ['CAMPAÑA', 0.15, 'ctr'], ['PDV', 0.3, 'ctr'], ['CIUDAD', 0.15, 'ctr'], ['CANTIDAD ENTREGADA', 0.2, 'ctr']];
 	ep_ppt_pop_paginas($ctx, 4, 'DETALLE POP RECIBIDO', $colDetalle, $detalle);
 	ep_ppt_pop_flujo($ctx, $opciones['pop_flujo'] ?? []);
+	ep_ppt_pop_peso($ctx, $opciones['pop_peso'] ?? []);
+}
+
+// Peso por cadena: unidades colocadas por cadena, su porcentaje del total y cuánto de sus puntos habilitados se cubrió (solo en reportes que lo congelaron al cerrar).
+function ep_ppt_pop_peso(array &$ctx, array $peso): void {
+	if (!$peso) {
+		return;
+	}
+	$filas = [];
+	foreach ($peso as $p) {
+		$filas[] = ['celdas' => [ep_ppt_mayus($p['cadena']), $p['habilitados'], $p['puntos'], $p['cobertura'] === null ? '-' : $p['cobertura'].'%', $p['unidades'], $p['peso'].'%']];
+	}
+	$habilitados = array_sum(array_column($peso, 'habilitados'));
+	$puntos = array_sum(array_column($peso, 'puntos'));
+	$filas[] = ['celdas' => ['TOTAL', $habilitados, $puntos, $habilitados > 0 ? round($puntos / $habilitados * 100, 1).'%' : '-', array_sum(array_column($peso, 'unidades')), '100%'], 'negrita' => true];
+	$columnas = [['CADENA', 0.3, 'ctr'], ['PUNTOS HABILITADOS', 0.16, 'ctr'], ['PUNTOS CON POP', 0.16, 'ctr'], ['COBERTURA', 0.12, 'ctr'], ['UNIDADES COLOCADAS', 0.14, 'ctr'], ['PESO', 0.12, 'ctr']];
+	ep_ppt_pop_paginas($ctx, 4, 'PESO POR CADENA', $columnas, $filas, ['rejilla' => true, 'ancho' => 0.85, 'fila' => 250000, 'fuente' => 10], 1);
 }
 
 // Flujo del mes: lo que recibió cada supervisor y lo que cada promotor colocó en cada punto de venta (solo en reportes que lo congelaron al cerrar).
@@ -100,16 +117,17 @@ function ep_ppt_pop_flujo(array &$ctx, array $flujo): void {
 		$anterior = $clave;
 		$anteriorSup = $claveSup;
 	}
-	$columnas = [['', 0.14, 'r'], ['CAMPAÑA', 0.1, 'ctr'], ['SUPERVISOR', 0.15, 'ctr'], ['RECIBIÓ', 0.07, 'ctr'], ['PROMOTOR', 0.18, 'ctr'], ['PDV', 0.19, 'ctr'], ['CIUDAD', 0.09, 'ctr'], ['COLOCÓ', 0.08, 'ctr']];
-	ep_ppt_pop_paginas($ctx, 4, 'FLUJO DE ENTREGA', $columnas, $filas);
+	$columnas = [['MATERIAL', 0.12, 'ctr'], ['CAMPAÑA', 0.09, 'ctr'], ['SUPERVISOR', 0.15, 'ctr'], ['RECIBIÓ', 0.07, 'ctr'], ['PROMOTOR', 0.19, 'ctr'], ['PDV', 0.2, 'ctr'], ['CIUDAD', 0.1, 'ctr'], ['COLOCÓ', 0.08, 'ctr']];
+	// Tabla completa (rejilla y filas alternadas) a todo el ancho, un solo bloque por diapositiva.
+	ep_ppt_pop_paginas($ctx, 4, 'FLUJO DE ENTREGA', $columnas, $filas, ['rejilla' => true, 'ancho' => 1.0, 'fila' => 250000, 'fuente' => 10], 1);
 }
 
-// Reparte las filas en diapositivas clonadas de la plantilla $n: hasta dos bloques por diapositiva, lado a lado.
-function ep_ppt_pop_paginas(array &$ctx, int $n, string $titulo, array $columnas, array $filas): void {
+// Reparte las filas en diapositivas clonadas de la plantilla $n: hasta $maxBloques bloques por diapositiva, lado a lado.
+function ep_ppt_pop_paginas(array &$ctx, int $n, string $titulo, array $columnas, array $filas, array $estilo = [], int $maxBloques = 2): void {
 	[$dom, $xp] = ep_ppt_cargar((string) $ctx['tpl']->getFromName('ppt/slides/slide'.$n.'.xml'));
 	$area = ep_ppt_medidas($xp, 'Area tabla');
-	$capacidad = ep_ppt_tabla_capacidad($area ? $area[3] : 5000000);
-	foreach (array_chunk($filas, $capacidad * 2) as $pagina) {
+	$capacidad = ep_ppt_tabla_capacidad($area ? $area[3] : 5000000, $estilo);
+	foreach (array_chunk($filas, $capacidad * $maxBloques) as $pagina) {
 		$bloques = array_chunk($pagina, $capacidad);
 		// Un material partido entre columnas o diapositivas repite su nombre al empezar el bloque nuevo.
 		foreach ($bloques as &$bloque) {
@@ -119,7 +137,7 @@ function ep_ppt_pop_paginas(array &$ctx, int $n, string $titulo, array $columnas
 		}
 		unset($bloque);
 		$slide = ep_ppt_slide_nueva($ctx, $n);
-		ep_ppt_tabla_en_recuadro($slide['dom'], $slide['xp'], 'Area tabla', $titulo, $columnas, $bloques);
+		ep_ppt_tabla_en_recuadro($slide['dom'], $slide['xp'], 'Area tabla', $titulo, $columnas, $bloques, $estilo);
 		ep_ppt_slide_guardar($ctx, $slide);
 	}
 }
