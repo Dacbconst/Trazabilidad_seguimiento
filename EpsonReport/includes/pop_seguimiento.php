@@ -23,7 +23,7 @@ function ep_pop_seguimiento(array $mes, int $supervisorId): array {
 	$materiales = [];
 	foreach ($mes['filas'] as $f) {
 		if ($p = $parte[(int) $f['id']] ?? null) {
-			$materiales[] = ['id' => (int) $f['id'], 'material' => $f['material'], 'campana' => $f['campana'], 'recibido' => $p['recibido'], 'reportado' => $p['reportado'], 'disponible' => $p['disponible']];
+			$materiales[] = ['id' => (int) $f['id'], 'material' => $f['material'], 'campana' => $f['campana'], 'recibido' => $p['recibido'], 'reportado' => $p['validado'], 'por_validar' => max(0, $p['reportado'] - $p['validado']), 'disponible' => $p['disponible']];
 		}
 	}
 	$equipo = ep_pop_equipo($supervisorId);
@@ -34,21 +34,26 @@ function ep_pop_seguimiento(array $mes, int $supervisorId): array {
 	foreach (ep_pop_equipo_de((int) $mes['id'], $supervisorId) as $usuarioId => $filas) {
 		$entregas = ep_pop_entregas_usuario($usuarioId, $mes);
 		$hecho = [];
+		$validado = [];
 		foreach ($entregas as $e) {
 			$hecho[$e['fila_id']] = ($hecho[$e['fila_id']] ?? 0) + $e['cantidad'];
+			if ($e['estado'] === 'Aprobado') {
+				$validado[$e['fila_id']] = ($validado[$e['fila_id']] ?? 0) + $e['cantidad'];
+			}
 		}
 		$celdas = [];
 		foreach ($materiales as $m) {
-			$celdas[$m['id']] = ['asignado' => in_array($m['id'], $filas, true), 'reportado' => $hecho[$m['id']] ?? 0];
+			$celdas[$m['id']] = ['asignado' => in_array($m['id'], $filas, true), 'reportado' => $validado[$m['id']] ?? 0, 'por_validar' => ($hecho[$m['id']] ?? 0) - ($validado[$m['id']] ?? 0)];
 		}
-		$total = array_sum($hecho);
+		$total = array_sum($validado);
 		$promotores[] = [
 			'id' => $usuarioId,
 			'nombre' => $nombres[$usuarioId] ?? 'Promotor #'.$usuarioId,
 			'foto' => $fotos[$usuarioId] ?? '',
 			'celdas' => $celdas,
 			'total' => $total,
-			'estado' => $total > 0 ? 'rep' : 'sin',
+			'por_validar' => array_sum($hecho) - $total,
+			'estado' => array_sum($hecho) > 0 ? 'rep' : 'sin',
 			'ultimo_min' => $entregas ? min(array_column($entregas, 'hace_min')) : null,
 			'desde_min' => $desde[$usuarioId] ?? 0,
 			'detalle' => $entregas,

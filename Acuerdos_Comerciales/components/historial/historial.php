@@ -48,7 +48,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/historial.js') ?: time();
 			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-actualizar" title="Actualizar">
 				<span class="material-symbols-outlined">refresh</span> <span class="ac-btn-text">Actualizar</span>
 			</button>
-			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-abrir-borradores" title="Mis Borradores">
+			<button type="button" class="ac-btn-outline ac-btn-inline" id="hist-abrir-borradores" title="Mis Borradores"<?= actasGeneracionBloqueada() ? ' style="display:none"' : '' ?>>
 				<span class="material-symbols-outlined">draft</span> <span class="ac-btn-text">Mis Borradores</span>
 			</button>
 			<?php if ($esSuperdev): ?>

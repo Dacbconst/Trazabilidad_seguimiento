@@ -10,10 +10,11 @@ $iconoAviso = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" strok
 		$abierto = $mes['estado'] === 'activo';
 		$parteMes = ep_pop_parte_supervisor($mes, $yo);
 		$asignados = ep_pop_equipo_de((int) $mes['id'], $yo);
+		$cantidades = ep_pop_equipo_cantidades((int) $mes['id'], $yo);
 		$materiales = [];
 		foreach ($mes['filas'] as $f) {
 			if ($p = $parteMes[(int) $f['id']] ?? null) {
-				$materiales[] = ['id' => (int) $f['id'], 'material' => $f['material'], 'campana' => $f['campana'], 'recibido' => $p['recibido'], 'reportado' => $p['reportado'], 'disponible' => $p['disponible']];
+				$materiales[] = ['id' => (int) $f['id'], 'material' => $f['material'], 'campana' => $f['campana'], 'recibido' => $p['recibido'], 'repartido' => $p['repartido'], 'reportado' => $p['reportado'], 'disponible' => $p['disponible']];
 			}
 		}
 		$recibidoTotal = array_sum(array_column($materiales, 'recibido'));
@@ -42,7 +43,7 @@ $iconoAviso = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" strok
 				?>
 				<div class="ep-eq-in" id="epEq">
 					<div class="ep-eq-bar">
-						<h3>Mi equipo<span>Marca qué material reporta cada promotor</span></h3>
+						<h3>Mi equipo<span>Reparte lo que te asignaron: puedes hacerlo por partes, sin pasarte de lo recibido</span></h3>
 						<div class="ep-eq-acciones">
 						<button type="button" class="ep-eq-btn ep-eq-btn-p" id="epEqEditar" hidden><?= ep_icon('pencil', 14) ?> Editar equipo</button>
 						<div class="ep-eq-menu">
@@ -64,7 +65,7 @@ $iconoAviso = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" strok
 						</div>
 					</div>
 				</div>
-				<script type="application/json" id="epEqDatos"><?= json_encode(['id' => (int) $mes['id'], 'materiales' => $materiales, 'equipo' => ep_pop_equipo($yo), 'asignados' => (object) $asignados, 'reportado' => (object) array_map(fn($x) => (object) $x, $reportado)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
+				<script type="application/json" id="epEqDatos"><?= json_encode(['id' => (int) $mes['id'], 'materiales' => $materiales, 'equipo' => ep_pop_equipo($yo), 'asignados' => (object) $asignados, 'cantidades' => (object) array_map(fn($x) => (object) $x, $cantidades), 'reportado' => (object) array_map(fn($x) => (object) $x, $reportado)], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
 			<?php elseif (!$asignados): ?>
 				<p class="ep-eq-cerrado">En este mes no marcaste a ningún promotor.</p>
 			<?php else: ?>
@@ -86,7 +87,7 @@ $iconoAviso = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" strok
 							<?php foreach ($materiales as $m): ?>
 								<span class="ep-eq-c">
 									<?php if (!in_array($m['id'], $filas, true)): ?><span class="ep-sg-no" title="Sin este material">·</span>
-									<?php else: $n = (int) ($hecho[$m['id']] ?? 0); ?><span class="ep-sg-n<?= $n > 0 ? '' : ' z' ?>"><?= $n ?></span><?php endif; ?>
+									<?php else: $n = (int) ($hecho[$m['id']] ?? 0); $c = (int) ($cantidades[$usuarioId][$m['id']] ?? 0); ?><span class="ep-sg-n<?= $n > 0 ? '' : ' z' ?>"><?= $n ?><?= $c > 0 ? ' de '.$c : '' ?></span><?php endif; ?>
 								</span>
 							<?php endforeach; ?>
 						</div>

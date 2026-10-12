@@ -38,9 +38,14 @@
 					<span class="ep-cg-acc">
 						<?php if ($abierto): ?>
 							<button type="button" class="ep-pop-btn ep-pop-editar"><?= ep_icon('pencil', 14) ?> Editar</button>
-							<button type="button" class="ep-pop-btn ep-pop-btn-pri ep-pop-cerrar"><?= ep_icon('check', 14) ?> Cerrar mes y generar</button>
-						<?php elseif ($m['reporte_mensual_id']): ?>
-							<a class="ep-pop-btn ep-pop-btn-pri" href="getters/reporte_descargar.php?id=<?= (int) $m['reporte_mensual_id'] ?>"><?= ep_icon('download', 14) ?> Descargar PPT</a>
+							<button type="button" class="ep-pop-btn ep-pop-btn-pri ep-pop-cerrar" data-sin-repartir="<?= $h(json_encode(ep_pop_sin_repartir($m, $supervisores), JSON_UNESCAPED_UNICODE)) ?>"><?= ep_icon('check', 14) ?> Cerrar mes y generar</button>
+						<?php else: ?>
+							<?php if ($m['reporte_mensual_id']): ?>
+								<a class="ep-pop-btn ep-pop-btn-pri" href="getters/reporte_descargar.php?id=<?= (int) $m['reporte_mensual_id'] ?>"><?= ep_icon('download', 14) ?> Descargar PPT</a>
+							<?php endif; ?>
+							<?php if (!$hayAbierto): ?>
+								<button type="button" class="ep-pop-btn ep-pop-reactivar" title="Volver a abrir este mes"><?= ep_icon('clock', 14) ?> Reactivar</button>
+							<?php endif; ?>
 						<?php endif; ?>
 						<button type="button" class="ep-pop-btn ep-pop-eliminar" aria-label="Eliminar mes" title="Eliminar mes"><?= ep_icon('trash', 14) ?></button>
 					</span>
@@ -77,6 +82,7 @@
 					<?php endforeach; ?>
 				</div>
 			<?php endif; ?>
+			<?php if ($esDueno) { require __DIR__ . '/avance_supervisores.php'; } ?>
 		</details>
 	<?php endforeach; ?>
 <?php endif; ?>

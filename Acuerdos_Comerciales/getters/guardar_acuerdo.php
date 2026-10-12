@@ -39,6 +39,26 @@ $origenPrecarga = is_array($body['origen_precarga'] ?? null) ? $body['origen_pre
 
 $estadosPermitidosDesdeForm = ['borrador', 'generado', 'enviado'];
 
+// Bloqueo: solo se puede generar desde una Acta Asignada (campanita) que siga pendiente_uso en la base, no se confía solo en lo que mande el navegador.
+if ($estado !== 'borrador' && actasGeneracionBloqueada()) {
+	$precargaValida = false;
+	if ($origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
+		$tablaPrecarga = ($origenPrecarga['origen'] ?? 'cuotas') === 'completo' ? 'repositorio_acuerdo_completo_linea' : 'repositorio_cuota_cliente';
+		$tPre = (int) ($origenPrecarga['trimestre'] ?? 0);
+		$aPre = (int) ($origenPrecarga['anio'] ?? 0);
+		$stmtPre = $mysqli->prepare("SELECT 1 FROM $tablaPrecarga WHERE pos_id = ? AND trimestre = ? AND anio = ? AND estado = 'pendiente_uso' LIMIT 1");
+		if ($stmtPre) {
+			$stmtPre->bind_param('sii', $posId, $tPre, $aPre);
+			$stmtPre->execute();
+			$precargaValida = (bool) $stmtPre->get_result()->fetch_row();
+			$stmtPre->close();
+		}
+	}
+	if (!$precargaValida) {
+		responder(false, 'La generación de Actas está temporalmente bloqueada. Solo puedes generar desde una Acta Asignada.');
+	}
+}
+
 // ---------- Validaciones de cabecera ----------
 if ($posId === '') {
 	responder(false, 'Selecciona un Local.');

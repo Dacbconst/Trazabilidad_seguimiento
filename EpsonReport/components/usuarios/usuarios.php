@@ -86,11 +86,13 @@ $clave = EP_CLAVE_MINIMA;
 			<div class="ep-us-sec" id="epUsWRuta">
 				<h3>Ruta del promotor</h3>
 				<div class="ep-us-fl">
-					<label for="epUsCategorias">Puntos de venta que ve</label>
-					<select id="epUsCategorias">
-						<?php foreach (EP_CATEGORIAS_PDV as $k => $txt): ?><option value="<?= $h($k) ?>"><?= $h($txt) ?></option><?php endforeach; ?>
-					</select>
-					<small>Define qué puntos de venta le salen al registrar.</small>
+					<span class="ep-us-lbl" id="epUsCategoriasEtq">Puntos de venta que ve</span>
+					<div class="ep-us-canales" id="epUsCategorias" role="group" aria-labelledby="epUsCategoriasEtq">
+						<?php foreach (ep_todos_los_canales() as $canal): ?>
+							<label class="ep-us-canal"><input type="checkbox" value="<?= $h($canal) ?>"><span><?= $h(ucfirst(strtolower($canal))) ?></span></label>
+						<?php endforeach; ?>
+					</div>
+					<small>Marca los canales que ve al registrar; se suman. Sin marcar ninguno se usa su ruta en Xplora. En Colocación de POP solo se usan Retail y Canales.</small>
 				</div>
 				<div class="ep-us-fl" id="epUsWSupCanales">
 					<label for="epUsSupCanales">Supervisor de canales</label>

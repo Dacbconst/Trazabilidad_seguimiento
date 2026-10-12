@@ -1179,6 +1179,10 @@ mockup `code.html` por choque con las reglas de este documento:
     - Logo: se reusa el mismo `assets/img/logo_alicorp.png` de siempre — el
       usuario pidió explícitamente NO replicar el logo viejo del PDF de
       referencia, usar "el nuestro, como lo tenemos diseñado".
+    - **Bloqueo de generación 2026-10-12**: `ACTAS_GENERACION_BLOQUEADA` (`includes/functions/sesion.php`, poner en `false` para reabrir); usuarios normales solo generan desde una Acta Asignada de la campanita (`guardar_acuerdo.php` verifica la precarga `pendiente_uso` en la base; `registrar.js` deshabilita Previsualización sin `origenPrecarga`). El superdesarrollador no se bloquea.
+    - **Cuenta regresiva en días hábiles 2026-10-12**: badges/campanita/Seguimiento ya no muestran días calendario (28) sino días hábiles restantes (20); `diasHabilesRestantes()` en `includes/functions/historial.php` convierte el DATEDIFF (sin feriados); la fecha de vencimiento NO cambió.
+    - **Fix 2026-10-12**: "Valor Estimado a Ganar" del formulario (`updatePurchaseRow()` en `registrar.js`) usaba siempre Total x (1+Rebate%); ahora en Distribuidor es Total x Rebate%, igual que `acta_pdf.php`.
+    - **REVERTIDO 2026-10-12**: soporte pidió que "Estimado(a)" vuelva a mostrar el nombre del cliente (Local, `$detalle['distribuidor']`) también en Distribuidor, no la empresa (`acta_pdf.php`, `$estimadoTexto`). La nota de abajo es historia, ya no aplica.
     - **"Estimado(a)" (2026-08-20, ronda 4)**: en Distribuidor ya NO
       muestra el nombre del Local (`pos_name`) — muestra la **Empresa
       Distribuidora** (`repositorio_locales_supervisores_cliente.tipo_distribuidor`

@@ -80,12 +80,12 @@ function ep_ppt_pop_peso(array &$ctx, array $peso): void {
 	}
 	$filas = [];
 	foreach ($peso as $p) {
-		$filas[] = ['celdas' => [ep_ppt_mayus($p['cadena']), $p['habilitados'], $p['puntos'], $p['cobertura'] === null ? '-' : $p['cobertura'].'%', $p['unidades'], $p['peso'].'%']];
+		$filas[] = ['celdas' => [ep_ppt_mayus($p['canal'] ?? ''), ep_ppt_mayus($p['cadena']), $p['habilitados'], $p['puntos'], $p['cobertura'] === null ? '-' : $p['cobertura'].'%', $p['unidades'], $p['peso'].'%']];
 	}
 	$habilitados = array_sum(array_column($peso, 'habilitados'));
 	$puntos = array_sum(array_column($peso, 'puntos'));
-	$filas[] = ['celdas' => ['TOTAL', $habilitados, $puntos, $habilitados > 0 ? round($puntos / $habilitados * 100, 1).'%' : '-', array_sum(array_column($peso, 'unidades')), '100%'], 'negrita' => true];
-	$columnas = [['CADENA', 0.3, 'ctr'], ['PUNTOS HABILITADOS', 0.16, 'ctr'], ['PUNTOS CON POP', 0.16, 'ctr'], ['COBERTURA', 0.12, 'ctr'], ['UNIDADES COLOCADAS', 0.14, 'ctr'], ['PESO', 0.12, 'ctr']];
+	$filas[] = ['celdas' => ['', 'TOTAL', $habilitados, $puntos, $habilitados > 0 ? round($puntos / $habilitados * 100, 1).'%' : '-', array_sum(array_column($peso, 'unidades')), '100%'], 'negrita' => true];
+	$columnas = [['CANAL', 0.14, 'ctr'], ['PDV', 0.24, 'ctr'], ['PUNTOS HABILITADOS', 0.14, 'ctr'], ['PUNTOS CON POP', 0.14, 'ctr'], ['COBERTURA', 0.12, 'ctr'], ['UNIDADES COLOCADAS', 0.12, 'ctr'], ['PESO', 0.1, 'ctr']];
 	ep_ppt_pop_paginas($ctx, 4, 'PESO POR CADENA', $columnas, $filas, ['rejilla' => true, 'ancho' => 0.85, 'fila' => 250000, 'fuente' => 10], 1);
 }
 

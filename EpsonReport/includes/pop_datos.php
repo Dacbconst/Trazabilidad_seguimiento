@@ -225,14 +225,26 @@ function ep_pop_editar(int $popId, array $filas, ?string $comentarios, int $porI
 	return true;
 }
 
-function ep_pop_eliminar(int $popId): bool {
+// Elimina el mes con su reporte y los registros de colocación de ese mes (borrado lógico) para que al cargarlo de nuevo se reporte desde cero; devuelve cuántos registros anuló o null si no pudo.
+function ep_pop_eliminar(int $popId): ?int {
 	$db = ep_db();
-	if (!$db) {
-		return false;
+	$pop = ep_pop_obtener($popId);
+	if (!$db || !$pop) {
+		return null;
 	}
 	$stmt = $db->prepare('UPDATE insert_reporte_pop SET eliminado_en = NOW() WHERE id = ? AND eliminado_en IS NULL');
 	$stmt->bind_param('i', $popId);
-	return $stmt->execute() && $stmt->affected_rows > 0;
+	if (!$stmt->execute() || $stmt->affected_rows < 1) {
+		return null;
+	}
+	if (!empty($pop['reporte_mensual_id'])) {
+		require_once __DIR__.'/reportes_datos.php';
+		ep_reporte_eliminar((int) $pop['reporte_mensual_id']);
+	}
+	$upd = $db->prepare("UPDATE insert_reporte_registro SET eliminado_en = NOW() WHERE tipo = 'colocacion-pop' AND eliminado_en IS NULL AND DATE_FORMAT(fecha_actividad, '%Y-%m') = ?");
+	$upd->bind_param('s', $pop['mes']);
+	$upd->execute();
+	return $upd->affected_rows;
 }
 
 // Cierra el mes y genera su reporte: null si no se pudo cerrar, 0 si cerró sin reporte, o el id del reporte.
@@ -275,6 +287,22 @@ function ep_pop_cerrar(int $popId, int $usuarioId): ?int {
 	$reporteIdParam = $reporteId > 0 ? $reporteId : null;
 	$stmt->bind_param('sii', $ahora, $reporteIdParam, $popId);
 	return $stmt->execute() ? $reporteId : null;
+}
+
+// Reabre un mes cerrado: quita su reporte (borrado lógico) para liberar los registros y se vuelve a generar al cerrar; false si no se pudo.
+function ep_pop_reactivar(int $popId): bool {
+	$db = ep_db();
+	$pop = ep_pop_obtener($popId);
+	if (!$db || !$pop || $pop['estado'] !== 'cerrado' || ep_pop_abierto()) {
+		return false;
+	}
+	if (!empty($pop['reporte_mensual_id'])) {
+		require_once __DIR__.'/reportes_datos.php';
+		ep_reporte_eliminar((int) $pop['reporte_mensual_id']);
+	}
+	$stmt = $db->prepare("UPDATE insert_reporte_pop SET estado = 'activo', cerrado_en = NULL, reporte_mensual_id = NULL WHERE id = ? AND estado = 'cerrado'");
+	$stmt->bind_param('i', $popId);
+	return $stmt->execute() && $stmt->affected_rows > 0;
 }
 
 // Filas que manda el navegador, en mayúsculas y sin repetir material; devuelve el texto del error si algo no pasa.

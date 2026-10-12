@@ -18,7 +18,8 @@ function ep_pop_peso(array $registros): array {
 				continue;
 			}
 			$cadenas[$cadena]['unidades'] = ($cadenas[$cadena]['unidades'] ?? 0) + (int) $e['cantidad'];
-			$cadenas[$cadena]['puntos'][(string) ($e['pos_id'] ?? $r['pos_id'] ?? $punto)] = true;
+			$pos = (string) ($e['pos_id'] ?? $r['pos_id'] ?? $punto);
+			$cadenas[$cadena]['puntos'][$pos] = true;
 		}
 	}
 	if (!$cadenas) {
@@ -26,15 +27,17 @@ function ep_pop_peso(array $registros): array {
 	}
 	// Puntos habilitados (activar = SI) de cada cadena en la base.
 	$habilitados = [];
+	$canales = [];
 	$db = ep_db();
 	$marcas = implode(',', array_fill(0, count($cadenas), '?'));
-	$stmt = $db ? $db->prepare("SELECT UPPER(TRIM(SUBSTRING_INDEX(pos_name, ' - ', 1))) AS cadena, COUNT(*) AS n FROM repositorio_locales_dtt2 WHERE activar = 'SI' AND UPPER(TRIM(SUBSTRING_INDEX(pos_name, ' - ', 1))) IN ($marcas) GROUP BY cadena") : false;
+	$stmt = $db ? $db->prepare("SELECT UPPER(TRIM(SUBSTRING_INDEX(pos_name, ' - ', 1))) AS cadena, SUM(activar = 'SI') AS n, MAX(CASE WHEN channel IN ('', '-') THEN NULL ELSE channel END) AS canal FROM repositorio_locales_dtt2 WHERE UPPER(TRIM(SUBSTRING_INDEX(pos_name, ' - ', 1))) IN ($marcas) GROUP BY cadena") : false;
 	if ($stmt) {
 		$nombres = array_keys($cadenas);
 		$stmt->bind_param(str_repeat('s', count($nombres)), ...$nombres);
 		$stmt->execute();
 		foreach ($stmt->get_result() as $f) {
 			$habilitados[$f['cadena']] = (int) $f['n'];
+			$canales[$f['cadena']] = mb_strtoupper((string) $f['canal'], 'UTF-8');
 		}
 		$stmt->close();
 	}
@@ -43,7 +46,7 @@ function ep_pop_peso(array $registros): array {
 	foreach ($cadenas as $nombre => $c) {
 		$con = count($c['puntos']);
 		$hab = $habilitados[$nombre] ?? 0;
-		$filas[] = ['cadena' => $nombre, 'habilitados' => $hab, 'puntos' => $con, 'cobertura' => $hab > 0 ? round($con / $hab * 100, 1) : null, 'unidades' => $c['unidades'], 'peso' => $total > 0 ? round($c['unidades'] / $total * 100, 1) : 0];
+		$filas[] = ['cadena' => $nombre, 'canal' => $canales[$nombre] ?? '', 'habilitados' => $hab, 'puntos' => $con, 'cobertura' => $hab > 0 ? round($con / $hab * 100, 1) : null, 'unidades' => $c['unidades'], 'peso' => $total > 0 ? round($c['unidades'] / $total * 100, 1) : 0];
 	}
 	usort($filas, fn($a, $b) => $b['unidades'] <=> $a['unidades'] ?: strcmp($a['cadena'], $b['cadena']));
 	return $filas;

@@ -53,7 +53,7 @@ function resumen_seguimiento_equipo($mysqli, $trimestre = 0, $anio = 0) {
 		$u['firmadas']         = (int) $u['firmadas'];
 		$u['pendientes']       = (int) $u['pendientes'];
 		$u['vencidas']         = (int) $u['vencidas'];
-		$u['dias_mas_proxima'] = $u['dias_mas_proxima'] !== null ? (int) $u['dias_mas_proxima'] : null;
+		$u['dias_mas_proxima'] = $u['dias_mas_proxima'] !== null ? diasHabilesRestantes($u['dias_mas_proxima']) : null;
 		// Calculado acá para que el frontend nunca tenga su propia versión divergente.
 		$u['iniciales']        = inicialesUsuario($u['nombre']);
 		$stats['total']      += $u['total'];
@@ -115,7 +115,7 @@ function listar_actas_equipo_usuario($mysqli, $usuarioId, $trimestre = 0, $anio 
 	rellenarClienteDeActas($mysqli, $filas, 'pos_name');
 	foreach ($filas as &$f) {
 		$f['tiene_firma']    = (bool) $f['tiene_firma'];
-		$f['dias_restantes'] = $f['dias_restantes'] !== null ? (int) $f['dias_restantes'] : null;
+		$f['dias_restantes'] = $f['dias_restantes'] !== null ? diasHabilesRestantes($f['dias_restantes']) : null;
 	}
 	unset($f);
 	return $filas;

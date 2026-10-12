@@ -14,11 +14,11 @@
 	function diasCortos(dias) {
 		dias = parseInt(dias, 10);
 		if (dias <= 0) return 'hoy';
-		if (dias === 1) return '1 día';
-		return dias + ' días';
+		if (dias === 1) return '1 día hábil';
+		return dias + ' días hábiles';
 	}
 	function accionTexto(dias) {
-		return 'Subí la firma — ' + diasCortos(dias);
+		return 'Sube la firma — ' + diasCortos(dias);
 	}
 
 	// Vistas: sin backend real, se guarda en localStorage — estado por navegador, no por usuario. Clave: id real o pos_id+trimestre+año.

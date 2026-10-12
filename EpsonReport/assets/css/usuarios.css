@@ -107,3 +107,13 @@
 @media (prefers-reduced-motion: reduce) { .ep-us-drawer, .ep-us-scrim { transition: none; } }
 
 .ep-us-tag-supervisor { background: #E6F0FB; color: #1B4F8F; }
+
+/* Canales que ve el usuario: casillas que se suman */
+.ep-us-lbl { font-size: 13px; font-weight: 600; color: var(--color-ink); }
+.ep-us-canales { display: flex; flex-wrap: wrap; gap: 8px; }
+.ep-us-canal { position: relative; display: inline-flex; cursor: pointer; }
+.ep-us-canal input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.ep-us-canal span { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 999px; background: #fff; color: var(--color-text); font-size: 13.5px; font-weight: 500; transition: background-color .15s ease-out, border-color .15s ease-out, color .15s ease-out; }
+.ep-us-canal:hover span { border-color: var(--color-primary-mid); }
+.ep-us-canal input:checked + span { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.ep-us-canal input:focus-visible + span { outline: 2px solid var(--color-primary); outline-offset: 2px; }

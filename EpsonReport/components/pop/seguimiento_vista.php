@@ -4,6 +4,7 @@ $h ??= fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $iniciales = fn(string $n) => mb_strtoupper(implode('', array_map(fn($p) => mb_substr($p, 0, 1), array_slice(preg_split('/\s+/', trim($n)), 0, 2))), 'UTF-8');
 $recibidoTotal = array_sum(array_column($seg['materiales'], 'recibido'));
 $reportadoTotal = array_sum(array_column($seg['materiales'], 'reportado'));
+$pvTotal = array_sum(array_column($seg['materiales'], 'por_validar'));
 $pctTotal = $recibidoTotal > 0 ? min(100, (int) round($reportadoTotal / $recibidoTotal * 100)) : 0;
 $porMaterial = array_column($seg['materiales'], 'material', 'id');
 $icoAviso = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>';
@@ -18,7 +19,7 @@ $grupos = [
 <div class="ep-sv-saldo" role="group" aria-label="Filtrar por material">
 	<button type="button" class="ep-sv-mat on" data-fila="0" aria-pressed="true">
 		<span class="ep-sv-nm"><strong>Todos</strong><em>los materiales</em></span>
-		<span class="ep-sv-num"><b><?= (int) $reportadoTotal ?></b><span>de <?= (int) $recibidoTotal ?> reportadas</span></span>
+		<span class="ep-sv-num"><b><?= (int) $reportadoTotal ?></b><span>de <?= (int) $recibidoTotal ?> reportadas<?= $pvTotal > 0 ? ' · '.$pvTotal.' por validar' : '' ?></span></span>
 		<span class="ep-sv-barra"><i style="width: <?= $pctTotal ?>%"></i></span>
 		<span class="ep-sv-est"><?= $reportadoTotal > 0 ? 'En curso · '.$pctTotal.' %' : 'Sin avance' ?></span>
 	</button>
@@ -26,7 +27,7 @@ $grupos = [
 		<?php $pct = $m['recibido'] > 0 ? min(100, (int) round($m['reportado'] / $m['recibido'] * 100)) : 0; $ag = $m['disponible'] <= 0; ?>
 		<button type="button" class="ep-sv-mat" data-fila="<?= (int) $m['id'] ?>" aria-pressed="false">
 			<span class="ep-sv-nm"><strong><?= $h($m['material']) ?></strong><em><?= $h($m['campana']) ?></em></span>
-			<span class="ep-sv-num"><b><?= (int) $m['reportado'] ?></b><span>de <?= (int) $m['recibido'] ?> reportadas</span></span>
+			<span class="ep-sv-num"><b><?= (int) $m['reportado'] ?></b><span>de <?= (int) $m['recibido'] ?> reportadas<?= $m['por_validar'] > 0 ? ' · '.(int) $m['por_validar'].' por validar' : '' ?></span></span>
 			<span class="ep-sv-barra<?= $ag ? ' ag' : '' ?>"><i style="width: <?= $pct ?>%"></i></span>
 			<span class="ep-sv-est<?= $ag ? ' ag' : '' ?>"><?= $ag ? 'Agotado' : ($m['reportado'] > 0 ? 'Quedan '.(int) $m['disponible'] : 'Sin avance') ?></span>
 		</button>
@@ -43,7 +44,7 @@ $grupos = [
 		</summary>
 		<?php foreach ($lista as $p): ?>
 			<?php
-			$conReporte = array_keys(array_filter($p['celdas'], fn($c) => $c['reportado'] > 0));
+			$conReporte = array_keys(array_filter($p['celdas'], fn($c) => $c['reportado'] + $c['por_validar'] > 0));
 			if ($clave === 'rep') {
 				$viejo = $p['ultimo_min'] !== null && $p['ultimo_min'] >= 4320;
 				$cuando = $viejo ? 'Sin reportar '.ep_pop_hace($p['ultimo_min']) : 'Último reporte '.ep_pop_hace((int) $p['ultimo_min']);
@@ -60,6 +61,7 @@ $grupos = [
 							<?php $c = $p['celdas'][$m['id']]; if (!$c['asignado']) { continue; } ?>
 							<span class="ep-sv-chip<?= $c['reportado'] > 0 ? '' : ' z' ?>" data-fila="<?= (int) $m['id'] ?>"><?= $h($m['material']) ?> <b><?= (int) $c['reportado'] ?></b></span>
 						<?php endforeach; ?>
+						<?php if ($p['por_validar'] > 0): ?><span class="ep-sv-pv" title="Registros enviados que el supervisor aún no aprueba"><?= (int) $p['por_validar'] ?> por validar</span><?php endif; ?>
 					</span>
 					<span class="ep-sv-cuando<?= $viejo ? ' at' : '' ?>"><?= $viejo ? $icoAviso : '' ?><?= $h($cuando) ?></span>
 					<svg class="ep-sv-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -73,12 +75,12 @@ $grupos = [
 								<span><?= mb_strtoupper($e['canal'], 'UTF-8') === 'RETAIL' ? '<span class="ep-sg-chip ep-sg-chip-rt">Retail</span>' : '<span class="ep-sg-chip ep-sg-chip-mu">Canales</span>' ?></span>
 								<span><?= $h($porMaterial[$e['fila_id']] ?? $e['material']) ?></span>
 								<span><?= (int) $e['cantidad'] ?></span>
-								<span class="ep-sg-mu"><?= $h(date('d/m/Y H:i', strtotime($e['actualizado']))) ?></span>
+								<span class="ep-sg-mu"><?= $h(date('d/m/Y H:i', strtotime($e['actualizado']))) ?><?= $e['estado'] === 'Aprobado' ? '' : ' <span class="ep-sg-chip ep-sg-chip-pv">Por validar</span>' ?></span>
 							</div>
 						<?php endforeach; ?>
-						<div class="ep-sg-dr ep-sg-tt" data-todos="1"><span>Total de <?= $h($p['nombre']) ?></span><span><?= (int) $p['total'] ?></span></div>
+						<div class="ep-sg-dr ep-sg-tt" data-todos="1"><span>Total validado de <?= $h($p['nombre']) ?></span><span><?= (int) $p['total'] ?></span></div>
 						<?php foreach ($conReporte as $filaId): ?>
-							<div class="ep-sg-dr ep-sg-tt ep-sg-tf" data-fila="<?= (int) $filaId ?>" hidden><span>Total <?= $h($porMaterial[$filaId] ?? '') ?> de <?= $h($p['nombre']) ?></span><span><?= (int) $p['celdas'][$filaId]['reportado'] ?></span></div>
+							<div class="ep-sg-dr ep-sg-tt ep-sg-tf" data-fila="<?= (int) $filaId ?>" hidden><span>Total validado de <?= $h($porMaterial[$filaId] ?? '') ?> de <?= $h($p['nombre']) ?></span><span><?= (int) $p['celdas'][$filaId]['reportado'] ?></span></div>
 						<?php endforeach; ?>
 					</div>
 				<?php endif; ?>

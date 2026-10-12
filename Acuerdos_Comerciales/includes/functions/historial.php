@@ -67,6 +67,23 @@ function fechaLimiteFirmaPhp($fechaGeneracion) {
 	return $d->modify('+'.((int) $d->format('N') >= 6 ? 30 : 28).' days');
 }
 
+// Convierte "días calendario hasta el límite" a días hábiles (lun-vie) con signo: positivo = quedan, negativo = pasados. Sin feriados.
+function diasHabilesRestantes($diasCalendario) {
+	$n = (int) $diasCalendario;
+	$d = new DateTime('today');
+	$cont = 0;
+	for ($i = 0; $i < abs($n); $i++) {
+		if ($n > 0) {
+			$d->modify('+1 day');
+			if ((int) $d->format('N') < 6) $cont++;
+		} else {
+			if ((int) $d->format('N') < 6) $cont--;
+			$d->modify('-1 day');
+		}
+	}
+	return $cont;
+}
+
 // Un Acta con 20+ días HÁBILES desde fecha_generacion pasa a 'vencido'. Sin cron: corre cada vez que se listan Actas o se calculan alertas.
 function barrer_actas_vencidas($mysqli) {
 	$limite = sqlFechaLimiteFirma('fecha_generacion');
@@ -95,11 +112,18 @@ function listar_alertas_firma_propias($mysqli, $usuarioId, $diasUmbral = 5) {
 		 ORDER BY dias_restantes ASC"
 	);
 	if (!$stmt) return [];
-	$stmt->bind_param('ii', $usuarioId, $diasUmbral);
+	// Umbral en días hábiles: la query trae el doble en calendario (cubre fines de semana) y el filtro real se hace abajo.
+	$umbralCalendario = $diasUmbral * 2;
+	$stmt->bind_param('ii', $usuarioId, $umbralCalendario);
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
-	return $filas;
+	$resultado = [];
+	foreach ($filas as $f) {
+		$f['dias_restantes'] = diasHabilesRestantes($f['dias_restantes']);
+		if ($f['dias_restantes'] >= 0 && $f['dias_restantes'] <= $diasUmbral) $resultado[] = $f;
+	}
+	return $resultado;
 }
 
 // $usuarioId filtra por creado_por real. $trimestre/$anio: 0="Todos". $filtroFirma: 'todos'|'firmadas'|'pendientes'.
@@ -319,14 +343,14 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 		$diasRestantes = null;
 		if (!empty($a['fecha_generacion']) && in_array($a['estado'] ?? '', ['generado', 'enviado'], true)) {
 			$limite = fechaLimiteFirmaPhp($a['fecha_generacion']);
-			$diasRestantes = (int) (new DateTime('today'))->diff($limite)->format('%r%a');
+			$diasRestantes = diasHabilesRestantes((new DateTime('today'))->diff($limite)->format('%r%a'));
 		}
 		if ($diasRestantes !== null && $diasRestantes <= 5) {
-			$texto = $diasRestantes <= 0 ? 'Sube la firma — hoy' : ($diasRestantes === 1 ? 'Sube la firma — 1 día' : 'Sube la firma — '.$diasRestantes.' días');
+			$texto = $diasRestantes <= 0 ? 'Sube la firma — hoy' : ($diasRestantes === 1 ? 'Sube la firma — 1 día hábil' : 'Sube la firma — '.$diasRestantes.' días hábiles');
 			$esCritico = $diasRestantes <= 1;
 			$clase = $esCritico ? 'ac-badge-critico' : 'ac-badge-urgente';
 			$filaUrgencia = $esCritico ? ' ac-fila-critica' : ' ac-fila-urgente';
-			$firmaBadge = '<span class="ac-badge '.$clase.'" title="Plazo de firma: 20 días desde la generación del Acta">'.$texto.'</span>';
+			$firmaBadge = '<span class="ac-badge '.$clase.'" title="Plazo de firma: 20 días hábiles desde la generación del Acta">'.$texto.'</span>';
 		} else {
 			$firmaBadge = '<span class="ac-badge ac-badge-revisar">Pendiente</span>';
 		}

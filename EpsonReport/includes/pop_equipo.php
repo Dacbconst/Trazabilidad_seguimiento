@@ -76,7 +76,7 @@ function ep_pop_entregas_usuario(int $usuarioId, array $mes): array {
 	foreach ($mes['filas'] as $f) {
 		$filaDe[$f['campana'].'|'.$f['material']] = (int) $f['id'];
 	}
-	$stmt = $db->prepare("SELECT punto_venta, canal, valores, created_at, TIMESTAMPDIFF(MINUTE, created_at, NOW()) AS hace_min FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'colocacion-pop' AND LEFT(fecha_actividad, 7) = ? AND eliminado_en IS NULL AND estado IN ('Pendiente', 'Aprobado') ORDER BY created_at DESC");
+	$stmt = $db->prepare("SELECT estado, punto_venta, canal, valores, created_at, TIMESTAMPDIFF(MINUTE, created_at, NOW()) AS hace_min FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'colocacion-pop' AND LEFT(fecha_actividad, 7) = ? AND eliminado_en IS NULL AND estado IN ('Pendiente', 'Aprobado') ORDER BY created_at DESC");
 	$stmt->bind_param('is', $usuarioId, $mes['mes']);
 	$stmt->execute();
 	$entregas = [];
@@ -86,7 +86,7 @@ function ep_pop_entregas_usuario(int $usuarioId, array $mes): array {
 			// Los registros nuevos traen fila_id; los anteriores se enlazan por campaña y material.
 			$filaId = (int) ($e['fila_id'] ?? 0) ?: ($filaDe[($e['campana'] ?? '').'|'.($e['material'] ?? '')] ?? 0);
 			if ($filaId) {
-				$entregas[] = ['fila_id' => $filaId, 'material' => (string) ($e['material'] ?? ''), 'cantidad' => (int) ($e['cantidad'] ?? 0), 'punto' => (string) ($e['punto_venta'] ?? $r['punto_venta']), 'canal' => (string) ($e['canal'] ?? $r['canal']), 'actualizado' => (string) $r['created_at'], 'hace_min' => max(0, (int) $r['hace_min'])];
+				$entregas[] = ['fila_id' => $filaId, 'material' => (string) ($e['material'] ?? ''), 'cantidad' => (int) ($e['cantidad'] ?? 0), 'punto' => (string) ($e['punto_venta'] ?? $r['punto_venta']), 'canal' => (string) ($e['canal'] ?? $r['canal']), 'estado' => (string) $r['estado'], 'actualizado' => (string) $r['created_at'], 'hace_min' => max(0, (int) $r['hace_min'])];
 			}
 		}
 	}
@@ -115,19 +115,69 @@ function ep_pop_reportado_equipo(array $mes, int $supervisorId): array {
 	return $total;
 }
 
-// La parte de un supervisor en el mes: por fila lo recibido, lo que su equipo ya reportó y lo que queda.
+// Lo que el supervisor ya validó de un usuario: solo entregas de registros aprobados, por fila del mes.
+function ep_pop_validado_usuario(int $usuarioId, array $mes): array {
+	$validado = [];
+	foreach (ep_pop_entregas_usuario($usuarioId, $mes) as $e) {
+		if ($e['estado'] === 'Aprobado') {
+			$validado[$e['fila_id']] = ($validado[$e['fila_id']] ?? 0) + $e['cantidad'];
+		}
+	}
+	return $validado;
+}
+
+// Lo validado de los promotores de un supervisor en los materiales que él les asignó, por fila del mes.
+function ep_pop_validado_equipo(array $mes, int $supervisorId): array {
+	$total = [];
+	foreach (ep_pop_equipo_de((int) $mes['id'], $supervisorId) as $usuarioId => $filas) {
+		$validado = ep_pop_validado_usuario($usuarioId, $mes);
+		foreach ($filas as $filaId) {
+			$total[$filaId] = ($total[$filaId] ?? 0) + ($validado[$filaId] ?? 0);
+		}
+	}
+	return $total;
+}
+
+// La parte de un supervisor en el mes: por fila lo recibido, lo ya repartido a sus promotores, lo que su equipo reportó y lo que queda.
 function ep_pop_parte_supervisor(array $mes, int $supervisorId): array {
 	$parte = [];
 	$reportado = null;
+	$validado = null;
+	$repartido = ep_pop_asignaciones((int) $mes['id'], 2, $supervisorId);
 	foreach (ep_pop_asignaciones((int) $mes['id'], 1) as $filaId => $porSupervisor) {
 		if (empty($porSupervisor[$supervisorId])) {
 			continue;
 		}
 		$reportado ??= ep_pop_reportado_equipo($mes, $supervisorId);
+		$validado ??= ep_pop_validado_equipo($mes, $supervisorId);
 		$hecho = $reportado[$filaId] ?? 0;
-		$parte[$filaId] = ['recibido' => $porSupervisor[$supervisorId], 'reportado' => $hecho, 'disponible' => max(0, $porSupervisor[$supervisorId] - $hecho)];
+		$parte[$filaId] = ['recibido' => $porSupervisor[$supervisorId], 'repartido' => array_sum($repartido[$filaId] ?? []), 'reportado' => $hecho, 'validado' => $validado[$filaId] ?? 0, 'disponible' => max(0, $porSupervisor[$supervisorId] - $hecho)];
 	}
 	return $parte;
+}
+
+// Lo que un supervisor repartió a cada promotor: [usuario_id => [fila_id => cantidad]].
+function ep_pop_equipo_cantidades(int $popId, int $supervisorId): array {
+	$mapa = [];
+	foreach (ep_pop_asignaciones($popId, 2, $supervisorId) as $filaId => $porUsuario) {
+		foreach ($porUsuario as $usuarioId => $cantidad) {
+			$mapa[$usuarioId][$filaId] = $cantidad;
+		}
+	}
+	return $mapa;
+}
+
+// Lo que le falta repartir a cada supervisor en un mes: [nombre => unidades]; solo los que tienen algo pendiente.
+function ep_pop_sin_repartir(array $mes, array $supervisores): array {
+	$falta = [];
+	foreach ($supervisores as $sup) {
+		$parte = ep_pop_parte_supervisor($mes, $sup['id']);
+		$n = array_sum(array_column($parte, 'recibido')) - array_sum(array_column($parte, 'repartido'));
+		if ($parte && $n > 0) {
+			$falta[$sup['nombre']] = $n;
+		}
+	}
+	return $falta;
 }
 
 // Meses en los que el supervisor tiene POP asignado: el abierto primero y luego los más recientes.
@@ -149,20 +199,32 @@ function ep_pop_mes_del_supervisor(int $supervisorId): ?array {
 	return ep_pop_meses_del_supervisor($supervisorId)[0] ?? null;
 }
 
-// Lo que puede reportar un promotor: por cada material que le marcaron, el saldo de su supervisor (compartido con los demás); [fila_id => [asignado, reportado, disponible]].
+// Lo que puede reportar un promotor: por cada material, lo que su supervisor le repartió menos lo que ya reportó; [fila_id => [asignado, reportado, disponible]].
+// Un material marcado sin cantidades (equipo anterior al reparto) sigue con el saldo compartido del supervisor.
 function ep_pop_mi_material(int $usuarioId, array $mes): array {
 	$partes = [];
+	$repartos = [];
+	$hecho = null;
 	$mio = [];
 	foreach (ep_pop_equipo_elegido((int) $mes['id'])[$usuarioId] ?? [] as $filaId => $supId) {
 		$partes[$supId] ??= ep_pop_parte_supervisor($mes, $supId);
-		if ($p = $partes[$supId][$filaId] ?? null) {
-			$mio[$filaId] = ['asignado' => $p['recibido'], 'reportado' => $p['reportado'], 'disponible' => $p['disponible']];
+		$p = $partes[$supId][$filaId] ?? null;
+		if (!$p) {
+			continue;
 		}
+		$repartos[$supId] ??= ep_pop_asignaciones((int) $mes['id'], 2, $supId);
+		if (empty($repartos[$supId][$filaId])) {
+			$mio[$filaId] = ['asignado' => $p['recibido'], 'reportado' => $p['reportado'], 'disponible' => $p['disponible']];
+			continue;
+		}
+		$hecho ??= ep_pop_reportado_usuario($usuarioId, $mes);
+		$asignado = $repartos[$supId][$filaId][$usuarioId] ?? 0;
+		$mio[$filaId] = ['asignado' => $asignado, 'reportado' => $hecho[$filaId] ?? 0, 'disponible' => max(0, $asignado - ($hecho[$filaId] ?? 0))];
 	}
 	return $mio;
 }
 
-// Guarda lo que un supervisor marca para el mes: [usuario_id => [fila_id, ...]]. Devuelve true o el texto del error.
+// Guarda lo que un supervisor reparte para el mes: [usuario_id => [fila_id => cantidad]]. Se puede repartir por partes, pero nunca más de lo que recibió. Devuelve true o el texto del error.
 function ep_pop_equipo_guardar(array $mes, int $supervisorId, array $asignaciones): bool|string {
 	if ($mes['estado'] !== 'activo') {
 		return 'Ese mes ya está cerrado.';
@@ -175,27 +237,41 @@ function ep_pop_equipo_guardar(array $mes, int $supervisorId, array $asignacione
 	$nombreDe = array_column($mes['filas'], 'material', 'id');
 	$elegido = ep_pop_equipo_elegido((int) $mes['id']);
 	$nuevo = [];
+	$suma = [];
 	foreach ($asignaciones as $usuarioId => $filas) {
 		$usuarioId = (int) $usuarioId;
 		if (!isset($equipo[$usuarioId])) {
 			return 'Ese promotor no es de tu equipo.';
 		}
-		foreach (is_array($filas) ? array_unique(array_map('intval', $filas)) : [] as $filaId) {
+		foreach (is_array($filas) ? $filas : [] as $filaId => $cantidad) {
+			$filaId = (int) $filaId;
+			$cantidad = (int) $cantidad;
+			if ($cantidad <= 0) {
+				continue;
+			}
 			if (!isset($parte[$filaId])) {
 				return 'No tienes «'.($nombreDe[$filaId] ?? 'ese material').'» asignado este mes.';
 			}
 			if (isset($elegido[$usuarioId][$filaId]) && $elegido[$usuarioId][$filaId] !== $supervisorId) {
 				return $equipo[$usuarioId].' ya tiene «'.$nombreDe[$filaId].'» con otro supervisor.';
 			}
-			$nuevo[$usuarioId][$filaId] = true;
+			$nuevo[$usuarioId][$filaId] = $cantidad;
+			$suma[$filaId] = ($suma[$filaId] ?? 0) + $cantidad;
 		}
 	}
-	// Quien ya reportó un material no se puede quitar de él: su consumo dejaría de descontar de tu saldo.
+	// Se puede repartir por partes (hoy una y mañana otra), pero nunca más de lo que recibió el supervisor.
+	foreach ($suma as $filaId => $total) {
+		$recibido = (int) $parte[$filaId]['recibido'];
+		if ($total > $recibido) {
+			return 'En «'.($nombreDe[$filaId] ?? 'ese material').'» repartes '.$total.' y recibiste '.$recibido.': te pasas de '.($total - $recibido).'.';
+		}
+	}
+	// Quien ya reportó un material no puede quedar con menos de lo que reportó ni salir de él.
 	foreach (ep_pop_equipo_de((int) $mes['id'], $supervisorId) as $usuarioId => $filas) {
 		$hecho = ep_pop_reportado_usuario($usuarioId, $mes);
 		foreach ($filas as $filaId) {
-			if (!isset($nuevo[$usuarioId][$filaId]) && ($hecho[$filaId] ?? 0) > 0) {
-				return ($equipo[$usuarioId] ?? 'Ese promotor').' ya reportó «'.($nombreDe[$filaId] ?? 'ese material').'»; no puedes quitárselo.';
+			if (($hecho[$filaId] ?? 0) > ($nuevo[$usuarioId][$filaId] ?? 0)) {
+				return ($equipo[$usuarioId] ?? 'Ese promotor').' ya reportó '.$hecho[$filaId].' de «'.($nombreDe[$filaId] ?? 'ese material').'»; no puedes asignarle menos de eso.';
 			}
 		}
 	}
@@ -228,6 +304,20 @@ function ep_pop_equipo_guardar(array $mes, int $supervisorId, array $asignacione
 		}
 	}
 	$stmt->close();
+	// Las cantidades se reemplazan completas: lo de este supervisor en las filas del mes (nivel 2).
+	$db->query('DELETE FROM insert_reporte_pop_asignacion WHERE nivel = 2 AND asignado_por = '.$supervisorId.' AND pop_fila_id IN ('.$filasMes.')');
+	$cant = $db->prepare('INSERT INTO insert_reporte_pop_asignacion (pop_fila_id, usuario_id, asignado_por, nivel, cantidad) VALUES (?, ?, ?, 2, ?)');
+	foreach ($nuevo as $usuarioId => $filas) {
+		foreach ($filas as $filaId => $cantidad) {
+			$cant->bind_param('iiii', $filaId, $usuarioId, $supervisorId, $cantidad);
+			if (!$cant->execute()) {
+				error_log('ep_pop_equipo_guardar cantidades: '.$cant->error);
+				$db->rollback();
+				return 'No se pudo guardar el reparto.';
+			}
+		}
+	}
+	$cant->close();
 	$db->commit();
 	return true;
 }

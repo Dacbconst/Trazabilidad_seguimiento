@@ -5,8 +5,6 @@ require_once __DIR__.'/login_datos.php';
 require_once __DIR__.'/auditoria_datos.php';
 
 const EP_ROLES_USUARIO = ['admin' => 'Administrador', 'supervisor' => 'Supervisor', 'promotor' => 'Promotor'];
-// Qué categorías de punto de venta ve un promotor; vacío = se deduce de su ruta en Xplora (como antes).
-const EP_CATEGORIAS_PDV = ['' => 'Por su ruta en Xplora', 'todas' => 'Todas las categorías', 'retail' => 'Retail y las demás, menos canales', 'canales' => 'Canales y las demás, menos retail'];
 const EP_CANAL_ETIQUETA = ['RETAIL' => 'Retail', 'CANALES' => 'Canales'];
 const EP_FOTO_USUARIO_MAX = 5 * 1024 * 1024;
 
@@ -121,7 +119,7 @@ function ep_usuarios_listar(): array {
 			'ciudad' => $datos['ciudad'] ?? '',
 			'canal' => $esAdmin ? 'No aplica' : ($datos['canal'] ?? ($pendiente ? 'Cargando…' : 'Sin rutero')),
 			'propio' => (int) $f['id'] === (int) ($_SESSION['usuario_id'] ?? 0),
-			'categorias' => (string) $f['categorias'],
+			'categorias' => ($f['categorias'] ?? '') === '' ? '' : implode(',', ep_canales_de_categoria((string) $f['categorias']) ?? []),
 			'sup_canales' => (int) $f['supervisor_canales_id'],
 			'sup_retail' => (int) $f['supervisor_retail_id'],
 			'con_ruta' => ep_usuarios_tiene_ruta($db),
@@ -184,6 +182,24 @@ function ep_usuario_actualizar(int $id, string $correo, string $rol): array {
 }
 
 // Categorías de punto de venta y supervisores de un promotor (solo si ya existen las columnas); admin y supervisor no llevan ruta.
+// Texto legible de las categorías guardadas, para Auditoría y pantallas.
+function ep_categoria_texto(string $categoria): string {
+	require_once __DIR__.'/pdv_datos.php';
+	$canales = $categoria === '' ? null : ep_canales_de_categoria($categoria);
+	return $canales ? implode(', ', array_map(fn($c) => ucfirst(strtolower($c)), $canales)) : 'Automático (según su ruta en Xplora)';
+}
+
+// Lista de canales que llega de la pantalla, validada contra los canales reales y en el orden de siempre; devuelve el texto a guardar o null si alguno no existe.
+function ep_categoria_normalizar(string $texto): ?string {
+	require_once __DIR__.'/pdv_datos.php';
+	$pedidos = array_filter(array_map('trim', explode(',', strtoupper($texto))));
+	$validos = ep_todos_los_canales();
+	if (array_diff($pedidos, $validos)) {
+		return null;
+	}
+	return implode(',', array_values(array_intersect($validos, $pedidos)));
+}
+
 function ep_usuario_guardar_ruta(int $id, string $rol, string $categorias, int $supCanales, int $supRetail): array {
 	$db = ep_db();
 	require_once __DIR__.'/aprobacion_datos.php';
@@ -197,8 +213,9 @@ function ep_usuario_guardar_ruta(int $id, string $rol, string $categorias, int $
 	if ($rol !== 'promotor') {
 		$supCanales = $supRetail = 0;
 	}
-	if (!array_key_exists($categorias, EP_CATEGORIAS_PDV)) {
-		return ['ok' => false, 'message' => 'La categoría de puntos de venta no es válida.'];
+	$categorias = ep_categoria_normalizar($categorias);
+	if ($categorias === null) {
+		return ['ok' => false, 'message' => 'Alguno de los canales elegidos no es válido.'];
 	}
 	$nombresSup = [];
 	foreach ([$supCanales, $supRetail] as $supId) {
@@ -222,7 +239,7 @@ function ep_usuario_guardar_ruta(int $id, string $rol, string $categorias, int $
 		return $nombresSup[(int) $supId] ?? ($db->query('SELECT nombre FROM repositorio_usuarios_reporte WHERE id = '.(int) $supId)->fetch_assoc()['nombre'] ?? '#'.$supId);
 	};
 	$cambios = array_values(array_filter([
-		ep_auditoria_cambio('Categorías de puntos de venta', EP_CATEGORIAS_PDV[(string) $u['categorias']] ?? '', EP_CATEGORIAS_PDV[$categorias]),
+		ep_auditoria_cambio('Puntos de venta que ve', ep_categoria_texto((string) $u['categorias']), ep_categoria_texto($categorias)),
 		ep_auditoria_cambio('Supervisor de canales', $nombreDe($u['supervisor_canales_id']), $nombreDe($supCanales)),
 		ep_auditoria_cambio('Supervisor de retail', $nombreDe($u['supervisor_retail_id']), $nombreDe($supRetail)),
 	]));

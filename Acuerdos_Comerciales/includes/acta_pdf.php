@@ -340,7 +340,7 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	$fechaTexto   = $detalle['fecha_generacion'] ? date('d/m/Y', strtotime($detalle['fecha_generacion'])) : '—';
 
 	// Nombres largos envuelven a 2 líneas: se le da más ancho a la columna (34%→44%) en vez de achicar la letra.
-	$estimadoTexto = $esDistribuidor && ($detalle['empresa_distribuidora'] ?? '') !== '' ? $detalle['empresa_distribuidora'] : $detalle['distribuidor'];
+	$estimadoTexto = $detalle['distribuidor'];
 
 	// Nombre del Ejecutivo Comercial = quien generó el acuerdo. Sin creado_por (huérfano) cae a la línea en blanco de siempre.
 	$nombreEjecutivoRaw = $detalle['ejecutivo_comercial'] ?? '';

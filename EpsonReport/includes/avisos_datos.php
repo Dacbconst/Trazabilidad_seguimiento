@@ -102,7 +102,7 @@ function ep_avisos_promotor(): array {
 	return $cache;
 }
 
-// Mes de POP abierto en el que este promotor todavía no reportó nada; el plazo es el fin de mes.
+// Mes de POP abierto en el que este promotor aún tiene material por reportar (con cuánto de cada uno); el plazo es el fin de mes.
 function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 	require_once __DIR__.'/pop_datos.php';
 	$mesPop = ep_pop_abierto();
@@ -115,19 +115,24 @@ function ep_avisos_pop($db, bool $conVisto, ?string $visto): ?array {
 	require_once __DIR__.'/pop_equipo.php';
 	$desde = ep_pop_asignado_desde((int) $_SESSION['usuario_id'], (int) $mesPop['id']);
 	$nuevo = $conVisto && $desde !== null && ($visto === null || $desde > $visto);
-	$stmt = $db->prepare("SELECT 1 FROM insert_reporte_registro WHERE usuario_id = ? AND tipo = 'colocacion-pop' AND LEFT(fecha_actividad, 7) = ? AND eliminado_en IS NULL AND estado <> 'Reemplazado' LIMIT 1");
-	$stmt->bind_param('is', $_SESSION['usuario_id'], $mesPop['mes']);
-	$stmt->execute();
-	$yaReporto = $stmt->get_result()->num_rows > 0;
-	$stmt->close();
-	if ($yaReporto && !$nuevo) {
+	// Lo que le falta reportar de cada material; sin nada pendiente ya no hay aviso.
+	$nombreDe = array_column($mesPop['filas'], 'material', 'id');
+	$pendiente = [];
+	foreach ($misMateriales as $filaId => $m) {
+		if ($m['disponible'] > 0) {
+			$pendiente[] = ['material' => (string) ($nombreDe[$filaId] ?? ''), 'cantidad' => (int) $m['disponible']];
+		}
+	}
+	if (!$pendiente) {
 		return null;
 	}
 	$finMes = $mesPop['mes'].'-'.date('t', strtotime($mesPop['mes'].'-01'));
 	$dias = (int) round((strtotime($finMes) - strtotime(date('Y-m-d'))) / 86400);
 	return [
 		'mes' => ep_pop_mes_texto($mesPop['mes']),
-		'materiales' => count($misMateriales),
+		'materiales' => count($pendiente),
+		'pendiente' => $pendiente,
+		'unidades' => array_sum(array_column($pendiente, 'cantidad')),
 		'dias' => $dias,
 		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
 		'urgente' => $dias <= 3,
@@ -142,8 +147,8 @@ function ep_avisos_pop_reparto(bool $conVisto, ?string $visto): ?array {
 	$mesPop = ep_pop_abierto();
 	$yo = (int) $_SESSION['usuario_id'];
 	$parte = $mesPop ? ep_pop_parte_supervisor($mesPop, $yo) : [];
-	$yaEligio = $mesPop && ep_pop_equipo_de((int) $mesPop['id'], $yo);
-	if (!$parte || $yaEligio) {
+	$faltan = array_sum(array_column($parte, 'recibido')) - array_sum(array_column($parte, 'repartido'));
+	if (!$parte || $faltan <= 0) {
 		return null;
 	}
 	$finMes = $mesPop['mes'].'-'.date('t', strtotime($mesPop['mes'].'-01'));
@@ -151,6 +156,7 @@ function ep_avisos_pop_reparto(bool $conVisto, ?string $visto): ?array {
 	return [
 		'mes' => ep_pop_mes_texto($mesPop['mes']),
 		'materiales' => count($parte),
+		'faltan' => $faltan,
 		'dias' => $dias,
 		'ultimo_dia' => ep_avisos_ultimo_dia($dias, $finMes),
 		'urgente' => $dias <= 3,

@@ -187,6 +187,13 @@ function rolPermitido(array $rolesPermitidos) {
 	return isset($_SESSION['rol']) && in_array($_SESSION['rol'], $rolesPermitidos, true);
 }
 
+// Interruptor de bloqueo de generación de Actas: poner en false para reabrirla a todos; el superdesarrollador nunca queda bloqueado.
+const ACTAS_GENERACION_BLOQUEADA = true;
+
+function actasGeneracionBloqueada() {
+	return ACTAS_GENERACION_BLOQUEADA && ($_SESSION['rol'] ?? '') !== 'superdesarrollador';
+}
+
 // Etiqueta visible solo — el valor real de columna/ENUM sigue siendo 'desarrollador'/'superdesarrollador' en toda la app.
 function rolEtiqueta($rol) {
 	$etiquetas = [

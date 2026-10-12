@@ -55,6 +55,11 @@ $registros = ep_ppt_ordenar_registros($registros, $reporte['tipo']);
 $meses = ep_ppt_meses();
 $titulo = $meses[(int) substr($reporte['mes'], 5, 2)].' '.substr($reporte['mes'], 0, 4);
 $opciones = ['programadas' => $reporte['programadas'] !== null ? (int) $reporte['programadas'] : null, 'comentarios' => (string) ($reporte['comentarios'] ?? ''), 'nombre_actividad' => (string) ($reporte['snapshot']['actividad'] ?? ''), 'pop_bodega' => $reporte['snapshot']['pop_bodega'] ?? [], 'pop_flujo' => $reporte['snapshot']['pop_flujo'] ?? [], 'pop_peso' => $reporte['snapshot']['pop_peso'] ?? []];
+// Los POP cerrados antes del peso no lo traen congelado: se arma con los registros de la copia.
+if ($reporte['tipo'] === 'colocacion-pop' && !$opciones['pop_peso']) {
+	require_once __DIR__.'/../includes/pop_peso.php';
+	$opciones['pop_peso'] = ep_pop_peso($registros);
+}
 // Tabla del calendario: la congelada en la copia o, en reportes viejos, la del calendario.
 if ($reporte['tipo'] === 'activaciones') {
 	require_once __DIR__.'/../includes/calendario_datos.php';

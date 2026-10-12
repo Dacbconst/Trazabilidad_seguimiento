@@ -356,21 +356,34 @@
 		};
 		var nombreEq = function (id) { return (eqDatos.equipo.filter(function (p) { return p.id === id; })[0] || { nombre: 'Promotor' }).nombre; };
 		var bloqueado = function (u, fila) { return !!(eqBloqueo[u] && eqBloqueo[u][fila]); };
+		// Cantidad repartida a un promotor en un material (0 si no tiene).
+		var cantEq = function (u, fila) { return parseInt((eqMarcas[u] || {})[fila], 10) || 0; };
 		// Firma del estado actual para saber si hay cambios sin guardar.
 		var firmaEq = function () {
-			return JSON.stringify(eqUsuarios.slice().sort().map(function (u) { return [u, Object.keys(eqMarcas[u] || {}).filter(function (k) { return eqMarcas[u][k]; }).sort()]; }));
+			return JSON.stringify(eqUsuarios.slice().sort().map(function (u) { return [u, eqDatos.materiales.map(function (m) { return cantEq(u, m.id); })]; }));
 		};
 		var hayCambios = function () { return firmaEq() !== eqInicial; };
 		var cargarEq = function () {
 			eqUsuarios = Object.keys(eqDatos.asignados).map(Number);
 			eqMarcas = {};
-			eqUsuarios.forEach(function (u) { eqMarcas[u] = {}; eqDatos.asignados[u].forEach(function (fila) { eqMarcas[u][fila] = true; }); });
+			eqUsuarios.forEach(function (u) {
+				eqMarcas[u] = {};
+				eqDatos.asignados[u].forEach(function (fila) { eqMarcas[u][fila] = ((eqDatos.cantidades || {})[u] || {})[fila] || 0; });
+			});
 			eqInicial = firmaEq();
 			eqModo = !hayGuardado();
 		};
 		var enfocarEq = function (selector) { var n = selector ? eqMatriz.querySelector(selector) : null; if (n) n.focus(); };
-		var casilla = function (attrs, marcada, desactivada, etiqueta, extra) {
-			return '<label class="ep-eq-ck"><input type="checkbox" ' + attrs + (marcada ? ' checked' : '') + (desactivada ? ' disabled' : '') + ' aria-label="' + escapar(etiqueta) + '"><span class="ep-eq-bx"></span>' + (extra || '') + '</label>';
+		// Lo repartido en un material entre todos los promotores y lo que aún falta de lo que recibió el supervisor.
+		var repartidoEq = function (fila) { return eqUsuarios.reduce(function (s, u) { return s + cantEq(u, fila); }, 0); };
+		var restoTexto = function (m) {
+			var resto = m.recibido - repartidoEq(m.id);
+			return resto === 0 ? 'Repartido completo' : (resto > 0 ? 'Faltan ' + resto + ' por repartir' : 'Te pasas de ' + (-resto));
+		};
+		var restoClase = function (m) { var r = repartidoEq(m.id); return r === m.recibido ? ' ok' : (r > m.recibido ? ' mal' : ' falta'); };
+		var celdaCantidad = function (u, m, desactivada, minimo, extra) {
+			var v = cantEq(u, m.id);
+			return '<input type="number" class="ep-eq-qty" data-u="' + u + '" data-f="' + m.id + '" min="' + minimo + '" max="' + m.recibido + '" inputmode="numeric" placeholder="0" value="' + (v > 0 ? v : '') + '"' + (desactivada ? ' disabled' : '') + ' aria-label="' + escapar(nombreEq(u) + ', ' + m.material + ', cantidad') + '">' + (extra || '');
 		};
 		var iconoPapelera = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13"/></svg>';
 		var iconoMas = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
@@ -381,22 +394,16 @@
 			var cols = 'minmax(210px, 1.2fr) repeat(' + mats.length + ', minmax(190px, 1fr)) 100px';
 			var html = '<div class="ep-eq-r ep-eq-h" style="grid-template-columns:' + cols + '"><span class="ep-eq-lbl">' + (eqUsuarios.length ? 'Promotor' : 'Material recibido') + '</span>'
 				+ mats.map(function (m) {
-					var pct = m.recibido > 0 ? Math.min(100, Math.round(m.reportado / m.recibido * 100)) : 0;
+					var pct = m.recibido > 0 ? Math.min(100, Math.round(repartidoEq(m.id) / m.recibido * 100)) : 0;
 					return '<div class="ep-eq-mh"><span class="ep-eq-nm"><strong>' + escapar(m.material) + '</strong><em>' + escapar(m.campana) + '</em></span>'
-						+ '<span class="ep-eq-pbar' + (m.disponible <= 0 ? ' ag' : '') + '"><i style="width:' + pct + '%"></i></span>'
-						+ '<span class="ep-eq-sd"><b>' + m.disponible + '</b> disponibles · ' + m.reportado + ' reportadas de ' + m.recibido + '</span></div>';
+						+ '<span class="ep-eq-pbar" data-pbar="' + m.id + '"><i style="width:' + pct + '%"></i></span>'
+						+ '<span class="ep-eq-sd ep-eq-resto' + restoClase(m) + '" data-resto="' + m.id + '">' + restoTexto(m) + '</span></div>';
 				}).join('') + '<span></span></div>';
 			if (!eqUsuarios.length) {
 				var hayEquipo = eqDatos.equipo.length > 0;
 				html += '<div class="ep-eq-vacio"><p><strong>Nadie puede reportar este POP todavía.</strong>'
 					+ (hayEquipo ? 'Agrega a los promotores de tu equipo y marca qué material reporta cada uno.' : 'No tienes promotores a tu cargo. Pídele al administrador que te los asigne en Usuarios.') + '</p>'
 					+ (hayEquipo ? '<div class="ep-eq-acc"><button type="button" class="ep-eq-btn ep-eq-btn-p" data-accion="agregar">' + iconoMas + ' Agregar promotor</button><button type="button" class="ep-eq-btn" data-accion="todo">Agregar todo mi equipo (' + eqDatos.equipo.length + ')</button></div>' : '') + '</div>';
-			} else if (eqModo && eqUsuarios.length >= 3) {
-				html += '<div class="ep-eq-r ep-eq-todos" style="grid-template-columns:' + cols + '"><span>Todos los promotores</span>'
-					+ mats.map(function (m) {
-						var marcados = eqUsuarios.filter(function (u) { return eqMarcas[u][m.id]; }).length;
-						return '<span class="ep-eq-c">' + casilla('data-todos="' + m.id + '"', marcados === eqUsuarios.length, false, 'Marcar ' + m.material + ' para todos') + '</span>';
-					}).join('') + '<span></span><span></span></div>';
 			}
 			eqUsuarios.forEach(function (u) {
 				var conBloqueo = mats.some(function (m) { return bloqueado(u, m.id); });
@@ -404,25 +411,34 @@
 					+ mats.map(function (m) {
 						var cand = bloqueado(u, m.id);
 						var extra = cand ? '<span class="ep-eq-lock">' + iconoCandado + 'Reportó ' + eqBloqueo[u][m.id] + '</span>' : '';
-						return '<span class="ep-eq-c">' + casilla('data-u="' + u + '" data-f="' + m.id + '"', !!eqMarcas[u][m.id], cand || !eqModo, nombreEq(u) + ', ' + m.material + (cand ? ', ya reportó' : ''), extra) + '</span>';
+						return '<span class="ep-eq-c">' + celdaCantidad(u, m, !eqModo, cand ? eqBloqueo[u][m.id] : 0, extra) + '</span>';
 					}).join('')
-					+ '<span class="ep-eq-fin">' + (eqModo ? '<button type="button" class="ep-eq-txt" data-fila-todos="' + u + '" aria-label="Marcar todo el material para ' + escapar(nombreEq(u)) + '">Todos</button>' : '')
-					+ (conBloqueo || !eqModo ? '' : '<button type="button" class="ep-eq-rm" data-quitar="' + u + '" aria-label="Quitar a ' + escapar(nombreEq(u)) + '" title="Quitar">' + iconoPapelera + '</button>') + '</span></div>';
+					+ '<span class="ep-eq-fin">' + (conBloqueo || !eqModo ? '' : '<button type="button" class="ep-eq-rm" data-quitar="' + u + '" aria-label="Quitar a ' + escapar(nombreEq(u)) + '" title="Quitar">' + iconoPapelera + '</button>') + '</span></div>';
 			});
 			eqMatriz.innerHTML = html;
-			var asign = 0;
-			eqUsuarios.forEach(function (u) { asign += Object.keys(eqMarcas[u]).filter(function (k) { return eqMarcas[u][k]; }).length; });
-			var cambios = hayCambios();
-			eqCuenta.textContent = cambios
-				? 'Cambios sin guardar · ' + eqUsuarios.length + (eqUsuarios.length === 1 ? ' promotor' : ' promotores') + ' · ' + asign + (asign === 1 ? ' asignación' : ' asignaciones')
-				: 'Editando tu equipo: agrega, quita o cambia lo que marcaste';
-			eqBarra.hidden = !(cambios || (eqModo && hayGuardado()));
-			eqBarra.classList.toggle('sin-cambios', !cambios);
-			eqDescartar.textContent = cambios ? 'Descartar' : 'Cancelar';
+			refrescarEq();
 			eqAgregar.disabled = !eqModo;
 			eqAgregar.title = eqModo ? '' : 'Pulsa «Editar equipo» para agregar o cambiar promotores';
 			eqEditar.hidden = eqModo;
 			if (!eqModo) cerrarMenu();
+		};
+		// Actualiza lo que depende de las cantidades (saldos por material y barra de cambios) sin repintar la matriz, para no perder el foco al teclear.
+		var refrescarEq = function () {
+			eqDatos.materiales.forEach(function (m) {
+				var resto = eqMatriz.querySelector('[data-resto="' + m.id + '"]');
+				var barra = eqMatriz.querySelector('[data-pbar="' + m.id + '"] i');
+				if (resto) { resto.textContent = restoTexto(m); resto.className = 'ep-eq-sd ep-eq-resto' + restoClase(m); }
+				if (barra) barra.style.width = (m.recibido > 0 ? Math.min(100, Math.round(repartidoEq(m.id) / m.recibido * 100)) : 0) + '%';
+			});
+			var asign = 0;
+			eqUsuarios.forEach(function (u) { asign += eqDatos.materiales.filter(function (m) { return cantEq(u, m.id) > 0; }).length; });
+			var cambios = hayCambios();
+			eqCuenta.textContent = cambios
+				? 'Cambios sin guardar · ' + eqUsuarios.length + (eqUsuarios.length === 1 ? ' promotor' : ' promotores') + ' · ' + asign + (asign === 1 ? ' asignación' : ' asignaciones')
+				: 'Editando tu equipo: agrega, quita o cambia lo que repartiste';
+			eqBarra.hidden = !(cambios || (eqModo && hayGuardado()));
+			eqBarra.classList.toggle('sin-cambios', !cambios);
+			eqDescartar.textContent = cambios ? 'Descartar' : 'Cancelar';
 		};
 		var pintarMenu = function () {
 			var q = eqBuscar.value.trim().toLowerCase();
@@ -470,29 +486,16 @@
 		document.addEventListener('keydown', function (ev) {
 			if (ev.key === 'Escape' && !eqPop.classList.contains('hidden')) { cerrarMenu(); eqAgregar.focus(); }
 		});
-		eqMatriz.addEventListener('change', function (ev) {
+		// La cantidad se guarda al teclear; solo se repintan los saldos, no la matriz.
+		eqMatriz.addEventListener('input', function (ev) {
 			var c = ev.target;
-			if (c.dataset.todos) {
-				eqUsuarios.forEach(function (u) { eqMarcas[u][c.dataset.todos] = c.checked || bloqueado(u, parseInt(c.dataset.todos, 10)); });
-				pintarEq();
-				enfocarEq('[data-todos="' + c.dataset.todos + '"]');
-			} else if (c.dataset.u) {
-				eqMarcas[c.dataset.u][c.dataset.f] = c.checked;
-				pintarEq();
-				enfocarEq('[data-u="' + c.dataset.u + '"][data-f="' + c.dataset.f + '"]');
-			}
+			if (!c.classList.contains('ep-eq-qty')) return;
+			eqMarcas[c.dataset.u][c.dataset.f] = Math.max(0, parseInt(c.value, 10) || 0);
+			refrescarEq();
 		});
 		eqMatriz.addEventListener('click', function (ev) {
 			var acc = ev.target.closest('[data-accion]');
 			if (acc) { if (acc.dataset.accion === 'todo') agregarTodos(); else abrirMenu(); return; }
-			var todos = ev.target.closest('[data-fila-todos]');
-			if (todos) {
-				var uid = parseInt(todos.dataset.filaTodos, 10);
-				eqDatos.materiales.forEach(function (m) { eqMarcas[uid][m.id] = true; });
-				pintarEq();
-				enfocarEq('[data-fila-todos="' + uid + '"]');
-				return;
-			}
 			var q = ev.target.closest('[data-quitar]');
 			if (!q) return;
 			var id = parseInt(q.dataset.quitar, 10);
@@ -524,11 +527,15 @@
 		eqGuardar.addEventListener('click', function () {
 			var envio = {};
 			eqUsuarios.forEach(function (u) {
-				var filas = eqDatos.materiales.filter(function (m) { return eqMarcas[u][m.id]; }).map(function (m) { return m.id; });
-				if (filas.length) envio[u] = filas;
+				var filas = {};
+				eqDatos.materiales.forEach(function (m) { if (cantEq(u, m.id) > 0) filas[m.id] = cantEq(u, m.id); });
+				if (Object.keys(filas).length) envio[u] = filas;
 			});
 			var habia = Object.keys(eqDatos.asignados).length > 0;
-			if (!Object.keys(envio).length && !habia) { avisar('warning', 'Marca al menos una casilla', 'Agrega promotores y marca qué material reporta cada uno.'); return; }
+			if (!Object.keys(envio).length && !habia) { avisar('warning', 'Reparte al menos un material', 'Agrega promotores y escribe cuántas unidades le das a cada uno.'); return; }
+			// Se puede repartir por partes, pero nunca más de lo recibido; el servidor lo vuelve a comprobar.
+			var pasado = eqDatos.materiales.filter(function (m) { return repartidoEq(m.id) > m.recibido; })[0];
+			if (pasado) { avisar('warning', 'Te pasas de lo que recibiste', '«' + pasado.material + '»: ' + restoTexto(pasado) + '.'); return; }
 			if (!Object.keys(envio).length && habia && window.Swal) {
 				Swal.fire({ icon: 'warning', title: '¿Quitar a todo tu equipo?', text: 'Ningún promotor podrá reportar este POP hasta que los marques de nuevo.', showCancelButton: true, cancelButtonText: 'Cancelar', confirmButtonText: 'Sí, quitarlos', focusCancel: true })
 					.then(function (res) { if (res.isConfirmed) enviarEq(envio); });
@@ -663,16 +670,45 @@
 			confirmarCierre(idDe(ev), ev.target.closest('.ep-pop-mes'));
 			return;
 		}
+		if (ev.target.closest('.ep-pop-reactivar')) {
+			confirmarReactivar(idDe(ev));
+			return;
+		}
 		if (ev.target.closest('.ep-pop-eliminar')) confirmarEliminar(idDe(ev));
 	});
+
+	function confirmarReactivar(id) {
+		if (!window.Swal || !id) return;
+		Swal.fire({
+			icon: 'warning',
+			title: '¿Reactivar este mes?',
+			text: 'El mes vuelve a recibir reportes y su PPT actual se retira; al cerrarlo de nuevo se genera otro con todo lo reportado.',
+			showCancelButton: true,
+			cancelButtonText: 'Cancelar',
+			confirmButtonText: 'Sí, reactivar',
+			confirmButtonColor: '#B25E00',
+			focusCancel: true
+		}).then(function (res) {
+			if (!res.isConfirmed) return;
+			post('getters/pop_reactivar.php', { id: id }).then(function (r) {
+				if (r && r.ok) recargarConAviso('Mes reactivado');
+				else avisar('error', 'No se pudo reactivar', (r && r.message) || 'Intenta de nuevo.');
+			}).catch(function () { avisar('error', 'No se pudo reactivar', 'El servidor no respondió correctamente.'); });
+		});
+	}
 
 	function confirmarCierre(id, seccion) {
 		if (!window.Swal || !id) return;
 		var avance = seccion ? (seccion.querySelector('.ep-pop-avance') || {}).textContent : '';
+		var sinRepartir = {};
+		try { sinRepartir = JSON.parse(((seccion && seccion.querySelector('.ep-pop-cerrar')) || { dataset: {} }).dataset.sinRepartir || '{}'); } catch (e) { sinRepartir = {}; }
+		var avisoReparto = Object.keys(sinRepartir).length
+			? '<p style="margin:10px 0 0;color:#8A4A00"><b>Sin repartir a sus promotores:</b> ' + Object.keys(sinRepartir).map(function (n) { return escapar(n) + ' ' + sinRepartir[n]; }).join(', ') + '. Ese material no llegó a ningún promotor.</p>'
+			: '';
 		Swal.fire({
 			icon: 'warning',
 			title: '¿Cerrar el mes?',
-			html: '<p style="margin:0">' + (avance || '').trim() + '. Se genera el reporte con lo que los promotores ya reportaron y el mes deja de recibir.</p>',
+			html: '<p style="margin:0">' + (avance || '').trim() + '. Se genera el reporte con lo que los promotores ya reportaron y el mes deja de recibir.</p>' + avisoReparto,
 			showCancelButton: true,
 			cancelButtonText: 'Seguir abierto',
 			confirmButtonText: 'Sí, cerrar el mes',
@@ -693,7 +729,7 @@
 		Swal.fire({
 			icon: 'warning',
 			title: '¿Eliminar este mes?',
-			text: 'Los promotores dejarán de ver su material. Los registros que ya enviaron no se borran.',
+			text: 'Los promotores dejarán de ver su material, se retira el reporte del mes y se anulan los registros que ya enviaron para ese mes. Al cargarlo de nuevo, empiezan desde cero.',
 			showCancelButton: true,
 			cancelButtonText: 'Cancelar',
 			confirmButtonText: 'Sí, eliminar',

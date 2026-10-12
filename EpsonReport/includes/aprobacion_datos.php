@@ -65,7 +65,10 @@ function ep_supervisor_de_fila(array $fila, string $canal): ?int {
 		$id = $fila['supervisor_canales_id'];
 	} else {
 		// Oficina, eventos, ferias, bodega: según la categoría del promotor; si reporta a dos, va al de canales.
-		$id = $fila['categorias'] === 'retail' ? $fila['supervisor_retail_id'] : ($fila['supervisor_canales_id'] ?: $fila['supervisor_retail_id']);
+		require_once __DIR__.'/pdv_datos.php';
+		$suyos = ep_canales_de_categoria((string) $fila['categorias']);
+		$soloRetail = $suyos !== null && in_array('RETAIL', $suyos, true) && !in_array('CANALES', $suyos, true);
+		$id = $soloRetail ? $fila['supervisor_retail_id'] : ($fila['supervisor_canales_id'] ?: $fila['supervisor_retail_id']);
 	}
 	return $id ? (int) $id : null;
 }

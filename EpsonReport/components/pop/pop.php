@@ -18,8 +18,9 @@ $catalogo = $esDueno ? ep_pop_catalogo() : ['materiales' => [], 'campanas' => []
 $sinCatalogo = $esDueno && (!$catalogo['materiales'] || !$catalogo['campanas']);
 $mesesSup = $esSup ? ep_pop_meses_del_supervisor($yo) : [];
 $mesSup = $mesesSup[0] ?? null;
-// El punto rojo avisa que ya recibió POP y todavía no marcó a ningún promotor.
-$sinEquipo = $mesSup && $mesSup['estado'] === 'activo' && !ep_pop_equipo_de((int) $mesSup['id'], $yo);
+// El punto rojo avisa que aún le falta repartir material recibido a sus promotores.
+$parteSup = $mesSup ? ep_pop_parte_supervisor($mesSup, $yo) : [];
+$sinEquipo = $mesSup && $mesSup['estado'] === 'activo' && array_sum(array_column($parteSup, 'recibido')) > array_sum(array_column($parteSup, 'repartido'));
 ?>
 <main class="ep-content ep-popm">
 	<header class="ep-popm-head">
@@ -29,7 +30,7 @@ $sinEquipo = $mesSup && $mesSup['estado'] === 'activo' && !ep_pop_equipo_de((int
 
 	<div class="ep-popm-tabs" role="tablist" aria-label="Colocación de POP">
 		<?php if ($esDueno): ?><button type="button" class="ep-popm-tab" role="tab" data-tab="carga"><?= ep_icon('tag', 16) ?>Carga de POP</button><?php endif; ?>
-		<button type="button" class="ep-popm-tab" role="tab" data-tab="asignada"><?= ep_icon('users', 16) ?>Colocación asignada<?php if ($sinEquipo): ?><span class="ep-popm-punto" title="Tienes material asignado y aún no eliges a tu equipo"></span><?php endif; ?></button>
+		<button type="button" class="ep-popm-tab" role="tab" data-tab="asignada"><?= ep_icon('users', 16) ?>Colocación asignada<?php if ($sinEquipo): ?><span class="ep-popm-punto" title="Te falta repartir material a tu equipo"></span><?php endif; ?></button>
 		<button type="button" class="ep-popm-tab" role="tab" data-tab="seguimiento"><?= ep_icon('clock', 16) ?>Seguimiento</button>
 		<div class="ep-popm-indicador" id="epPopmIndicador"></div>
 	</div>

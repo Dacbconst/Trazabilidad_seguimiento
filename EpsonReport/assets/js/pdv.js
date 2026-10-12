@@ -15,7 +15,7 @@ window.epPdv = { elegido: function () { return null; } };
 	var puntos = [];
 	try { puntos = JSON.parse(document.getElementById('ep-pdv-datos').textContent); } catch (e) { puntos = []; }
 
-	var estado = { elegido: null, canal: '', visibles: [], activo: -1 };
+	var estado = { elegido: null, canal: '', permitidos: null, visibles: [], activo: -1 };
 	window.epPdv.elegido = function () { return estado.elegido; };
 
 	var ACENTOS = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
@@ -38,6 +38,7 @@ window.epPdv = { elegido: function () { return null; } };
 	function filtrar() {
 		var palabras = normalizar(buscador.value).split(/\s+/).filter(Boolean);
 		estado.visibles = puntos.filter(function (p) {
+			if (estado.permitidos && estado.permitidos.indexOf(p.canal) === -1) return false;
 			if (estado.canal && p.canal !== estado.canal) return false;
 			var pajar = normalizar(p.nombre + ' ' + p.ciudad + ' ' + p.cadena);
 			return palabras.every(function (w) { return pajar.indexOf(w) !== -1; });
@@ -111,6 +112,25 @@ window.epPdv = { elegido: function () { return null; } };
 		trigger.classList.remove('con-valor');
 	};
 
+	// Limita los canales de la actividad abierta (null = los del usuario): Colocación de POP solo trabaja Retail y Canales.
+	window.epPdv.restringir = function (permitidos) {
+		estado.permitidos = permitidos;
+		estado.canal = '';
+		if (estado.elegido && permitidos && permitidos.indexOf(estado.elegido.canal) === -1) window.epPdv.limpiar();
+		var chips = document.getElementById('ep-pdv-canales');
+		if (chips) {
+			var visibles = 0;
+			chips.querySelectorAll('.ep-pdv-canal').forEach(function (b) {
+				var ok = !b.dataset.canal || !permitidos || permitidos.indexOf(b.dataset.canal) !== -1;
+				b.hidden = !ok;
+				b.classList.toggle('activo', !b.dataset.canal);
+				if (ok && b.dataset.canal) visibles++;
+			});
+			chips.hidden = visibles < 2;
+		}
+		refrescar();
+	};
+
 	// Para "Corregir y reenviar": deja elegido el punto de venta del registro devuelto.
 	window.epPdv.elegirPorId = function (posId) {
 		var p = puntos.filter(function (x) { return x.pos_id === posId; })[0];
@@ -150,4 +170,6 @@ window.epPdv = { elegido: function () { return null; } };
 	});
 	// Clic fuera del selector (escritorio): se cierra sin elegir.
 	document.addEventListener('click', function (ev) { if (!panel.hidden && !raiz.contains(ev.target)) cerrar(false); });
+	// Si la actividad abierta al cargar ya es Colocación de POP, el límite aplica desde el inicio.
+	if (document.querySelector('.ep-formulario-actividad:not(.hidden) #ep-pop-entregas')) window.epPdv.restringir(['RETAIL', 'CANALES']);
 })();

@@ -21,6 +21,22 @@ function ep_todos_los_canales(): array {
 	return $todos;
 }
 
+// Canales que corresponden a una categoría guardada: lista separada por comas ("RETAIL,CANALES") o las palabras antiguas todas/retail/canales; null si no tiene (se deduce de su ruta).
+function ep_canales_de_categoria(string $categoria): ?array {
+	$todos = ep_todos_los_canales();
+	if ($categoria === 'todas') {
+		return $todos;
+	}
+	if ($categoria === 'retail') {
+		return array_values(array_diff($todos, ['CANALES']));
+	}
+	if ($categoria === 'canales') {
+		return array_values(array_diff($todos, ['RETAIL']));
+	}
+	$lista = array_values(array_intersect($todos, array_map('trim', explode(',', strtoupper($categoria)))));
+	return $lista ?: null;
+}
+
 // Categoría de punto de venta configurada para el usuario en sesión (todas, retail, canales); vacío si no la tiene o la columna no existe.
 function ep_categoria_pdv_usuario(): string {
 	$db = ep_db();
@@ -49,14 +65,9 @@ function ep_canales_usuario(): array {
 	if (ep_es_supervisor() && $categoria === '') {
 		return ep_todos_los_canales();
 	}
-	if ($categoria === 'todas') {
-		return ep_todos_los_canales();
-	}
-	if ($categoria === 'retail') {
-		return array_values(array_diff(ep_todos_los_canales(), ['CANALES']));
-	}
-	if ($categoria === 'canales') {
-		return array_values(array_diff(ep_todos_los_canales(), ['RETAIL']));
+	$deCategoria = ep_canales_de_categoria($categoria);
+	if ($deCategoria !== null) {
+		return $deCategoria;
 	}
 	if (isset($_SESSION['pdv_canales']) && is_array($_SESSION['pdv_canales'])) {
 		return $_SESSION['pdv_canales'];
@@ -85,6 +96,12 @@ function ep_canales_usuario(): array {
 		}
 	}
 	return $_SESSION['pdv_canales'] = $canales;
+}
+
+// Canales que puede usar el usuario en una actividad: Colocación de POP solo trabaja Retail y Canales (un usuario de la categoría canales ve solo Canales).
+function ep_canales_para_tipo(string $tipo): array {
+	$canales = ep_canales_usuario();
+	return $tipo === 'colocacion-pop' ? array_values(array_intersect($canales, EP_CANALES_PDV)) : $canales;
 }
 
 // Puntos activos de esos canales, listos para el spinner.

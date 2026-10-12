@@ -62,7 +62,7 @@ if ($tipo === 'competencia') {
 	}
 
 	$conAprobacion = ep_aprobacion_activa();
-	$canales = ep_canales_usuario();
+	$canales = ep_canales_para_tipo($tipo);
 	$reqFotos = ep_fotos_requeridas($tipo);
 	$idsConocidos = array_column($reqFotos, 'id');
 	$sinSimbolos = function ($v) { return preg_replace('/[^A-Z0-9]/', '', strtoupper((string) $v)); };
@@ -177,7 +177,7 @@ if ($tipo === 'competencia') {
 require_once __DIR__.'/../includes/pdv_datos.php';
 require_once __DIR__.'/../includes/login_datos.php';
 $posId = trim($payload['pos_id'] ?? '');
-$punto = $posId !== '' ? ep_pdv_obtener($posId, ep_canales_usuario()) : null;
+$punto = $posId !== '' ? ep_pdv_obtener($posId, ep_canales_para_tipo($tipo)) : null;
 if (!$punto) {
 	http_response_code(422);
 	echo json_encode(['success' => false, 'error' => 'Elige un punto de venta de la lista.']);

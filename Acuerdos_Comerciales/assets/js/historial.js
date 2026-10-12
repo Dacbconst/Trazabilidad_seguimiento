@@ -366,8 +366,8 @@
 	function diasCortosHist(dias) {
 		dias = parseInt(dias, 10);
 		if (dias <= 0) return 'hoy';
-		if (dias === 1) return '1 día';
-		return dias + ' días';
+		if (dias === 1) return '1 día hábil';
+		return dias + ' días hábiles';
 	}
 	function cargarBannerVencimiento() {
 		var miReqId = ++bannerReqId;

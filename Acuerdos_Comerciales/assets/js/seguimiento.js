@@ -57,9 +57,9 @@
 
 	// className se aplica junto a ".ac-badge", nunca colores inline: así el badge hereda la animación de pulso de .ac-badge-critico (style.css).
 	function badgeParaDias(dias, tier) {
-		if (tier === 'critico') return { className: 'ac-badge-critico', text: dias <= 0 ? 'Vence hoy' : 'Vence en 1 día' };
-		if (tier === 'urgente') return { className: 'ac-badge-urgente', text: 'Vence en ' + dias + ' días' };
-		return { className: '', text: dias + ' días' };
+		if (tier === 'critico') return { className: 'ac-badge-critico', text: dias <= 0 ? 'Vence hoy' : 'Vence en 1 día hábil' };
+		if (tier === 'urgente') return { className: 'ac-badge-urgente', text: 'Vence en ' + dias + ' días hábiles' };
+		return { className: '', text: dias + ' días hábiles' };
 	}
 
 	function badgeParaActa(a) {

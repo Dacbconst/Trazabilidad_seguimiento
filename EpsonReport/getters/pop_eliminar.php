@@ -27,12 +27,15 @@ try {
 		exit;
 	}
 	$pop = ep_pop_obtener($id);
-	$ok = ep_pop_eliminar($id);
+	$anulados = ep_pop_eliminar($id);
+	$ok = $anulados !== null;
 	if ($ok) {
 		require_once __DIR__.'/../includes/auditoria_datos.php';
 		ep_auditar('pop_eliminar', 'pop', $id, 'Eliminó el mes de POP de '.ep_pop_mes_texto($pop['mes']), [
 			ep_auditoria_dato('Estado al eliminar', $pop['estado']),
 			ep_auditoria_dato('Materiales', count($pop['filas'])),
+			ep_auditoria_dato('Registros anulados', $anulados),
+			ep_auditoria_dato('Reporte retirado', !empty($pop['reporte_mensual_id']) ? '#'.$pop['reporte_mensual_id'] : 'Ninguno'),
 		]);
 	}
 } catch (Throwable $e) {

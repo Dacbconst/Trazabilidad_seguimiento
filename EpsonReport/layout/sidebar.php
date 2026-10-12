@@ -4,13 +4,13 @@
 		<?= ep_icon('close', 18) ?>
 	</button>
 	<div class="ep-sidebar-menu-principal" id="epSidebarMenuPrincipal">
-		<div class="ep-sidebar-user">
+		<button type="button" class="ep-sidebar-user" id="epPerfilAbrir" aria-haspopup="dialog" aria-label="Abrir mi perfil">
 			<?php require_once __DIR__.'/../includes/usuarios_datos.php'; $epFotoPerfil = ep_usuario_foto_actual(); ?>
-			<div class="ep-sidebar-avatar"<?= $epFotoPerfil ? ' style="background-image:url(\''.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'\')" data-zoom="'.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'" data-nombre="'.htmlspecialchars($_SESSION['nombre'] ?? '', ENT_QUOTES, 'UTF-8').'" role="button" tabindex="0" aria-label="Ver foto ampliada"' : '' ?>></div>
+			<span class="ep-sidebar-avatar"<?= $epFotoPerfil ? ' style="background-image:url(\''.htmlspecialchars($epFotoPerfil, ENT_QUOTES, 'UTF-8').'\')"' : '' ?>></span>
 			<span class="ep-sidebar-user-name ep-nav-label"><?= htmlspecialchars($_SESSION['usuario'] ?? '') ?></span>
 			<?php $epRolEtq = ep_es_admin() ? ['admin', 'Administrador'] : (ep_es_supervisor() ? ['supervisor', 'Supervisor'] : ['promotor', 'Promotor']); ?>
 			<span class="ep-rol-etiqueta ep-rol-etiqueta-<?= $epRolEtq[0] ?> ep-nav-label"><i aria-hidden="true"></i><?= $epRolEtq[1] ?></span>
-		</div>
+		</button>
 
 		<ul class="ep-sidebar-nav">
 			<?php foreach ($secciones as $id => $s): ?>

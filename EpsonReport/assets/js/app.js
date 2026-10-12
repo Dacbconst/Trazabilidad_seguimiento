@@ -58,6 +58,9 @@ document.addEventListener('DOMContentLoaded', function () {
 				}
 			}
 		}
+		// Colocación de POP solo trabaja puntos de Retail y Canales; las demás actividades usan los canales del usuario.
+		var formularioActivo = document.querySelector('.ep-formulario-actividad[data-actividad-id="' + id + '"]');
+		if (window.epPdv && window.epPdv.restringir) window.epPdv.restringir(formularioActivo && formularioActivo.querySelector('#ep-pop-entregas') ? ['RETAIL', 'CANALES'] : null);
 		actualizarContadorFotosMovil();
 	}
 

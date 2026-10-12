@@ -36,7 +36,12 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 		</div>
 	</div>
 
-	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>'; var MODO_ADMIN_SIN_CARTERA = <?= $modoAdminSinCartera ? 'true' : 'false' ?>;</script>
+	<script>var CANAL_USUARIO = '<?= $canalUsuario ?>'; var MODO_ADMIN_SIN_CARTERA = <?= $modoAdminSinCartera ? 'true' : 'false' ?>; var ACTAS_BLOQUEADAS = <?= actasGeneracionBloqueada() ? 'true' : 'false' ?>;</script>
+
+	<?php if (actasGeneracionBloqueada()): ?>
+	<p class="ac-field-hint" id="ac-bloqueo-aviso" style="margin:0 0 var(--space-md);">La generación manual de Actas está bloqueada. Elige una Acta Asignada desde la campanita para generarla.</p>
+	<?php endif; ?>
+	<div id="ac-acuerdo-cuerpo">
 
 	<!-- Filtros -->
 	<!-- Labels renombrados en pantalla; IDs/variables internas sin cambiar. -->
@@ -182,9 +187,11 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/registrar.js') ?: time();
 		</section>
 	</div>
 
+	</div>
+
 	<!-- Footer -->
 	<div class="ac-acuerdo-footer">
-		<button type="button" class="ac-btn-secondary ac-btn-inline" id="ac-guardar-borrador">
+		<button type="button" class="ac-btn-secondary ac-btn-inline" id="ac-guardar-borrador"<?= actasGeneracionBloqueada() ? ' style="display:none"' : '' ?>>
 			<span class="material-symbols-outlined">save</span> Guardar Borrador
 		</button>
 		<button type="button" class="ac-btn-primary ac-btn-inline" id="ac-generar-acta">

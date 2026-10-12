@@ -96,7 +96,7 @@
 		var soloDevueltos = programadas <= 0 && plazos <= 0 && !datos.popNuevo;
 		var soloPop = programadas <= 0 && !datos.devueltosNuevos && datos.popNuevo;
 		var lineas = '<p style="margin:0 0 10px">Revisa la campana de <b>Avisos</b> para ver ' + (soloDevueltos ? 'lo que debes corregir.' : (soloPop ? 'el detalle.' : 'tus pendientes.')) + '</p>';
-		if (verNuevos && datos.popNuevo) lineas += '<p style="margin:0 0 8px">Tienes habilitado reportar <b>Colocación de POP</b> este mes.</p>';
+		if (verNuevos && datos.popNuevo) lineas += '<p style="margin:0 0 8px">Tienes <b>Colocación de POP</b> que registrar este mes.</p>';
 		if (verNuevos && datos.devueltosNuevos) lineas += '<p style="margin:0 0 8px"><b>' + datos.devueltosNuevos + (datos.devueltosNuevos === 1 ? ' registro devuelto' : ' registros devueltos') + '</b> para que lo corrijas y reenvíes.</p>';
 		if (verNuevos && programadas > 0) lineas += '<p style="margin:0 0 8px">Te programaron <b>' + programadas + (programadas === 1 ? ' activación nueva' : ' activaciones nuevas') + '</b>.</p>';
 		if (verUrgentes) {

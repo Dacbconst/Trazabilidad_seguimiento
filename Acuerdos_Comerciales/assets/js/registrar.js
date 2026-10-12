@@ -41,7 +41,7 @@
 
 	// Autoguardado: cada 20 min, si hay cambios sin guardar. Nunca si ya se generó: no debe revivir un 'borrador' sobre un Acta ya generada.
 	setInterval(function () {
-		if (!formSucio || guardandoAcuerdo || ultimoEstadoGuardado === 'generado') return;
+		if (ACTAS_BLOQUEADAS || !formSucio || guardandoAcuerdo || ultimoEstadoGuardado === 'generado') return;
 		if (!distribuidorSelect.value || selectedStart === null || selectedEnd === null) return;
 		guardarAcuerdo('borrador', function () { mostrarToast('Borrador guardado automáticamente.', 'info'); }, null);
 	}, 20 * 60 * 1000);
@@ -701,7 +701,8 @@
 		var total = inputs.reduce(function (a, b) { return a + b; }, 0);
 		var rebatePct = (parseFloat(row.querySelector('.ac-rebate-input').value) || 0) / 100;
 		row.querySelector('.total-cell').textContent = formatCurr(total);
-		row.querySelector('.est-cell').textContent = formatCurr(total * (1 + rebatePct));
+		// Misma fórmula que acta_pdf.php: Distribuidor = Total x Rebate%, Directo = Total x (1+Rebate%).
+		row.querySelector('.est-cell').textContent = formatCurr(CANAL_USUARIO === 'distribuidor' ? total * rebatePct : total * (1 + rebatePct));
 		updateGrandTotals();
 	}
 
@@ -1027,7 +1028,7 @@
 				formSucio = false;
 				ultimoEstadoGuardado = estado;
 				// Solo limpiar `origenPrecarga` cuando el guardado es el final ('generado'), nunca en un "Guardar Borrador" intermedio.
-				if (estado === 'generado') origenPrecarga = null;
+				if (estado === 'generado') { origenPrecarga = null; actualizarBloqueoGenerar(); }
 				// Con onOk, el llamador muestra su propio mensaje de éxito; mostrar acá también el genérico duplicaba la alerta.
 				if (onOk) onOk(); else mostrarMensaje(data.message, true);
 			})
@@ -1040,6 +1041,19 @@
 	}
 
 	document.getElementById('ac-generar-acta').addEventListener('click', mostrarPreview);
+	// Bloqueo de generación (ver actasGeneracionBloqueada() en sesion.php): Previsualización solo activa si el form viene de una Acta Asignada de la campanita.
+	function actualizarBloqueoGenerar() {
+		if (!ACTAS_BLOQUEADAS) return;
+		var btn = document.getElementById('ac-generar-acta');
+		btn.disabled = !origenPrecarga;
+		btn.title = origenPrecarga ? '' : 'La generación de Actas está temporalmente bloqueada. Elige una Acta Asignada desde la campanita.';
+		// Sin precarga el formulario completo queda inerte (no se puede tocar ni con teclado); con precarga se desbloquea.
+		var cuerpo = document.getElementById('ac-acuerdo-cuerpo');
+		var aviso = document.getElementById('ac-bloqueo-aviso');
+		if (cuerpo) { cuerpo.inert = !origenPrecarga; cuerpo.style.opacity = origenPrecarga ? '' : '0.55'; }
+		if (aviso) aviso.style.display = origenPrecarga ? 'none' : '';
+	}
+	actualizarBloqueoGenerar();
 	var guardarBorradorBtn = document.getElementById('ac-guardar-borrador');
 	guardarBorradorBtn.addEventListener('click', function () {
 		guardarAcuerdo('borrador', null, guardarBorradorBtn);
@@ -1172,6 +1186,7 @@
 		acuerdoId = null;
 		documentoNo = null;
 		origenPrecarga = null;
+		actualizarBloqueoGenerar();
 		distribuidorSelect.value = '';
 		distribuidorSearch.value = '';
 		if (CANAL_USUARIO === 'distribuidor') {
@@ -1318,6 +1333,7 @@
 		acuerdoId = a.id;
 		documentoNo = a.documento_no;
 		origenPrecarga = null; // un Borrador nunca viene de una precarga
+		actualizarBloqueoGenerar();
 		var btnAgregarPurchase = document.getElementById('ac-add-purchase-row');
 		if (btnAgregarPurchase) { btnAgregarPurchase.disabled = false; btnAgregarPurchase.title = ''; } // por si quedó bloqueado de una precarga anterior en esta sesión
 		desbloquearAgregarOtrasTablas();
@@ -1454,6 +1470,7 @@
 		acuerdoId = null;
 		documentoNo = null;
 		origenPrecarga = { pos_id: p.pos_id, trimestre: trimestre, anio: anio, origen: 'cuotas' };
+		actualizarBloqueoGenerar();
 
 		anioSelect.value = p.anio;
 		selectedStart = p.mes_inicio;
@@ -1508,6 +1525,7 @@
 		acuerdoId = null;
 		documentoNo = null;
 		origenPrecarga = { pos_id: p.pos_id, trimestre: trimestre, anio: anio, origen: 'completo' };
+		actualizarBloqueoGenerar();
 
 		anioSelect.value = p.anio;
 		selectedStart = p.mes_inicio;

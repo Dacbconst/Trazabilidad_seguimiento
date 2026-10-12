@@ -33,8 +33,8 @@ if (!isset($secciones[$vista])) {
 }
 
 // Cada módulo carga solo sus hojas y scripts (en el orden de siempre); uno que no esté en la lista carga todo, así uno nuevo nunca queda sin estilos.
-$hojasTodas = ['base', 'avisos', 'shell', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'historial-excel', 'reportes', 'calendario', 'pop', 'auditoria', 'usuarios', 'repositorios'];
-$scriptsTodos = ['sesion-watch', 'avisos', 'en-vivo', 'filtros', 'reportes-lista', 'reportes', 'historial', 'historial-excel', 'calendario', 'pop', 'auditoria', 'usuarios', 'repositorios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir'];
+$hojasTodas = ['base', 'avisos', 'shell', 'perfil', 'actividades', 'pdv', 'wizard-fotos', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios', 'filtros', 'historial', 'historial-excel', 'reportes', 'calendario', 'pop', 'auditoria', 'usuarios', 'repositorios'];
+$scriptsTodos = ['sesion-watch', 'perfil', 'avisos', 'en-vivo', 'filtros', 'reportes-lista', 'reportes', 'historial', 'historial-excel', 'calendario', 'pop', 'auditoria', 'usuarios', 'repositorios', 'zoom-foto', 'pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir'];
 $porVista = [
 	'actividades' => [['actividades', 'pdv', 'ppt-export', 'wizard-fotos-desktop', 'visor-fotos', 'comentarios'], ['pdv', 'carrusel', 'app', 'visor-fotos', 'comentarios', 'corregir']],
 	'historial' => [['actividades', 'ppt-export', 'filtros', 'historial', 'historial-excel'], ['en-vivo', 'filtros', 'historial', 'historial-excel', 'app']],
@@ -47,8 +47,8 @@ $porVista = [
 	'repositorios' => [['actividades', 'ppt-export', 'reportes', 'repositorios'], ['repositorios']],
 ];
 [$hojasVista, $scriptsVista] = $porVista[$vista] ?? [$hojasTodas, $scriptsTodos];
-$hojas = array_values(array_intersect($hojasTodas, array_merge(['base', 'shell', 'wizard-fotos', 'avisos'], $hojasVista)));
-$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch', 'zoom-foto', 'avisos'], $scriptsVista)));
+$hojas = array_values(array_intersect($hojasTodas, array_merge(['base', 'shell', 'perfil', 'wizard-fotos', 'avisos'], $hojasVista)));
+$scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watch', 'perfil', 'zoom-foto', 'avisos'], $scriptsVista)));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -86,6 +86,7 @@ $scripts = array_values(array_intersect($scriptsTodos, array_merge(['sesion-watc
 
 	<div class="ep-shell">
 		<?php require __DIR__.'/layout/sidebar.php'; ?>
+		<?php require __DIR__.'/layout/perfil.php'; ?>
 		<div class="ep-sidebar-backdrop" id="epSidebarBackdrop"></div>
 		<?php if ($conAvisos) { require __DIR__.'/layout/avisos.php'; } ?>
 

@@ -20,8 +20,10 @@ function ep_pop_supervisores(): array {
 	if (!$db) {
 		return [];
 	}
-	$res = $db->query("SELECT id, usuario FROM repositorio_usuarios_reporte WHERE rol = 'supervisor' AND status = 'activo' ORDER BY usuario = '".EP_POP_DUENO."' DESC, usuario");
-	return array_map(fn($f) => ['id' => (int) $f['id'], 'nombre' => ep_pop_nombre_propio($f['usuario'])], $res ? $res->fetch_all(MYSQLI_ASSOC) : []);
+	require_once __DIR__.'/usuarios_datos.php';
+	$colFoto = ep_usuarios_tiene_foto($db) ? 'foto' : 'NULL AS foto';
+	$res = $db->query("SELECT id, usuario, $colFoto FROM repositorio_usuarios_reporte WHERE rol = 'supervisor' AND status = 'activo' ORDER BY usuario = '".EP_POP_DUENO."' DESC, usuario");
+	return array_map(fn($f) => ['id' => (int) $f['id'], 'nombre' => ep_pop_nombre_propio($f['usuario']), 'foto' => ep_usuario_foto_url($f['foto'])], $res ? $res->fetch_all(MYSQLI_ASSOC) : []);
 }
 
 // Lo repartido en un nivel: [fila_id => [usuario_id => cantidad]]; en el nivel 2 se puede filtrar por quien reparte.

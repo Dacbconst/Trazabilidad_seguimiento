@@ -84,15 +84,21 @@
 		sel.innerHTML = h;
 		sel.value = String(valor || 0);
 	}
+	// Canales marcados en la ruta del usuario, en el orden de la pantalla.
+	function canalesMarcados() {
+		return Array.prototype.slice.call($('epUsCategorias').querySelectorAll('input:checked')).map(function (c) { return c.value; });
+	}
 	function pintarRuta() {
 		var conRuta = usuarios.length && usuarios[0].con_ruta;
 		var esProm = $('epUsRolCampo').value === 'promotor';
 		var esSup = $('epUsRolCampo').value === 'supervisor';
 		$('epUsWRuta').style.display = conRuta && (esProm || esSup) ? '' : 'none';
-		var cat = $('epUsCategorias').value;
-		// Un promotor solo de retail no necesita supervisor de canales, y al revés; con "todas" o por su ruta hacen falta los dos.
-		$('epUsWSupCanales').style.display = esProm && cat !== 'retail' ? '' : 'none';
-		$('epUsWSupRetail').style.display = esProm && cat !== 'canales' ? '' : 'none';
+		var canales = canalesMarcados();
+		var conRetail = canales.indexOf('RETAIL') !== -1;
+		var conCanales = canales.indexOf('CANALES') !== -1;
+		// Quien solo ve Retail no necesita supervisor de canales, y al revés; con ambos, otros canales o la ruta de Xplora hacen falta los dos.
+		$('epUsWSupCanales').style.display = esProm && !(conRetail && !conCanales) ? '' : 'none';
+		$('epUsWSupRetail').style.display = esProm && !(conCanales && !conRetail) ? '' : 'none';
 	}
 
 	// ---- Panel ----
@@ -137,7 +143,8 @@
 		$('epUsCorreo').value = actual.correo;
 		$('epUsRolCampo').value = actual.rol;
 		$('epUsRolCampo').disabled = actual.propio;
-		$('epUsCategorias').value = actual.categorias || '';
+		var guardados = (actual.categorias || '').split(',');
+		$('epUsCategorias').querySelectorAll('input').forEach(function (c) { c.checked = guardados.indexOf(c.value) !== -1; });
 		opcionesSup($('epUsSupCanales'), actual.sup_canales);
 		opcionesSup($('epUsSupRetail'), actual.sup_retail);
 		pintarRuta();
@@ -172,7 +179,7 @@
 
 	function guardar() {
 		var btn = $('epUsGuardar');
-		var datos = { id: actual.id, correo: $('epUsCorreo').value, rol: $('epUsRolCampo').value, categorias: $('epUsCategorias').value, sup_canales: $('epUsSupCanales').value, sup_retail: $('epUsSupRetail').value };
+		var datos = { id: actual.id, correo: $('epUsCorreo').value, rol: $('epUsRolCampo').value, categorias: canalesMarcados().join(','), sup_canales: $('epUsSupCanales').value, sup_retail: $('epUsSupRetail').value };
 		if (nuevo) {
 			datos.usuario = $('epUsUsuario').value;
 			datos.nombre = $('epUsNombre').value;

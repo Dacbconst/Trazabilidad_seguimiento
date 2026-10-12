@@ -1,0 +1,70 @@
+/* ---------- Mi perfil: ventana sobre fondo desenfocado, abierta desde el bloque de usuario del menú ---------- */
+.ep-sidebar-user { background: none; border-top: 0; border-left: 0; border-right: 0; width: 100%; font: inherit; color: inherit; cursor: pointer; border-radius: 12px 12px 0 0; transition: background 0.18s ease; }
+.ep-sidebar-user:hover { background: rgba(255, 255, 255, 0.06); }
+.ep-sidebar-user:focus-visible { outline: 2px solid #B9A5E8; outline-offset: -2px; }
+.ep-sidebar-avatar { display: flex; }
+
+.ep-perfil { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ep-perfil[hidden] { display: none; }
+.ep-perfil-fondo { position: absolute; inset: 0; background: rgba(17, 12, 32, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: ep-perfil-fondo 0.28s ease-out both; }
+.ep-perfil-hoja { position: relative; width: 100%; max-width: 780px; max-height: calc(100dvh - 32px); display: grid; grid-template-columns: 280px minmax(0, 1fr); overflow: hidden; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 24px 60px rgba(17, 12, 32, 0.35), 0 4px 12px rgba(17, 12, 32, 0.12); animation: ep-perfil-hoja 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes ep-perfil-fondo { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; backdrop-filter: blur(8px); } }
+@keyframes ep-perfil-hoja { from { opacity: 0; transform: translateY(14px) scale(0.97); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+
+.ep-perfil-x { position: absolute; top: 12px; right: 12px; z-index: 1; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--color-text-muted); transition: background 0.15s ease, color 0.15s ease; }
+.ep-perfil-x:hover { background: var(--color-surface-muted); color: var(--color-ink); }
+
+/* Panel lateral: identidad y datos de solo lectura */
+.ep-perfil-lado { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 36px 24px 28px; background: var(--color-primary-dark); color: #fff; }
+.ep-perfil-foto { width: 120px; height: 120px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--color-primary-mid) center / cover no-repeat; color: #fff; font: 600 44px 'Sora', sans-serif; box-shadow: 0 0 0 4px var(--color-primary-dark), 0 0 0 6px rgba(255, 255, 255, 0.4); }
+.ep-perfil-lado h2 { margin-top: 14px; color: #fff; font-size: 19px; line-height: 1.25; text-wrap: balance; }
+.ep-perfil-rol { display: inline-flex; align-items: center; height: 24px; padding: 0 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28); color: #fff; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.ep-perfil-datos { width: 100%; margin: 14px 0 0; padding: 0; }
+.ep-perfil-datos div { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.14); text-align: left; }
+.ep-perfil-datos dt { font-size: 12px; color: rgba(255, 255, 255, 0.72); }
+.ep-perfil-datos dd { margin: 0; font-size: 14px; font-weight: 500; color: #fff; overflow-wrap: anywhere; }
+.ep-perfil-nota { display: inline-flex; align-items: flex-start; gap: 6px; margin: auto 0 0; padding-top: 14px; font-size: 12px; line-height: 1.4; color: rgba(255, 255, 255, 0.72); text-align: left; }
+.ep-perfil-nota svg { flex-shrink: 0; margin-top: 2px; }
+
+/* Cuerpo: correo y clave */
+.ep-perfil-cuerpo { display: flex; flex-direction: column; gap: 28px; padding: 36px 32px 28px; overflow-y: auto; }
+.ep-perfil-bloque h3 { font-size: 15px; }
+.ep-perfil-ayuda { margin: 4px 0 12px; font-size: 13px; color: var(--color-text-muted); }
+.ep-perfil-fila { display: flex; gap: 8px; }
+.ep-perfil-fila .ep-input { min-width: 0; flex: 1; }
+.ep-perfil-clave { display: flex; flex-direction: column; gap: 8px; }
+.ep-perfil-btn { height: 44px; padding: 0 20px; border: 0; border-radius: var(--radius-md); background: var(--color-primary); color: #fff; font: 600 14px 'IBM Plex Sans', sans-serif; transition: background 0.15s ease, transform 0.12s ease; }
+.ep-perfil-btn:hover { background: var(--color-primary-dark); }
+.ep-perfil-btn:active { transform: scale(0.98); }
+.ep-perfil-btn:disabled { opacity: 0.6; cursor: progress; }
+.ep-perfil-btn-ancho { width: 100%; margin-top: 4px; }
+.ep-perfil-msg { min-height: 18px; margin: 8px 0 0; font-size: 13px; color: var(--color-text-muted); }
+.ep-perfil-msg.ok { color: var(--color-success); }
+.ep-perfil-msg.error { color: var(--color-danger); }
+
+@media (max-width: 720px) {
+	.ep-perfil { align-items: flex-end; padding: 0; }
+	.ep-perfil-hoja { max-width: none; max-height: 94dvh; grid-template-columns: 1fr; overflow-y: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; animation-name: ep-perfil-hoja-movil; }
+	@keyframes ep-perfil-hoja-movil { from { transform: translateY(100%); } to { transform: none; } }
+	.ep-perfil-lado { padding: 28px 20px 20px; }
+	.ep-perfil-foto { width: 88px; height: 88px; font-size: 32px; }
+	.ep-perfil-lado h2 { margin-top: 8px; }
+	.ep-perfil-datos { margin-top: 8px; }
+	.ep-perfil-nota { margin: 0; padding-top: 8px; }
+	.ep-perfil-x { color: rgba(255, 255, 255, 0.85); }
+	.ep-perfil-x:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+	.ep-perfil-cuerpo { padding: 24px 20px calc(20px + env(safe-area-inset-bottom)); overflow: visible; }
+	.ep-perfil-fila { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.ep-perfil-fondo, .ep-perfil-hoja { animation: none; }
+}
+
+/* Ojo para ver la clave: muestra un icono u otro según el estado */
+.ep-perfil-clave-wrap { position: relative; display: block; flex: 1; min-width: 0; }
+.ep-perfil-clave-wrap .ep-input { padding-right: 46px; }
+.ep-perfil-ojo { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--color-text-muted); transition: background 0.15s ease, color 0.15s ease; }
+.ep-perfil-ojo:hover { background: var(--color-primary-soft); color: var(--color-primary); }
+.ep-perfil-ojo .ojo-ocultar, .ep-perfil-ojo[aria-pressed="true"] .ojo-ver { display: none; }
+.ep-perfil-ojo[aria-pressed="true"] .ojo-ocultar { display: inline-flex; }
+.ep-perfil-ojo .ojo-ver { display: inline-flex; }
