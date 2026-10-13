@@ -21,7 +21,7 @@ if ($acuerdoId <= 0) {
 }
 
 // Dueño del acuerdo, salvo superdesarrollador (ve/administra todo, igual que en Historial).
-$stmt = $mysqli->prepare('SELECT creado_por FROM repositorio_acuerdos WHERE id = ? LIMIT 1');
+$stmt = $mysqli->prepare('SELECT creado_por, (acta_firmada_azure_path IS NOT NULL AND acta_firmada_azure_path <> \'\') AS tiene_firma FROM repositorio_acuerdos WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $acuerdoId);
 $stmt->execute();
 $fila = $stmt->get_result()->fetch_assoc();
@@ -31,6 +31,12 @@ $esDueno = $fila && (int) $fila['creado_por'] === (int) $usuarioSesion;
 $esAdmin = $rolSesion === 'superdesarrollador';
 if (!$fila || (!$esDueno && !$esAdmin)) {
 	echo json_encode(['ok' => false, 'message' => 'Acuerdo no encontrado.']);
+	exit;
+}
+
+// El administrador no puede eliminar un Acta firmada de otro asesor.
+if (!$esDueno && !empty($fila['tiene_firma'])) {
+	echo json_encode(['ok' => false, 'message' => 'Esta Acta ya está firmada y la generó otro asesor, no se puede eliminar.']);
 	exit;
 }
 

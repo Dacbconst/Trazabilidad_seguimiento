@@ -166,11 +166,15 @@
 	}
 
 	// Compartido entre Historial y "Mis Borradores"; eliminar_acuerdo.php nunca hace DELETE físico, marca estado='anulado'. La diferencia entre los 2 usos es qué pasa con la fila después (recargar todo vs. sacarla con animación), por eso queda a cargo de onOk.
-	function confirmarYEliminarAcuerdo(id, documentoNo, onOk) {
+	function confirmarYEliminarAcuerdo(id, documentoNo, onOk, ajeno) {
+		var texto = 'Se eliminará el acuerdo #' + documentoNo + '. Esta acción no se puede deshacer desde aquí.';
+		if (ajeno) {
+			texto = 'Vas a eliminar el acuerdo #' + documentoNo + ' de ' + (ajeno.cliente || 'este cliente') + ', generado por ' + (ajeno.generador || 'otro asesor') + '. Esta acción no se puede deshacer desde aquí.';
+		}
 		Swal.fire({
 			icon: 'warning',
-			title: '¿Eliminar acuerdo?',
-			text: 'Se eliminará el acuerdo #' + documentoNo + '. Esta acción no se puede deshacer desde aquí.',
+			title: ajeno ? '¿Eliminar el acuerdo de otro asesor?' : '¿Eliminar acuerdo?',
+			text: texto,
 			showCancelButton: true,
 			confirmButtonText: 'Sí, eliminar',
 			cancelButtonText: 'Cancelar',
@@ -519,10 +523,10 @@
 		window.scrollTo(0, 0);
 	}
 
-	function eliminarAcuerdo(id, documentoNo) {
+	function eliminarAcuerdo(id, documentoNo, ajeno) {
 		confirmarYEliminarAcuerdo(id, documentoNo, function () {
 			cargarHistorial(parseInt(paginacionEl.dataset.pagina, 10) || 1);
-		});
+		}, ajeno);
 	}
 
 	// ---------- Subir/ver Acta firmada ---------- Modal con 2 paneles: Acta generada (izquierda, referencia) y Acta firmada (derecha). Un solo componente sirve para "ver" y "subir nueva".
@@ -857,7 +861,7 @@
 		var firmaBtn = e.target.closest('.hist-btn-firma');
 		if (verBtn) abrirDetalle(verBtn.dataset.id);
 		else if (descargarBtn2) abrirDetalle(descargarBtn2.dataset.id);
-		else if (eliminarBtn) eliminarAcuerdo(eliminarBtn.dataset.id, eliminarBtn.dataset.doc);
+		else if (eliminarBtn) eliminarAcuerdo(eliminarBtn.dataset.id, eliminarBtn.dataset.doc, eliminarBtn.dataset.ajeno === '1' ? { cliente: eliminarBtn.dataset.cliente, generador: eliminarBtn.dataset.generador } : null);
 		else if (firmaBtn) abrirModalFirma(firmaBtn.dataset.id, firmaBtn.dataset.doc, firmaBtn.dataset.tieneFirma === '1', firmaBtn.dataset.mime);
 	});
 

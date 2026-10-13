@@ -359,6 +359,12 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 	$esPropio = (int) ($a['creado_por'] ?? 0) === (int) ($_SESSION['user_id'] ?? 0);
 	$disabledAjeno = $esPropio ? '' : ' disabled';
 	$tituloAjeno = ' title="Esta Acta la generó otro asesor — solo esa cuenta puede subir la firma."';
+	// El administrador puede eliminar Actas ajenas siempre que no estén firmadas.
+	$esAdmin = ($_SESSION['rol'] ?? '') === 'superdesarrollador';
+	$puedeEliminar = $esPropio || ($esAdmin && !$tieneFirma);
+	$disabledEliminar = $puedeEliminar ? '' : ' disabled';
+	$tituloEliminar = $puedeEliminar ? 'Eliminar' : ($esAdmin ? 'Esta Acta ya está firmada y la generó otro asesor, no se puede eliminar.' : 'Esta Acta la generó otro asesor — solo esa cuenta puede eliminarla.');
+	$datosEliminarAjeno = (!$esPropio && $puedeEliminar) ? ' data-ajeno="1" data-generador="'.htmlspecialchars($a['generado_por'] ?? '').'" data-cliente="'.htmlspecialchars($a['pos_name'] ?? '').'"' : '';
 
 	// .ac-row-actions-primary: en mobile es el botón más importante, necesita texto visible y buen tamaño táctil.
 	$firmaBtn = $tieneFirma
@@ -383,7 +389,7 @@ function renderFilaHistorial(array $a, $mostrarCanal = false) {
 				<button type="button" class="ac-icon-btn hist-btn-ver" data-id="'.(int) $a['id'].'" title="Ver Detalles">
 					<span class="material-symbols-outlined">visibility</span>
 				</button>
-				<button type="button" class="ac-icon-btn ac-icon-btn-danger hist-btn-eliminar" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'"'.$disabledAjeno.($esPropio ? ' title="Eliminar"' : ' title="Esta Acta la generó otro asesor — solo esa cuenta puede eliminarla."').'>
+				<button type="button" class="ac-icon-btn ac-icon-btn-danger hist-btn-eliminar" data-id="'.(int) $a['id'].'" data-doc="'.htmlspecialchars($a['documento_no']).'"'.$datosEliminarAjeno.$disabledEliminar.' title="'.htmlspecialchars($tituloEliminar).'">
 					<span class="material-symbols-outlined">delete</span>
 				</button>
 			</div>

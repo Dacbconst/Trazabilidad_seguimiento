@@ -58,6 +58,7 @@ if (strlen($contenido) > 300 * 1024 && function_exists('imagecreatefromstring'))
 		$alto = imagesy($img);
 		$escala = min(1, 1000 / max($ancho, $alto));
 		$destino = imagecreatetruecolor((int) round($ancho * $escala), (int) round($alto * $escala));
+		imagefill($destino, 0, 0, imagecolorallocate($destino, 255, 255, 255)); // fondo blanco: un PNG con transparencia saldría negro en JPEG
 		imagecopyresampled($destino, $img, 0, 0, 0, 0, imagesx($destino), imagesy($destino), $ancho, $alto);
 		ob_start();
 		imagejpeg($destino, null, 72);

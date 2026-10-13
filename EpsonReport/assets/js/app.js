@@ -494,37 +494,71 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Deja cada foto liviana (objetivo ~120 KB, máx. 1000px): son miles de fotos que luego irán a presentaciones PPT, el peso manda.
 	var FOTO_PASOS = [[1000, 0.72], [900, 0.65], [800, 0.6], [720, 0.55], [640, 0.5]];
 	var FOTO_OBJETIVO_BYTES = 120 * 1024;
-	function comprimirFoto(archivo) {
-		return new Promise(function (resolve) {
+	// Decodifica la foto a algo dibujable; las capturas de pantalla (PNG enormes) fallaban con Image + revocar la URL antes de dibujar.
+	function decodificarFoto(archivo) {
+		if (window.createImageBitmap) {
+			return createImageBitmap(archivo).then(function (bmp) {
+				return { fuente: bmp, ancho: bmp.width, alto: bmp.height, liberar: function () { if (bmp.close) bmp.close(); } };
+			}).catch(function () { return decodificarConImagen(archivo); });
+		}
+		return decodificarConImagen(archivo);
+	}
+
+	function decodificarConImagen(archivo) {
+		return new Promise(function (resolve, reject) {
 			var img = new Image();
 			var url = URL.createObjectURL(archivo);
-			img.onerror = function () { URL.revokeObjectURL(url); resolve(archivo); };
+			img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('imagen')); };
 			img.onload = function () {
-				URL.revokeObjectURL(url);
+				var listo = function () { resolve({ fuente: img, ancho: img.naturalWidth, alto: img.naturalHeight, liberar: function () { URL.revokeObjectURL(url); } }); };
+				if (img.decode) img.decode().then(listo, listo); else listo();
+			};
+			img.src = url;
+		});
+	}
+
+	// Detecta un lienzo que quedó todo blanco (el navegador no dibujó la imagen): muestrea una rejilla de píxeles.
+	function lienzoVacio(canvas) {
+		try {
+			var ctx = canvas.getContext('2d');
+			for (var fy = 0; fy < 12; fy++) {
+				for (var fx = 0; fx < 12; fx++) {
+					var d = ctx.getImageData(Math.floor((fx + 0.5) * canvas.width / 12), Math.floor((fy + 0.5) * canvas.height / 12), 1, 1).data;
+					if (d[0] < 255 || d[1] < 255 || d[2] < 255) return false;
+				}
+			}
+			return true;
+		} catch (e) { return false; }
+	}
+
+	function comprimirFoto(archivo) {
+		return decodificarFoto(archivo).then(function (dec) {
+			return new Promise(function (resolve) {
 				var mejor = null;
+				function terminar(valor) { dec.liberar(); resolve(valor); }
 				function probar(i) {
 					var paso = FOTO_PASOS[i];
-					var escala = Math.min(1, paso[0] / Math.max(img.width, img.height));
+					var escala = Math.min(1, paso[0] / Math.max(dec.ancho, dec.alto));
 					var canvas = document.createElement('canvas');
-					canvas.width = Math.round(img.width * escala);
-					canvas.height = Math.round(img.height * escala);
+					canvas.width = Math.max(1, Math.round(dec.ancho * escala));
+					canvas.height = Math.max(1, Math.round(dec.alto * escala));
 					var ctx = canvas.getContext('2d');
 					ctx.fillStyle = '#FFFFFF'; // fondo blanco: un PNG con transparencia saldría negro en JPEG
 					ctx.fillRect(0, 0, canvas.width, canvas.height);
-					ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+					ctx.drawImage(dec.fuente, 0, 0, canvas.width, canvas.height);
+					if (i === 0 && lienzoVacio(canvas)) { terminar(archivo); return; } // si no dibujó nada, se sube el original y el servidor lo reduce
 					canvas.toBlob(function (blob) {
 						if (blob) mejor = blob;
 						if (blob && blob.size <= FOTO_OBJETIVO_BYTES || i === FOTO_PASOS.length - 1) {
-							resolve(mejor && (mejor.size < archivo.size || archivo.type !== 'image/jpeg') ? mejor : archivo);
+							terminar(mejor && (mejor.size < archivo.size || archivo.type !== 'image/jpeg') ? mejor : archivo);
 						} else {
 							probar(i + 1);
 						}
 					}, 'image/jpeg', paso[1]);
 				}
 				probar(0);
-			};
-			img.src = url;
-		});
+			});
+		}).catch(function () { return archivo; });
 	}
 
 	// Al elegir la foto solo se comprime y se guarda en memoria; la subida a Azure ocurre al enviar el registro.
