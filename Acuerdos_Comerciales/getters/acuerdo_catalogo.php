@@ -41,6 +41,11 @@ while ($row = $res->fetch_assoc()) {
 	if (!in_array($mar, $segmentos[$seg][$cat], true)) $segmentos[$seg][$cat][] = $mar;
 }
 
+// Espacio mixto (varias marcas en un mismo espacio, se paga como 1): categoría propia MIXTA con la única marca MIXTA, solo en Cabeceras/Rumas (usan este árbol). Meta de Compras y Perchas no.
+foreach ($segmentos as $seg => $_) {
+	$segmentos[$seg]['MIXTA'] = ['MIXTA'];
+}
+
 // La tabla de Perchas no usa Segmento/Subcategoría (ver CLAUDE.md), solo Marca. Categoría (2026-09-22, pedido explícito) sí se agregó — independiente de Marca, no encadenada (a diferencia del árbol de Meta de Compras más abajo), el usuario elige las 2 por separado.
 $marcasPercha = [];
 $res = $mysqli->query(

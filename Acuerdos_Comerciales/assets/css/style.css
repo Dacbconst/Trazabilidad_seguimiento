@@ -37,6 +37,8 @@
 
 * { box-sizing: border-box; }
 
+/* Reserva el ancho de la barra de scroll: evita que el layout salte al aparecer/desaparecer en cada cambio de pestaña. */
+html { scrollbar-gutter: stable; }
 body {
 	margin: 0;
 	font-family: var(--font-body);

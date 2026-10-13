@@ -15,6 +15,21 @@ function repositorio_sql_comparable($columna) {
 	return $expr;
 }
 
+// ¿La base propia ya tiene la columna `ciudad`? Cache por request: sin ella todo sigue como antes (cedi hace de ciudad), no se rompe nada si el ALTER todavía no corrió.
+function propiosTieneCiudad($mysqli) {
+	static $tiene = null;
+	if ($tiene === null) {
+		$res = $mysqli->query("SHOW COLUMNS FROM repositorio_clientes_propiosac LIKE 'ciudad'");
+		$tiene = $res && $res->num_rows > 0;
+	}
+	return $tiene;
+}
+
+// Ciudad real de un cliente propio para mostrar y buscar rebate: `ciudad` si está llena, si no `cedi` (en Directa es el asesor, en Distribuidor ya es la ciudad). La columna `cedi` cruda se sigue usando para saber de quién es el cliente.
+function sqlCiudadPropios($mysqli) {
+	return propiosTieneCiudad($mysqli) ? "COALESCE(NULLIF(ciudad, ''), cedi)" : 'cedi';
+}
+
 // Cache en memoria del maestro completo, una sola vez por request — antes escaneaba 42k filas por SQL sin índice en cada cliente (~300ms c/u).
 function maestroClientesEnMemoria($mysqli, $forzarRecarga = false) {
 	static $filas = null;
@@ -29,12 +44,13 @@ function maestroClientesEnMemoria($mysqli, $forzarRecarga = false) {
 		$filas[] = $fila;
 	}
 	// Clientes que Alicorp todavía no tiene en su maestro (ver resolverPosIdCliente()/crearClientePropio()) — mismo formato de fila para que el resto de funciones de este archivo los trate igual; `es_propio` hace que el match sea EXACTO, nunca por prefijo como el maestro real. Silencioso si la tabla todavía no existe (ALTER/CREATE pendiente).
-	$resPropios = $mysqli->query("SELECT id, pos_id, cliente AS pos_name, UPPER(canal) AS canal, distribuidor AS tipo_distribuidor, cedi AS supervisor, cedi FROM repositorio_clientes_propiosac");
+	$resPropios = $mysqli->query("SELECT id, pos_id, cliente AS pos_name, UPPER(canal) AS canal, distribuidor AS tipo_distribuidor, cedi AS supervisor, ".sqlCiudadPropios($mysqli)." AS cedi, ".(propiosTieneCiudad($mysqli) ? "COALESCE(ciudad, '')" : "''")." AS ciudad_real FROM repositorio_clientes_propiosac");
 	if ($resPropios) {
 		while ($fila = $resPropios->fetch_assoc()) {
 			$fila['pos_name_comparable'] = repositorio_texto_comparable($fila['pos_name']);
 			$fila['tipo_distribuidor_comparable'] = repositorio_texto_comparable($fila['tipo_distribuidor']);
 			$fila['supervisor_comparable'] = repositorio_texto_comparable($fila['supervisor']);
+			$fila['ciudad_comparable'] = repositorio_texto_comparable($fila['ciudad_real']);
 			$fila['es_propio'] = true;
 			$filas[] = $fila;
 		}
@@ -48,12 +64,18 @@ function crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distrib
 	$cediExcel = $cediExcel !== null ? trim((string) $cediExcel) : null;
 	$distribuidorExcel = $distribuidorExcel !== null ? trim((string) $distribuidorExcel) : null;
 
+	// Ciudad real: en Distribuidor ya viene en el Excel (columna CIUDAD), en Directa se toma del maestro de Alicorp por nombre.
+	$tieneCiudad = propiosTieneCiudad($mysqli);
+	// La ciudad viene en la columna CEDI del Excel (en Distribuidor, en CIUDAD): se guarda en cedi. La columna `ciudad` queda para completar clientes viejos. El maestro de Alicorp ya no interviene.
+	$ciudad = $canalDb === 'distribuidor' ? $cediExcel : null;
 	$stmt = $mysqli->prepare(
-		'INSERT INTO repositorio_clientes_propiosac (pos_id, cliente, cedi, distribuidor, canal, creado_por)
-		 VALUES (\'\', ?, ?, ?, ?, ?)'
+		$tieneCiudad
+			? 'INSERT INTO repositorio_clientes_propiosac (pos_id, cliente, cedi, ciudad, distribuidor, canal, creado_por) VALUES (\'\', ?, ?, ?, ?, ?, ?)'
+			: 'INSERT INTO repositorio_clientes_propiosac (pos_id, cliente, cedi, distribuidor, canal, creado_por) VALUES (\'\', ?, ?, ?, ?, ?)'
 	);
 	if (!$stmt) return null;
-	$stmt->bind_param('ssssi', $clienteExcel, $cediExcel, $distribuidorExcel, $canalDb, $creadoPor);
+	if ($tieneCiudad) $stmt->bind_param('sssssi', $clienteExcel, $cediExcel, $ciudad, $distribuidorExcel, $canalDb, $creadoPor);
+	else $stmt->bind_param('ssssi', $clienteExcel, $cediExcel, $distribuidorExcel, $canalDb, $creadoPor);
 	if (!$stmt->execute()) { $stmt->close(); return null; }
 	$id = $stmt->insert_id;
 	$stmt->close();
@@ -64,6 +86,33 @@ function crearClientePropio($mysqli, $clienteExcel, $cediExcel, $canal, $distrib
 	// Sin esto, una 2da consulta en el mismo request no lo ve (cache en memoria de maestroClientesEnMemoria()) y crea un duplicado.
 	maestroClientesEnMemoria($mysqli, true);
 	return $posId;
+}
+
+// Ciudades que ya conocemos (las ya guardadas en clientes y las del repositorio de Rebate): sirve para distinguir una ciudad de un nombre de asesor cuando el Excel viene con el formato viejo.
+function esCiudadConocida($mysqli, $texto) {
+	static $conocidas = null;
+	if ($conocidas === null) {
+		$conocidas = [];
+		foreach (['SELECT DISTINCT ciudad AS c FROM repositorio_rebate_producto WHERE eliminado_en IS NULL', 'SELECT DISTINCT ciudad AS c FROM repositorio_clientes_propiosac WHERE ciudad IS NOT NULL AND ciudad <> \'\''] as $q) {
+			$res = @$mysqli->query($q);
+			if (!$res) continue;
+			while ($f = $res->fetch_assoc()) $conocidas[repositorio_texto_comparable($f['c'])] = true;
+		}
+		unset($conocidas['TODAS'], $conocidas['']);
+	}
+	return isset($conocidas[repositorio_texto_comparable($texto)]);
+}
+
+// Cliente de Directa ya existente sin ciudad: si el CEDI del Excel es una ciudad conocida, se la completa. Nunca pisa una ciudad ya llena.
+function completarCiudadPropio($mysqli, $posId, $cediExcel) {
+	$cediExcel = trim((string) $cediExcel);
+	if ($cediExcel === '' || !propiosTieneCiudad($mysqli) || !esCiudadConocida($mysqli, $cediExcel)) return;
+	$stmt = $mysqli->prepare("UPDATE repositorio_clientes_propiosac SET ciudad = ? WHERE pos_id = ? AND canal = 'directo' AND (ciudad IS NULL OR ciudad = '')");
+	if (!$stmt) return;
+	$stmt->bind_param('ss', $cediExcel, $posId);
+	$stmt->execute();
+	$stmt->close();
+	maestroClientesEnMemoria($mysqli, true);
 }
 
 // Usado por "Pendientes de Asignar" de Cuotas/Acuerdo Completo — solo nuestra base propia, el maestro de Alicorp ya no aplica a esos 2 repos.
@@ -88,7 +137,7 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 		return $esDistribuidor ? $f['canal'] === 'DISTRIBUIDOR' : $f['canal'] !== 'DISTRIBUIDOR';
 	}));
 
-	if (count($candidatos) === 1) return $candidatos[0]['pos_id'];
+	if (count($candidatos) === 1) { if ($permitirCrear) completarCiudadPropio($mysqli, $candidatos[0]['pos_id'], $cediExcel); return $candidatos[0]['pos_id']; }
 	$porParecido = false;
 	if (count($candidatos) === 0) {
 		// Pedido explícito del usuario (2026-10-06): nunca queda "sin identificar" — si hay algo parecido ya registrado (típico de un typo) se usa ese cliente en vez de duplicarlo.
@@ -103,10 +152,10 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 
 	// Desempate por Ciudad en los 2 canales (el Distribuidor/Empresa varía con el tiempo, la Ciudad no) — $cediExcel ya trae la Ciudad en Distribuidor también.
 	$cediComparable = repositorio_texto_comparable((string) $cediExcel);
-	$desempatados = array_values(array_filter($candidatos, fn($f) => $f['supervisor_comparable'] === $cediComparable));
+	$desempatados = array_values(array_filter($candidatos, fn($f) => $f['supervisor_comparable'] === $cediComparable || ($f['ciudad_comparable'] ?? '') === $cediComparable));
 	if (!$desempatados && $cediComparable !== '') {
 		// Nombre matchea pero la Ciudad no: se registra igual (nunca bloquea el guardado), el diagnóstico avisa en la alerta de siempre con la Ciudad real para que el analista la corrija en el Excel.
-		$diagnostico = ['campo' => 'supervisor', 'valores_reales' => array_values(array_unique(array_column($candidatos, 'supervisor')))];
+		$diagnostico = ['campo' => 'supervisor', 'valores_reales' => array_values(array_unique(array_map(fn($f) => ($f['ciudad_real'] ?? '') !== '' ? $f['ciudad_real'] : $f['supervisor'], $candidatos)))];
 	}
 	if (!$desempatados) $desempatados = $candidatos;
 
@@ -114,6 +163,7 @@ function resolverPosIdCliente($mysqli, $clienteExcel, $cediExcel, $canal = 'dire
 	usort($desempatados, fn($a, $b) => $b['id'] <=> $a['id']);
 	// Unido por parecido, no por nombre exacto: la previsualización lo avisa como "¿Quisiste decir?" antes de guardar.
 	if ($porParecido) $diagnostico = ['campo' => 'cliente_similar', 'valores_reales' => [$desempatados[0]['pos_name']]];
+	if ($permitirCrear) completarCiudadPropio($mysqli, $desempatados[0]['pos_id'], $cediExcel);
 	return $desempatados[0]['pos_id'];
 }
 

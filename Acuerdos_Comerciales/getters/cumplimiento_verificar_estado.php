@@ -75,7 +75,7 @@ foreach ($filas as $indice => $fila) {
 	}
 
 	if (!array_key_exists($sectorCrudo, $cacheSector)) {
-		$cacheSector[$sectorCrudo] = resolverSectorReal($mysqli, $sectorCrudo);
+		$cacheSector[$sectorCrudo] = in_array($sectorCrudo, ['MIXTA', 'OTRAS CATEGORIAS'], true) ? $sectorCrudo : resolverSectorReal($mysqli, $sectorCrudo); // categorías propias, no son un Sector del catálogo
 	}
 	$sector = $cacheSector[$sectorCrudo] ?? $sectorCrudo;
 

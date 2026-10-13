@@ -94,10 +94,66 @@ function resolverProductoCuota($mysqli, $sector, $subcategoriaCruda, $marcaCruda
 }
 
 // Busca Rebate% tolerando desajustes de nombre entre el Excel de JW y el catálogo real (ej. plural/singular).
-function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca) {
+// ¿Ya existe esa columna ('distribuidor' o 'cliente') en el repositorio de Rebate? Cache por request, para no romper nada si el ALTER todavía no se corrió.
+function rebateTieneColumna($mysqli, $col) {
+	static $cache = [];
+	if (!isset($cache[$col])) {
+		$res = $mysqli->query("SHOW COLUMNS FROM repositorio_rebate_producto LIKE '".$mysqli->real_escape_string($col)."'");
+		$cache[$col] = $res && $res->num_rows > 0;
+	}
+	return $cache[$col];
+}
+function rebateTieneColumnaDistribuidor($mysqli) { return rebateTieneColumna($mysqli, 'distribuidor'); }
+function rebateTieneColumnaCliente($mysqli) { return rebateTieneColumna($mysqli, 'cliente'); }
+
+// Rebate especial de un cliente o de un distribuidor puntual ($columna = 'cliente' | 'distribuidor'): el nombre se compara sin puntos, comas, espacios ni tildes. Categoría/Marca en 'TODAS' valen para cualquiera. La Subcategoría tolera plural/singular y diferencias de nombre con el catálogo (ej. LAVAVAJILLA/LAVAVAJILLAS): gana la que coincide; si ninguna coincide y hay varias distintas, no se adivina. Null si no tiene tarifa propia.
+function buscarRebateEspecial($mysqli, $columna, $valor, $sector, $categoria, $marca) {
+	$valor = trim((string) $valor);
+	if ($valor === '' || !in_array($columna, ['cliente', 'distribuidor'], true) || !rebateTieneColumna($mysqli, $columna)) return null;
+	// Una fila con CLIENTE es solo de ese cliente: al buscar por distribuidor se saltan las filas que además traen cliente.
+	$soloDistribuidor = ($columna === 'distribuidor' && rebateTieneColumnaCliente($mysqli)) ? " AND (cliente = '' OR cliente IS NULL)" : '';
+	$stmt = $mysqli->prepare(
+		"SELECT UPPER(TRIM(categoria)) AS cat, UPPER(TRIM(marca)) AS mar, rebate_pct FROM repositorio_rebate_producto
+		 WHERE eliminado_en IS NULL $soloDistribuidor AND ".repositorio_sql_comparable($columna)." = ?
+		   AND (UPPER(TRIM(sector)) IN (?, ?) OR UPPER(TRIM(sector)) LIKE CONCAT(?, ' %'))
+		   AND (UPPER(TRIM(marca)) = UPPER(TRIM(?)) OR UPPER(TRIM(marca)) = 'TODAS')"
+	);
+	if (!$stmt) return null;
+	$comparable = repositorio_texto_comparable($valor);
+	$s1 = mb_strtoupper(trim($sector), 'UTF-8');
+	$s2 = substr($s1, -1) === 'S' ? substr($s1, 0, -1) : $s1.'S';
+	$stmt->bind_param('sssss', $comparable, $s1, $s2, $s1, $marca);
+	$stmt->execute();
+	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+	$stmt->close();
+	if (!$filas) return null;
+
+	$cat1 = mb_strtoupper(trim((string) $categoria), 'UTF-8');
+	$cat2 = substr($cat1, -1) === 'S' ? substr($cat1, 0, -1) : $cat1.'S';
+	$marcaUp = mb_strtoupper(trim((string) $marca), 'UTF-8');
+	$mejor = null; $mejorRango = null; $empatadas = [];
+	foreach ($filas as $f) {
+		$rangoCat = ($f['cat'] === $cat1 || $f['cat'] === $cat2) ? 0 : ($f['cat'] === 'TODAS' ? 1 : 2);
+		$rangoMarca = $f['mar'] === $marcaUp ? 0 : 1;
+		$rango = $rangoCat * 10 + $rangoMarca;
+		if ($mejorRango === null || $rango < $mejorRango) { $mejorRango = $rango; $mejor = $f; $empatadas = [$f['rebate_pct']]; }
+		elseif ($rango === $mejorRango) $empatadas[] = $f['rebate_pct'];
+	}
+	// Ninguna subcategoría coincide y hay varias con distinto %: ambiguo, no se adivina.
+	if ($mejorRango >= 20 && count(array_unique($empatadas)) > 1) return null;
+	return (float) $mejor['rebate_pct'];
+}
+function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca, $distribuidor = '', $cliente = '') {
+	// Orden: rebate propio del cliente, luego del distribuidor, y si no hay, el rebate normal de siempre.
+	$especial = buscarRebateEspecial($mysqli, 'cliente', $cliente, $sector, $categoria, $marca);
+	if ($especial === null) $especial = buscarRebateEspecial($mysqli, 'distribuidor', $distribuidor, $sector, $categoria, $marca);
+	if ($especial !== null) return $especial;
+	$soloGeneral = '';
+	if (rebateTieneColumnaDistribuidor($mysqli)) $soloGeneral .= " AND (distribuidor = '' OR distribuidor IS NULL)";
+	if (rebateTieneColumnaCliente($mysqli)) $soloGeneral .= " AND (cliente = '' OR cliente IS NULL)";
 	$stmtBase = $mysqli->prepare(
 		"SELECT rebate_pct FROM repositorio_rebate_producto
-		 WHERE eliminado_en IS NULL
+		 WHERE eliminado_en IS NULL $soloGeneral
 		   AND UPPER(TRIM(ciudad)) = UPPER(TRIM(?)) AND UPPER(TRIM(canal)) = UPPER(TRIM(?))
 		   AND UPPER(TRIM(sector)) = UPPER(TRIM(?)) AND UPPER(TRIM(categoria)) = UPPER(TRIM(?))
 		   AND UPPER(TRIM(marca)) = UPPER(TRIM(?))
@@ -131,7 +187,7 @@ function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $ma
 	// Último recurso: Ciudad+Canal+Sector+Marca sin Categoría, solo si da una única fila.
 	$stmt = $mysqli->prepare(
 		"SELECT rebate_pct FROM repositorio_rebate_producto
-		 WHERE eliminado_en IS NULL
+		 WHERE eliminado_en IS NULL $soloGeneral
 		   AND UPPER(TRIM(ciudad)) = UPPER(TRIM(?)) AND UPPER(TRIM(canal)) = UPPER(TRIM(?))
 		   AND UPPER(TRIM(sector)) = UPPER(TRIM(?)) AND UPPER(TRIM(marca)) = UPPER(TRIM(?))"
 	);

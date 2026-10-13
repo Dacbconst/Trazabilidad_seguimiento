@@ -5,14 +5,17 @@
 			label: 'Rebate',
 			descripcion: 'Catálogo de % de Rebate por producto. Autocompleta y bloquea el campo en Registrar Acuerdo PDV.',
 			// Ciudad/Canal reemplazan a Segmento: el Excel real de JW no trae Segmento, y Ciudad+Canal cambian el % del mismo producto. Etiquetas "Categoría"/"Subcategoría" solo cambian el texto visible, la columna interna sigue siendo `sector`/`categoria`.
-			buscarPlaceholder: 'Buscar por ciudad, canal, categoría, subcategoría o marca...',
+			buscarPlaceholder: 'Buscar por ciudad, canal, categoría, subcategoría, marca, distribuidor o cliente...',
 			columnas: [
 				{ key: 'ciudad', label: 'Ciudad' },
 				{ key: 'canal', label: 'Canal' },
 				{ key: 'sector', label: 'Categoría' },
 				{ key: 'categoria', label: 'Subcategoría' },
 				{ key: 'marca', label: 'Marca' },
-				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(2) + '%'; } }
+				{ key: 'rebate_pct', label: 'Rebate %', numero: true, formato: function (v) { return (parseFloat(v) * 100).toFixed(2) + '%'; } },
+				// Al final a propósito: solo tiene valor en los rebates especiales de un distribuidor puntual.
+				{ key: 'distribuidor', label: 'Distribuidor', render: function (fila) { return fila.distribuidor || '—'; } },
+				{ key: 'cliente', label: 'Cliente', render: function (fila) { return fila.cliente || '—'; } }
 			]
 		},
 		participacion: {
@@ -92,11 +95,12 @@
 		base: {
 			label: 'Base',
 			descripcion: 'Base propia de clientes (códigos PDVAC) que se arma sola con Cuotas Trimestrales y Acuerdo Completo. Solo consulta y descarga.',
-			buscarPlaceholder: 'Buscar por cliente o CEDI...',
+			buscarPlaceholder: 'Buscar por cliente, CEDI o ciudad...',
 			soloLectura: true,
 			columnas: [
 				{ key: 'cliente', label: 'Cliente' },
-				{ key: 'cedi', label: 'CEDI', render: function (fila) { return escapeHtml(fila.cedi || '—'); } }
+				{ key: 'cedi', label: 'CEDI', render: function (fila) { return escapeHtml(fila.cedi || '—'); } },
+				{ key: 'ciudad', label: 'Ciudad', render: function (fila) { return escapeHtml(fila.ciudad || '—'); } }
 			]
 		},
 		// Acuerdo Completo: mismas columnas que Cuotas + bloques opcionales de Cabecera/Ruma/Percha en la misma fila. Genera Acuerdos nuevos.
@@ -417,6 +421,10 @@
 		var miReqId = ++listaReqId;
 		var tipoAlPedir = tipoActivo; // por si cambia de tab mientras esto viaja
 		renderCabecera();
+		// Mantiene la altura actual mientras carga: sin esto la página se acorta y salta al cambiar de pestaña.
+		var envolturaTabla = tablaBody.closest('.ac-table-scroll');
+		if (envolturaTabla && envolturaTabla.offsetHeight) envolturaTabla.style.minHeight = envolturaTabla.offsetHeight + 'px';
+		var soltarAltura = function () { if (envolturaTabla && miReqId === listaReqId) envolturaTabla.style.minHeight = ''; };
 		tablaBody.innerHTML = '<tr><td class="ac-table-empty">Cargando...</td></tr>';
 		var params = new URLSearchParams({ tipo: tipoActivo, q: busquedaActual, pg: paginaActual });
 		if (tipoActivo === 'rebate') params.set('canal', canalRebateFiltro);
@@ -424,6 +432,7 @@
 			.then(function (r) { return r.json(); })
 			.then(function (data) {
 				if (miReqId !== listaReqId) return; // respuesta vieja, ignorar.
+				soltarAltura();
 				if (!data.ok) { mostrarMensaje(data.message || 'No se pudo cargar el repositorio.', false); return; }
 				renderFilas(data.filas);
 				var infoHtml = 'Mostrando <strong>' + data.filas.length + '</strong> de <strong>' + data.total + '</strong> registros';
@@ -434,6 +443,7 @@
 			})
 			.catch(function () {
 				if (miReqId !== listaReqId) return;
+				soltarAltura();
 				mostrarMensaje('Error de conexión al cargar el repositorio.', false);
 			});
 	}
@@ -1090,26 +1100,23 @@
 			if (vistos[clave]) return;
 			var sinCliente = e.estado === 'sin_cliente';
 			var sinAsesor = !!(e.pos_id || e.cliente_nuevo) && !e.asignado_a;
-			var cediExcelNorm = normalizarParaComparar(f ? f.cedi_excel : '');
-			// Solo Directo, y solo si no vino USUARIO (esa columna ya decide sola, sin comparar contra CEDI).
-			var usuarioExcelVacio = !f || !f.usuario_excel || !f.usuario_excel.trim();
-			var asignadoNorm = normalizarParaComparar(e.asignado_a);
-			var asesorNoCoincide = usuarioExcelVacio && canalCuotasPreview !== 'distribuidor' && !!e.asignado_a && cediExcelNorm !== '' && cediExcelNorm !== asignadoNorm;
+			// CEDI ahora trae la ciudad (ya no el asesor), así que no se compara contra el asesor: si falta USUARIO y no se puede resolver el asesor, ya lo cubre `sinAsesor`.
+			var asesorNoCoincide = false;
 			var clienteSimilar = !!(e.pos_id || e.cliente_nuevo) && !!e.diagnostico && e.diagnostico.campo === 'cliente_similar';
 			if (!sinCliente && !sinAsesor && !asesorNoCoincide && !clienteSimilar) return;
 			vistos[clave] = true;
 			var motivos = [];
 			if (sinCliente && e.diagnostico) {
 				// Mismo campo (Ciudad) para los 2 canales ahora — el texto cambia solo para que se lea natural según lo que trae el Excel de cada uno.
-				var campoEtiqueta = canalCuotasPreview === 'distribuidor' ? 'Ciudad' : 'Supervisor/CEDI';
-				motivos.push({ texto: 'Cliente encontrado, pero el ' + campoEtiqueta + ' en el maestro es', valor: (e.diagnostico.valores_reales || []).join(' / ') });
+				var campoEtiqueta = 'Ciudad';
+				motivos.push({ texto: 'Cliente encontrado, pero su ' + campoEtiqueta.toLowerCase() + ' registrada es', valor: (e.diagnostico.valores_reales || []).join(' / ') });
 			} else if (sinCliente && (e.sugerencias || []).length) {
 				motivos.push({ texto: 'No se pudo identificar este cliente. ¿Quisiste decir?', valor: e.sugerencias.join(' / ') });
 			} else if (sinCliente) {
 				motivos.push({ texto: 'No se encontró este cliente en la base' });
 			}
 			if (clienteSimilar) motivos.push({ texto: 'Nombre parecido a un cliente ya registrado. ¿Quisiste decir? Si guardas, se asigna a este cliente', valor: (e.diagnostico.valores_reales || []).join(' / ') });
-			if (sinAsesor) motivos.push({ texto: (e.pos_id ? 'Cliente identificado' : 'Cliente nuevo') + ', pero no se pudo resolver a qué asesor pertenece' });
+			if (sinAsesor) motivos.push({ texto: (e.pos_id ? 'Cliente identificado' : 'Cliente nuevo') + ', pero no se pudo resolver a qué asesor pertenece. Revisa la columna USUARIO' });
 			if (asesorNoCoincide) motivos.push({ texto: 'El asesor real de este cliente es', valor: e.asignado_a });
 			problemas.push({ cliente: f ? f.cliente_excel : '', cedi: f ? f.cedi_excel : '', motivos: motivos });
 		});
@@ -1248,7 +1255,7 @@
 	});
 
 	// Alerta de máximo de Rebate por canal (2026-09-22, pedido explícito): 3% Distribuidor, 5% Directo — avisa pero deja guardar igual, mismo patrón que la confirmación de Cuotas.
-	function maximoRebatePorCanal(canal) { return String(canal).toUpperCase() === 'DISTRIBUIDOR' ? 0.03 : 0.05; }
+	function maximoRebatePorCanal(canal) { return 0.05; } // 5% en ambos canales (Distribuidor subió de 3% a 5%, pedido de JW 2026-10)
 	// Acumulado entre subidas (2026-09-24, pedido explícito: "si subo Distribuidor y luego Directo, ambos deben salir juntos, no una alerta por cada subida"). Vive en memoria de la pestaña, se resetea al recargar la página. Clave = canal+marca+categoria+ciudad, para no duplicar la misma fila si se vuelve a subir el mismo archivo.
 	var rebateExcedidasAcumuladas = {};
 	function confirmarMaximoRebateYGuardar(onDone) {
@@ -1277,7 +1284,7 @@
 		Swal.fire({
 			icon: 'warning',
 			title: excedidasMostrar.length + ' fila(s) superan el máximo de Rebate de su canal',
-			html: 'Máximo: <strong>Directo 5%</strong> · <strong>Distribuidor 3%</strong><br><br><div class="ac-choque-list">' + filasHtml + '</div>',
+			html: 'Máximo: <strong>5%</strong> en Directo y en Distribuidor<br><br><div class="ac-choque-list">' + filasHtml + '</div>',
 			width: 720,
 			showCancelButton: true,
 			confirmButtonText: 'Guardar de todas formas',

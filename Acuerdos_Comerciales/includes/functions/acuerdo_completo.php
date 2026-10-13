@@ -146,6 +146,7 @@ function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
 	$esDistribuidorRebate = ($cliente['canal'] ?? null) === 'DISTRIBUIDOR';
 	$ciudadRebate = $esDistribuidorRebate ? 'TODAS' : ($cliente['cedi'] ?: '');
 	$canalRebate  = $esDistribuidorRebate ? 'DISTRIBUIDOR' : 'DIRECTA';
+	$distribuidorRebate = $esDistribuidorRebate ? ($cliente['tipo_distribuidor'] ?? '') : '';
 
 	$lineasMeta = []; $lineasCab = []; $lineasRuma = []; $lineasPercha = [];
 	$segmentoPorClave = []; // "categoria|marca" -> segmento, resuelto al procesar meta_compra, reusado por los otros 3 tipos.
@@ -160,11 +161,14 @@ function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
 			$segmento = $match['segmento'] ?? null;
 			$categoriaFinal = $match['categoria'] ?? $f['categoria'];
 			$marcaFinal = $match['marca'] ?? $f['marca'];
+			// "Otras categorías": sin catálogo ni rebate, se muestra con su propio nombre.
+			$esOtras = strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS';
+			if ($esOtras) { $segmento = $categoriaFinal = $marcaFinal = 'OTRAS CATEGORIAS'; }
 			$segmentoPorClave[$claveProducto] = $segmento;
 
 			$rebatePct = 0;
-			if ($categoriaFinal !== '' && $marcaFinal !== '') {
-				$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $f['sector'], $categoriaFinal, $marcaFinal);
+			if (!$esOtras && $categoriaFinal !== '' && $marcaFinal !== '') {
+				$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $f['sector'], $categoriaFinal, $marcaFinal, $distribuidorRebate, $cliente['pos_name'] ?? '');
 				if ($valorRebate !== null) $rebatePct = $valorRebate;
 			}
 			$lineasMeta[] = [
@@ -172,10 +176,10 @@ function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
 				'rebate_pct' => $rebatePct, 'valores_mensuales' => $valores, 'bloqueado' => true,
 			];
 		} elseif ($f['tipo'] === 'cabecera') {
-			$segmento = $segmentoPorClave[$claveProducto] ?? null;
+			$segmento = $f['categoria'] === 'MIXTA' ? 'MIXTA' : ($segmentoPorClave[$claveProducto] ?? null); // mixta: sin Meta de Compras, el segmento no aplica
 			$lineasCab[] = ['segmento' => $segmento, 'categoria' => $f['categoria'], 'marca' => $f['marca'], 'valores_mensuales' => $valores, 'bloqueado' => true];
 		} elseif ($f['tipo'] === 'ruma') {
-			$segmento = $segmentoPorClave[$claveProducto] ?? null;
+			$segmento = $f['categoria'] === 'MIXTA' ? 'MIXTA' : ($segmentoPorClave[$claveProducto] ?? null);
 			$lineasRuma[] = ['segmento' => $segmento, 'categoria' => $f['categoria'], 'marca' => $f['marca'], 'valor_mensual_unico' => $f['valor_mensual_unico'] !== null ? (float) $f['valor_mensual_unico'] : 0, 'bloqueado' => true];
 		} elseif ($f['tipo'] === 'percha') {
 			$participacionPct = 0;

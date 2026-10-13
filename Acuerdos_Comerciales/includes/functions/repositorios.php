@@ -9,13 +9,18 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 	if ($canal === 'directo') $condicionCanal = " AND UPPER(canal) <> 'DISTRIBUIDOR'";
 	elseif ($canal === 'distribuidor') $condicionCanal = " AND UPPER(canal) = 'DISTRIBUIDOR'";
 
+	// Distribuidor y Cliente también se buscan, solo si esas columnas ya existen.
+	$extraBusca = ''; $tiposBusca = 'sssss'; $valoresBusca = [$like, $like, $like, $like, $like];
+	if (rebateTieneColumnaDistribuidor($mysqli)) { $extraBusca .= ' OR r.distribuidor LIKE ?'; $tiposBusca .= 's'; $valoresBusca[] = $like; }
+	if (rebateTieneColumnaCliente($mysqli)) { $extraBusca .= ' OR r.cliente LIKE ?'; $tiposBusca .= 's'; $valoresBusca[] = $like; }
+
 	// eliminado_en IS NULL: el listado normal nunca muestra filas borradas, viven en "Eliminados".
 	$stmtTotal = $mysqli->prepare(
-		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto
-		 WHERE eliminado_en IS NULL AND (ciudad LIKE ? OR canal LIKE ? OR sector LIKE ? OR categoria LIKE ? OR marca LIKE ?) $condicionCanal"
+		"SELECT COUNT(*) AS total FROM repositorio_rebate_producto r
+		 WHERE r.eliminado_en IS NULL AND (r.ciudad LIKE ? OR r.canal LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?$extraBusca) $condicionCanal"
 	);
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmtTotal->bind_param('sssss', $like, $like, $like, $like, $like);
+	$stmtTotal->bind_param($tiposBusca, ...$valoresBusca);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -24,15 +29,16 @@ function listar_repositorio_rebate($mysqli, $busqueda = '', $pagina = 1, $porPag
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
 	$stmt = $mysqli->prepare(
-		"SELECT r.id, r.ciudad, r.canal, r.sector, r.categoria, r.marca, r.rebate_pct, r.updated_at, u.usuario AS actualizado_por_usuario
+		"SELECT r.id, r.ciudad, r.canal, r.sector, r.categoria, r.marca, r.rebate_pct, ".(rebateTieneColumnaDistribuidor($mysqli) ? 'r.distribuidor' : "'' AS distribuidor").', '.(rebateTieneColumnaCliente($mysqli) ? 'r.cliente' : "'' AS cliente").", r.updated_at, u.usuario AS actualizado_por_usuario
 		 FROM repositorio_rebate_producto r
 		 LEFT JOIN repositorio_usuarios_acuerdos u ON u.id = r.actualizado_por
-		 WHERE r.eliminado_en IS NULL AND (r.ciudad LIKE ? OR r.canal LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?) $condicionCanal
+		 WHERE r.eliminado_en IS NULL AND (r.ciudad LIKE ? OR r.canal LIKE ? OR r.sector LIKE ? OR r.categoria LIKE ? OR r.marca LIKE ?$extraBusca) $condicionCanal
 		 ORDER BY r.ciudad, r.canal, r.sector, r.categoria, r.marca
 		 LIMIT ? OFFSET ?"
 	);
 	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmt->bind_param('sssssii', $like, $like, $like, $like, $like, $porPagina, $offset);
+	$valoresPag = array_merge($valoresBusca, [$porPagina, $offset]);
+	$stmt->bind_param($tiposBusca.'ii', ...$valoresPag);
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();
@@ -46,10 +52,14 @@ function listar_repositorio_base($mysqli, $busqueda = '', $pagina = 1, $porPagin
 	$pagina = max(1, (int) $pagina);
 	$offset = ($pagina - 1) * $porPagina;
 	$like   = '%'.$busqueda.'%';
+	// Ciudad real del cliente (columna nueva): si el ALTER todavía no corrió, se muestra vacía y todo sigue igual.
+	$tieneCiudad = propiosTieneCiudad($mysqli);
+	$colCiudad = $tieneCiudad ? 'ciudad' : "'' AS ciudad";
+	$buscaCiudad = $tieneCiudad ? ' OR ciudad LIKE ?' : '';
 
-	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_clientes_propiosac WHERE cliente LIKE ? OR cedi LIKE ?');
+	$stmtTotal = $mysqli->prepare('SELECT COUNT(*) AS total FROM repositorio_clientes_propiosac WHERE cliente LIKE ? OR cedi LIKE ?'.$buscaCiudad);
 	if (!$stmtTotal) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmtTotal->bind_param('ss', $like, $like);
+	if ($tieneCiudad) $stmtTotal->bind_param('sss', $like, $like, $like); else $stmtTotal->bind_param('ss', $like, $like);
 	$stmtTotal->execute();
 	$total = (int) $stmtTotal->get_result()->fetch_assoc()['total'];
 	$stmtTotal->close();
@@ -58,13 +68,13 @@ function listar_repositorio_base($mysqli, $busqueda = '', $pagina = 1, $porPagin
 	if ($pagina > $totalPaginas) { $pagina = $totalPaginas; $offset = ($pagina - 1) * $porPagina; }
 
 	$stmt = $mysqli->prepare(
-		'SELECT id, cliente, cedi FROM repositorio_clientes_propiosac
-		 WHERE cliente LIKE ? OR cedi LIKE ?
+		'SELECT id, cliente, cedi, '.$colCiudad.' FROM repositorio_clientes_propiosac
+		 WHERE cliente LIKE ? OR cedi LIKE ?'.$buscaCiudad.'
 		 ORDER BY cliente, cedi
 		 LIMIT ? OFFSET ?'
 	);
 	if (!$stmt) return ['filas' => [], 'total' => 0, 'pagina' => 1, 'total_paginas' => 1];
-	$stmt->bind_param('ssii', $like, $like, $porPagina, $offset);
+	if ($tieneCiudad) $stmt->bind_param('sssii', $like, $like, $like, $porPagina, $offset); else $stmt->bind_param('ssii', $like, $like, $porPagina, $offset);
 	$stmt->execute();
 	$filas = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 	$stmt->close();

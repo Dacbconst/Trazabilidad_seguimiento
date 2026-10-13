@@ -27,11 +27,33 @@ function repositorio_parsear_rebate($rutaArchivo) {
 	$filas = xlsx_leer_hoja($rutaArchivo, $nombreHoja);
 	if ($filas === null) return ['error' => 'No se pudo leer la hoja del archivo.'];
 
-	$enc = xlsx_encontrar_encabezado($filas, ['MARCA']);
-	if (!$enc) return ['error' => 'No se encontró la columna Marca en el archivo.'];
+	// Un archivo solo de distribuidores puntuales puede venir sin Marca (DISTRIBUIDOR + CATEGORIA + REBATE).
+	$enc = xlsx_encontrar_encabezado($filas, ['MARCA']) ?: xlsx_encontrar_encabezado($filas, ['DISTRIBUIDOR']) ?: xlsx_encontrar_encabezado($filas, ['CLIENTE']);
+	if (!$enc) return ['error' => 'No se encontró la columna Marca, Distribuidor ni Cliente en el archivo.'];
 	$m = $enc['mapa'];
 
+	$colMarca = xlsx_col($m, 'MARCA') !== null ? 'MARCA' : null;
+	$colDistribuidor = xlsx_col($m, 'DISTRIBUIDOR') !== null ? 'DISTRIBUIDOR' : null;
+	$colCliente = xlsx_col($m, 'CLIENTE') !== null ? 'CLIENTE' : null;
 	$colCiudad = xlsx_col($m, 'CIUDAD') !== null ? 'CIUDAD' : null;
+	// Mismo cuidado con CLIENTE mal escrito: se ignoraría y el rebate de ese cliente se guardaría como general.
+	if ($colCliente === null) {
+		foreach ($filas[$enc['fila']] as $celda) {
+			$n = xlsx_normalizar_encabezado($celda);
+			if ($n !== '' && $n !== 'CLIENTE' && strpos($n, 'CLIENT') === 0) {
+				return ['error' => 'La columna "'.trim((string) $celda).'" parece ser CLIENTE pero está mal escrita. Renómbrala exactamente a CLIENTE para que el rebate quede solo para ese cliente.'];
+			}
+		}
+	}
+	// Encabezado parecido a DISTRIBUIDOR pero mal escrito: se ignoraría y el rebate especial se guardaría como GENERAL (para todos), así que se frena acá.
+	if ($colDistribuidor === null) {
+		foreach ($filas[$enc['fila']] as $celda) {
+			$n = xlsx_normalizar_encabezado($celda);
+			if ($n !== '' && $n !== 'DISTRIBUIDOR' && (strpos($n, 'DISTRIB') === 0 || levenshtein($n, 'DISTRIBUIDOR') <= 3)) {
+				return ['error' => 'La columna "'.trim((string) $celda).'" parece ser DISTRIBUIDOR pero está mal escrita. Renómbrala exactamente a DISTRIBUIDOR para que el rebate quede solo para ese distribuidor.'];
+			}
+		}
+	}
 	$colCanal  = xlsx_col($m, 'CANAL') !== null ? 'CANAL' : null;
 
 	// Sector: el archivo propio dice SECTOR; el que sube JW le dice CATEGORIA.
@@ -47,7 +69,8 @@ function repositorio_parsear_rebate($rutaArchivo) {
 		if (xlsx_col($m, $candidato) !== null) { $colCategoria = $candidato; break; }
 	}
 
-	if ($colSector === null || $colCategoria === null) {
+	// Subcategoría solo es opcional cuando el archivo trae DISTRIBUIDOR (rebate especial por categoría completa).
+	if ($colSector === null || ($colCategoria === null && $colDistribuidor === null)) {
 		return ['error' => 'No se encontraron las columnas de Sector y Categoría en el archivo (se aceptan también los nombres SECTOR/CATEGORIA o, como en el formato real de JW, CATEGORIA/SUBCATEGORIA).'];
 	}
 
@@ -58,16 +81,36 @@ function repositorio_parsear_rebate($rutaArchivo) {
 	if ($colRebate === null) return ['error' => 'No se encontró la columna de Rebate % en el archivo.'];
 
 	$resultado = [];
+	$hayFilaGeneral = false; // alguna fila sin distribuidor (rebate normal)
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
 		$ciudad    = $colCiudad !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCiudad)] ?? '') : '';
 		$canal     = $colCanal !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCanal)] ?? '') : '';
 		$sector    = repositorio_normalizar_texto($fila[xlsx_col($m, $colSector)] ?? '');
-		$categoria = repositorio_normalizar_texto($fila[xlsx_col($m, $colCategoria)] ?? '');
-		$marca     = repositorio_normalizar_texto($fila[xlsx_col($m, 'MARCA')] ?? '');
+		$categoria = $colCategoria !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCategoria)] ?? '') : '';
+		$marca     = $colMarca !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colMarca)] ?? '') : '';
+		$distribuidor = $colDistribuidor !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colDistribuidor)] ?? '') : '';
+		$cliente = $colCliente !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCliente)] ?? '') : '';
 		// Fila completamente vacía se salta; con solo algún campo vacío sí se incluye (editable en la previsualización).
-		if ($ciudad === '' && $canal === '' && $sector === '' && $categoria === '' && $marca === '') continue;
+		if ($ciudad === '' && $canal === '' && $sector === '' && $categoria === '' && $marca === '' && $distribuidor === '' && $cliente === '') continue;
+		// Rebate de distribuidor puntual: lo no escrito vale para todo (cualquier ciudad, subcategoría o marca de esa categoría).
+		if ($distribuidor === '' && $cliente === '') $hayFilaGeneral = true;
+		// Rebate de un cliente puntual: igual que el de distribuidor, lo no escrito vale para todo (el canal queda en TODOS).
+		if ($cliente !== '') {
+			if ($ciudad === '') $ciudad = 'TODAS';
+			if ($canal === '') $canal = 'TODOS';
+			if ($categoria === '') $categoria = 'TODAS';
+			if ($marca === '') $marca = 'TODAS';
+		}
+		if ($distribuidor !== '') {
+			if ($ciudad === '') $ciudad = 'TODAS';
+			if ($canal === '') $canal = 'DISTRIBUIDOR';
+			if ($categoria === '') $categoria = 'TODAS';
+			if ($marca === '') $marca = 'TODAS';
+		}
 		$resultado[] = [
+			'distribuidor' => $distribuidor,
+			'cliente'    => $cliente,
 			'ciudad'     => $ciudad,
 			'canal'      => $canal,
 			'sector'     => $sector,
@@ -77,8 +120,8 @@ function repositorio_parsear_rebate($rutaArchivo) {
 		];
 	}
 
-	$aviso = ($colCiudad === null || $colCanal === null)
-		? 'Este archivo no trae columna de Ciudad y/o Canal. Completalos a mano en cada fila antes de guardar. Una fila sin Ciudad o Canal no se va a poder guardar.'
+	$aviso = (($colCiudad === null || $colCanal === null) && $hayFilaGeneral)
+		? 'Hay filas sin distribuidor y el archivo no trae columna de Ciudad y/o Canal. Complétalos a mano en cada fila antes de guardar. Una fila sin Ciudad o Canal no se va a poder guardar.'
 		: null;
 
 	return ['filas' => $resultado, 'aviso' => $aviso];
@@ -155,8 +198,6 @@ function repositorio_parsear_cuotas_directo($filas, $enc) {
 		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
 		$sector  = repositorio_normalizar_texto($fila[$colCategorias] ?? '');
 		if ($cliente === '' && $sector === '') continue; // fila vacía (hueco o fin de hoja)
-		// "OTRAS CATEGORIAS" se ignora del todo (JW dejó de trabajarla) — mismo filtro también en cuotas_guardar.php como red de seguridad.
-		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
 		// Sin normalizar a mayúsculas: se compara letra por letra contra `usuario` (exacto salvo mayúsc./espacios), ver resolverUsuarioExacto().
@@ -211,7 +252,6 @@ function repositorio_parsear_cuotas_distribuidor($filas, $enc) {
 		$cliente = repositorio_normalizar_texto($fila[$colNombre] ?? '');
 		$sector  = repositorio_normalizar_texto($fila[$colCategoria] ?? '');
 		if ($cliente === '' && $sector === '') continue;
-		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$ciudad = $colCiudad !== null ? repositorio_normalizar_texto($fila[$colCiudad] ?? '') : '';
 		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';
@@ -353,7 +393,6 @@ function repositorio_parsear_acuerdo_completo_directo($filas, $enc) {
 		$cliente = repositorio_normalizar_texto($fila[$colCliente] ?? '');
 		$sector  = repositorio_normalizar_texto($fila[$colCategorias] ?? '');
 		if ($cliente === '' && $sector === '') continue;
-		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$cedi = $colCedi !== null ? repositorio_normalizar_texto($fila[$colCedi] ?? '') : '';
 		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';
@@ -405,7 +444,6 @@ function repositorio_parsear_acuerdo_completo_distribuidor($filas, $enc) {
 		$cliente = repositorio_normalizar_texto($fila[$colNombre] ?? '');
 		$sector  = repositorio_normalizar_texto($fila[$colCategoria] ?? '');
 		if ($cliente === '' && $sector === '') continue;
-		if ($sector === 'OTRAS CATEGORIAS') continue;
 
 		$ciudad = $colCiudad !== null ? repositorio_normalizar_texto($fila[$colCiudad] ?? '') : '';
 		$usuarioExcel = $colUsuario !== null ? trim((string) ($fila[$colUsuario] ?? '')) : '';

@@ -23,7 +23,7 @@ $wb = new XlsxWriter();
 
 if ($tipo === 'rebate') {
 	$hoja = $wb->agregarHoja('REBATE');
-	$cols = ['CIUDAD', 'CANAL', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA', 'REBATE'];
+	$cols = ['CIUDAD', 'CANAL', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA', 'REBATE', 'DISTRIBUIDOR', 'CLIENTE'];
 	foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 	$wb->celda($hoja, 2, 1, 'QUITO');
 	$wb->celda($hoja, 2, 2, 'DIRECTA');
@@ -58,13 +58,16 @@ if ($tipo === 'rebate') {
 	$hoja = $wb->agregarHoja('ACUERDO COMPLETO');
 	if ($canal === 'directo') {
 		$identidad = ['USUARIO', 'CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA'];
-		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'CIUDAD', 'CLIENTE EJEMPLO', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
-		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'CIUDAD', 'CLIENTE EJEMPLO', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
+		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
+		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
+		// Espacio mixto (2 marcas en un mismo espacio): categoría MIXTA, marca "A + B", sin Meta de Compras ni Percha.
+		$fila3 = ['NOMBRE DE USUARIO EXACTO', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', 'MIXTA', '', 'MIXTA', '', '', '', 50, 50, 50, '', '', '', '', ''];
 		$nombreBase = 'Formato_AcuerdoCompleto_Directo';
 	} else {
 		$identidad = ['USUARIO', 'DISTRIBUIDOR', 'CIUDAD', 'NOMBRE', 'CODIGO', 'RUC', 'CATEGORIA', 'SUBCATEGORIA', 'MARCA'];
 		$fila1 = ['NOMBRE DE USUARIO EXACTO', 'ASERTIA COMERCIAL SA', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', '', 'CREMA', 'LAVAVAJILLAS', 'EJEMPLO', 700, 700, 700, 100, 100, 100, 20, 3, 50, 50, 50];
 		$fila2 = ['NOMBRE DE USUARIO EXACTO', 'ASERTIA COMERCIAL SA', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', '', 'BARRA', 'ROPA', 'OTRO EJEMPLO', 300, 300, 300, '', '', '', '', '', '', '', ''];
+		$fila3 = ['NOMBRE DE USUARIO EXACTO', 'ASERTIA COMERCIAL SA', 'GUAYAQUIL', 'CLIENTE EJEMPLO', '', '', 'MIXTA', '', 'MIXTA', '', '', '', 50, 50, 50, '', '', '', '', ''];
 		$nombreBase = 'Formato_AcuerdoCompleto_Distribuidor';
 	}
 	$nIdent = count($identidad);
@@ -89,7 +92,7 @@ if ($tipo === 'rebate') {
 	$wb->combinarCeldas($hoja, XlsxWriter::colLetra($colCant).'1:'.XlsxWriter::colLetra($colPercha + 2).'1');
 
 	// Distribuidor mide en Cajas, no en Dólares (mismo criterio que el Excel de Historial): sin signo "$" en ese canal.
-	foreach ([3 => $fila1, 4 => $fila2] as $filaNum => $valores) {
+	foreach ([3 => $fila1, 4 => $fila2, 5 => $fila3] as $filaNum => $valores) {
 		foreach ($valores as $i => $v) {
 			$col = $i + 1;
 			if ($v === '') { $wb->celda($hoja, $filaNum, $col, ''); continue; }
@@ -116,7 +119,7 @@ if ($tipo === 'rebate') {
 		$cols = ['USUARIO', 'CEDI', 'CLIENTE', 'PLAN', 'CATEGORIAS', 'SUBCATEGORIA', 'MARCA', 'ENERO', 'FEBRERO', 'MARZO'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$wb->celda($hoja, 2, 1, 'NOMBRE DE USUARIO EXACTO');
-		$wb->celda($hoja, 2, 2, 'CIUDAD');
+		$wb->celda($hoja, 2, 2, 'GUAYAQUIL');
 		$wb->celda($hoja, 2, 3, 'CLIENTE EJEMPLO');
 		$wb->celda($hoja, 2, 4, '');
 		$wb->celda($hoja, 2, 5, 'CREMA');

@@ -37,7 +37,7 @@ $clavesVistas = []; // clave normalizada -> índice de la última fila que la us
 // Identificador legible de una fila para el mensaje — la mejor combinación de campos que ya tenga tipeados, aunque estén incompletos.
 function repositorio_identificar_fila($tipo, $fila) {
 	if ($tipo === 'rebate') {
-		$partes = array_filter([$fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['ciudad'] ?? '', $fila['canal'] ?? '']);
+		$partes = array_filter([$fila['cliente'] ?? '', $fila['distribuidor'] ?? '', $fila['marca'] ?? '', $fila['categoria'] ?? '', $fila['ciudad'] ?? '', $fila['canal'] ?? '']);
 		return $partes ? implode(' / ', $partes) : '(fila vacía)';
 	}
 	// jerarquia (2026-09-24): Supervisor Campo -> Supervisor Real.
@@ -54,19 +54,46 @@ $mysqli->begin_transaction();
 try {
 	if ($tipo === 'rebate') {
 		// eliminado_en/eliminado_por se limpian acá: re-subir revive una fila borrada lógicamente. Clave (ciudad, canal, sector, categoria, marca), sin segmento: el Excel real de JW no lo tiene.
+		// distribuidor '' = rebate general; con nombre = tarifa especial de ese distribuidor (columna nueva, ver rebateTieneColumnaDistribuidor()).
+		$tieneDist = rebateTieneColumnaDistribuidor($mysqli);
+		$tieneCliente = rebateTieneColumnaCliente($mysqli);
+		$colsExtra = ($tieneDist ? 'distribuidor, ' : '').($tieneCliente ? 'cliente, ' : '');
+		$marcasExtra = str_repeat('?, ', ($tieneDist ? 1 : 0) + ($tieneCliente ? 1 : 0));
 		$stmt = $mysqli->prepare(
-			'INSERT INTO repositorio_rebate_producto (ciudad, canal, sector, categoria, marca, rebate_pct, actualizado_por)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			'INSERT INTO repositorio_rebate_producto ('.$colsExtra.'ciudad, canal, sector, categoria, marca, rebate_pct, actualizado_por)
+			 VALUES ('.$marcasExtra.'?, ?, ?, ?, ?, ?, ?)
 			 ON DUPLICATE KEY UPDATE rebate_pct = VALUES(rebate_pct), actualizado_por = VALUES(actualizado_por), updated_at = NOW(), eliminado_en = NULL, eliminado_por = NULL'
 		);
 		if (!$stmt) throw new Exception('El repositorio de Rebate todavía no está disponible. Avisa al equipo técnico.');
 
 		foreach ($filas as $indice => $fila) {
+			$distribuidor = repositorio_normalizar_texto($fila['distribuidor'] ?? '');
+			$cliente   = repositorio_normalizar_texto($fila['cliente'] ?? '');
 			$ciudad    = repositorio_normalizar_texto($fila['ciudad'] ?? '');
 			$canal     = repositorio_normalizar_texto($fila['canal'] ?? '');
 			$sector    = repositorio_normalizar_texto($fila['sector'] ?? '');
 			$categoria = repositorio_normalizar_texto($fila['categoria'] ?? '');
 			$marca     = repositorio_normalizar_texto($fila['marca'] ?? '');
+			if ($distribuidor !== '') {
+				if ($ciudad === '') $ciudad = 'TODAS';
+				if ($canal === '') $canal = 'DISTRIBUIDOR';
+				if ($categoria === '') $categoria = 'TODAS';
+				if ($marca === '') $marca = 'TODAS';
+				if (!$tieneDist) {
+					$errores[] = ['indice' => $indice, 'fila' => repositorio_identificar_fila($tipo, $fila), 'motivo' => 'El rebate por distribuidor todavía no está disponible. Avisa al equipo técnico.'];
+					continue;
+				}
+			}
+			if ($cliente !== '') {
+				if ($ciudad === '') $ciudad = 'TODAS';
+				if ($canal === '') $canal = 'TODOS';
+				if ($categoria === '') $categoria = 'TODAS';
+				if ($marca === '') $marca = 'TODAS';
+				if (!$tieneCliente) {
+					$errores[] = ['indice' => $indice, 'fila' => repositorio_identificar_fila($tipo, $fila), 'motivo' => 'El rebate por cliente todavía no está disponible. Avisa al equipo técnico.'];
+					continue;
+				}
+			}
 			$rebatePct = is_numeric($fila['rebate_pct'] ?? null) ? (float) $fila['rebate_pct'] : null;
 			$etiqueta  = repositorio_identificar_fila($tipo, $fila);
 
@@ -86,14 +113,20 @@ try {
 				continue;
 			}
 
-			$clave = $ciudad.'|'.$canal.'|'.$sector.'|'.$categoria.'|'.$marca;
+			$clave = $distribuidor.'|'.$cliente.'|'.$ciudad.'|'.$canal.'|'.$sector.'|'.$categoria.'|'.$marca;
 			if (isset($clavesVistas[$clave])) {
 				// 'duplicado_archivo': propiedad del archivo en sí, no se muestra como aviso post-guardado.
 				$avisos[] = ['indice' => $clavesVistas[$clave], 'fila' => $etiqueta, 'motivo' => 'Producto repetido en el archivo. Se usó el valor más reciente.', 'tipo' => 'duplicado_archivo'];
 			}
 			$clavesVistas[$clave] = $indice;
 
-			$stmt->bind_param('sssssdi', $ciudad, $canal, $sector, $categoria, $marca, $rebatePct, $usuarioSesion);
+			// Mismas columnas que el INSERT: distribuidor y cliente solo si ya existen en la tabla.
+			$valoresFila = [];
+			$tiposFila = '';
+			if ($tieneDist) { $valoresFila[] = $distribuidor; $tiposFila .= 's'; }
+			if ($tieneCliente) { $valoresFila[] = $cliente; $tiposFila .= 's'; }
+			array_push($valoresFila, $ciudad, $canal, $sector, $categoria, $marca, $rebatePct, $usuarioSesion);
+			$stmt->bind_param($tiposFila.'sssssdi', ...$valoresFila);
 			if ($stmt->execute()) {
 				$guardadas++;
 			} else {

@@ -643,7 +643,7 @@
 		if (!rebateInput) return;
 		var canal = catalogoDistribuidor.canal === 'distribuidor' ? 'DISTRIBUIDOR' : 'DIRECTA';
 		var ciudad = canal === 'DISTRIBUIDOR' ? 'TODAS' : localidadEl.textContent;
-		var params = new URLSearchParams({ ciudad: ciudad || '', canal: canal, sector: sector || '', categoria: categoria, marca: marca });
+		var params = new URLSearchParams({ ciudad: ciudad || '', canal: canal, sector: sector || '', categoria: categoria, marca: marca, distribuidor: canal === 'DISTRIBUIDOR' ? (empresaSearch.value || '') : '', cliente: distribuidorSearch.value || '' });
 		fetch('getters/acuerdo_buscar_rebate.php?' + params.toString())
 			.then(function (r) { return r.json(); })
 			.then(function (data) {

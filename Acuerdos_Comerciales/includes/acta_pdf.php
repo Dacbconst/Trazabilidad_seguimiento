@@ -16,12 +16,14 @@ function valores_por_mes(array $linea, array $mesesActivos) {
 function ancho_style($pct) { return 'width:'.round($pct, 2).'%'; }
 
 // Tablas de 2.a/2.b: solo Marca, igual que el preview. $fmt: 'moneda' (Directo) o 'numero' (Distribuidor, sin signo "$").
-function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct, $fmt = 'moneda', $fuenteBasePx = 20, $medirTexto = null) {
+function tabla_marca_html($lineas, array $mesesActivos, array $mesesCorto, $valorFn, $anchoMarcaPct, $anchoMesesPct, $anchoTotalPct, $fmt = 'moneda', $fuenteBasePx = 20, $medirTexto = null, $etiquetaMixta = null) {
 	$filas = [];
 	foreach ($lineas as $linea) {
 		if ($linea['marca'] === '' || $linea['marca'] === null) continue;
 		$valores = $valorFn($linea, $mesesActivos);
-		$filas[] = ['marca' => $linea['marca'], 'valores' => $valores, 'total' => array_sum($valores)];
+		// Espacio mixto (marca "MIXTA" o varias marcas "A + B + C"): el Acta solo dice MIXTA.
+		$marcaMostrar = ($etiquetaMixta !== null && (strtoupper(trim($linea['marca'])) === 'MIXTA' || strpos($linea['marca'], ' + ') !== false)) ? $etiquetaMixta : $linea['marca'];
+		$filas[] = ['marca' => $marcaMostrar, 'valores' => $valores, 'total' => array_sum($valores)];
 	}
 	$anchoMesPct = count($mesesActivos) > 0 ? $anchoMesesPct / count($mesesActivos) : 0;
 	// Mide el valor más ancho de cada columna entre todas las filas reales, para que ningún número se corte al envolver.
@@ -191,8 +193,11 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		$rebate = (float) $linea['rebate_pct'];
 		// Distribuidor: Total x Rebate% (bono). Directo: Total x (1+Rebate%) (valor total del trato).
 		$est    = $esDistribuidor ? ($total * $rebate) : ($total * (1 + $rebate));
+		// "Otras categorías": sin rebate ni estimado, solo la cuota por mes.
+		$otras  = strtoupper(trim($linea['sector'] ?? '')) === 'OTRAS CATEGORIAS';
+		if ($otras) $est = 0;
 		$metaGrandTotal += $total; $metaGrandEst += $est;
-		$metaFilas[] = ['categoria' => $categoriaTextos[$i], 'valores' => $valores, 'total' => $total, 'rebate' => $rebate, 'est' => $est];
+		$metaFilas[] = ['categoria' => $categoriaTextos[$i], 'valores' => $valores, 'total' => $total, 'rebate' => $rebate, 'est' => $est, 'otras' => $otras];
 	}
 
 	// Los números también necesitan medirse, si no el más ancho se corta al envolver en vez de quedar en 1 línea.
@@ -214,8 +219,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		$metaRows .= '<tr><td style="white-space:nowrap; overflow:hidden; font-size:'.round($fuenteCategoria, 2).'px;">'.h($fila['categoria']).'</td>';
 		foreach ($fila['valores'] as $v) $metaRows .= '<td class="num" style="font-size:'.round($fuenteMesesMeta, 2).'px;">'.$fmt($v).'</td>';
 		$metaRows .= '<td class="num" style="font-size:'.round($fuenteTotalMeta, 2).'px;">'.$fmt($fila['total']).'</td>';
-		$metaRows .= '<td class="ctr rebate-cell">'.number_format($fila['rebate'] * 100, 1).'%</td>';
-		$metaRows .= '<td class="num" style="font-size:'.round($fuenteEstMeta, 2).'px;">'.$fmt($fila['est']).'</td></tr>';
+		$metaRows .= '<td class="ctr rebate-cell">'.($fila['otras'] ? '' : number_format($fila['rebate'] * 100, 1).'%').'</td>';
+		$metaRows .= '<td class="num" style="font-size:'.round($fuenteEstMeta, 2).'px;">'.($fila['otras'] ? '-' : $fmt($fila['est'])).'</td></tr>';
 	}
 	if ($metaRows === '') {
 		$colspanMeta = 1 + $cantidadMeses + 3;
@@ -226,10 +231,10 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 	}, $mesesActivos));
 
 	$cabecerasValorFn = function ($linea, $mesesActivos) { return valores_por_mes($linea, $mesesActivos); };
-	list($cabecerasRows, $marcaHeadCab, $mesesHeadCab, $totalHeadCab) = tabla_marca_html($detalle['lineas']['cabecera'], $mesesActivos, $mesesCorto, $cabecerasValorFn, 20, 62, 18, $fmt, $tablaFuenteBase * $escalaTabla, $medirTexto);
+	list($cabecerasRows, $marcaHeadCab, $mesesHeadCab, $totalHeadCab) = tabla_marca_html($detalle['lineas']['cabecera'], $mesesActivos, $mesesCorto, $cabecerasValorFn, 20, 62, 18, $fmt, $tablaFuenteBase * $escalaTabla, $medirTexto, 'MIXTA');
 
 	$rumaValorFn = function ($linea, $mesesActivos) { return array_fill(0, count($mesesActivos), (float) $linea['valor_mensual_unico']); };
-	list($rumasRows, $marcaHeadRuma, $mesesHeadRuma, $totalHeadRuma) = tabla_marca_html($detalle['lineas']['ruma'], $mesesActivos, $mesesCorto, $rumaValorFn, 20, 62, 18, $fmt, $tablaFuenteBase * $escalaTabla, $medirTexto);
+	list($rumasRows, $marcaHeadRuma, $mesesHeadRuma, $totalHeadRuma) = tabla_marca_html($detalle['lineas']['ruma'], $mesesActivos, $mesesCorto, $rumaValorFn, 20, 62, 18, $fmt, $tablaFuenteBase * $escalaTabla, $medirTexto, 'MIXTA');
 
 	$rumaLegendRows = '';
 	$marcasVistas = [];

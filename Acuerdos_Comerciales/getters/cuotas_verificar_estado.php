@@ -53,7 +53,7 @@ foreach ($filas as $fila) {
 
 	// Mismo dato que avisará cuotas_guardar.php al guardar, expuesto acá para que el badge de previsualización lo muestre antes de confirmar.
 	if (!array_key_exists($sector, $cacheSector)) {
-		$cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
+		$cacheSector[$sector] = $sector === 'OTRAS CATEGORIAS' ? 'OTRAS CATEGORIAS' : resolverSectorReal($mysqli, $sector); // otras categorías no es un Sector del catálogo
 	}
 	$sectorCrudoMatch = $cacheSector[$sector];
 	$sectorResuelto = $sectorCrudoMatch ?: $sector;

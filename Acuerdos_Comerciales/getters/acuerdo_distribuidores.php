@@ -44,7 +44,7 @@ if ($modoAdmin) {
 
 	// Clientes propios (el maestro de Alicorp no los tiene, ver crearClientePropio()) del mismo canal elegido.
 	$filasPropias = $mysqli->query(
-		"SELECT pos_id, cliente AS pos_name, cedi, distribuidor AS tipo_distribuidor
+		"SELECT pos_id, cliente AS pos_name, ".sqlCiudadPropios($mysqli)." AS cedi, distribuidor AS tipo_distribuidor
 		 FROM repositorio_clientes_propiosac WHERE canal = '".($canal === 'distribuidor' ? 'distribuidor' : 'directo')."'
 		 ORDER BY cliente"
 	);
@@ -89,10 +89,11 @@ if ($modoAdmin) {
 
 	// Clientes propios (el maestro de Alicorp no los tiene, ver crearClientePropio()): mismo criterio de "supervisor" ya usado en resolverPosIdCliente()/maestroClientesEnMemoria() — para Directo, cedi hace de supervisor; para Distribuidor, se listan todos los del canal (el maestro tampoco filtra Distribuidor por supervisor acá).
 	$stmtPropio = $canal === 'distribuidor'
-		? $mysqli->prepare("SELECT pos_id, cliente AS pos_name, cedi, distribuidor AS tipo_distribuidor FROM repositorio_clientes_propiosac WHERE canal = 'distribuidor' ORDER BY cliente")
-		: $mysqli->prepare("SELECT pos_id, cliente AS pos_name, cedi, distribuidor AS tipo_distribuidor FROM repositorio_clientes_propiosac WHERE canal = 'directo' AND cedi = ? ORDER BY cliente");
+		? $mysqli->prepare("SELECT pos_id, cliente AS pos_name, ".sqlCiudadPropios($mysqli)." AS cedi, distribuidor AS tipo_distribuidor FROM repositorio_clientes_propiosac WHERE canal = 'distribuidor' ORDER BY cliente")
+		: $mysqli->prepare("SELECT pos_id, cliente AS pos_name, ".sqlCiudadPropios($mysqli)." AS cedi, distribuidor AS tipo_distribuidor FROM repositorio_clientes_propiosac WHERE canal = 'directo' AND (cedi = ? OR pos_id IN (SELECT pos_id FROM repositorio_cuota_cliente WHERE usuario_excel <> '' AND UPPER(TRIM(usuario_excel)) = UPPER(TRIM(?)) UNION SELECT pos_id FROM repositorio_acuerdo_completo_linea WHERE usuario_excel <> '' AND UPPER(TRIM(usuario_excel)) = UPPER(TRIM(?)))) ORDER BY cliente");
 	if ($stmtPropio) {
-		if ($canal !== 'distribuidor') $stmtPropio->bind_param('s', $supervisor);
+		// Del asesor si su nombre está en CEDI (formato viejo) o si es el USUARIO de sus cuotas/acuerdos (CEDI ahora trae la ciudad).
+		if ($canal !== 'distribuidor') { $usuarioSesion = (string) ($_SESSION['username'] ?? ''); $stmtPropio->bind_param('sss', $supervisor, $usuarioSesion, $usuarioSesion); }
 		$stmtPropio->execute();
 		$filasPropias = $stmtPropio->get_result()->fetch_all(MYSQLI_ASSOC);
 		$stmtPropio->close();

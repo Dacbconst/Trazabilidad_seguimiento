@@ -42,11 +42,12 @@ if ($formato === 'xlsx') {
 	$hoja = $wb->agregarHoja($nombreHoja);
 
 	if ($tipo === 'base') {
-		foreach (['Cliente', 'CEDI'] as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
+		foreach (['Cliente', 'CEDI', 'Ciudad'] as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
 			$wb->celda($hoja, $fila, 1, $f['cliente']);
 			$wb->celda($hoja, $fila, 2, $f['cedi']);
+			$wb->celda($hoja, $fila, 3, $f['ciudad'] ?? '');
 			$fila++;
 		}
 	} elseif ($tipo === 'jerarquia') {
@@ -59,7 +60,7 @@ if ($formato === 'xlsx') {
 			$fila++;
 		}
 	} elseif ($tipo === 'rebate') {
-		$cols = ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %'];
+		$cols = ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Distribuidor', 'Cliente'];
 		foreach ($cols as $i => $titulo) $wb->celda($hoja, 1, $i + 1, $titulo, true);
 		$fila = 2;
 		foreach ($resultado['filas'] as $f) {
@@ -69,6 +70,8 @@ if ($formato === 'xlsx') {
 			$wb->celda($hoja, $fila, 4, $f['categoria']);
 			$wb->celda($hoja, $fila, 5, $f['marca']);
 			$wb->celda($hoja, $fila, 6, (float) $f['rebate_pct'], false, 'pct'); // ya es fracción (0.025), 'pct' formatea como %.
+			$wb->celda($hoja, $fila, 7, $f['distribuidor'] ?? '');
+			$wb->celda($hoja, $fila, 8, $f['cliente'] ?? '');
 			$fila++;
 		}
 	} else {
@@ -104,11 +107,11 @@ if ($tipo === 'jerarquia') {
 		fputcsv($out, [$f['supervisor_campo'], $f['supervisor_real']]);
 	}
 } elseif ($tipo === 'rebate') {
-	fputcsv($out, ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %']);
+	fputcsv($out, ['Ciudad', 'Canal', 'Categoría', 'Subcategoría', 'Marca', 'Rebate %', 'Distribuidor', 'Cliente']);
 	foreach ($resultado['filas'] as $f) {
 		fputcsv($out, [
 			$f['ciudad'], $f['canal'], $f['sector'], $f['categoria'], $f['marca'],
-			number_format((float) $f['rebate_pct'] * 100, 2).'%',
+			number_format((float) $f['rebate_pct'] * 100, 2).'%', $f['distribuidor'] ?? '', $f['cliente'] ?? '',
 		]);
 	}
 } else {

@@ -52,8 +52,10 @@ foreach ($filas as $fila) {
 		continue;
 	}
 
+	$esMixta = $sector === 'MIXTA';
+	if ($esMixta && $marca === '') $marca = 'MIXTA'; // espacio mixto: no es un Sector del catálogo, no se resuelve ni se marca como sin identificar.
 	if (!array_key_exists($sector, $cacheSector)) {
-		$cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
+		$cacheSector[$sector] = $esMixta ? 'MIXTA' : ($sector === 'OTRAS CATEGORIAS' ? 'OTRAS CATEGORIAS' : resolverSectorReal($mysqli, $sector));
 	}
 	$sectorCrudoMatch = $cacheSector[$sector];
 	$sectorResuelto = $sectorCrudoMatch ?: $sector;
@@ -98,7 +100,16 @@ foreach ($filas as $fila) {
 	}
 
 	$existente = null;
-	if ($stmtExistente) {
+	if ($esMixta) {
+		// La mixta no tiene Meta de Compras: se busca su Cabecera/Ruma guardada.
+		$stmtMixta = $mysqli->prepare("SELECT estado FROM repositorio_acuerdo_completo_linea WHERE pos_id = ? AND tipo IN ('cabecera','ruma') AND sector = '' AND categoria = 'MIXTA' AND marca = ? AND trimestre = ? AND anio = ? LIMIT 1");
+		if ($stmtMixta) {
+			$stmtMixta->bind_param('ssii', $posId, $marca, $trimestre, $anio);
+			$stmtMixta->execute();
+			$existente = $stmtMixta->get_result()->fetch_assoc();
+			$stmtMixta->close();
+		}
+	} elseif ($stmtExistente) {
 		$stmtExistente->bind_param('ssssii', $posId, $sectorResuelto, $subcategoria, $marca, $trimestre, $anio);
 		$stmtExistente->execute();
 		$existente = $stmtExistente->get_result()->fetch_assoc();

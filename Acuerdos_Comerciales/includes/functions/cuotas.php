@@ -36,8 +36,6 @@ function listar_actas_precargadas_pendientes($mysqli, $usuarioId) {
 	// Se cuenta en PHP para coincidir con lo que ve el asesor. `actualizado_en` cambia si el cliente se resube/reasigna.
 	$grupos = [];
 	foreach ($filasCrudas as $f) {
-		// "OTRAS CATEGORIAS" se ignora acá también, para coincidir con lo que ve el asesor.
-		if (strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS') continue;
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
 		if (!is_array($valores) || array_sum($valores) <= 0) continue;
 		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];
@@ -105,16 +103,17 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 	$esDistribuidorRebate = ($cliente['canal'] ?? null) === 'DISTRIBUIDOR';
 	$ciudadRebate = $esDistribuidorRebate ? 'TODAS' : ($cliente['cedi'] ?: '');
 	$canalRebate  = $esDistribuidorRebate ? 'DISTRIBUIDOR' : 'DIRECTA';
+	$distribuidorRebate = $esDistribuidorRebate ? ($cliente['tipo_distribuidor'] ?? '') : '';
 
 	$lineasMeta = [];
 	foreach ($filasCuota as $fc) {
-		// "OTRAS CATEGORIAS" se ignora al pregenerar, JW dejó de usar ese cajón genérico.
-		if (strtoupper(trim($fc['sector'])) === 'OTRAS CATEGORIAS') continue;
-
 		$segmento = null; $categoria = null; $marca = null;
+		// "Otras categorías": sin subcategoría ni marca ni rebate; se completa con su propio nombre para que el Acta la acepte.
+		$esOtras = strtoupper(trim($fc['sector'])) === 'OTRAS CATEGORIAS';
+		if ($esOtras) { $segmento = $categoria = $marca = 'OTRAS CATEGORIAS'; }
 
 		// 1ra prioridad: SUBCATEGORIA/MARCA reales del Excel, más confiable que el historial.
-		if (!empty($fc['subcategoria']) && !empty($fc['marca'])) {
+		if (!$esOtras && !empty($fc['subcategoria']) && !empty($fc['marca'])) {
 			$match = resolverProductoCuota($mysqli, $fc['sector'], $fc['subcategoria'], $fc['marca']);
 			if ($match) {
 				$segmento = $match['segmento'];
@@ -147,8 +146,8 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 
 		// Rebate % se busca en repositorio_rebate_producto solo si Categoría+Marca se resolvieron.
 		$rebatePct = 0;
-		if ($categoria !== null && $marca !== null) {
-			$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $fc['sector'], $categoria, $marca);
+		if (!$esOtras && $categoria !== null && $marca !== null) {
+			$valorRebate = buscarRebateProducto($mysqli, $ciudadRebate, $canalRebate, $fc['sector'], $categoria, $marca, $distribuidorRebate, $cliente['pos_name'] ?? '');
 			if ($valorRebate !== null) $rebatePct = $valorRebate;
 		}
 
@@ -203,7 +202,6 @@ function listar_actas_precargadas_todas($mysqli) {
 
 	$grupos = [];
 	foreach ($filasCrudas as $f) {
-		if (strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS') continue;
 		$valores = $f['valores_mensuales'] !== null ? json_decode($f['valores_mensuales'], true) : [];
 		if (!is_array($valores) || array_sum($valores) <= 0) continue;
 		$clave = $f['pos_id'].'|'.$f['trimestre'].'|'.$f['anio'];

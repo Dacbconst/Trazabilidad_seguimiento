@@ -23,7 +23,9 @@ if ($ciudad === '' || $canal === '' || $sector === '' || $categoria === '' || $m
 }
 
 // Tolera plural/singular y, como último recurso, matchea sin Categoría — el texto del Excel de JW no siempre calza con el catálogo real.
-$rebatePct = buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca);
+$distribuidor = trim($_GET['distribuidor'] ?? '');
+$cliente = trim($_GET['cliente'] ?? '');
+$rebatePct = buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca, $distribuidor, $cliente);
 
 if ($rebatePct !== null) {
 	echo json_encode(['ok' => true, 'encontrado' => true, 'rebate_pct' => $rebatePct]);

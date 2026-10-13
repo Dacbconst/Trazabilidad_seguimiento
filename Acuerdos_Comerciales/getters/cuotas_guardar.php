@@ -145,8 +145,6 @@ try {
 			continue;
 		}
 
-		// "OTRAS CATEGORIAS" se ignora del todo: JW confirmó que ya no la usa.
-		if ($sector === 'OTRAS CATEGORIAS') continue;
 		if ($mes1 === null || $mes1 < 0 || $mes2 === null || $mes2 < 0 || $mes3 === null || $mes3 < 0) {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Los 3 montos mensuales deben ser 0 o más'];
 			continue;
@@ -154,7 +152,7 @@ try {
 
 		// "CATEGORIAS" del Excel puede traer Sector+Subcategoría pegados (ver resolverSectorReal()).
 		if (!array_key_exists($sector, $cacheSector)) {
-			$cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
+			$cacheSector[$sector] = $sector === 'OTRAS CATEGORIAS' ? 'OTRAS CATEGORIAS' : resolverSectorReal($mysqli, $sector); // otras categorías no es un Sector del catálogo
 		}
 		$sectorResuelto = $cacheSector[$sector];
 		if ($sectorResuelto === null) {

@@ -116,13 +116,17 @@ try {
 		$mes3 = is_numeric($fila['mes3'] ?? null) ? round((float) $fila['mes3'], 2) : null;
 		$etiqueta = $clienteExcel !== '' ? $clienteExcel.' / '.$sector.' / '.$marca : '(fila vacía)';
 
+		if ($sector === 'MIXTA' && $marca === '') $marca = 'MIXTA'; // mixta: categoría propia, la marca puede ir vacía
 		$faltantes = [];
 		if ($clienteExcel === '') $faltantes[] = 'Cliente';
 		if ($sector === '') $faltantes[] = 'Categoría';
-		if ($marca === '') $faltantes[] = 'Marca';
+		if ($marca === '' && $sector !== 'OTRAS CATEGORIAS') $faltantes[] = 'Marca';
 		if ($faltantes) { $errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)]; continue; }
-		if ($sector === 'OTRAS CATEGORIAS') continue;
-		if ($mes1 === null || $mes1 < 0 || $mes2 === null || $mes2 < 0 || $mes3 === null || $mes3 < 0) {
+		// "Otras categorías" no tiene subcategoría ni marca en el Excel: se completa con su propio nombre para que el Acta la acepte.
+		if ($sector === 'OTRAS CATEGORIAS') { if ($subcategoria === '') $subcategoria = 'OTRAS CATEGORIAS'; if ($marca === '') $marca = 'OTRAS CATEGORIAS'; }
+		// Espacio mixto (2 marcas en un mismo espacio, se paga como 1): sin Meta de Compras ni Percha, solo Cabecera o Ruma con marca "A + B".
+		$esMixta = $sector === 'MIXTA';
+		if (!$esMixta && ($mes1 === null || $mes1 < 0 || $mes2 === null || $mes2 < 0 || $mes3 === null || $mes3 < 0)) {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Los 3 montos de Meta de Compras deben ser 0 o más']; continue;
 		}
 
@@ -136,6 +140,10 @@ try {
 		$perchaMes2 = acuerdo_completo_leer_opcional($fila['percha_mes2'] ?? null);
 		$perchaMes3 = acuerdo_completo_leer_opcional($fila['percha_mes3'] ?? null);
 		$tienePercha = $perchaCantidad !== null || $perchaMes1 !== null || $perchaMes2 !== null || $perchaMes3 !== null;
+		if ($esMixta) {
+			$tienePercha = false;
+			if (!$tieneCabecera && $rumaValor === null) { $errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'La mixta necesita un valor de Cabecera o de Ruma']; continue; }
+		}
 
 		if (($tieneCabecera && (($cabMes1 ?? 0) < 0 || ($cabMes2 ?? 0) < 0 || ($cabMes3 ?? 0) < 0))
 			|| ($rumaValor !== null && $rumaValor < 0)
@@ -145,7 +153,7 @@ try {
 			continue;
 		}
 
-		if (!array_key_exists($sector, $cacheSector)) $cacheSector[$sector] = resolverSectorReal($mysqli, $sector);
+		if (!array_key_exists($sector, $cacheSector)) $cacheSector[$sector] = $esMixta ? 'MIXTA' : ($sector === 'OTRAS CATEGORIAS' ? 'OTRAS CATEGORIAS' : resolverSectorReal($mysqli, $sector));
 		$sectorResuelto = $cacheSector[$sector];
 		if ($sectorResuelto === null) {
 			$avisos[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'No se pudo identificar la categoría "'.$sector.'" en el catálogo. Revisar con JW.'];
@@ -214,7 +222,9 @@ try {
 			'plan' => $plan, 'codigo' => $codigo, 'ruc' => $ruc, 'trimestre' => $trimestre, 'anio' => $anio,
 		];
 
-		$lineasAGuardar = [['meta_compra', $sector, $subcategoria, $marca, null, [(string) $mesInicio => $mes1, (string) ($mesInicio + 1) => $mes2, (string) ($mesInicio + 2) => $mes3], null]];
+		// En una mixta la categoría de Cabecera/Ruma es "MIXTA" y no hay línea de Meta de Compras.
+		if ($esMixta) $subcategoria = 'MIXTA';
+		$lineasAGuardar = $esMixta ? [] : [['meta_compra', $sector, $subcategoria, $marca, null, [(string) $mesInicio => $mes1, (string) ($mesInicio + 1) => $mes2, (string) ($mesInicio + 2) => $mes3], null]];
 		if ($tieneCabecera) $lineasAGuardar[] = ['cabecera', '', $subcategoria, $marca, null, [(string) $mesInicio => $cabMes1 ?? 0, (string) ($mesInicio + 1) => $cabMes2 ?? 0, (string) ($mesInicio + 2) => $cabMes3 ?? 0], null];
 		if ($rumaValor !== null) $lineasAGuardar[] = ['ruma', '', $subcategoria, $marca, null, null, round($rumaValor, 2)];
 		if ($tienePercha) $lineasAGuardar[] = ['percha', '', $subcategoria, $marca, $perchaCantidad !== null ? (int) $perchaCantidad : null, [(string) $mesInicio => $perchaMes1 ?? 0, (string) ($mesInicio + 1) => $perchaMes2 ?? 0, (string) ($mesInicio + 2) => $perchaMes3 ?? 0], null];
