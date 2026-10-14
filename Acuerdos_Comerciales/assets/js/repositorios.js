@@ -439,7 +439,7 @@
 				paginacionInfoEls.forEach(function (el) { if (el) el.innerHTML = infoHtml; });
 				renderPaginacion(data.pagina, data.total_paginas);
 				var contador = document.getElementById('repo-tab-' + tipoAlPedir + '-count');
-				if (contador) contador.textContent = data.total;
+				if (contador) { contador.textContent = data.total; reposicionarIndicadorActivo(); }
 			})
 			.catch(function () {
 				if (miReqId !== listaReqId) return;
@@ -454,7 +454,7 @@
 		if (!contador) return;
 		fetch('getters/repositorio_listar.php?' + new URLSearchParams({ tipo: tipo, q: '', pg: 1 }).toString())
 			.then(function (r) { return r.json(); })
-			.then(function (data) { if (data.ok) contador.textContent = data.total; })
+			.then(function (data) { if (data.ok) { contador.textContent = data.total; reposicionarIndicadorActivo(); } })
 			.catch(function () {});
 	}
 	function cargarContadoresTabs() {
@@ -481,6 +481,17 @@
 		if (!tabsIndicador || !tabEl) return;
 		tabsIndicador.style.left = tabEl.offsetLeft + 'px';
 		tabsIndicador.style.width = tabEl.offsetWidth + 'px';
+		// Mueve solo el carril de pestañas (nunca la página) para que la activa quede visible sin barra de scroll.
+		var carril = tabEl.parentNode;
+		if (carril && carril.scrollWidth > carril.clientWidth) {
+			if (tabEl.offsetLeft < carril.scrollLeft) carril.scrollLeft = tabEl.offsetLeft;
+			else if (tabEl.offsetLeft + tabEl.offsetWidth > carril.scrollLeft + carril.clientWidth) carril.scrollLeft = tabEl.offsetLeft + tabEl.offsetWidth - carril.clientWidth;
+		}
+	}
+
+	// Los contadores cambian el ancho de las pestañas al cargar: el indicador debe seguir a la activa.
+	function reposicionarIndicadorActivo() {
+		if (tabsIndicador) posicionarIndicadorTab(tabsIndicador.parentNode.querySelector('.ac-repo-tab.active'));
 	}
 
 	function activarTab(tipo) {

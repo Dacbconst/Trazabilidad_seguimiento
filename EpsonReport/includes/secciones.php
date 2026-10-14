@@ -51,5 +51,9 @@ function ep_secciones(): array {
 		],
 	];
 	// Las secciones marcadas solo_admin no existen para el rol usuario (tampoco se puede entrar por la URL).
-	return array_filter($todas, fn($s) => (empty($s['solo_admin']) || ep_es_admin()) && (empty($s['solo_gestor']) || ep_es_gestor()) && (empty($s['solo_dueno_pop']) || ep_pop_es_dueno()));
+	$visibles = array_filter($todas, fn($s) => (empty($s['solo_admin']) || ep_es_admin()) && (empty($s['solo_gestor']) || ep_es_gestor()) && (empty($s['solo_dueno_pop']) || ep_pop_es_dueno()));
+	if (!ep_es_admin()) return $visibles;
+	// Para el admin, Aprobaciones va en segundo lugar, antes de Registros de Actividades.
+	$orden = ['actividades' => null, 'aprobaciones' => null, 'historial' => null];
+	return array_merge(array_intersect_key($orden, $visibles), $visibles);
 }

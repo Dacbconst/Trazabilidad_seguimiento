@@ -168,7 +168,7 @@
 	}
 
 	function aviso(icono, titulo, texto) {
-		if (window.Swal) return Swal.fire({ icon: icono, title: titulo, html: texto || '', confirmButtonColor: '#513487', allowOutsideClick: false });
+		if (window.Swal) return Swal.fire({ icon: icono, title: titulo, html: texto || '', allowOutsideClick: false });
 		alert(titulo + (texto ? ' ' + texto : ''));
 		return Promise.resolve();
 	}
@@ -1908,7 +1908,7 @@
 		var q = ev.target.closest('.ep-rp-quitar');
 		if (!q) return;
 		var confirmar = window.Swal
-			? Swal.fire({ icon: 'question', title: 'Quitar reporte', text: 'Se quita del histórico y sus registros quedan libres para armar otro reporte.', showCancelButton: true, confirmButtonText: 'Quitar', cancelButtonText: 'Cancelar', confirmButtonColor: '#513487' }).then(function (r) { return r.isConfirmed; })
+			? Swal.fire({ icon: 'question', title: 'Quitar reporte', text: 'Se quita del histórico y sus registros quedan libres para armar otro reporte.', showCancelButton: true, confirmButtonText: 'Quitar', cancelButtonText: 'Cancelar' }).then(function (r) { return r.isConfirmed; })
 			: Promise.resolve(confirm('¿Quitar este reporte del histórico?'));
 		confirmar.then(function (ok) {
 			if (!ok) return;

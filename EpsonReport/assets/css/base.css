@@ -13,6 +13,7 @@
 	--color-surface: #FFFFFF;
 	--color-surface-muted: #F5F5F7;
 	--color-danger: #B3261E;
+	--color-warning: #B25E00;
 	--color-success: #1E7B4D;
 	--space-xs: 6px;
 	--space-sm: 10px;
@@ -102,7 +103,11 @@ input:focus, select:focus, button:focus-visible {
 .swal2-container { z-index: 10000 !important; } /* SweetAlert2 inyecta su CSS después (1060); sin !important queda tapada por .ep-modal-ppt (9999) */
 .swal2-popup { border-radius: 14px; font-family: "IBM Plex Sans", sans-serif; }
 .swal2-title { font-family: "Sora", sans-serif; font-size: 20px; color: var(--color-ink); }
-.swal2-styled.swal2-confirm { border-radius: 8px; font-weight: 600; }
+.swal2-popup .swal2-styled.swal2-confirm { border-radius: 8px; font-weight: 600; background-color: var(--color-primary); }
+.swal2-popup .swal2-styled.swal2-confirm.ep-swal-peligro { background-color: var(--color-danger); }
+.swal2-popup .swal2-styled.swal2-confirm.ep-swal-aviso { background-color: var(--color-warning); }
+.swal2-styled:focus-visible { outline: 2px solid var(--color-primary-mid); outline-offset: 2px; box-shadow: none; }
+.swal2-popup.swal2-toast { border-radius: 12px; box-shadow: 0 8px 24px rgba(24, 14, 42, 0.18); }
 .swal2-styled.swal2-cancel { border-radius: 8px; }
 
 /* Estado vacío con icono */

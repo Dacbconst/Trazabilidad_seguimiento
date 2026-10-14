@@ -225,7 +225,7 @@
 	}
 	function aprobarRegistro(btn) {
 		if (!window.Swal) return;
-		Swal.fire({ icon: 'question', title: '¿Aprobar este registro?', text: 'Pasa al Historial y puede entrar a los reportes y al Calendario.', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar', confirmButtonColor: '#513487' })
+		Swal.fire({ icon: 'question', title: '¿Aprobar este registro?', text: 'Pasa al Historial y puede entrar a los reportes y al Calendario.', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar' })
 			.then(function (res) { if (res.isConfirmed) enviarRevision('getters/aprobacion_aprobar.php', { codigo: btn.dataset.codigo }, btn, 'No se pudo aprobar'); });
 	}
 	function devolverRegistro(btn) {
@@ -234,7 +234,7 @@
 			title: 'Devolver registro', text: (btn.dataset.punto || '') + '. El promotor lo verá en sus avisos, lo corregirá y lo reenviará.',
 			input: 'textarea', inputLabel: '¿Qué debe corregir?', inputPlaceholder: 'Escribe qué debe corregir el promotor', inputAttributes: { maxlength: 300 },
 			inputValidator: function (v) { return !v || v.trim().length < 8 ? 'Escribe qué debe corregir (mínimo 8 caracteres).' : null; },
-			showCancelButton: true, confirmButtonText: 'Devolver al promotor', cancelButtonText: 'Cancelar', confirmButtonColor: '#B3261E'
+			showCancelButton: true, confirmButtonText: 'Devolver al promotor', cancelButtonText: 'Cancelar', customClass: { confirmButton: 'ep-swal-peligro' }, focusCancel: true
 		}).then(function (res) { if (res.isConfirmed) enviarRevision('getters/aprobacion_devolver.php', { codigo: btn.dataset.codigo, motivo: res.value }, btn, 'No se pudo devolver'); });
 	}
 
@@ -258,7 +258,7 @@
 		Swal.fire({
 			icon: 'warning', title: '¿Eliminar este registro?',
 			text: 'Deja de aparecer en el Historial y en los reportes nuevos. Si cumplía una fila de un calendario, esa fila vuelve a quedar pendiente.',
-			showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#C5221F',
+			showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', customClass: { confirmButton: 'ep-swal-peligro' }, focusCancel: true,
 		}).then(function (res) {
 			if (!res.isConfirmed) return;
 			btn.disabled = true;

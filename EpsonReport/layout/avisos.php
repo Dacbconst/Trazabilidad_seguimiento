@@ -6,11 +6,12 @@ $fechaCorta = fn(string $f): string => (int) date('j', strtotime($f)).' '.$meses
 $plural = fn(int $n, string $uno, string $varios): string => $n.' '.($n === 1 ? $uno : $varios);
 ?>
 <div class="ep-avisos-scrim" id="epAvisosScrim"></div>
-<section class="ep-avisos" id="epAvisos" role="dialog" aria-label="Avisos de activaciones" aria-hidden="true">
+<section class="ep-avisos" id="epAvisos" role="dialog" aria-modal="true" aria-labelledby="epAvisosTitulo" aria-hidden="true" tabindex="-1">
+	<span class="ep-avisos-asa" aria-hidden="true"></span>
 	<header class="ep-avisos-head">
 		<div>
-			<h2>Avisos</h2>
-			<p><?= $avisos['total'] ? $plural($avisos['total'], 'pendiente', 'pendientes') : 'Estás al día' ?></p>
+			<h2 id="epAvisosTitulo">Avisos</h2>
+			<p aria-live="polite"><?= $avisos['total'] ? $plural($avisos['total'], 'pendiente', 'pendientes') : 'Estás al día' ?></p>
 		</div>
 		<button type="button" class="ep-avisos-x" id="epAvisosCerrar" aria-label="Cerrar"><?= ep_icon('close', 18) ?></button>
 	</header>

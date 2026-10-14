@@ -49,12 +49,16 @@
 		return botones[0];
 	}
 
+	var origen = null;
 	function abrir(disparador) {
 		abierto = true;
+		origen = disparador || visible();
 		panel.classList.add('on');
 		scrim.classList.add('on');
 		panel.setAttribute('aria-hidden', 'false');
-		posicionar(disparador || visible());
+		posicionar(origen);
+		botones.forEach(function (b) { b.setAttribute('aria-expanded', 'true'); });
+		panel.focus({ preventScroll: true });
 		// Las marcas "Nueva" siguen visibles mientras el panel está abierto; abrirlo ya cuenta como visto.
 		marcarVisto();
 	}
@@ -63,7 +67,39 @@
 		panel.classList.remove('on');
 		scrim.classList.remove('on');
 		panel.setAttribute('aria-hidden', 'true');
+		botones.forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+		if (origen) origen.focus({ preventScroll: true });
 	}
+
+	// Hoja móvil: se cierra arrastrando el asa o el encabezado hacia abajo.
+	var arrastre = null;
+	var cabecera = panel.querySelector('.ep-avisos-asa');
+	var titulo = panel.querySelector('.ep-avisos-head');
+	function iniciarArrastre(e) {
+		if (!window.matchMedia('(max-width: 900px)').matches || e.target.closest('button')) return;
+		arrastre = { y: e.touches[0].clientY, dy: 0 };
+		panel.style.transition = 'none';
+	}
+	function moverArrastre(e) {
+		if (!arrastre) return;
+		arrastre.dy = Math.max(0, e.touches[0].clientY - arrastre.y);
+		panel.style.transform = 'translateY(' + arrastre.dy + 'px)';
+	}
+	function soltarArrastre() {
+		if (!arrastre) return;
+		var cierra = arrastre.dy > 90;
+		arrastre = null;
+		panel.style.transition = '';
+		panel.style.transform = '';
+		if (cierra) cerrar();
+	}
+	[cabecera, titulo].forEach(function (el) {
+		if (!el) return;
+		el.addEventListener('touchstart', iniciarArrastre, { passive: true });
+		el.addEventListener('touchmove', moverArrastre, { passive: true });
+		el.addEventListener('touchend', soltarArrastre);
+		el.addEventListener('touchcancel', soltarArrastre);
+	});
 
 	botones.forEach(function (b) {
 		b.addEventListener('click', function (e) {
@@ -74,8 +110,23 @@
 	});
 	document.getElementById('epAvisosCerrar').addEventListener('click', cerrar);
 	scrim.addEventListener('click', cerrar);
-	document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && abierto) cerrar(); });
+	document.addEventListener('keydown', function (e) {
+		if (!abierto) return;
+		if (e.key === 'Escape') { cerrar(); return; }
+		if (e.key !== 'Tab') return;
+		// Mantiene el Tab dentro del panel mientras está abierto.
+		var foco = panel.querySelectorAll('a[href], button:not([disabled])');
+		if (!foco.length) return;
+		var primero = foco[0], ultimo = foco[foco.length - 1];
+		if (e.shiftKey && (document.activeElement === primero || document.activeElement === panel)) { e.preventDefault(); ultimo.focus(); }
+		else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
+	});
 
+	botones.forEach(function (b) {
+		b.setAttribute('aria-haspopup', 'dialog');
+		b.setAttribute('aria-expanded', 'false');
+		if (datos.total) b.setAttribute('aria-label', 'Avisos: ' + datos.total + (datos.total === 1 ? ' pendiente' : ' pendientes'));
+	});
 	pintarCampana();
 
 	// ---- Cartel al entrar: una vez por novedad, y lo urgente una vez al día por sesión ----
@@ -112,8 +163,7 @@
 			html: lineas,
 			confirmButtonText: 'Ver avisos',
 			showCancelButton: true,
-			cancelButtonText: 'Después',
-			confirmButtonColor: '#513487'
+			cancelButtonText: 'Después'
 		}).then(function (r) { if (r.isConfirmed) abrir(); });
 		return true;
 	}

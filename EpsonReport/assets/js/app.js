@@ -1658,12 +1658,14 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (!btnEliminar) return;
 			var fila = btnEliminar.closest('.ep-gestion-fila');
 			var nombre = fila.querySelector('.ep-gestion-nombre').textContent;
-			if (!window.confirm('¿Eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) return;
-
+			if (!window.Swal) return;
 			var id = btnEliminar.dataset.id;
-			var botonSidebar = listaActividades.querySelector('.ep-activity-item[data-id="' + id + '"]');
-			if (botonSidebar) botonSidebar.remove();
-			fila.remove();
+			Swal.fire({ icon: 'warning', title: '¿Eliminar "' + nombre.replace(/[<>&"]/g, '') + '"?', text: 'Esta acción no se puede deshacer.', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', customClass: { confirmButton: 'ep-swal-peligro' }, focusCancel: true }).then(function (r) {
+				if (!r.isConfirmed) return;
+				var botonSidebar = listaActividades.querySelector('.ep-activity-item[data-id="' + id + '"]');
+				if (botonSidebar) botonSidebar.remove();
+				fila.remove();
+			});
 		});
 
 		gestionLista.addEventListener('change', function (ev) {
@@ -1690,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	// Ventanas de aviso (SweetAlert2); si no cargó, cae al alert nativo.
 	function epAviso(icono, titulo, texto, boton, extra) {
 		if (!window.Swal) { alert(titulo); return Promise.resolve(); }
-		return Swal.fire(Object.assign({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', confirmButtonColor: '#513487', allowOutsideClick: false }, extra || {}));
+		return Swal.fire(Object.assign({ icon: icono, title: titulo, html: texto || '', confirmButtonText: boton || 'Entendido', allowOutsideClick: false }, extra || {}));
 	}
 	function epToast(icono, titulo) {
 		if (!window.Swal) { alert(titulo); return; }

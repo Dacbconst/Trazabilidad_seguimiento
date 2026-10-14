@@ -550,7 +550,7 @@
 			icon: 'warning', title: 'Cerrar sin completar',
 			html: '<b>' + cumplidas + ' de ' + total + '</b> filas cumplidas, faltan <b>' + faltan + '</b>. ' + consecuencia,
 			showCancelButton: true, focusCancel: true, reverseButtons: true,
-			confirmButtonText: 'Sí, cerrar incompleto', cancelButtonText: 'Seguir esperando', confirmButtonColor: '#B25E00',
+			confirmButtonText: 'Sí, cerrar incompleto', cancelButtonText: 'Seguir esperando', customClass: { confirmButton: 'ep-swal-aviso' }, focusCancel: true,
 		};
 	}, 'getters/calendario_generar.php', 'No se pudo generar');
 	accionTarjeta('.ep-cal-reactivar', {
@@ -583,6 +583,6 @@
 	accionTarjeta('.ep-cal-eliminar', {
 		icon: 'warning', title: '¿Eliminar este calendario?',
 		text: 'Deja de aparecer en la lista y ya no cruza registros nuevos. Si ya generó un reporte mensual, ese reporte se conserva.',
-		showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#C5221F',
+		showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', customClass: { confirmButton: 'ep-swal-peligro' }, focusCancel: true,
 	}, 'getters/calendario_eliminar.php', 'No se pudo eliminar');
 })();

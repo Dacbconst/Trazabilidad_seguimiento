@@ -1821,7 +1821,9 @@ thead .ac-sticky-col, thead .ac-sticky-col-2, thead .ac-sticky-col-3, thead .ac-
 .ac-repo-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); }
 
 /* overflow-x:auto: en celular angosto las 2 pestañas no entran en una fila, sin esto se recortaban en vez de poder deslizarse. */
-.ac-repo-tabs { position: relative; display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); overflow-x: auto; }
+.ac-repo-tabs { position: relative; display: flex; gap: var(--space-xs); border-bottom: 1px solid var(--color-outline-variant); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+/* Sin barra visible: en Chrome una barra clásica aparecía al cargar los contadores y empujaba toda la pantalla 10px. */
+.ac-repo-tabs::-webkit-scrollbar { display: none; }
 /* Indicador que se DESLIZA entre pestañas (2026-09-18, pedido explícito: "no tengo algo
    visual... que se vaya moviendo según elijo el que es") — antes cada pestaña activa solo
    cambiaba de color en el momento, sin ningún movimiento perceptible entre una y otra.

@@ -19,7 +19,7 @@
 
 	function toast(icono, titulo) {
 		if (!window.Swal) { alert(titulo); return; }
-		Swal.mixin({ toast: true, position: 'top', showConfirmButton: false, timer: 3200, timerProgressBar: true }).fire({ icon: icono, title: titulo });
+		Swal.mixin({ toast: true, position: 'top', showConfirmButton: false, timer: 3500, timerProgressBar: true }).fire({ icon: icono, title: titulo });
 	}
 
 	// POST con FormData; devuelve el JSON o un error legible si el servidor respondió otra cosa.

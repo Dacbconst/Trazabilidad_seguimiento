@@ -38,11 +38,20 @@
 .ep-avisos-ir:hover { background: var(--color-primary-dark); }
 .ep-avisos button:focus-visible, .ep-avisos a:focus-visible { outline: 2px solid var(--color-primary-mid); outline-offset: 2px; }
 
+.ep-avisos-asa { display: none; }
+.ep-avisos:focus { outline: none; }
+
 @media (max-width: 900px) {
-	.ep-mobile-avisos { display: flex; }
+	.ep-mobile-avisos { display: flex; width: 44px; height: 44px; }
 	.ep-avisos-scrim.on { background: rgba(24, 14, 42, 0.38); }
-	.ep-avisos { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 82vh; border-radius: 18px 18px 0 0; border-bottom: none; transform: translateY(100%); }
+	.ep-avisos { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 82vh; max-height: 82dvh; border-radius: 18px 18px 0 0; border-bottom: none; transform: translateY(100%); }
 	.ep-avisos.on { transform: none; }
+	.ep-avisos-asa { display: block; width: 40px; height: 4px; margin: 8px auto 0; border-radius: 999px; background: #D9D2E6; flex-shrink: 0; }
+	.ep-avisos-head { touch-action: none; padding-top: 10px; }
+	.ep-avisos-x { width: 44px; height: 44px; margin: -6px -8px 0 0; }
+	.ep-avisos-pie { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+	.ep-avisos-cuerpo { padding-bottom: calc(14px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+	.ep-avisos-ir { height: 48px; }
 }
 @media (prefers-reduced-motion: reduce) { .ep-avisos { transition: none; } }
 
@@ -54,16 +63,6 @@
 .ep-mobile-avisos.llamando { border-color: var(--color-primary); background: var(--color-primary-soft); }
 .ep-avisos-abrir.llamando .ep-avisos-badge::after { content: ''; position: absolute; inset: -3px; border-radius: 999px; border: 2px solid var(--ring); animation: ep-pulso 1.8s ease-out infinite; pointer-events: none; }
 .ep-mobile-avisos.llamando .ep-avisos-badge::after { border-color: #D93025; }
-@keyframes ep-campana {
-	0% { transform: rotate(0); }
-	6% { transform: rotate(18deg); }
-	12% { transform: rotate(-16deg); }
-	18% { transform: rotate(13deg); }
-	24% { transform: rotate(-10deg); }
-	30% { transform: rotate(6deg); }
-	36% { transform: rotate(-3deg); }
-	42%, 100% { transform: rotate(0); }
-}
 @keyframes ep-pulso {
 	0% { transform: scale(0.85); opacity: 0.9; }
 	70%, 100% { transform: scale(1.7); opacity: 0; }

@@ -22,7 +22,7 @@
 		location.reload();
 	}
 	function toast(icono, texto) {
-		if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: icono, title: texto, showConfirmButton: false, timer: 2600 });
+		if (window.Swal) Swal.fire({ toast: true, position: 'top', icon: icono, title: texto, showConfirmButton: false, timer: 3500, timerProgressBar: true });
 	}
 	window.addEventListener('load', function () {
 		var pendiente = null;
@@ -686,7 +686,7 @@
 			showCancelButton: true,
 			cancelButtonText: 'Cancelar',
 			confirmButtonText: 'Sí, reactivar',
-			confirmButtonColor: '#B25E00',
+			customClass: { confirmButton: 'ep-swal-aviso' }, focusCancel: true,
 			focusCancel: true
 		}).then(function (res) {
 			if (!res.isConfirmed) return;
@@ -712,7 +712,7 @@
 			showCancelButton: true,
 			cancelButtonText: 'Seguir abierto',
 			confirmButtonText: 'Sí, cerrar el mes',
-			confirmButtonColor: '#B25E00',
+			customClass: { confirmButton: 'ep-swal-aviso' }, focusCancel: true,
 			focusCancel: true
 		}).then(function (res) {
 			if (!res.isConfirmed) return;
@@ -733,7 +733,7 @@
 			showCancelButton: true,
 			cancelButtonText: 'Cancelar',
 			confirmButtonText: 'Sí, eliminar',
-			confirmButtonColor: '#C5221F',
+			customClass: { confirmButton: 'ep-swal-peligro' }, focusCancel: true,
 			focusCancel: true
 		}).then(function (res) {
 			if (!res.isConfirmed) return;
