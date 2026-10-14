@@ -42,7 +42,8 @@ while ($row = $res->fetch_assoc()) {
 }
 
 // Espacio mixto (varias marcas en un mismo espacio, se paga como 1): categoría propia MIXTA con la única marca MIXTA, solo en Cabeceras/Rumas (usan este árbol). Meta de Compras y Perchas no.
-foreach ($segmentos as $seg => $_) {
+$esDirecto = canalEfectivoUsuario($mysqli) !== 'distribuidor'; // las mixtas solo existen en Directo
+if ($esDirecto) foreach ($segmentos as $seg => $_) {
 	$segmentos[$seg]['MIXTA'] = ['MIXTA'];
 }
 
@@ -98,6 +99,9 @@ while ($row = $res->fetch_assoc()) {
 	if (!isset($segmentosSector[$seg][$sec][$cat])) $segmentosSector[$seg][$sec][$cat] = [];
 	if (!in_array($mar, $segmentosSector[$seg][$sec][$cat], true)) $segmentosSector[$seg][$sec][$cat][] = $mar;
 }
+
+// Perchas también acepta MIXTA (una participación única en el repositorio).
+if ($esDirecto) { $marcasPercha[] = 'MIXTA'; $categoriasPercha[] = 'MIXTA'; }
 
 echo json_encode([
 	'ok'               => true,

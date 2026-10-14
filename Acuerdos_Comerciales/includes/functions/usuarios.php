@@ -34,6 +34,18 @@ function supervisores_asignados_activos($mysqli, $excluirId = 0) {
 	return $asignados;
 }
 
+// Canal guardado en la cuenta (columna canal). Devuelve null si la columna todavía no existe o el usuario no tiene canal (ej. administradores).
+function canalGuardadoUsuario($mysqli, $usuarioId) {
+	$stmt = @$mysqli->prepare('SELECT canal FROM repositorio_usuarios_acuerdos WHERE id = ? LIMIT 1');
+	if (!$stmt) return null;
+	$stmt->bind_param('i', $usuarioId);
+	$stmt->execute();
+	$fila = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	$canal = $fila['canal'] ?? null;
+	return in_array($canal, ['directo', 'distribuidor'], true) ? $canal : null;
+}
+
 // Nunca debe tirar fatal error: devuelve null (-> 'directo' por defecto) en vez de romper el login.
 function canalDeSupervisor($mysqli, $supervisor) {
 	if (!$supervisor) return null;
@@ -53,6 +65,7 @@ function canalDeSupervisor($mysqli, $supervisor) {
 
 // Canal real de la SESIÓN actual: decide qué cartera ve el usuario en Registrar. Sin supervisor (ej. "Admin") elige el canal a mano vía admin_set_canal.php, 'directo' por default.
 function canalEfectivoUsuario($mysqli) {
+	if (!empty($_SESSION['canal'])) return $_SESSION['canal']; // canal guardado en la cuenta, manda sobre el deducido del maestro
 	$supervisor = $_SESSION['supervisor'] ?? null;
 	if ($supervisor) return canalDeSupervisor($mysqli, $supervisor) ?: 'directo';
 	if (($_SESSION['rol'] ?? '') === 'superdesarrollador') return ($_SESSION['canal_admin'] ?? 'directo') === 'distribuidor' ? 'distribuidor' : 'directo';
@@ -61,7 +74,7 @@ function canalEfectivoUsuario($mysqli) {
 
 // true solo para superdesarrollador sin supervisor real — el resto sigue viendo su cartera de siempre.
 function esModoAdminSinCartera() {
-	return ($_SESSION['rol'] ?? '') === 'superdesarrollador' && empty($_SESSION['supervisor']);
+	return ($_SESSION['rol'] ?? '') === 'superdesarrollador' && empty($_SESSION['supervisor']) && empty($_SESSION['canal']);
 }
 
 function listar_usuarios_acuerdos($mysqli, $busqueda = '', $pagina = 1, $porPagina = 8) {
@@ -84,6 +97,10 @@ function listar_usuarios_acuerdos($mysqli, $busqueda = '', $pagina = 1, $porPagi
 	}
 
 	$stmt = $mysqli->prepare(
+		"SELECT id, usuario, rol, supervisor, canal, status, created_at FROM repositorio_usuarios_acuerdos
+		 WHERE usuario LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	);
+	if (!$stmt) $stmt = $mysqli->prepare(
 		"SELECT id, usuario, rol, supervisor, status, created_at FROM repositorio_usuarios_acuerdos
 		 WHERE usuario LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
 	);
@@ -101,7 +118,7 @@ function listar_usuarios_acuerdos($mysqli, $busqueda = '', $pagina = 1, $porPagi
 
 	// Canal por fila en PHP, no SQL: pagina de a 8, no vale una subquery.
 	foreach ($usuarios as &$u) {
-		$u['canal'] = canalDeSupervisor($mysqli, $u['supervisor'] ?? null);
+		$u['canal'] = $u['canal'] ?? canalDeSupervisor($mysqli, $u['supervisor'] ?? null); // el guardado manda; si no hay, el deducido del maestro
 	}
 	unset($u);
 
@@ -132,7 +149,6 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 	$claseFila   = $u['status'] === 'inactivo' ? 'ac-row-inactivo' : '';
 	$usuarioAttr = htmlspecialchars($u['usuario'], ENT_QUOTES);
 	$rolAttr     = htmlspecialchars($u['rol'], ENT_QUOTES);
-	$supervisorAttr = htmlspecialchars($u['supervisor'] ?? '', ENT_QUOTES);
 	// Canal ya resuelto desde listar_usuarios_acuerdos(); array_key_exists porque puede ser null de verdad.
 	$canalTexto  = array_key_exists('canal', $u)
 		? ($u['canal'] === 'distribuidor' ? 'Distribuidor' : ($u['canal'] === 'directo' ? 'Directo' : '—'))
@@ -147,7 +163,6 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 			</div>
 		</td>
 		<td><span class="ac-badge '.$rolClase.'">'.htmlspecialchars($rolLabel).'</span></td>
-		<td>'.htmlspecialchars($u['supervisor'] ?: '—').'</td>
 		<td>'.htmlspecialchars($canalTexto).'</td>
 		<td class="ac-mono">'.htmlspecialchars($fecha).'</td>
 		<td>
@@ -161,7 +176,7 @@ function renderFilaUsuario(array $u, $sessionUserId) {
 				<button type="button" class="ac-icon-btn ac-btn-clave" data-id="'.(int) $u['id'].'" data-usuario="'.$usuarioAttr.'" title="Modificar Clave">
 					<span class="material-symbols-outlined">key</span>
 				</button>
-				<button type="button" class="ac-icon-btn ac-btn-editar" data-id="'.(int) $u['id'].'" data-usuario="'.$usuarioAttr.'" data-rol="'.$rolAttr.'" data-supervisor="'.$supervisorAttr.'" title="Editar Perfil">
+				<button type="button" class="ac-icon-btn ac-btn-editar" data-id="'.(int) $u['id'].'" data-usuario="'.$usuarioAttr.'" data-rol="'.$rolAttr.'" data-canal="'.htmlspecialchars($u['canal'] ?? '', ENT_QUOTES).'" title="Editar Perfil">
 					<span class="material-symbols-outlined">edit</span>
 				</button>
 			</div>

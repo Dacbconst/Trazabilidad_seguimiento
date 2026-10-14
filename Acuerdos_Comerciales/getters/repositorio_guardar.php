@@ -70,7 +70,7 @@ try {
 			$distribuidor = repositorio_normalizar_texto($fila['distribuidor'] ?? '');
 			$cliente   = repositorio_normalizar_texto($fila['cliente'] ?? '');
 			$ciudad    = repositorio_normalizar_texto($fila['ciudad'] ?? '');
-			$canal     = repositorio_normalizar_texto($fila['canal'] ?? '');
+			$canal     = repositorio_normalizar_canal($fila['canal'] ?? '');
 			$sector    = repositorio_normalizar_texto($fila['sector'] ?? '');
 			$categoria = repositorio_normalizar_texto($fila['categoria'] ?? '');
 			$marca     = repositorio_normalizar_texto($fila['marca'] ?? '');

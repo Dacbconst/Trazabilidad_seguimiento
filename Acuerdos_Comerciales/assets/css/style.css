@@ -2558,3 +2558,14 @@ tr.ac-preview-grupo-c { box-shadow: inset 8px 0 0 0 #a3690a; }
 .ac-copiable-btn { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: var(--radius); background: transparent; color: var(--color-primary); cursor: pointer; }
 .ac-copiable-btn:hover { background: rgba(0, 40, 142, 0.08); }
 .ac-copiable-btn .material-symbols-outlined { font-size: 18px; }
+
+/* Exportar por canal y período (Cuotas / Acuerdo Completo) */
+.ac-expper { position: relative; display: inline-block; }
+.ac-expper.hidden, .ac-expper-panel.hidden { display: none; }
+.ac-expper-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: 320px; max-width: 90vw; background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline-variant); border-radius: var(--radius-lg); box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-md); }
+.ac-expper-grupo { display: flex; flex-direction: column; gap: 6px; }
+.ac-expper-etiqueta { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-outline); }
+.ac-expper-conteo { margin: 0; font-size: 13px; color: var(--color-on-surface-variant); }
+.ac-expper-descargar { justify-content: center; }
+.ac-expper-descargar.ac-expper-deshabilitado { opacity: 0.4; pointer-events: none; }
+@media (max-width: 700px) { .ac-expper-panel { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-width: none; } }

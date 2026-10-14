@@ -14,47 +14,10 @@
 	var formRol         = document.getElementById('form-rol');
 	var rlSubmit        = document.getElementById('rl-submit');
 	var nuUsuario       = document.getElementById('nu-usuario');
-	var nuSupervisor    = document.getElementById('nu-supervisor');
-	var rlSupervisor    = document.getElementById('rl-supervisor');
+	var rlCanal         = document.getElementById('rl-canal');
 	var buscarTimeout   = null;
 	// Evita que una respuesta vieja (llegó tarde por la red) pise a una más nueva — mismo bug ya corregido en Seguimiento de Equipo/Historial.
 	var usuariosReqId   = 0;
-
-	// ---------- Supervisor: 1 supervisor = 1 cuenta (ver functions.php) ---------- Autocompletar Nombre de Usuario con el supervisor elegido (editable después) y mantener los combos sincronizados con quién ya lo tiene.
-	nuSupervisor.addEventListener('change', function () {
-		nuUsuario.value = nuSupervisor.value || '';
-	});
-
-	function refrescarSupervisores() {
-		fetch('getters/supervisores_disponibles.php')
-			.then(function (r) { return r.json(); })
-			.then(function (data) {
-				if (!data.ok) return;
-				pintarSupervisoresNuevo(data.supervisores);
-				pintarSupervisoresEditar(data.supervisores);
-			});
-	}
-
-	function pintarSupervisoresNuevo(supervisores) {
-		var valorPrevio = nuSupervisor.value;
-		var html = '<option value="">Sin asignar</option>';
-		supervisores.forEach(function (s) {
-			if (s.tomado_por) return; // ya tiene cuenta, no se puede repetir
-			html += '<option value="' + escapeAttr(s.nombre) + '">' + escapeHtml(s.nombre) + '</option>';
-		});
-		nuSupervisor.innerHTML = html;
-		nuSupervisor.value = valorPrevio; // si seguía disponible, se conserva; si no, vuelve a "Sin asignar"
-	}
-
-	function pintarSupervisoresEditar(supervisores) {
-		var html = '<option value="">Sin asignar</option>';
-		supervisores.forEach(function (s) {
-			var tomadoAttr = s.tomado_por ? ' data-tomado-por="' + escapeAttr(s.tomado_por) + '"' : '';
-			var etiqueta   = s.tomado_por ? s.nombre + ' (usado por ' + s.tomado_por + ')' : s.nombre;
-			html += '<option value="' + escapeAttr(s.nombre) + '"' + tomadoAttr + '>' + escapeHtml(etiqueta) + '</option>';
-		});
-		rlSupervisor.innerHTML = html;
-	}
 
 	function escapeHtml(texto) {
 		var div = document.createElement('div');
@@ -155,7 +118,6 @@
 					formNuevo.reset();
 					buscarInput.value = '';
 					cargarUsuarios(1);
-					refrescarSupervisores();
 				}
 			})
 			.catch(function () {
@@ -184,7 +146,6 @@
 							return;
 						}
 						fila.classList.toggle('ac-row-inactivo', !input.checked);
-						refrescarSupervisores(); // desactivar/reactivar libera u ocupa su supervisor
 					})
 					.catch(function () {
 						input.checked = !input.checked;
@@ -201,7 +162,7 @@
 
 		Array.prototype.forEach.call(tbody.querySelectorAll('.ac-btn-editar'), function (btn) {
 			btn.addEventListener('click', function () {
-				abrirModalRol(btn.dataset.id, btn.dataset.usuario, btn.dataset.rol, btn.dataset.supervisor);
+				abrirModalRol(btn.dataset.id, btn.dataset.usuario, btn.dataset.rol, btn.dataset.canal);
 			});
 		});
 	}
@@ -256,17 +217,12 @@
 	});
 
 	// ---------- Modal "Editar Perfil": única responsabilidad, cambiar el rol ----------
-	function abrirModalRol(id, usuario, rol, supervisor) {
+	function abrirModalRol(id, usuario, rol, canal) {
 		document.getElementById('rl-id').value = id;
 		document.getElementById('rl-usuario-label').textContent = usuario;
 		document.getElementById('rl-rol').value = rol;
 
-		// El supervisor actual de ESTE usuario debe seguir seleccionable aunque figure como "tomado" (es el suyo); los tomados por otros se deshabilitan.
-		Array.prototype.forEach.call(rlSupervisor.options, function (opt) {
-			var tomadoPor = opt.dataset.tomadoPor;
-			opt.disabled = !!(tomadoPor && tomadoPor !== usuario);
-		});
-		rlSupervisor.value = supervisor || '';
+		rlCanal.value = canal || '';
 
 		modalRol.classList.add('ac-modal-open');
 	}
@@ -283,7 +239,7 @@
 			body: new URLSearchParams({
 				id: document.getElementById('rl-id').value,
 				rol: document.getElementById('rl-rol').value,
-				supervisor: document.getElementById('rl-supervisor').value
+				canal: document.getElementById('rl-canal').value
 			})
 		})
 			.then(function (r) { return r.json(); })
@@ -292,7 +248,6 @@
 				mostrarMensaje(data.message, data.ok);
 				if (data.ok) {
 					cargarUsuarios(parseInt(paginacionEl.dataset.pagina, 10) || 1);
-					refrescarSupervisores();
 					setTimeout(function () { modalRol.classList.remove('ac-modal-open'); }, 600);
 				}
 			})
@@ -305,7 +260,6 @@
 	// Expuesto para que index.php refresque este módulo al navegar hacia él desde el sidebar (mismo patrón que window.acHistorialRefrescar).
 	window.acUsuariosRefrescar = function () {
 		cargarUsuarios(parseInt(paginacionEl.dataset.pagina, 10) || 1);
-		refrescarSupervisores();
 	};
 
 	// Estado inicial: pintar botones de paginación y enganchar filas ya renderizadas por PHP.

@@ -111,9 +111,12 @@ function obtener_precarga_detalle($mysqli, $posId, $trimestre, $anio) {
 		// "Otras categorías": sin subcategoría ni marca ni rebate; se completa con su propio nombre para que el Acta la acepte.
 		$esOtras = strtoupper(trim($fc['sector'])) === 'OTRAS CATEGORIAS';
 		if ($esOtras) { $segmento = $categoria = $marca = 'OTRAS CATEGORIAS'; }
+		// Mixta (solo Directo): categoría propia, su rebate se busca como MIXTA.
+		$esMixta = strtoupper(trim($fc['sector'])) === 'MIXTA';
+		if ($esMixta) { $segmento = $categoria = $marca = 'MIXTA'; }
 
 		// 1ra prioridad: SUBCATEGORIA/MARCA reales del Excel, más confiable que el historial.
-		if (!$esOtras && !empty($fc['subcategoria']) && !empty($fc['marca'])) {
+		if (!$esOtras && !$esMixta && !empty($fc['subcategoria']) && !empty($fc['marca'])) {
 			$match = resolverProductoCuota($mysqli, $fc['sector'], $fc['subcategoria'], $fc['marca']);
 			if ($match) {
 				$segmento = $match['segmento'];

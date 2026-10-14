@@ -14,6 +14,14 @@ function repositorio_valor_a_porcentaje($crudo) {
 	return $num <= 1 ? $num * 100 : $num;
 }
 
+// Canal del repositorio de Rebate: el Excel puede traer "Directo" o "Directa" (y "Distribuidor"); se guarda siempre DIRECTA o DISTRIBUIDOR.
+function repositorio_normalizar_canal($crudo) {
+	$c = mb_strtoupper(trim(preg_replace('/\s+/', ' ', (string) $crudo)), 'UTF-8');
+	if ($c === 'DIRECTO') return 'DIRECTA';
+	if ($c === 'DISTRIBUIDORES') return 'DISTRIBUIDOR';
+	return $c;
+}
+
 // Normaliza texto de producto (mayúsculas + espacios colapsados) — sin esto, "Lavavajillas" y "LAVAVAJILLAS " generarían 2 filas por la clave única exacta de la tabla.
 function repositorio_normalizar_texto($crudo) {
 	$texto = trim(preg_replace('/\s+/', ' ', (string) $crudo));
@@ -85,7 +93,7 @@ function repositorio_parsear_rebate($rutaArchivo) {
 	for ($i = $enc['fila'] + 1; $i < count($filas); $i++) {
 		$fila = $filas[$i];
 		$ciudad    = $colCiudad !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCiudad)] ?? '') : '';
-		$canal     = $colCanal !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCanal)] ?? '') : '';
+		$canal     = $colCanal !== null ? repositorio_normalizar_canal($fila[xlsx_col($m, $colCanal)] ?? '') : '';
 		$sector    = repositorio_normalizar_texto($fila[xlsx_col($m, $colSector)] ?? '');
 		$categoria = $colCategoria !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colCategoria)] ?? '') : '';
 		$marca     = $colMarca !== null ? repositorio_normalizar_texto($fila[xlsx_col($m, $colMarca)] ?? '') : '';

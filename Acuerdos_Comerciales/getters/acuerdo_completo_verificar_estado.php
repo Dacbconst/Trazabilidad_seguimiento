@@ -101,8 +101,8 @@ foreach ($filas as $fila) {
 
 	$existente = null;
 	if ($esMixta) {
-		// La mixta no tiene Meta de Compras: se busca su Cabecera/Ruma guardada.
-		$stmtMixta = $mysqli->prepare("SELECT estado FROM repositorio_acuerdo_completo_linea WHERE pos_id = ? AND tipo IN ('cabecera','ruma') AND sector = '' AND categoria = 'MIXTA' AND marca = ? AND trimestre = ? AND anio = ? LIMIT 1");
+		// La mixta se busca por cualquiera de sus tablas guardadas (Meta con sector MIXTA, o Cabecera/Ruma/Percha con sector vacío).
+		$stmtMixta = $mysqli->prepare("SELECT estado FROM repositorio_acuerdo_completo_linea WHERE pos_id = ? AND tipo IN ('meta_compra','cabecera','ruma','percha') AND sector IN ('', 'MIXTA') AND categoria = 'MIXTA' AND marca = ? AND trimestre = ? AND anio = ? LIMIT 1");
 		if ($stmtMixta) {
 			$stmtMixta->bind_param('ssii', $posId, $marca, $trimestre, $anio);
 			$stmtMixta->execute();

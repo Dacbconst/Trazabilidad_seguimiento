@@ -529,6 +529,7 @@
 		if (!TIPOS_CON_ASIGNACION[tipo]) plantillaDescargarLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo;
 		// Picker Directo/Distribuidor compartido por Cuotas y Acuerdo Completo, hrefs actualizados según tipo.
 		plantillaCuotasWrap.classList.toggle('hidden', !TIPOS_CON_ASIGNACION[tipo]);
+		if (typeof actualizarExportPeriodoVisible === 'function') actualizarExportPeriodoVisible();
 		if (TIPOS_CON_ASIGNACION[tipo]) {
 			plantillaCuotasDirectoLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo + '&canal=directo';
 			plantillaCuotasDistribuidorLink.href = 'getters/repositorio_plantilla.php?tipo=' + tipo + '&canal=distribuidor';
@@ -1763,6 +1764,83 @@
 	// Recalcula si la ventana cambia de tamaño (los anchos de pestaña pueden variar,
 	// ej. si el texto envuelve distinto) — busca la pestaña con la clase activa en vez de
 	// asumir cuál es, para que siga funcionando sin importar en qué pestaña esté parado.
+	// ---------- Exportar por canal y período (Cuotas / Acuerdo Completo) ----------
+	var expWrap = document.getElementById('repo-expperiodo-wrap');
+	var expBtn = document.getElementById('repo-expperiodo-btn');
+	var expPanel = document.getElementById('repo-expperiodo-panel');
+	var expCanal = document.getElementById('repo-exp-canal');
+	var expTrimestre = document.getElementById('repo-exp-trimestre');
+	var expAnio = document.getElementById('repo-exp-anio');
+	var expConteo = document.getElementById('repo-exp-conteo');
+	var expDescargar = document.getElementById('repo-exp-descargar');
+	var expReqId = 0;
+
+	function valorPill(grupo) {
+		var a = grupo.querySelector('.ac-seg-pill-activo');
+		return a ? a.getAttribute('data-valor') : '';
+	}
+	function marcarPill(grupo, valor) {
+		grupo.querySelectorAll('.ac-seg-pill').forEach(function (p) {
+			p.classList.toggle('ac-seg-pill-activo', p.getAttribute('data-valor') === String(valor));
+		});
+	}
+	function paramsExport() {
+		return 'tipo=' + encodeURIComponent(tipoActivo) + '&canal=' + valorPill(expCanal) + '&trimestre=' + valorPill(expTrimestre) + '&anio=' + encodeURIComponent(expAnio.value);
+	}
+	function actualizarConteoExport() {
+		var miId = ++expReqId;
+		expConteo.textContent = 'Calculando...';
+		expDescargar.classList.add('ac-expper-deshabilitado');
+		fetch('getters/repositorio_exportar_periodo.php?contar=1&' + paramsExport())
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (miId !== expReqId) return;
+				if (d && d.ok && d.filas > 0) {
+					expConteo.textContent = d.filas + ' fila(s) · ' + d.clientes + ' cliente(s)';
+					expDescargar.href = 'getters/repositorio_exportar_periodo.php?' + paramsExport();
+					expDescargar.classList.remove('ac-expper-deshabilitado');
+				} else {
+					expConteo.textContent = 'No hay datos para este período.';
+				}
+			})
+			.catch(function () { if (miId === expReqId) expConteo.textContent = 'No se pudo calcular.'; });
+	}
+	function actualizarExportPeriodoVisible() {
+		if (!expWrap) return;
+		var visible = !!TIPOS_CON_ASIGNACION[tipoActivo];
+		expWrap.classList.toggle('hidden', !visible);
+		if (!visible) expPanel.classList.add('hidden');
+	}
+	if (expWrap) {
+		var hoy = new Date();
+		for (var y = hoy.getFullYear() - 1; y <= hoy.getFullYear() + 1; y++) {
+			var op = document.createElement('option');
+			op.value = y; op.textContent = y;
+			if (y === hoy.getFullYear()) op.selected = true;
+			expAnio.appendChild(op);
+		}
+		marcarPill(expTrimestre, Math.floor(hoy.getMonth() / 3) + 1);
+		[expCanal, expTrimestre].forEach(function (grupo) {
+			grupo.addEventListener('click', function (e) {
+				var p = e.target.closest('.ac-seg-pill');
+				if (!p) return;
+				marcarPill(grupo, p.getAttribute('data-valor'));
+				actualizarConteoExport();
+			});
+		});
+		expAnio.addEventListener('change', actualizarConteoExport);
+		expBtn.addEventListener('click', function (e) {
+			e.stopPropagation();
+			var abrir = expPanel.classList.contains('hidden');
+			expPanel.classList.toggle('hidden', !abrir);
+			expBtn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+			if (abrir) actualizarConteoExport();
+		});
+		document.addEventListener('click', function (e) {
+			if (!expWrap.contains(e.target)) expPanel.classList.add('hidden');
+		});
+	}
+
 	window.addEventListener('resize', function () {
 		var activa = document.querySelector('.ac-repo-tab.active');
 		if (activa) posicionarIndicadorTab(activa);

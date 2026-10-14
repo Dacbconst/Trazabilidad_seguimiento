@@ -13,8 +13,6 @@ $busqueda  = trim($_GET['q'] ?? '');
 $pagina    = (int) ($_GET['pg'] ?? 1);
 $resultado = listar_usuarios_acuerdos($mysqli, $busqueda, $pagina);
 $usuarios  = $resultado['usuarios'];
-$supervisores          = listar_supervisores_disponibles($mysqli);
-$supervisoresAsignados = supervisores_asignados_activos($mysqli);
 
 $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 ?>
@@ -33,10 +31,10 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 			</div>
 			<form id="form-nuevo-usuario" class="ac-form" autocomplete="off">
 				<div class="ac-field">
-					<label class="ac-field-label" for="nu-usuario">Nombre de Usuario</label>
+					<label class="ac-field-label" for="nu-usuario">Nombre Completo</label>
 					<div class="ac-input-wrap">
 						<span class="material-symbols-outlined">person</span>
-						<input class="ac-input" id="nu-usuario" name="usuario" type="text" placeholder="Ej. juan.perez" maxlength="100" required>
+						<input class="ac-input" id="nu-usuario" name="usuario" type="text" placeholder="Ej. JUAN PEREZ" maxlength="100" required>
 					</div>
 				</div>
 
@@ -60,17 +58,14 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 					</select>
 				</div>
 
-				<div class="ac-field">
-					<label class="ac-field-label" for="nu-supervisor">Supervisor (Canal Directo/Distribuidor)</label>
-					<select class="ac-select ac-select-bonito-auto" id="nu-supervisor" name="supervisor">
-						<option value="">Sin asignar</option>
-						<?php foreach ($supervisores as $s): ?>
-							<?php if (isset($supervisoresAsignados[$s])) continue; // ya tiene cuenta, no se puede repetir ?>
-							<option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
-						<?php endforeach; ?>
-					</select>
-					<p class="ac-field-hint">Defina el usuario.</p>
-				</div>
+				<div class="ac-field" id="nu-canal-field">
+						<label class="ac-field-label" for="nu-canal">Canal</label>
+						<select class="ac-select ac-select-bonito-auto" id="nu-canal" name="canal">
+							<option value="directo">Directo</option>
+							<option value="distribuidor">Distribuidor</option>
+						</select>
+						<p class="ac-field-hint">Usa el mismo nombre en la columna USUARIO de los Excel para asignarle Actas. Los administradores no llevan canal.</p>
+					</div>
 
 				<button class="ac-btn-primary" type="submit" id="nu-submit">
 					<span class="material-symbols-outlined">add</span>
@@ -103,7 +98,6 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 						<tr>
 							<th>Usuario</th>
 							<th>Rol</th>
-							<th>Supervisor</th>
 							<th>Canal</th>
 							<th>Fecha de Creación</th>
 							<th>Estado</th>
@@ -116,7 +110,7 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 								<?= renderFilaUsuario($u, $_SESSION['user_id']) ?>
 							<?php endforeach; ?>
 						<?php else: ?>
-							<tr><td colspan="7" class="ac-table-empty">No se encontraron usuarios.</td></tr>
+							<tr><td colspan="6" class="ac-table-empty">No se encontraron usuarios.</td></tr>
 						<?php endif; ?>
 					</tbody>
 				</table>
@@ -181,18 +175,13 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/gestion-usuarios.js') ?: time();
 			</div>
 
 			<div class="ac-field">
-				<label class="ac-field-label" for="rl-supervisor">Supervisor (Canal Directo/Distribuidor)</label>
-				<select class="ac-select ac-select-bonito-auto" id="rl-supervisor" name="supervisor">
-					<option value="">Sin asignar</option>
-					<?php foreach ($supervisores as $s): ?>
-						<?php $tomadoPor = $supervisoresAsignados[$s] ?? null; ?>
-						<option value="<?= htmlspecialchars($s) ?>"<?= $tomadoPor ? ' data-tomado-por="'.htmlspecialchars($tomadoPor).'"' : '' ?>>
-							<?= htmlspecialchars($s) ?><?= $tomadoPor ? ' (usado por '.htmlspecialchars($tomadoPor).')' : '' ?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-				<p class="ac-field-hint">Los supervisores ya asignados a otro usuario aparecen deshabilitados.</p>
-			</div>
+					<label class="ac-field-label" for="rl-canal">Canal</label>
+					<select class="ac-select ac-select-bonito-auto" id="rl-canal" name="canal">
+						<option value="">Sin canal (administrador)</option>
+						<option value="directo">Directo</option>
+						<option value="distribuidor">Distribuidor</option>
+					</select>
+				</div>
 
 			<button class="ac-btn-primary" type="submit" id="rl-submit">Guardar Cambios</button>
 		</form>

@@ -92,7 +92,7 @@ function login($usuario, $password, $mysqli, $forzar = false) {
 		$_SESSION['user_id']    = $row['id'];
 		$_SESSION['username']   = $row['usuario'];
 		$_SESSION['rol']        = $row['rol'];
-		$_SESSION['supervisor'] = $row['supervisor'] ?? null;
+		$_SESSION['supervisor'] = $row['supervisor'] ?? null; $_SESSION['canal'] = canalGuardadoUsuario($mysqli, $row['id']);
 		registrarSesionUnica($mysqli, $row['id']);
 		return true;
 	}
@@ -135,7 +135,7 @@ function login($usuario, $password, $mysqli, $forzar = false) {
 	$_SESSION['user_id']    = $row['id'];
 	$_SESSION['username']   = $row['usuario'];
 	$_SESSION['rol']        = $row['rol'];
-	$_SESSION['supervisor'] = $row['supervisor'] ?? null;
+	$_SESSION['supervisor'] = $row['supervisor'] ?? null; $_SESSION['canal'] = canalGuardadoUsuario($mysqli, $row['id']);
 	registrarSesionUnica($mysqli, $row['id']);
 	return true;
 }

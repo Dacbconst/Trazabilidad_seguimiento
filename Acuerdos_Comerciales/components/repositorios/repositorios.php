@@ -140,6 +140,40 @@ $js_v = @filemtime(__DIR__.'/../../assets/js/repositorios.js') ?: time();
 						</div>
 					</div>
 				</div>
+				<!-- Solo Cuotas y Acuerdo Completo: exporta lo cargado de un canal y período con el mismo formato de subida. -->
+				<div class="ac-expper hidden" id="repo-expperiodo-wrap">
+					<button type="button" class="ac-btn-outline ac-btn-inline" id="repo-expperiodo-btn" aria-expanded="false">
+						<span class="material-symbols-outlined">download</span>
+						Exportar
+					</button>
+					<div class="ac-expper-panel hidden" id="repo-expperiodo-panel">
+						<div class="ac-expper-grupo">
+							<span class="ac-expper-etiqueta">Canal</span>
+							<div class="ac-seg-pill-group" id="repo-exp-canal">
+								<button type="button" class="ac-seg-pill ac-seg-pill-activo" data-valor="directo">Directo</button>
+								<button type="button" class="ac-seg-pill" data-valor="distribuidor">Distribuidor</button>
+							</div>
+						</div>
+						<div class="ac-expper-grupo">
+							<span class="ac-expper-etiqueta">Período</span>
+							<div class="ac-seg-pill-group" id="repo-exp-trimestre">
+								<button type="button" class="ac-seg-pill" data-valor="1">Q1</button>
+								<button type="button" class="ac-seg-pill" data-valor="2">Q2</button>
+								<button type="button" class="ac-seg-pill" data-valor="3">Q3</button>
+								<button type="button" class="ac-seg-pill" data-valor="4">Q4</button>
+							</div>
+						</div>
+						<div class="ac-expper-grupo">
+							<span class="ac-expper-etiqueta">Año</span>
+							<select class="ac-select" id="repo-exp-anio"></select>
+						</div>
+						<p class="ac-expper-conteo" id="repo-exp-conteo">Calculando...</p>
+						<a class="ac-btn-primary ac-btn-inline ac-expper-descargar" id="repo-exp-descargar" href="#" target="_blank">
+							<span class="material-symbols-outlined">file_download</span>
+							Descargar Excel
+						</a>
+					</div>
+				</div>
 				<button type="button" class="ac-btn-primary ac-btn-inline" id="repo-subir-abrir">
 					<span class="material-symbols-outlined">upload_file</span>
 					Subir Archivo

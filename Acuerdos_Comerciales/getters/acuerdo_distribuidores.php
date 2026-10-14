@@ -59,8 +59,9 @@ if ($modoAdmin) {
 			$clientes[] = $cliente;
 		}
 	}
-} elseif ($supervisor) {
-	$stmt = $mysqli->prepare(
+} else {
+	// Sin supervisor (cuentas nuevas) no hay maestro de Alicorp que consultar: la cartera sale solo de la base propia.
+	$stmt = !$supervisor ? false : $mysqli->prepare(
 		"SELECT pos_id, pos_name, cedi, tipo_distribuidor
 		 FROM repositorio_locales_supervisores_cliente
 		 WHERE supervisor = ?

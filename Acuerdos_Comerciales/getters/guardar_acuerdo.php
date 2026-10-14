@@ -103,6 +103,17 @@ if (!$existePos) {
 	}
 }
 
+// Distribuidor: el combo de Local lista todos los clientes propios del canal, así que guardar también los acepta.
+if (!$existePos && $canalActa === 'distribuidor') {
+	$stmtPropioDist = $mysqli->prepare("SELECT pos_id FROM repositorio_clientes_propiosac WHERE pos_id = ? AND canal = 'distribuidor' LIMIT 1");
+	if ($stmtPropioDist) {
+		$stmtPropioDist->bind_param('s', $posId);
+		$stmtPropioDist->execute();
+		$existePos = $stmtPropioDist->get_result()->fetch_assoc();
+		$stmtPropioDist->close();
+	}
+}
+
 // Segunda vía de propiedad: CEDI del Excel de Cuotas (usuarioIdDeCuota()) o del repo "Acuerdo Completo" (usuarioIdDeAcuerdoCompleto()), solo si el guardado viene marcado como originado en ESA precarga puntual (mismo pos_id), nunca inventado.
 if (!$existePos && $origenPrecarga && ($origenPrecarga['pos_id'] ?? null) === $posId) {
 	$trimestrePrecarga = (int) ($origenPrecarga['trimestre'] ?? 0);

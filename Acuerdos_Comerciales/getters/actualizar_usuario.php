@@ -31,18 +31,15 @@ if (isset($_POST['rol'])) {
 	$valores[] = $_POST['rol'];
 }
 
-if (isset($_POST['supervisor'])) {
-	$supervisor = trim($_POST['supervisor']);
-	if ($supervisor !== '') {
-		$tomadoPor = supervisores_asignados_activos($mysqli, $id)[$supervisor] ?? null;
-		if ($tomadoPor) {
-			echo json_encode(['ok' => false, 'message' => 'Ese supervisor ya está asignado al usuario "'.$tomadoPor.'".']);
-			exit;
-		}
+if (isset($_POST['canal'])) {
+	$canal = $_POST['canal'];
+	if ($canal !== '' && !in_array($canal, ['directo', 'distribuidor'], true)) {
+		echo json_encode(['ok' => false, 'message' => 'Canal inválido.']);
+		exit;
 	}
-	$campos[]  = 'supervisor = ?';
+	$campos[]  = 'canal = ?';
 	$tipos    .= 's';
-	$valores[] = $supervisor !== '' ? $supervisor : null;
+	$valores[] = $canal !== '' ? $canal : null;
 }
 
 if (isset($_POST['status'])) {
@@ -82,7 +79,7 @@ $valores[] = $id;
 $stmt = $mysqli->prepare($sql);
 if (!$stmt) {
 	// Probablemente falta correr getters/alter_usuarios_supervisor.sql (columna "supervisor" todavía no existe) — evita un fatal error por prepare()=false.
-	echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar el usuario (revisar si falta la columna "supervisor" en la base).']);
+	echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar el usuario (revisar si falta la columna canal en la base).']);
 	exit;
 }
 $stmt->bind_param($tipos, ...$valores);

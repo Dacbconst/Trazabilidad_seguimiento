@@ -164,6 +164,7 @@ function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
 			// "Otras categorías": sin catálogo ni rebate, se muestra con su propio nombre.
 			$esOtras = strtoupper(trim($f['sector'])) === 'OTRAS CATEGORIAS';
 			if ($esOtras) { $segmento = $categoriaFinal = $marcaFinal = 'OTRAS CATEGORIAS'; }
+			if (strtoupper(trim($f['sector'])) === 'MIXTA') { $segmento = $categoriaFinal = $marcaFinal = 'MIXTA'; } // mixta: categoría propia, el rebate se busca como MIXTA
 			$segmentoPorClave[$claveProducto] = $segmento;
 
 			$rebatePct = 0;
@@ -188,7 +189,7 @@ function obtener_acuerdo_completo_detalle($mysqli, $posId, $trimestre, $anio) {
 			$lineasPercha[] = [
 				'categoria' => $f['categoria'], 'marca' => $f['marca'],
 				'cantidad_max_percha' => $f['cantidad_max_percha'] !== null ? (int) $f['cantidad_max_percha'] : 0,
-				'participacion' => $participacionPct ? number_format($participacionPct, 2).'%' : '',
+				'participacion' => $valorPart !== null ? number_format($participacionPct, 2).'%' : '',
 				'valores_mensuales' => $valores, 'bloqueado' => true,
 			];
 		}

@@ -114,6 +114,7 @@ function xlsx_leer_hoja($rutaArchivo, $nombreHoja) {
 			// inlineStr NUNCA trae <v> (el texto vive en <is><t>); hay que chequear ese tipo antes de descartar por "sin <v>", si no vuelve null en silencio.
 			if ($tipo === 'inlineStr') {
 				$valor = isset($c->is->t) ? (string) $c->is->t : '';
+				if (trim($valor) === '-') $valor = ''; // un guion solo equivale a celda vacía (así exporta el sistema los campos sin dato)
 				$fila[$col] = $valor;
 				continue;
 			}
@@ -124,6 +125,7 @@ function xlsx_leer_hoja($rutaArchivo, $nombreHoja) {
 			} elseif ($tipo === 's') {
 				// índice a sharedStrings
 				$valor = $strings[(int) $valorCrudo] ?? '';
+				if (trim($valor) === '-') $valor = ''; // un guion solo equivale a celda vacía
 			} else {
 				// numérico (o fecha serial de Excel, se deja como número — no hace falta convertir fechas para este importador)
 				$valor = is_numeric($valorCrudo) ? $valorCrudo + 0 : $valorCrudo;

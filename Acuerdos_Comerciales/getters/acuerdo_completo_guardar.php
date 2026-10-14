@@ -124,8 +124,10 @@ try {
 		if ($faltantes) { $errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Falta '.implode(', ', $faltantes)]; continue; }
 		// "Otras categorías" no tiene subcategoría ni marca en el Excel: se completa con su propio nombre para que el Acta la acepte.
 		if ($sector === 'OTRAS CATEGORIAS') { if ($subcategoria === '') $subcategoria = 'OTRAS CATEGORIAS'; if ($marca === '') $marca = 'OTRAS CATEGORIAS'; }
-		// Espacio mixto (2 marcas en un mismo espacio, se paga como 1): sin Meta de Compras ni Percha, solo Cabecera o Ruma con marca "A + B".
+		// Espacio mixto (varias marcas pagadas como 1): categoría y marca MIXTA, con Meta de Compras opcional más Cabecera/Ruma/Percha.
 		$esMixta = $sector === 'MIXTA';
+		if ($esMixta && $canal === 'distribuidor') { $errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Las mixtas solo aplican para el canal Directo']; continue; }
+		$mixtaTieneMeta = $esMixta && (($mes1 ?? 0) > 0 || ($mes2 ?? 0) > 0 || ($mes3 ?? 0) > 0);
 		if (!$esMixta && ($mes1 === null || $mes1 < 0 || $mes2 === null || $mes2 < 0 || $mes3 === null || $mes3 < 0)) {
 			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'Los 3 montos de Meta de Compras deben ser 0 o más']; continue;
 		}
@@ -140,9 +142,8 @@ try {
 		$perchaMes2 = acuerdo_completo_leer_opcional($fila['percha_mes2'] ?? null);
 		$perchaMes3 = acuerdo_completo_leer_opcional($fila['percha_mes3'] ?? null);
 		$tienePercha = $perchaCantidad !== null || $perchaMes1 !== null || $perchaMes2 !== null || $perchaMes3 !== null;
-		if ($esMixta) {
-			$tienePercha = false;
-			if (!$tieneCabecera && $rumaValor === null) { $errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'La mixta necesita un valor de Cabecera o de Ruma']; continue; }
+		if ($esMixta && !$mixtaTieneMeta && !$tieneCabecera && $rumaValor === null && !$tienePercha) {
+			$errores[] = ['indice' => $indice, 'fila' => $etiqueta, 'motivo' => 'La mixta necesita al menos un valor de Meta, Cabecera, Ruma o Percha']; continue;
 		}
 
 		if (($tieneCabecera && (($cabMes1 ?? 0) < 0 || ($cabMes2 ?? 0) < 0 || ($cabMes3 ?? 0) < 0))
@@ -222,9 +223,9 @@ try {
 			'plan' => $plan, 'codigo' => $codigo, 'ruc' => $ruc, 'trimestre' => $trimestre, 'anio' => $anio,
 		];
 
-		// En una mixta la categoría de Cabecera/Ruma es "MIXTA" y no hay línea de Meta de Compras.
+		// En una mixta la subcategoría es "MIXTA" y la Meta de Compras solo se guarda si trae montos.
 		if ($esMixta) $subcategoria = 'MIXTA';
-		$lineasAGuardar = $esMixta ? [] : [['meta_compra', $sector, $subcategoria, $marca, null, [(string) $mesInicio => $mes1, (string) ($mesInicio + 1) => $mes2, (string) ($mesInicio + 2) => $mes3], null]];
+		$lineasAGuardar = ($esMixta && !$mixtaTieneMeta) ? [] : [['meta_compra', $sector, $subcategoria, $marca, null, [(string) $mesInicio => $mes1 ?? 0, (string) ($mesInicio + 1) => $mes2 ?? 0, (string) ($mesInicio + 2) => $mes3 ?? 0], null]];
 		if ($tieneCabecera) $lineasAGuardar[] = ['cabecera', '', $subcategoria, $marca, null, [(string) $mesInicio => $cabMes1 ?? 0, (string) ($mesInicio + 1) => $cabMes2 ?? 0, (string) ($mesInicio + 2) => $cabMes3 ?? 0], null];
 		if ($rumaValor !== null) $lineasAGuardar[] = ['ruma', '', $subcategoria, $marca, null, null, round($rumaValor, 2)];
 		if ($tienePercha) $lineasAGuardar[] = ['percha', '', $subcategoria, $marca, $perchaCantidad !== null ? (int) $perchaCantidad : null, [(string) $mesInicio => $perchaMes1 ?? 0, (string) ($mesInicio + 1) => $perchaMes2 ?? 0, (string) ($mesInicio + 2) => $perchaMes3 ?? 0], null];

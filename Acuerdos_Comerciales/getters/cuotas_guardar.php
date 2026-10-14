@@ -152,7 +152,7 @@ try {
 
 		// "CATEGORIAS" del Excel puede traer Sector+Subcategoría pegados (ver resolverSectorReal()).
 		if (!array_key_exists($sector, $cacheSector)) {
-			$cacheSector[$sector] = $sector === 'OTRAS CATEGORIAS' ? 'OTRAS CATEGORIAS' : resolverSectorReal($mysqli, $sector); // otras categorías no es un Sector del catálogo
+			$cacheSector[$sector] = in_array($sector, ['OTRAS CATEGORIAS', 'MIXTA'], true) ? $sector : resolverSectorReal($mysqli, $sector); // otras categorías y mixta no son un Sector del catálogo
 		}
 		$sectorResuelto = $cacheSector[$sector];
 		if ($sectorResuelto === null) {

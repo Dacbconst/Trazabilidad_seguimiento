@@ -144,10 +144,20 @@ function buscarRebateEspecial($mysqli, $columna, $valor, $sector, $categoria, $m
 	return (float) $mejor['rebate_pct'];
 }
 function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $marca, $distribuidor = '', $cliente = '') {
+	// MIXTA es una categoría propia con un solo rebate (fila MIXTA/MIXTA/MIXTA), sin importar el texto de la marca.
+	if (strtoupper(trim($sector)) === 'MIXTA') { $categoria = 'MIXTA'; $marca = 'MIXTA'; }
 	// Orden: rebate propio del cliente, luego del distribuidor, y si no hay, el rebate normal de siempre.
 	$especial = buscarRebateEspecial($mysqli, 'cliente', $cliente, $sector, $categoria, $marca);
 	if ($especial === null) $especial = buscarRebateEspecial($mysqli, 'distribuidor', $distribuidor, $sector, $categoria, $marca);
 	if ($especial !== null) return $especial;
+	// Ciudad real primero; si no hay, la fila de ciudad TODAS.
+	$valor = buscarRebateGeneral($mysqli, $ciudad, $canal, $sector, $categoria, $marca);
+	if ($valor === null && strtoupper(trim((string) $ciudad)) !== 'TODAS') $valor = buscarRebateGeneral($mysqli, 'TODAS', $canal, $sector, $categoria, $marca);
+	return $valor;
+}
+
+// Rebate general (sin cliente ni distribuidor) de UNA ciudad exacta, tolerando plural/singular y, como último recurso, sin Categoría.
+function buscarRebateGeneral($mysqli, $ciudad, $canal, $sector, $categoria, $marca) {
 	$soloGeneral = '';
 	if (rebateTieneColumnaDistribuidor($mysqli)) $soloGeneral .= " AND (distribuidor = '' OR distribuidor IS NULL)";
 	if (rebateTieneColumnaCliente($mysqli)) $soloGeneral .= " AND (cliente = '' OR cliente IS NULL)";
@@ -202,6 +212,8 @@ function buscarRebateProducto($mysqli, $ciudad, $canal, $sector, $categoria, $ma
 
 // Busca % de Participación por Ciudad+Marca. Fallback: Ciudad exacta -> "TODAS" -> "RESTO CIUDADES".
 function buscarParticipacionPercha($mysqli, $ciudad, $marca) {
+	// MIXTA (también "MIXTA 2"...) usa la fila única de MIXTA.
+	if (stripos(trim((string) $marca), 'MIXTA') === 0) $marca = 'MIXTA';
 	$stmt = $mysqli->prepare(
 		"SELECT participacion_pct FROM repositorio_participacion_percha
 		 WHERE eliminado_en IS NULL

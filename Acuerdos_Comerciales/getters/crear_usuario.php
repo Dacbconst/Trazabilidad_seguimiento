@@ -13,8 +13,8 @@ if (!login_check() || !rolPermitido(['superdesarrollador'])) {
 $usuario      = trim($_POST['usuario'] ?? '');
 $contrasena   = $_POST['contrasena'] ?? '';
 $rol          = $_POST['rol'] ?? '';
-$supervisor   = trim($_POST['supervisor'] ?? '');
-$supervisor   = $supervisor !== '' ? $supervisor : null;
+$canal        = $_POST['canal'] ?? '';
+$canal        = in_array($canal, ['directo', 'distribuidor'], true) ? $canal : null;
 $rolesValidos = ['desarrollador', 'superdesarrollador'];
 
 if ($usuario === '' || strlen($usuario) > 100) {
@@ -29,23 +29,21 @@ if (!in_array($rol, $rolesValidos, true)) {
 	echo json_encode(['ok' => false, 'message' => 'Rol inválido.']);
 	exit;
 }
-if ($supervisor !== null) {
-	$tomadoPor = supervisores_asignados_activos($mysqli)[$supervisor] ?? null;
-	if ($tomadoPor) {
-		echo json_encode(['ok' => false, 'message' => 'Ese supervisor ya está asignado al usuario "'.$tomadoPor.'".']);
-		exit;
-	}
-}
-
-$stmt = $mysqli->prepare(
-	"INSERT INTO repositorio_usuarios_acuerdos (usuario, contrasena, rol, supervisor, status) VALUES (?, ?, ?, ?, 'activo')"
-);
-if (!$stmt) {
-	// Todavía no se corrió getters/alter_usuarios_supervisor.sql en la base.
-	echo json_encode(['ok' => false, 'message' => 'Falta agregar la columna "supervisor" en la base (correr alter_usuarios_supervisor.sql).']);
+if ($rol === 'desarrollador' && $canal === null) {
+	echo json_encode(['ok' => false, 'message' => 'Elige el canal del usuario.']);
 	exit;
 }
-$stmt->bind_param('ssss', $usuario, $contrasena, $rol, $supervisor);
+if ($rol === 'superdesarrollador') $canal = null; // los administradores no tienen canal fijo
+
+$stmt = $mysqli->prepare(
+	"INSERT INTO repositorio_usuarios_acuerdos (usuario, contrasena, rol, canal, status) VALUES (?, ?, ?, ?, 'activo')"
+);
+if (!$stmt) {
+	// La columna canal todavía no existe en la base.
+	echo json_encode(['ok' => false, 'message' => 'Falta agregar la columna canal en la base. Avisa al equipo técnico.']);
+	exit;
+}
+$stmt->bind_param('ssss', $usuario, $contrasena, $rol, $canal);
 
 if (!$stmt->execute()) {
 	$duplicado = $stmt->errno === 1062;
