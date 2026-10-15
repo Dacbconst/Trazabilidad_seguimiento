@@ -10830,3 +10830,9 @@ Resumen de lo construido y decidido hoy. Todo probado con datos reales en solo l
 - **Base y Repositorio de Rebate**: la pestaña Base muestra y exporta Ciudad; el buscador y la descarga del Rebate incluyen Distribuidor y Cliente.
 - **Mixta con Meta y Percha (2026-10-14)**: Mishell confirmó que por cliente y tipo solo se manda UNA fila MIXTA/MIXTA/MIXTA. Esa fila puede traer Meta de Compras (se guarda como `meta_compra` con sector/subcategoría/marca MIXTA y busca su rebate como MIXTA), Cabecera, Ruma y Percha (participación MIXTA). Debe traer al menos uno de los cuatro. Registrar sin Excel: la categoría MIXTA también está en Perchas (`marcas_percha`/`categorias_percha`).
 - **Lección**: el CEDI de Directa que traía el asesor rompió el rebate (que depende de la ciudad) al dejar de validar contra el maestro; cualquier dato que se derive de un campo del Excel conviene probarlo con un cliente real de la base propia antes de dar un formato por bueno.
+- `UPDATE` (agregado 2026-10-14): Claude puede ejecutar un `UPDATE` solo si
+  1. muestra antes el SQL exacto y explica qué filas/columnas afecta y qué hace;
+  2. el usuario responde que sí en la conversación;
+  3. el usuario aprueba manualmente esa ejecución puntual (permiso de la herramienta);
+  4. lleva `WHERE` por id/documento_no y `LIMIT`, nunca masivo sin `SELECT` previo.
+  Una aprobación vale una sola ejecución. `DELETE`, `DROP`, `TRUNCATE` e `INSERT` siguen prohibidos.

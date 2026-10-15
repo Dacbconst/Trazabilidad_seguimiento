@@ -701,8 +701,8 @@
 		var total = inputs.reduce(function (a, b) { return a + b; }, 0);
 		var rebatePct = (parseFloat(row.querySelector('.ac-rebate-input').value) || 0) / 100;
 		row.querySelector('.total-cell').textContent = formatCurr(total);
-		// Misma fórmula que acta_pdf.php: Distribuidor = Total x Rebate%, Directo = Total x (1+Rebate%).
-		row.querySelector('.est-cell').textContent = formatCurr(CANAL_USUARIO === 'distribuidor' ? total * rebatePct : total * (1 + rebatePct));
+		// Misma fórmula que acta_pdf.php: solo el bono, Total x Rebate% (Directo y Distribuidor).
+		row.querySelector('.est-cell').textContent = formatCurr(total * rebatePct);
 		updateGrandTotals();
 	}
 

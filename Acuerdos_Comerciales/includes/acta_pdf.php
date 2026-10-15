@@ -191,8 +191,8 @@ function generar_acta_html(array $detalle, $escala = 1.0, $medirTexto = null, $e
 		foreach ($valores as $j => $v) $metaSums[$j] += $v;
 		$total  = array_sum($valores);
 		$rebate = (float) $linea['rebate_pct'];
-		// Distribuidor: Total x Rebate% (bono). Directo: Total x (1+Rebate%) (valor total del trato).
-		$est    = $esDistribuidor ? ($total * $rebate) : ($total * (1 + $rebate));
+		// Estimado a ganar = solo el bono: Total x Rebate% (Directo y Distribuidor).
+		$est    = $total * $rebate;
 		// "Otras categorías": sin rebate ni estimado, solo la cuota por mes.
 		$otras  = strtoupper(trim($linea['sector'] ?? '')) === 'OTRAS CATEGORIAS';
 		if ($otras) $est = 0;

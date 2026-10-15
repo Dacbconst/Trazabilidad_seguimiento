@@ -149,7 +149,7 @@ function obtener_negociacion_detalle_acuerdo($mysqli, $acuerdoId) {
 		// "Total" es siempre la suma mensual cruda. "Estimado" (Rebate) usa la fórmula exacta de acta_pdf.php, copiada tal cual.
 		$sumaMensual = array_sum($valoresPorMes);
 		$rebateRaw = (float) $l['rebate_pct'];
-		$estimado = $l['tipo'] === 'meta_compra' ? ($esDistribuidor ? ($sumaMensual * $rebateRaw) : ($sumaMensual * (1 + $rebateRaw))) : null;
+		$estimado = $l['tipo'] === 'meta_compra' ? ($sumaMensual * $rebateRaw) : null;
 
 		$porTipo[$l['tipo']][] = [
 			'etiqueta'            => $l['tipo'] === 'meta_compra' ? $l['sector'] : $l['marca'],
