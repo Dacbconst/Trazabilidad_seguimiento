@@ -22,6 +22,14 @@ if ($puntosCompetencia && is_array($puntosCompetencia)) {
 	}
 }
 $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url'])));
+// Exhibiciones Regulares: las fotos de competencia del punto (casillas "competencia-N") se muestran en una sección aparte.
+$esDeCompetencia = fn($f) => strpos((string) ($f['id'] ?? ''), 'competencia-') === 0;
+$fotosCompetencia = array_values(array_filter($fotos, $esDeCompetencia));
+$fotosExhibicion = $fotosCompetencia ? array_values(array_filter($fotos, fn($f) => !$esDeCompetencia($f))) : $fotos;
+$gruposFotos = [['titulo' => 'Evidencia fotográfica', 'fotos' => $fotosExhibicion]];
+if ($fotosCompetencia) {
+	$gruposFotos[] = ['titulo' => 'Competencia', 'fotos' => $fotosCompetencia];
+}
 $estadoReg = $r['estado'] ?? 'Aprobado';
 $enModoAprobacion = !empty($modoAprobacion);
 ?>
@@ -246,8 +254,9 @@ $enModoAprobacion = !empty($modoAprobacion);
 
 	</div>
 
+	<?php foreach ($gruposFotos as $grupoFotos): $fotos = $grupoFotos['fotos']; $conFoto = count(array_filter($fotos, fn($f) => !empty($f['url']))); ?>
 	<div class="ep-h2-fotos-sec">
-		<div class="ep-h2-fotos-titulo"><?= ep_icon('camera', 13) ?> Evidencia fotográfica <span>(<?= $conFoto ?>/<?= count($fotos) ?>)</span></div>
+		<div class="ep-h2-fotos-titulo"><?= ep_icon('camera', 13) ?> <?= $h($grupoFotos['titulo']) ?> <span>(<?= $conFoto ?>/<?= count($fotos) ?>)</span></div>
 		<?php if (empty($fotos)): ?>
 			<div class="ep-stat-comentarios-vacio">Este registro no tiene fotos.</div>
 		<?php else: ?>
@@ -272,6 +281,7 @@ $enModoAprobacion = !empty($modoAprobacion);
 			</div>
 		<?php endif; ?>
 	</div>
+	<?php endforeach; ?>
 </div>
 <?php if ($enModoAprobacion && $estadoReg === 'Pendiente'): ?>
 <div class="ep-h2-det-aprobar">

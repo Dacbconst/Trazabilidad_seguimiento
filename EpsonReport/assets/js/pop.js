@@ -513,9 +513,9 @@
 		window.addEventListener('beforeunload', function (ev) {
 			if (!eqGuardado && hayCambios()) { ev.preventDefault(); ev.returnValue = ''; }
 		});
-		var enviarEq = function (envio) {
+		var enviarEq = function (envio, motivo) {
 			eqGuardar.disabled = true;
-			post('getters/pop_equipo.php', { id: eqDatos.id, asignaciones: JSON.stringify(envio) }).then(function (r) {
+			post('getters/pop_equipo.php', { id: eqDatos.id, asignaciones: JSON.stringify(envio), motivo: motivo || '' }).then(function (r) {
 				eqGuardar.disabled = false;
 				if (r && r.ok) { eqGuardado = true; recargarConAviso('Equipo guardado'); }
 				else avisar('error', 'No se pudo guardar', (r && r.message) || 'Intenta de nuevo.');
@@ -538,10 +538,28 @@
 			if (pasado) { avisar('warning', 'Te pasas de lo que recibiste', '«' + pasado.material + '»: ' + restoTexto(pasado) + '.'); return; }
 			if (!Object.keys(envio).length && habia && window.Swal) {
 				Swal.fire({ icon: 'warning', title: '¿Quitar a todo tu equipo?', text: 'Ningún promotor podrá reportar este POP hasta que los marques de nuevo.', showCancelButton: true, cancelButtonText: 'Cancelar', confirmButtonText: 'Sí, quitarlos', focusCancel: true })
-					.then(function (res) { if (res.isConfirmed) enviarEq(envio); });
+					.then(function (res) { if (res.isConfirmed) conMotivo(); });
 				return;
 			}
-			enviarEq(envio);
+			conMotivo();
+			// Quitarle material a quien ya lo tenía (por ejemplo para pasárselo a otro promotor) pide un motivo, que queda en Auditoría.
+			function conMotivo() {
+				var bajas = [];
+				Object.keys(eqDatos.cantidades || {}).forEach(function (u) {
+					eqDatos.materiales.forEach(function (m) {
+						var antes = parseInt(eqDatos.cantidades[u][m.id], 10) || 0;
+						var ahora = eqUsuarios.indexOf(Number(u)) === -1 ? 0 : cantEq(Number(u), m.id);
+						if (antes > ahora) bajas.push(nombreEq(Number(u)) + ': ' + m.material + ' de ' + antes + ' a ' + ahora);
+					});
+				});
+				if (!bajas.length || !window.Swal) { enviarEq(envio); return; }
+				Swal.fire({
+					icon: 'warning', title: 'Vas a quitar material', html: '<div style="text-align:left;font-size:.9rem;margin-bottom:8px;">' + bajas.map(escapar).join('<br>') + '</div>',
+					input: 'textarea', inputPlaceholder: 'Motivo (mínimo 8 caracteres)', inputAttributes: { maxlength: 300 },
+					showCancelButton: true, cancelButtonText: 'Cancelar', confirmButtonText: 'Guardar con este motivo',
+					inputValidator: function (v) { return (v || '').trim().length < 8 ? 'Escribe el motivo (mínimo 8 caracteres).' : null; }
+				}).then(function (res) { if (res.isConfirmed) enviarEq(envio, res.value.trim()); });
+			}
 		});
 		cargarEq();
 		pintarEq();

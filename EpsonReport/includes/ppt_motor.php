@@ -190,13 +190,14 @@ function ep_ppt_slide_fotos(array &$ctx, array $spec, array $reg, array $grupo, 
 		}
 	}
 	foreach ($colocacion as $rect => $idFoto) {
-		ep_ppt_slide_imagen($ctx, $slide, $rect, $mapaFotos[$idFoto]);
+		ep_ppt_slide_imagen($ctx, $slide, $rect, $mapaFotos[$idFoto], !empty($spec['fotos']['completa']));
 	}
 	ep_ppt_slide_guardar($ctx, $slide);
 }
 
 // Un registro = una diapositiva de estadísticas + las de fotos (3 por diapositiva, las obligatorias primero).
-function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
+// $parte: 'todo' (por defecto), 'exhibicion' o 'competencia'; esta última arma solo las diapositivas de competencia del punto, en la sección aparte "COMPETENCIA".
+function ep_ppt_registro(array &$ctx, array $spec, array $reg, string $parte = 'todo'): void {
 	$mapaFotos = [];
 	foreach ($reg['fotos'] ?? [] as $f) {
 		if (!empty($f['url']) && isset($ctx['fotos'][$f['url']])) {
@@ -205,7 +206,7 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
 	}
 	$antes = count($ctx['nuevas']);
 	// Actividades sin dato cuantitativo (informe fotográfico simple) no llevan diapositiva de estadísticas, solo fotos.
-	if (!empty($spec['stats'])) {
+	if (!empty($spec['stats']) && $parte !== 'competencia') {
 		$slide = ep_ppt_slide_nueva($ctx, $spec['stats']['n']);
 		ep_ppt_barra_promotor($ctx, $slide, $reg, ep_ppt_etiqueta_actividad($reg, $spec['prefijo_actividad']), $spec['promotor'] ?? null);
 		$spec['stats']['llenar']($slide['dom'], $slide['xp'], $reg);
@@ -221,10 +222,26 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg): void {
 		$ordenFotos = array_merge($ordenFotos, array_values(array_diff(array_column($reg['fotos'] ?? [], 'id'), $ordenFotos)));
 	}
 	$ids = array_values(array_filter($ordenFotos, fn($id) => isset($mapaFotos[$id])));
-	foreach (array_chunk($ids, 3) as $grupo) {
-		ep_ppt_slide_fotos($ctx, $spec, $reg, $grupo, $mapaFotos);
+	// Con 'competencia_aparte', las fotos de competencia del punto van en diapositivas propias tituladas "PUNTO - COMPETENCIA".
+	$esComp = fn($id) => !empty($spec['fotos']['competencia_aparte']) && strpos((string) $id, 'competencia-') === 0;
+	if ($parte !== 'competencia') {
+		foreach (array_chunk(array_values(array_filter($ids, fn($id) => !$esComp($id))), 3) as $grupo) {
+			ep_ppt_slide_fotos($ctx, $spec, $reg, $grupo, $mapaFotos);
+		}
 	}
-	$ctx['secciones'][] = ['nombre' => ep_ppt_mayus(trim((string) ($reg['promotor'] ?? '')) ?: 'SIN NOMBRE'), 'desde' => $antes, 'hasta' => count($ctx['nuevas'])];
+	if ($parte !== 'exhibicion') {
+		$regComp = $reg;
+		$regComp['punto_venta'] = trim((string) ($reg['punto_venta'] ?? '')).' - COMPETENCIA';
+		foreach (array_chunk(array_values(array_filter($ids, $esComp)), 3) as $grupo) {
+			ep_ppt_slide_fotos($ctx, $spec, $regComp, $grupo, $mapaFotos);
+		}
+	}
+	// La competencia va toda junta en una sección propia al final; sin fotos de competencia no se crea sección vacía.
+	if ($parte === 'competencia' && count($ctx['nuevas']) === $antes) {
+		return;
+	}
+	$nombreSeccion = $parte === 'competencia' ? 'COMPETENCIA' : ep_ppt_mayus(trim((string) ($reg['promotor'] ?? '')) ?: 'SIN NOMBRE');
+	$ctx['secciones'][] = ['nombre' => $nombreSeccion, 'desde' => $antes, 'hasta' => count($ctx['nuevas'])];
 }
 
 // Secciones de PowerPoint: una por persona (nombre completo), en orden; la portada y el título del mes quedan en la primera.
@@ -316,8 +333,15 @@ function ep_ppt_generar(array $spec, array $registros, string $tituloMes, array 
 			$spec['fija']($ctx, $registros, $opciones);
 		}
 	}
+	// Con 'competencia_aparte': primero toda la exhibición y al final, en su propia sección, toda la competencia.
+	$aparte = !empty($spec['fotos']['competencia_aparte']);
 	foreach ($registros as $reg) {
-		ep_ppt_registro($ctx, $spec, $reg);
+		ep_ppt_registro($ctx, $spec, $reg, $aparte ? 'exhibicion' : 'todo');
+	}
+	if ($aparte) {
+		foreach ($registros as $reg) {
+			ep_ppt_registro($ctx, $spec, $reg, 'competencia');
+		}
 	}
 	return ep_ppt_cerrar($ctx);
 }

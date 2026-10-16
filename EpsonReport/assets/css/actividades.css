@@ -521,3 +521,10 @@ textarea.ep-input-mayusculas { height: auto; min-height: 44px; padding: 11px 14p
 .ep-corregir strong { color: #9F1F18; font-size: 14px; }
 .ep-corregir span { font-size: 12.5px; color: var(--color-text-muted); }
 .ep-corregir p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--color-text); }
+
+/* Sección opcional de competencia (Exhibiciones Regulares): borde punteado y fondo suave para distinguirla de las fotos obligatorias. */
+.ep-evidencia-competencia-sec { margin-top: 24px; padding: 20px; border: 2px dashed #B39CE8; border-radius: 16px; background: #FBF9FE; transition: box-shadow 0.3s ease; }
+.ep-evidencia-competencia-head h3 { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 600; color: var(--color-ink); }
+.ep-evidencia-competencia-head p { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--color-text-muted); }
+.ep-evidencia-opcional-tag { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; color: #4A4560; background: #ECE8F4; border-radius: 999px; padding: 3px 10px; }
+.ep-evidencia-competencia-destello { box-shadow: 0 0 0 4px rgba(149, 115, 223, 0.35); }

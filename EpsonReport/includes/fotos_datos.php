@@ -42,18 +42,13 @@ function ep_fotos_requeridas(string $plantilla): array {
 	if ($plantilla === 'colocacion-pop') {
 		return [
 			['id' => 'implementacion-1', 'label' => 'Correcta implementación del material POP (1)'],
-			['id' => 'implementacion-2', 'label' => 'Correcta implementación del material POP (2)'],
-			['id' => 'implementacion-3', 'label' => 'Correcta implementación del material POP (3)'],
+			['id' => 'implementacion-2', 'label' => 'Correcta implementación del material POP (2)', 'opcional' => true],
 		];
 	}
 	if ($plantilla === 'informe-fotografico') {
 		return [
 			['id' => 'foto-1', 'label' => 'Foto de lo encontrado en el punto de venta'],
-			['id' => 'foto-2', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
-			['id' => 'foto-3', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
-			['id' => 'foto-4', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
-			['id' => 'foto-5', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
-			['id' => 'foto-6', 'label' => 'Foto adicional (opcional)', 'opcional' => true],
+			['id' => 'competencia-1', 'label' => 'Competencia en este punto (opcional)', 'opcional' => true],
 		];
 	}
 	if ($plantilla === 'competencia') {
@@ -66,9 +61,9 @@ function ep_fotos_requeridas(string $plantilla): array {
 	return [];
 }
 
-// Toda actividad con lista de fotos deja sumar más, sin límite hasta nuevo aviso (botón "Agregar otra foto", en la página y en el asistente).
+// Toda actividad con lista de fotos deja sumar más, sin límite hasta nuevo aviso (botón "Agregar otra foto"); POP queda en 1 a 2 por punto.
 function ep_fotos_extensible(string $plantilla): bool {
-	return ep_fotos_requeridas($plantilla) !== [];
+	return $plantilla !== 'colocacion-pop' && ep_fotos_requeridas($plantilla) !== [];
 }
 
 // Actividades donde cada foto subida lleva su propia descripción obligatoria (va como pie de la foto en el PPT).
@@ -77,7 +72,10 @@ function ep_fotos_con_descripcion(string $plantilla): bool {
 }
 
 // Etiqueta de las casillas que se suman con "+ Agregar foto".
-function ep_foto_extra_label(string $plantilla): string {
+function ep_foto_extra_label(string $plantilla, string $fotoId = ''): string {
+	if (strpos($fotoId, 'competencia-') === 0) {
+		return 'Competencia en este punto';
+	}
 	return $plantilla === 'competencia' ? 'Otro hallazgo' : 'Foto adicional';
 }
 

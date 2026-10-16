@@ -126,7 +126,7 @@
 .ep-h2-fotos-grid.ep-h2-carril::-webkit-scrollbar { display: none; }
 .ep-h2-fotos-grid.ep-h2-carril > * { flex: 0 0 118px; width: 118px; min-width: 0; max-width: 118px; }
 .ep-h2-foto { padding: 0; border: none; background: none; cursor: pointer; text-align: left; font-family: inherit; }
-.ep-h2-foto img, .ep-h2-foto-vacia { display: flex; align-items: center; justify-content: center; width: 118px; height: 118px; object-fit: cover; border-radius: 8px; background: #F0EBF8; color: #9B88BC; pointer-events: none; }
+.ep-h2-foto img, .ep-h2-foto-vacia { display: flex; align-items: center; justify-content: center; width: 118px; height: 118px; object-fit: contain; border-radius: 8px; background: #F0EBF8; color: #9B88BC; pointer-events: none; }
 .ep-h2-foto:hover img { outline: 2px solid var(--color-primary); }
 .ep-h2-foto-lbl { display: block; margin-top: 3px; font-size: 10.5px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-h2-foto-lbl.ep-h2-foto-desc { width: 118px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; color: var(--color-ink); line-height: 1.3; }

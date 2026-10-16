@@ -195,8 +195,11 @@ document.addEventListener('DOMContentLoaded', function () {
 	function obtenerSlotsActividadVisible() {
 		var bloqueVisible = document.querySelector('.ep-formulario-actividad:not(.hidden) .ep-evidencia-actividad') || document.querySelector('.ep-evidencia-actividad:not(.hidden)');
 		if (!bloqueVisible) return [];
-		return Array.from(bloqueVisible.querySelectorAll('.ep-foto-slot'));
+		// Las fotos de competencia solo entran al asistente cuando el promotor responde "Sí" a la pregunta.
+		return Array.from(bloqueVisible.querySelectorAll('.ep-foto-slot')).filter(function (x) { return wizardCompActiva || !x.closest('.ep-evidencia-competencia'); });
 	}
+	var wizardCompActiva = false;
+	function seccionCompetenciaVisible() { return document.querySelector('.ep-formulario-actividad:not(.hidden) .ep-evidencia-competencia'); }
 
 	// Competencia: un solo registro por sesión, con varios puntos de venta adentro (cada uno con sus propias fotos).
 	// "Añadir otro punto de venta" NO manda nada al servidor: sube las fotos de este punto (ya quedan en Azure) y lo
@@ -269,6 +272,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function abrirWizardFotos() {
 		if (!wizardOverlay) return;
+		var seccionC = seccionCompetenciaVisible();
+		wizardCompActiva = !!seccionC && Array.prototype.some.call(seccionC.querySelectorAll('.ep-foto-slot'), slotTieneFoto);
+		wizardOverlay.querySelector('.ep-wizard-sheet').classList.remove('modo-decision');
 		wizardSlotsActuales = obtenerSlotsActividadVisible();
 		if (wizardSlotsActuales.length === 0) {
 			return;
@@ -294,7 +300,20 @@ document.addEventListener('DOMContentLoaded', function () {
 		var idx = wizardPasoActual;
 		var slot = wizardSlotsActuales[idx];
 
-		if (wizardPasoTexto) wizardPasoTexto.textContent = 'Foto ' + (idx + 1) + ' de ' + total;
+		// Competencia (Exhibiciones Regulares) va en su propia sección: el asistente la marca aparte con otro contador, color y aviso.
+		var esComp = function (x) { return !!x.closest('.ep-evidencia-competencia'); };
+		var idxComp = [];
+		wizardSlotsActuales.forEach(function (x, i) { if (esComp(x)) idxComp.push(i); });
+		var hayComp = idxComp.length > 0;
+		var enComp = esComp(slot);
+		var nExh = hayComp ? idxComp[0] : total;
+		if (wizardPasoTexto) wizardPasoTexto.textContent = enComp ? 'Competencia · foto ' + (idx - idxComp[0] + 1) + ' de ' + idxComp.length : 'Foto ' + (idx + 1) + ' de ' + nExh;
+		var hojaWizard = wizardOverlay.querySelector('.ep-wizard-sheet');
+		if (hojaWizard) hojaWizard.classList.toggle('modo-competencia', enComp);
+		var subtituloWizard = document.getElementById('epWizardSubtitulo');
+		if (subtituloWizard) subtituloWizard.textContent = enComp ? 'Competencia en este punto · Opcional' : 'Requerimiento de Campo';
+		var avisoComp = document.getElementById('epWizardAvisoComp');
+		if (avisoComp) avisoComp.classList.toggle('hidden', !enComp);
 		// Al pasar a otra foto el cuerpo vuelve arriba, para que se vea su título.
 		var cuerpoWizard = wizardOverlay.querySelector('.ep-wizard-body');
 		if (cuerpoWizard && cuerpoWizard.dataset.paso !== String(idx)) cuerpoWizard.scrollTop = 0;
@@ -305,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			for (var i = 0; i < total; i++) {
 				var seg = document.createElement('div');
 				var comp = wizardSlotsActuales[i].classList.contains('ep-foto-slot-completa');
-				seg.className = 'ep-wizard-seg' + (i === idx ? ' activo' : '') + (comp ? ' completado' : '');
+				seg.className = 'ep-wizard-seg' + (i === idx ? ' activo' : '') + (comp ? ' completado' : '') + (esComp(wizardSlotsActuales[i]) ? ' comp' : '') + (hayComp && i === idxComp[0] ? ' comp-inicio' : '');
 				wizardTrackSegmentos.appendChild(seg);
 			}
 		}
@@ -333,11 +352,18 @@ document.addEventListener('DOMContentLoaded', function () {
 		if (wizardReel) {
 			wizardReel.innerHTML = '';
 			for (var j = 0; j < total; j++) {
+				if (hayComp && j === idxComp[0]) {
+					var sepReel = document.createElement('span');
+					sepReel.className = 'ep-wizard-reel-sep';
+					sepReel.textContent = 'Competencia';
+					wizardReel.appendChild(sepReel);
+				}
 				var btnReel = document.createElement('button');
 				btnReel.type = 'button';
 				var completado = wizardSlotsActuales[j].classList.contains('ep-foto-slot-completa');
-				btnReel.className = 'ep-wizard-reel-item' + (j === idx ? ' activo' : '') + (completado ? ' completado' : '');
-				btnReel.innerHTML = completado ? '✓ ' + (j + 1) : (j + 1);
+				var numReel = esComp(wizardSlotsActuales[j]) ? 'C' + (j - idxComp[0] + 1) : (j + 1);
+				btnReel.className = 'ep-wizard-reel-item' + (j === idx ? ' activo' : '') + (completado ? ' completado' : '') + (esComp(wizardSlotsActuales[j]) ? ' comp' : '');
+				btnReel.innerHTML = completado ? '✓ ' + numReel : numReel;
 				btnReel.dataset.index = j;
 				btnReel.addEventListener('click', function () {
 					wizardPasoActual = parseInt(this.dataset.index, 10);
@@ -359,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				if (isDone && !esOpc(sK)) totalComp++;
 
 				var itemDiv = document.createElement('div');
-				itemDiv.className = 'ep-wizard-sidebar-item' + (k === idx ? ' activo' : '') + (isDone ? ' completado' : '');
+				itemDiv.className = 'ep-wizard-sidebar-item' + (k === idx ? ' activo' : '') + (isDone ? ' completado' : '') + (esComp(sK) ? ' comp' : '');
 				itemDiv.dataset.index = k;
 
 				var numSpan = document.createElement('span');
@@ -407,11 +433,19 @@ document.addEventListener('DOMContentLoaded', function () {
 			wizardBtnAnterior.disabled = (idx === 0);
 		}
 		if (wizardBtnSigTexto) {
-			if (idx === total - 1 || (requeridasListas && idx >= ultimaRequerida)) {
+			var finRequeridas = requeridasListas && idx >= ultimaRequerida && !enComp;
+			if (seccionCompetenciaVisible() && !wizardCompActiva && (finRequeridas || idx === total - 1)) {
+				wizardBtnSigTexto.textContent = 'Continuar';
+			} else if (enComp) {
+				wizardBtnSigTexto.textContent = idx === total - 1 ? 'Finalizar y revisar' : 'Siguiente foto de competencia';
+			} else if (idx === total - 1 || (requeridasListas && idx >= ultimaRequerida)) {
 				wizardBtnSigTexto.textContent = 'Finalizar y revisar';
 			} else {
 				wizardBtnSigTexto.textContent = 'Siguiente foto';
 			}
+			// Salida clara para quien no tiene competencia: al terminar las obligatorias o sobre una casilla de competencia vacía.
+			var btnOmitir = document.getElementById('epWizardBtnOmitir');
+			if (btnOmitir) btnOmitir.classList.toggle('hidden', !(hayComp && enComp && !tieneFoto));
 		}
 	}
 
@@ -449,11 +483,16 @@ document.addEventListener('DOMContentLoaded', function () {
 		b.addEventListener('click', function () {
 			var actual = wizardSlotsActuales[wizardPasoActual];
 			var bloque = actual ? actual.closest('.ep-evidencia-bloque-card') : null;
-			var btnPagina = bloque ? bloque.querySelector('.ep-btn-agregar-foto') : null;
+			// Sobre una casilla de competencia el botón suma competencia; en cualquier otra, una foto de exhibición.
+			var enCompetencia = actual && actual.closest('.ep-evidencia-competencia');
+			var btnPagina = bloque ? bloque.querySelector(enCompetencia ? '.ep-btn-agregar-foto[data-grupo="competencia"]' : '.ep-btn-agregar-foto:not([data-grupo])') : null;
 			if (!btnPagina) return;
 			btnPagina.click();
 			wizardSlotsActuales = obtenerSlotsActividadVisible();
-			wizardPasoActual = wizardSlotsActuales.length - 1;
+			var gridNueva = bloque.querySelector(enCompetencia ? '.ep-evidencia-competencia' : '.ep-evidencia-grid-panoramica:not(.ep-evidencia-competencia)');
+			var nuevaCasilla = gridNueva ? gridNueva.lastElementChild : null;
+			var posNueva = wizardSlotsActuales.indexOf(nuevaCasilla);
+			wizardPasoActual = posNueva !== -1 ? posNueva : wizardSlotsActuales.length - 1;
 			renderizarWizard();
 		});
 	});
@@ -476,6 +515,20 @@ document.addEventListener('DOMContentLoaded', function () {
 			var total = wizardSlotsActuales.length;
 			var reqs = wizardSlotsActuales.filter(function (x) { return !x.hasAttribute('data-opcional'); });
 			var reqsListas = reqs.every(function (x) { return x.classList.contains('ep-foto-slot-completa'); });
+			// Al terminar la exhibición, si la actividad tiene competencia y aún no se eligió, se pregunta antes de seguir.
+			var actualEsComp = wizardSlotsActuales[wizardPasoActual].closest('.ep-evidencia-competencia');
+			var alFinalExh = wizardPasoActual >= total - 1 || (reqsListas && wizardPasoActual >= reqs.length - 1);
+			if (!actualEsComp && alFinalExh && seccionCompetenciaVisible() && !wizardCompActiva) {
+				wizardOverlay.querySelector('.ep-wizard-sheet').classList.add('modo-decision');
+				if (wizardPasoTexto) wizardPasoTexto.textContent = 'Exhibición lista ✓';
+				var botonSi = document.getElementById('epWizardDecisionSi');
+				if (botonSi) botonSi.focus();
+				return;
+			}
+			if (actualEsComp) {
+				if (wizardPasoActual < total - 1) { wizardPasoActual++; renderizarWizard(); } else { cerrarWizardFotos(); }
+				return;
+			}
 			if (wizardPasoActual < total - 1 && !(reqsListas && wizardPasoActual >= reqs.length - 1)) {
 				wizardPasoActual++;
 				renderizarWizard();
@@ -484,6 +537,31 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		});
 	}
+
+	var btnOmitirComp = document.getElementById('epWizardBtnOmitir');
+	if (btnOmitirComp) btnOmitirComp.addEventListener('click', cerrarWizardFotos);
+	var decisionSi = document.getElementById('epWizardDecisionSi');
+	var decisionNo = document.getElementById('epWizardDecisionNo');
+	var decisionVolver = document.getElementById('epWizardDecisionVolver');
+	if (decisionSi) decisionSi.addEventListener('click', function () {
+		wizardCompActiva = true;
+		wizardOverlay.querySelector('.ep-wizard-sheet').classList.remove('modo-decision');
+		wizardSlotsActuales = obtenerSlotsActividadVisible();
+		var primeraComp = wizardSlotsActuales.findIndex(function (x) { return x.closest('.ep-evidencia-competencia'); });
+		wizardPasoActual = primeraComp !== -1 ? primeraComp : wizardSlotsActuales.length - 1;
+		renderizarWizard();
+	});
+	if (decisionNo) decisionNo.addEventListener('click', function () {
+		wizardOverlay.querySelector('.ep-wizard-sheet').classList.remove('modo-decision');
+		// Ya respondió que no: al enviar no se le vuelve a preguntar.
+		var seccionNo = seccionCompetenciaVisible();
+		if (seccionNo) seccionNo.dataset.preguntado = '1';
+		cerrarWizardFotos();
+	});
+	if (decisionVolver) decisionVolver.addEventListener('click', function () {
+		wizardOverlay.querySelector('.ep-wizard-sheet').classList.remove('modo-decision');
+		renderizarWizard();
+	});
 
 	// Tipo (plantilla) de la actividad activa, ya viene en el botón — no adivinar por el nombre (rompía con nombres como "Exhibiciones Regulares").
 	function tipoActividadActiva() {
@@ -776,9 +854,11 @@ document.addEventListener('DOMContentLoaded', function () {
 	document.addEventListener('click', function (e) {
 		var btn = e.target.closest('.ep-btn-agregar-foto');
 		if (!btn) return;
-		var grid = btn.closest('.ep-evidencia-bloque-card').querySelector('.ep-evidencia-grid-panoramica');
+		var bloqueCard = btn.closest('.ep-evidencia-bloque-card');
+		var deCompetencia = btn.dataset.grupo === 'competencia';
+		var grid = bloqueCard.querySelector(deCompetencia ? '.ep-evidencia-competencia' : '.ep-evidencia-grid-panoramica:not(.ep-evidencia-competencia)');
 		var n = parseInt(btn.dataset.siguiente, 10) || 1;
-		var fotoId = 'foto-' + n;
+		var fotoId = (deCompetencia ? 'competencia-' : 'foto-') + n;
 		var inputId = 'ep-foto-' + btn.dataset.prefix + '-' + fotoId;
 		var etiqueta = escapeHtml(btn.dataset.label || 'Foto adicional');
 		grid.insertAdjacentHTML('beforeend', '<div class="ep-foto-slot" data-foto-id="' + fotoId + '" data-opcional="1" data-extra="1">'
@@ -1843,6 +1923,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	function enviarFormularioActivo() {
 		if (!validarRegistroActivo()) return;
+		// Exhibiciones Regulares: antes de enviar, una sola vez, se pregunta si hay competencia en el punto.
+		var seccionComp = document.querySelector('.ep-formulario-actividad:not(.hidden) .ep-evidencia-competencia');
+		var sinCompetencia = seccionComp && !Array.prototype.some.call(seccionComp.querySelectorAll('.ep-foto-slot'), slotTieneFoto);
+		if (sinCompetencia && !seccionComp.dataset.preguntado && window.Swal) {
+			seccionComp.dataset.preguntado = '1';
+			Swal.fire({ icon: 'question', title: '¿Hay competencia en este punto?', text: 'Si viste exhibiciones de la competencia, puedes subir sus fotos antes de enviar.', showCancelButton: true, confirmButtonText: 'Sí, agregar competencia', cancelButtonText: 'No, enviar así', reverseButtons: true, focusConfirm: true }).then(function (r) {
+				if (r.dismiss === Swal.DismissReason.cancel) { enviarFormularioActivo(); return; }
+				if (!r.isConfirmed) return;
+				if (typeof activarTabMovil === 'function') activarTabMovil('fotos');
+				var sec = document.getElementById('epCompetenciaSec');
+				if (sec) { sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); sec.classList.add('ep-evidencia-competencia-destello'); setTimeout(function () { sec.classList.remove('ep-evidencia-competencia-destello'); }, 1800); }
+			});
+			return;
+		}
 		var itemSeleccionado = document.querySelector('.ep-activity-item.selected');
 		var actNombre = itemSeleccionado ? (itemSeleccionado.dataset.nombre || 'Activaciones') : 'Activaciones';
 		var actBadge = itemSeleccionado ? (itemSeleccionado.querySelector('.ep-activity-badge') ? itemSeleccionado.querySelector('.ep-activity-badge').textContent.trim() : '') : '';

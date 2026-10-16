@@ -1,0 +1,231 @@
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)
+
+Y se supone que él solo le hace inicialmente el jueves. Debería, en respuesta, y traduciendo lo que este señor te dice, si el INTRA, por ejemplo, si yo hoy le puse actividad para hoy 14, él tiene miércoles, tiene jueves, viernes, sábado, domingo, lunes para subir. Pero digamos que el que hoy lo llame, el enciclical, me diera una aprobación de que se extienda al 3 días, es decir, es miércoles, jueves, viernes.
+
+A pesar de que él ya puso 5 días, esos 5 días automáticos deberían empezar a tomarlos desde el último día. Entonces ya no cuenta el miércoles, cuenta desde el viernes. Entonces tendría sábado, domingo, sábado, domingo, lunes, martes, miércoles para subir.
+
+Debería el sistema automático tomar el último día, el día cláusula de la actividad. Porque hago esta pregunta también, porque actualmente el plazo máximo de días engloba todas las activaciones del condado. ¿Qué pasaría entonces, actualmente, si yo edito, este condado reinicia para todos? Al menos que quiera que, digamos, en este caso, cuando sea una fila nueva que insistamos, esta persona sobretenga los 3 días más, independientemente del plazo general que hemos dado de las activaciones.
+
+¿Qué pasa entonces si una vez que tú editas una fila de actividad, que yo le puse un día y ahora quiero que sean 5, en automático el sistema diría, ok, reacciona o reactiva la hora de entregar el reporte. Que ya le vuelve a editar y manualmente él le tiene que poner 5 días. En este caso tendría que definirse, por cada fila, tendría que definirse cuánto tiempo le da a cada uno.
+
+Ya, entonces si él pone 5 días, es 5 días para todo lo que está a cargo de él. Actualmente son 5 días por esa activación en general. Actualmente no hay tipo, yo solo quiero que esta persona tenga 3 días, quiero que esta persona tenga solo 2 días, actualmente no está así.
+
+Entonces si él pone 5 días, es 4 días. Claro, en este caso sí. Ejemplo, estamos llegando, ya es el cuarto día, y ingreso yo ahorita uno más porque salió una nueva edad.
+
+Esa persona va a solo tener un día para entregar esto, porque originalmente eran 5. Ya, volviendo a algo que me estaba perdiendo, son 5 días. Yo digo, yo confío en mi personal, pero sé que algunos se vuelan. Y me sale uno diciendo, no registré de las 5, tendría una, y ya pasaron los días que le puse.
+
+Se le puede agregar o se pudiera. Actualmente está de que una vez que se cumple el plazo de los días, se cierra automáticamente el calendario. Pero también tiene la opción de activación, que usted como supervisor puede reactivar este calendario, ahí alargando lo que vendría a ser el plazo de día para que pueda volver a subir.
+
+Pero estas cosas incluso es reportado en auditoría, de que usted hizo una activación. Y no lo hizo más tiempo. Por ejemplo, le va a pedir una observación de que por qué está reactivando esto, por qué está perdiendo.
+
+Bueno, eso se puede encontrar en la parte del administrador de auditoría. Por ejemplo, yo puedo ver, en este caso, que alguien creó un retest, en este caso me va a salir que es usted, y que lo que está haciendo usted es para tener un poco más control de por qué suceden las cosas en el ámbito de la aplicación. Con quién está haciendo algo, y tener la justificación.
+
+Claro, esa persona, su motores, quiénes se enviaron a lo largo de 3 meses, y eso no la gastamos. Interesante. Ya.
+
+Qué buena idea, amigo. Interesante. Bueno, entonces, me llevo en cuenta lo que ahorita conversamos sobre los días, y esta cosa de que le permita... Yo creo que debería quedarse como está.
+
+Sí. No diles nada del tema de los días. Sólo que él sí puede agregar más días, eso sí, a la que ya por si acaso se extiende.
+
+Ya. Y lo de la dinámica de los días, ¿se mantiene? Se mantiene igual. Eso no sé.
+
+Porque eso es más días de producción, y yo ya necesito arrancar con esto. A ese punto voy. Yo ya necesito arrancar con esto.
+
+Bien, entonces... Además, repito, eso debería ser automático. O sea, esta vez, a automatizar, no les toma más de 15 minutos. Bueno, entonces, combinando con la dinámica... O sea, los árbitros se dan muy cruel, pero más automáticamente que esto yo ya no puedo darles.
+
+Sigamos completando lo que tendría que ser los datos que nos piden desactivación. En este caso, el día 14. A ver, subimos el día 14.
+
+Tenemos la fecha de inicio, de fina, y marquemos los que son las horas. Y en este caso también le voy a agregar hasta ahorita un calendario. ¿Sí? Sí, está bien.
+
+Y media, 7 pm, está bien. Luego sigamos completando los siguientes datos que nos piden. Que los siguientes datos que nos piden tendría que ser el tipo de cobertura de la tienda.
+
+No, mira, antes usábamos un número de usuarios. Claro, la tienda a nivel nacional, cuándo estamos coberturando, cuánto visitaron, cuánto interactuaron, cuánto compraron. Así.
+
+Correcto. Sí. Así como lo mueve.
+
+¿Y el número de clientes? El número de clientes también. En la versión del calendario. Ah, y aquí nos puede ver otro modelo que se ha vendido, ¿no? Porque ahí es el que uno hace la activación.
+
+Ahí vamos, sí, ahí le dijimos los modelos. Claro, vamos poniéndolos, se cierra el modelo y le dijimos la cantidad de ventas de 5 y el valor que se está recuperando. Estas son las ventas.
+
+Claro. Aquí, modelos activados, ventas. Ajá.
+
+Voy a ponerlo ahorita en un calendario para que también nos quiera poner aquí. Ciudad, voy a ponerle... Aquí solo hay impresoras. No hay consumidores.
+
+Tintas no, solo impresoras. Este, creo que ya le va a llegar una notificación de que tenemos una activación pendiente en este caso. ¿Por qué? Porque no lo veo.
+
+No me avisa, me va a recargar la página. Ahí está bien, ¿no? Sí. Ya, los comentarios, estos comentarios son los que ustedes anteriormente ponían lo que debía ser en los PPT.
+
+Ahí tenemos un brazo de hasta 5 comentarios. Comentarios validos, ¿cómo? Por ejemplo, lo que sucedió mundialmente, se agotó la historia del modelo, se agotó la tinta, poca influencia del público. ¿Pero no hay para agregarle este control? No.
+
+Ah, sí, ahorita está filtrado solo con productos de impresoras, pero ese filtro lo puedo abrir. El modelo para poner tintas también, por eso sí. Tintas, pintas, toda la base de productos.
+
+¿Toda la base directamente? O sea, la base para los nuestros era pintas, impresoras y colectores, nada más. Porque si no teníamos el control de la influencia, no la dejábamos. Ah, ya.
+
+Ya, por ahora dejemos con los modelos hasta que eso tenga que ser un cambio de alguna función. Ya, ahí tenemos los puntos rellenados. Vamos a seguir con la siguiente parte, vamos a subir lo que debería ser las fotos.
+
+Ahí me está diciendo que le falta un dato, completar datos. Ahí tenemos la asistencia guiada, que lo mencionó el Carlos, donde le indica qué fotos, espero que me subas aquí. Acá arriba, es incluso lo que deben de subir, se ve que dice promotor, juntos o están con todos los materiales y papeles correctamente ubicados.
+
+Ahí puedo ahorita subir fotos aleatorias realmente ahí, porque como esto es una prueba. Claro, tendríamos que subir las 3, tendrían que ser las 3, hay 3 fotos obligatorias, a partir de las 3 yo tendría que ser opcional. Comentarios.
+
+Los comentarios son los comentarios que se ponen en el PPT, pueden ser opcionales realmente si quieren ver o no. Ahí tenemos el siguiente paso, y me trae la carga de la subida de las fotos, que está de manera guiada ahí. A partir del tercero ya no están obligatorios los siguientes, ya llegamos a finalizar y revisar.
+
+Ahí podemos ver ahorita una previa de lo que estamos enviando, cómo está esto, cómo se está enviando el campo, entonces no habría ningún problema, entonces no vamos a enviar el registro. Tenemos la parte de subiendo fotos y el registro ya está enviado, podemos ver ese registro que hemos enviado. Y aquí como uno sabe que está pendiente de aprobación, aquí justamente podemos ver gráficamente.
+
+En este caso, este señor puede revisar en la parte de actualizando la página. Ahí en el calendario le va a llegar que tiene una alerta de aprobaciones. En la parte de aprobaciones, aquí acabo de llegar, nos lo puso.
+
+Y tenemos ahí donde dice descargar el slide, donde vamos a ver el PPT. Ahí nos dice lo que se está haciendo aquí, dando primero una aprobación previa de que si este registro que me están viendo es el indicado. Podemos verlo primero.
+
+Aquí me sale para subir seis fotos. Claro, pero son las tres fotos. Y ahí tenemos ahí el PPT que está anteriormente elaborado.
+
+Para todos. Y sobre ese comentario que hablamos. Es más rápido.
+
+Ahí en la parte de derecha dice actividad de impulso. Ahí es el comentario donde están viendo. Aquí estamos hablando ahorita.
+
+En este caso podría preguntarle a el señor Carlos. Entonces, aquí ya estoy indicando donde aparece ese comentario de actividad de impulso. El que tipea.
+
+Es el comentario final, cuando ya se cumplió el calendario. No, no. Es el que pedimos en el registro.
+
+Ah, el que dice actividad de impulso. Ahí en el PPT, en la parte inferior, ahí sale donde dice actividad de impulso. Ahí dice actividad de impulso, es lo que en este caso Andy puso.
+
+De ahí donde lo saqué, de los PPT originales. De no quererlo, entonces también solo quitaría este campo de aquí y lo eliminaría también de allá. Yo no lo veo necesario, la verdad.
+
+Que no tiene impulso, porque arriba dice actividad. Entonces lo sacamos. Claro, entonces se sacaría ese campo.
+
+Gordo, una pregunta. Espera, te doy la vuelta. Cuando ya ellos han terminado, el usuario, y te pones acá.
+
+Allá, así sale el punto de arriba. Excelente. Y otro punto que ahorita también voy a comentar.
+
+Vemos ahí que también tenemos un correo electrónico. Este correo electrónico, tanto ustedes, como en el caso de ustedes, al darle clic a lo que van a ver en la partecita de aquí, en su foto, van aquí a poder editar lo que es el correo electrónico. Este correo electrónico ahorita está en unos correos de prueba, como podrán ver allá, y en tal caso sería mejor que lo modifiquen con el correo que realmente tendrán que utilizar.
+
+Claro, vendrán a modificarse. Correo, correo. Tengo mi correo de Luki.
+
+El correo que ustedes utilizan en este caso. ¿Cuál no? Porque yo vi en los PPT también ese campo de correo. Sí, ese está abajo nada más para llenar todos los campos.
+
+Yo puedo editarlo ahorita. Que alguien le pueda joder con qué va a pedir. ¿Cuál es el correo que le hiciste? Ahí está.
+
+Ya, en este caso le voy a desenviar, y en este caso a mí me llega su bandeja. O sea, yo en este correo ¿qué tengo que hacer? El directo ahí. Claro, le vamos a guardar.
+
+Correo guardado. Ya listo, entonces salimos a ver si esa cosa está en la redicción. Qué bueno que hasta mi nombre está bien escrito porque mi correo desde que inicié aquí se ha leído.
+
+Si yo, pues, inició la página en segundo lugar. Claro, se borraría el texto. ¿Y dónde estaba en el antiguo en eso? ¿Qué? Bueno, ya se reinició.
+
+Claro, que hiciste toda esa prueba. Hay una pregunta... ¿Una? Sí... o comentar, más bien. y, por fa... para... ¿qué estamos? Para el fin de mes hagamos una vaquita Y les vamos a regalar a tus chicos, principalmente a los de Richter, los corta uñas, porque parece que son escasos en Richter.
+
+Y ahora si yo voy a comentar algo positivo que me gustaría mencionar. ¿Hasta cuándo debo tener cargado esto? Imagino que si yo libero el día 1 o el día 2, yo debo tenerlo hasta ese día que estoy ingresando. Claro.
+
+Y a los chicos no les voy a enviar, bueno, después les voy a enviar el exético al Bernal y para que ustedes lo sepan. Sí, pero ojo, recuérdate, si tú no lo pones en el calendario, ellos no van a poder subir al aeropuerto. Por si acaso, si estás obligado, tienes que liberar a todos, ¿no? Esto es un proceso que si bien es cierto, es incorrecto, pero le tienes que dar las gracias al cliente que fue el que pidió todo esto.
+
+Pero en todo caso, si tú lo rellenas, ellos no lo van a poder ver. Si tú no asignas un AP, ellos no lo van a poder ver. ¿Cómo se hace un AP? Eso no me hace sentido.
+
+Eso en el otro momento tenía más derecho. Ya. Esto es obligatorio para los supervisores, tanto como administradores.
+
+Siempre van a tener que pasar por el lado de aprobaciones, eso es lo que estábamos justamente hablando ahorita. De que para ver si realmente este dispositivo... Sigue saliendo sin conexión. No se puede enviar formularios, intenta de nuevo.
+
+¿No tienes datos? No. Ese caso justamente lo voy a ver también de ahorita. Ya comentándoles.
+
+Porque aquí tenemos la oportunidad de que si tal caso el archivo que van a estar enviando no es el ideal, pueden pedirle al cambio como tal. Incluso, si usted le rechaza ahorita, el de rechazar le va a pedir, digamos, el por qué lo estoy rechazando. ¿Pero no se lo devolveron? Devolveron.
+
+Devolveron. Ahí le escribimos la causa de por qué lo estamos rechazando. En el caso de que no se haya equivocado, tú por sistema se lo devuelves.
+
+Y le vas a decir, ¿tienes que hacer vídeo en recorde? Lo tienes que poner y te lo envía. Por ahí era la letra. Era la letra de tu trabajo mal hecho.
+
+Está bien hecho. Estamos haciendo un simulacro. Ahí viste, ya lo escribimos.
+
+Sí, sale devuelto, intenta de nuevo. Y aquí sale el comentario que nos puso, hermano. Y ahí, no sé leer, tiene en el volumen registro, pero avisa.
+
+Bueno, normalmente se recarga la letra. Se recarga los datos que ya hemos enviado y, bueno, por ahí nos la quedamos. ¿Se puede hacer esto en la casa? Claro.
+
+¿Por qué no tiene para la ubicación? Lo puede hacer hasta en casa. Eso está bueno. Para que así tus chicos lo hagan más calmado.
+
+No pongan presión en la guitarra. Para que estén devolviendo a cada rato. Eso está más bien.
+
+Devuelve, devuelve y devuelve. Lo pueden poner a cada uno, solo dos devolucionan al mes. Y ahora el tercero se pone en la pizza, en la comida.
+
+Verán ustedes si tienen algo faltado. Cuando llegamos más tarde. Así es.
+
+¿Y ahorita solo vuelve a enviarla en un teleporte o ahorita tendré que aprobarla? Porque ahora fue lo de hoy. Ya envió al registro. Ya envió al registro.
+
+¿Eso lo podrían enviar? Ya lo podrían enviar sin condición. Y ahí entonces veríamos nuevamente. Descargaríamos el PPT.
+
+Si está con la corrección que le mandamos hacer. Y incluso ahí podemos ya entonces aprobarlo. Si ya está correctamente el PPT.
+
+Aquí en el total de vendido sale sumado todo. Claro, la cola. Y se arregla totalmente.
+
+Además se ha utilizado previamente. Aprobar. Ahí vuelven a aprobar.
+
+Y esto se va a un lugar en el que podemos descargarlo todos juntos. Todos juntos, sí. Ahorita como estamos haciendo la tabla de activaciones.
+
+Ahorita volvemos al módulo de activaciones. Bueno, calendario de activaciones. Y vamos a ver que ya nos llegó ese registro.
+
+¿Al jefe se refiere a revisar y finalizar? Aquí sí, el registro llegó previo. Antes de los 5 días que hemos acordado. Ya nosotros podemos cerrar manualmente lo que vendrá a ser este calendario.
+
+Y el revisar y finalizar aquí es donde entra los comentarios finales que le comentó Carlos. Que aquí es donde ponemos que comentarios va a tener esta activación. Entonces en el formato que me entregaron ustedes ahí.
+
+En la primera parte tenemos lo que es el calendario. Y ahí están los comentarios. Si recuerdan esa parte ahí.
+
+Y después de esos comentarios se los voy a pedir ahorita. Lo que estamos hablando es sobre activación. Tengo una consulta.
+
+Si supongamos a él haciendo 8 puntos cada día son distintos. ¿Me va a hacer 8 entradas? O sea, 8 slides. ¿No va a ser el mismo que todo el mundo? ¿Puedo llevar uno manualmente? Para aprobarlo tendrá que aprobarlo manualmente los 8 slides como le van a llegar.
+
+Aquí en la parte de activaciones se va a descargar todo lo que vendrá a ser ya un solo PPT. Si son 45, ¿deben ser 45 slides? Claro. Ok, si yo las quiero ver, yo las hago manualmente.
+
+Claro, las aprobaciones siempre van a ser de una a una. Porque también podría hacerse de manera masiva, pero sentiría que... Hay riesgo de que se pueda hacer de una a una. Las aprobaciones van a ser siempre de una a una.
+
+Una preguntadito. Al momento de descargar el archivo, por ejemplo, ahorita que están llenas las activaciones que durante un grande periodo de tiempo hizo Andy. Así mismo va a tener esas que hicieron todos y que van a ser personal.
+
+Digamos que son 6 usuarios diferentes. Al clonar, yo veo, yo como parte de inteligencia comercial y cara frontal del cliente en ese tema, enviar un solo reporte de activaciones reitero. Tanto voy a kill como kill.
+
+Pregunta. ¿Él va a poder unificar el de todas sus gentes en uno solo o va a tener 6 reportes de activaciones? 6 de colocaciones de profe, 6 de competencias y así con cada uno. O va a poder tener, por ejemplo, ah ya, aprobó todos los de Andy.
+
+Los deja aprobados y ya está. Pero uno no hasta lo haya aprobado. Después vienen los de los otros y tienen, digamos que son 50 tipos de reportes de cada uno de sus chicos.
+
+Y que tenga un botón que diga agrupar todos en uno solo. Entonces, ¿el sistema mismo hará todo eso en una sola presentación? ¿Se puede o no? ¿Eso existe o no? Actualmente existe, lo entendí, ¿no? Actualmente existe de que según todo lo que tenga reportado en el calendario, que ya hicimos previamente, todo eso se va a agrupar. Indistinto si es Andy, si es... Claro, indistintamente si es Andy.
+
+Ahí, en este caso damos a lo de revisar y finalizar. Ahí nos sale el anuncio como tal de que los comentarios que vamos a tener en este calendario de activaciones. Esos comentarios que yo podía ubicar aquí, ¿dónde se van a reflejar? En la PPT.
+
+En la PPT, en la primera diapositiva. Esos son los comentarios generales. Eso lo pidió Carolina, sí o sí obligado.
+
+Así que eso no lo puedes abolir. Se va a ir en blanco. Y yo lo que haría es presentarlo en blanco, por si acaso.
+
+Pero, oye, ¿qué comentarios pongo? ¿Ellos ya tienen sus comentarios puestos en la PPT? Si todo se cumplió a cada día, simplemente pones calendario cumplido, como he dicho, para descontar. Y ahí le damos a descargar el calendario. Si faltó una actividad, tienes que poner faltó la actividad de computrón, río, centro, sego, porque el punto ya no existe, para descontar.
+
+Ahí descargamos nuestro calendario. Sale uno en blanco. Acuérdate que esa estadística, esa estadística, la diapositiva número 3, porque la primera es el logo del Grupo Loop, y la segunda es Epson reporta actividades en febrero de 2026.
+
+La tercera es la estadística general, o sea la última que tú das. ¿En dónde? Tú tenías programadas 50 actividades. Ya hiciste 30, estás a un 75%.
+
+Eso es lo que debe salir en esa diapositiva. Y los comentarios. Ya, es correcto.
+
+Está bien, porque sale el calendario. Dale clic. Sale el calendario, que son las actividades que hiciste.
+
+¿Qué porcentaje se cumplió? Digamos que tú en el calendario hubieras tenido 20, y solo hiciste 1, verás el 0.01%. Y los comentarios de la diapositiva. Tú no pones comentarios, sale en blanco. De aquí a mañana, ojo, ahí sí va a escucharse el chole de mi lado, pero ahí sí me lavo las manos porque si no hay comentario y el cliente levanta la mano... Este comentario es el que yo pude poner al final.
+
+Eso es lo que tú pusiste a tu criterio. No quisiste ponerlo al final. Digamos que las 30 de diciembre solo pudo comentar 3 porque no hay más novedades.
+
+Pueden ser solo 3 a lo largo de todo esto. ¿Qué es como se ha venido reportando? Está bien, no pasa nada. Solo te digo después si acaso Danny... Imagínate que no hubiera practicado nada de eso.
+
+Carolina, el que dice joder, es como que... ¿Quién lo revisa, Sam? El Nacho, por alguna razón. Está hecho todo el programa. Listo, comienzo, actividades y estamos bien.
+
+Y ahí se van a estar agrupando lo que tendrá que ser todas las estadísticas con los puntos de venta. Eso también quiero decir, si yo probo Danny, supongamos que Scarlett me envía uno y Max me envía otro, yo puedo probar los 3, de otra vez me saldría todo. Sí, usaría más.
+
+Mmm, valentísimo. Eso se lavorece el lujo. Perfecto.
+
+Está muy bien. Ya. Listo.
+
+Sigamos con el siguiente punto. Este acaso es de que no le cargue la foto, no sé. Sin conexiones.
+
+Es que ya veo que desde aquí se le están corrompiendo unas fotos. Puedes intentar con otras fotos. Será que son pesadas.
+
+Sí, tal vez yo también lo voy a estar manejando. Estaré revisando desde que también lo haga. Quitemos hasta aquí, quitemos hasta acá, quitemos hasta ahí, para subirlas todas nuevamente.
+
+Cualquiera, no. Igualmente todas estas fotos serán muy raras. Tenemos que terminar esto.
+
+Porque ya no hay más tiempo de prueba. No tengo tiempo de prueba. Hay que hacer tiempo.
+
+No, no hay tiempo de prueba. Ah, es cierto, no hay pruebas horas. No, pero yo tampoco tengo tiempo de prueba.
+
+Yo tengo un minuto más. ¿A partir de la prueba? Sí, claro. Mira, ya vamos a ver.
+
+¿Tú qué horas te vas a quitar? Yo tengo que estar en la universidad a las 4. Ya la he ido a finalizar. Ya he ido luego de la envía. Entonces, ya ya, entonces, por el tipo de foto ya ya, entonces.
+
+Eso es a mi lado que tengo que revisar. Si quieren revisarlo tan puntual, también podrían revisar capacitaciones, Exxon, Deia y Vendorferia, que elaboran el mismo formato de competencias ¿Competencias están listas? Ya, solo revisemos capacitaciones, competencias, porque técnicamente el resto se manda a la mano con activación Entonces como activación es un reporte madre para el resto de Exxon, Deia y Exhibiciones Pero competencias no las ven listas, deben estar a otro lado Esto lo ven los promotores Cuando ellos releven la información de la competencia, ellos lo hacen en la competencia Ahí primero vamos a poder ver el formulario, lo que son los registros de actividad En el registro de actividad podremos ver todos los registros correspondientes a los que nos están reportando Igual les aviso, esto va a haber una capacitación general para todo el mundo Ahí sí vamos a tener que tirarnos toda la tarde o toda la mañana A la que me va a tocar invitarlo, a la que me va a tocar molestarlo por cualquier cosa Ahorita esto es prueba Los dos reportes principales, que son actividades, que es de donde salen el resto de reportes Y colocación de cobre, que es el que más flujo tiene Porque el primero que tiene que tirar las penas es el señor Distribuirlo al señor, el señor distribuirlo a ustedes y ustedes aprobarlo Y justificarlo y se va de regreso Entonces, con eso finalizamos las pruebas por el día de hoy Esta plataforma sirve para todos los reportes fotográficos Viajes, activaciones, exhibiciones generales, de competencias etc, etc, etc Un detalle, nada más como duda En el reporte de exhibiciones, no sé si te habrás dado cuenta Sea de canales o retail, ellos tienen que reportar las exhibiciones de sus puntos Y lo que competencia tienen ahí Eso aparte sí está también, ¿verdad? Tengo los datos que se piden son Detalle de exhibiciones, muebles, ruma, cabecera, exhibición regular o otras Exhibición en participar, no competencia, ¿no? No sé si a esto se refiere ¿Tienes los formatos? ¿Qué te pasa? Estás ahí Los formatos hechos, gordo El formato hecho busca el reporte de exhibición después No, esa es exhibición que inspira La exhibición es regular El reporte fotográfico y todo Exhibiciones, exacto Eso es exhibición regular Ese reporte, si te das cuenta, está sectorizado Haz agrupación vos Dale clic derecho a agrupar todo Si ves que hay una sección de competencias internas en cada uno de esos reportes Eso sí está No, esto de aquí no está Ya, entonces, aparte de competencias No, es que, a ver Hay dos, hay diferencias El reporte de exhibiciones que inspiran Eso solo aplica para canales porque son exhibiciones Que salen por algún tipo de festividad Sea Halloween Alguna competencia que se inventaba Esto se enfoca en rumas, en muebles especiales Para ir contando El de exhibición
+
+(Transcrito por TurboScribe. Actualizar a Ilimitado para eliminar este mensaje.)

@@ -12,9 +12,7 @@ function ep_actividad_normalizar_texto(string $texto, int $largo = 40): string {
 // Devuelve [datos, error]; error es null cuando todo es válido.
 function ep_actividad_datos(array $valores): array {
 	$tipo = ep_actividad_normalizar_texto((string) ($valores['tipo_actividad'] ?? ''));
-	if ($tipo === '') {
-		return [null, 'Escribe el tipo de actividad.'];
-	}
+	// El campo "tipo de actividad" está oculto en el formulario: ya no es obligatorio.
 	$fecha = (string) ($valores['fecha_actividad'] ?? '');
 	if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $fecha, $partes) || !checkdate((int) $partes[2], (int) $partes[3], (int) $partes[1])) {
 		return [null, 'La fecha de la actividad no es válida.'];

@@ -101,14 +101,14 @@ if ($tipo === 'competencia') {
 			exit;
 		}
 		foreach ($fotosSubidas as $fotoId => $ruta) {
-			if (in_array($fotoId, $idsConocidos, true) || !preg_match('/^foto-\d+$/', $fotoId)) {
+			if (in_array($fotoId, $idsConocidos, true) || !preg_match('/^(foto|competencia)-\d+$/', $fotoId)) {
 				continue;
 			}
 			$esperado = $usuarioLimpio.$sinSimbolos($fotoId);
 			if (!preg_match('#^[A-Za-z]+/\d{14}'.preg_quote($esperado, '#').'\.(jpg|png|webp)$#', (string) $ruta)) {
 				continue;
 			}
-			$fotosFinal[] = ['id' => $fotoId, 'label' => ep_foto_extra_label($tipo), 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => $ruta, 'url' => 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta];
+			$fotosFinal[] = ['id' => $fotoId, 'label' => ep_foto_extra_label($tipo, $fotoId), 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => $ruta, 'url' => 'https://luckyecuadorweb.blob.core.windows.net/app/AppEpson/EpsonReport/'.$ruta];
 		}
 		$descripciones = [];
 		foreach ($fotosFinal as $f) {
@@ -442,7 +442,7 @@ if ($faltantes > 0) {
 if (ep_fotos_extensible($tipo)) {
 	$idsConocidos = array_column($reqFotos, 'id');
 	foreach ($fotosSubidas as $fotoId => $ruta) {
-		if (in_array($fotoId, $idsConocidos, true) || !preg_match('/^foto-\d+$/', $fotoId)) {
+		if (in_array($fotoId, $idsConocidos, true) || !preg_match('/^(foto|competencia)-\d+$/', $fotoId)) {
 			continue;
 		}
 		$esperado = $usuarioLimpio.$sinSimbolos($fotoId);
@@ -451,7 +451,7 @@ if (ep_fotos_extensible($tipo)) {
 		}
 		$fotosFinal[] = [
 			'id'     => $fotoId,
-			'label'  => ep_foto_extra_label($tipo),
+			'label'  => ep_foto_extra_label($tipo, $fotoId),
 			'hora'   => $hora,
 			'estado' => 'Verificada',
 			'ruta'   => $ruta,

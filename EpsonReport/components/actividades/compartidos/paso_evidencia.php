@@ -4,6 +4,31 @@ if (empty($epEvidenciaFotos)) return;
 $totalReqFotos = count(array_filter($epEvidenciaFotos, fn($f) => empty($f['opcional'])));
 $conDescripcion = ep_fotos_con_descripcion($actividad['plantilla'] ?? '');
 $esCompetencia = ($actividad['plantilla'] ?? '') === 'competencia';
+// Informe fotográfico: las casillas "competencia-N" van en su propia sección opcional, debajo de las fotos del punto.
+$epFotosCompetencia = ($actividad['plantilla'] ?? '') === 'informe-fotografico' ? array_values(array_filter($epEvidenciaFotos, fn($f) => strpos($f['id'], 'competencia-') === 0)) : [];
+$epEvidenciaFotos = array_values(array_filter($epEvidenciaFotos, fn($f) => !$epFotosCompetencia || strpos($f['id'], 'competencia-') !== 0));
+// Una casilla de foto; la usan la grilla principal y la de competencia.
+$epCasilla = function (array $foto) use ($epEvidenciaPrefix, $conDescripcion) {
+	ob_start(); ?>
+			<div class="ep-foto-slot" data-foto-id="<?= htmlspecialchars($foto['id']) ?>"<?= !empty($foto['opcional']) ? ' data-opcional="1"' : '' ?>>
+				<label class="ep-foto-dropzone" title="Subir foto para <?= htmlspecialchars($foto['label']) ?>">
+					<input type="file" accept="image/*" class="ep-foto-input" id="ep-foto-<?= $epEvidenciaPrefix ?>-<?= $foto['id'] ?>" hidden>
+					<img class="ep-foto-preview hidden" alt="Foto para <?= htmlspecialchars($foto['label']) ?>">
+					<span class="ep-foto-dropzone-vacio">
+						<span class="ep-foto-slot-icon"><?= ep_icon('camera', 22) ?></span>
+						<span class="ep-foto-slot-action">Subir foto</span>
+					</span>
+				</label>
+				<div class="ep-foto-slot-info">
+					<span class="ep-foto-slot-label" title="<?= htmlspecialchars($foto['label']) ?>"><?= htmlspecialchars($foto['label']) ?></span>
+					<span class="ep-hist-badge ep-foto-slot-estado">Pendiente</span>
+				</div>
+				<?php if ($conDescripcion): ?>
+					<textarea class="ep-foto-descripcion" rows="3" maxlength="<?= EP_FOTO_DESCRIPCION_MAX ?>" placeholder="¿Qué se ve en la foto?" aria-label="Descripción de <?= htmlspecialchars($foto['label']) ?>"></textarea>
+				<?php endif; ?>
+			</div>
+	<?php return ob_get_clean();
+};
 ?>
 <div class="ep-evidencia-bloque-card ep-evidencia-actividad" data-actividad-id="<?= (int) ($actividad['id'] ?? 1) ?>" data-plantilla="<?= htmlspecialchars($actividad['plantilla'] ?? '') ?>"<?= $conDescripcion ? ' data-con-descripcion="1"' : '' ?>>
 	
@@ -49,25 +74,7 @@ $esCompetencia = ($actividad['plantilla'] ?? '') === 'competencia';
 
 	<!-- Grilla panorámica de casillas fotográficas a todo lo ancho de la card -->
 	<div class="ep-evidencia-grid-panoramica">
-		<?php foreach ($epEvidenciaFotos as $foto): ?>
-			<div class="ep-foto-slot" data-foto-id="<?= htmlspecialchars($foto['id']) ?>"<?= !empty($foto['opcional']) ? ' data-opcional="1"' : '' ?>>
-				<label class="ep-foto-dropzone" title="Subir foto para <?= htmlspecialchars($foto['label']) ?>">
-					<input type="file" accept="image/*" class="ep-foto-input" id="ep-foto-<?= $epEvidenciaPrefix ?>-<?= $foto['id'] ?>" hidden>
-					<img class="ep-foto-preview hidden" alt="Foto para <?= htmlspecialchars($foto['label']) ?>">
-					<span class="ep-foto-dropzone-vacio">
-						<span class="ep-foto-slot-icon"><?= ep_icon('camera', 22) ?></span>
-						<span class="ep-foto-slot-action">Subir foto</span>
-					</span>
-				</label>
-				<div class="ep-foto-slot-info">
-					<span class="ep-foto-slot-label" title="<?= htmlspecialchars($foto['label']) ?>"><?= htmlspecialchars($foto['label']) ?></span>
-					<span class="ep-hist-badge ep-foto-slot-estado">Pendiente</span>
-				</div>
-				<?php if ($conDescripcion): ?>
-					<textarea class="ep-foto-descripcion" rows="3" maxlength="<?= EP_FOTO_DESCRIPCION_MAX ?>" placeholder="¿Qué se ve en la foto?" aria-label="Descripción de <?= htmlspecialchars($foto['label']) ?>"></textarea>
-				<?php endif; ?>
-			</div>
-		<?php endforeach; ?>
+		<?php foreach ($epEvidenciaFotos as $foto) { echo $epCasilla($foto); } ?>
 	</div>
 
 	<?php if (ep_fotos_extensible($actividad['plantilla'] ?? '')): ?>
@@ -75,6 +82,23 @@ $esCompetencia = ($actividad['plantilla'] ?? '') === 'competencia';
 			<?= ep_icon('plus', 14) ?>
 			Agregar foto
 		</button>
+	<?php endif; ?>
+
+	<?php if ($epFotosCompetencia): ?>
+		<!-- Sección aparte y opcional: fotos de la competencia en este mismo punto de venta. -->
+		<div class="ep-evidencia-competencia-sec" id="epCompetenciaSec">
+			<div class="ep-evidencia-competencia-head">
+				<h3>Competencia en este punto <span class="ep-evidencia-opcional-tag">Opcional</span></h3>
+				<p>Si viste exhibiciones de la competencia aquí, súbelas. Si no hay, puedes omitir esta sección. Salen en diapositivas aparte, tituladas «PUNTO - COMPETENCIA».</p>
+			</div>
+			<div class="ep-evidencia-grid-panoramica ep-evidencia-competencia">
+				<?php foreach ($epFotosCompetencia as $foto) { echo $epCasilla($foto); } ?>
+			</div>
+			<button type="button" class="ep-btn-agregar-fila ep-btn-agregar-foto" data-grupo="competencia" data-prefix="<?= $epEvidenciaPrefix ?>" data-siguiente="<?= count($epFotosCompetencia) + 1 ?>" data-label="Competencia en este punto">
+				<?= ep_icon('plus', 14) ?>
+				Agregar foto de competencia
+			</button>
+		</div>
 	<?php endif; ?>
 
 	<?php if ($esCompetencia): ?>

@@ -15,6 +15,8 @@ function ep_ppt_colocacion_pop_spec(): array {
 			'titulo' => 'CuadroTexto 2',
 			'rects' => ['Rectángulo 4', 'Rectángulo 33', 'Rectángulo 34'],
 			'orden' => ['implementacion-1', 'implementacion-2', 'implementacion-3'],
+			// La foto se ve entera en su cuadro, sin recortar.
+			'completa' => true,
 		],
 	];
 }

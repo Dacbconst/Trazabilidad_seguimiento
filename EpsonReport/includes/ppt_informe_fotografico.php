@@ -13,6 +13,8 @@ function ep_ppt_informe_fotografico_spec(): array {
 			'n' => 4,
 			'titulo' => 'CuadroTexto 1',
 			'rects' => ['Rectángulo 3', 'Rectángulo 4', 'Rectángulo 5'],
+			// Las fotos de competencia del punto van en diapositivas aparte, tituladas "PUNTO - COMPETENCIA".
+			'competencia_aparte' => true,
 		],
 	];
 }

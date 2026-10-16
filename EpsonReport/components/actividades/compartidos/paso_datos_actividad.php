@@ -13,7 +13,7 @@ $epId = 'ep-'.$epPrefijo;
 			<h3 class="ep-step-title">Datos de la actividad</h3>
 			<p class="ep-step-hint">Qué hiciste, cuándo y en qué horario.</p>
 			<div class="ep-form-grid-2">
-				<div style="display:flex;flex-direction:column;gap:6px;">
+				<div style="display:none;flex-direction:column;gap:6px;">
 					<label class="ep-label" for="<?= $epId ?>-tipo"><?= htmlspecialchars($epEtiquetaTipo) ?></label>
 					<textarea class="ep-input ep-input-mayusculas" id="<?= $epId ?>-tipo" rows="1" maxlength="40" autocomplete="off" placeholder="<?= htmlspecialchars($epEjemploTipo) ?>"></textarea>
 				</div>

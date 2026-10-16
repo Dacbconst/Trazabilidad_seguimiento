@@ -194,7 +194,7 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 				<!-- Escenario Central: Visor y Tira de Miniaturas -->
 				<div class="ep-wizard-body">
 					<div class="ep-wizard-info">
-						<span class="ep-wizard-subtitulo">Requerimiento de Campo</span>
+						<span class="ep-wizard-subtitulo" id="epWizardSubtitulo">Requerimiento de Campo</span>
 						<div class="ep-wizard-titulo-fila">
 							<h3 class="ep-wizard-titulo" id="epWizardTituloFoto">Cargando...</h3>
 							<!-- Solo en casillas sumadas con "Agregar otra foto": se pueden quitar -->
@@ -203,6 +203,12 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 								<span>Quitar esta casilla</span>
 							</button>
 						</div>
+					</div>
+
+					<!-- Aviso de contexto: solo cuando la foto actual es de competencia (opcional) -->
+					<div class="ep-wizard-aviso-comp hidden" id="epWizardAvisoComp" role="status">
+						<?= ep_icon('layers', 14) ?>
+						<span>Estás subiendo <b>competencia</b> de este punto. Es opcional y sale en diapositivas aparte.</span>
 					</div>
 
 					<!-- Visor de captura con esquinas HUD fotográficas y Drag & Drop -->
@@ -259,6 +265,16 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 				</div>
 			</div>
 
+			<!-- Paso de decisión: solo con "Sí" se muestran las fotos de competencia -->
+			<div class="ep-wizard-decision hidden" id="epWizardDecision" role="group" aria-labelledby="epWizardDecisionTitulo">
+				<span class="ep-wizard-decision-icono" aria-hidden="true"><?= ep_icon('layers', 26) ?></span>
+				<h3 id="epWizardDecisionTitulo">¿Vas a enviar competencia de este punto?</h3>
+				<p>Si viste exhibiciones de la competencia, puedes subir sus fotos ahora. Es opcional.</p>
+				<button type="button" class="ep-btn-primary ep-wizard-decision-si" id="epWizardDecisionSi">Sí, subir competencia</button>
+				<button type="button" class="ep-btn-outline ep-wizard-decision-no" id="epWizardDecisionNo">No, finalizar y revisar</button>
+				<button type="button" class="ep-wizard-decision-volver" id="epWizardDecisionVolver">Volver a las fotos</button>
+			</div>
+
 			<!-- Barra de navegación inferior -->
 			<div class="ep-wizard-footer">
 				<button type="button" class="ep-btn-outline ep-wizard-btn-ant" id="epWizardBtnAnterior">
@@ -270,6 +286,7 @@ if (!empty($_GET['corregir']) && !ep_es_gestor()) {
 					<?= ep_icon('arrow-right', 14) ?>
 				</button>
 			</div>
+			<button type="button" class="ep-wizard-btn-omitir hidden" id="epWizardBtnOmitir">No hay competencia: finalizar y revisar</button>
 		</div>
 	</div>
 

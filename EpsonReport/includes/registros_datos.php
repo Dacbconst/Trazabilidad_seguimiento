@@ -135,7 +135,7 @@ function ep_fotos_desde_json(string $json, string $tipo, string $hora): array {
 	// Las fotos sumadas con "+ Agregar foto" no están en la lista fija: sin esto se guardaban pero no se veían en Historial ni en el PPT.
 	if (ep_fotos_extensible($tipo)) {
 		foreach ($datos as $id => $ruta) {
-			$lista[] = ['id' => (string) $id, 'label' => ep_foto_extra_label($tipo), 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => (string) $ruta, 'url' => $url((string) $ruta)];
+			$lista[] = ['id' => (string) $id, 'label' => ep_foto_extra_label($tipo, (string) $id), 'hora' => $hora, 'estado' => 'Verificada', 'ruta' => (string) $ruta, 'url' => $url((string) $ruta)];
 		}
 	}
 	return $lista;

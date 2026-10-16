@@ -3,11 +3,12 @@
 require_once __DIR__.'/db.php';
 require_once __DIR__.'/functions.php';
 
-// Único supervisor (además del admin) que carga el mes y lo reparte a los supervisores.
+// Fabricio como supervisor sale primero en las columnas del reparto; su perfil master (admin) es quien carga el mes.
 const EP_POP_DUENO = 'FABRICIO LUZARRAGA';
 
+// Cargar, corregir y cerrar el mes es solo del admin: el perfil de supervisor de Fabricio solo ve y reparte lo suyo (canales).
 function ep_pop_es_dueno(): bool {
-	return ep_es_admin() || mb_strtoupper((string) ($_SESSION['usuario'] ?? ''), 'UTF-8') === EP_POP_DUENO;
+	return ep_es_admin();
 }
 
 function ep_pop_nombre_propio(string $texto): string {

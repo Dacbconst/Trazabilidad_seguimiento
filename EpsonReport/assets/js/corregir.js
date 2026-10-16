@@ -62,7 +62,7 @@
 			if (!f.ruta) return;
 			var slot = bloque.querySelector('.ep-foto-slot[data-foto-id="' + f.id + '"]');
 			// Las casillas sumadas con "Agregar foto" se vuelven a crear hasta llegar a la que tenía la foto.
-			var btn = bloque.querySelector('.ep-btn-agregar-foto');
+			var btn = bloque.querySelector(String(f.id).indexOf('competencia-') === 0 ? '.ep-btn-agregar-foto[data-grupo="competencia"]' : '.ep-btn-agregar-foto:not([data-grupo])');
 			for (var n = 0; !slot && btn && n < 30; n++) {
 				btn.click();
 				slot = bloque.querySelector('.ep-foto-slot[data-foto-id="' + f.id + '"]');
