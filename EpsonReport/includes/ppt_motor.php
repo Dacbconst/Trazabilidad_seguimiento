@@ -240,7 +240,14 @@ function ep_ppt_registro(array &$ctx, array $spec, array $reg, string $parte = '
 	if ($parte === 'competencia' && count($ctx['nuevas']) === $antes) {
 		return;
 	}
-	$nombreSeccion = $parte === 'competencia' ? 'COMPETENCIA' : ep_ppt_mayus(trim((string) ($reg['promotor'] ?? '')) ?: 'SIN NOMBRE');
+	// Solo en el reporte mensual de Exhibiciones Regulares: secciones por ciudad, sin secciones por promotor, y la competencia en la suya.
+	if ($parte === 'competencia') {
+		$nombreSeccion = 'COMPETENCIA';
+	} elseif (!empty($spec['fotos']['competencia_aparte']) && empty($ctx['solo'])) {
+		$nombreSeccion = ep_ppt_mayus(trim((string) ($reg['ciudad'] ?? '')) ?: 'SIN CIUDAD');
+	} else {
+		$nombreSeccion = ep_ppt_mayus(trim((string) ($reg['promotor'] ?? '')) ?: 'SIN NOMBRE');
+	}
 	$ctx['secciones'][] = ['nombre' => $nombreSeccion, 'desde' => $antes, 'hasta' => count($ctx['nuevas'])];
 }
 
@@ -333,8 +340,8 @@ function ep_ppt_generar(array $spec, array $registros, string $tituloMes, array 
 			$spec['fija']($ctx, $registros, $opciones);
 		}
 	}
-	// Con 'competencia_aparte': primero toda la exhibición y al final, en su propia sección, toda la competencia.
-	$aparte = !empty($spec['fotos']['competencia_aparte']);
+	// Reporte mensual con 'competencia_aparte': primero toda la exhibición y al final, en su propia sección, toda la competencia.
+	$aparte = !empty($spec['fotos']['competencia_aparte']) && empty($ctx['solo']);
 	foreach ($registros as $reg) {
 		ep_ppt_registro($ctx, $spec, $reg, $aparte ? 'exhibicion' : 'todo');
 	}
